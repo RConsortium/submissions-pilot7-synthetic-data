@@ -1,4 +1,3 @@
-[Meeting minutes](https://github.com/RConsortium/submissions-pilot7-synthetic-data/wiki/Meeting-Minutes)
 
 # Project Scope
 
@@ -31,13 +30,22 @@ These skills are more focused, task-oriented, and reusable capabilities that sup
 
 This expansion is being developed in collaboration with [**BBSW**](www.bbsw.org), which is supporting the work by sponsoring shared tokens for the automated evaluation pipeline.
 
-## Current Scope Overview
+## Current Activities Overview
 The project now includes two complementary parts:
 
 - **Part A:** Benchmark datasets and test cases for evaluating open-source tools
 - **Part B:** Benchmark test cases for evaluating pharma open-source skills, starting with **GSD**
 
 Together, these efforts aim to build a stronger public foundation for rigorous, scalable, and transparent evaluation of open-source capabilities in clinical data science.
+
+## Join Us
+
+Pilot 7 holds weekly standups three times a month on Fridays from 8–9 AM PST. We also host monthly Submissions Working Group meetings with FDA staff, bringing together participants across different pilot subgroups.
+
+[Pilot 7 Meeting minutes](https://github.com/RConsortium/submissions-pilot7-synthetic-data/wiki/Meeting-Minutes)
+
+Everyone is welcome to join. To access our calendar and join the Slack workspace, please see 
+[here](https://rconsortium.github.io/submissions-wg/join.html)
 
 
 Reference: CDISC Pilot 1 data
