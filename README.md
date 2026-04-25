@@ -48,6 +48,9 @@ Everyone is welcome to join. To access our calendar and join the Slack workspace
 [here](https://rconsortium.github.io/submissions-wg/join.html)
 
 
+To learn more about the R consortium Submissions Working Group, visit [here](https://rconsortium.github.io/submissions-wg/)
+
+
 Reference: CDISC Pilot 1 data
 - Original sdtm: [json version](https://github.com/RConsortium/submissions-pilot6-adams-tlfs/tree/main/data/sdtm)
 - Original xpt versions: see pilot 5 [repo](https://github.com/RConsortium/submissions-pilot5-datasetjson) 
