@@ -1,0 +1,210 @@
+domain: QS
+label: Questionnaires
+class: Findings
+structure: One record per questionnaire item per timepoint per subject
+purpose: Tabulation
+keys: [STUDYID, USUBJID, QSCAT, QSTESTCD, VISITNUM, QSDTC]
+ig_anchor: "QS+Specification"
+
+sources:
+  - form: "RAND SF-12 Survey"
+    item_groups: [G, G1, G2AND3, G4AND5, G6AND7, G9TO11, c]
+    notes: |
+      G, G1, G2AND3, G4AND5, G6AND7, G9TO11 hold the raw item responses
+      (Q1..Q12). Item group "c" holds the validated / recoded item values
+      (Q1V..Q12V) and the eight subscale scores (PF, RP, BP, GH, VT, SF, RE,
+      ME) plus PF-A/PF-S etc. score components.
+
+question_map:
+  raw_items:
+    Q1:  {QSTESTCD: SF12Q01, QSTEST: "SF-12 Q01 - General Health"}
+    Q2:  {QSTESTCD: SF12Q02, QSTEST: "SF-12 Q02 - Moderate Activities Limit"}
+    Q3:  {QSTESTCD: SF12Q03, QSTEST: "SF-12 Q03 - Climbing Stairs Limit"}
+    Q4:  {QSTESTCD: SF12Q04, QSTEST: "SF-12 Q04 - Accomplished Less - Physical"}
+    Q5:  {QSTESTCD: SF12Q05, QSTEST: "SF-12 Q05 - Limited Kind of Work - Physical"}
+    Q6:  {QSTESTCD: SF12Q06, QSTEST: "SF-12 Q06 - Accomplished Less - Emotional"}
+    Q7:  {QSTESTCD: SF12Q07, QSTEST: "SF-12 Q07 - Less Carefully - Emotional"}
+    Q8:  {QSTESTCD: SF12Q08, QSTEST: "SF-12 Q08 - Pain Interfered with Work"}
+    Q9:  {QSTESTCD: SF12Q09, QSTEST: "SF-12 Q09 - Felt Calm and Peaceful"}
+    Q10: {QSTESTCD: SF12Q10, QSTEST: "SF-12 Q10 - Had a Lot of Energy"}
+    Q11: {QSTESTCD: SF12Q11, QSTEST: "SF-12 Q11 - Felt Downhearted and Blue"}
+    Q12: {QSTESTCD: SF12Q12, QSTEST: "SF-12 Q12 - Social Activities Limit"}
+  subscale_scores:
+    PF:  {QSTESTCD: SF12PF,  QSTEST: "SF-12 Physical Functioning"}
+    RP:  {QSTESTCD: SF12RP,  QSTEST: "SF-12 Role Physical"}
+    BP:  {QSTESTCD: SF12BP,  QSTEST: "SF-12 Bodily Pain"}
+    GH:  {QSTESTCD: SF12GH,  QSTEST: "SF-12 General Health"}
+    VT:  {QSTESTCD: SF12VT,  QSTEST: "SF-12 Vitality"}
+    SF:  {QSTESTCD: SF12SF,  QSTEST: "SF-12 Social Functioning"}
+    RE:  {QSTESTCD: SF12RE,  QSTEST: "SF-12 Role Emotional"}
+    ME:  {QSTESTCD: SF12ME,  QSTEST: "SF-12 Mental Health"}
+
+variables:
+  STUDYID:
+    label: Study Identifier
+    type: Char
+    length: 12
+    role: Identifier
+    core: Req
+    origin: Sponsor Defined
+    derivation: Study constant ("CART-T-PILOT").
+
+  DOMAIN:
+    label: Domain Abbreviation
+    type: Char
+    length: 2
+    role: Identifier
+    core: Req
+    origin: Assigned
+    derivation: Constant value "QS".
+
+  USUBJID:
+    label: Unique Subject Identifier
+    type: Char
+    length: 30
+    role: Identifier
+    core: Req
+    origin: Derived
+    derivation: Joined from DM via subjectkey.
+
+  QSSEQ:
+    label: Sequence Number
+    type: Num
+    length: 8
+    role: Identifier
+    core: Req
+    origin: Derived
+    derivation: row_number() within USUBJID, ordered by VISITNUM, QSCAT, QSTESTCD.
+
+  QSTESTCD:
+    label: Questionnaire Short Name
+    type: Char
+    length: 8
+    role: Topic
+    core: Req
+    origin: Assigned
+    codelist: QSTESTCD
+    derivation: Looked up from `question_map.raw_items[itemname].QSTESTCD` or `question_map.subscale_scores[itemname].QSTESTCD`.
+
+  QSTEST:
+    label: Questionnaire Name
+    type: Char
+    length: 40
+    role: Synonym Qualifier
+    core: Req
+    origin: Assigned
+    codelist: QSTEST
+    derivation: Looked up alongside QSTESTCD.
+
+  QSCAT:
+    label: Category for Questionnaire
+    type: Char
+    length: 40
+    role: Grouping Qualifier
+    core: Req
+    origin: Assigned
+    derivation: Constant "SF-12".
+
+  QSSCAT:
+    label: Subcategory for Questionnaire
+    type: Char
+    length: 40
+    role: Grouping Qualifier
+    core: Perm
+    origin: Assigned
+    derivation: |
+      "ITEM"     for QSTESTCD in SF12Q01..SF12Q12.
+      "SUBSCALE" for QSTESTCD in SF12PF / RP / BP / GH / VT / SF / RE / ME.
+
+  QSORRES:
+    label: Result or Finding in Original Units
+    type: Char
+    length: 200
+    role: Result Qualifier
+    core: Exp
+    origin: CRF
+    derivation: as.character(value) from flat tibble for the row's itemname.
+
+  QSORRESU:
+    label: Original Units
+    type: Char
+    length: 40
+    role: Variable Qualifier
+    core: Perm
+    origin: Assigned
+    derivation: |
+      "SCORE" for subscale rows; null for raw item rows.
+
+  QSSTRESC:
+    label: Character Result/Finding in Std Format
+    type: Char
+    length: 200
+    role: Result Qualifier
+    core: Req
+    origin: Derived
+    derivation: as.character(QSSTRESN) when numeric; otherwise QSORRES.
+
+  QSSTRESN:
+    label: Numeric Finding in Standard Units
+    type: Num
+    length: 8
+    role: Result Qualifier
+    core: Exp
+    origin: Derived
+    derivation: suppressWarnings(as.numeric(QSORRES)). NA when QSORRES non-numeric.
+
+  QSSTRESU:
+    label: Standard Units
+    type: Char
+    length: 40
+    role: Variable Qualifier
+    core: Perm
+    origin: Assigned
+    derivation: Equals QSORRESU.
+
+  QSBLFL:
+    label: Baseline Flag
+    type: Char
+    length: 1
+    role: Record Qualifier
+    core: Perm
+    origin: Derived
+    codelist: NY
+    derivation: "Y" on records whose VISITNUM corresponds to the first SF-12 administration for the subject (pre-randomization).
+
+  VISITNUM:
+    label: Visit Number
+    type: Num
+    length: 8
+    role: Timing
+    core: Req
+    origin: CRF
+    derivation: From OpenClinica event (studyeventoid).
+
+  VISIT:
+    label: Visit Name
+    type: Char
+    length: 40
+    role: Timing
+    core: Perm
+    origin: CRF
+    derivation: From OpenClinica eventname.
+
+  QSDTC:
+    label: Date/Time of Finding
+    type: Char
+    length: 19
+    role: Timing
+    core: Exp
+    origin: CRF
+    raw_column: startdate
+    derivation: Use the SF-12 form startdate.
+
+  QSDY:
+    label: Study Day of Finding
+    type: Num
+    length: 8
+    role: Timing
+    core: Perm
+    origin: Derived
+    derivation: as.integer(as.Date(QSDTC) - as.Date(DM.RFSTDTC)) + ifelse(QSDTC >= RFSTDTC, 1L, 0L). Skip day 0.

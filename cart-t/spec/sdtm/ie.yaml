@@ -1,0 +1,157 @@
+domain: IE
+label: Inclusion/Exclusion Exceptions
+class: Findings
+structure: One record per inclusion/exclusion criterion not met per subject
+purpose: Tabulation
+keys: [STUDYID, USUBJID, IETESTCD]
+ig_anchor: "IE+Specification"
+
+sources:
+  - form: "Eligibility"
+    item_groups: [INC1, INC2, INCA, EXCT, SUMMARY]
+
+record_rule: |
+  Emit one row per criterion item whose evaluation flag indicates failure
+  (INC*EVAL = "NOT_MET", EXCEVAL = "FAIL"). Subjects who pass all criteria
+  produce no IE rows.
+
+variables:
+  STUDYID:
+    label: Study Identifier
+    type: Char
+    length: 12
+    role: Identifier
+    core: Req
+    origin: Sponsor Defined
+    derivation: Study constant; assigned at setup ("CART-T-PILOT").
+
+  DOMAIN:
+    label: Domain Abbreviation
+    type: Char
+    length: 2
+    role: Identifier
+    core: Req
+    origin: Assigned
+    derivation: Constant value "IE".
+
+  USUBJID:
+    label: Unique Subject Identifier
+    type: Char
+    length: 30
+    role: Identifier
+    core: Req
+    origin: Derived
+    derivation: Joined from DM via subjectkey.
+
+  IESEQ:
+    label: Sequence Number
+    type: Num
+    length: 8
+    role: Identifier
+    core: Req
+    origin: Derived
+    derivation: row_number() within USUBJID, ordered by IECAT, IETESTCD.
+
+  IETESTCD:
+    label: Inclusion/Exclusion Criterion Short Name
+    type: Char
+    length: 8
+    role: Topic
+    core: Req
+    origin: Assigned
+    codelist: IETESTCD
+    derivation: |
+      Sponsor-controlled ≤ 8-char code. Examples:
+        INC1 / CHEMO  -> INC1CHEM
+        INC1 / SCTINT -> INC1SCT
+        INC2 / LVEF   -> INC2LVEF
+        EXCT / TGVHA  -> EXCTGVHA
+
+  IETEST:
+    label: Inclusion/Exclusion Criterion
+    type: Char
+    length: 200
+    role: Synonym Qualifier
+    core: Req
+    origin: Assigned
+    derivation: Protocol-level wording of the criterion (≤ 200 chars).
+
+  IECAT:
+    label: Inclusion/Exclusion Category
+    type: Char
+    length: 10
+    role: Grouping Qualifier
+    core: Req
+    origin: Assigned
+    codelist: IECAT
+    derivation: |
+      INC1, INC2, INCA -> "INCLUSION"
+      EXCT             -> "EXCLUSION"
+
+  IESCAT:
+    label: Inclusion/Exclusion Subcategory
+    type: Char
+    length: 40
+    role: Grouping Qualifier
+    core: Perm
+    origin: Assigned
+    derivation: |
+      INC1 -> "DISEASE HISTORY"
+      INC2 -> "LABS AND ORGAN FUNCTION"
+      INCA -> "AGE AND CONSENT"
+      EXCT -> "SAFETY AND INFECTIONS"
+
+  IEORRES:
+    label: I/E Criterion Original Result
+    type: Char
+    length: 8
+    role: Result Qualifier
+    core: Req
+    origin: CRF
+    derivation: Constant "Y" (rows exist only for criteria that were NOT met).
+
+  IESTRESC:
+    label: Standardized Character Result
+    type: Char
+    length: 8
+    role: Result Qualifier
+    core: Req
+    origin: Derived
+    derivation: Constant "Y" (mirrors IEORRES per CDISC convention).
+
+  VISITNUM:
+    label: Visit Number
+    type: Num
+    length: 8
+    role: Timing
+    core: Req
+    origin: CRF
+    derivation: From OpenClinica event for Eligibility (typically screening).
+
+  VISIT:
+    label: Visit Name
+    type: Char
+    length: 40
+    role: Timing
+    core: Perm
+    origin: CRF
+    derivation: Constant "SCREENING".
+
+  IEDTC:
+    label: Date/Time of Collection
+    type: Char
+    length: 19
+    role: Timing
+    core: Exp
+    origin: CRF
+    raw_column: startdate
+    derivation: Eligibility form startdate (event-level).
+
+  IEDY:
+    label: Study Day of Collection
+    type: Num
+    length: 8
+    role: Timing
+    core: Perm
+    origin: Derived
+    derivation: as.integer(as.Date(IEDTC) - as.Date(DM.RFSTDTC)) + ifelse(IEDTC >= RFSTDTC, 1L, 0L). Skip day 0.

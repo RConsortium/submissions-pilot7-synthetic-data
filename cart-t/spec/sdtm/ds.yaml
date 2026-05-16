@@ -1,0 +1,172 @@
+domain: DS
+label: Disposition
+class: Events
+structure: One record per disposition event per subject
+purpose: Tabulation
+keys: [STUDYID, USUBJID, DSCAT, DSDECOD, DSSTDTC]
+ig_anchor: "DS+Specification"
+
+sources:
+  - form: "Disposition"
+    item_groups: [PD]
+  - form: "Eligibility"
+    notes: Contributes SCREENED / CONSENTED disposition events.
+  - form: "3. Randomize"
+    notes: Contributes RANDOMIZED event.
+
+record_rule: |
+  Emit one row per disposition milestone reached by the subject:
+    SCREENED, CONSENTED, ELIGIBLE, RANDOMIZED, RECEIVED INTERVENTION,
+    COMPLETED PRIMARY OUTCOMES, COMPLETED SECONDARY OUTCOMES,
+    EARLY TERMINATION, FINAL STATUS.
+  Each PD-item that resolves "Y" or carries a date triggers a row.
+
+variables:
+  STUDYID:
+    label: Study Identifier
+    type: Char
+    length: 12
+    role: Identifier
+    core: Req
+    origin: Sponsor Defined
+    derivation: Study constant ("CART-T-PILOT").
+
+  DOMAIN:
+    label: Domain Abbreviation
+    type: Char
+    length: 2
+    role: Identifier
+    core: Req
+    origin: Assigned
+    derivation: Constant value "DS".
+
+  USUBJID:
+    label: Unique Subject Identifier
+    type: Char
+    length: 30
+    role: Identifier
+    core: Req
+    origin: Derived
+    derivation: Joined from DM via subjectkey.
+
+  DSSEQ:
+    label: Sequence Number
+    type: Num
+    length: 8
+    role: Identifier
+    core: Req
+    origin: Derived
+    derivation: row_number() within USUBJID, ordered by DSSTDTC, DSCAT.
+
+  DSTERM:
+    label: Reported Term for the Disposition Event
+    type: Char
+    length: 200
+    role: Topic
+    core: Req
+    origin: CRF
+    derivation: |
+      Constructed from the contributing PD item:
+        CONSENTED            -> "Informed consent obtained"
+        SCREENED             -> "Screening completed"
+        ELIGIBLE             -> "Determined eligible"
+        RANDOMIZED           -> "Randomized"
+        RECEIVEDINTERVENTION -> "Received study intervention"
+        PRIMARYOUTCOMESCOMPLETE   -> "Completed primary outcomes assessment"
+        SECONDARYOUTCOMESCOMPLETE -> "Completed secondary outcomes assessment"
+        EARLYTERMINATIONREASON    -> Free-text reason as captured.
+        STATUSONSTUDY             -> Subject's final on-study status.
+
+  DSDECOD:
+    label: Standardized Disposition Term
+    type: Char
+    length: 40
+    role: Synonym Qualifier
+    core: Req
+    origin: Assigned
+    codelist: NCOMPLT
+    derivation: |
+      Map DSTERM to CDISC NCOMPLT / DSDECOD CT, e.g.:
+        consent obtained             -> "INFORMED CONSENT OBTAINED"
+        screening completed          -> "SCREENING COMPLETED"
+        eligibility met              -> "ELIGIBILITY CRITERIA MET"
+        randomized                   -> "RANDOMIZED"
+        treatment received           -> "TREATMENT STARTED"
+        primary outcomes complete    -> "COMPLETED"
+        early termination (any rsn)  -> "EARLY TERMINATION"
+
+  DSCAT:
+    label: Category for Disposition Event
+    type: Char
+    length: 40
+    role: Grouping Qualifier
+    core: Req
+    origin: Assigned
+    codelist: DSCAT
+    derivation: |
+      "PROTOCOL MILESTONE" for SCREENED / CONSENTED / ELIGIBLE / RANDOMIZED / RECEIVEDINTERVENTION
+        / PRIMARYOUTCOMESCOMPLETE / SECONDARYOUTCOMESCOMPLETE
+      "DISPOSITION EVENT" for EARLYTERMINATION* and STATUSONSTUDY.
+
+  DSSCAT:
+    label: Subcategory for Disposition Event
+    type: Char
+    length: 40
+    role: Grouping Qualifier
+    core: Perm
+    origin: Assigned
+    derivation: Null in this pilot.
+
+  EPOCH:
+    label: Epoch
+    type: Char
+    length: 40
+    role: Timing
+    core: Perm
+    origin: Derived
+    codelist: EPOCH
+    derivation: |
+      "SCREENING" for SCREENED/CONSENTED/ELIGIBLE
+      "TREATMENT" for RANDOMIZED/RECEIVEDINTERVENTION/PRIMARYOUTCOMESCOMPLETE/SECONDARYOUTCOMESCOMPLETE
+      "FOLLOW-UP" for EARLYTERMINATION*/STATUSONSTUDY when after treatment end.
+
+  DSSTDTC:
+    label: Start Date/Time of Disposition Event
+    type: Char
+    length: 10
+    role: Timing
+    core: Exp
+    origin: CRF
+    derivation: |
+      CONSENTED          -> CONSENTEDDT
+      SCREENED           -> startdate of Eligibility form for the subject
+      RANDOMIZED         -> startdate of "3. Randomize" form
+      EARLY TERMINATION  -> EARLYTERMINATIONDATE
+      Other PD flags     -> startdate of Disposition form
+
+  DSSTDY:
+    label: Study Day of Start of Disposition Event
+    type: Num
+    length: 8
+    role: Timing
+    core: Perm
+    origin: Derived
+    derivation: as.integer(as.Date(DSSTDTC) - as.Date(DM.RFSTDTC)) + ifelse(DSSTDTC >= RFSTDTC, 1L, 0L). Skip day 0.
+
+  VISITNUM:
+    label: Visit Number
+    type: Num
+    length: 8
+    role: Timing
+    core: Perm
+    origin: CRF
+    derivation: From the OpenClinica event tied to the contributing form.
+
+  VISIT:
+    label: Visit Name
+    type: Char
+    length: 40
+    role: Timing
+    core: Perm
+    origin: CRF
+    derivation: From OpenClinica eventname.

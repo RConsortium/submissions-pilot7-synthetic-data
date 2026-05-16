@@ -1,0 +1,284 @@
+dataset: ADLB
+label: Laboratory Analysis Dataset
+structure: BDS - One record per parameter per analysis timepoint per subject
+purpose: Analysis
+keys: [STUDYID, USUBJID, PARAMCD, AVISITN]
+ig_reference: "ADaMIG v1.3 §3.3"
+
+sources:
+  - sdtm_domain: LB
+  - sdtm_domain: ADSL
+
+variables:
+  STUDYID:
+    label: Study Identifier
+    type: Char
+    length: 12
+    role: Identifier
+    core: Req
+    origin: Predecessor
+    derivation: LB.STUDYID.
+
+  USUBJID:
+    label: Unique Subject Identifier
+    type: Char
+    length: 30
+    role: Identifier
+    core: Req
+    origin: Predecessor
+    derivation: LB.USUBJID.
+
+  SUBJID:
+    label: Subject Identifier for the Study
+    type: Char
+    length: 10
+    role: Identifier
+    core: Req
+    origin: Predecessor
+    derivation: ADSL.SUBJID via merge.
+
+  SITEID:
+    label: Study Site Identifier
+    type: Char
+    length: 8
+    role: Identifier
+    core: Req
+    origin: Predecessor
+    derivation: ADSL.SITEID via merge.
+
+  AGE:
+    label: Age
+    type: Num
+    length: 8
+    role: Covariate
+    core: Req
+    origin: Predecessor
+    derivation: ADSL.AGE.
+
+  SEX:
+    label: Sex
+    type: Char
+    length: 1
+    role: Covariate
+    core: Req
+    origin: Predecessor
+    derivation: ADSL.SEX.
+
+  RACE:
+    label: Race
+    type: Char
+    length: 40
+    role: Covariate
+    core: Req
+    origin: Predecessor
+    derivation: ADSL.RACE.
+
+  TRT01P:
+    label: Planned Treatment for Period 01
+    type: Char
+    length: 40
+    role: Treatment
+    core: Req
+    origin: Predecessor
+    derivation: ADSL.TRT01P.
+
+  TRT01A:
+    label: Actual Treatment for Period 01
+    type: Char
+    length: 40
+    role: Treatment
+    core: Req
+    origin: Predecessor
+    derivation: ADSL.TRT01A.
+
+  ASEQ:
+    label: Sequence Number
+    type: Num
+    length: 8
+    role: Identifier
+    core: Req
+    origin: Derived
+    derivation: row_number() within USUBJID after sorting by PARAMCD, AVISITN, ADT.
+
+  PARAMCD:
+    label: Parameter Code
+    type: Char
+    length: 8
+    role: Parameter
+    core: Req
+    origin: Predecessor
+    derivation: LB.LBTESTCD.
+
+  PARAM:
+    label: Parameter
+    type: Char
+    length: 200
+    role: Parameter
+    core: Req
+    origin: Derived
+    derivation: paste0(LB.LBTEST, " (", LB.LBSTRESU, ")"); trimmed.
+
+  PARAMN:
+    label: Parameter (N)
+    type: Num
+    length: 8
+    role: Parameter
+    core: Perm
+    origin: Derived
+    derivation: Numeric companion - dense_rank() over distinct PARAMCD values in lexical order.
+
+  PARCAT1:
+    label: Parameter Category 1
+    type: Char
+    length: 40
+    role: Parameter
+    core: Exp
+    origin: Predecessor
+    derivation: LB.LBCAT.
+
+  AVAL:
+    label: Analysis Value
+    type: Num
+    length: 8
+    role: Result
+    core: Exp
+    origin: Predecessor
+    derivation: LB.LBSTRESN.
+
+  AVALC:
+    label: Analysis Value (C)
+    type: Char
+    length: 200
+    role: Result
+    core: Perm
+    origin: Predecessor
+    derivation: LB.LBSTRESC.
+
+  AVALU:
+    label: Analysis Value Unit
+    type: Char
+    length: 40
+    role: Result
+    core: Perm
+    origin: Predecessor
+    derivation: LB.LBSTRESU.
+
+  BASE:
+    label: Baseline Value
+    type: Num
+    length: 8
+    role: Baseline
+    core: Exp
+    origin: Derived
+    derivation: AVAL on the record where ABLFL = "Y", carried to every record within USUBJID + PARAMCD. Via admiral::derive_var_base().
+
+  CHG:
+    label: Change from Baseline
+    type: Num
+    length: 8
+    role: Analysis
+    core: Exp
+    origin: Derived
+    derivation: AVAL - BASE; null for the baseline record. Via admiral::derive_var_chg().
+
+  PCHG:
+    label: Percent Change from Baseline
+    type: Num
+    length: 8
+    role: Analysis
+    core: Exp
+    origin: Derived
+    derivation: 100 * (AVAL - BASE) / BASE when BASE != 0; null otherwise. Via admiral::derive_var_pchg().
+
+  ABLFL:
+    label: Baseline Record Flag
+    type: Char
+    length: 1
+    role: Baseline
+    core: Exp
+    origin: Derived
+    codelist: NY
+    derivation: "Y" on the latest record at or before TRTSDT per USUBJID + PARAMCD (LBBLFL = "Y" records preferred). Via admiral::derive_var_extreme_flag().
+
+  AVISIT:
+    label: Analysis Visit
+    type: Char
+    length: 40
+    role: Timing
+    core: Exp
+    origin: Derived
+    derivation: LB.VISIT (clean strings only); "Baseline" for ABLFL records.
+
+  AVISITN:
+    label: Analysis Visit (N)
+    type: Num
+    length: 8
+    role: Timing
+    core: Exp
+    origin: Derived
+    derivation: LB.VISITNUM; 0 for baseline.
+
+  ADT:
+    label: Analysis Date
+    type: Num
+    length: 8
+    role: Timing
+    core: Exp
+    origin: Derived
+    derivation: as.Date(LB.LBDTC). Via admiral::derive_vars_dt().
+
+  ADY:
+    label: Analysis Relative Day
+    type: Num
+    length: 8
+    role: Timing
+    core: Perm
+    origin: Derived
+    derivation: as.integer(ADT - ADSL.TRTSDT) + ifelse(ADT >= ADSL.TRTSDT, 1L, 0L). Skip day 0.
+
+  ANRLO:
+    label: Analysis Normal Range Lower Limit
+    type: Num
+    length: 8
+    role: Reference
+    core: Perm
+    origin: Predecessor
+    derivation: Null in this pilot (reference ranges not collected).
+
+  ANRHI:
+    label: Analysis Normal Range Upper Limit
+    type: Num
+    length: 8
+    role: Reference
+    core: Perm
+    origin: Predecessor
+    derivation: Null in this pilot.
+
+  ANRIND:
+    label: Analysis Reference Range Indicator
+    type: Char
+    length: 10
+    role: Reference
+    core: Perm
+    origin: Derived
+    codelist: NRIND
+    derivation: Null in this pilot. Will be derived via admiral::derive_var_anrind() once ANRLO/ANRHI populated.
+
+  ANL01FL:
+    label: Analysis Record Flag 01
+    type: Char
+    length: 1
+    role: Analysis Flag
+    core: Exp
+    origin: Derived
+    codelist: NY
+    derivation: "Y" on records included in the primary analysis (post-baseline scheduled visits + baseline); else null.
+
+  SAFFL:
+    label: Safety Population Flag
+    type: Char
+    length: 1
+    role: Population Flag
+    core: Req
+    origin: Predecessor
+    derivation: ADSL.SAFFL.

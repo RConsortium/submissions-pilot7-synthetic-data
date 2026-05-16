@@ -1,0 +1,343 @@
+dataset: ADSL
+label: Subject-Level Analysis Dataset
+structure: One record per subject
+purpose: Analysis
+keys: [STUDYID, USUBJID]
+ig_reference: "ADaMIG v1.3 §3.1"
+
+sources:
+  - sdtm_domain: DM
+    notes: Demographics, treatment arm, key reference dates.
+  - sdtm_domain: DS
+    notes: Disposition events used to derive RANDDT, EOSDT, COMPLFL, DCDECOD.
+
+variables:
+  STUDYID:
+    label: Study Identifier
+    type: Char
+    length: 12
+    role: Identifier
+    core: Req
+    origin: Predecessor
+    derivation: DM.STUDYID.
+
+  USUBJID:
+    label: Unique Subject Identifier
+    type: Char
+    length: 30
+    role: Identifier
+    core: Req
+    origin: Predecessor
+    derivation: DM.USUBJID.
+
+  SUBJID:
+    label: Subject Identifier for the Study
+    type: Char
+    length: 10
+    role: Identifier
+    core: Req
+    origin: Predecessor
+    derivation: DM.SUBJID.
+
+  SITEID:
+    label: Study Site Identifier
+    type: Char
+    length: 8
+    role: Identifier
+    core: Req
+    origin: Predecessor
+    derivation: DM.SITEID.
+
+  AGE:
+    label: Age
+    type: Num
+    length: 8
+    role: Covariate
+    core: Req
+    origin: Predecessor
+    derivation: DM.AGE.
+
+  AGEU:
+    label: Age Units
+    type: Char
+    length: 10
+    role: Covariate
+    core: Req
+    origin: Predecessor
+    derivation: DM.AGEU.
+
+  AGEGR1:
+    label: Pooled Age Group 1
+    type: Char
+    length: 10
+    role: Covariate
+    core: Perm
+    origin: Derived
+    derivation: |
+      "<65"  if AGE < 65
+      ">=65" if AGE >= 65
+      Null if AGE is null.
+
+  AGEGR1N:
+    label: Pooled Age Group 1 (N)
+    type: Num
+    length: 8
+    role: Covariate
+    core: Perm
+    origin: Derived
+    derivation: 1 for "<65"; 2 for ">=65".
+
+  SEX:
+    label: Sex
+    type: Char
+    length: 1
+    role: Covariate
+    core: Req
+    origin: Predecessor
+    derivation: DM.SEX.
+
+  RACE:
+    label: Race
+    type: Char
+    length: 40
+    role: Covariate
+    core: Req
+    origin: Predecessor
+    derivation: DM.RACE.
+
+  ETHNIC:
+    label: Ethnicity
+    type: Char
+    length: 40
+    role: Covariate
+    core: Perm
+    origin: Predecessor
+    derivation: DM.ETHNIC.
+
+  COUNTRY:
+    label: Country
+    type: Char
+    length: 3
+    role: Covariate
+    core: Req
+    origin: Predecessor
+    derivation: DM.COUNTRY.
+
+  STRAT1:
+    label: Phenotype Stratification Code
+    type: Char
+    length: 8
+    role: Stratification
+    core: Perm
+    origin: Derived
+    derivation: |
+      Sponsor-defined stratum code derived from Randomize.PROFILE:
+        "Non-Hispanic male"   -> "NHM"
+        "Non-Hispanic female" -> "NHF"
+        "Hispanic male"       -> "HM"
+        "Hispanic female"     -> "HF"
+      Null for subjects with no PROFILE (screen failures).
+
+  STRAT1L:
+    label: Phenotype Stratification Label
+    type: Char
+    length: 40
+    role: Stratification
+    core: Perm
+    origin: Derived
+    derivation: Long-form text of STRAT1 (e.g., "Non-Hispanic male").
+
+  ARMCD:
+    label: Planned Arm Code
+    type: Char
+    length: 20
+    role: Covariate
+    core: Req
+    origin: Predecessor
+    derivation: DM.ARMCD.
+
+  ARM:
+    label: Description of Planned Arm
+    type: Char
+    length: 40
+    role: Covariate
+    core: Req
+    origin: Predecessor
+    derivation: DM.ARM.
+
+  ACTARMCD:
+    label: Actual Arm Code
+    type: Char
+    length: 20
+    role: Covariate
+    core: Req
+    origin: Predecessor
+    derivation: DM.ACTARMCD.
+
+  ACTARM:
+    label: Description of Actual Arm
+    type: Char
+    length: 40
+    role: Covariate
+    core: Req
+    origin: Predecessor
+    derivation: DM.ACTARM.
+
+  TRT01P:
+    label: Planned Treatment for Period 01
+    type: Char
+    length: 40
+    role: Treatment
+    core: Req
+    origin: Derived
+    derivation: Equal to ARM.
+
+  TRT01PN:
+    label: Planned Treatment for Period 01 (N)
+    type: Num
+    length: 8
+    role: Treatment
+    core: Req
+    origin: Derived
+    derivation: Numeric companion to TRT01P (1, 2, 3, ...) keyed off distinct ARMCD values in alphabetical order.
+
+  TRT01A:
+    label: Actual Treatment for Period 01
+    type: Char
+    length: 40
+    role: Treatment
+    core: Req
+    origin: Derived
+    derivation: Equal to ACTARM.
+
+  TRT01AN:
+    label: Actual Treatment for Period 01 (N)
+    type: Num
+    length: 8
+    role: Treatment
+    core: Req
+    origin: Derived
+    derivation: Numeric companion to TRT01A (mirrors TRT01PN mapping).
+
+  TRTSDT:
+    label: Date of First Exposure to Treatment
+    type: Num
+    length: 8
+    role: Timing
+    core: Exp
+    origin: Derived
+    derivation: as.Date(DM.RFXSTDTC); fallback as.Date(DM.RFSTDTC) when RFXSTDTC is null.
+
+  TRTEDT:
+    label: Date of Last Exposure to Treatment
+    type: Num
+    length: 8
+    role: Timing
+    core: Exp
+    origin: Derived
+    derivation: as.Date(DM.RFXENDTC); fallback as.Date(DM.RFENDTC) when RFXENDTC is null.
+
+  TRTDURD:
+    label: Duration of Treatment (Days)
+    type: Num
+    length: 8
+    role: Timing
+    core: Perm
+    origin: Derived
+    derivation: as.integer(TRTEDT - TRTSDT) + 1L; null when TRTSDT or TRTEDT null. Computed via admiral::derive_var_trtdurd().
+
+  RANDDT:
+    label: Date of Randomization
+    type: Num
+    length: 8
+    role: Timing
+    core: Perm
+    origin: Derived
+    derivation: as.Date(min DSSTDTC where DSDECOD == "RANDOMIZED" per subject); null if subject was not randomized.
+
+  EOSDT:
+    label: End of Study Date
+    type: Num
+    length: 8
+    role: Timing
+    core: Exp
+    origin: Derived
+    derivation: as.Date(DM.RFENDTC).
+
+  EOSSTT:
+    label: End of Study Status
+    type: Char
+    length: 20
+    role: Disposition
+    core: Exp
+    origin: Derived
+    codelist: SBJTSTAT
+    derivation: "COMPLETED" / "DISCONTINUED" / "ONGOING" derived from DS.DSDECOD per subject.
+
+  DCDECOD:
+    label: Standardized Disposition Term
+    type: Char
+    length: 40
+    role: Disposition
+    core: Perm
+    origin: Predecessor
+    derivation: DSDECOD on the final on-study disposition record per subject.
+
+  DCREASCD:
+    label: Reason for Discontinuation
+    type: Char
+    length: 100
+    role: Disposition
+    core: Perm
+    origin: Predecessor
+    derivation: DS.DSTERM where DSDECOD == "EARLY TERMINATION"; null when subject completed.
+
+  RANDFL:
+    label: Randomized Population Flag
+    type: Char
+    length: 1
+    role: Population Flag
+    core: Exp
+    origin: Derived
+    codelist: NY
+    derivation: "Y" when RANDDT is not null; else null.
+
+  SAFFL:
+    label: Safety Population Flag
+    type: Char
+    length: 1
+    role: Population Flag
+    core: Exp
+    origin: Derived
+    codelist: NY
+    derivation: "Y" when TRTSDT is not null OR subject has any AE record; else null.
+
+  ITTFL:
+    label: Intent-to-Treat Population Flag
+    type: Char
+    length: 1
+    role: Population Flag
+    core: Exp
+    origin: Derived
+    codelist: NY
+    derivation: "Y" when RANDFL = "Y"; else null.
+
+  EFFFL:
+    label: Efficacy Population Flag
+    type: Char
+    length: 1
+    role: Population Flag
+    core: Perm
+    origin: Derived
+    codelist: NY
+    derivation: "Y" when ITTFL = "Y" AND subject has any QS record post-baseline; else null.
+
+  COMPLFL:
+    label: Study Completer Flag
+    type: Char
+    length: 1
+    role: Population Flag
+    core: Perm
+    origin: Derived
+    codelist: NY
+    derivation: "Y" when EOSSTT = "COMPLETED"; else null.

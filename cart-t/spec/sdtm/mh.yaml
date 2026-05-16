@@ -1,0 +1,202 @@
+domain: MH
+label: Medical History
+class: Events
+structure: One record per medical history event per subject
+purpose: Tabulation
+keys: [STUDYID, USUBJID, MHCAT, MHTERM, MHSTDTC]
+ig_anchor: "MH+Specification"
+
+sources:
+  - form: "1. Demographics and History"
+    item_groups: [group1, group2]
+
+variables:
+  STUDYID:
+    label: Study Identifier
+    type: Char
+    length: 12
+    role: Identifier
+    core: Req
+    origin: Sponsor Defined
+    derivation: Study constant; assigned at setup ("CART-T-PILOT").
+
+  DOMAIN:
+    label: Domain Abbreviation
+    type: Char
+    length: 2
+    role: Identifier
+    core: Req
+    origin: Assigned
+    derivation: Constant value "MH".
+
+  USUBJID:
+    label: Unique Subject Identifier
+    type: Char
+    length: 30
+    role: Identifier
+    core: Req
+    origin: Derived
+    derivation: Joined from DM via subjectkey.
+
+  MHSEQ:
+    label: Sequence Number
+    type: Num
+    length: 8
+    role: Identifier
+    core: Req
+    origin: Derived
+    derivation: row_number() within USUBJID after sorting by MHSTDTC, MHCAT, MHTERM.
+
+  MHSPID:
+    label: Sponsor-Defined Identifier
+    type: Char
+    length: 40
+    role: Identifier
+    core: Perm
+    origin: CRF
+    raw_item: CANCERORG
+    source_form: "1. Demographics and History"
+    source_item_group: group2
+    derivation: Copied from group2.CANCERORG (primary tumor organ for cancer history rows); null for group1 rows.
+
+  MHTERM:
+    label: Reported Term for the Medical History
+    type: Char
+    length: 200
+    role: Topic
+    core: Req
+    origin: CRF
+    raw_items: [DIAG, CANCER1, CANCER2]
+    source_form: "1. Demographics and History"
+    derivation: group1 -> DIAG; group2 -> CANCER1 (with CANCER2 emitted as a second row when populated).
+
+  MHDECOD:
+    label: Dictionary-Derived Term
+    type: Char
+    length: 200
+    role: Synonym Qualifier
+    core: Perm
+    origin: Assigned
+    derivation: MedDRA Preferred Term assigned post-coding; null until coding completes.
+
+  MHBODSYS:
+    label: Body System or Organ Class
+    type: Char
+    length: 200
+    role: Record Qualifier
+    core: Perm
+    origin: Assigned
+    derivation: MedDRA System Organ Class assigned post-coding; null until coding completes.
+
+  MHCAT:
+    label: Category for Medical History
+    type: Char
+    length: 40
+    role: Grouping Qualifier
+    core: Exp
+    origin: Assigned
+    derivation: |
+      group1 -> "GENERAL MEDICAL HISTORY"
+      group2 -> "CANCER HISTORY"
+
+  MHSCAT:
+    label: Subcategory for Medical History
+    type: Char
+    length: 40
+    role: Grouping Qualifier
+    core: Perm
+    origin: Assigned
+    raw_item: BODY
+    source_form: "1. Demographics and History"
+    source_item_group: group1
+    derivation: For group1 rows copy BODY (body-system/organ). For group2 rows null.
+
+  MHPRESP:
+    label: Medical History Pre-Specified
+    type: Char
+    length: 1
+    role: Variable Qualifier
+    core: Perm
+    origin: Protocol
+    codelist: NY
+    derivation: Null (the CRF does not pre-specify items in this study).
+
+  MHOCCUR:
+    label: Medical History Occurrence
+    type: Char
+    length: 1
+    role: Record Qualifier
+    core: Perm
+    origin: CRF
+    codelist: NY
+    derivation: Null (only present when MHPRESP = "Y", which does not apply here).
+
+  MHSTAT:
+    label: Completion Status
+    type: Char
+    length: 8
+    role: Record Qualifier
+    core: Perm
+    origin: Derived
+    derivation: "NOT DONE" when MHTERM is null but the form is marked complete; else null.
+
+  MHENRF:
+    label: End Relative to Reference Period
+    type: Char
+    length: 10
+    role: Timing
+    core: Perm
+    origin: Derived
+    raw_item: ONG
+    source_form: "1. Demographics and History"
+    derivation: ONG = "Y" -> "ONGOING"; else null.
+
+  MHSTDTC:
+    label: Start Date/Time of Medical History Event
+    type: Char
+    length: 10
+    role: Timing
+    core: Exp
+    origin: CRF
+    raw_items: [DATE, DIAGNOSED]
+    source_form: "1. Demographics and History"
+    derivation: group1 -> DATE; group2 -> DIAGNOSED.
+
+  MHENDTC:
+    label: End Date/Time of Medical History Event
+    type: Char
+    length: 10
+    role: Timing
+    core: Perm
+    origin: CRF
+    raw_item: STOP
+    source_form: "1. Demographics and History"
+    source_item_group: group1
+    derivation: Copied from group1.STOP; null for group2.
+
+  MHSTDY:
+    label: Study Day of Start of Medical History
+    type: Num
+    length: 8
+    role: Timing
+    core: Perm
+    origin: Derived
+    derivation: as.integer(as.Date(MHSTDTC) - as.Date(DM.RFSTDTC)) + ifelse(MHSTDTC >= RFSTDTC, 1L, 0L). Skip day 0.
+
+  VISITNUM:
+    label: Visit Number
+    type: Num
+    length: 8
+    role: Timing
+    core: Exp
+    origin: CRF
+    derivation: From OpenClinica event (studyeventoid).
+
+  VISIT:
+    label: Visit Name
+    type: Char
+    length: 40
+    role: Timing
+    core: Perm
+    origin: CRF
+    derivation: From OpenClinica event (eventname).

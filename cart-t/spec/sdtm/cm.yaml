@@ -1,0 +1,243 @@
+domain: CM
+label: Concomitant Medications
+class: Interventions
+structure: One record per recorded medication administration per subject
+purpose: Tabulation
+keys: [STUDYID, USUBJID, CMTRT, CMSTDTC]
+ig_anchor: "CM+Specification"
+
+sources:
+  - form: "ConMed"
+    item_groups: [group1]
+  - form: "RxNorm Coding"
+    notes: Provides RXCUI/RXAUI enrichment per medication.
+
+variables:
+  STUDYID:
+    label: Study Identifier
+    type: Char
+    length: 12
+    role: Identifier
+    core: Req
+    origin: Sponsor Defined
+    derivation: Study constant ("CART-T-PILOT").
+
+  DOMAIN:
+    label: Domain Abbreviation
+    type: Char
+    length: 2
+    role: Identifier
+    core: Req
+    origin: Assigned
+    derivation: Constant value "CM".
+
+  USUBJID:
+    label: Unique Subject Identifier
+    type: Char
+    length: 30
+    role: Identifier
+    core: Req
+    origin: Derived
+    derivation: Joined from DM via subjectkey.
+
+  CMSEQ:
+    label: Sequence Number
+    type: Num
+    length: 8
+    role: Identifier
+    core: Req
+    origin: Derived
+    derivation: row_number() within USUBJID, ordered by CMSTDTC, CMTRT.
+
+  CMTRT:
+    label: Reported Name of Drug, Med, or Therapy
+    type: Char
+    length: 200
+    role: Topic
+    core: Req
+    origin: CRF
+    raw_item: CMTRTL
+    source_form: "ConMed"
+    derivation: Copied from ConMed.group1.CMTRTL (verbatim trade or generic name).
+
+  CMMODIFY:
+    label: Modified Reported Name
+    type: Char
+    length: 200
+    role: Synonym Qualifier
+    core: Perm
+    origin: Assigned
+    raw_item: CMTRTLX
+    source_form: "ConMed"
+    derivation: Copied from CMTRTLX when coder modified CMTRT for dictionary matching; else null.
+
+  CMDECOD:
+    label: Standardized Medication Name
+    type: Char
+    length: 200
+    role: Synonym Qualifier
+    core: Exp
+    origin: Assigned
+    raw_item: MEDNAME
+    source_form: "ConMed"
+    derivation: RxNorm preferred name from MEDNAME (or downstream RxNorm coding workflow).
+
+  CMRXCUI:
+    label: RxNorm Concept Unique Identifier
+    type: Char
+    length: 8
+    role: Synonym Qualifier
+    core: Perm
+    origin: Assigned
+    raw_item: RXCUI
+    source_form: "ConMed"
+    derivation: Copied from RXCUI assigned via RxNorm Coding workflow.
+
+  CMCLAS:
+    label: Medication Class
+    type: Char
+    length: 200
+    role: Variable Qualifier
+    core: Perm
+    origin: Assigned
+    raw_item: RXTTY
+    source_form: "ConMed"
+    derivation: Copied from RXTTY (RxNorm term type) when populated.
+
+  CMDOSE:
+    label: Dose per Administration
+    type: Num
+    length: 8
+    role: Record Qualifier
+    core: Exp
+    origin: CRF
+    raw_item: CMDOSE
+    source_form: "ConMed"
+    derivation: as.numeric(CMDOSE); null if not numeric.
+
+  CMDOSU:
+    label: Dose Units
+    type: Char
+    length: 20
+    role: Variable Qualifier
+    core: Exp
+    origin: CRF
+    codelist: UNIT
+    raw_item: CMDOSU
+    source_form: "ConMed"
+    derivation: Map CMDOSU (and free-text CMDOSUTXT when CMDOSU = "OTHER") to CDISC UNIT CT.
+
+  CMDOSFRM:
+    label: Dose Form
+    type: Char
+    length: 40
+    role: Variable Qualifier
+    core: Exp
+    origin: CRF
+    codelist: FRM
+    raw_item: CMDOSFRM
+    source_form: "ConMed"
+    derivation: Map CMDOSFRM (and free-text CMDOSFRMTEXT when "OTHER") to CDISC FRM CT.
+
+  CMDOSFRQ:
+    label: Dosing Frequency per Interval
+    type: Char
+    length: 40
+    role: Variable Qualifier
+    core: Exp
+    origin: CRF
+    codelist: FREQ
+    raw_item: CMDOSFRQ
+    source_form: "ConMed"
+    derivation: Map CMDOSFRQ to CDISC FREQ CT (e.g., "QD", "BID").
+
+  CMROUTE:
+    label: Route of Administration
+    type: Char
+    length: 40
+    role: Variable Qualifier
+    core: Exp
+    origin: CRF
+    codelist: ROUTE
+    raw_item: CMROUTE
+    source_form: "ConMed"
+    derivation: Map CMROUTE to CDISC ROUTE CT.
+
+  CMINDC:
+    label: Indication
+    type: Char
+    length: 200
+    role: Record Qualifier
+    core: Exp
+    origin: CRF
+    raw_item: CMINDC
+    source_form: "ConMed"
+    derivation: Copied verbatim from CMINDC.
+
+  CMSTDTC:
+    label: Start Date/Time of Medication
+    type: Char
+    length: 10
+    role: Timing
+    core: Exp
+    origin: CRF
+    raw_item: CMSTDAT
+    source_form: "ConMed"
+    derivation: Copied from CMSTDAT (ISO 8601).
+
+  CMENDTC:
+    label: End Date/Time of Medication
+    type: Char
+    length: 10
+    role: Timing
+    core: Exp
+    origin: CRF
+    raw_item: CMENDAT
+    source_form: "ConMed"
+    derivation: Copied from CMENDAT; null when ONGOING = "Y".
+
+  CMENRF:
+    label: End Relative to Reference Period
+    type: Char
+    length: 10
+    role: Timing
+    core: Perm
+    origin: Derived
+    raw_item: ONGOING
+    derivation: ONGOING = "Y" -> "ONGOING"; else null.
+
+  CMSTDY:
+    label: Study Day of Start of Medication
+    type: Num
+    length: 8
+    role: Timing
+    core: Perm
+    origin: Derived
+    derivation: as.integer(as.Date(CMSTDTC) - as.Date(DM.RFSTDTC)) + ifelse(CMSTDTC >= RFSTDTC, 1L, 0L). Skip day 0.
+
+  CMENDY:
+    label: Study Day of End of Medication
+    type: Num
+    length: 8
+    role: Timing
+    core: Perm
+    origin: Derived
+    derivation: as.integer(as.Date(CMENDTC) - as.Date(DM.RFSTDTC)) + ifelse(CMENDTC >= RFSTDTC, 1L, 0L); null if CMENDTC null.
+
+  VISITNUM:
+    label: Visit Number
+    type: Num
+    length: 8
+    role: Timing
+    core: Perm
+    origin: CRF
+    derivation: From OpenClinica event for the ConMed entry (studyeventoid).
+
+  VISIT:
+    label: Visit Name
+    type: Char
+    length: 40
+    role: Timing
+    core: Perm
+    origin: CRF
+    derivation: From OpenClinica event (eventname).
