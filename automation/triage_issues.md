@@ -25,15 +25,25 @@ make the call yourself and document the reasoning in the comment / PR.
 
 ## Step 0 — Bootstrap R + packages (always, every run)
 
-Before doing anything else, ensure R and every package in
-`cart-t/renv.lock` is installed. This is idempotent: on a warm machine
-it is a no-op; on a fresh machine it installs everything via `{pak}`.
+Before doing anything else, ensure R itself is present, then ensure
+every package in `cart-t/renv.lock` is installed. Both steps are
+idempotent: on a warm machine they are no-ops; on a fresh container
+they install everything.
 
 ```bash
 # from the git root
-command -v Rscript >/dev/null || { echo "Rscript missing — abort"; exit 1; }
-Rscript automation/bootstrap_r.R
+bash automation/bootstrap_system.sh   # installs r-base + system libs if Rscript is missing
+Rscript automation/bootstrap_r.R      # installs / version-matches every package in cart-t/renv.lock
 ```
+
+`bootstrap_system.sh` exits 0 immediately when `Rscript` is already on
+`PATH`. On a fresh Debian/Ubuntu container with no R, it `apt-get`s
+`r-base`, `r-base-dev`, and the system libraries `{pak}` needs to
+compile from source (`libxml2-dev`, `libcurl4-openssl-dev`,
+`libssl-dev`, `libgit2-dev`). It requires either root or `sudo`; if
+neither is available, it exits non-zero with a clear message and you
+should follow the bootstrap-failure path below (R must be baked into
+the routine's container image in that case).
 
 Algorithm (implemented in `automation/bootstrap_r.R`):
 
@@ -59,6 +69,12 @@ If Step 0 exits non-zero, stop the whole run. Open **one** issue on the
 repo titled `automated triage: bootstrap failed` with the captured
 stdout/stderr (or update the existing one if it's still open), label it
 `claude-needs-human`, and exit. Do not touch any other issue this run.
+
+If the `gh issue create` call also fails (e.g. the integration token
+lacks `issues: write`), print the captured stdout/stderr to the
+routine log and exit non-zero anyway — the routine log is the
+fallback surface a human will see, so make sure the failure is loud
+there.
 
 ## State tracking
 

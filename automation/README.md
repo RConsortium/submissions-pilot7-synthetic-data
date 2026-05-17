@@ -8,8 +8,9 @@ configured separately.
 
 | File | Purpose |
 |---|---|
-| `triage_issues.md` | Triage every open GitHub issue: answer from the repo, or open a ready-for-review PR + comment. Full rules, hard limits, and end-of-run output spec are inside the file. |
-| `bootstrap_r.R`    | Pre-flight installer. Reads `cart-t/renv.lock`, diffs against `installed.packages()`, and uses `{pak}` to install whatever is missing or version-mismatched. Idempotent — no-op on a warm machine. Triage runs invoke this first. |
+| `triage_issues.md`    | Triage every open GitHub issue: answer from the repo, or open a ready-for-review PR + comment. Full rules, hard limits, and end-of-run output spec are inside the file. |
+| `bootstrap_system.sh` | Pre-pre-flight installer. `apt-get`s `r-base` + `r-base-dev` + the system libraries `{pak}` compiles against, but only if `Rscript` is missing from `PATH`. Idempotent. Runs first in Step 0 of `triage_issues.md`. |
+| `bootstrap_r.R`       | Pre-flight installer. Reads `cart-t/renv.lock`, diffs against `installed.packages()`, and uses `{pak}` to install whatever is missing or version-mismatched. Idempotent — no-op on a warm machine. Runs after `bootstrap_system.sh` in Step 0. |
 
 ## How it runs
 
@@ -77,15 +78,23 @@ list whenever you rotate credentials or change CI.
 
 - **R is installed** and `Rscript` is on `PATH`. The version should be
   close to `cart-t/renv.lock`'s `R$Version` (currently `4.6.0`). Minor
-  drift is fine; major drift will be flagged by `bootstrap_r.R`.
+  drift is fine; major drift will be flagged by `bootstrap_r.R`. On a
+  fresh Debian/Ubuntu container, `bootstrap_system.sh` will install R
+  via `apt-get` at the start of every run — but only if the runner is
+  root (or has `sudo`). For non-root runners, bake R into the
+  container image (e.g. `rocker/r-ver:4.6.0`).
 - **System libraries** that `{pak}` cannot install for you (compilers,
   `libxml2-dev`, `libcurl4-openssl-dev`, `libssl-dev`, `libgit2-dev`).
-  On Ubuntu/WSL the rstudio image already has these; on a fresh runner,
-  install them once.
+  On Ubuntu/WSL the rstudio image already has these; on a fresh
+  runner, `bootstrap_system.sh` apt-installs them alongside `r-base`.
 - **`gh` CLI authenticated** as the bot identity with `repo` scope on
   `RConsortium/submissions-pilot7-synthetic-data`. Verify with
   `gh auth status`. The token needs: read issues, write issues
-  (comment + label), read/write PRs, push branches.
+  (comment + label + **create**), read/write PRs, push branches.
+  In particular, `issues: write` (create) must be granted, otherwise
+  the documented "auto-file a `claude-needs-human` issue on bootstrap
+  failure" fallback in `triage_issues.md` Step 0 will 403 and the
+  failure will only surface in the routine log.
 - **`git` user.name and user.email** set to the bot identity so commits
   and PR authorship are recognisable. Do **not** use a real person's
   identity — humans should be able to tell at a glance.
