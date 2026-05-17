@@ -10,7 +10,7 @@
 ## On a fresh Debian/Ubuntu container with no R, installs R 4.x from
 ## the CRAN apt repository (cran40), so that the installed R matches
 ## cart-t/renv.lock's R$Version (currently 4.6.0). Also installs
-## r-base-dev and the system libraries {pak} needs to compile packages
+## r-base-dev and the system libraries {renv} needs to compile packages
 ## from source.
 ##
 ## Usage:   bash automation/bootstrap_system.sh
@@ -80,13 +80,14 @@ echo "deb [signed-by=/usr/share/keyrings/cran-archive-keyring.gpg] ${CRAN_URL} $
 
 $SUDO apt-get update -qq
 
-log "Installing r-base, r-base-dev, and the system libs {pak} needs to compile from source…"
+log "Installing r-base, r-base-dev, and the system libs {renv} needs to compile from source…"
 $SUDO apt-get install -y --no-install-recommends \
   r-base r-base-dev \
   libxml2-dev \
   libcurl4-openssl-dev \
   libssl-dev \
-  libgit2-dev
+  libgit2-dev \
+  libuv1-dev
 
 if ! command -v Rscript >/dev/null 2>&1; then
   die "apt install reported success but Rscript is still missing. Inspect /var/log/apt/term.log."
