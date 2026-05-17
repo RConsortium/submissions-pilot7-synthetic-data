@@ -1,0 +1,309 @@
+dataset: ADAE
+label: Adverse Events Analysis Dataset
+structure: OCCDS - One record per adverse event per subject
+purpose: Analysis
+keys: [STUDYID, USUBJID, AESEQ]
+ig_reference: "OCCDS IG v1.1"
+
+sources:
+  - sdtm_domain: AE
+    notes: All SDTM AE variables carry over.
+  - sdtm_domain: ADSL
+    notes: Treatment-period dates and population flags merged onto each AE record via admiral::derive_vars_merged().
+
+variables:
+  STUDYID:
+    label: Study Identifier
+    type: Char
+    length: 12
+    role: Identifier
+    core: Req
+    origin: Predecessor
+    derivation: AE.STUDYID.
+
+  USUBJID:
+    label: Unique Subject Identifier
+    type: Char
+    length: 30
+    role: Identifier
+    core: Req
+    origin: Predecessor
+    derivation: AE.USUBJID.
+
+  SUBJID:
+    label: Subject Identifier for the Study
+    type: Char
+    length: 10
+    role: Identifier
+    core: Req
+    origin: Predecessor
+    derivation: ADSL.SUBJID via merge.
+
+  SITEID:
+    label: Study Site Identifier
+    type: Char
+    length: 8
+    role: Identifier
+    core: Req
+    origin: Predecessor
+    derivation: ADSL.SITEID via merge.
+
+  AGE:
+    label: Age
+    type: Num
+    length: 8
+    role: Covariate
+    core: Req
+    origin: Predecessor
+    derivation: ADSL.AGE.
+
+  AGEGR1:
+    label: Pooled Age Group 1
+    type: Char
+    length: 10
+    role: Covariate
+    core: Perm
+    origin: Predecessor
+    derivation: ADSL.AGEGR1.
+
+  SEX:
+    label: Sex
+    type: Char
+    length: 1
+    role: Covariate
+    core: Req
+    origin: Predecessor
+    derivation: ADSL.SEX.
+
+  RACE:
+    label: Race
+    type: Char
+    length: 40
+    role: Covariate
+    core: Req
+    origin: Predecessor
+    derivation: ADSL.RACE.
+
+  TRT01P:
+    label: Planned Treatment for Period 01
+    type: Char
+    length: 40
+    role: Treatment
+    core: Req
+    origin: Predecessor
+    derivation: ADSL.TRT01P.
+
+  TRT01A:
+    label: Actual Treatment for Period 01
+    type: Char
+    length: 40
+    role: Treatment
+    core: Req
+    origin: Predecessor
+    derivation: ADSL.TRT01A.
+
+  TRTEMFL:
+    label: Treatment Emergent Flag
+    type: Char
+    length: 1
+    role: Analysis Flag
+    core: Exp
+    origin: Derived
+    codelist: NY
+    derivation: |
+      "Y" when AESTDT >= ADSL.TRTSDT AND (ADSL.TRTEDT is null OR AESTDT <= ADSL.TRTEDT + 30 days);
+      else null.
+      Implemented via admiral::derive_var_trtemfl().
+
+  AESEQ:
+    label: Sequence Number
+    type: Num
+    length: 8
+    role: Identifier
+    core: Req
+    origin: Predecessor
+    derivation: AE.AESEQ.
+
+  AESPID:
+    label: Sponsor-Defined Identifier
+    type: Char
+    length: 40
+    role: Identifier
+    core: Perm
+    origin: Predecessor
+    derivation: AE.AESPID.
+
+  AETERM:
+    label: Reported Term for the Adverse Event
+    type: Char
+    length: 200
+    role: Topic
+    core: Req
+    origin: Predecessor
+    derivation: AE.AETERM.
+
+  AEDECOD:
+    label: Dictionary-Derived Term
+    type: Char
+    length: 200
+    role: Synonym Qualifier
+    core: Exp
+    origin: Predecessor
+    derivation: AE.AEDECOD.
+
+  AEBODSYS:
+    label: Body System or Organ Class
+    type: Char
+    length: 200
+    role: Record Qualifier
+    core: Exp
+    origin: Predecessor
+    derivation: AE.AEBODSYS.
+
+  AESEV:
+    label: Severity/Intensity
+    type: Char
+    length: 10
+    role: Record Qualifier
+    core: Exp
+    origin: Predecessor
+    derivation: AE.AESEV.
+
+  AESEVN:
+    label: Severity/Intensity (N)
+    type: Num
+    length: 8
+    role: Record Qualifier
+    core: Perm
+    origin: Derived
+    derivation: MILD=1, MODERATE=2, SEVERE=3.
+
+  AESER:
+    label: Serious Event
+    type: Char
+    length: 1
+    role: Record Qualifier
+    core: Exp
+    origin: Predecessor
+    derivation: AE.AESER.
+
+  AEREL:
+    label: Causality
+    type: Char
+    length: 30
+    role: Record Qualifier
+    core: Exp
+    origin: Predecessor
+    derivation: AE.AEREL.
+
+  AEOUT:
+    label: Outcome of Adverse Event
+    type: Char
+    length: 40
+    role: Record Qualifier
+    core: Exp
+    origin: Predecessor
+    derivation: AE.AEOUT.
+
+  ASTDT:
+    label: Analysis Start Date
+    type: Num
+    length: 8
+    role: Timing
+    core: Exp
+    origin: Derived
+    derivation: as.Date(AE.AESTDTC); via admiral::derive_vars_dt(new_vars_prefix="AST", dtc=AESTDTC).
+
+  AENDT:
+    label: Analysis End Date
+    type: Num
+    length: 8
+    role: Timing
+    core: Exp
+    origin: Derived
+    derivation: as.Date(AE.AEENDTC); via admiral::derive_vars_dt().
+
+  ASTDY:
+    label: Analysis Start Relative Day
+    type: Num
+    length: 8
+    role: Timing
+    core: Perm
+    origin: Derived
+    derivation: as.integer(ASTDT - ADSL.TRTSDT) + ifelse(ASTDT >= ADSL.TRTSDT, 1L, 0L). Skip day 0. Via admiral::derive_vars_dy().
+
+  AENDY:
+    label: Analysis End Relative Day
+    type: Num
+    length: 8
+    role: Timing
+    core: Perm
+    origin: Derived
+    derivation: as.integer(AENDT - ADSL.TRTSDT) + ifelse(AENDT >= ADSL.TRTSDT, 1L, 0L). Skip day 0.
+
+  ADURN:
+    label: AE Duration (N)
+    type: Num
+    length: 8
+    role: Analysis
+    core: Perm
+    origin: Derived
+    derivation: as.integer(AENDT - ASTDT) + 1L when both populated; else null.
+
+  ADURU:
+    label: AE Duration Units
+    type: Char
+    length: 10
+    role: Analysis
+    core: Perm
+    origin: Assigned
+    derivation: Constant "DAYS" when ADURN populated; else null.
+
+  AOCCFL:
+    label: First Occurrence within Subject Flag
+    type: Char
+    length: 1
+    role: Analysis Flag
+    core: Exp
+    origin: Derived
+    codelist: NY
+    derivation: "Y" on the row with the earliest ASTDT per USUBJID; via admiral::derive_var_extreme_flag().
+
+  AOCCPFL:
+    label: First Occurrence within Subject and PT Flag
+    type: Char
+    length: 1
+    role: Analysis Flag
+    core: Perm
+    origin: Derived
+    codelist: NY
+    derivation: "Y" on the row with the earliest ASTDT per USUBJID + AEDECOD.
+
+  AOCCSFL:
+    label: First Occurrence within Subject and SOC Flag
+    type: Char
+    length: 1
+    role: Analysis Flag
+    core: Perm
+    origin: Derived
+    codelist: NY
+    derivation: "Y" on the row with the earliest ASTDT per USUBJID + AEBODSYS.
+
+  SAFFL:
+    label: Safety Population Flag
+    type: Char
+    length: 1
+    role: Population Flag
+    core: Req
+    origin: Predecessor
+    derivation: ADSL.SAFFL.
+
+  ANL01FL:
+    label: Analysis Record Flag 01
+    type: Char
+    length: 1
+    role: Analysis Flag
+    core: Exp
+    origin: Derived
+    codelist: NY
+    derivation: "Y" when SAFFL = "Y" AND TRTEMFL = "Y"; else null.

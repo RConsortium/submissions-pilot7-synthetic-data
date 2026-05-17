@@ -1,0 +1,183 @@
+dataset: ADIE
+label: Inclusion/Exclusion Criterion Not Met Analysis Dataset
+structure: OCCDS - One record per failed I/E criterion per subject
+purpose: Analysis
+keys: [STUDYID, USUBJID, IESEQ]
+ig_reference: "OCCDS IG v1.1 (sponsor-extended listing)"
+
+sources:
+  - sdtm_domain: IE
+  - sdtm_domain: ADSL
+
+variables:
+  STUDYID:
+    label: Study Identifier
+    type: Char
+    length: 12
+    role: Identifier
+    core: Req
+    origin: Predecessor
+    derivation: IE.STUDYID.
+
+  USUBJID:
+    label: Unique Subject Identifier
+    type: Char
+    length: 30
+    role: Identifier
+    core: Req
+    origin: Predecessor
+    derivation: IE.USUBJID.
+
+  SUBJID:
+    label: Subject Identifier for the Study
+    type: Char
+    length: 10
+    role: Identifier
+    core: Req
+    origin: Predecessor
+    derivation: ADSL.SUBJID via merge.
+
+  SITEID:
+    label: Study Site Identifier
+    type: Char
+    length: 8
+    role: Identifier
+    core: Req
+    origin: Predecessor
+    derivation: ADSL.SITEID via merge.
+
+  AGE:
+    label: Age
+    type: Num
+    length: 8
+    role: Covariate
+    core: Req
+    origin: Predecessor
+    derivation: ADSL.AGE.
+
+  SEX:
+    label: Sex
+    type: Char
+    length: 1
+    role: Covariate
+    core: Req
+    origin: Predecessor
+    derivation: ADSL.SEX.
+
+  RACE:
+    label: Race
+    type: Char
+    length: 40
+    role: Covariate
+    core: Req
+    origin: Predecessor
+    derivation: ADSL.RACE.
+
+  STRAT1:
+    label: Phenotype Stratification Code
+    type: Char
+    length: 8
+    role: Stratification
+    core: Perm
+    origin: Predecessor
+    derivation: ADSL.STRAT1.
+
+  TRT01P:
+    label: Planned Treatment for Period 01
+    type: Char
+    length: 40
+    role: Treatment
+    core: Req
+    origin: Predecessor
+    derivation: ADSL.TRT01P.
+
+  IESEQ:
+    label: Sequence Number
+    type: Num
+    length: 8
+    role: Identifier
+    core: Req
+    origin: Predecessor
+    derivation: IE.IESEQ.
+
+  IETESTCD:
+    label: I/E Criterion Short Name
+    type: Char
+    length: 8
+    role: Topic
+    core: Req
+    origin: Predecessor
+    derivation: IE.IETESTCD.
+
+  IETEST:
+    label: I/E Criterion
+    type: Char
+    length: 200
+    role: Synonym Qualifier
+    core: Req
+    origin: Predecessor
+    derivation: IE.IETEST.
+
+  IECAT:
+    label: I/E Category
+    type: Char
+    length: 10
+    role: Grouping Qualifier
+    core: Req
+    origin: Predecessor
+    derivation: IE.IECAT.
+
+  IESCAT:
+    label: I/E Subcategory
+    type: Char
+    length: 40
+    role: Grouping Qualifier
+    core: Perm
+    origin: Predecessor
+    derivation: IE.IESCAT.
+
+  IEORRES:
+    label: I/E Criterion Original Result
+    type: Char
+    length: 8
+    role: Result Qualifier
+    core: Req
+    origin: Predecessor
+    derivation: IE.IEORRES (constant "Y" - criterion not met).
+
+  ADT:
+    label: Analysis Date
+    type: Num
+    length: 8
+    role: Timing
+    core: Exp
+    origin: Derived
+    derivation: as.Date(IE.IEDTC). Via admiral::derive_vars_dt().
+
+  ADY:
+    label: Analysis Relative Day
+    type: Num
+    length: 8
+    role: Timing
+    core: Perm
+    origin: Derived
+    derivation: as.integer(ADT - ADSL.TRTSDT) + ifelse(ADT >= ADSL.TRTSDT, 1L, 0L). Skip day 0.
+
+  AVISIT:
+    label: Analysis Visit
+    type: Char
+    length: 40
+    role: Timing
+    core: Perm
+    origin: Predecessor
+    derivation: IE.VISIT.
+
+  SCRNFAILFL:
+    label: Screen Failure Flag
+    type: Char
+    length: 1
+    role: Analysis Flag
+    core: Exp
+    origin: Derived
+    codelist: NY
+    derivation: "Y" when subject has at least one ADIE record AND ADSL.RANDFL is null; else null. (Every ADIE row inherits this flag.)

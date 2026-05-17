@@ -1,0 +1,257 @@
+dataset: ADQS
+label: Questionnaire (SF-12) Analysis Dataset
+structure: BDS - One record per item or subscale per analysis timepoint per subject
+purpose: Analysis
+keys: [STUDYID, USUBJID, PARAMCD, AVISITN]
+ig_reference: "ADaMIG v1.3 §3.3"
+
+sources:
+  - sdtm_domain: QS
+    notes: SF-12 items (SF12Q01-SF12Q12) and subscale scores (SF12PF, SF12RP, SF12BP, SF12GH, SF12VT, SF12SF, SF12RE, SF12ME).
+  - sdtm_domain: ADSL
+
+variables:
+  STUDYID:
+    label: Study Identifier
+    type: Char
+    length: 12
+    role: Identifier
+    core: Req
+    origin: Predecessor
+    derivation: QS.STUDYID.
+
+  USUBJID:
+    label: Unique Subject Identifier
+    type: Char
+    length: 30
+    role: Identifier
+    core: Req
+    origin: Predecessor
+    derivation: QS.USUBJID.
+
+  SUBJID:
+    label: Subject Identifier for the Study
+    type: Char
+    length: 10
+    role: Identifier
+    core: Req
+    origin: Predecessor
+    derivation: ADSL.SUBJID via merge.
+
+  SITEID:
+    label: Study Site Identifier
+    type: Char
+    length: 8
+    role: Identifier
+    core: Req
+    origin: Predecessor
+    derivation: ADSL.SITEID via merge.
+
+  AGE:
+    label: Age
+    type: Num
+    length: 8
+    role: Covariate
+    core: Req
+    origin: Predecessor
+    derivation: ADSL.AGE.
+
+  SEX:
+    label: Sex
+    type: Char
+    length: 1
+    role: Covariate
+    core: Req
+    origin: Predecessor
+    derivation: ADSL.SEX.
+
+  RACE:
+    label: Race
+    type: Char
+    length: 40
+    role: Covariate
+    core: Req
+    origin: Predecessor
+    derivation: ADSL.RACE.
+
+  TRT01P:
+    label: Planned Treatment for Period 01
+    type: Char
+    length: 40
+    role: Treatment
+    core: Req
+    origin: Predecessor
+    derivation: ADSL.TRT01P.
+
+  TRT01A:
+    label: Actual Treatment for Period 01
+    type: Char
+    length: 40
+    role: Treatment
+    core: Req
+    origin: Predecessor
+    derivation: ADSL.TRT01A.
+
+  ASEQ:
+    label: Sequence Number
+    type: Num
+    length: 8
+    role: Identifier
+    core: Req
+    origin: Derived
+    derivation: row_number() within USUBJID after sorting by PARAMCD, AVISITN, ADT.
+
+  PARAMCD:
+    label: Parameter Code
+    type: Char
+    length: 8
+    role: Parameter
+    core: Req
+    origin: Predecessor
+    derivation: QS.QSTESTCD.
+
+  PARAM:
+    label: Parameter
+    type: Char
+    length: 200
+    role: Parameter
+    core: Req
+    origin: Predecessor
+    derivation: QS.QSTEST.
+
+  PARAMN:
+    label: Parameter (N)
+    type: Num
+    length: 8
+    role: Parameter
+    core: Perm
+    origin: Derived
+    derivation: dense_rank() over QSTESTCD in lexical order.
+
+  PARCAT1:
+    label: Parameter Category 1
+    type: Char
+    length: 40
+    role: Parameter
+    core: Exp
+    origin: Predecessor
+    derivation: QS.QSCAT (constant "SF-12").
+
+  PARCAT2:
+    label: Parameter Category 2
+    type: Char
+    length: 40
+    role: Parameter
+    core: Perm
+    origin: Predecessor
+    derivation: QS.QSSCAT ("ITEM" or "SUBSCALE").
+
+  AVAL:
+    label: Analysis Value
+    type: Num
+    length: 8
+    role: Result
+    core: Exp
+    origin: Predecessor
+    derivation: QS.QSSTRESN.
+
+  AVALC:
+    label: Analysis Value (C)
+    type: Char
+    length: 200
+    role: Result
+    core: Perm
+    origin: Predecessor
+    derivation: QS.QSSTRESC.
+
+  BASE:
+    label: Baseline Value
+    type: Num
+    length: 8
+    role: Baseline
+    core: Exp
+    origin: Derived
+    derivation: AVAL on the ABLFL = "Y" record, carried to every record within USUBJID + PARAMCD. Via admiral::derive_var_base().
+
+  CHG:
+    label: Change from Baseline
+    type: Num
+    length: 8
+    role: Analysis
+    core: Exp
+    origin: Derived
+    derivation: AVAL - BASE; null on baseline record.
+
+  PCHG:
+    label: Percent Change from Baseline
+    type: Num
+    length: 8
+    role: Analysis
+    core: Exp
+    origin: Derived
+    derivation: 100 * (AVAL - BASE) / BASE when BASE != 0; null otherwise.
+
+  ABLFL:
+    label: Baseline Record Flag
+    type: Char
+    length: 1
+    role: Baseline
+    core: Exp
+    origin: Derived
+    codelist: NY
+    derivation: "Y" when QSBLFL = "Y"; else null.
+
+  AVISIT:
+    label: Analysis Visit
+    type: Char
+    length: 40
+    role: Timing
+    core: Exp
+    origin: Derived
+    derivation: QS.VISIT; relabel ABLFL records to "Baseline".
+
+  AVISITN:
+    label: Analysis Visit (N)
+    type: Num
+    length: 8
+    role: Timing
+    core: Exp
+    origin: Derived
+    derivation: QS.VISITNUM; 0 for baseline rows.
+
+  ADT:
+    label: Analysis Date
+    type: Num
+    length: 8
+    role: Timing
+    core: Exp
+    origin: Derived
+    derivation: as.Date(QS.QSDTC). Via admiral::derive_vars_dt().
+
+  ADY:
+    label: Analysis Relative Day
+    type: Num
+    length: 8
+    role: Timing
+    core: Perm
+    origin: Derived
+    derivation: as.integer(ADT - ADSL.TRTSDT) + ifelse(ADT >= ADSL.TRTSDT, 1L, 0L). Skip day 0.
+
+  ANL01FL:
+    label: Analysis Record Flag 01
+    type: Char
+    length: 1
+    role: Analysis Flag
+    core: Exp
+    origin: Derived
+    codelist: NY
+    derivation: "Y" when PARCAT2 = "SUBSCALE" AND AVAL is not null; else null. Subscale scores are the primary analysis records.
+
+  EFFFL:
+    label: Efficacy Population Flag
+    type: Char
+    length: 1
+    role: Population Flag
+    core: Perm
+    origin: Predecessor
+    derivation: ADSL.EFFFL.

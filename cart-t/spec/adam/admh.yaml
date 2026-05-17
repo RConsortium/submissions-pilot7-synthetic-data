@@ -1,0 +1,242 @@
+dataset: ADMH
+label: Medical History Analysis Dataset
+structure: OCCDS - One record per medical history event per subject
+purpose: Analysis
+keys: [STUDYID, USUBJID, MHSEQ]
+ig_reference: "OCCDS IG v1.1"
+
+sources:
+  - sdtm_domain: MH
+  - sdtm_domain: ADSL
+
+variables:
+  STUDYID:
+    label: Study Identifier
+    type: Char
+    length: 12
+    role: Identifier
+    core: Req
+    origin: Predecessor
+    derivation: MH.STUDYID.
+
+  USUBJID:
+    label: Unique Subject Identifier
+    type: Char
+    length: 30
+    role: Identifier
+    core: Req
+    origin: Predecessor
+    derivation: MH.USUBJID.
+
+  SUBJID:
+    label: Subject Identifier for the Study
+    type: Char
+    length: 10
+    role: Identifier
+    core: Req
+    origin: Predecessor
+    derivation: ADSL.SUBJID via merge.
+
+  SITEID:
+    label: Study Site Identifier
+    type: Char
+    length: 8
+    role: Identifier
+    core: Req
+    origin: Predecessor
+    derivation: ADSL.SITEID via merge.
+
+  AGE:
+    label: Age
+    type: Num
+    length: 8
+    role: Covariate
+    core: Req
+    origin: Predecessor
+    derivation: ADSL.AGE.
+
+  AGEGR1:
+    label: Pooled Age Group 1
+    type: Char
+    length: 10
+    role: Covariate
+    core: Perm
+    origin: Predecessor
+    derivation: ADSL.AGEGR1.
+
+  SEX:
+    label: Sex
+    type: Char
+    length: 1
+    role: Covariate
+    core: Req
+    origin: Predecessor
+    derivation: ADSL.SEX.
+
+  RACE:
+    label: Race
+    type: Char
+    length: 40
+    role: Covariate
+    core: Req
+    origin: Predecessor
+    derivation: ADSL.RACE.
+
+  TRT01P:
+    label: Planned Treatment for Period 01
+    type: Char
+    length: 40
+    role: Treatment
+    core: Req
+    origin: Predecessor
+    derivation: ADSL.TRT01P.
+
+  TRT01A:
+    label: Actual Treatment for Period 01
+    type: Char
+    length: 40
+    role: Treatment
+    core: Req
+    origin: Predecessor
+    derivation: ADSL.TRT01A.
+
+  MHSEQ:
+    label: Sequence Number
+    type: Num
+    length: 8
+    role: Identifier
+    core: Req
+    origin: Predecessor
+    derivation: MH.MHSEQ.
+
+  MHTERM:
+    label: Reported Term for the Medical History
+    type: Char
+    length: 200
+    role: Topic
+    core: Req
+    origin: Predecessor
+    derivation: MH.MHTERM.
+
+  MHDECOD:
+    label: Dictionary-Derived Term
+    type: Char
+    length: 200
+    role: Synonym Qualifier
+    core: Perm
+    origin: Predecessor
+    derivation: MH.MHDECOD.
+
+  MHBODSYS:
+    label: Body System or Organ Class
+    type: Char
+    length: 200
+    role: Record Qualifier
+    core: Perm
+    origin: Predecessor
+    derivation: MH.MHBODSYS.
+
+  MHCAT:
+    label: Category for Medical History
+    type: Char
+    length: 40
+    role: Grouping Qualifier
+    core: Exp
+    origin: Predecessor
+    derivation: MH.MHCAT.
+
+  MHSCAT:
+    label: Subcategory for Medical History
+    type: Char
+    length: 40
+    role: Grouping Qualifier
+    core: Perm
+    origin: Predecessor
+    derivation: MH.MHSCAT.
+
+  MHENRF:
+    label: End Relative to Reference Period
+    type: Char
+    length: 10
+    role: Timing
+    core: Perm
+    origin: Predecessor
+    derivation: MH.MHENRF.
+
+  ASTDT:
+    label: Analysis Start Date
+    type: Num
+    length: 8
+    role: Timing
+    core: Exp
+    origin: Derived
+    derivation: as.Date(MH.MHSTDTC). Via admiral::derive_vars_dt().
+
+  AENDT:
+    label: Analysis End Date
+    type: Num
+    length: 8
+    role: Timing
+    core: Perm
+    origin: Derived
+    derivation: as.Date(MH.MHENDTC). Via admiral::derive_vars_dt().
+
+  ASTDY:
+    label: Analysis Start Relative Day
+    type: Num
+    length: 8
+    role: Timing
+    core: Perm
+    origin: Derived
+    derivation: as.integer(ASTDT - ADSL.TRTSDT) + ifelse(ASTDT >= ADSL.TRTSDT, 1L, 0L). Skip day 0.
+
+  AENDY:
+    label: Analysis End Relative Day
+    type: Num
+    length: 8
+    role: Timing
+    core: Perm
+    origin: Derived
+    derivation: as.integer(AENDT - ADSL.TRTSDT) + ifelse(AENDT >= ADSL.TRTSDT, 1L, 0L). Skip day 0.
+
+  PREHISFL:
+    label: Pre-Existing Medical History Flag
+    type: Char
+    length: 1
+    role: Analysis Flag
+    core: Exp
+    origin: Derived
+    codelist: NY
+    derivation: |
+      "Y" when ASTDT is not null AND (ADSL.TRTSDT is null OR ASTDT <= ADSL.TRTSDT)
+        OR when ASTDT is null but MHENRF != "ONGOING"
+        OR when MHENRF = "ONGOING".
+      Effectively flags any condition present at or before study start.
+
+  ONGOFL:
+    label: Ongoing at Last Contact Flag
+    type: Char
+    length: 1
+    role: Analysis Flag
+    core: Perm
+    origin: Derived
+    codelist: NY
+    derivation: "Y" when MHENRF = "ONGOING"; else null.
+
+  SAFFL:
+    label: Safety Population Flag
+    type: Char
+    length: 1
+    role: Population Flag
+    core: Req
+    origin: Predecessor
+    derivation: ADSL.SAFFL.
+
+  ITTFL:
+    label: Intent-to-Treat Population Flag
+    type: Char
+    length: 1
+    role: Population Flag
+    core: Exp
+    origin: Predecessor
+    derivation: ADSL.ITTFL.

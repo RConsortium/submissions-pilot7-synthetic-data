@@ -1,0 +1,239 @@
+dataset: ADCM
+label: Concomitant Medications Analysis Dataset
+structure: OCCDS - One record per concomitant medication per subject
+purpose: Analysis
+keys: [STUDYID, USUBJID, CMSEQ]
+ig_reference: "OCCDS IG v1.1"
+
+sources:
+  - sdtm_domain: CM
+  - sdtm_domain: ADSL
+
+variables:
+  STUDYID:
+    label: Study Identifier
+    type: Char
+    length: 12
+    role: Identifier
+    core: Req
+    origin: Predecessor
+    derivation: CM.STUDYID.
+
+  USUBJID:
+    label: Unique Subject Identifier
+    type: Char
+    length: 30
+    role: Identifier
+    core: Req
+    origin: Predecessor
+    derivation: CM.USUBJID.
+
+  SUBJID:
+    label: Subject Identifier for the Study
+    type: Char
+    length: 10
+    role: Identifier
+    core: Req
+    origin: Predecessor
+    derivation: ADSL.SUBJID via merge.
+
+  SITEID:
+    label: Study Site Identifier
+    type: Char
+    length: 8
+    role: Identifier
+    core: Req
+    origin: Predecessor
+    derivation: ADSL.SITEID via merge.
+
+  AGE:
+    label: Age
+    type: Num
+    length: 8
+    role: Covariate
+    core: Req
+    origin: Predecessor
+    derivation: ADSL.AGE.
+
+  SEX:
+    label: Sex
+    type: Char
+    length: 1
+    role: Covariate
+    core: Req
+    origin: Predecessor
+    derivation: ADSL.SEX.
+
+  RACE:
+    label: Race
+    type: Char
+    length: 40
+    role: Covariate
+    core: Req
+    origin: Predecessor
+    derivation: ADSL.RACE.
+
+  TRT01P:
+    label: Planned Treatment for Period 01
+    type: Char
+    length: 40
+    role: Treatment
+    core: Req
+    origin: Predecessor
+    derivation: ADSL.TRT01P.
+
+  TRT01A:
+    label: Actual Treatment for Period 01
+    type: Char
+    length: 40
+    role: Treatment
+    core: Req
+    origin: Predecessor
+    derivation: ADSL.TRT01A.
+
+  CMSEQ:
+    label: Sequence Number
+    type: Num
+    length: 8
+    role: Identifier
+    core: Req
+    origin: Predecessor
+    derivation: CM.CMSEQ.
+
+  CMTRT:
+    label: Reported Name of Drug, Med, or Therapy
+    type: Char
+    length: 200
+    role: Topic
+    core: Req
+    origin: Predecessor
+    derivation: CM.CMTRT.
+
+  CMDECOD:
+    label: Standardized Medication Name
+    type: Char
+    length: 200
+    role: Synonym Qualifier
+    core: Exp
+    origin: Predecessor
+    derivation: CM.CMDECOD.
+
+  CMRXCUI:
+    label: RxNorm Concept Unique Identifier
+    type: Char
+    length: 8
+    role: Synonym Qualifier
+    core: Perm
+    origin: Predecessor
+    derivation: CM.CMRXCUI.
+
+  CMINDC:
+    label: Indication
+    type: Char
+    length: 200
+    role: Record Qualifier
+    core: Exp
+    origin: Predecessor
+    derivation: CM.CMINDC.
+
+  CMDOSE:
+    label: Dose per Administration
+    type: Num
+    length: 8
+    role: Record Qualifier
+    core: Exp
+    origin: Predecessor
+    derivation: CM.CMDOSE.
+
+  CMDOSU:
+    label: Dose Units
+    type: Char
+    length: 20
+    role: Variable Qualifier
+    core: Exp
+    origin: Predecessor
+    derivation: CM.CMDOSU.
+
+  CMROUTE:
+    label: Route of Administration
+    type: Char
+    length: 40
+    role: Variable Qualifier
+    core: Exp
+    origin: Predecessor
+    derivation: CM.CMROUTE.
+
+  ASTDT:
+    label: Analysis Start Date
+    type: Num
+    length: 8
+    role: Timing
+    core: Exp
+    origin: Derived
+    derivation: as.Date(CM.CMSTDTC). Via admiral::derive_vars_dt().
+
+  AENDT:
+    label: Analysis End Date
+    type: Num
+    length: 8
+    role: Timing
+    core: Exp
+    origin: Derived
+    derivation: as.Date(CM.CMENDTC). Via admiral::derive_vars_dt().
+
+  ASTDY:
+    label: Analysis Start Relative Day
+    type: Num
+    length: 8
+    role: Timing
+    core: Perm
+    origin: Derived
+    derivation: as.integer(ASTDT - ADSL.TRTSDT) + ifelse(ASTDT >= ADSL.TRTSDT, 1L, 0L). Skip day 0.
+
+  AENDY:
+    label: Analysis End Relative Day
+    type: Num
+    length: 8
+    role: Timing
+    core: Perm
+    origin: Derived
+    derivation: as.integer(AENDT - ADSL.TRTSDT) + ifelse(AENDT >= ADSL.TRTSDT, 1L, 0L). Skip day 0.
+
+  ONGOFL:
+    label: Ongoing at Last Contact Flag
+    type: Char
+    length: 1
+    role: Analysis Flag
+    core: Perm
+    origin: Derived
+    codelist: NY
+    derivation: "Y" when CM.CMENRF = "ONGOING"; else null.
+
+  PREFL:
+    label: Pre-Treatment Flag
+    type: Char
+    length: 1
+    role: Analysis Flag
+    core: Perm
+    origin: Derived
+    codelist: NY
+    derivation: "Y" when ASTDT < ADSL.TRTSDT; else null.
+
+  ONTRTFL:
+    label: On Treatment Flag
+    type: Char
+    length: 1
+    role: Analysis Flag
+    core: Exp
+    origin: Derived
+    codelist: NY
+    derivation: "Y" when ASTDT between ADSL.TRTSDT and ADSL.TRTEDT (inclusive); else null. Via admiral::derive_var_ontrtfl().
+
+  SAFFL:
+    label: Safety Population Flag
+    type: Char
+    length: 1
+    role: Population Flag
+    core: Req
+    origin: Predecessor
+    derivation: ADSL.SAFFL.

@@ -1,0 +1,276 @@
+domain: DM
+label: Demographics
+class: Special-Purpose
+structure: One record per subject
+purpose: Tabulation
+keys: [STUDYID, USUBJID]
+ig_anchor: "DM+Specification"
+
+sources:
+  - form: "1. Demographics and History"
+    item_groups: [RACE, group1, group2]
+  - form: "Eligibility"
+    item_groups: [INCA]
+  - form: "3. Randomize"
+    item_groups: [rand1]
+  - form: "Disposition"
+    item_groups: [PD]
+
+variables:
+  STUDYID:
+    label: Study Identifier
+    type: Char
+    length: 12
+    role: Identifier
+    core: Req
+    origin: Sponsor Defined
+    derivation: Study constant; assigned at study setup ("CART-T-PILOT").
+
+  DOMAIN:
+    label: Domain Abbreviation
+    type: Char
+    length: 2
+    role: Identifier
+    core: Req
+    origin: Assigned
+    derivation: Constant value "DM".
+
+  USUBJID:
+    label: Unique Subject Identifier
+    type: Char
+    length: 30
+    role: Identifier
+    core: Req
+    origin: Derived
+    derivation: paste(STUDYID, SITEID, SUBJID, sep="-")
+
+  SUBJID:
+    label: Subject Identifier for the Study
+    type: Char
+    length: 10
+    role: Topic
+    core: Req
+    origin: CRF
+    raw_column: studysubjectid
+    derivation: Copied from ODM studysubjectid.
+
+  RFSTDTC:
+    label: Subject Reference Start Date/Time
+    type: Char
+    length: 19
+    role: Record Qualifier
+    core: Exp
+    origin: Derived
+    derivation: First on-study date; falls back to RFICDTC when no earlier study activity exists.
+
+  RFENDTC:
+    label: Subject Reference End Date/Time
+    type: Char
+    length: 19
+    role: Record Qualifier
+    core: Exp
+    origin: Derived
+    derivation: EARLYTERMINATIONDATE if available, else date of last completed visit.
+
+  RFXSTDTC:
+    label: Date/Time of First Study Treatment
+    type: Char
+    length: 19
+    role: Record Qualifier
+    core: Perm
+    origin: Derived
+    derivation: Earliest EX.EXSTDTC for the subject.
+
+  RFXENDTC:
+    label: Date/Time of Last Study Treatment
+    type: Char
+    length: 19
+    role: Record Qualifier
+    core: Perm
+    origin: Derived
+    derivation: Latest EX.EXENDTC (or EXSTDTC when no end is recorded) for the subject.
+
+  RFICDTC:
+    label: Date/Time of Informed Consent
+    type: Char
+    length: 10
+    role: Record Qualifier
+    core: Exp
+    origin: CRF
+    raw_item: CONSENTEDDT
+    source_form: "Disposition"
+    source_item_group: PD
+    derivation: Copied from Disposition.PD.CONSENTEDDT.
+
+  RFPENDTC:
+    label: Date/Time of End of Participation
+    type: Char
+    length: 10
+    role: Record Qualifier
+    core: Exp
+    origin: Derived
+    raw_item: EARLYTERMINATIONDATE
+    source_form: "Disposition"
+    derivation: EARLYTERMINATIONDATE if subject terminated early, else date of final scheduled visit.
+
+  DTHDTC:
+    label: Date/Time of Death
+    type: Char
+    length: 10
+    role: Record Qualifier
+    core: Perm
+    origin: Predecessor
+    derivation: Earliest AE.AEENDTC where AESDTH = "Y" (and DS death record if present).
+
+  DTHFL:
+    label: Subject Death Flag
+    type: Char
+    length: 1
+    role: Record Qualifier
+    core: Perm
+    origin: Derived
+    codelist: NY
+    derivation: "Y" if DTHDTC is non-null; else null.
+
+  SITEID:
+    label: Study Site Identifier
+    type: Char
+    length: 8
+    role: Record Qualifier
+    core: Req
+    origin: CRF
+    derivation: From subject's enrolling site (ODM site OID).
+
+  BRTHDTC:
+    label: Date/Time of Birth
+    type: Char
+    length: 10
+    role: Record Qualifier
+    core: Perm
+    origin: CRF
+    raw_item: BDAY
+    source_form: "Eligibility"
+    source_item_group: INCA
+    derivation: Copied from Eligibility.INCA.BDAY. When only PTBYEAR is available, set BRTHDTC = paste0(PTBYEAR, "-01-01") and record imputation in SUPPDM.
+
+  AGE:
+    label: Age
+    type: Num
+    length: 8
+    role: Record Qualifier
+    core: Exp
+    origin: Derived
+    raw_item: PTAGE
+    source_form: "Eligibility"
+    source_item_group: INCA
+    derivation: Integer years between BRTHDTC and RFICDTC; if BRTHDTC missing, use PTAGE as-collected.
+
+  AGEU:
+    label: Age Units
+    type: Char
+    length: 10
+    role: Variable Qualifier
+    core: Exp
+    origin: Assigned
+    derivation: Constant value "YEARS".
+
+  SEX:
+    label: Sex
+    type: Char
+    length: 1
+    role: Record Qualifier
+    core: Req
+    origin: CRF
+    codelist: SEX
+    raw_item: PTSEX
+    source_form: "1. Demographics and History"
+    source_item_group: RACE
+    code_map: {M: M, F: F, U: U}
+    derivation: Map PTSEX -> SEX via code_map; if missing, set "U".
+
+  RACE:
+    label: Race
+    type: Char
+    length: 40
+    role: Record Qualifier
+    core: Exp
+    origin: CRF
+    codelist: RACE
+    raw_item: PTRACE
+    source_form: "1. Demographics and History"
+    source_item_group: RACE
+    derivation: Map PTRACE to CDISC RACE CT. Free text in OTHERRACE -> RACE = "OTHER" with original text in SUPPDM.
+
+  ETHNIC:
+    label: Ethnicity
+    type: Char
+    length: 40
+    role: Record Qualifier
+    core: Perm
+    origin: CRF
+    codelist: ETHNIC
+    raw_item: HISP
+    source_form: "1. Demographics and History"
+    source_item_group: RACE
+    code_map: {Y: HISPANIC OR LATINO, N: NOT HISPANIC OR LATINO}
+    derivation: Map HISP via code_map; blank -> null.
+
+  ARMCD:
+    label: Planned Arm Code
+    type: Char
+    length: 20
+    role: Record Qualifier
+    core: Req
+    origin: Derived
+    raw_item: PROFILE
+    source_form: "3. Randomize"
+    source_item_group: rand1
+    derivation: |
+      "TREATMENT" when subject was randomized (PROFILE populated); "SCRNFAIL"
+      otherwise. This study captures a single observational treatment group;
+      the demographic phenotype from PROFILE is a stratification cohort, not
+      a treatment arm, and is carried into ADSL.STRAT1/STRAT1L instead.
+
+  ARM:
+    label: Description of Planned Arm
+    type: Char
+    length: 40
+    role: Synonym Qualifier
+    core: Req
+    origin: Derived
+    raw_item: PROFILE
+    source_form: "3. Randomize"
+    derivation: |
+      "Study Treatment" for ARMCD = "TREATMENT"; "Screen Failure" for
+      ARMCD = "SCRNFAIL".
+
+  ACTARMCD:
+    label: Actual Arm Code
+    type: Char
+    length: 20
+    role: Record Qualifier
+    core: Req
+    origin: Derived
+    derivation: |
+      Equals ARMCD. No treatment-administration data is collected in this
+      study, so ACTARMCD mirrors ARMCD. Sponsors with real exposure data
+      would substitute "NOTTRT" (per CDISC CT) when a randomized subject
+      did not receive the assigned treatment.
+
+  ACTARM:
+    label: Description of Actual Arm
+    type: Char
+    length: 40
+    role: Synonym Qualifier
+    core: Req
+    origin: Derived
+    derivation: Mirrors ARM (same reason as ACTARMCD).
+
+  COUNTRY:
+    label: Country
+    type: Char
+    length: 3
+    role: Record Qualifier
+    core: Req
+    origin: Assigned
+    derivation: Constant "USA" for this single-country pilot.

@@ -1,0 +1,192 @@
+dataset: ADDS
+label: Disposition Analysis Dataset
+structure: OCCDS - One record per disposition event per subject
+purpose: Analysis
+keys: [STUDYID, USUBJID, DSSEQ]
+ig_reference: "OCCDS IG v1.1"
+
+sources:
+  - sdtm_domain: DS
+  - sdtm_domain: ADSL
+
+variables:
+  STUDYID:
+    label: Study Identifier
+    type: Char
+    length: 12
+    role: Identifier
+    core: Req
+    origin: Predecessor
+    derivation: DS.STUDYID.
+
+  USUBJID:
+    label: Unique Subject Identifier
+    type: Char
+    length: 30
+    role: Identifier
+    core: Req
+    origin: Predecessor
+    derivation: DS.USUBJID.
+
+  SUBJID:
+    label: Subject Identifier for the Study
+    type: Char
+    length: 10
+    role: Identifier
+    core: Req
+    origin: Predecessor
+    derivation: ADSL.SUBJID via merge.
+
+  SITEID:
+    label: Study Site Identifier
+    type: Char
+    length: 8
+    role: Identifier
+    core: Req
+    origin: Predecessor
+    derivation: ADSL.SITEID via merge.
+
+  AGE:
+    label: Age
+    type: Num
+    length: 8
+    role: Covariate
+    core: Req
+    origin: Predecessor
+    derivation: ADSL.AGE.
+
+  SEX:
+    label: Sex
+    type: Char
+    length: 1
+    role: Covariate
+    core: Req
+    origin: Predecessor
+    derivation: ADSL.SEX.
+
+  RACE:
+    label: Race
+    type: Char
+    length: 40
+    role: Covariate
+    core: Req
+    origin: Predecessor
+    derivation: ADSL.RACE.
+
+  STRAT1:
+    label: Phenotype Stratification Code
+    type: Char
+    length: 8
+    role: Stratification
+    core: Perm
+    origin: Predecessor
+    derivation: ADSL.STRAT1.
+
+  TRT01P:
+    label: Planned Treatment for Period 01
+    type: Char
+    length: 40
+    role: Treatment
+    core: Req
+    origin: Predecessor
+    derivation: ADSL.TRT01P.
+
+  TRT01A:
+    label: Actual Treatment for Period 01
+    type: Char
+    length: 40
+    role: Treatment
+    core: Req
+    origin: Predecessor
+    derivation: ADSL.TRT01A.
+
+  DSSEQ:
+    label: Sequence Number
+    type: Num
+    length: 8
+    role: Identifier
+    core: Req
+    origin: Predecessor
+    derivation: DS.DSSEQ.
+
+  DSTERM:
+    label: Reported Term for the Disposition Event
+    type: Char
+    length: 200
+    role: Topic
+    core: Req
+    origin: Predecessor
+    derivation: DS.DSTERM.
+
+  DSDECOD:
+    label: Standardized Disposition Term
+    type: Char
+    length: 40
+    role: Synonym Qualifier
+    core: Req
+    origin: Predecessor
+    derivation: DS.DSDECOD.
+
+  DSCAT:
+    label: Category for Disposition Event
+    type: Char
+    length: 40
+    role: Grouping Qualifier
+    core: Req
+    origin: Predecessor
+    derivation: DS.DSCAT.
+
+  EPOCH:
+    label: Epoch
+    type: Char
+    length: 40
+    role: Timing
+    core: Perm
+    origin: Predecessor
+    derivation: DS.EPOCH.
+
+  ASTDT:
+    label: Analysis Start Date
+    type: Num
+    length: 8
+    role: Timing
+    core: Exp
+    origin: Derived
+    derivation: as.Date(DS.DSSTDTC). Via admiral::derive_vars_dt().
+
+  ASTDY:
+    label: Analysis Start Relative Day
+    type: Num
+    length: 8
+    role: Timing
+    core: Perm
+    origin: Derived
+    derivation: as.integer(ASTDT - ADSL.TRTSDT) + ifelse(ASTDT >= ADSL.TRTSDT, 1L, 0L). Skip day 0.
+
+  FINALFL:
+    label: Final Disposition Record Flag
+    type: Char
+    length: 1
+    role: Analysis Flag
+    core: Exp
+    origin: Derived
+    codelist: NY
+    derivation: "Y" on the chronologically last disposition row per USUBJID (latest ASTDT, then highest DSSEQ); else null. Via admiral::derive_var_extreme_flag().
+
+  SAFFL:
+    label: Safety Population Flag
+    type: Char
+    length: 1
+    role: Population Flag
+    core: Req
+    origin: Predecessor
+    derivation: ADSL.SAFFL.
+
+  ITTFL:
+    label: Intent-to-Treat Population Flag
+    type: Char
+    length: 1
+    role: Population Flag
+    core: Exp
+    origin: Predecessor
+    derivation: ADSL.ITTFL.

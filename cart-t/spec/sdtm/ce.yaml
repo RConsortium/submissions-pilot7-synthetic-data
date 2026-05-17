@@ -1,0 +1,174 @@
+domain: CE
+label: Clinical Events
+class: Events
+structure: One record per clinical event (Suspected MI) per subject
+purpose: Tabulation
+keys: [STUDYID, USUBJID, CETERM, CESTDTC]
+ig_anchor: "CE+Specification"
+
+sources:
+  - form: "Suspected MI"
+    item_groups: [EVENT]
+
+scope_note: |
+  In SDTMIG v3.3, Clinical Events captures protocol-defined disease events
+  that are not adverse events. The Suspected MI form captures the event
+  itself (DESC, EVENTDATE) in the EVENT item group. The PANEL item group
+  (CK, CKMB, TROP) holds lab values that belong in LB. UPLOADS (ANGIO,
+  EKG, with their dates/times) describe diagnostic procedures and belong
+  in PR / EG respectively. Those are out of scope for this domain.
+
+variables:
+  STUDYID:
+    label: Study Identifier
+    type: Char
+    length: 12
+    role: Identifier
+    core: Req
+    origin: Sponsor Defined
+    derivation: Study constant ("CART-T-PILOT").
+
+  DOMAIN:
+    label: Domain Abbreviation
+    type: Char
+    length: 2
+    role: Identifier
+    core: Req
+    origin: Assigned
+    derivation: Constant value "CE".
+
+  USUBJID:
+    label: Unique Subject Identifier
+    type: Char
+    length: 30
+    role: Identifier
+    core: Req
+    origin: Derived
+    derivation: Joined from DM via subjectkey.
+
+  CESEQ:
+    label: Sequence Number
+    type: Num
+    length: 8
+    role: Identifier
+    core: Req
+    origin: Derived
+    derivation: row_number() within USUBJID, ordered by CESTDTC.
+
+  CETERM:
+    label: Reported Term for the Clinical Event
+    type: Char
+    length: 200
+    role: Topic
+    core: Req
+    origin: CRF
+    raw_item: DESC
+    source_form: "Suspected MI"
+    source_item_group: EVENT
+    derivation: Copied from EVENT.DESC (verbatim event description).
+
+  CEDECOD:
+    label: Dictionary-Derived Term
+    type: Char
+    length: 200
+    role: Synonym Qualifier
+    core: Perm
+    origin: Assigned
+    derivation: Coded clinical-event term (e.g., MedDRA PT); null until coding completes.
+
+  CECAT:
+    label: Category for Clinical Event
+    type: Char
+    length: 40
+    role: Grouping Qualifier
+    core: Req
+    origin: Assigned
+    derivation: Constant "SUSPECTED MI" (protocol-defined event category).
+
+  CEPRESP:
+    label: Clinical Event Pre-Specified
+    type: Char
+    length: 1
+    role: Variable Qualifier
+    core: Exp
+    origin: Protocol
+    codelist: NY
+    derivation: Constant "Y" — Suspected MI is a protocol-defined event of interest.
+
+  CEOCCUR:
+    label: Clinical Event Occurrence
+    type: Char
+    length: 1
+    role: Record Qualifier
+    core: Exp
+    origin: CRF
+    codelist: NY
+    derivation: Constant "Y" on every emitted row (rows exist only when the event occurred).
+
+  CESTAT:
+    label: Completion Status
+    type: Char
+    length: 8
+    role: Record Qualifier
+    core: Perm
+    origin: Derived
+    derivation: "NOT DONE" if EVENT items were not collected when expected; else null.
+
+  CESEV:
+    label: Severity/Intensity
+    type: Char
+    length: 10
+    role: Record Qualifier
+    core: Perm
+    origin: CRF
+    codelist: AESEV
+    derivation: Not captured in this study's Suspected MI form; null.
+
+  CESER:
+    label: Serious Event
+    type: Char
+    length: 1
+    role: Record Qualifier
+    core: Perm
+    origin: Derived
+    codelist: NY
+    derivation: Constant "Y" (a suspected MI is always serious by protocol definition).
+
+  CESTDTC:
+    label: Start Date/Time of Clinical Event
+    type: Char
+    length: 10
+    role: Timing
+    core: Exp
+    origin: CRF
+    raw_item: EVENTDATE
+    source_form: "Suspected MI"
+    source_item_group: EVENT
+    derivation: Copied from EVENT.EVENTDATE.
+
+  CESTDY:
+    label: Study Day of Start of Clinical Event
+    type: Num
+    length: 8
+    role: Timing
+    core: Perm
+    origin: Derived
+    derivation: as.integer(as.Date(CESTDTC) - as.Date(DM.RFSTDTC)) + ifelse(CESTDTC >= RFSTDTC, 1L, 0L). Skip day 0.
+
+  VISITNUM:
+    label: Visit Number
+    type: Num
+    length: 8
+    role: Timing
+    core: Perm
+    origin: CRF
+    derivation: From OpenClinica event (studyeventoid) of the Suspected MI form.
+
+  VISIT:
+    label: Visit Name
+    type: Char
+    length: 40
+    role: Timing
+    core: Perm
+    origin: CRF
+    derivation: From OpenClinica eventname.
