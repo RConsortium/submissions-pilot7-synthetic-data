@@ -84,17 +84,16 @@ list whenever you rotate credentials or change CI.
   root (or has `sudo`). For non-root runners, bake R into the
   container image (e.g. `rocker/r-ver:4.6.0`).
 - **System libraries** that `{renv}` cannot install for you (compilers,
-  `libxml2-dev`, `libcurl4-openssl-dev`, `libssl-dev`, `libgit2-dev`).
-  On Ubuntu/WSL the rstudio image already has these; on a fresh
-  runner, `bootstrap_system.sh` apt-installs them alongside `r-base`.
+  `libxml2-dev`, `libcurl4-openssl-dev`, `libssl-dev`, `libgit2-dev`,
+  `libuv1-dev`). On Ubuntu/WSL the rstudio image already has these;
+  on a fresh runner, `bootstrap_system.sh` apt-installs them
+  alongside `r-base`.
 - **`gh` CLI authenticated** as the bot identity with `repo` scope on
   `RConsortium/submissions-pilot7-synthetic-data`. Verify with
   `gh auth status`. The token needs: read issues, write issues
-  (comment + label + **create**), read/write PRs, push branches.
-  In particular, `issues: write` (create) must be granted, otherwise
-  the documented "auto-file a `claude-needs-human` issue on bootstrap
-  failure" fallback in `triage_issues.md` Step 0 will 403 and the
-  failure will only surface in the routine log.
+  (comment + label), read/write PRs, push branches. Issue *creation*
+  is not required — bootstrap failures surface in the routine log
+  only, not as an auto-filed issue.
 - **`git` user.name and user.email** set to the bot identity so commits
   and PR authorship are recognisable. Do **not** use a real person's
   identity — humans should be able to tell at a glance.

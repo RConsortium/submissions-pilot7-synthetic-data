@@ -67,15 +67,10 @@ Algorithm (implemented in `automation/bootstrap_r.R`):
    matches. If any still don't match, exit non-zero — **do not proceed
    to issue triage**.
 
-If Step 0 exits non-zero, stop the whole run. Open **one** issue on the
-repo titled `automated triage: bootstrap failed` with the captured
-stdout/stderr (or update the existing one if it's still open), label it
-`claude-needs-human`, and exit. Do not touch any other issue this run.
-
-If the `gh issue create` call also fails (e.g. the integration token
-lacks `issues: write`), print the captured stdout/stderr to the
-routine log and exit non-zero anyway — the routine log is the
-fallback surface a human will see, so make sure the failure is loud
+If Step 0 exits non-zero, stop the whole run. Print the captured
+stdout/stderr to the routine log and exit non-zero. Do not open a
+GitHub issue and do not touch any other issue this run — the routine
+log is the surface a human will see, so make sure the failure is loud
 there.
 
 ## State tracking
