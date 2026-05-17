@@ -9,8 +9,8 @@ configured separately.
 | File | Purpose |
 |---|---|
 | `triage_issues.md`    | Triage every open GitHub issue: answer from the repo, or open a ready-for-review PR + comment. Full rules, hard limits, and end-of-run output spec are inside the file. |
-| `bootstrap_system.sh` | Pre-pre-flight installer. `apt-get`s `r-base` + `r-base-dev` + the system libraries `{pak}` compiles against, but only if `Rscript` is missing from `PATH`. Idempotent. Runs first in Step 0 of `triage_issues.md`. |
-| `bootstrap_r.R`       | Pre-flight installer. Reads `cart-t/renv.lock`, diffs against `installed.packages()`, and uses `{pak}` to install whatever is missing or version-mismatched. Idempotent — no-op on a warm machine. Runs after `bootstrap_system.sh` in Step 0. |
+| `bootstrap_system.sh` | Pre-pre-flight installer. `apt-get`s `r-base` + `r-base-dev` + the system libraries `{renv}` compiles packages against, but only if `Rscript` is missing from `PATH`. Idempotent. Runs first in Step 0 of `triage_issues.md`. |
+| `bootstrap_r.R`       | Pre-flight installer. Reads `cart-t/renv.lock`, diffs against `installed.packages()`, and uses `{renv}` to install whatever is missing or version-mismatched. Idempotent — no-op on a warm machine. Runs after `bootstrap_system.sh` in Step 0. |
 
 ## How it runs
 
@@ -83,7 +83,7 @@ list whenever you rotate credentials or change CI.
   via `apt-get` at the start of every run — but only if the runner is
   root (or has `sudo`). For non-root runners, bake R into the
   container image (e.g. `rocker/r-ver:4.6.0`).
-- **System libraries** that `{pak}` cannot install for you (compilers,
+- **System libraries** that `{renv}` cannot install for you (compilers,
   `libxml2-dev`, `libcurl4-openssl-dev`, `libssl-dev`, `libgit2-dev`).
   On Ubuntu/WSL the rstudio image already has these; on a fresh
   runner, `bootstrap_system.sh` apt-installs them alongside `r-base`.
@@ -129,7 +129,7 @@ list whenever you rotate credentials or change CI.
   `cart-t/`. Keep it accurate; the routine reads it before editing.
 - **`cart-t/renv.lock`** is the source of truth for the R environment.
   When you bump packages, commit the new lockfile; the next routine run
-  will `pak::pak()` the delta automatically.
+  will `renv::install()` the delta automatically.
 - **Branch protection on `main`** that requires PR review. The routine
   opens PRs ready-for-review but never merges; a human always merges.
 

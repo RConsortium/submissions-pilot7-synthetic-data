@@ -38,7 +38,7 @@ Rscript automation/bootstrap_r.R      # installs / version-matches every package
 
 `bootstrap_system.sh` exits 0 immediately when `Rscript` is already on
 `PATH`. On a fresh Debian/Ubuntu container with no R, it `apt-get`s
-`r-base`, `r-base-dev`, and the system libraries `{pak}` needs to
+`r-base`, `r-base-dev`, and the system libraries `{renv}` needs to
 compile from source (`libxml2-dev`, `libcurl4-openssl-dev`,
 `libssl-dev`, `libgit2-dev`). It requires either root or `sudo`; if
 neither is available, it exits non-zero with a clear message and you
@@ -48,19 +48,21 @@ the routine's container image in that case).
 Algorithm (implemented in `automation/bootstrap_r.R`):
 
 1. Read `cart-t/renv.lock` (JSON). Warn if its `R$Version` ≠ running R.
-2. Set `options(repos = …)` to the repos in the lockfile so `pak`
-   pulls from the same mirror `renv` used.
-3. Ensure `{pak}` itself is installed (from the r-lib precompiled
-   universe; falls back to CRAN).
+2. Set `options(repos = …)` to the repos in the lockfile so `renv`
+   pulls from the same mirror the lockfile pinned.
+3. Ensure `{renv}` itself is installed (from the active repos).
 4. Diff `installed.packages()` against `lock$Packages`. Build a list of
-   pak install specs only for packages that are **missing** or at the
+   install specs only for packages that are **missing** or at the
    **wrong version**. Each spec preserves source:
    - `Repository` / `CRAN` → `pkg@version`
    - `GitHub` → `user/repo@sha` (or `@ref` if no sha)
    - `Bioconductor` → `bioc::pkg`
    - `git` → `git::url@sha`
 5. If the diff is empty, exit 0 silently. Otherwise call
-   `pak::pak(specs, ask = FALSE)`.
+   `renv::install(specs, prompt = FALSE)`. (Earlier versions used
+   `{pak}`; switched to `{renv}` because pak's async-curl subprocess
+   fails SSL validation in some environments where base R's downloader
+   — which renv uses — works fine.)
 6. Re-read `installed.packages()` and verify every locked package now
    matches. If any still don't match, exit non-zero — **do not proceed
    to issue triage**.
