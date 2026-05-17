@@ -1,7 +1,15 @@
 ## --------------------------------------------------------------------
 ## bootstrap_r.R — ensure R + every package in cart-t/renv.lock is
-## installed via {pak}. Idempotent: installs only what is missing or
+## installed. Idempotent: installs only what is missing or
 ## version-mismatched.
+##
+## Install mechanism: {renv}::install(), which uses base R's downloader.
+## Earlier versions of this script used {pak}, but pak's async curl
+## subprocess fails SSL validation in environments behind self-signed
+## proxies (e.g. corporate / cloud-IDE TLS-inspection setups), even
+## when base R's install.packages() works fine in the same environment.
+## renv reuses base R's downloader and supports the same pkg@version
+## spec syntax we already emit per lockfile entry.
 ##
 ## Usage:   Rscript automation/bootstrap_r.R
 ## Exits:   0 = environment ready;  non-zero = bootstrap failed.
@@ -34,7 +42,7 @@ if (!is.null(want_r) && want_r != have_r) {
       "(continuing; minor mismatches are usually fine)")
 }
 
-## ---- 2. Repos (so pak hits the same mirror renv used) ---------------
+## ---- 2. Repos (so renv hits the same mirror the lockfile pinned) ----
 if (length(lock$R$Repositories)) {
   repos <- setNames(
     vapply(lock$R$Repositories, `[[`, character(1), "URL"),
@@ -44,20 +52,11 @@ if (length(lock$R$Repositories)) {
   log("Repos set:", paste(names(repos), repos, sep = "=", collapse = ", "))
 }
 
-## ---- 3. pak --------------------------------------------------------
-if (!requireNamespace("pak", quietly = TRUE)) {
-  log("Installing {pak} from r-lib universe…")
-  install.packages(
-    "pak",
-    repos = sprintf(
-      "https://r-lib.github.io/p/pak/stable/%s/%s/%s",
-      .Platform$pkgType, R.Version()$os, R.Version()$arch
-    )
-  )
-  if (!requireNamespace("pak", quietly = TRUE)) {
-    install.packages("pak", repos = getOption("repos"))
-  }
-  if (!requireNamespace("pak", quietly = TRUE)) die("could not install {pak}")
+## ---- 3. renv -------------------------------------------------------
+if (!requireNamespace("renv", quietly = TRUE)) {
+  log("Installing {renv}…")
+  install.packages("renv", repos = getOption("repos"))
+  if (!requireNamespace("renv", quietly = TRUE)) die("could not install {renv}")
 }
 
 ## ---- 4. Diff installed vs locked ------------------------------------
@@ -124,12 +123,12 @@ if (!length(specs)) {
 if (length(missing_pkgs)) log("  missing:    ", paste(missing_pkgs, collapse = ", "))
 if (length(wrong_ver))    log("  mismatched: ", paste(wrong_ver,    collapse = ", "))
 
-## ---- 5. Install via pak --------------------------------------------
-log(sprintf("Installing %d package(s) via {pak}…", length(specs)))
+## ---- 5. Install via renv -------------------------------------------
+log(sprintf("Installing %d package(s) via {renv}…", length(specs)))
 ok <- tryCatch({
-  pak::pak(specs, ask = FALSE)
+  renv::install(specs, prompt = FALSE)
   TRUE
-}, error = function(e) { log("pak::pak failed:", conditionMessage(e)); FALSE })
+}, error = function(e) { log("renv::install failed:", conditionMessage(e)); FALSE })
 
 if (!ok) die("package installation failed — see messages above")
 
