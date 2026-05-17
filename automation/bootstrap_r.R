@@ -68,7 +68,7 @@ inst <- as.data.frame(
   installed.packages()[, c("Package", "Version"), drop = FALSE],
   stringsAsFactors = FALSE
 )
-have_ver <- setNames(inst$Version, inst$Package)
+have_ver <- as.list(setNames(inst$Version, inst$Package))
 
 make_spec <- function(name, info) {
   src  <- info$Source %||% "Repository"
@@ -138,7 +138,7 @@ inst2 <- as.data.frame(
   installed.packages()[, c("Package", "Version"), drop = FALSE],
   stringsAsFactors = FALSE
 )
-have2 <- setNames(inst2$Version, inst2$Package)
+have2 <- as.list(setNames(inst2$Version, inst2$Package))
 
 still_missing <- character(0)
 for (name in names(pkgs)) {
