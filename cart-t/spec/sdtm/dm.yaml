@@ -108,11 +108,12 @@ variables:
     source_form: "Disposition"
     source_item_group: PD
     derivation: |
-      Copied from Disposition.PD.CONSENTEDDT. NOTE: this item is present for
-      only 1 subject in the synthetic export; the remaining 809 subjects have
-      RFICDTC = null. This is a data-coverage limitation of the source, not a
-      derivation error. RFSTDTC falls back to the first event startdate for
-      those subjects (see SD1210 / SD1240 known findings).
+      Disposition.PD.CONSENTEDDT when available; otherwise the minimum
+      startdate of the Eligibility form (SE_ENROLLMENT event) for the subject,
+      used as a proxy for the informed consent encounter. CONSENTEDDT is
+      present for only 1 subject; the eligibility startdate proxy covers 580
+      subjects. The remaining ~230 subjects retain RFICDTC = null (no
+      Eligibility form startdate in the export).
 
   RFPENDTC:
     label: Date/Time of End of Participation
@@ -278,10 +279,11 @@ variables:
     core: Req
     origin: Derived
     derivation: |
-      Equals ARMCD. No treatment-administration data is collected in this
-      study, so ACTARMCD mirrors ARMCD. Sponsors with real exposure data
-      would substitute "NOTTRT" (per CDISC CT) when a randomized subject
-      did not receive the assigned treatment.
+      RECEIVEDINTERVENTION = No for all subjects in this export, so no subject
+      actually received study treatment. Randomized subjects (ARMCD =
+      "TREATMENT") are coded ACTARMCD = "NOTTRT" per SDTMIG guidance for
+      subjects assigned to but not receiving treatment. Screen failure subjects
+      retain ACTARMCD = "SCRNFAIL".
 
   ACTARM:
     label: Description of Actual Arm
@@ -290,7 +292,9 @@ variables:
     role: Synonym Qualifier
     core: Req
     origin: Derived
-    derivation: Mirrors ARM (same reason as ACTARMCD).
+    derivation: |
+      "Not treated" for ACTARMCD = "NOTTRT"; "Screen Failure" for
+      ACTARMCD = "SCRNFAIL".
 
   COUNTRY:
     label: Country

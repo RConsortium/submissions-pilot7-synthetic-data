@@ -73,6 +73,16 @@ visit_dates <- flat |>
     .by = subjectkey
   )
 
+## Eligibility form (SE_ENROLLMENT) startdate per subject — used as proxy for
+## RFICDTC when Disposition.CONSENTEDDT is absent. The enrollment encounter is
+## the first on-study contact and is a defensible surrogate for consent date in
+## a synthetic pilot where actual ICF dates are sparsely recorded.
+elig_dates <- ie_raw |>
+  filter(!is.na(startdate) & nzchar(startdate)) |>
+  mutate(.sd = normalize_iso_date(substr(startdate, 1, 10))) |>
+  filter(!is.na(.sd)) |>
+  summarise(elig_startdate = min(.sd), .by = subjectkey)
+
 demog      <- pivot_subject_items(dm_raw,   c("PTSEX", "PTRACE", "HISP", "OTHERRACE"))
 elig       <- pivot_subject_items(ie_raw,   c("BDAY", "PTAGE", "PTBYEAR"))
 randomized <- pivot_subject_items(rand_raw, c("PROFILE"))
@@ -84,6 +94,7 @@ dm <- subjects |>
   left_join(randomized,  by = "subjectkey") |>
   left_join(disp,        by = "subjectkey") |>
   left_join(visit_dates, by = "subjectkey") |>
+  left_join(elig_dates,  by = "subjectkey") |>
   mutate(
     STUDYID  = "CART-T-PILOT",
     DOMAIN   = "DM",
@@ -91,9 +102,10 @@ dm <- subjects |>
     SUBJID   = studysubjectid,
     USUBJID  = make_usubjid(SUBJID),
 
-    ## RFICDTC: informed consent date from Disposition.CONSENTEDDT.
-    ## Sparsely populated in source data (only 1 subject has CONSENTEDDT).
-    RFICDTC  = normalize_iso_date(CONSENTEDDT),
+    ## RFICDTC: consent date from Disposition.CONSENTEDDT where available;
+    ## falls back to the Eligibility form (SE_ENROLLMENT) startdate as a proxy.
+    ## Remaining subjects (no Eligibility startdate) will have RFICDTC = null.
+    RFICDTC  = dplyr::coalesce(normalize_iso_date(CONSENTEDDT), elig_startdate),
 
     ## RFSTDTC / RFENDTC / RFPENDTC: use CRF dates where available;
     ## fall back to first / last event startdate from the flat export.
@@ -131,8 +143,19 @@ dm <- subjects |>
 
     ARMCD    = armcd_map(PROFILE),
     ARM      = arm_map(PROFILE),
-    ACTARMCD = ARMCD,
-    ACTARM   = ARM,
+
+    ## ACTARMCD / ACTARM: RECEIVEDINTERVENTION = No for all subjects in this
+    ## export, so no subject actually received treatment. Randomized subjects
+    ## (ARMCD = "TREATMENT") are coded ACTARMCD = "NOTTRT" per SDTMIG guidance
+    ## for subjects assigned to treatment who did not receive it.
+    ACTARMCD = dplyr::case_when(
+      armcd_map(PROFILE) == "TREATMENT" ~ "NOTTRT",
+      TRUE ~ armcd_map(PROFILE)
+    ),
+    ACTARM   = dplyr::case_when(
+      arm_map(PROFILE) == "Study Treatment" ~ "Not treated",
+      TRUE ~ arm_map(PROFILE)
+    ),
 
     DTHDTC   = NA_character_,
     DTHFL    = NA_character_,
