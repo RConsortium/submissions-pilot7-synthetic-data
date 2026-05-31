@@ -21,8 +21,6 @@ to autonomously resolve P21 validation findings posted on a GitHub issue by
 reading the issue, diagnosing root causes across all affected domains, fixing
 the R build programs, rebuilding the datasets, and exporting to XPT.
 
-Work from the project root: `D:/submissions-pilot7-synthetic-data/cart-t`
-
 ---
 
 ## Step 1 — Fetch the GitHub issue and its comments
