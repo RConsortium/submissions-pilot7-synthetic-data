@@ -34,16 +34,56 @@ pivot_subject_items <- function(raw, items) {
     )
 }
 
+## Map PTRACE multi-select codes (comma-separated integers) to CDISC RACE CT.
+## MSL_62 codelist from OpenClinica XML:
+##   1 = American Indian/Alaskan Native
+##   2 = Asian
+##   3 = Black/African American
+##   4 = Native Hawaiian/Pacific Islander
+##   5 = White/Caucasian
+##   6 = Other (free text captured in OTHERRACE)
+## When multiple codes are comma-separated, SDTMIG instructs RACE = "MULTIPLE".
+map_race <- function(ptrace) {
+  race_map <- c(
+    "1" = "AMERICAN INDIAN OR ALASKA NATIVE",
+    "2" = "ASIAN",
+    "3" = "BLACK OR AFRICAN AMERICAN",
+    "4" = "NATIVE HAWAIIAN OR OTHER PACIFIC ISLANDER",
+    "5" = "WHITE",
+    "6" = "OTHER"
+  )
+  dplyr::case_when(
+    is.na(ptrace) | !nzchar(trimws(ptrace)) ~ NA_character_,
+    grepl(",", ptrace, fixed = TRUE)         ~ "MULTIPLE",
+    ptrace %in% names(race_map)              ~ unname(race_map[ptrace]),
+    TRUE                                     ~ NA_character_
+  )
+}
+
+## First and last event startdate per subject, used as fallback for
+## RFSTDTC / RFENDTC / RFPENDTC when CRF-specific dates are absent.
+## startdate can be "yyyy-mm-dd" or "yyyy-mm-ddTHH:MM:SS"; take first 10 chars.
+visit_dates <- flat |>
+  filter(!is.na(startdate) & nzchar(startdate)) |>
+  mutate(startdate_ymd = normalize_iso_date(substr(startdate, 1, 10))) |>
+  filter(!is.na(startdate_ymd)) |>
+  summarise(
+    first_visit_dt = min(startdate_ymd),
+    last_visit_dt  = max(startdate_ymd),
+    .by = subjectkey
+  )
+
 demog      <- pivot_subject_items(dm_raw,   c("PTSEX", "PTRACE", "HISP", "OTHERRACE"))
 elig       <- pivot_subject_items(ie_raw,   c("BDAY", "PTAGE", "PTBYEAR"))
 randomized <- pivot_subject_items(rand_raw, c("PROFILE"))
 disp       <- pivot_subject_items(ds_raw,   c("CONSENTEDDT", "EARLYTERMINATIONDATE"))
 
 dm <- subjects |>
-  left_join(demog,      by = "subjectkey") |>
-  left_join(elig,       by = "subjectkey") |>
-  left_join(randomized, by = "subjectkey") |>
-  left_join(disp,       by = "subjectkey") |>
+  left_join(demog,       by = "subjectkey") |>
+  left_join(elig,        by = "subjectkey") |>
+  left_join(randomized,  by = "subjectkey") |>
+  left_join(disp,        by = "subjectkey") |>
+  left_join(visit_dates, by = "subjectkey") |>
   mutate(
     STUDYID  = "CART-T-PILOT",
     DOMAIN   = "DM",
@@ -51,12 +91,23 @@ dm <- subjects |>
     SUBJID   = studysubjectid,
     USUBJID  = make_usubjid(SUBJID),
 
+    ## RFICDTC: informed consent date from Disposition.CONSENTEDDT.
+    ## Sparsely populated in source data (only 1 subject has CONSENTEDDT).
     RFICDTC  = normalize_iso_date(CONSENTEDDT),
-    RFSTDTC  = RFICDTC,
-    RFENDTC  = normalize_iso_date(EARLYTERMINATIONDATE),
+
+    ## RFSTDTC / RFENDTC / RFPENDTC: use CRF dates where available;
+    ## fall back to first / last event startdate from the flat export.
+    RFSTDTC  = dplyr::coalesce(RFICDTC, first_visit_dt),
+    RFENDTC  = dplyr::coalesce(
+      normalize_iso_date(EARLYTERMINATIONDATE),
+      last_visit_dt
+    ),
     RFXSTDTC = NA_character_,
     RFXENDTC = NA_character_,
-    RFPENDTC = normalize_iso_date(EARLYTERMINATIONDATE),
+    RFPENDTC = dplyr::coalesce(
+      normalize_iso_date(EARLYTERMINATIONDATE),
+      last_visit_dt
+    ),
 
     BRTHDTC  = normalize_iso_date(dplyr::coalesce(
       BDAY,
@@ -67,7 +118,11 @@ dm <- subjects |>
 
     SEX      = dplyr::recode(toupper(PTSEX), M = "M", F = "F",
                              .default = "U", .missing = "U"),
-    RACE     = toupper(PTRACE),
+
+    ## RACE: map OpenClinica MSL_62 codes to CDISC RACE extensible CT (C74457).
+    ## Multi-select (comma-separated codes) maps to "MULTIPLE" per SDTMIG guidance.
+    RACE     = map_race(PTRACE),
+
     ETHNIC   = dplyr::recode(toupper(HISP),
                              Y = "HISPANIC OR LATINO",
                              N = "NOT HISPANIC OR LATINO",

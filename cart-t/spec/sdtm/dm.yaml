@@ -61,7 +61,11 @@ variables:
     role: Record Qualifier
     core: Exp
     origin: Derived
-    derivation: First on-study date; falls back to RFICDTC when no earlier study activity exists.
+    derivation: |
+      RFICDTC when available; otherwise the minimum event startdate across all
+      OpenClinica events for the subject (flat.rds startdate column, first 10
+      characters). RFICDTC is sparsely populated (Disposition.CONSENTEDDT present
+      for only 1 subject), so the startdate fallback is the primary source.
 
   RFENDTC:
     label: Subject Reference End Date/Time
@@ -70,7 +74,10 @@ variables:
     role: Record Qualifier
     core: Exp
     origin: Derived
-    derivation: EARLYTERMINATIONDATE if available, else date of last completed visit.
+    derivation: |
+      Disposition.EARLYTERMINATIONDATE when present; otherwise the maximum event
+      startdate across all OpenClinica events for the subject (last recorded
+      study activity).
 
   RFXSTDTC:
     label: Date/Time of First Study Treatment
@@ -100,7 +107,12 @@ variables:
     raw_item: CONSENTEDDT
     source_form: "Disposition"
     source_item_group: PD
-    derivation: Copied from Disposition.PD.CONSENTEDDT.
+    derivation: |
+      Copied from Disposition.PD.CONSENTEDDT. NOTE: this item is present for
+      only 1 subject in the synthetic export; the remaining 809 subjects have
+      RFICDTC = null. This is a data-coverage limitation of the source, not a
+      derivation error. RFSTDTC falls back to the first event startdate for
+      those subjects (see SD1210 / SD1240 known findings).
 
   RFPENDTC:
     label: Date/Time of End of Participation
@@ -111,7 +123,9 @@ variables:
     origin: Derived
     raw_item: EARLYTERMINATIONDATE
     source_form: "Disposition"
-    derivation: EARLYTERMINATIONDATE if subject terminated early, else date of final scheduled visit.
+    derivation: |
+      Disposition.EARLYTERMINATIONDATE when present; otherwise the maximum event
+      startdate across all OpenClinica events for the subject.
 
   DTHDTC:
     label: Date/Time of Death
@@ -199,7 +213,19 @@ variables:
     raw_item: PTRACE
     source_form: "1. Demographics and History"
     source_item_group: RACE
-    derivation: Map PTRACE to CDISC RACE CT. Free text in OTHERRACE -> RACE = "OTHER" with original text in SUPPDM.
+    code_map:
+      "1": AMERICAN INDIAN OR ALASKA NATIVE
+      "2": ASIAN
+      "3": BLACK OR AFRICAN AMERICAN
+      "4": NATIVE HAWAIIAN OR OTHER PACIFIC ISLANDER
+      "5": WHITE
+      "6": OTHER
+    derivation: |
+      Map PTRACE OpenClinica multi-select codes (MSL_62) to CDISC RACE
+      extensible CT (C74457). When multiple codes are comma-separated
+      (subject checked more than one box), RACE = "MULTIPLE" per SDTMIG
+      guidance. Code 6 ("Other") maps to RACE = "OTHER"; the free-text
+      OTHERRACE value is a candidate for SUPPDM.QVAL when present.
 
   ETHNIC:
     label: Ethnicity
