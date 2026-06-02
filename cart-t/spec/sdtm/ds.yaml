@@ -10,16 +10,23 @@ sources:
   - form: "Disposition"
     item_groups: [PD]
   - form: "Eligibility"
-    notes: Contributes SCREENED / CONSENTED disposition events.
+    notes: |
+      Contributes INFORMED CONSENT OBTAINED and ELIGIBILITY CRITERIA MET
+      disposition events for all 580 subjects in the Eligibility form.
   - form: "3. Randomize"
-    notes: Contributes RANDOMIZED event.
+    notes: Contributes RANDOMIZED event for 280 randomized subjects.
 
 record_rule: |
   Emit one row per disposition milestone reached by the subject:
-    SCREENED, CONSENTED, ELIGIBLE, RANDOMIZED, RECEIVED INTERVENTION,
+    CONSENTED, ELIGIBLE, RANDOMIZED, RECEIVED INTERVENTION,
     COMPLETED PRIMARY OUTCOMES, COMPLETED SECONDARY OUTCOMES,
-    EARLY TERMINATION, FINAL STATUS.
-  Each PD-item that resolves "Y" or carries a date triggers a row.
+    EARLY TERMINATION (mapped to specific NCOMPLT reason).
+  SCREENED / STATUSONSTUDY rows are NOT generated:
+    - "SCREENING COMPLETED" is not in the PROTMLST extensible codelist (CT2005 fix).
+    - STATUSONSTUDY='Early Termination' is redundant with EARLYTERMINATIONREASON rows.
+  Each PD-item that resolves "Y" or carries a reason/date triggers a row.
+  Dedup: for each (subjectkey, DSDECOD), keep the row with the best available
+  DSSTDTC (non-null preferred), then lowest source-priority.
 
 variables:
   STUDYID:
@@ -56,7 +63,7 @@ variables:
     role: Identifier
     core: Req
     origin: Derived
-    derivation: row_number() within USUBJID, ordered by DSSTDTC, DSCAT.
+    derivation: row_number() within USUBJID, ordered by DSSTDTC, DSCAT, DSDECOD.
 
   DSTERM:
     label: Reported Term for the Disposition Event
@@ -66,16 +73,18 @@ variables:
     core: Req
     origin: CRF
     derivation: |
-      Constructed from the contributing PD item:
-        CONSENTED            -> "Informed consent obtained"
-        SCREENED             -> "Screening completed"
-        ELIGIBLE             -> "Determined eligible"
-        RANDOMIZED           -> "Randomized"
-        RECEIVEDINTERVENTION -> "Received study intervention"
-        PRIMARYOUTCOMESCOMPLETE   -> "Completed primary outcomes assessment"
-        SECONDARYOUTCOMESCOMPLETE -> "Completed secondary outcomes assessment"
-        EARLYTERMINATIONREASON    -> Free-text reason as captured.
-        STATUSONSTUDY             -> Subject's final on-study status.
+      Constructed from the contributing PD item or form date:
+        CONSENTED=Yes              -> "Informed consent obtained"
+        ELIGIBLE=Yes               -> "Determined eligible"
+        RANDOMIZED=Yes             -> "Randomized"
+        RECEIVEDINTERVENTION=Yes   -> "Received study intervention"
+        PRIMARYOUTCOMESCOMPLETE=Yes   -> "Completed primary outcomes"
+        SECONDARYOUTCOMESCOMPLETE=Yes -> "Completed secondary outcomes"
+        EARLYTERMINATIONREASON (free text) -> copied verbatim as DSTERM.
+      For layer-2 subjects (IE form only), DSTERM is set to:
+        "Informed consent obtained" / "Determined eligible" as appropriate.
+      NOTE: SCREENED -> "Screening completed" is NOT generated (CT2005: not in PROTMLST).
+      NOTE: STATUSONSTUDY rows are suppressed (redundant with EARLYTERMINATIONREASON rows).
 
   DSDECOD:
     label: Standardized Disposition Term
@@ -86,14 +95,24 @@ variables:
     origin: Assigned
     codelist: NCOMPLT
     derivation: |
-      Map DSTERM to CDISC NCOMPLT / DSDECOD CT, e.g.:
-        consent obtained             -> "INFORMED CONSENT OBTAINED"
-        screening completed          -> "SCREENING COMPLETED"
-        eligibility met              -> "ELIGIBILITY CRITERIA MET"
-        randomized                   -> "RANDOMIZED"
-        treatment received           -> "TREATMENT STARTED"
-        primary outcomes complete    -> "COMPLETED"
-        early termination (any rsn)  -> "EARLY TERMINATION"
+      Map DSTERM to CDISC NCOMPLT (C66727) or PROTMLST (C114118) CT:
+        consent obtained               -> "INFORMED CONSENT OBTAINED"  (PROTMLST)
+        eligibility met                -> "ELIGIBILITY CRITERIA MET"   (PROTMLST)
+        randomized                     -> "RANDOMIZED"                 (PROTMLST)
+        treatment received             -> "TREATMENT STARTED"          (PROTMLST)
+        primary outcomes complete      -> "COMPLETED PRIMARY OUTCOMES" (PROTMLST)
+        EARLYTERMINATIONREASON mapped via map_et_reason() function:
+          "Adverse Event" / AE text    -> "ADVERSE EVENT"              (NCOMPLT)
+          "Withdrew Consent" / consent -> "WITHDRAWAL BY SUBJECT"      (NCOMPLT)
+          "Death" / "Died"             -> "DEATH"                      (NCOMPLT)
+          "Lack of Efficacy"           -> "LACK OF EFFICACY"           (NCOMPLT)
+          "Lost to Follow"             -> "LOST TO FOLLOW-UP"          (NCOMPLT)
+          Physician/Investigator       -> "PHYSICIAN DECISION"         (NCOMPLT)
+          Protocol                     -> "PROTOCOL DEVIATION"         (NCOMPLT)
+          Sponsor                      -> "STUDY TERMINATED BY SPONSOR" (NCOMPLT)
+          Other/Unknown                -> "PROTOCOL DEVIATION"         (NCOMPLT)
+      NOTE: "EARLY TERMINATION" is NOT used — it is not in the NCOMPLT codelist (CT2005 fix).
+      NOTE: "SCREENING COMPLETED" is NOT used — it is not in PROTMLST (CT2005 fix).
 
   DSCAT:
     label: Category for Disposition Event
@@ -104,9 +123,9 @@ variables:
     origin: Assigned
     codelist: DSCAT
     derivation: |
-      "PROTOCOL MILESTONE" for SCREENED / CONSENTED / ELIGIBLE / RANDOMIZED / RECEIVEDINTERVENTION
+      "PROTOCOL MILESTONE" for CONSENTED / ELIGIBLE / RANDOMIZED / RECEIVEDINTERVENTION
         / PRIMARYOUTCOMESCOMPLETE / SECONDARYOUTCOMESCOMPLETE
-      "DISPOSITION EVENT" for EARLYTERMINATION* and STATUSONSTUDY.
+      "DISPOSITION EVENT" for early-termination rows (all EARLYTERMINATIONREASON-derived rows).
 
   DSSCAT:
     label: Subcategory for Disposition Event
@@ -115,7 +134,10 @@ variables:
     role: Grouping Qualifier
     core: Perm
     origin: Assigned
-    derivation: Null in this pilot.
+    derivation: |
+      Null for all records in this pilot — no subcategory is captured in the source export.
+      Known limitation (SD1078): P21 will flag this as a permissible variable with
+      all-null values. Acceptable per SDTMIG — Perm variables may be omitted or null.
 
   EPOCH:
     label: Epoch
@@ -126,9 +148,10 @@ variables:
     origin: Derived
     codelist: EPOCH
     derivation: |
-      "SCREENING" for SCREENED/CONSENTED/ELIGIBLE
-      "TREATMENT" for RANDOMIZED/RECEIVEDINTERVENTION/PRIMARYOUTCOMESCOMPLETE/SECONDARYOUTCOMESCOMPLETE
-      "FOLLOW-UP" for EARLYTERMINATION*/STATUSONSTUDY when after treatment end.
+      "SCREENING" for CONSENTED / ELIGIBLE rows
+      "TREATMENT" for RANDOMIZED / RECEIVEDINTERVENTION / PRIMARYOUTCOMESCOMPLETE /
+        SECONDARYOUTCOMESCOMPLETE rows
+      "FOLLOW-UP" for early-termination rows
 
   DSSTDTC:
     label: Start Date/Time of Disposition Event
@@ -138,11 +161,16 @@ variables:
     core: Exp
     origin: CRF
     derivation: |
-      CONSENTED          -> CONSENTEDDT
-      SCREENED           -> startdate of Eligibility form for the subject
-      RANDOMIZED         -> startdate of "3. Randomize" form
-      EARLY TERMINATION  -> EARLYTERMINATIONDATE
-      Other PD flags     -> startdate of Disposition form
+      Priority (highest first):
+        1. Disposition-form CONSENTEDDT (for CONSENTED flag)
+        2. Disposition-form EARLYTERMINATIONDATE (for ET rows)
+        3. SE_ENROLLMENT startdate from Eligibility form (proxy date for all 580 subjects)
+        4. Startdate of "3. Randomize" form (for RANDOMIZED rows)
+      Dedup prefers rows with non-null DSSTDTC so that layer-2 proxy dates
+      supersede layer-1 Disposition-form rows that have a null startdate.
+      Known limitation (SD0022/SD1118): 1 row remains null — SS_MGH213's ADVERSE EVENT
+      row has no EARLYTERMINATIONDATE in the source and the Disposition form carries
+      no startdate; this is a genuine data gap in the synthetic export.
 
   DSSTDY:
     label: Study Day of Start of Disposition Event
@@ -151,7 +179,11 @@ variables:
     role: Timing
     core: Perm
     origin: Derived
-    derivation: as.integer(as.Date(DSSTDTC) - as.Date(DM.RFSTDTC)) + ifelse(DSSTDTC >= RFSTDTC, 1L, 0L). Skip day 0.
+    derivation: |
+      Derived as: as.integer(as.Date(DSSTDTC) - as.Date(DM.RFSTDTC))
+                  + ifelse(DSSTDTC >= RFSTDTC, 1L, 0L)
+      Populated for 1441 / 1442 rows (all rows where both DSSTDTC and DM.RFSTDTC
+      are non-null). Null for the 1 row where DSSTDTC is missing (data limitation).
 
   VISITNUM:
     label: Visit Number
@@ -160,7 +192,9 @@ variables:
     role: Timing
     core: Perm
     origin: CRF
-    derivation: From the OpenClinica event tied to the contributing form.
+    derivation: |
+      From the OpenClinica study event OID of the contributing form, mapped via
+      derive_visitnum() in ut_visits.R. SE_ENROLLMENT -> 1, SE_DISPOSITION -> 10.
 
   VISIT:
     label: Visit Name
@@ -169,4 +203,4 @@ variables:
     role: Timing
     core: Perm
     origin: CRF
-    derivation: From OpenClinica eventname.
+    derivation: From OpenClinica eventname of the contributing form.
