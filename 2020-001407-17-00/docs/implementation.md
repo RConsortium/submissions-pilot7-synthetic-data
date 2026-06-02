@@ -2,15 +2,14 @@
 
 ## Overview
 
-The simulator is a faithful R port of two Python scripts, reorganized into the
+The simulator turns parsed eCRF templates into SDTM domain tables in two stages,
+merged behind a single driver (`simulator/run_simulator.R`) and organized in the
 layered structure of `cdiscpilot1_simulation`:
 
-| Python source | R home |
-|---------------|--------|
-| `simulate_patient_cases.py` (generic CRF form-filler) | `simulator/sim_core.R` (+ constants in `sim_config.R`) |
-| `cases_to_sdtm.py` (SDTM mapping) | `simulator/forms/sim_*.R` (one module per domain) |
-
-The two stages are merged behind a single driver, `simulator/run_simulator.R`.
+| Stage | Where |
+|-------|-------|
+| Generic CRF form-filler (fills every form per patient) | `simulator/sim_core.R` (+ constants in `sim_config.R`) |
+| SDTM mapping (filled cases -> one table per domain) | `simulator/forms/sim_*.R` (one module per domain) |
 
 ## Data flow
 
@@ -51,8 +50,7 @@ conditional cascade (`RowState`), so it is shared rather than per-domain:
 
 ## Two unit sets (important)
 
-The form-filler and the SDTM mapper use **different** unit sets, mirroring the
-two Python scripts:
+The form-filler and the SDTM mapper use **different** unit sets:
 
 - `UNIT_KEYWORDS` (filler) — substring match to *generate* a measured value
   from a unit. **Excludes `ms`**, so ECG interval fields (whose only template
@@ -81,12 +79,11 @@ collection placeholders only and are dropped — matching the source data.
   concentration, so `PCORRES` is blank.
 - **LB specimen type** for chemistry/urinalysis is whatever the CRF recorded
   (the template offers Serum/Urine/Blood/Breath and is not constrained), so an
-  occasional implausible `LBSPEC` is inherited from the source CRF, not a port
-  artifact.
-- **Reproducibility** is within R (`set.seed`). Bit-exact parity with the Python
-  output is not a goal — R and Python use different RNGs — so row counts differ
-  by a few percent (driven by Yes/No and abnormal-flag draws) while structure,
-  value ranges, and SDTM conventions match.
+  occasional implausible `LBSPEC` is inherited directly from the source CRF.
+- **Reproducibility** is controlled by `set.seed` — a given `--seed`/`--n` pair
+  reproduces the same datasets. Row counts vary slightly between seeds (driven by
+  Yes/No and abnormal-flag draws) while structure, value ranges, and SDTM
+  conventions are stable.
 
 ## Reproducing / scaling
 
