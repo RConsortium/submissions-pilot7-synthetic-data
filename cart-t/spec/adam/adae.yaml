@@ -3,13 +3,16 @@ label: Adverse Events Analysis Dataset
 structure: OCCDS - One record per adverse event per subject
 purpose: Analysis
 keys: [STUDYID, USUBJID, AESEQ]
-ig_reference: "OCCDS IG v1.1"
+ig_reference: "ADaM OCCDS IG v1.1; ADaMIG v1.3"
 
 sources:
   - sdtm_domain: AE
-    notes: All SDTM AE variables carry over.
-  - sdtm_domain: ADSL
-    notes: Treatment-period dates and population flags merged onto each AE record via admiral::derive_vars_merged().
+    notes: All SDTM AE variables carry over (AETERM, AEDECOD, AEBODSYS, AESEV, AESER, AEREL, AEOUT, AESTDTC, AEENDTC, AESEQ, AESPID).
+  - dataset: ADSL
+    notes: |
+      Treatment-period dates, treatment, population flags, demographics,
+      and the CART-T phenotype stratum (STRAT1/STRAT1L) merged onto each
+      AE record via left_join() on USUBJID.
 
 variables:
   STUDYID:
@@ -37,7 +40,7 @@ variables:
     role: Identifier
     core: Req
     origin: Predecessor
-    derivation: ADSL.SUBJID via merge.
+    derivation: ADSL.SUBJID via left_join() on USUBJID.
 
   SITEID:
     label: Study Site Identifier
@@ -46,7 +49,7 @@ variables:
     role: Identifier
     core: Req
     origin: Predecessor
-    derivation: ADSL.SITEID via merge.
+    derivation: ADSL.SITEID via left_join().
 
   AGE:
     label: Age
@@ -55,7 +58,7 @@ variables:
     role: Covariate
     core: Req
     origin: Predecessor
-    derivation: ADSL.AGE.
+    derivation: ADSL.AGE via left_join().
 
   AGEGR1:
     label: Pooled Age Group 1
@@ -64,7 +67,7 @@ variables:
     role: Covariate
     core: Perm
     origin: Predecessor
-    derivation: ADSL.AGEGR1.
+    derivation: ADSL.AGEGR1 via left_join().
 
   SEX:
     label: Sex
@@ -73,7 +76,7 @@ variables:
     role: Covariate
     core: Req
     origin: Predecessor
-    derivation: ADSL.SEX.
+    derivation: ADSL.SEX via left_join().
 
   RACE:
     label: Race
@@ -82,7 +85,25 @@ variables:
     role: Covariate
     core: Req
     origin: Predecessor
-    derivation: ADSL.RACE.
+    derivation: ADSL.RACE via left_join(). Extensible CDISC RACE codelist (C74457); value "MULTIPLE" is the SDTMIG-prescribed extension used by DM when PTRACE is multi-select.
+
+  STRAT1:
+    label: Stratification Factor 01
+    type: Char
+    length: 4
+    role: Covariate
+    core: Perm
+    origin: Predecessor
+    derivation: ADSL.STRAT1 via left_join(). Phenotype stratum (NHM / NHF / HM / HF) per CART-T pilot study design.
+
+  STRAT1L:
+    label: Stratification Factor 01 Label
+    type: Char
+    length: 40
+    role: Covariate
+    core: Perm
+    origin: Predecessor
+    derivation: ADSL.STRAT1L via left_join().
 
   TRT01P:
     label: Planned Treatment for Period 01
@@ -91,7 +112,16 @@ variables:
     role: Treatment
     core: Req
     origin: Predecessor
-    derivation: ADSL.TRT01P.
+    derivation: ADSL.TRT01P via left_join().
+
+  TRT01PN:
+    label: Planned Treatment for Period 01 (N)
+    type: Num
+    length: 8
+    role: Treatment
+    core: Req
+    origin: Predecessor
+    derivation: ADSL.TRT01PN via left_join().
 
   TRT01A:
     label: Actual Treatment for Period 01
@@ -100,10 +130,73 @@ variables:
     role: Treatment
     core: Req
     origin: Predecessor
-    derivation: ADSL.TRT01A.
+    derivation: ADSL.TRT01A via left_join().
+
+  TRT01AN:
+    label: Actual Treatment for Period 01 (N)
+    type: Num
+    length: 8
+    role: Treatment
+    core: Req
+    origin: Predecessor
+    derivation: ADSL.TRT01AN via left_join().
+
+  TRTP:
+    label: Planned Treatment
+    type: Char
+    length: 40
+    role: Treatment
+    core: Req
+    origin: Derived
+    derivation: TRTP = TRT01P. Single-period study; planned per-record treatment equals ADSL.TRT01P.
+
+  TRTPN:
+    label: Planned Treatment (N)
+    type: Num
+    length: 8
+    role: Treatment
+    core: Req
+    origin: Derived
+    derivation: TRTPN = TRT01PN.
+
+  TRTA:
+    label: Actual Treatment
+    type: Char
+    length: 40
+    role: Treatment
+    core: Req
+    origin: Derived
+    derivation: TRTA = TRT01A. Single-period study; actual per-record treatment equals ADSL.TRT01A.
+
+  TRTAN:
+    label: Actual Treatment (N)
+    type: Num
+    length: 8
+    role: Treatment
+    core: Req
+    origin: Derived
+    derivation: TRTAN = TRT01AN.
+
+  TRTSDT:
+    label: Date of First Exposure to Treatment
+    type: Num
+    length: 8
+    role: Timing
+    core: Req
+    origin: Predecessor
+    derivation: ADSL.TRTSDT via left_join(). Reference date for ASTDY/AENDY and TRTEMFL.
+
+  TRTEDT:
+    label: Date of Last Exposure to Treatment
+    type: Num
+    length: 8
+    role: Timing
+    core: Req
+    origin: Predecessor
+    derivation: ADSL.TRTEDT via left_join(). Bound for the 30-day treatment-emergent window.
 
   TRTEMFL:
-    label: Treatment Emergent Flag
+    label: Treatment Emergent Analysis Flag
     type: Char
     length: 1
     role: Analysis Flag
@@ -111,9 +204,8 @@ variables:
     origin: Derived
     codelist: NY
     derivation: |
-      "Y" when AESTDT >= ADSL.TRTSDT AND (ADSL.TRTEDT is null OR AESTDT <= ADSL.TRTEDT + 30 days);
-      else null.
-      Implemented via admiral::derive_var_trtemfl().
+      "Y" when ASTDT >= TRTSDT AND (TRTEDT is null OR ASTDT <= TRTEDT + 30 days);
+      else null. Implemented in dplyr::case_when().
 
   AESEQ:
     label: Sequence Number
@@ -149,7 +241,7 @@ variables:
     role: Synonym Qualifier
     core: Exp
     origin: Predecessor
-    derivation: AE.AEDECOD.
+    derivation: AE.AEDECOD. Note - this CART-T pilot has no MedDRA coding workflow; AEDECOD in SDTM is an uppercased AETERM stand-in.
 
   AEBODSYS:
     label: Body System or Organ Class
@@ -158,7 +250,7 @@ variables:
     role: Record Qualifier
     core: Exp
     origin: Predecessor
-    derivation: AE.AEBODSYS.
+    derivation: AE.AEBODSYS. Always null in this pilot - no MedDRA coding workflow.
 
   AESEV:
     label: Severity/Intensity
@@ -176,7 +268,16 @@ variables:
     role: Record Qualifier
     core: Perm
     origin: Derived
-    derivation: MILD=1, MODERATE=2, SEVERE=3.
+    derivation: dplyr::recode(AESEV, MILD=1, MODERATE=2, SEVERE=3).
+
+  ASEV:
+    label: Analysis Severity/Intensity
+    type: Char
+    length: 10
+    role: Record Qualifier
+    core: Req
+    origin: Derived
+    derivation: ASEV = AESEV (verbatim copy for analysis use).
 
   AESER:
     label: Serious Event
@@ -196,6 +297,15 @@ variables:
     origin: Predecessor
     derivation: AE.AEREL.
 
+  AREL:
+    label: Analysis Causality
+    type: Char
+    length: 30
+    role: Record Qualifier
+    core: Req
+    origin: Derived
+    derivation: AREL = AEREL (verbatim copy for analysis use).
+
   AEOUT:
     label: Outcome of Adverse Event
     type: Char
@@ -205,6 +315,24 @@ variables:
     origin: Predecessor
     derivation: AE.AEOUT.
 
+  AESTDTC:
+    label: Start Date/Time of Adverse Event
+    type: Char
+    length: 19
+    role: Timing
+    core: Exp
+    origin: Predecessor
+    derivation: AE.AESTDTC (ISO 8601 character).
+
+  AEENDTC:
+    label: End Date/Time of Adverse Event
+    type: Char
+    length: 19
+    role: Timing
+    core: Exp
+    origin: Predecessor
+    derivation: AE.AEENDTC (ISO 8601 character).
+
   ASTDT:
     label: Analysis Start Date
     type: Num
@@ -212,7 +340,7 @@ variables:
     role: Timing
     core: Exp
     origin: Derived
-    derivation: as.Date(AE.AESTDTC); via admiral::derive_vars_dt(new_vars_prefix="AST", dtc=AESTDTC).
+    derivation: as.Date(AE.AESTDTC) via admiral::derive_vars_dt(new_vars_prefix="AST", dtc=AESTDTC).
 
   AENDT:
     label: Analysis End Date
@@ -221,7 +349,7 @@ variables:
     role: Timing
     core: Exp
     origin: Derived
-    derivation: as.Date(AE.AEENDTC); via admiral::derive_vars_dt().
+    derivation: as.Date(AE.AEENDTC) via admiral::derive_vars_dt(new_vars_prefix="AEN", dtc=AEENDTC).
 
   ASTDY:
     label: Analysis Start Relative Day
@@ -239,7 +367,7 @@ variables:
     role: Timing
     core: Perm
     origin: Derived
-    derivation: as.integer(AENDT - ADSL.TRTSDT) + ifelse(AENDT >= ADSL.TRTSDT, 1L, 0L). Skip day 0.
+    derivation: as.integer(AENDT - ADSL.TRTSDT) + ifelse(AENDT >= ADSL.TRTSDT, 1L, 0L). Skip day 0. Via admiral::derive_vars_dy().
 
   ADURN:
     label: AE Duration (N)
@@ -260,34 +388,55 @@ variables:
     derivation: Constant "DAYS" when ADURN populated; else null.
 
   AOCCFL:
-    label: First Occurrence within Subject Flag
+    label: 1st Occurrence within Subject Flag
     type: Char
     length: 1
     role: Analysis Flag
     core: Exp
     origin: Derived
     codelist: NY
-    derivation: "Y" on the row with the earliest ASTDT per USUBJID; via admiral::derive_var_extreme_flag().
+    derivation: |
+      "Y" on the row with the earliest ASTDT per USUBJID; via admiral::derive_var_extreme_flag().
 
   AOCCPFL:
-    label: First Occurrence within Subject and PT Flag
+    label: 1st Occurrence within Subject and PT Flag
     type: Char
     length: 1
     role: Analysis Flag
     core: Perm
     origin: Derived
     codelist: NY
-    derivation: "Y" on the row with the earliest ASTDT per USUBJID + AEDECOD.
+    derivation: |
+      "Y" on the row with the earliest ASTDT per USUBJID + AEDECOD.
 
   AOCCSFL:
-    label: First Occurrence within Subject and SOC Flag
+    label: 1st Occurrence within Subject and SOC Flag
     type: Char
     length: 1
     role: Analysis Flag
     core: Perm
     origin: Derived
     codelist: NY
-    derivation: "Y" on the row with the earliest ASTDT per USUBJID + AEBODSYS.
+    derivation: |
+      "Y" on the row with the earliest ASTDT per USUBJID + AEBODSYS.
+
+  RANDFL:
+    label: Randomized Population Flag
+    type: Char
+    length: 1
+    role: Population Flag
+    core: Req
+    origin: Predecessor
+    derivation: ADSL.RANDFL via left_join().
+
+  ITTFL:
+    label: Intent-To-Treat Population Flag
+    type: Char
+    length: 1
+    role: Population Flag
+    core: Req
+    origin: Predecessor
+    derivation: ADSL.ITTFL via left_join().
 
   SAFFL:
     label: Safety Population Flag
@@ -296,7 +445,7 @@ variables:
     role: Population Flag
     core: Req
     origin: Predecessor
-    derivation: ADSL.SAFFL.
+    derivation: ADSL.SAFFL via left_join().
 
   ANL01FL:
     label: Analysis Record Flag 01
@@ -306,4 +455,5 @@ variables:
     core: Exp
     origin: Derived
     codelist: NY
-    derivation: "Y" when SAFFL = "Y" AND TRTEMFL = "Y"; else null.
+    derivation: |
+      "Y" when SAFFL = 'Y' AND TRTEMFL = 'Y'; else null.

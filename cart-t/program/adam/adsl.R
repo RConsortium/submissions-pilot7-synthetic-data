@@ -94,11 +94,13 @@ adsl <- dm |>
       TRUE                                              ~ "ONGOING"
     ),
 
-    RANDFL   = ifelse(!is.na(RANDDT),       "Y", NA_character_),
-    SAFFL    = ifelse(!is.na(TRTSDT) | !is.na(has_ae), "Y", NA_character_),
-    ITTFL    = ifelse(RANDFL == "Y" & !is.na(RANDFL), "Y", NA_character_),
-    EFFFL    = ifelse(ITTFL == "Y" & !is.na(ITTFL) & !is.na(has_qs), "Y", NA_character_),
-    COMPLFL  = ifelse(EOSSTT == "COMPLETED", "Y", NA_character_)
+    ## ADaMIG: population flags are Y/N, never NA. Resolves P21 AD0019.
+    RANDFL   = ifelse(!is.na(RANDDT),                  "Y", "N"),
+    SAFFL    = ifelse(!is.na(TRTSDT) | !is.na(has_ae), "Y", "N"),
+    ITTFL    = ifelse(!is.na(RANDFL) & RANDFL == "Y",  "Y", "N"),
+    EFFFL    = ifelse(!is.na(has_qs) &
+                        !is.na(RANDFL) & RANDFL == "Y", "Y", "N"),
+    COMPLFL  = ifelse(!is.na(EOSSTT) & EOSSTT == "COMPLETED", "Y", "N")
   ) |>
   select(STUDYID, USUBJID, SUBJID, SITEID,
          AGE, AGEU, AGEGR1, AGEGR1N,
@@ -110,5 +112,41 @@ adsl <- dm |>
          RANDDT, EOSDT, EOSSTT, DCDECOD, DCREASCD,
          RANDFL, SAFFL, ITTFL, EFFFL, COMPLFL)
 
+## --------------------------------------------------------------------
+## Attach labels and dataset-level label from spec
+## (Family A — resolves AD0018, AD0320, AD0503)
+##
+## metacore/xportr/labelled are not installed in this renv; fall back to
+## yaml + base attr(). Labels carry through to XPT via haven::write_xpt
+## using the label attribute on each column. See CLAUDE.md for the spec
+## YAML contract.
+## --------------------------------------------------------------------
+spec_yaml <- yaml::read_yaml("spec/adam/adsl.yaml")
+
+# Per-variable label
+for (v in names(adsl)) {
+  lab <- spec_yaml$variables[[v]]$label
+  if (!is.null(lab) && nzchar(lab)) attr(adsl[[v]], "label") <- lab
+}
+
+# Dataset-level label
+attr(adsl, "label") <- spec_yaml$label
+
 saveRDS(adsl, "data/adam/adsl.rds")
 cat(sprintf("ADSL written: %d rows x %d cols\n", nrow(adsl), ncol(adsl)))
+
+## --------------------------------------------------------------------
+## Export XPT v5 for P21 validation
+## --------------------------------------------------------------------
+adsl_xpt <- adsl
+# haven::write_xpt does not support integer XPT columns; coerce to double.
+int_cols <- names(adsl_xpt)[vapply(adsl_xpt, is.integer, logical(1))]
+if (length(int_cols) > 0) {
+  for (c in int_cols) {
+    lab <- attr(adsl_xpt[[c]], "label")
+    adsl_xpt[[c]] <- as.double(adsl_xpt[[c]])
+    if (!is.null(lab)) attr(adsl_xpt[[c]], "label") <- lab
+  }
+}
+haven::write_xpt(adsl_xpt, path = "data/adam/adsl.xpt", version = 5, name = "ADSL")
+cat("ADSL XPT exported to data/adam/adsl.xpt\n")

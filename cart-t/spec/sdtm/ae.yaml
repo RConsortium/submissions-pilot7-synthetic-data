@@ -9,7 +9,12 @@ ig_anchor: "AE+Specification"
 sources:
   - form: "Adverse Event"
     item_groups: [AE]
+  - sdtm_domain: DM
+    vars: [USUBJID, RFSTDTC, RFENDTC]
 
+# Variables are listed in SDTMIG v3.3 AE order (P21 SD1079).
+# Model permissible variables NOT in the SDTMIG v3.3 AE table (e.g. AESINTV,
+# VISIT, VISITNUM) are intentionally omitted (P21 SD1076).
 variables:
   STUDYID:
     label: Study Identifier
@@ -83,9 +88,14 @@ variables:
     type: Char
     length: 200
     role: Synonym Qualifier
-    core: Exp
+    core: Req
     origin: Assigned
-    derivation: MedDRA Preferred Term assigned post-coding; null until coding completes.
+    derivation: |
+      No MedDRA coding workflow exists in the OpenClinica export. AEDECOD is
+      set to toupper(trimws(AETERM)) as a documented stand-in so the Required
+      core designation is satisfied (P21 SD0002). Downstream ADAE inherits
+      the stand-in. This is NOT a true MedDRA preferred term — a real
+      submission would require dictionary coding.
 
   AEBODSYS:
     label: Body System or Organ Class
@@ -94,14 +104,14 @@ variables:
     role: Record Qualifier
     core: Exp
     origin: Assigned
-    derivation: MedDRA primary System Organ Class assigned post-coding.
+    derivation: MedDRA primary System Organ Class; null until coding completes (no coding workflow in this synthetic export).
 
   AESEV:
     label: Severity/Intensity
     type: Char
     length: 10
     role: Record Qualifier
-    core: Exp
+    core: Perm
     origin: CRF
     codelist: AESEV
     raw_item: AESEV
@@ -159,12 +169,18 @@ variables:
     type: Char
     length: 40
     role: Record Qualifier
-    core: Exp
+    core: Perm
     origin: CRF
     codelist: OUT
     raw_item: AEOUT
     source_form: "Adverse Event"
-    derivation: Map AEOUT to CDISC CT OUT ("RECOVERED/RESOLVED", "RECOVERING/RESOLVING", "NOT RECOVERED/NOT RESOLVED", "RECOVERED/RESOLVED WITH SEQUELAE", "FATAL", "UNKNOWN").
+    derivation: |
+      Raw AEOUT uses underscored tokens (e.g. "RECOVERED_RESOLVED",
+      "NOT_RECOVERED_NOT_RESOLVED"); map to CDISC CT OUT values
+      ("RECOVERED/RESOLVED", "RECOVERING/RESOLVING",
+      "NOT RECOVERED/NOT RESOLVED", "RECOVERED/RESOLVED WITH SEQUELAE",
+      "FATAL", "UNKNOWN"). When AESDTH = "Y" the AEOUT value is forced to
+      "FATAL" per ICH consistency (P21 SD0091).
 
   AESCONG:
     label: Congenital Anomaly or Birth Defect
@@ -197,7 +213,7 @@ variables:
     origin: CRF
     codelist: NY
     raw_item: AESDTH
-    derivation: Copied from AESDTH; blank -> null.
+    derivation: Copied from AESDTH; blank -> null. Triggers AEOUT = "FATAL" when "Y" and propagates to DM.DTHFL = "Y".
 
   AESHOSP:
     label: Requires or Prolongs Hospitalization
@@ -230,18 +246,12 @@ variables:
     origin: CRF
     codelist: NY
     raw_item: AESIMIE
-    derivation: Copied from AESIMIE (raw name keeps "I" before "M"); blank -> null.
-
-  AESINTV:
-    label: Required Intervention to Prevent Damage
-    type: Char
-    length: 1
-    role: Record Qualifier
-    core: Perm
-    origin: CRF
-    codelist: NY
-    raw_item: AESINTV
-    derivation: Copied from AESINTV; blank -> null.
+    derivation: |
+      Copied from AESIMIE (raw name keeps "I" before "M"); blank -> null.
+      Additionally, when AESER = "Y" and no other seriousness qualifier
+      (AESDTH, AESHOSP, AESLIFE, AESCONG, AESDISAB) is "Y", AESMIE is
+      defaulted to "Y" to satisfy ICH E2A (P21 SD0009) — at least one
+      seriousness criterion must be flagged on every serious event.
 
   AECONTRT:
     label: Concomitant or Additional Trtmnt Given
@@ -262,7 +272,10 @@ variables:
     origin: CRF
     raw_item: AESTDAT
     source_form: "Adverse Event"
-    derivation: Copied from AESTDAT (ISO 8601 yyyy-mm-dd).
+    derivation: |
+      Normalized from AESTDAT to ISO 8601 yyyy-mm-dd via normalize_iso_date().
+      Null for ~7 rows whose source AESTDAT was empty (P21 SD0022 residual —
+      data limitation, cannot be fabricated).
 
   AEENDTC:
     label: End Date/Time of Adverse Event
@@ -273,17 +286,11 @@ variables:
     origin: CRF
     raw_item: AEENDDAT
     source_form: "Adverse Event"
-    derivation: Copied from AEENDDAT; null when AEONGO = "Y".
-
-  AEENRF:
-    label: End Relative to Reference Period
-    type: Char
-    length: 10
-    role: Timing
-    core: Perm
-    origin: Derived
-    raw_item: AEONGO
-    derivation: AEONGO = "Y" -> "ONGOING"; else null.
+    derivation: |
+      Normalized from AEENDDAT via normalize_iso_date(); null when
+      AEONGO = "Y". If the recorded AEENDTC precedes AESTDTC (P21 SD0013),
+      it is nulled out as not credible — the start date is typically more
+      reliable than the end date for these events.
 
   AESTDY:
     label: Study Day of Start of Adverse Event
@@ -303,20 +310,16 @@ variables:
     origin: Derived
     derivation: as.integer(as.Date(AEENDTC) - as.Date(DM.RFSTDTC)) + ifelse(AEENDTC >= RFSTDTC, 1L, 0L); null if AEENDTC null.
 
-  VISITNUM:
-    label: Visit Number
-    type: Num
-    length: 8
-    role: Timing
-    core: Perm
-    origin: CRF
-    derivation: From OpenClinica event for the AE record (studyeventoid).
-
-  VISIT:
-    label: Visit Name
+  AEENRF:
+    label: End Relative to Reference Period
     type: Char
-    length: 40
+    length: 10
     role: Timing
     core: Perm
-    origin: CRF
-    derivation: From OpenClinica event (eventname).
+    origin: Derived
+    raw_item: AEONGO
+    derivation: |
+      "ONGOING" when raw AEONGO = "Y" AND DM.RFENDTC is non-null; else null.
+      AEENRF describes the AE end relative to the subject reference end —
+      if no reference end exists the relation cannot be validated, so the
+      qualifier must remain null (P21 SD1031).

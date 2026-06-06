@@ -16,6 +16,21 @@ dm_raw   <- readRDS("data/raw/dm.rds")
 ie_raw   <- readRDS("data/raw/ie.rds")
 rand_raw <- readRDS("data/raw/rand.rds")
 ds_raw   <- readRDS("data/raw/ds.rds")
+ae_raw   <- readRDS("data/raw/ae.rds")
+
+## Death information sourced from the AE form.
+##   - DTHFL  = "Y" if any AE row has AESDTH = "Y"            (rule SD1255)
+##   - DTHDTC = first non-empty AE.DTHDAT for the subject
+ae_dth <- ae_raw |>
+  filter(itemname == "AESDTH" & toupper(value) == "Y") |>
+  distinct(subjectkey) |>
+  mutate(dth_flag_y = "Y")
+
+ae_dthdat <- ae_raw |>
+  filter(itemname == "DTHDAT" & !is.na(value) & nzchar(value)) |>
+  mutate(.dt = normalize_iso_date(substr(value, 1, 10))) |>
+  filter(!is.na(.dt)) |>
+  summarise(dth_dtc = min(.dt), .by = subjectkey)
 
 ## Subject universe = every distinct subject that appears anywhere in
 ## the OpenClinica export. Guarantees DM is the master subject table.
@@ -95,6 +110,8 @@ dm <- subjects |>
   left_join(disp,        by = "subjectkey") |>
   left_join(visit_dates, by = "subjectkey") |>
   left_join(elig_dates,  by = "subjectkey") |>
+  left_join(ae_dth,      by = "subjectkey") |>
+  left_join(ae_dthdat,   by = "subjectkey") |>
   mutate(
     STUDYID  = "CART-T-PILOT",
     DOMAIN   = "DM",
@@ -157,8 +174,10 @@ dm <- subjects |>
       TRUE ~ arm_map(PROFILE)
     ),
 
-    DTHDTC   = NA_character_,
-    DTHFL    = NA_character_,
+    ## DTHDTC / DTHFL sourced from AE form (DTHDAT item + AESDTH = "Y").
+    ## P21 rule SD1255 requires DTHFL = "Y" whenever AE.AESDTH = "Y".
+    DTHDTC   = dth_dtc,
+    DTHFL    = dth_flag_y,
     COUNTRY  = "USA"
   ) |>
   arrange(USUBJID) |>

@@ -9,28 +9,44 @@ ig_anchor: "LB+Specification"
 sources:
   - form: "2. Baseline Labs and Imaging"
     item_groups: [CHEMPANEL, NEPH]
-    notes: Baseline labs (LBBLFL = "Y").
+    notes: Baseline labs (LBBLFL = "Y"). NEPH.CREATR is a CRF normal-range help-text and is filtered out.
   - form: "Lab Results"
     item_groups: [labs]
     notes: Post-baseline lab panel.
 
+record_rule: |
+  One record per (USUBJID, LBTESTCD, VISITNUM, LBDTC). The raw "Lab
+  Results" form re-emits the same (subjectkey, studyeventoid,
+  itemgrouprepeatkey, itemname) tuple multiple times — sometimes the
+  same value, sometimes a corrected value (e.g. HEMA values 666 then
+  44 at the same visit). The build sorts by USUBJID, LBTESTCD,
+  VISITNUM, LBDTC, itemgrouprepeatkey and then slice_tail(n=1) per key
+  group so the most recent entry wins, eliminating SD1117 duplicates.
+
+# LBTESTCD / LBTEST are aligned to CDISC SDTM Terminology (codelists
+# C65047 'Laboratory Test Code' and C67154 'Laboratory Test Name'), and
+# every pair shares a single NCI concept (no CT2003 pairing mismatches).
+# LBORRESU values are CDISC UNIT (C71620) Submission Values.
+#
+# NEPH.CREATR and CHEMPANEL.HOMOCRANGE are help-text CRF items whose
+# value is the literal "(Normal range, ...)" string — not lab results.
+# They are not mapped here and are filtered out by the build.
 test_map:
   CHEMPANEL:
-    AMYLASE:    {LBTESTCD: AMYLASE,  LBTEST: "Amylase",                LBCAT: CHEMISTRY,    LBORRESU: "U/L"}
-    BUN:        {LBTESTCD: BUN,      LBTEST: "Blood Urea Nitrogen",    LBCAT: CHEMISTRY,    LBORRESU: "mg/dL"}
-    CHLORIDE:   {LBTESTCD: CL,       LBTEST: "Chloride",               LBCAT: CHEMISTRY,    LBORRESU: "mmol/L"}
-    HOMOC:      {LBTESTCD: HCYS,     LBTEST: "Homocysteine",           LBCAT: CHEMISTRY,    LBORRESU: "umol/L"}
+    AMYLASE:    {LBTESTCD: AMYLASE,  LBTEST: "Amylase",                    LBCAT: CHEMISTRY,    LBORRESU: "U/L"}
+    BUN:        {LBTESTCD: UREAN,    LBTEST: "Urea Nitrogen",              LBCAT: CHEMISTRY,    LBORRESU: "mg/dL"}
+    CHLORIDE:   {LBTESTCD: CL,       LBTEST: "Chloride",                   LBCAT: CHEMISTRY,    LBORRESU: "mmol/L"}
+    HOMOC:      {LBTESTCD: HOMOCY,   LBTEST: "Homocysteine",               LBCAT: CHEMISTRY,    LBORRESU: "umol/L"}
   NEPH:
-    CREAT:      {LBTESTCD: CREAT,    LBTEST: "Creatinine",             LBCAT: CHEMISTRY,    LBORRESU: "mg/dL"}
-    CREATR:     {LBTESTCD: CREATSI,  LBTEST: "Creatinine (SI)",        LBCAT: CHEMISTRY,    LBORRESU: "umol/L"}
-    EGFR:       {LBTESTCD: EGFR,     LBTEST: "Estimated GFR",          LBCAT: CHEMISTRY,    LBORRESU: "mL/min/1.73m2"}
+    CREAT:      {LBTESTCD: CREAT,    LBTEST: "Creatinine",                 LBCAT: CHEMISTRY,    LBORRESU: "mg/dL"}
+    EGFR:       {LBTESTCD: GFR,      LBTEST: "Glomerular Filtration Rate", LBCAT: CHEMISTRY,    LBORRESU: "mL/min/1.73 m2"}
   labs:
-    CHOLES:     {LBTESTCD: CHOL,     LBTEST: "Cholesterol",            LBCAT: CHEMISTRY,    LBORRESU: "mg/dL"}
-    TRIG:       {LBTESTCD: TRIG,     LBTEST: "Triglycerides",          LBCAT: CHEMISTRY,    LBORRESU: "mg/dL"}
-    HEMA:       {LBTESTCD: HCT,      LBTEST: "Hematocrit",             LBCAT: HEMATOLOGY,   LBORRESU: "%"}
-    HEMO:       {LBTESTCD: HGB,      LBTEST: "Hemoglobin",             LBCAT: HEMATOLOGY,   LBORRESU: "g/dL"}
-    RBC:        {LBTESTCD: RBC,      LBTEST: "Erythrocytes (RBC)",     LBCAT: HEMATOLOGY,   LBORRESU: "10^6/uL"}
-    WBC:        {LBTESTCD: WBC,      LBTEST: "Leukocytes (WBC)",       LBCAT: HEMATOLOGY,   LBORRESU: "10^3/uL"}
+    CHOLES:     {LBTESTCD: CHOL,     LBTEST: "Cholesterol",                LBCAT: CHEMISTRY,    LBORRESU: "mg/dL"}
+    TRIG:       {LBTESTCD: TRIG,     LBTEST: "Triglycerides",              LBCAT: CHEMISTRY,    LBORRESU: "mg/dL"}
+    HEMA:       {LBTESTCD: HCT,      LBTEST: "Hematocrit",                 LBCAT: HEMATOLOGY,   LBORRESU: "%"}
+    HEMO:       {LBTESTCD: HGB,      LBTEST: "Hemoglobin",                 LBCAT: HEMATOLOGY,   LBORRESU: "g/dL"}
+    RBC:        {LBTESTCD: RBC,      LBTEST: "Erythrocytes",               LBCAT: HEMATOLOGY,   LBORRESU: "10^12/L"}
+    WBC:        {LBTESTCD: WBC,      LBTEST: "Leukocytes",                 LBCAT: HEMATOLOGY,   LBORRESU: "10^9/L"}
 
 variables:
   STUDYID:
@@ -115,7 +131,34 @@ variables:
     core: Exp
     origin: Assigned
     codelist: UNIT
-    derivation: Looked up from `test_map[itemgroupname][itemname].LBORRESU`.
+    derivation: |
+      Looked up from `test_map[itemgroupname][itemname].LBORRESU`. Values
+      are CDISC UNIT (C71620) Submission Values — e.g. WBC uses
+      "10^9/L" (CDISC canonical for 10^3/uL), RBC uses "10^12/L"
+      (canonical for 10^6/uL), eGFR uses "mL/min/1.73 m2" (note space).
+
+  LBORNRLO:
+    label: Reference Range Lower Limit in Orig Unit
+    type: Char
+    length: 40
+    role: Variable Qualifier
+    core: Exp
+    origin: CRF
+    derivation: |
+      Not captured in the OpenClinica export — the CRF holds only a
+      help-text "Normal range" annotation per test, never a per-result
+      lower limit. Column written as NA. (Known data limitation.)
+
+  LBORNRHI:
+    label: Reference Range Upper Limit in Orig Unit
+    type: Char
+    length: 40
+    role: Variable Qualifier
+    core: Exp
+    origin: CRF
+    derivation: |
+      Not captured in the OpenClinica export. See LBORNRLO. Column
+      written as NA.
 
   LBSTRESC:
     label: Character Result/Finding in Std Format
@@ -145,6 +188,27 @@ variables:
     codelist: UNIT
     derivation: Equals LBORRESU (no unit conversion in this pilot).
 
+  LBSTNRLO:
+    label: Reference Range Lower Limit-Std Units
+    type: Char
+    length: 40
+    role: Variable Qualifier
+    core: Perm
+    origin: Derived
+    derivation: |
+      Equals LBORNRLO (no unit conversion). NA across all rows because
+      the raw export does not carry per-result reference ranges.
+
+  LBSTNRHI:
+    label: Reference Range Upper Limit-Std Units
+    type: Char
+    length: 40
+    role: Variable Qualifier
+    core: Perm
+    origin: Derived
+    derivation: |
+      Equals LBORNRHI. NA across all rows. See LBORNRLO.
+
   LBNRIND:
     label: Reference Range Indicator
     type: Char
@@ -167,7 +231,22 @@ variables:
     core: Perm
     origin: Derived
     codelist: NY
-    derivation: "Y" when source form is "2. Baseline Labs and Imaging"; else null.
+    derivation: "Y" when source form is \"2. Baseline Labs and Imaging\"; else null.
+
+  LBLOBXFL:
+    label: Last Observation Before Exposure Flag
+    type: Char
+    length: 1
+    role: Record Qualifier
+    core: Exp
+    origin: Derived
+    codelist: NY
+    derivation: |
+      Cannot be derived in this pilot — Disposition.RECEIVEDINTERVENTION
+      is "No" for every subject, so there is no exposure date to anchor
+      a last-observation-before-exposure flag. Column written as NA.
+      (Known data limitation; column present to satisfy SDTMIG Expected
+      variables.)
 
   VISITNUM:
     label: Visit Number
@@ -206,4 +285,10 @@ variables:
     role: Timing
     core: Perm
     origin: Derived
-    derivation: as.integer(as.Date(LBDTC) - as.Date(DM.RFSTDTC)) + ifelse(LBDTC >= RFSTDTC, 1L, 0L). Skip day 0.
+    derivation: |
+      Joined to DM on USUBJID to obtain RFSTDTC. LBDY =
+      as.integer(as.Date(LBDTC) - as.Date(RFSTDTC)) +
+        ifelse(LBDTC >= RFSTDTC, 1L, 0L)   # skip day 0
+      Only full ISO yyyy-mm-dd LBDTC values yield a non-NA LBDY; year-only
+      LBDTC values (e.g. "2026" from a year-only LABDATE entry) and the
+      ~12% of subjects whose DM.RFSTDTC could not be derived produce NA.

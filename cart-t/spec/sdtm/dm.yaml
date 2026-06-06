@@ -15,6 +15,8 @@ sources:
     item_groups: [rand1]
   - form: "Disposition"
     item_groups: [PD]
+  - form: "Adverse Event"
+    item_groups: [AE]   # for AESDTH / DTHDAT — drives DTHFL and DTHDTC
 
 variables:
   STUDYID:
@@ -135,7 +137,13 @@ variables:
     role: Record Qualifier
     core: Perm
     origin: Predecessor
-    derivation: Earliest AE.AEENDTC where AESDTH = "Y" (and DS death record if present).
+    raw_item: DTHDAT
+    source_form: "Adverse Event"
+    derivation: |
+      Earliest non-empty AE.DTHDAT for the subject, normalized to ISO 8601.
+      Null when no DTHDAT was recorded even though AE.AESDTH = "Y" (4
+      subjects in this export have AESDTH = "Y" without a recorded death
+      date — known data limitation).
 
   DTHFL:
     label: Subject Death Flag
@@ -145,7 +153,10 @@ variables:
     core: Perm
     origin: Derived
     codelist: NY
-    derivation: "Y" if DTHDTC is non-null; else null.
+    derivation: |
+      "Y" when any AE row for the subject has AESDTH = "Y" (P21 rule SD1255
+      requires DTHFL = "Y" whenever AE.AESDTH = "Y"). Null otherwise — the
+      pilot does not invent death information when AESDTH was not flagged.
 
   SITEID:
     label: Study Site Identifier

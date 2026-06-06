@@ -1,5 +1,5 @@
 dataset: ADQS
-label: Questionnaire (SF-12) Analysis Dataset
+label: Questionnaire Analysis Dataset
 structure: BDS - One record per item or subscale per analysis timepoint per subject
 purpose: Analysis
 keys: [STUDYID, USUBJID, PARAMCD, AVISITN]
@@ -116,8 +116,14 @@ variables:
     length: 200
     role: Parameter
     core: Req
-    origin: Predecessor
-    derivation: QS.QSTEST.
+    origin: Derived
+    derivation: |
+      Long human-readable parameter description derived from a
+      dataset-level (PARAMCD, PARAM, PARAMN) lookup so PARAM is a
+      1-to-1 function of PARAMCD. Item rows take the form
+      "SF-12 Q01 General Health (SF1201)" and subscale rows take
+      "SF-12 <subscale label> Subscale (<PARAMCD>)". Attached via
+      admiral::derive_vars_merged() by PARAMCD.
 
   PARAMN:
     label: Parameter (N)
@@ -126,7 +132,12 @@ variables:
     role: Parameter
     core: Perm
     origin: Derived
-    derivation: dense_rank() over QSTESTCD in lexical order.
+    derivation: |
+      Canonical SF-12 v1 parameter index from the same dataset-level
+      (PARAMCD, PARAM, PARAMN) lookup that supplies PARAM. Items
+      SF1201..SF1212 are 1..12; subscales PF/RP/BP/GH/VT/SF/RE/MH are
+      13..20 in SF-12 v1 dictionary order. PARAMN is a 1-to-1 function
+      of PARAMCD across the dataset (resolves P21 AD0147B).
 
   PARCAT1:
     label: Parameter Category 1
@@ -199,7 +210,8 @@ variables:
     core: Exp
     origin: Derived
     codelist: NY
-    derivation: "Y" when QSBLFL = "Y"; else null.
+    derivation: |
+      "Y" when QSBLFL = "Y"; else null.
 
   AVISIT:
     label: Analysis Visit
@@ -245,7 +257,9 @@ variables:
     core: Exp
     origin: Derived
     codelist: NY
-    derivation: "Y" when PARCAT2 = "SUBSCALE" AND AVAL is not null; else null. Subscale scores are the primary analysis records.
+    derivation: |
+      "Y" when PARCAT2 = "SUBSCALE" AND AVAL is not null; else null.
+      Subscale scores are the primary analysis records.
 
   EFFFL:
     label: Efficacy Population Flag

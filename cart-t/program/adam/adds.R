@@ -2,7 +2,7 @@
 ## ADDS — Disposition Analysis Dataset (OCCDS)
 ## Spec:   spec/adam/adds.yaml
 ## Inputs: data/sdtm/ds.rds, data/adam/adsl.rds
-## Output: data/adam/adds.rds
+## Output: data/adam/adds.rds, data/adam/adds.xpt
 ## --------------------------------------------------------------------
 
 library(dplyr)
@@ -35,5 +35,41 @@ adds <- ds |>
          ASTDT, ASTDY,
          FINALFL, SAFFL, ITTFL)
 
+## --------------------------------------------------------------------
+## Attach labels and dataset-level label from spec
+## (Family A — resolves AD0018, AD0320, AD0503)
+##
+## metacore/xportr/labelled are not installed in this renv; fall back to
+## yaml + base attr(). Labels carry through to XPT via haven::write_xpt
+## using the label attribute on each column. See CLAUDE.md for the spec
+## YAML contract.
+## --------------------------------------------------------------------
+spec_yaml <- yaml::read_yaml("spec/adam/adds.yaml")
+
+# Per-variable label
+for (v in names(adds)) {
+  lab <- spec_yaml$variables[[v]]$label
+  if (!is.null(lab) && nzchar(lab)) attr(adds[[v]], "label") <- lab
+}
+
+# Dataset-level label
+attr(adds, "label") <- spec_yaml$label
+
 saveRDS(adds, "data/adam/adds.rds")
 cat(sprintf("ADDS written: %d rows x %d cols\n", nrow(adds), ncol(adds)))
+
+## --------------------------------------------------------------------
+## Export XPT v5 for P21 validation
+## --------------------------------------------------------------------
+adds_xpt <- adds
+# haven::write_xpt does not support integer XPT columns; coerce to double.
+int_cols <- names(adds_xpt)[vapply(adds_xpt, is.integer, logical(1))]
+if (length(int_cols) > 0) {
+  for (c in int_cols) {
+    lab <- attr(adds_xpt[[c]], "label")
+    adds_xpt[[c]] <- as.double(adds_xpt[[c]])
+    if (!is.null(lab)) attr(adds_xpt[[c]], "label") <- lab
+  }
+}
+haven::write_xpt(adds_xpt, path = "data/adam/adds.xpt", version = 5, name = "ADDS")
+cat("ADDS XPT exported to data/adam/adds.xpt\n")

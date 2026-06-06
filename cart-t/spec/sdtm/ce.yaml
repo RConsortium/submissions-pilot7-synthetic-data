@@ -9,6 +9,8 @@ ig_anchor: "CE+Specification"
 sources:
   - form: "Suspected MI"
     item_groups: [EVENT]
+  - sdtm_domain: DM
+    vars: [USUBJID, RFSTDTC, RFENDTC]
 
 scope_note: |
   In SDTMIG v3.3, Clinical Events captures protocol-defined disease events
@@ -17,6 +19,15 @@ scope_note: |
   (CK, CKMB, TROP) holds lab values that belong in LB. UPLOADS (ANGIO,
   EKG, with their dates/times) describe diagnostic procedures and belong
   in PR / EG respectively. Those are out of scope for this domain.
+
+  CETERM is mapped from the verbatim DESC item to a canonical sponsor
+  term (CHEST PAIN or SUSPECTED MYOCARDIAL INFARCTION). Six of the 14
+  raw DESC entries are operator test data ("This is a test", "lakjsd",
+  "cjkcxhcj…") and are dropped from the emitted dataset.
+
+record_rule: |
+  One row per Suspected-MI EVENT item-group repeat per subject, after
+  dropping rows whose DESC value does not map to a canonical CETERM.
 
 variables:
   STUDYID:
@@ -65,16 +76,13 @@ variables:
     raw_item: DESC
     source_form: "Suspected MI"
     source_item_group: EVENT
-    derivation: Copied from EVENT.DESC (verbatim event description).
-
-  CEDECOD:
-    label: Dictionary-Derived Term
-    type: Char
-    length: 200
-    role: Synonym Qualifier
-    core: Perm
-    origin: Assigned
-    derivation: Coded clinical-event term (e.g., MedDRA PT); null until coding completes.
+    derivation: |
+      Canonicalised from EVENT.DESC via map_ceterm():
+        – Anything matching /chest pain/ or /cest pain/ -> "CHEST PAIN"
+        – "MI" or anything matching /myocardial infarction/
+          -> "SUSPECTED MYOCARDIAL INFARCTION"
+        – All other free-text entries (test/junk data) -> row dropped.
+      SD1021 fix (issue #15).
 
   CECAT:
     label: Category for Clinical Event
@@ -105,25 +113,6 @@ variables:
     codelist: NY
     derivation: Constant "Y" on every emitted row (rows exist only when the event occurred).
 
-  CESTAT:
-    label: Completion Status
-    type: Char
-    length: 8
-    role: Record Qualifier
-    core: Perm
-    origin: Derived
-    derivation: "NOT DONE" if EVENT items were not collected when expected; else null.
-
-  CESEV:
-    label: Severity/Intensity
-    type: Char
-    length: 10
-    role: Record Qualifier
-    core: Perm
-    origin: CRF
-    codelist: AESEV
-    derivation: Not captured in this study's Suspected MI form; null.
-
   CESER:
     label: Serious Event
     type: Char
@@ -133,6 +122,22 @@ variables:
     origin: Derived
     codelist: NY
     derivation: Constant "Y" (a suspected MI is always serious by protocol definition).
+
+  EPOCH:
+    label: Epoch
+    type: Char
+    length: 40
+    role: Timing
+    core: Perm
+    origin: Derived
+    codelist: EPOCH
+    derivation: |
+      Derived from CESTDTC against DM reference dates:
+        CESTDTC < DM.RFSTDTC                       -> "SCREENING"
+        DM.RFSTDTC <= CESTDTC <= DM.RFENDTC        -> "TREATMENT"
+        CESTDTC > DM.RFENDTC                       -> "FOLLOW-UP"
+      Null when CESTDTC or DM.RFSTDTC is missing.
+      SD1077 fix (issue #15).
 
   CESTDTC:
     label: Start Date/Time of Clinical Event
@@ -144,7 +149,7 @@ variables:
     raw_item: EVENTDATE
     source_form: "Suspected MI"
     source_item_group: EVENT
-    derivation: Copied from EVENT.EVENTDATE.
+    derivation: Copied from EVENT.EVENTDATE via normalize_iso_date().
 
   CESTDY:
     label: Study Day of Start of Clinical Event
@@ -153,22 +158,7 @@ variables:
     role: Timing
     core: Perm
     origin: Derived
-    derivation: as.integer(as.Date(CESTDTC) - as.Date(DM.RFSTDTC)) + ifelse(CESTDTC >= RFSTDTC, 1L, 0L). Skip day 0.
-
-  VISITNUM:
-    label: Visit Number
-    type: Num
-    length: 8
-    role: Timing
-    core: Perm
-    origin: CRF
-    derivation: From OpenClinica event (studyeventoid) of the Suspected MI form.
-
-  VISIT:
-    label: Visit Name
-    type: Char
-    length: 40
-    role: Timing
-    core: Perm
-    origin: CRF
-    derivation: From OpenClinica eventname.
+    derivation: |
+      as.integer(as.Date(CESTDTC) - as.Date(DM.RFSTDTC))
+        + ifelse(CESTDTC >= RFSTDTC, 1L, 0L). Skip day 0.
+      Null when CESTDTC or DM.RFSTDTC is missing.
