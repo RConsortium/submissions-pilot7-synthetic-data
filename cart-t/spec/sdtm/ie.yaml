@@ -11,9 +11,12 @@ sources:
     item_groups: [INC1, INC2, INCA, EXCT, SUMMARY]
 
 record_rule: |
-  Emit one row per criterion item whose evaluation flag indicates failure
-  (INC*EVAL = "NOT_MET", EXCEVAL = "FAIL"). Subjects who pass all criteria
-  produce no IE rows.
+  Emit one row per criterion-summary item whose evaluation flag indicates
+  failure (INC*EVAL = "NOT_MET" / "fail", EXCEVAL = "FAIL" / "fail"). For
+  INCLUSION criteria a failure means the subject did NOT meet the
+  criterion (IEORRES = "N"); for EXCLUSION criteria a failure means the
+  subject DID meet the exclusion criterion (IEORRES = "Y"). Subjects who
+  pass all criteria produce no IE rows.
 
 variables:
   STUDYID:
@@ -108,7 +111,13 @@ variables:
     role: Result Qualifier
     core: Req
     origin: CRF
-    derivation: Constant "Y" (rows exist only for criteria that were NOT met).
+    codelist: NY
+    derivation: |
+      Encodes whether the criterion was MET, per SDTMIG v3.3 IE convention:
+        IECAT = "INCLUSION" -> "N" (row exists because subject did NOT meet
+                                    the inclusion criterion)
+        IECAT = "EXCLUSION" -> "Y" (row exists because subject DID meet the
+                                    exclusion criterion)
 
   IESTRESC:
     label: Standardized Character Result
@@ -117,7 +126,8 @@ variables:
     role: Result Qualifier
     core: Req
     origin: Derived
-    derivation: Constant "Y" (mirrors IEORRES per CDISC convention).
+    codelist: NY
+    derivation: Mirrors IEORRES (Y/N).
 
   VISITNUM:
     label: Visit Number
@@ -137,6 +147,18 @@ variables:
     origin: CRF
     derivation: Constant "SCREENING".
 
+  EPOCH:
+    label: Epoch
+    type: Char
+    length: 40
+    role: Timing
+    core: Exp
+    origin: Derived
+    codelist: EPOCH
+    derivation: |
+      Constant "SCREENING" — the Eligibility CRF is only collected at
+      SE_ENROLLMENT, prior to any treatment-period activity.
+
   IEDTC:
     label: Date/Time of Collection
     type: Char
@@ -154,4 +176,8 @@ variables:
     role: Timing
     core: Perm
     origin: Derived
-    derivation: as.integer(as.Date(IEDTC) - as.Date(DM.RFSTDTC)) + ifelse(IEDTC >= RFSTDTC, 1L, 0L). Skip day 0.
+    derivation: |
+      Integer day relative to DM.RFSTDTC, skipping day 0:
+        as.integer(as.Date(IEDTC) - as.Date(RFSTDTC))
+          + if (IEDTC >= RFSTDTC) 1L else 0L
+      Null when either IEDTC or DM.RFSTDTC is null.
