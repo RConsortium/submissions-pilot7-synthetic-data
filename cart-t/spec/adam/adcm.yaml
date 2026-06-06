@@ -91,6 +91,24 @@ variables:
     origin: Predecessor
     derivation: ADSL.TRT01A.
 
+  TRTSDT:
+    label: Date of First Exposure to Treatment
+    type: Num
+    length: 8
+    role: Timing
+    core: Req
+    origin: Predecessor
+    derivation: ADSL.TRTSDT.
+
+  TRTEDT:
+    label: Date of Last Exposure to Treatment
+    type: Num
+    length: 8
+    role: Timing
+    core: Req
+    origin: Predecessor
+    derivation: ADSL.TRTEDT.
+
   CMSEQ:
     label: Sequence Number
     type: Num
@@ -117,15 +135,6 @@ variables:
     core: Exp
     origin: Predecessor
     derivation: CM.CMDECOD.
-
-  CMRXCUI:
-    label: RxNorm Concept Unique Identifier
-    type: Char
-    length: 8
-    role: Synonym Qualifier
-    core: Perm
-    origin: Predecessor
-    derivation: CM.CMRXCUI.
 
   CMINDC:
     label: Indication
@@ -170,7 +179,8 @@ variables:
     role: Timing
     core: Exp
     origin: Derived
-    derivation: as.Date(CM.CMSTDTC). Via admiral::derive_vars_dt().
+    derivation: |
+      as.Date(CM.CMSTDTC). Via admiral::derive_vars_dt().
 
   AENDT:
     label: Analysis End Date
@@ -179,7 +189,8 @@ variables:
     role: Timing
     core: Exp
     origin: Derived
-    derivation: as.Date(CM.CMENDTC). Via admiral::derive_vars_dt().
+    derivation: |
+      as.Date(CM.CMENDTC). Via admiral::derive_vars_dt().
 
   ASTDY:
     label: Analysis Start Relative Day
@@ -188,7 +199,9 @@ variables:
     role: Timing
     core: Perm
     origin: Derived
-    derivation: as.integer(ASTDT - ADSL.TRTSDT) + ifelse(ASTDT >= ADSL.TRTSDT, 1L, 0L). Skip day 0.
+    derivation: |
+      Days from ADSL.TRTSDT to ASTDT, skipping day 0. Via
+      admiral::derive_vars_dy().
 
   AENDY:
     label: Analysis End Relative Day
@@ -197,7 +210,9 @@ variables:
     role: Timing
     core: Perm
     origin: Derived
-    derivation: as.integer(AENDT - ADSL.TRTSDT) + ifelse(AENDT >= ADSL.TRTSDT, 1L, 0L). Skip day 0.
+    derivation: |
+      Days from ADSL.TRTSDT to AENDT, skipping day 0. Via
+      admiral::derive_vars_dy().
 
   ONGOFL:
     label: Ongoing at Last Contact Flag
@@ -207,7 +222,8 @@ variables:
     core: Perm
     origin: Derived
     codelist: NY
-    derivation: "Y" when CM.CMENRF = "ONGOING"; else null.
+    derivation: |
+      "Y" when CM.CMENRTPT = "ONGOING"; else null.
 
   PREFL:
     label: Pre-Treatment Flag
@@ -217,7 +233,8 @@ variables:
     core: Perm
     origin: Derived
     codelist: NY
-    derivation: "Y" when ASTDT < ADSL.TRTSDT; else null.
+    derivation: |
+      "Y" when ASTDT < ADSL.TRTSDT; else null.
 
   ONTRTFL:
     label: On Treatment Flag
@@ -227,7 +244,9 @@ variables:
     core: Exp
     origin: Derived
     codelist: NY
-    derivation: "Y" when ASTDT between ADSL.TRTSDT and ADSL.TRTEDT (inclusive); else null. Via admiral::derive_var_ontrtfl().
+    derivation: |
+      "Y" when ASTDT between ADSL.TRTSDT and ADSL.TRTEDT (inclusive); else
+      null.
 
   SAFFL:
     label: Safety Population Flag
@@ -236,4 +255,17 @@ variables:
     role: Population Flag
     core: Req
     origin: Predecessor
+    codelist: NY
     derivation: ADSL.SAFFL.
+
+  ANL01FL:
+    label: Analysis Flag 01
+    type: Char
+    length: 1
+    role: Analysis Flag
+    core: Perm
+    origin: Derived
+    codelist: NY
+    derivation: |
+      "Y" when SAFFL = "Y"; else null. Identifies records contributing to
+      the primary concomitant-medications analysis (safety population).
