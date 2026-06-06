@@ -9,6 +9,16 @@ ig_anchor: "MH+Specification"
 sources:
   - form: "1. Demographics and History"
     item_groups: [group1, group2]
+  - sdtm_domain: DM
+    vars: [USUBJID, RFSTDTC]
+
+record_rule: |
+  One row per non-blank DIAG entry in group1 (GENERAL MEDICAL HISTORY)
+  plus one row for each CANCER1 and CANCER2 code in group2 (CANCER
+  HISTORY). Cancer codes are decoded via the OpenClinica codelists CL_68
+  (CANCER1) and CL_69 (CANCER2); a CANCER2 row is suppressed when its
+  decoded term equals the CANCER1 decoded term (avoids SD1201
+  duplicates).
 
 variables:
   STUDYID:
@@ -36,7 +46,7 @@ variables:
     role: Identifier
     core: Req
     origin: Derived
-    derivation: Joined from DM via subjectkey.
+    derivation: Joined from DM via subjectkey using make_usubjid().
 
   MHSEQ:
     label: Sequence Number
@@ -45,19 +55,22 @@ variables:
     role: Identifier
     core: Req
     origin: Derived
-    derivation: row_number() within USUBJID after sorting by MHSTDTC, MHCAT, MHTERM.
+    derivation: row_number() within USUBJID after sorting by MHCAT, MHTERM, MHSTDTC, MHENDTC.
 
   MHSPID:
     label: Sponsor-Defined Identifier
     type: Char
-    length: 40
+    length: 80
     role: Identifier
     core: Perm
     origin: CRF
     raw_item: CANCERORG
     source_form: "1. Demographics and History"
     source_item_group: group2
-    derivation: Copied from group2.CANCERORG (primary tumor organ for cancer history rows); null for group1 rows.
+    derivation: |
+      Multi-select CANCERORG codes (OpenClinica MSL_70) decoded and
+      comma-joined to surface primary tumor organ(s) on CANCER HISTORY
+      rows. Null on GENERAL MEDICAL HISTORY rows.
 
   MHTERM:
     label: Reported Term for the Medical History
@@ -68,7 +81,13 @@ variables:
     origin: CRF
     raw_items: [DIAG, CANCER1, CANCER2]
     source_form: "1. Demographics and History"
-    derivation: group1 -> DIAG; group2 -> CANCER1 (with CANCER2 emitted as a second row when populated).
+    derivation: |
+      group1 -> DIAG (verbatim CRF text);
+      group2 -> CANCER1 decoded via CL_68 ("Carcinoma", "Leukemia",
+      "Lymphoma", "Sarcoma", "Myeloma"). CANCER2, when populated and
+      decoded to a term distinct from CANCER1, emits an additional row
+      with the CL_69 decode (e.g., "Adenocarcinoma", "Acute myeloid
+      leukemia (AML)").
 
   MHDECOD:
     label: Dictionary-Derived Term
@@ -77,16 +96,10 @@ variables:
     role: Synonym Qualifier
     core: Perm
     origin: Assigned
-    derivation: MedDRA Preferred Term assigned post-coding; null until coding completes.
-
-  MHBODSYS:
-    label: Body System or Organ Class
-    type: Char
-    length: 200
-    role: Record Qualifier
-    core: Perm
-    origin: Assigned
-    derivation: MedDRA System Organ Class assigned post-coding; null until coding completes.
+    derivation: |
+      MedDRA Preferred Term assigned post-coding; null in this synthetic
+      export because no MedDRA-coded layer is available (same coding gap
+      as AE/CE in this pilot).
 
   MHCAT:
     label: Category for Medical History
@@ -109,47 +122,23 @@ variables:
     raw_item: BODY
     source_form: "1. Demographics and History"
     source_item_group: group1
-    derivation: For group1 rows copy BODY (body-system/organ). For group2 rows null.
+    derivation: |
+      For group1 rows: BODY code (OpenClinica CL_57) decoded to body
+      system text ("Cardiovascular", "Respiratory", "Gastrointestinal",
+      "Genitourinary", "Musculoskeletal", "Neurological",
+      "Endocrinological", "Dermatologic/Skin", "Hematologic/Lymphatic").
+      Null on group2 (CANCER HISTORY) rows.
 
-  MHPRESP:
-    label: Medical History Pre-Specified
+  MHBODSYS:
+    label: Body System or Organ Class
     type: Char
-    length: 1
-    role: Variable Qualifier
-    core: Perm
-    origin: Protocol
-    codelist: NY
-    derivation: Null (the CRF does not pre-specify items in this study).
-
-  MHOCCUR:
-    label: Medical History Occurrence
-    type: Char
-    length: 1
+    length: 200
     role: Record Qualifier
     core: Perm
-    origin: CRF
-    codelist: NY
-    derivation: Null (only present when MHPRESP = "Y", which does not apply here).
-
-  MHSTAT:
-    label: Completion Status
-    type: Char
-    length: 8
-    role: Record Qualifier
-    core: Perm
-    origin: Derived
-    derivation: "NOT DONE" when MHTERM is null but the form is marked complete; else null.
-
-  MHENRF:
-    label: End Relative to Reference Period
-    type: Char
-    length: 10
-    role: Timing
-    core: Perm
-    origin: Derived
-    raw_item: ONG
-    source_form: "1. Demographics and History"
-    derivation: ONG = "Y" -> "ONGOING"; else null.
+    origin: Assigned
+    derivation: |
+      MedDRA System Organ Class assigned post-coding; null in this
+      synthetic export because no MedDRA-coded layer is available.
 
   MHSTDTC:
     label: Start Date/Time of Medical History Event
@@ -160,7 +149,11 @@ variables:
     origin: CRF
     raw_items: [DATE, DIAGNOSED]
     source_form: "1. Demographics and History"
-    derivation: group1 -> DATE; group2 -> DIAGNOSED.
+    derivation: |
+      group1 -> DATE; group2 -> DIAGNOSED. Both passed through
+      normalize_iso_date(). Null when raw item is blank or non-parseable
+      (~70% of rows in synthetic export); see MHSTRTPT / MHSTTPT for
+      P21 SD0022 justification of missing values.
 
   MHENDTC:
     label: End Date/Time of Medical History Event
@@ -172,7 +165,11 @@ variables:
     raw_item: STOP
     source_form: "1. Demographics and History"
     source_item_group: group1
-    derivation: Copied from group1.STOP; null for group2.
+    derivation: |
+      group1 -> STOP, normalized via normalize_iso_date(). Null when
+      raw is blank, when condition is marked ongoing (ONG=="1"), or
+      when MHENDTC precedes MHSTDTC (SD0013 — null the inverted end
+      date rather than fabricate). Always null on group2.
 
   MHSTDY:
     label: Study Day of Start of Medical History
@@ -181,7 +178,72 @@ variables:
     role: Timing
     core: Perm
     origin: Derived
-    derivation: as.integer(as.Date(MHSTDTC) - as.Date(DM.RFSTDTC)) + ifelse(MHSTDTC >= RFSTDTC, 1L, 0L). Skip day 0.
+    derivation: |
+      as.integer(as.Date(MHSTDTC) - as.Date(DM.RFSTDTC)) + 1 when
+      MHSTDTC >= RFSTDTC, skipping day 0 per SDTM convention. Null when
+      either date is missing or non-parseable.
+
+  MHSTRTPT:
+    label: Start Relative to Reference Time Point
+    type: Char
+    length: 8
+    role: Timing
+    core: Perm
+    origin: Derived
+    codelist: STENRF
+    derivation: |
+      "UNKNOWN" when MHSTDTC is null; else null. Provides P21 SD0022
+      justification for missing Start Time-Point value.
+
+  MHSTTPT:
+    label: Start Reference Time Point
+    type: Char
+    length: 40
+    role: Timing
+    core: Perm
+    origin: Derived
+    derivation: |
+      "DATE OF FIRST ASSESSMENT" when MHSTDTC is null; else null.
+      Paired with MHSTRTPT to anchor the unknown start.
+
+  MHENRF:
+    label: End Relative to Reference Period
+    type: Char
+    length: 10
+    role: Timing
+    core: Perm
+    origin: Derived
+    codelist: STENRF
+    raw_item: ONG
+    source_form: "1. Demographics and History"
+    derivation: |
+      "ONGOING" when group1.ONG=="1" (OpenClinica codelist CL_60: 1=Yes,
+      0=No); else null. Replaces the legacy toupper(ONG)=="Y" check
+      which never matched because the raw values are numeric 0/1.
+
+  MHENRTPT:
+    label: End Relative to Reference Time Point
+    type: Char
+    length: 8
+    role: Timing
+    core: Perm
+    origin: Derived
+    codelist: STENRF
+    derivation: |
+      "ONGOING" when the event is marked ongoing (ONG=="1");
+      "UNKNOWN" when MHENDTC is otherwise null; else null. Provides P21
+      SD0021 justification for missing End Time-Point value.
+
+  MHENTPT:
+    label: End Reference Time Point
+    type: Char
+    length: 40
+    role: Timing
+    core: Perm
+    origin: Derived
+    derivation: |
+      "DATE OF LAST ASSESSMENT" when MHENDTC is null (regardless of
+      whether the cause is ONGOING or UNKNOWN); else null.
 
   VISITNUM:
     label: Visit Number
@@ -190,7 +252,7 @@ variables:
     role: Timing
     core: Exp
     origin: CRF
-    derivation: From OpenClinica event (studyeventoid).
+    derivation: derive_visitnum(studyeventoid) — lookup via visit_map.
 
   VISIT:
     label: Visit Name
