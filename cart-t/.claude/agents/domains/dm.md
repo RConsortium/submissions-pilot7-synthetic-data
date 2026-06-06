@@ -18,6 +18,7 @@ other SDTM domain and every ADaM dataset.
 | `data/raw/ie.rds` | "Eligibility" (SE_ENROLLMENT) | BDAY, PTAGE, PTBYEAR, CONSENTED | 580 subjects with IE startdate |
 | `data/raw/rand.rds` | "3. Randomize" (SE_BASELINE) | PROFILE | 280 subjects (randomized arm) |
 | `data/raw/ds.rds` | "Disposition" (SE_DISPOSITION) | CONSENTEDDT, EARLYTERMINATIONDATE | 2 subjects only |
+| `data/raw/ae.rds` | "Adverse Event" (SE_ADVERSEEVENTS) | AESDTH, DTHDAT | 9 subjects with AESDTH=Y (5 with DTHDAT) |
 
 **Subject universe**: derived from `flat.rds` via `distinct(subjectkey, studysubjectid)`.
 Never restrict to any single form — DM must represent all 810 subjects.
@@ -151,6 +152,34 @@ subjects appear only as bare subject registrations with no form data.
 
 ---
 
+#### SD1255 — DTHFL not "Y" when AE.AESDTH = "Y"
+**Root cause**: DM had `DTHDTC = NA_character_` and `DTHFL = NA_character_`
+hard-coded — death information was never sourced from AE.
+
+**Fix** (`program/sdtm/dm.R`):
+```r
+ae_raw <- readRDS("data/raw/ae.rds")
+
+ae_dth <- ae_raw |>
+  filter(itemname == "AESDTH" & toupper(value) == "Y") |>
+  distinct(subjectkey) |>
+  mutate(dth_flag_y = "Y")
+
+ae_dthdat <- ae_raw |>
+  filter(itemname == "DTHDAT" & !is.na(value) & nzchar(value)) |>
+  mutate(.dt = normalize_iso_date(substr(value, 1, 10))) |>
+  filter(!is.na(.dt)) |>
+  summarise(dth_dtc = min(.dt), .by = subjectkey)
+
+# After left_join(ae_dth, ae_dthdat) into the subjects pipeline:
+DTHDTC = dth_dtc,
+DTHFL  = dth_flag_y,
+```
+**Coverage after fix**: 9 / 810 subjects have DTHFL = "Y"; 5 / 810 also have
+DTHDTC (the other 4 have AESDTH = "Y" without a recorded DTHDAT).
+
+---
+
 #### SD1343 — Missing RFXSTDTC for treated subjects
 **Root cause**: `RECEIVEDINTERVENTION = No` for all 280 randomized subjects —
 no subject actually received study treatment. RFXSTDTC requires a treatment
@@ -184,6 +213,7 @@ remains null (correct — no treatment given).
 | SD1363/SD1364 ARMCD without TA | 530 SCRNFAIL | TA trial-design dataset not yet built |
 | RACE null | 457 subjects | No "1. Demographics and History" form data |
 | SEX null / "U" | most subjects | PTSEX only in 43 DM form records; PTSEXEL (read-only) not mappable to SEX CT |
+| DTHDTC null when DTHFL=Y | 4 subjects | AESDTH = "Y" recorded on AE but DTHDAT not captured (MGH-021, MGH-038, MGH-041, MGH-121) |
 
 ---
 
@@ -196,6 +226,7 @@ remains null (correct — no treatment given).
 | TA.ARMCD | TA must define SCRNFAIL and TREATMENT arms | P21 SD1363/SD1364 fire on DM when TA is absent |
 | DM.RFSTDTC | All OCCDS and BDS ADaM datasets join this | RFSTDTC null propagates to all ADAE/ADCM/etc. ASTDY/AENDY |
 | DM.USUBJID | All other SDTM domains | Subject universe is authoritative here |
+| AE.AESDTH/DTHDAT | AE feeds DM | DM.DTHFL must be "Y" wherever AE.AESDTH = "Y" (P21 SD1255). Rebuild DM after any AE source change. |
 
 ---
 
