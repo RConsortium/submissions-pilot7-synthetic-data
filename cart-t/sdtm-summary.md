@@ -74,7 +74,6 @@ Initial P21 findings: 5,624 across 19 rules.
   MGH-041, MGH-121) — `AESDTH=Y` recorded but no `DTHDAT` captured
   upstream.
 
-Knowledge file: `.claude/agents/domains/dm.md`.
 
 ---
 
@@ -100,7 +99,6 @@ Initial P21 findings: 25 across 8 rules.
 - **SD1076 / SD1078 / SD1079** — Audited variable list, dropped
   non-standard permissibles, reordered per SDTMIG v3.3 anchor.
 
-Knowledge file: `.claude/agents/domains/ds.md`.
 
 ---
 
@@ -131,7 +129,6 @@ Initial P21 findings: 638 across 18 rules.
 - **AEDECOD = verbatim AETERM** — documented stand-in until a
   MedDRA-coded source is available; `AEBODSYS` remains null.
 
-Knowledge file: `.claude/agents/domains/ae.md`.
 
 ---
 
@@ -162,7 +159,6 @@ Cascade: `program/adam/adce.R` and `spec/adam/adce.yaml` referenced
 
 Final dataset: 8 × 12 (down from 13 × 16).
 
-Knowledge file: `.claude/agents/domains/ce.md`.
 
 ---
 
@@ -194,7 +190,6 @@ Initial P21 findings: 278 across 10 rules.
 
 Final dataset: 259 × 22.
 
-Knowledge file: `.claude/agents/domains/cm.md`.
 
 ---
 
@@ -216,7 +211,6 @@ INCLUSION.
 
 **No residuals.** 20 × 15 final.
 
-Knowledge file: `.claude/agents/domains/ie.md`.
 
 ---
 
@@ -251,7 +245,6 @@ strings) being mis-mapped to a lab test code; now filtered out.
 
 Final dataset: 950 × 23.
 
-Knowledge file: `.claude/agents/domains/lb.md`.
 
 ---
 
@@ -283,7 +276,6 @@ Cascade: `data/adam/admh.rds` re-derived from new MH.
 
 Final dataset: 607 × 20.
 
-Knowledge file: `.claude/agents/domains/mh.md`.
 
 ---
 
@@ -322,7 +314,6 @@ is the deferred follow-up.
 
 Final dataset: 3,611 × 19. Max `QSTEST` length: 29.
 
-Knowledge file: `.claude/agents/domains/qs.md`.
 
 ---
 
@@ -342,11 +333,6 @@ Knowledge file: `.claude/agents/domains/qs.md`.
 - **SF-12 scoring** — Items pass through unchanged; subscale
   recomputation deferred to a follow-up issue per the original #21
   triage.
-- **Domain knowledge files** — `.claude/agents/domains/<dom>.md`
-  exists for all 9 domains (DM, DS, AE, CE, CM, IE, LB, MH, QS) and
-  encodes raw-data coverage, CT mappings, the resolved rules with
-  R-code snippets, and the residual limitations. Future runs of
-  `sdtm-issue-resolver` start from these instead of rediscovering.
 
 ## How to verify
 

@@ -10,7 +10,7 @@ trail.
 
 | Commit | Dataset | Issue |
 |---|---|---|
-| `891aa95` | — (infra) | adds adam-issue-resolver agent, clears stale logs |
+| `891aa95` | — (infra) | clears stale logs |
 | `2c0f164` | ADSL | #22 |
 | `0259c80` | ADAE | #23 |
 | `92cb8c2` | ADCE | #24 |
@@ -136,7 +136,6 @@ Initial P21 findings: 2,956 across 5 rules.
 - TRTSDT/TRTEDT NA for the 530 SCRNFAIL subjects — no treatment
   exposure data in the pilot.
 
-Knowledge file: `.claude/agents/domains/adsl.md`.
 
 ---
 
@@ -167,7 +166,6 @@ ADAE went from 32 → 48 columns.
   `UNLIKELY_RELATED`) — collapsing to CDISC `RELATED`/`NOT RELATED`
   requires SAP guidance.
 
-Knowledge file: `.claude/agents/domains/adae.md`.
 
 ---
 
@@ -193,7 +191,6 @@ scalars.
 - 1 `RACE="MULTIPLE"` row — SDTMIG extension.
 - 4 `RACE=NA` rows — upstream sparsity.
 
-Knowledge file: `.claude/agents/domains/adce.md`.
 
 ---
 
@@ -229,7 +226,6 @@ Initial P21 findings: 68 across 5 rules.
 - 235 `AENDT=NA` rows — CMENRTPT ONGOING/UNKNOWN justifies it per
   SDTMIG.
 
-Knowledge file: `.claude/agents/domains/adcm.md`.
 
 ---
 
@@ -257,7 +253,6 @@ the bare `"Y"` YAML parse issue.
   EARLYTERMINATIONDATE).
 - ASTDY NA on the 530 SCRNFAIL subjects (no TRTSDT to reference).
 
-Knowledge file: `.claude/agents/domains/adds.md`.
 
 ---
 
@@ -282,7 +277,6 @@ but ADSL.RANDFL is `Y`/`N` (never NA) per ADaMIG. Now tests
 
 - 16 `RACE=NA` rows — upstream sparsity.
 
-Knowledge file: `.claude/agents/domains/adie.md`.
 
 ---
 
@@ -309,7 +303,6 @@ starting with `"Y"`; converted to block scalars.
 - 32 subjects have `RACE=NA`.
 - `ADY` NA for ~61 rows where `LBDTC` is year-only ("2026").
 
-Knowledge file: `.claude/agents/domains/adlb.md`.
 
 ---
 
@@ -338,7 +331,6 @@ Initial P21 findings: 856 across 5 rules.
 - `MHDECOD`/`MHBODSYS` all-NA (607 rows) — no MedDRA in export.
 - 3 `RACE=NA` rows.
 
-Knowledge file: `.claude/agents/domains/admh.md`.
 
 ---
 
@@ -372,7 +364,6 @@ quoted `"Y"` strings — converted to block scalars.
   carries the A/S components.
 - 95 `RACE="MULTIPLE"`, 1,810 `RACE=NA` rows.
 
-Knowledge file: `.claude/agents/domains/adqs.md`.
 
 ---
 
