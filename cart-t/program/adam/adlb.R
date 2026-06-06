@@ -1,8 +1,8 @@
 ## --------------------------------------------------------------------
-## ADLB — Laboratory Analysis Dataset (BDS)
+## ADLB — Laboratory Test Results Analysis Dataset (BDS)
 ## Spec:   spec/adam/adlb.yaml
 ## Inputs: data/sdtm/lb.rds, data/adam/adsl.rds
-## Output: data/adam/adlb.rds
+## Output: data/adam/adlb.rds, data/adam/adlb.xpt
 ## --------------------------------------------------------------------
 
 library(dplyr)
@@ -73,5 +73,41 @@ adlb <- lb |>
          ANRLO, ANRHI, ANRIND,
          ANL01FL, SAFFL)
 
+## --------------------------------------------------------------------
+## Attach labels and dataset-level label from spec
+## (Family A — resolves AD0018, AD0320, AD0503)
+##
+## metacore/xportr/labelled are not installed in this renv; fall back to
+## yaml + base attr(). Labels carry through to XPT via haven::write_xpt
+## using the label attribute on each column. See CLAUDE.md for the spec
+## YAML contract.
+## --------------------------------------------------------------------
+spec_yaml <- yaml::read_yaml("spec/adam/adlb.yaml")
+
+# Per-variable label
+for (v in names(adlb)) {
+  lab <- spec_yaml$variables[[v]]$label
+  if (!is.null(lab) && nzchar(lab)) attr(adlb[[v]], "label") <- lab
+}
+
+# Dataset-level label
+attr(adlb, "label") <- spec_yaml$label
+
 saveRDS(adlb, "data/adam/adlb.rds")
 cat(sprintf("ADLB written: %d rows x %d cols\n", nrow(adlb), ncol(adlb)))
+
+## --------------------------------------------------------------------
+## Export XPT v5 for P21 validation
+## --------------------------------------------------------------------
+adlb_xpt <- adlb
+# haven::write_xpt does not support integer XPT columns; coerce to double.
+int_cols <- names(adlb_xpt)[vapply(adlb_xpt, is.integer, logical(1))]
+if (length(int_cols) > 0) {
+  for (c in int_cols) {
+    lab <- attr(adlb_xpt[[c]], "label")
+    adlb_xpt[[c]] <- as.double(adlb_xpt[[c]])
+    if (!is.null(lab)) attr(adlb_xpt[[c]], "label") <- lab
+  }
+}
+haven::write_xpt(adlb_xpt, path = "data/adam/adlb.xpt", version = 5, name = "ADLB")
+cat("ADLB XPT exported to data/adam/adlb.xpt\n")
