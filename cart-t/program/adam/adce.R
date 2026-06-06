@@ -2,7 +2,7 @@
 ## ADCE — Clinical Events Analysis Dataset (OCCDS)
 ## Spec:   spec/adam/adce.yaml
 ## Inputs: data/sdtm/ce.rds, data/adam/adsl.rds
-## Output: data/adam/adce.rds
+## Output: data/adam/adce.rds, data/adam/adce.xpt
 ## --------------------------------------------------------------------
 
 library(dplyr)
@@ -38,5 +38,41 @@ adce <- ce |>
          ASTDT, ASTDY,
          AOCCFL, SAFFL, ANL01FL)
 
+## --------------------------------------------------------------------
+## Attach labels and dataset-level label from spec
+## (Family A — resolves AD0018, AD0320, AD0503)
+##
+## metacore/xportr/labelled are not installed in this renv; fall back to
+## yaml + base attr(). Labels carry through to XPT via haven::write_xpt
+## using the label attribute on each column. See CLAUDE.md for the spec
+## YAML contract.
+## --------------------------------------------------------------------
+spec_yaml <- yaml::read_yaml("spec/adam/adce.yaml")
+
+# Per-variable label
+for (v in names(adce)) {
+  lab <- spec_yaml$variables[[v]]$label
+  if (!is.null(lab) && nzchar(lab)) attr(adce[[v]], "label") <- lab
+}
+
+# Dataset-level label
+attr(adce, "label") <- spec_yaml$label
+
 saveRDS(adce, "data/adam/adce.rds")
 cat(sprintf("ADCE written: %d rows x %d cols\n", nrow(adce), ncol(adce)))
+
+## --------------------------------------------------------------------
+## Export XPT v5 for P21 validation
+## --------------------------------------------------------------------
+adce_xpt <- adce
+# haven::write_xpt does not support integer XPT columns; coerce to double.
+int_cols <- names(adce_xpt)[vapply(adce_xpt, is.integer, logical(1))]
+if (length(int_cols) > 0) {
+  for (c in int_cols) {
+    lab <- attr(adce_xpt[[c]], "label")
+    adce_xpt[[c]] <- as.double(adce_xpt[[c]])
+    if (!is.null(lab)) attr(adce_xpt[[c]], "label") <- lab
+  }
+}
+haven::write_xpt(adce_xpt, path = "data/adam/adce.xpt", version = 5, name = "ADCE")
+cat("ADCE XPT exported to data/adam/adce.xpt\n")
