@@ -12,32 +12,40 @@ sources:
     notes: |
       G, G1, G2AND3, G4AND5, G6AND7, G9TO11 hold the raw item responses
       (Q1..Q12). Item group "c" holds the validated / recoded item values
-      (Q1V..Q12V) and the eight subscale scores (PF, RP, BP, GH, VT, SF, RE,
-      ME) plus PF-A/PF-S etc. score components.
+      (Q1V..Q12V) and the subscale scores (BP, GH, VT, SF) plus subscale
+      score components (PF-A/PF-S, RP-A/RP-S, RE-A/RE-S, ME-A/ME-S). The
+      composite subscale codes PF/RP/RE/ME are NOT present in the raw
+      export — only their A/S components are — so QS emits only the
+      BP/GH/VT/SF subscale rows alongside the 12 item rows.
+  - sdtm_domain: DM
+    vars: [RFSTDTC, RFENDTC]
+    notes: |
+      Used to derive EPOCH (SCREENING vs TREATMENT vs FOLLOW-UP) and
+      QSDY (study day relative to RFSTDTC).
 
 question_map:
   raw_items:
-    Q1:  {QSTESTCD: SF12Q01, QSTEST: "SF-12 Q01 - General Health"}
-    Q2:  {QSTESTCD: SF12Q02, QSTEST: "SF-12 Q02 - Moderate Activities Limit"}
-    Q3:  {QSTESTCD: SF12Q03, QSTEST: "SF-12 Q03 - Climbing Stairs Limit"}
-    Q4:  {QSTESTCD: SF12Q04, QSTEST: "SF-12 Q04 - Accomplished Less - Physical"}
-    Q5:  {QSTESTCD: SF12Q05, QSTEST: "SF-12 Q05 - Limited Kind of Work - Physical"}
-    Q6:  {QSTESTCD: SF12Q06, QSTEST: "SF-12 Q06 - Accomplished Less - Emotional"}
-    Q7:  {QSTESTCD: SF12Q07, QSTEST: "SF-12 Q07 - Less Carefully - Emotional"}
-    Q8:  {QSTESTCD: SF12Q08, QSTEST: "SF-12 Q08 - Pain Interfered with Work"}
-    Q9:  {QSTESTCD: SF12Q09, QSTEST: "SF-12 Q09 - Felt Calm and Peaceful"}
-    Q10: {QSTESTCD: SF12Q10, QSTEST: "SF-12 Q10 - Had a Lot of Energy"}
-    Q11: {QSTESTCD: SF12Q11, QSTEST: "SF-12 Q11 - Felt Downhearted and Blue"}
-    Q12: {QSTESTCD: SF12Q12, QSTEST: "SF-12 Q12 - Social Activities Limit"}
+    Q1:  {QSTESTCD: SF1201, QSTEST: "General Health"}
+    Q2:  {QSTESTCD: SF1202, QSTEST: "Moderate Activities"}
+    Q3:  {QSTESTCD: SF1203, QSTEST: "Climb Several Flights"}
+    Q4:  {QSTESTCD: SF1204, QSTEST: "Accomplished Less - Physical"}
+    Q5:  {QSTESTCD: SF1205, QSTEST: "Limited in Kind - Physical"}
+    Q6:  {QSTESTCD: SF1206, QSTEST: "Accomplished Less - Emotional"}
+    Q7:  {QSTESTCD: SF1207, QSTEST: "Less Careful - Emotional"}
+    Q8:  {QSTESTCD: SF1208, QSTEST: "Pain Interfered"}
+    Q9:  {QSTESTCD: SF1209, QSTEST: "Calm and Peaceful"}
+    Q10: {QSTESTCD: SF1210, QSTEST: "Energy"}
+    Q11: {QSTESTCD: SF1211, QSTEST: "Felt Downhearted"}
+    Q12: {QSTESTCD: SF1212, QSTEST: "Social Interference"}
   subscale_scores:
-    PF:  {QSTESTCD: SF12PF,  QSTEST: "SF-12 Physical Functioning"}
-    RP:  {QSTESTCD: SF12RP,  QSTEST: "SF-12 Role Physical"}
-    BP:  {QSTESTCD: SF12BP,  QSTEST: "SF-12 Bodily Pain"}
-    GH:  {QSTESTCD: SF12GH,  QSTEST: "SF-12 General Health"}
-    VT:  {QSTESTCD: SF12VT,  QSTEST: "SF-12 Vitality"}
-    SF:  {QSTESTCD: SF12SF,  QSTEST: "SF-12 Social Functioning"}
-    RE:  {QSTESTCD: SF12RE,  QSTEST: "SF-12 Role Emotional"}
-    ME:  {QSTESTCD: SF12ME,  QSTEST: "SF-12 Mental Health"}
+    PF:  {QSTESTCD: SF12PF, QSTEST: "Physical Functioning Score"}
+    RP:  {QSTESTCD: SF12RP, QSTEST: "Role Physical Score"}
+    BP:  {QSTESTCD: SF12BP, QSTEST: "Bodily Pain Score"}
+    GH:  {QSTESTCD: SF12GH, QSTEST: "General Health Score"}
+    VT:  {QSTESTCD: SF12VT, QSTEST: "Vitality Score"}
+    SF:  {QSTESTCD: SF12SF, QSTEST: "Social Functioning Score"}
+    RE:  {QSTESTCD: SF12RE, QSTEST: "Role Emotional Score"}
+    ME:  {QSTESTCD: SF12MH, QSTEST: "Mental Health Score"}
 
 variables:
   STUDYID:
@@ -84,7 +92,9 @@ variables:
     core: Req
     origin: Assigned
     codelist: QSTESTCD
-    derivation: Looked up from `question_map.raw_items[itemname].QSTESTCD` or `question_map.subscale_scores[itemname].QSTESTCD`.
+    derivation: |
+      CDISC SF-12 v1 canonical pair (QSCAT="SF12"). Mapped from raw `itemname`
+      via question_map. Items SF1201..SF1212; subscales SF12PF/RP/BP/GH/VT/SF/RE/MH.
 
   QSTEST:
     label: Questionnaire Name
@@ -94,7 +104,9 @@ variables:
     core: Req
     origin: Assigned
     codelist: QSTEST
-    derivation: Looked up alongside QSTESTCD.
+    derivation: |
+      CDISC SF-12 v1 canonical short label, all ≤ 40 chars. No "SF-12 Qnn -"
+      prefix. Looked up alongside QSTESTCD from question_map.
 
   QSCAT:
     label: Category for Questionnaire
@@ -103,7 +115,11 @@ variables:
     role: Grouping Qualifier
     core: Req
     origin: Assigned
-    derivation: Constant "SF-12".
+    codelist: QSCAT
+    derivation: |
+      Constant "SF12" — CDISC controlled value for SF-12 v1 (no dash).
+      P21 CT2002: the "Category of Questionnaire" extensible codelist
+      contains "SF12", not "SF-12".
 
   QSSCAT:
     label: Subcategory for Questionnaire
@@ -113,8 +129,9 @@ variables:
     core: Perm
     origin: Assigned
     derivation: |
-      "ITEM"     for QSTESTCD in SF12Q01..SF12Q12.
-      "SUBSCALE" for QSTESTCD in SF12PF / RP / BP / GH / VT / SF / RE / ME.
+      "ITEM"     for QSTESTCD in SF1201..SF1212.
+      "SUBSCALE" for QSTESTCD in SF12BP / SF12GH / SF12VT / SF12SF
+                 (the only subscales present in this export).
 
   QSORRES:
     label: Result or Finding in Original Units
@@ -123,7 +140,7 @@ variables:
     role: Result Qualifier
     core: Exp
     origin: CRF
-    derivation: as.character(value) from flat tibble for the row's itemname.
+    derivation: as.character(value) from raw form for the row's itemname.
 
   QSORRESU:
     label: Original Units
@@ -132,8 +149,11 @@ variables:
     role: Variable Qualifier
     core: Perm
     origin: Assigned
+    codelist: UNIT
     derivation: |
-      "SCORE" for subscale rows; null for raw item rows.
+      Null. SF-12 item responses are coded categorical values (no unit) and
+      SF-12 subscale scores are unitless on a 0-100 scale. P21 CT2002: "SCORE"
+      is not in the CDISC Unit codelist, so QSORRESU is left blank.
 
   QSSTRESC:
     label: Character Result/Finding in Std Format
@@ -151,7 +171,11 @@ variables:
     role: Result Qualifier
     core: Exp
     origin: Derived
-    derivation: suppressWarnings(as.numeric(QSORRES)). NA when QSORRES non-numeric.
+    derivation: |
+      suppressWarnings(as.numeric(QSORRES)). NA when QSORRES non-numeric.
+      Subscale scores are copied directly from raw (item group "c"); they are
+      NOT recomputed from items Q1..Q12. Recomputing per the published
+      SF-12v1 / v2 algorithm is a separable follow-up task.
 
   QSSTRESU:
     label: Standard Units
@@ -160,7 +184,10 @@ variables:
     role: Variable Qualifier
     core: Perm
     origin: Assigned
-    derivation: Equals QSORRESU.
+    codelist: UNIT
+    derivation: |
+      Null (same as QSORRESU). P21 CT2002: "SCORE" is not in the CDISC
+      Unit codelist.
 
   QSBLFL:
     label: Baseline Flag
@@ -170,7 +197,25 @@ variables:
     core: Perm
     origin: Derived
     codelist: NY
-    derivation: "Y" on records whose VISITNUM corresponds to the first SF-12 administration for the subject (pre-randomization).
+    derivation: |
+      "Y" on records whose QSDTC is the earliest SF-12 administration for
+      the subject and QSTESTCD. The SF-12 form is administered once in this
+      pilot, so every record qualifies.
+
+  EPOCH:
+    label: Epoch
+    type: Char
+    length: 40
+    role: Timing
+    core: Perm
+    origin: Derived
+    codelist: EPOCH
+    derivation: |
+      Derived from QSDTC vs DM.RFSTDTC / DM.RFENDTC, mirroring CE / DS:
+        QSDTC < RFSTDTC                 -> "SCREENING"
+        RFSTDTC <= QSDTC <= RFENDTC     -> "TREATMENT"
+        QSDTC > RFENDTC                 -> "FOLLOW-UP"
+        any RFSTDTC missing             -> null.
 
   VISITNUM:
     label: Visit Number
@@ -179,7 +224,7 @@ variables:
     role: Timing
     core: Req
     origin: CRF
-    derivation: From OpenClinica event (studyeventoid).
+    derivation: From OpenClinica event (studyeventoid) via derive_visitnum() — always 7 (SE_QUALITYOFLIFE).
 
   VISIT:
     label: Visit Name
@@ -198,7 +243,10 @@ variables:
     core: Exp
     origin: CRF
     raw_column: startdate
-    derivation: Use the SF-12 form startdate.
+    derivation: |
+      normalize_iso_date(substr(startdate, 1, 10)) on the SF-12 form startdate.
+      Raw values are a mix of ISO date ("2024-09-12") and ISO datetime
+      ("2022-10-20T10:47:00"); only the date portion is retained.
 
   QSDY:
     label: Study Day of Finding
@@ -207,4 +255,7 @@ variables:
     role: Timing
     core: Perm
     origin: Derived
-    derivation: as.integer(as.Date(QSDTC) - as.Date(DM.RFSTDTC)) + ifelse(QSDTC >= RFSTDTC, 1L, 0L). Skip day 0.
+    derivation: |
+      as.integer(as.Date(QSDTC) - as.Date(DM.RFSTDTC)) +
+      ifelse(QSDTC >= RFSTDTC, 1L, 0L). Skip day 0. Null when either
+      QSDTC or DM.RFSTDTC is missing.
