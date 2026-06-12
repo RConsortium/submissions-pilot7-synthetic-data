@@ -9,6 +9,7 @@ configured separately.
 | File | Purpose |
 |---|---|
 | `triage_issues.md`    | Triage every open GitHub issue: answer from the repo, or open a ready-for-review PR + comment. Full rules, hard limits, and end-of-run output spec are inside the file. |
+| `weekly_update.md`    | Post a weekly activity digest (commits, merged PRs, issue activity, needs-attention list) as one Slack message to `#pilot7-sdtm-adam-tlf-bench` (`C0B44HS7CNA`). Read-only on GitHub; state lives in the channel history; no R bootstrap needed. |
 | `bootstrap_system.sh` | Pre-pre-flight installer. `apt-get`s `r-base` + `r-base-dev` + the system libraries `{renv}` compiles packages against, but only if `Rscript` is missing from `PATH`. Idempotent. Runs first in Step 0 of `triage_issues.md`. |
 | `bootstrap_r.R`       | Pre-flight installer. Reads `cart-t/renv.lock`, diffs against `installed.packages()`, and uses `{renv}` to install whatever is missing or version-mismatched. Idempotent — no-op on a warm machine. Runs after `bootstrap_system.sh` in Step 0. |
 
@@ -40,6 +41,15 @@ prompt field (the fence itself is just for copy-paste; don't include it):
 Read automation/triage_issues.md from the repo root and execute it exactly as written. The file is the complete job — do not add steps, skip steps, or ask for clarification. Start by running Step 0 (Rscript automation/bootstrap_r.R); if that exits non-zero, follow the failure path in the prompt and stop. Otherwise proceed through the per-issue loop. End with the stdout summary table specified at the bottom of the file.
 ```
 
+For the **weekly update** routine, register a *separate* routine (don't
+multiplex), schedule it weekly — Fridays 07:00 PST works well, just
+before the 8–9 AM PST standup — attach the **Slack connector** (it posts
+to `C0B44HS7CNA`), and paste:
+
+```
+Read automation/weekly_update.md from the repo root and execute it exactly as written. The file is the complete job — do not add steps, skip steps, or ask for clarification. Skip the R bootstrap entirely; this routine only needs gh, git, and the Slack tools. Respect the idempotency guard in Step 1, send at most one Slack message to the channel named in the file, and end with the stdout summary lines specified at the bottom of the file.
+```
+
 To run a prompt manually right now without scheduling, paste the
 contents of the prompt file into a Claude Code session at the repo root.
 
@@ -52,6 +62,10 @@ idempotent across runs and across machines:
 - `claude-needs-human` — automation deferred; needs a human.
 
 Both labels are auto-created on first run.
+
+The weekly update routine keeps no GitHub state at all: its reporting
+window and idempotency guard come from the most recent digest message it
+finds in the Slack channel itself.
 
 ## Hard limits (apply to every prompt in this folder)
 
@@ -93,7 +107,9 @@ list whenever you rotate credentials or change CI.
   `gh auth status`. The token needs: read issues, write issues
   (comment + label), read/write PRs, push branches. Issue *creation*
   is not required — bootstrap failures surface in the routine log
-  only, not as an auto-filed issue.
+  only, not as an auto-filed issue. The **weekly update** routine only
+  needs *read* access on GitHub; its single write action is a Slack
+  message.
 - **`git` user.name and user.email** set to the bot identity so commits
   and PR authorship are recognisable. Do **not** use a real person's
   identity — humans should be able to tell at a glance.
@@ -115,6 +131,10 @@ list whenever you rotate credentials or change CI.
   `Read`, `Write`, `Edit`. Do **not** allowlist destructive global
   tools. The prompt enforces no `--no-verify` / no `--amend` / no
   force-push, but tool-level limits are a backstop.
+- **Slack connector** (weekly update routine only) — attached to the
+  routine, signed into the `rconsortium` workspace, with read + post
+  access to `#pilot7-sdtm-adam-tlf-bench` (`C0B44HS7CNA`). The triage
+  routine does not need it.
 - **Network access** — must be able to reach `api.github.com`, the
   CRAN/p3m mirror in `renv.lock`, and (if any GitHub-sourced packages
   exist in `renv.lock`) `github.com`.
@@ -131,12 +151,3 @@ list whenever you rotate credentials or change CI.
   will `renv::install()` the delta automatically.
 - **Branch protection on `main`** that requires PR review. The routine
   opens PRs ready-for-review but never merges; a human always merges.
-
-### What to watch / how to kill it
-
-- Every run prints an end-of-run table to the routine log
-  (Issue / Action / Result). Scan it after each fire.
-- To pause the routine: disable the schedule in Claude Code, or
-  pre-label every open issue with `claude-needs-human`.
-- To retire it: delete the routine and remove this folder. No
-  on-repo state needs cleanup beyond the two labels.
