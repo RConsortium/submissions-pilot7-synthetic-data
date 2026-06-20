@@ -53,7 +53,7 @@ To learn more about the R consortium Submissions Working Group, visit [here](htt
 
 ## Synthetic Trial Data
 
-All data under `CWMM-LAA1/` and `kn564/` was generated using the [clinical-trial-ipd-sim](https://github.com/RConsortium/pharma-skills/tree/main/clinical-trial-ipd-sim) skill.
+All data under `CWMM-LAA1/` and `kn564/` was generated using the [clinical-trial-ipd-sim](https://github.com/RConsortium/pharma-skills/tree/main/clinical-trial-ipd-sim) skill, based on the original protocol.
 
 ## Reference: CDISC Pilot 1 data
 - Original sdtm: [json version](https://github.com/RConsortium/submissions-pilot6-adams-tlfs/tree/main/data/sdtm)
