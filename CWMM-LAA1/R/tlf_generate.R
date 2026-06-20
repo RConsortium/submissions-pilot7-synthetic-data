@@ -157,8 +157,8 @@ for (arm in arm_order) {
   n_arm <- sum(adsl$ARM == arm)
   arm_ae <- teae[teae$ARM == arm, ]
   any_ae <- length(unique(arm_ae$SUBJID))
-  serious <- length(unique(arm_ae$SUBJID[arm_ae$AESER == "Y"]))
-  disc_ae <- sum(adsl$ARM == arm & adsl$DCSREAS == "Adverse Event", na.rm = TRUE)
+  serious <- length(unique(arm_ae$SUBJID[!is.na(arm_ae$AESER) & arm_ae$AESER == "Y"]))
+  disc_ae <- sum(adsl$ARM == arm & !is.na(adsl$DCSREAS) & adsl$DCSREAS == "Adverse Event")
   row <- c(
     `Any AE` = sprintf("%d (%d%%)", any_ae, round(any_ae/n_arm*100)),
     `Serious AE` = sprintf("%d (%d%%)", serious, round(serious/n_arm*100)),

@@ -51,7 +51,11 @@ Everyone is welcome to join. To access our calendar and join the Slack workspace
 To learn more about the R consortium Submissions Working Group, visit [here](https://rconsortium.github.io/submissions-wg/)
 
 
-Reference: CDISC Pilot 1 data
+## Synthetic Trial Data
+
+All data under `CWMM-LAA1/` and `kn564/` was generated using the [clinical-trial-ipd-sim](https://github.com/RConsortium/pharma-skills/tree/main/clinical-trial-ipd-sim) skill.
+
+## Reference: CDISC Pilot 1 data
 - Original sdtm: [json version](https://github.com/RConsortium/submissions-pilot6-adams-tlfs/tree/main/data/sdtm)
 - Original xpt versions: see pilot 5 [repo](https://github.com/RConsortium/submissions-pilot5-datasetjson) 
 - CSR: [https://github.com/cdisc-org/sdtm-adam-pilot-project/blob/master/updated-pilot-submission-package/900172/m5/53-clin-stud-rep/535-rep-effic-safety-stud/5351-stud-rep-contr/cdiscpilot01/cdiscpilot01.pdf](https://github.com/cdisc-org/sdtm-adam-pilot-project/blob/master/updated-pilot-submission-package/900172/m5/53-clin-stud-rep/535-rep-effic-safety-stud/5351-stud-rep-contr/cdiscpilot01/cdiscpilot01.pdf)

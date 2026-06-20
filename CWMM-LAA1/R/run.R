@@ -2,7 +2,7 @@
 # ==========================================================
 
 # Set working directory to project root
-if (!basename(getwd()) %in% c("CWMM-LAA1", "ENLIGHTEN-1")) {
+if (basename(getwd()) != "CWMM-LAA1") {
   # Try to find project root
   if (file.exists("R/dag_state.R")) {
     # already in root
