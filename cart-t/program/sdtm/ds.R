@@ -223,7 +223,6 @@ ds <- ds_all |>
   mutate(
     STUDYID  = "CART-T-PILOT",
     DOMAIN   = "DS",
-    DSSCAT   = NA_character_,
     ## SD1088 fix: derive DSSTDY from DM.RFSTDTC
     DSSTDY   = dplyr::if_else(
       !is.na(DSSTDTC) & !is.na(RFSTDTC),
@@ -232,13 +231,11 @@ ds <- ds_all |>
       NA_integer_
     ),
     DSSEQ    = row_number(),
-    VISITNUM = derive_visitnum(studyeventoid),
-    VISIT    = eventname,
     .by = USUBJID
   ) |>
   select(STUDYID, DOMAIN, USUBJID, DSSEQ,
-         DSTERM, DSDECOD, DSCAT, DSSCAT, EPOCH,
-         DSSTDTC, DSSTDY, VISITNUM, VISIT)
+         DSTERM, DSDECOD, DSCAT, EPOCH,
+         DSSTDTC, DSSTDY)
 
 saveRDS(ds, "data/sdtm/ds.rds")
 cat(sprintf("DS written: %d rows x %d cols\n", nrow(ds), ncol(ds)))

@@ -98,8 +98,8 @@ elig_dates <- ie_raw |>
   filter(!is.na(.sd)) |>
   summarise(elig_startdate = min(.sd), .by = subjectkey)
 
-demog      <- pivot_subject_items(dm_raw,   c("PTSEX", "PTRACE", "HISP", "OTHERRACE"))
-elig       <- pivot_subject_items(ie_raw,   c("BDAY", "PTAGE", "PTBYEAR"))
+demog      <- pivot_subject_items(dm_raw,   c("PTSEX", "PTSEXEL", "PTRACE", "HISP", "OTHERRACE"))
+elig       <- pivot_subject_items(ie_raw,   c("BDAY", "PTAGE", "PTBYEAR", "PSEX"))
 randomized <- pivot_subject_items(rand_raw, c("PROFILE"))
 disp       <- pivot_subject_items(ds_raw,   c("CONSENTEDDT", "EARLYTERMINATIONDATE"))
 
@@ -131,8 +131,6 @@ dm <- subjects |>
       normalize_iso_date(EARLYTERMINATIONDATE),
       last_visit_dt
     ),
-    RFXSTDTC = NA_character_,
-    RFXENDTC = NA_character_,
     RFPENDTC = dplyr::coalesce(
       normalize_iso_date(EARLYTERMINATIONDATE),
       last_visit_dt
@@ -143,20 +141,23 @@ dm <- subjects |>
       ifelse(!is.na(PTBYEAR) & nzchar(PTBYEAR), paste0(PTBYEAR, "-01-01"), NA_character_)
     )),
     AGE      = suppressWarnings(as.integer(PTAGE)),
-    AGEU     = "YEARS",
+    AGEU     = ifelse(!is.na(suppressWarnings(as.integer(PTAGE))), "YEARS", NA_character_),  # only set when AGE is non-null
 
-    SEX      = dplyr::recode(toupper(PTSEX), M = "M", F = "F",
-                             .default = "U", .missing = "U"),
+    SEX      = dplyr::coalesce(
+                 dplyr::recode(PTSEX,            "1" = "M", "2" = "F", .default = NA_character_),
+                 dplyr::recode(toupper(PTSEXEL), "MALE" = "M", "FEMALE" = "F", .default = NA_character_),
+                 dplyr::recode(PSEX,             "1" = "M", "2" = "F", .default = NA_character_),
+                 "U"
+               ),
 
     ## RACE: map OpenClinica MSL_62 codes to CDISC RACE extensible CT (C74457).
     ## Multi-select (comma-separated codes) maps to "MULTIPLE" per SDTMIG guidance.
     RACE     = map_race(PTRACE),
 
-    ETHNIC   = dplyr::recode(toupper(HISP),
-                             Y = "HISPANIC OR LATINO",
-                             N = "NOT HISPANIC OR LATINO",
-                             .default = NA_character_,
-                             .missing  = NA_character_),
+    ETHNIC   = dplyr::recode(HISP,
+                             "1" = "HISPANIC OR LATINO",
+                             "0" = "NOT HISPANIC OR LATINO",
+                             .default = NA_character_),
 
     ARMCD    = armcd_map(PROFILE),
     ARM      = arm_map(PROFILE),
@@ -182,7 +183,7 @@ dm <- subjects |>
   ) |>
   arrange(USUBJID) |>
   select(STUDYID, DOMAIN, USUBJID, SUBJID,
-         RFSTDTC, RFENDTC, RFXSTDTC, RFXENDTC, RFICDTC, RFPENDTC,
+         RFSTDTC, RFENDTC, RFICDTC, RFPENDTC,
          DTHDTC, DTHFL, SITEID,
          BRTHDTC, AGE, AGEU, SEX, RACE, ETHNIC,
          ARMCD, ARM, ACTARMCD, ACTARM, COUNTRY)
