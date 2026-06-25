@@ -26,8 +26,10 @@ phenotype <- rand |>
             STRAT1  = phenotype_code(PROFILE),
             STRAT1L = phenotype_label(PROFILE))
 
-## TRTxxPN/AN map keyed by ARMCD ("TREATMENT" = 1, "SCRNFAIL" = 99).
-arm_n_map <- c(TREATMENT = 1L, SCRNFAIL = 99L)
+## TRTxxPN/AN map keyed by ARMCD. Screen failures have ARMCD = null (per
+## SDTMIG Assumption 4), so TRT01PN is NA for screen failures; TRT01AN is
+## NA for all subjects because ACTARMCD is null throughout (no treatment).
+arm_n_map <- c(TREATMENT = 1L)
 
 randdt_per_subj <- ds |>
   filter(DSDECOD == "RANDOMIZED") |>

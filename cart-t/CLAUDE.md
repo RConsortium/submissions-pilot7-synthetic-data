@@ -54,7 +54,7 @@ things that would otherwise drift if each program duplicated them.
 | `visit_map` (named vector) | `studyeventoid` → integer VISITNUM. Update this whenever a new OpenClinica event is added. |
 | `derive_visitnum(studyeventoid)` | Vectorised lookup. **Do not** coerce `studyeventoid` to numeric directly — values are text like `"SE_BASELINE"`. |
 | `make_usubjid(studysubjectid)` | Returns `"CART-T-PILOT-01-<studysubjectid>"`. Single source of truth for the USUBJID format. |
-| `armcd_map(profile)` / `arm_map(profile)` | See "Study-specific decisions" below. |
+| `armcd_map(profile)` / `arm_map(profile)` / `armnrs_map(profile)` | See "Study-specific decisions" below. |
 | `phenotype_code(profile)` / `phenotype_label(profile)` | NHM / NHF / HM / HF for stratification — feeds `ADSL.STRAT1` / `STRAT1L`. |
 | `normalize_iso_date(x)` | Coerces mixed raw date formats to ISO 8601 `yyyy-mm-dd`. **Required before passing dates into admiral** because the raw CRF mixes ISO (`2024-03-07`), US-format (`06/23/2025`, `3/13/24`), and year-only (`2026`). |
 
@@ -63,7 +63,7 @@ things that would otherwise drift if each program duplicated them.
 These are decisions the source data forced on us; they belong in this
 file (not in any IG) so future sessions don't reopen them.
 
-### `ARMCD` / `ARM` are not phenotype labels
+### `ARMCD` / `ARM` / `ACTARMCD` / `ACTARM` / `ARMNRS` coding
 
 The Randomize CRF's `PROFILE` item carries strings like
 `"a non-Hispanic male"`. That is a **stratification phenotype**, not a
@@ -71,20 +71,37 @@ treatment arm. `Disposition.RECEIVEDINTERVENTION` is `Yes` for zero
 subjects in the entire export, so this study has no treatment
 administration at all.
 
-Convention enforced across SDTM DM and every ADaM dataset:
+**SDTMIG v3.3 DM Assumption 4** governs this domain. Convention enforced
+across SDTM DM and every ADaM dataset:
 
-- `ARMCD = "TREATMENT"` / `ARM = "Study Treatment"` for subjects who
-  were randomized (have a PROFILE).
-- `ARMCD = "SCRNFAIL"` / `ARM = "Screen Failure"` for subjects who were
-  not.
-- `ACTARMCD` / `ACTARM` mirror `ARMCD` / `ARM` (no exposure data exists
-  to differentiate).
-- Phenotype lives in **`ADSL.STRAT1`** (`NHM`/`NHF`/`HM`/`HF`) and
-  **`ADSL.STRAT1L`** (long label). Downstream OCCDS datasets (ADAE,
-  ADCM, ADMH, ADDS, ADIE, ADCE) carry `STRAT1` forward.
+| Subject type | ARMCD | ARM | ACTARMCD | ACTARM | ARMNRS |
+|---|---|---|---|---|---|
+| Screen failure (530) | **null** | **null** | **null** | **null** | `"SCREEN FAILURE"` |
+| Randomized, not treated (280) | `"TREATMENT"` | `"Study Treatment"` | **null** | **null** | `"ASSIGNED, NOT TREATED"` |
 
-Counts for sanity: 530 SCRNFAIL, 280 TREATMENT (236 NHM, 27 NHF, 12 HM,
-5 HF).
+Key rules from the IG (Assumption 4):
+- Screen failures were **not assigned** to an arm → `ARMCD = null`, not
+  `"SCRNFAIL"`. The reason goes in `ARMNRS`.
+- `ACTARMCD` is **always null** here because no subject received
+  treatment consistent with a planned arm. `"NOTTRT"` is not a TA arm
+  value and must not appear.
+- `ARMNRS` is **always populated** because `ACTARMCD` is always null.
+- `ARMNRS` must **not** be populated when both `ARMCD` and `ACTARMCD`
+  are non-null (that case cannot arise in this study).
+- `ACTARMUD` is null throughout (populated only when
+  `ARMNRS = "UNPLANNED TREATMENT"`).
+
+Helper functions in `ut_visits.R`:
+- `armcd_map(profile)` → `"TREATMENT"` when profile non-empty, `NA` otherwise.
+- `arm_map(profile)` → `"Study Treatment"` or `NA`.
+- `armnrs_map(profile)` → `"ASSIGNED, NOT TREATED"` or `"SCREEN FAILURE"`.
+
+Phenotype lives in **`ADSL.STRAT1`** (`NHM`/`NHF`/`HM`/`HF`) and
+**`ADSL.STRAT1L`** (long label). Downstream OCCDS datasets (ADAE,
+ADCM, ADMH, ADDS, ADIE, ADCE) carry `STRAT1` forward.
+
+Counts for sanity: 530 screen failures, 280 randomized-not-treated
+(236 NHM, 27 NHF, 12 HM, 5 HF).
 
 ### `ADVS` is not buildable
 

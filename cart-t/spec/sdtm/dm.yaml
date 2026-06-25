@@ -59,45 +59,65 @@ variables:
   RFSTDTC:
     label: Subject Reference Start Date/Time
     type: Char
-    length: 19
+    length: 10
     role: Record Qualifier
     core: Exp
     origin: Derived
     derivation: |
-      RFICDTC when available; otherwise the minimum event startdate across all
-      OpenClinica events for the subject (flat.rds startdate column, first 10
-      characters). RFICDTC is sparsely populated (Disposition.CONSENTEDDT present
-      for only 1 subject), so the startdate fallback is the primary source.
+      Null for all subjects. Per SDTMIG v3.3 Assumption 9: "when data are
+      submitted for subjects who are…randomized but not treated (e.g.,
+      ARMNRS = 'NOT TREATED'), RFSTDTC will be null." Screen failures are
+      null per Assumption 10 and the DM variable note. Since no subject in
+      this export received treatment (RECEIVEDINTERVENTION = No for all),
+      RFSTDTC is null for every subject. The enrollment/consent date is
+      carried in RFICDTC; last study activity is in RFPENDTC.
 
   RFENDTC:
     label: Subject Reference End Date/Time
     type: Char
-    length: 19
+    length: 10
     role: Record Qualifier
     core: Exp
     origin: Derived
     derivation: |
-      Disposition.EARLYTERMINATIONDATE when present; otherwise the maximum event
-      startdate across all OpenClinica events for the subject (last recorded
-      study activity).
+      Null for all subjects. Per SDTMIG v3.3 Assumption 10a, RFSTDTC and
+      RFENDTC are a pair representing the sponsor-defined reference period
+      (usually first and last study exposure). Because RFSTDTC is null for
+      all subjects (Assumption 9 — no treatment administered), there is no
+      reference period and RFENDTC is correspondingly null. Screen failures
+      are null per the DM variable note ("null for screen failures or
+      unassigned subjects"). Last study activity is carried in RFPENDTC.
+      Note: the DM variable note states RFENDTC is "required for all
+      randomized subjects"; this applies when treatment occurs and a
+      reference period is defined. See docs/p21_ig_conflicts.md for the
+      IG vs. P21 analysis of this variable.
 
   RFXSTDTC:
     label: Date/Time of First Study Treatment
     type: Char
-    length: 19
+    length: 10
     role: Record Qualifier
-    core: Perm
+    core: Exp
     origin: Derived
-    derivation: Earliest EX.EXSTDTC for the subject.
+    derivation: |
+      Earliest EX.EXSTDTC for the subject. Null for all subjects in this
+      export because RECEIVEDINTERVENTION = No for every subject (no EX data).
+      Column is present per SDTMIG v3.3 Exp designation; SDTMIG Assumption 10
+      states this pair of variables is not open to customization and always
+      represents first/last study exposure.
 
   RFXENDTC:
     label: Date/Time of Last Study Treatment
     type: Char
-    length: 19
+    length: 10
     role: Record Qualifier
-    core: Perm
+    core: Exp
     origin: Derived
-    derivation: Latest EX.EXENDTC (or EXSTDTC when no end is recorded) for the subject.
+    derivation: |
+      Latest EX.EXENDTC (or EXSTDTC when no end is recorded) for the subject.
+      Null for all subjects in this export because RECEIVEDINTERVENTION = No
+      for every subject (no EX data). Column is present per SDTMIG v3.3 Exp
+      designation.
 
   RFICDTC:
     label: Date/Time of Informed Consent
@@ -110,12 +130,16 @@ variables:
     source_form: "Disposition"
     source_item_group: PD
     derivation: |
-      Disposition.PD.CONSENTEDDT when available; otherwise the minimum
-      startdate of the Eligibility form (SE_ENROLLMENT event) for the subject,
-      used as a proxy for the informed consent encounter. CONSENTEDDT is
-      present for only 1 subject; the eligibility startdate proxy covers 580
-      subjects. The remaining ~230 subjects retain RFICDTC = null (no
-      Eligibility form startdate in the export).
+      Priority: coalesce(Disposition.PD.CONSENTEDDT, Eligibility form
+      startdate). Capped at the subject's first_visit_dt (minimum startdate
+      across all OpenClinica events) when the computed value exceeds it.
+      Rationale: CONSENTEDDT is recorded in the Disposition form which may
+      be filled in well after the actual consent encounter; for some subjects
+      CONSENTEDDT > randomization date, which is chronologically impossible.
+      The cap ensures RFICDTC ≤ first recorded study activity (per IG
+      Assumption 10: RFICDTC = date of first informed consent). CONSENTEDDT
+      is present for only 1 subject; the eligibility startdate proxy covers
+      ~580 subjects. The remaining ~230 retain RFICDTC = null.
 
   RFPENDTC:
     label: Date/Time of End of Participation
@@ -189,7 +213,10 @@ variables:
     raw_item: PTAGE
     source_form: "Eligibility"
     source_item_group: INCA
-    derivation: Integer years between BRTHDTC and RFICDTC; if BRTHDTC missing, use PTAGE as-collected.
+    derivation: |
+      Priority: (1) PTAGE as collected (integer); (2) floor((RFICDTC −
+      BRTHDTC) / 365.25) in whole years when BRTHDTC and RFICDTC are both
+      full ISO 8601 dates. Null only when neither source is available.
 
   AGEU:
     label: Age Units
@@ -232,12 +259,17 @@ variables:
       "4": NATIVE HAWAIIAN OR OTHER PACIFIC ISLANDER
       "5": WHITE
       "6": OTHER
+      "missing": UNKNOWN
     derivation: |
       Map PTRACE OpenClinica multi-select codes (MSL_62) to CDISC RACE
       extensible CT (C74457). When multiple codes are comma-separated
       (subject checked more than one box), RACE = "MULTIPLE" per SDTMIG
-      guidance. Code 6 ("Other") maps to RACE = "OTHER"; the free-text
+      Assumption 6. Code 6 ("Other") maps to RACE = "OTHER"; the free-text
       OTHERRACE value is a candidate for SUPPDM.QVAL when present.
+      When PTRACE is absent or unmapped, RACE = "UNKNOWN" per SDTMIG
+      Assumption 6: "If a subject refuses to provide race information, the
+      value of RACE could be 'UNKNOWN'." UNKNOWN is in the extensible
+      RACE CT (C74457).
 
   ETHNIC:
     label: Ethnicity
@@ -258,54 +290,87 @@ variables:
     type: Char
     length: 20
     role: Record Qualifier
-    core: Req
+    core: Exp
     origin: Derived
     raw_item: PROFILE
     source_form: "3. Randomize"
     source_item_group: rand1
     derivation: |
-      "TREATMENT" when subject was randomized (PROFILE populated); "SCRNFAIL"
-      otherwise. This study captures a single observational treatment group;
-      the demographic phenotype from PROFILE is a stratification cohort, not
-      a treatment arm, and is carried into ADSL.STRAT1/STRAT1L instead.
+      "TREATMENT" when subject was randomized (PROFILE populated in 3. Randomize
+      form); null otherwise. SDTMIG v3.3 Assumption 4: "If the subject was not
+      assigned to an Arm, ARMCD is null and ARMNRS is populated." Screen failures
+      were not assigned to an arm and therefore have ARMCD = null, ARMNRS =
+      "SCREEN FAILURE". The demographic phenotype from PROFILE (stratification
+      cohort) is carried in ADSL.STRAT1/STRAT1L, not in ARMCD.
 
   ARM:
     label: Description of Planned Arm
     type: Char
     length: 40
     role: Synonym Qualifier
-    core: Req
+    core: Exp
     origin: Derived
     raw_item: PROFILE
     source_form: "3. Randomize"
     derivation: |
-      "Study Treatment" for ARMCD = "TREATMENT"; "Screen Failure" for
-      ARMCD = "SCRNFAIL".
+      "Study Treatment" when ARMCD = "TREATMENT"; null when ARMCD is null.
+      SDTMIG Assumption 4: "If ARMCD is null, then ARM must be null."
 
   ACTARMCD:
     label: Actual Arm Code
     type: Char
     length: 20
     role: Record Qualifier
-    core: Req
+    core: Exp
     origin: Derived
     derivation: |
-      RECEIVEDINTERVENTION = No for all subjects in this export, so no subject
-      actually received study treatment. Randomized subjects (ARMCD =
-      "TREATMENT") are coded ACTARMCD = "NOTTRT" per SDTMIG guidance for
-      subjects assigned to but not receiving treatment. Screen failure subjects
-      retain ACTARMCD = "SCRNFAIL".
+      Null for all subjects in this export. RECEIVEDINTERVENTION = No for every
+      subject; no subject followed the course described by the planned arm.
+      SDTMIG v3.3 Assumption 4: "If the subject was not assigned to an Arm or
+      followed a course not described by any planned Arm, ACTARMCD is null and
+      ARMNRS is populated." For randomized subjects ARMNRS = "ASSIGNED, NOT
+      TREATED" (SDTMIG DM Example 6, row 5); for screen failures ARMNRS =
+      "SCREEN FAILURE".
 
   ACTARM:
     label: Description of Actual Arm
     type: Char
     length: 40
     role: Synonym Qualifier
-    core: Req
+    core: Exp
     origin: Derived
     derivation: |
-      "Not treated" for ACTARMCD = "NOTTRT"; "Screen Failure" for
-      ACTARMCD = "SCRNFAIL".
+      Null for all subjects. SDTMIG Assumption 4: "If ACTARMCD is null, then
+      ACTARM must be null." See ACTARMCD.
+
+  ARMNRS:
+    label: Reason Arm and/or Actual Arm is Null
+    type: Char
+    length: 40
+    role: Record Qualifier
+    core: Exp
+    origin: Derived
+    derivation: |
+      SDTMIG v3.3 Assumption 4 requires ARMNRS to be populated whenever ARMCD
+      or ACTARMCD is null. In this study ACTARMCD is null for every subject, so
+      ARMNRS is always populated:
+        "SCREEN FAILURE"       — subjects not assigned to an arm (530 subjects)
+        "ASSIGNED, NOT TREATED"— randomized subjects who did not receive
+                                 treatment (280 subjects; SDTMIG DM Example 6)
+      ARMNRS must NOT be populated when both ARMCD and ACTARMCD are non-null
+      (Assumption 4, rule 3) — that case does not arise in this study.
+
+  ACTARMUD:
+    label: Description of Unplanned Actual Arm
+    type: Char
+    length: 200
+    role: Record Qualifier
+    core: Exp
+    origin: Derived
+    derivation: |
+      Null throughout. ACTARMUD is populated only when ARMNRS = "UNPLANNED
+      TREATMENT" (SDTMIG Assumption 4). No subject in this export received
+      treatment outside of a planned arm.
 
   COUNTRY:
     label: Country

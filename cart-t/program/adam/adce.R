@@ -34,7 +34,7 @@ adce <- ce |>
   select(STUDYID, USUBJID, SUBJID, SITEID,
          AGE, SEX, RACE, STRAT1,
          TRT01P, TRT01A,
-         CESEQ, CETERM, CECAT, CESER, CEPRESP, CEOCCUR,
+         CESEQ, CETERM, CECAT,
          ASTDT, ASTDY,
          AOCCFL, SAFFL, ANL01FL)
 

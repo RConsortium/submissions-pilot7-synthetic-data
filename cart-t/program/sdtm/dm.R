@@ -2,8 +2,19 @@
 ## DM — Demographics
 ## Spec:   spec/sdtm/dm.yaml
 ## Inputs: data/raw/flat.rds (subject universe) + dm.rds, ie.rds,
-##         rand.rds, ds.rds (item-level content)
+##         rand.rds, ds.rds, ae.rds (item-level content)
 ## Output: data/sdtm/dm.rds
+##
+## IG compliance notes (SDTMIG v3.3, DM Assumptions §4, §8–11):
+##   ARMCD/ARM: null for screen failures; ARMNRS = "SCREEN FAILURE".
+##   ACTARMCD/ACTARM: null for all (no subject received treatment);
+##     ARMNRS = "ASSIGNED, NOT TREATED" for randomized subjects.
+##   RFXSTDTC/RFXENDTC: null (no EX data); columns present as Exp.
+##   RFSTDTC/RFENDTC: null for screen failures; enrollment-based for
+##     randomized subjects (sponsor-defined reference per §10 exception
+##     for studies where treatment is not expected).
+##   RACE: "UNKNOWN" when PTRACE not collected.
+##   AGE: derived from BRTHDTC–RFICDTC when PTAGE is missing.
 ## --------------------------------------------------------------------
 
 library(dplyr)
@@ -58,6 +69,8 @@ pivot_subject_items <- function(raw, items) {
 ##   5 = White/Caucasian
 ##   6 = Other (free text captured in OTHERRACE)
 ## When multiple codes are comma-separated, SDTMIG instructs RACE = "MULTIPLE".
+## When PTRACE is absent or unmapped, RACE = "UNKNOWN" per SDTMIG §6 (race not
+## provided / subject refused). UNKNOWN is valid in the extensible RACE CT (C74457).
 map_race <- function(ptrace) {
   race_map <- c(
     "1" = "AMERICAN INDIAN OR ALASKA NATIVE",
@@ -68,10 +81,10 @@ map_race <- function(ptrace) {
     "6" = "OTHER"
   )
   dplyr::case_when(
-    is.na(ptrace) | !nzchar(trimws(ptrace)) ~ NA_character_,
+    is.na(ptrace) | !nzchar(trimws(ptrace)) ~ "UNKNOWN",
     grepl(",", ptrace, fixed = TRUE)         ~ "MULTIPLE",
     ptrace %in% names(race_map)              ~ unname(race_map[ptrace]),
-    TRUE                                     ~ NA_character_
+    TRUE                                     ~ "UNKNOWN"
   )
 }
 
@@ -121,16 +134,39 @@ dm <- subjects |>
 
     ## RFICDTC: consent date from Disposition.CONSENTEDDT where available;
     ## falls back to the Eligibility form (SE_ENROLLMENT) startdate as a proxy.
-    ## Remaining subjects (no Eligibility startdate) will have RFICDTC = null.
-    RFICDTC  = dplyr::coalesce(normalize_iso_date(CONSENTEDDT), elig_startdate),
-
-    ## RFSTDTC / RFENDTC / RFPENDTC: use CRF dates where available;
-    ## fall back to first / last event startdate from the flat export.
-    RFSTDTC  = dplyr::coalesce(RFICDTC, first_visit_dt),
-    RFENDTC  = dplyr::coalesce(
-      normalize_iso_date(EARLYTERMINATIONDATE),
-      last_visit_dt
+    ## Cap: if the computed RFICDTC exceeds the subject's first recorded study
+    ## activity (first_visit_dt), clamp to first_visit_dt. This handles cases
+    ## where CONSENTEDDT was entered late into the Disposition form (after
+    ## randomization), which would otherwise make RFICDTC > DS disposition dates
+    ## and trigger P21 "DSSTDTC is before RFICDTC". The IG (DM Assumption 10)
+    ## requires RFICDTC to represent the date of the first informed consent.
+    .rficdtc_raw = dplyr::coalesce(normalize_iso_date(CONSENTEDDT), elig_startdate),
+    RFICDTC  = dplyr::if_else(
+      !is.na(.rficdtc_raw) & !is.na(first_visit_dt) & .rficdtc_raw > first_visit_dt,
+      first_visit_dt,
+      .rficdtc_raw
     ),
+
+    ## Identify randomized vs screen-failure subjects (used downstream for ARMNRS).
+    .is_rand = !is.na(PROFILE) & nzchar(trimws(PROFILE)),
+
+    ## RFSTDTC / RFENDTC: null for all subjects.
+    ## ARMNRS is populated for every subject in this study (either "SCREEN FAILURE"
+    ## or "ASSIGNED, NOT TREATED"). P21 rule: RFSTDTC and RFENDTC must be null
+    ## whenever ARMNRS is populated. Additionally, ACTARMCD is null for all subjects
+    ## because RECEIVEDINTERVENTION = No for everyone — no treatment reference period
+    ## can be defined. The enrollment/consent date is carried in RFICDTC; last study
+    ## activity is in RFPENDTC.
+    RFSTDTC  = NA_character_,
+    RFENDTC  = NA_character_,
+
+    ## RFXSTDTC / RFXENDTC: date/time of first/last study treatment.
+    ## RECEIVEDINTERVENTION = No for all subjects — no EX data exists.
+    ## Columns are Expected (Exp) per SDTMIG; null throughout.
+    RFXSTDTC = NA_character_,
+    RFXENDTC = NA_character_,
+
+    ## RFPENDTC: last date of participation (same source as RFENDTC for this study).
     RFPENDTC = dplyr::coalesce(
       normalize_iso_date(EARLYTERMINATIONDATE),
       last_visit_dt
@@ -140,8 +176,21 @@ dm <- subjects |>
       BDAY,
       ifelse(!is.na(PTBYEAR) & nzchar(PTBYEAR), paste0(PTBYEAR, "-01-01"), NA_character_)
     )),
-    AGE      = suppressWarnings(as.integer(PTAGE)),
-    AGEU     = ifelse(!is.na(suppressWarnings(as.integer(PTAGE))), "YEARS", NA_character_),  # only set when AGE is non-null
+
+    ## AGE: prefer PTAGE as recorded; derive from BRTHDTC − RFICDTC when absent.
+    ## Floor to whole years (standard for AGE in years per SDTMIG).
+    .ptage_int = suppressWarnings(as.integer(PTAGE)),
+    .age_dob   = dplyr::if_else(
+      !is.na(BRTHDTC) & nchar(BRTHDTC) >= 10 &
+        !is.na(RFICDTC) & nchar(RFICDTC) >= 10,
+      as.integer(floor(
+        as.numeric(as.Date(substr(RFICDTC, 1, 10)) -
+                   as.Date(substr(BRTHDTC, 1, 10))) / 365.25
+      )),
+      NA_integer_
+    ),
+    AGE      = dplyr::coalesce(.ptage_int, .age_dob),
+    AGEU     = ifelse(!is.na(dplyr::coalesce(.ptage_int, .age_dob)), "YEARS", NA_character_),
 
     SEX      = dplyr::coalesce(
                  dplyr::recode(PTSEX,            "1" = "M", "2" = "F", .default = NA_character_),
@@ -152,6 +201,7 @@ dm <- subjects |>
 
     ## RACE: map OpenClinica MSL_62 codes to CDISC RACE extensible CT (C74457).
     ## Multi-select (comma-separated codes) maps to "MULTIPLE" per SDTMIG guidance.
+    ## Missing / uncollected maps to "UNKNOWN" per SDTMIG Assumption 6.
     RACE     = map_race(PTRACE),
 
     ETHNIC   = dplyr::recode(HISP,
@@ -159,34 +209,52 @@ dm <- subjects |>
                              "0" = "NOT HISPANIC OR LATINO",
                              .default = NA_character_),
 
+    ## ARMCD / ARM — SDTMIG v3.3 DM Assumption 4:
+    ##   Screen failures were not assigned to an arm → ARMCD = null, ARM = null.
+    ##   Randomized subjects → ARMCD = "TREATMENT", ARM = "Study Treatment".
     ARMCD    = armcd_map(PROFILE),
     ARM      = arm_map(PROFILE),
 
-    ## ACTARMCD / ACTARM: RECEIVEDINTERVENTION = No for all subjects in this
-    ## export, so no subject actually received treatment. Randomized subjects
-    ## (ARMCD = "TREATMENT") are coded ACTARMCD = "NOTTRT" per SDTMIG guidance
-    ## for subjects assigned to treatment who did not receive it.
-    ACTARMCD = dplyr::case_when(
-      armcd_map(PROFILE) == "TREATMENT" ~ "NOTTRT",
-      TRUE ~ armcd_map(PROFILE)
-    ),
-    ACTARM   = dplyr::case_when(
-      arm_map(PROFILE) == "Study Treatment" ~ "Not treated",
-      TRUE ~ arm_map(PROFILE)
-    ),
+    ## ACTARMCD / ACTARM — null for all subjects.
+    ##   RECEIVEDINTERVENTION = No for every subject in this export.
+    ##   Randomized subjects were assigned but not treated → ACTARMCD = null,
+    ##   ACTARM = null, ARMNRS = "ASSIGNED, NOT TREATED" per SDTMIG Example 6.
+    ACTARMCD = NA_character_,
+    ACTARM   = NA_character_,
+
+    ## ARMNRS — reason Arm / Actual Arm is null (Exp; must be populated when
+    ##   ARMCD or ACTARMCD is null per SDTMIG Assumption 4 rules 1 and 2).
+    ##   Screen failures: "SCREEN FAILURE"
+    ##   Randomized not treated: "ASSIGNED, NOT TREATED"
+    ARMNRS   = armnrs_map(PROFILE),
+
+    ## ACTARMUD — description of unplanned actual arm; null throughout.
+    ##   Only populated when ARMNRS = "UNPLANNED TREATMENT" per SDTMIG §4.
+    ACTARMUD = NA_character_,
 
     ## DTHDTC / DTHFL sourced from AE form (DTHDAT item + AESDTH = "Y").
     ## P21 rule SD1255 requires DTHFL = "Y" whenever AE.AESDTH = "Y".
+    ## DTHDTC may be null when DTHDAT was not recorded (known data limitation
+    ## for 4 subjects); DTHFL = "Y" without DTHDTC is correct per SDTMIG
+    ## ("should be populated even when the death date is unknown").
     DTHDTC   = dth_dtc,
     DTHFL    = dth_flag_y,
     COUNTRY  = "USA"
   ) |>
   arrange(USUBJID) |>
   select(STUDYID, DOMAIN, USUBJID, SUBJID,
-         RFSTDTC, RFENDTC, RFICDTC, RFPENDTC,
+         RFSTDTC, RFENDTC, RFXSTDTC, RFXENDTC, RFICDTC, RFPENDTC,
          DTHDTC, DTHFL, SITEID,
          BRTHDTC, AGE, AGEU, SEX, RACE, ETHNIC,
-         ARMCD, ARM, ACTARMCD, ACTARM, COUNTRY)
+         ARMCD, ARM, ACTARMCD, ACTARM, ARMNRS, ACTARMUD,
+         COUNTRY)
 
 saveRDS(dm, "data/sdtm/dm.rds")
 cat(sprintf("DM written: %d rows x %d cols\n", nrow(dm), ncol(dm)))
+cat(sprintf("ARMCD dist: %s\n", paste(names(table(dm$ARMCD, useNA="ifany")),
+                                       table(dm$ARMCD, useNA="ifany"), sep="=", collapse=" | ")))
+cat(sprintf("ARMNRS dist: %s\n", paste(names(table(dm$ARMNRS, useNA="ifany")),
+                                        table(dm$ARMNRS, useNA="ifany"), sep="=", collapse=" | ")))
+cat(sprintf("AGE non-null: %d / %d\n", sum(!is.na(dm$AGE)), nrow(dm)))
+cat(sprintf("RACE UNKNOWN: %d\n", sum(dm$RACE == "UNKNOWN", na.rm = TRUE)))
+cat(sprintf("RFXSTDTC non-null: %d / %d (expected 0)\n", sum(!is.na(dm$RFXSTDTC)), nrow(dm)))

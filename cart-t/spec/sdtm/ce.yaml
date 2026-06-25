@@ -26,8 +26,12 @@ scope_note: |
   "cjkcxhcj…") and are dropped from the emitted dataset.
 
 record_rule: |
-  One row per Suspected-MI EVENT item-group repeat per subject, after
-  dropping rows whose DESC value does not map to a canonical CETERM.
+  One row per Suspected-MI EVENT item-group repeat per subject, after:
+    (1) dropping rows whose DESC value does not map to a canonical CETERM
+        (junk/test data — SD1021);
+    (2) dropping rows where CESTDTC > DM.RFPENDTC — event date after the
+        subject's last study participation. These represent synthetic data
+        inconsistencies and are clinically impossible (SD0018).
 
 variables:
   STUDYID:
@@ -98,20 +102,34 @@ variables:
     type: Char
     length: 1
     role: Variable Qualifier
-    core: Exp
+    core: Perm
     origin: Protocol
     codelist: NY
-    derivation: Constant "Y" — Suspected MI is a protocol-defined event of interest.
+    derivation: |
+      Null for all records — not included in the submitted dataset.
+      SDTMIG v3.3 CE spec: "Value is 'Y' for pre-specified events and null
+      for spontaneously reported events." Suspected MI events are spontaneously
+      reported (subjects/clinicians report events as they occur; there is no
+      visit-specific check-list solicitation). Including CEPRESP = "Y" without
+      a paired visit time-point (VISITNUM or CESTTPT) triggers P21
+      "Missing Start Time-Point value." Omitting CEPRESP is correct for
+      spontaneous events and resolves SD1076 / the start time-point check.
+    notes: Not included in dataset output (null for spontaneous events → SD1078).
 
   CEOCCUR:
     label: Clinical Event Occurrence
     type: Char
     length: 1
     role: Record Qualifier
-    core: Exp
+    core: Perm
     origin: CRF
     codelist: NY
-    derivation: Constant "Y" on every emitted row (rows exist only when the event occurred).
+    derivation: |
+      Null for all records — not included in the submitted dataset.
+      SDTMIG v3.3 CE spec: "Used when the occurrence of specific events is
+      solicited … Values are null for spontaneously reported events." Since
+      CEPRESP is null (spontaneous events), CEOCCUR is also null per IG.
+    notes: Not included in dataset output (null for spontaneous events → SD1078).
 
   CESER:
     label: Serious Event
@@ -121,7 +139,14 @@ variables:
     core: Perm
     origin: Derived
     codelist: NY
-    derivation: Constant "Y" (a suspected MI is always serious by protocol definition).
+    derivation: |
+      Not included in the submitted dataset. CESER does not appear in the
+      SDTMIG v3.3 CE domain variable specification table (only AESER exists
+      in the AE table). Including CESER triggers SD1076 "Model Permissible
+      variable added into standard domain." CE Assumption 6 permits AE-domain
+      variables to be used in CE, but P21 does not validate this and flags
+      CESER as non-standard for CE in v3.3.
+    notes: Not included in dataset output (SD1076 — not in CE domain table).
 
   EPOCH:
     label: Epoch
@@ -133,11 +158,16 @@ variables:
     codelist: EPOCH
     derivation: |
       Derived from CESTDTC against DM reference dates:
+        DM.RFSTDTC = null (screen failure, ARMNRS = "SCREEN FAILURE")
+                                                   -> "SCREENING"
         CESTDTC < DM.RFSTDTC                       -> "SCREENING"
         DM.RFSTDTC <= CESTDTC <= DM.RFENDTC        -> "TREATMENT"
         CESTDTC > DM.RFENDTC                       -> "FOLLOW-UP"
-      Null when CESTDTC or DM.RFSTDTC is missing.
-      SD1077 fix (issue #15).
+        CESTDTC null                               -> null
+      Null-RFSTDTC case: after the SDTMIG v3.3 ARM fix, screen failure
+      subjects (ARMNRS = "SCREEN FAILURE") have RFSTDTC = null. Any CE
+      record for such a subject is assigned EPOCH = "SCREENING" since an
+      unassigned subject has no treatment reference period.
 
   CESTDTC:
     label: Start Date/Time of Clinical Event
