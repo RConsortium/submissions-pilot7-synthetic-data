@@ -193,6 +193,53 @@ rand_rows <- rand_dates |>
     .src_priority = 2L
   )
 
+## ── Layer 4: terminal disposition event for every subject ────────────────────
+## P21 requires at least one DSCAT = "DISPOSITION EVENT" record per subject.
+## Subjects with an EARLYTERMINATIONREASON already receive one via et_rows.
+## For the remaining subjects we synthesise the terminal disposition event:
+##   Randomized with no early termination → DSDECOD = "COMPLETED"   (NCOMPLT)
+##   Screen failure with no early termination → DSDECOD = "SCREEN FAILURE"
+##     (sponsor-extended value in the extensible NCOMPLT codelist; acceptable
+##     per SDTMIG §4 on extensible CT and documented in define.xml).
+
+subjects_with_et_sk <- if (!is.null(et_rows) && nrow(et_rows) > 0) {
+  distinct(et_rows, subjectkey)
+} else tibble(subjectkey = character(0))
+
+## Subjects who were randomized (have a row in rand_dates) with no ET
+completed_rows <- rand_dates |>
+  distinct(subjectkey, rand_dt) |>
+  anti_join(subjects_with_et_sk, by = "subjectkey") |>
+  transmute(
+    subjectkey,
+    startdate = rand_dt, studyeventoid = NA_character_, eventname = NA_character_,
+    DSTERM    = "Completed study",
+    DSDECOD   = "COMPLETED",
+    DSCAT     = "DISPOSITION EVENT",
+    EPOCH     = "FOLLOW-UP",
+    DSSTDTC   = rand_dt,
+    .src_priority = 3L
+  )
+
+## Subjects who went through Eligibility but were NOT randomized and have no ET
+## (screen failures). Use eligibility date as DSSTDTC.
+subjects_randomized_sk <- distinct(rand_dates, subjectkey)
+
+scrnfail_rows <- elig_dates |>
+  distinct(subjectkey, elig_dt) |>
+  anti_join(subjects_randomized_sk, by = "subjectkey") |>
+  anti_join(subjects_with_et_sk,    by = "subjectkey") |>
+  transmute(
+    subjectkey,
+    startdate = elig_dt, studyeventoid = NA_character_, eventname = NA_character_,
+    DSTERM    = "Screen failure",
+    DSDECOD   = "SCREEN FAILURE",
+    DSCAT     = "DISPOSITION EVENT",
+    EPOCH     = "SCREENING",
+    DSSTDTC   = elig_dt,
+    .src_priority = 3L
+  )
+
 ## ── Combine all layers ────────────────────────────────────────────────────────
 ## Dedup strategy: for each (subjectkey, DSDECOD) pair, prefer the row with a
 ## non-null DSSTDTC regardless of source priority.  This ensures that layer-2
@@ -201,7 +248,8 @@ rand_rows <- rand_dates |>
 ## SD0022/SD1118 fix.
 
 ds_all <- bind_rows(milestone_rows, et_rows,
-                    elig_consent_rows, elig_eligible_rows, rand_rows) |>
+                    elig_consent_rows, elig_eligible_rows, rand_rows,
+                    completed_rows, scrnfail_rows) |>
   mutate(DSSTDTC = normalize_iso_date(DSSTDTC)) |>
   ## Within each (subjectkey, DSDECOD), sort so non-null dates and lower priority
   ## numbers both appear first; then keep the first row (best data wins).
@@ -223,27 +271,22 @@ ds <- ds_all |>
   mutate(
     STUDYID  = "CART-T-PILOT",
     DOMAIN   = "DS",
-    DSSCAT   = NA_character_,
-    ## SD1088 fix: derive DSSTDY from DM.RFSTDTC
-    DSSTDY   = dplyr::if_else(
-      !is.na(DSSTDTC) & !is.na(RFSTDTC),
-      as.integer(as.Date(DSSTDTC) - as.Date(RFSTDTC)) +
-        ifelse(DSSTDTC >= RFSTDTC, 1L, 0L),
-      NA_integer_
-    ),
+    ## DSSTDY: would be derived as as.integer(as.Date(DSSTDTC) - as.Date(RFSTDTC))
+    ## + day-0-skip, but RFSTDTC is null for all subjects (Assumption 9 — no
+    ## treatment administered). DSSTDY is therefore 100% null and is omitted
+    ## per SD1078 (null Perm variable). If RFSTDTC is ever defined for a
+    ## subsequent data cut, re-add DSSTDY to the select() below.
     DSSEQ    = row_number(),
-    VISITNUM = derive_visitnum(studyeventoid),
-    VISIT    = eventname,
     .by = USUBJID
   ) |>
   select(STUDYID, DOMAIN, USUBJID, DSSEQ,
-         DSTERM, DSDECOD, DSCAT, DSSCAT, EPOCH,
-         DSSTDTC, DSSTDY, VISITNUM, VISIT)
+         DSTERM, DSDECOD, DSCAT, EPOCH,
+         DSSTDTC)
 
 saveRDS(ds, "data/sdtm/ds.rds")
 cat(sprintf("DS written: %d rows x %d cols\n", nrow(ds), ncol(ds)))
 cat(sprintf("Unique subjects: %d\n", length(unique(ds$USUBJID))))
 cat(sprintf("DSSTDTC non-null: %d / %d\n", sum(!is.na(ds$DSSTDTC)), nrow(ds)))
-cat(sprintf("DSSTDY  non-null: %d / %d\n", sum(!is.na(ds$DSSTDY)),  nrow(ds)))
+## DSSTDY omitted: RFSTDTC null for all subjects (SD1078)
 cat("\nDSDECOD distribution:\n")
 print(table(ds$DSDECOD, useNA = "ifany"))

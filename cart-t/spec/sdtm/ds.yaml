@@ -17,13 +17,23 @@ sources:
     notes: Contributes RANDOMIZED event for 280 randomized subjects.
 
 record_rule: |
-  Emit one row per disposition milestone reached by the subject:
+  Emit one row per disposition milestone or terminal event per subject.
+
+  PROTOCOL MILESTONE rows (DSCAT = "PROTOCOL MILESTONE"):
     CONSENTED, ELIGIBLE, RANDOMIZED, RECEIVED INTERVENTION,
-    COMPLETED PRIMARY OUTCOMES, COMPLETED SECONDARY OUTCOMES,
-    EARLY TERMINATION (mapped to specific NCOMPLT reason).
+    COMPLETED PRIMARY OUTCOMES, COMPLETED SECONDARY OUTCOMES.
   SCREENED / STATUSONSTUDY rows are NOT generated:
     - "SCREENING COMPLETED" is not in the PROTMLST extensible codelist (CT2005 fix).
     - STATUSONSTUDY='Early Termination' is redundant with EARLYTERMINATIONREASON rows.
+
+  DISPOSITION EVENT rows (DSCAT = "DISPOSITION EVENT") — required for every subject:
+    P21 requires at least one DSCAT = "DISPOSITION EVENT" record per DM subject.
+    - Early-terminated subjects: DSDECOD mapped from EARLYTERMINATIONREASON via
+      map_et_reason() (NCOMPLT terms: ADVERSE EVENT, DEATH, etc.)
+    - Randomized subjects with no ET: DSDECOD = "COMPLETED" (NCOMPLT C66727).
+    - Screen failures with no ET: DSDECOD = "SCREEN FAILURE" (sponsor-extended
+      value in the extensible NCOMPLT codelist; documented in define.xml).
+
   Each PD-item that resolves "Y" or carries a reason/date triggers a row.
   Dedup: for each (subjectkey, DSDECOD), keep the row with the best available
   DSSTDTC (non-null preferred), then lowest source-priority.
@@ -101,6 +111,8 @@ variables:
         randomized                     -> "RANDOMIZED"                 (PROTMLST)
         treatment received             -> "TREATMENT STARTED"          (PROTMLST)
         primary outcomes complete      -> "COMPLETED PRIMARY OUTCOMES" (PROTMLST)
+        completed study (no ET)        -> "COMPLETED"                  (NCOMPLT)
+        screen failure (no ET/rand)    -> "SCREEN FAILURE"             (NCOMPLT extensible)
         EARLYTERMINATIONREASON mapped via map_et_reason() function:
           "Adverse Event" / AE text    -> "ADVERSE EVENT"              (NCOMPLT)
           "Withdrew Consent" / consent -> "WITHDRAWAL BY SUBJECT"      (NCOMPLT)
@@ -113,6 +125,8 @@ variables:
           Other/Unknown                -> "PROTOCOL DEVIATION"         (NCOMPLT)
       NOTE: "EARLY TERMINATION" is NOT used — it is not in the NCOMPLT codelist (CT2005 fix).
       NOTE: "SCREENING COMPLETED" is NOT used — it is not in PROTMLST (CT2005 fix).
+      NOTE: "SCREEN FAILURE" is a sponsor-extended value in the extensible NCOMPLT
+            codelist; documented in define.xml.
 
   DSCAT:
     label: Category for Disposition Event

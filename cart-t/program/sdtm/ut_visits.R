@@ -26,15 +26,26 @@ make_usubjid <- function(studysubjectid,
   paste(studyid, siteid, studysubjectid, sep = "-")
 }
 
-## Treatment arm derivation.
-## This study has no actual treatment differentiation (RECEIVEDINTERVENTION = No
-## for every subject). PROFILE is a demographic phenotype used for randomization
-## stratification, not a treatment arm. Therefore:
-##   - ARMCD = "TREATMENT" for subjects who were randomized (have a PROFILE)
-##   - ARMCD = "SCRNFAIL"  for subjects who were not randomized
-## Phenotype/cohort is preserved separately via phenotype_code() / phenotype_label().
+## Treatment arm derivation — SDTMIG v3.3 DM Assumptions §4 compliant.
+##
+## ARMCD / ARM:
+##   SDTMIG requires ARMCD = null when a subject was not assigned to an Arm,
+##   with ARMNRS populated to explain why (e.g., "SCREEN FAILURE").
+##   Screen failures → ARMCD = null; randomized → ARMCD = "TREATMENT".
+##
+## ACTARMCD / ACTARM:
+##   RECEIVEDINTERVENTION = No for all subjects in this export, so no subject
+##   actually received treatment. Randomized subjects were assigned to an arm
+##   but did not follow it → ACTARMCD = null, ARMNRS = "ASSIGNED, NOT TREATED".
+##   ACTARMUD is null (no unplanned treatment was administered).
+##
+## ARMNRS:
+##   Must be populated whenever ARMCD or ACTARMCD is null (§4 rule 1/2).
+##   May NOT be populated when both are non-null (§4 rule 3) — but in this
+##   study ACTARMCD is always null, so ARMNRS is always populated.
+##   Phenotype/stratification cohort is carried in ADSL.STRAT1 / STRAT1L.
 armcd_map <- function(profile) {
-  ifelse(is.na(profile) | !nzchar(trimws(profile)), "SCRNFAIL", "TREATMENT")
+  ifelse(is.na(profile) | !nzchar(trimws(profile)), NA_character_, "TREATMENT")
 }
 
 ## Coerce raw date strings to ISO 8601 yyyy-mm-dd. Handles:
@@ -70,9 +81,17 @@ normalize_iso_date <- function(x) {
 }
 
 arm_map <- function(profile) {
+  ifelse(is.na(profile) | !nzchar(trimws(profile)), NA_character_, "Study Treatment")
+}
+
+## ARMNRS — reason that Arm and/or Actual Arm variables are null.
+## Screen failures were never assigned to an arm → "SCREEN FAILURE".
+## Randomized subjects were assigned but did not receive treatment →
+## "ASSIGNED, NOT TREATED" (per SDTMIG DM Example 6, row 5).
+armnrs_map <- function(profile) {
   ifelse(is.na(profile) | !nzchar(trimws(profile)),
-         "Screen Failure",
-         "Study Treatment")
+         "SCREEN FAILURE",
+         "ASSIGNED, NOT TREATED")
 }
 
 ## Phenotype / stratification cohort derived from PROFILE.

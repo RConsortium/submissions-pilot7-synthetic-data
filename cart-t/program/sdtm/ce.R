@@ -4,16 +4,25 @@
 ## Inputs: data/raw/mi.rds (Suspected MI), data/sdtm/dm.rds (reference dates)
 ## Output: data/sdtm/ce.rds
 ##
-## P21 findings resolved (issue #15):
+## P21 findings resolved (issues #15 and #13-dm-validate):
 ##   SD1021 – CETERM canonical mapping (CHEST PAIN / SUSPECTED MYOCARDIAL
 ##            INFARCTION); junk free-text rows dropped
-##   SD1076 – Drop permissible variables that don't belong in CE (VISITNUM /
-##            VISIT — Timing-class variables that v3.3 CE table omits)
-##   SD1078 – Drop permissible variables that are 100% null (CEDECOD, CESTAT,
+##   SD1076 – Remove CESER: not in SDTMIG v3.3 CE variable table (only in AE).
+##            Remove CEPRESP/CEOCCUR: these apply only to solicited (visit-based)
+##            assessments. MI events are spontaneously reported → both must be
+##            null for spontaneous events and omitted from the dataset.
+##            (Also fixes "Missing Start Time-Point value": P21 expects a visit
+##            reference when CEPRESP = "Y"; removing CEPRESP eliminates that
+##            requirement.)
+##   SD1078 – Dropped permissible variables that are 100% null (CEDECOD, CESTAT,
 ##            CESEV)
-##   SD1079 – Reorder final select() to match SDTMIG v3.3 CE table
-##   SD1077 – Derive EPOCH from DM reference dates (SCREENING / TREATMENT /
-##            FOLLOW-UP)
+##   SD1079 – Final select() matches SDTMIG v3.3 CE variable order
+##   SD1077 – EPOCH derived from DM reference dates. For screen-failure subjects
+##            (DM.RFSTDTC = null after v3.3 ARM fix), EPOCH = "SCREENING" since
+##            any event on an unassigned subject occurred during screening.
+##   SD0018 – Filter CESTDTC > DM.RFPENDTC: these rows represent synthetic data
+##            inconsistencies where the event date falls after the subject's last
+##            study participation. Clinically impossible; dropped.
 ##   SD0022 – CESTDTC null for 1 row remains as a known data limitation
 ##            (subject CART-T-PILOT-01-DF-035 has no EVENTDATE on the form)
 ## --------------------------------------------------------------------
@@ -65,43 +74,56 @@ ce <- wide |>
   ## SD1021: drop rows whose DESC doesn't map to a canonical CETERM (junk data)
   filter(!is.na(CETERM)) |>
   left_join(key_link |> select(subjectkey, USUBJID), by = "subjectkey") |>
-  left_join(dm |> select(USUBJID, RFSTDTC, RFENDTC), by = "USUBJID") |>
+  left_join(dm |> select(USUBJID, RFSTDTC, RFENDTC, RFPENDTC), by = "USUBJID") |>
   mutate(
     STUDYID  = "CART-T-PILOT",
     DOMAIN   = "CE",
     CECAT    = "SUSPECTED MI",
-    CEPRESP  = "Y",
-    CEOCCUR  = "Y",
-    CESER    = "Y",
     CESTDTC  = normalize_iso_date(EVENTDATE),
+
+    ## SD0018: drop rows where the event date exceeds the subject's last
+    ## participation date (RFPENDTC). Such dates represent synthetic data
+    ## inconsistencies — a clinical event cannot occur after study participation
+    ## has ended. Rows with null CESTDTC are retained (event known, date absent).
+    .drop = !is.na(CESTDTC) & !is.na(RFPENDTC) & CESTDTC > RFPENDTC
+  ) |>
+  filter(!.drop) |>
+  mutate(
     ## SD1088-style derivation: study day of event start relative to RFSTDTC,
-    ## skipping day 0.
+    ## skipping day 0. Null when CESTDTC or RFSTDTC is missing.
     CESTDY   = dplyr::if_else(
       !is.na(CESTDTC) & !is.na(RFSTDTC),
       as.integer(as.Date(CESTDTC) - as.Date(RFSTDTC)) +
         ifelse(CESTDTC >= RFSTDTC, 1L, 0L),
       NA_integer_
     ),
-    ## SD1077: derive EPOCH from CESTDTC vs DM reference period.
-    ##   < RFSTDTC                  -> SCREENING
-    ##   RFSTDTC .. RFENDTC         -> TREATMENT
-    ##   > RFENDTC                  -> FOLLOW-UP
-    ##   anything missing           -> null (no reference period for subject)
+
+    ## SD1077: EPOCH from CESTDTC vs DM reference period.
+    ##   RFSTDTC null (screen failures, ARMNRS = "SCREEN FAILURE"):
+    ##     → "SCREENING" — any event on an unassigned subject is in screening.
+    ##   CESTDTC < RFSTDTC                    → "SCREENING"
+    ##   RFSTDTC <= CESTDTC <= RFENDTC        → "TREATMENT"
+    ##   CESTDTC > RFENDTC                    → "FOLLOW-UP"
+    ##   CESTDTC null                         → null (no date to assign epoch)
     EPOCH    = dplyr::case_when(
-      is.na(CESTDTC) | is.na(RFSTDTC)                  ~ NA_character_,
-      CESTDTC < RFSTDTC                                ~ "SCREENING",
+      is.na(CESTDTC)                                    ~ NA_character_,
+      is.na(RFSTDTC)                                    ~ "SCREENING",
+      CESTDTC < RFSTDTC                                 ~ "SCREENING",
       !is.na(RFENDTC) & CESTDTC > RFENDTC              ~ "FOLLOW-UP",
-      TRUE                                             ~ "TREATMENT"
+      TRUE                                              ~ "TREATMENT"
     )
   ) |>
   arrange(USUBJID, CESTDTC) |>
   mutate(CESEQ = row_number(), .by = USUBJID) |>
-  ## SD1076 / SD1078 / SD1079: keep only IG-defined variables that we can
-  ## populate, and order per SDTMIG v3.3 CE table.
-  ## Dropped (SD1076 — permissible variables not used): VISITNUM, VISIT
-  ## Dropped (SD1078 — permissible with 100% null): CEDECOD, CESTAT, CESEV
+  ## SD1076 / SD1078 / SD1079: retain only CE variables that are in the SDTMIG
+  ## v3.3 CE domain specification table and have data.
+  ## Removed (SD1076 — not in CE table): CESER (AE-domain variable only)
+  ## Removed (SD1076 + spontaneous events): CEPRESP, CEOCCUR — null for
+  ##   spontaneous events per IG; omitting avoids "Missing Start Time-Point"
+  ##   which P21 fires when CEPRESP = "Y" without a visit time-point reference
+  ## Dropped (SD1078 — 100% null): CEDECOD, CESTAT, CESEV
   select(STUDYID, DOMAIN, USUBJID, CESEQ,
-         CETERM, CECAT, CEPRESP, CEOCCUR, CESER,
+         CETERM, CECAT,
          EPOCH, CESTDTC, CESTDY)
 
 saveRDS(ce, "data/sdtm/ce.rds")
