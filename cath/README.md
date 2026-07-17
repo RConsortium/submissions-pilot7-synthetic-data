@@ -1,7 +1,7 @@
-# cath — synthetic SDTM + ADaM + TLF (NCT00789880)
+# cath — synthetic ODM + SDTM + ADaM + TLF (NCT00789880)
 
 Synthetic individual-patient-data environment for **CATH / NCT00789880**
-(ADVN CATH 03-01) — a randomized, double-blind trial of **oral vitamin D3
+(ADVN CATH 03-01) — a randomized, quadruple-blind trial of **oral vitamin D3
 4000 IU/day vs placebo over 21 days**, in a 2×3 design (VitD/Placebo ×
 Non-AD / Atopic-Dermatitis / Psoriasis), measuring skin antimicrobial-peptide
 (cathelicidin) expression. A forward causal-DAG simulation is turned into CDISC
@@ -9,9 +9,13 @@ SDTM, ADaM, and TLF outputs through the four-stage layering of the reference
 environment `clinical-data-terminal-dev/src/cdt/environments/cdiscpilot1`
 (`edc → sdtm → adam → tlf`).
 
+The [`odm/`](odm/) directory contains a separately seeded synthetic run in
+CDISC ODM 2.0 format, together with its run manifest and causal DAG model.
+
 ## Pipeline
 
 ```
+odm/    pre-generated CDISC ODM 2.0 dataset + run manifest + DAG model
 edc/    ( python3 -m generators.build_all )   -> edc/forms/*.csv       raw CRF extract
 sdtm/   Rscript sdtm/run_all.R                 -> sdtm-derived/*.csv    SDTM domains
 sdtm/   python sdtm/export_conformant.py       -> sdtm-derived/xpt/*.xpt + define.xml
@@ -41,6 +45,7 @@ Define-XML) — there is no in-repo CDISC-validation step.
 ```
 cath/
 ├── run.R                    # orchestrates edc -> sdtm -> adam -> tlf
+├── odm/                     # CDISC ODM 2.0 dataset + manifest + causal DAG
 ├── edc/                     # COLLECTION (causal-DAG simulator -> raw CRFs)
 ├── sdtm/                    # TABULATION  (common.R, derive_*.R, run_all.R, export_conformant.py)
 │   └── sdtm-derived/        #   *.csv + xpt/*.xpt + define.xml (generated)

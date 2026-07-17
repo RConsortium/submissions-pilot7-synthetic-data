@@ -11,7 +11,9 @@ g-formula causal-DAG simulator; marginals calibrated to the posted ClinicalTrial
 results (`hasResults=true`) while the joint distribution obeys the model documented in
 [`DAG.md`](DAG.md).
 
-It uses a separate simulation seed to the existing [`cath/`](../cath/README.md) pipeline and a 17-form ODM schema.
+This ODM run uses a different simulation seed from the existing [CATH pipeline](../README.md)
+and a 17-form schema.
+
 ## 1 · Manifest
 
 | Field | Value |
