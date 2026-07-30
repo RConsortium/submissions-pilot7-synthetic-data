@@ -1,0 +1,291 @@
+## P21 Community validation + LLM-driven issue comments
+##
+## Validates existing XPT files with Pinnacle 21 Community CLI, then
+## uses Claude Code to parse the reports and post findings as comments
+## on matching GitHub issues.
+##
+## Prerequisites:
+##   - ANTHROPIC_API_KEY repo secret (for claude-code-action)
+##   - XPT files checked into data/sdtm/ and data/adam/
+##
+## To adjust CT or engine versions, update the env block below.
+
+name: P21 Validate & Comment
+
+on:
+  pull_request:
+    branches: [main]
+    paths:
+      - "data/sdtm/**.xpt"
+      - "data/adam/**.xpt"
+  workflow_dispatch:
+
+concurrency:
+  group: p21-validate-${{ github.head_ref || github.ref_name }}
+  cancel-in-progress: true
+
+jobs:
+  # ------------------------------------------------------------------
+  # Job 1: validate XPT with Pinnacle 21 Community CLI
+  #
+  # Runs on windows-latest because P21 Community only supports
+  # Windows and macOS (no Linux).  The installer is downloaded from
+  # Certara's public CDN and installed silently — no secrets needed.
+  # ------------------------------------------------------------------
+  p21-validate:
+    runs-on: windows-latest
+
+    env:
+      # --- P21 version & download URL (update when Certara publishes a new release) ---
+      P21_VERSION: "4.1.0"
+      P21_INSTALLER_URL: "https://dthfq9xldm1jq.cloudfront.net/site/Pinnacle%2021%20Community%20Setup%204.1.0.exe"
+      P21_INSTALL_DIR: "C:\\p21"
+      # --- CDISC CT versions (update to match your study) ---
+      CDISC_CT_SDTM: "2024-06-28"
+      CDISC_CT_ADAM: "2024-06-28"
+
+    steps:
+      - uses: actions/checkout@v4
+
+      # --- Java 8 (required by P21 CLI; newer versions not supported) ---
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "8"
+
+      # --- Check for XPT files ---
+      - name: Check for XPT files
+        id: check-xpt
+        shell: pwsh
+        run: |
+          $sdtmXpt = Get-ChildItem "data\sdtm" -Filter "*.xpt" -ErrorAction SilentlyContinue
+          $adamXpt = Get-ChildItem "data\adam" -Filter "*.xpt" -ErrorAction SilentlyContinue
+          $total = ($sdtmXpt.Count + $adamXpt.Count)
+          Write-Host "SDTM XPT files: $($sdtmXpt.Count)"
+          Write-Host "ADaM XPT files: $($adamXpt.Count)"
+
+          if ($total -eq 0) {
+            Write-Host "::warning::No XPT files found — nothing to validate."
+            echo "has_xpt=false" >> $env:GITHUB_OUTPUT
+          } else {
+            echo "has_xpt=true" >> $env:GITHUB_OUTPUT
+          }
+
+      # --- Cache P21 installation to skip download on repeat runs ---
+      - name: Cache P21 Community install
+        if: steps.check-xpt.outputs.has_xpt == 'true'
+        id: p21-cache
+        uses: actions/cache@v4
+        with:
+          path: C:\p21
+          key: p21-community-${{ env.P21_VERSION }}
+
+      # --- Download & silent-install P21 Community ---
+      - name: Install P21 Community
+        if: steps.check-xpt.outputs.has_xpt == 'true' && steps.p21-cache.outputs.cache-hit != 'true'
+        shell: pwsh
+        run: |
+          Write-Host "Downloading P21 Community $env:P21_VERSION ..."
+          $installer = "$env:TEMP\p21-setup.exe"
+          Invoke-WebRequest -Uri $env:P21_INSTALLER_URL -OutFile $installer -UseBasicParsing
+
+          Write-Host "Installing silently to $env:P21_INSTALL_DIR ..."
+          # NSIS installer: /S = silent, /D= sets install directory (must be last)
+          Start-Process -FilePath $installer `
+            -ArgumentList "/S", "/D=$env:P21_INSTALL_DIR" `
+            -Wait -NoNewWindow
+
+          # Verify the install produced the expected layout
+          $components = Join-Path $env:P21_INSTALL_DIR "resources\app.asar.unpacked\components"
+          if (-not (Test-Path $components)) {
+            Write-Error "P21 install failed — components dir not found at $components"
+            exit 1
+          }
+          Get-ChildItem $components -Recurse -Filter "p21-client-*.jar" |
+            ForEach-Object { Write-Host "Found CLI JAR: $($_.FullName)" }
+          Write-Host "P21 Community installed."
+
+      # --- Locate the CLI JAR and set up the working directory ---
+      - name: Prepare P21 CLI
+        if: steps.check-xpt.outputs.has_xpt == 'true'
+        id: p21-cli
+        shell: pwsh
+        run: |
+          $components = Join-Path $env:P21_INSTALL_DIR "resources\app.asar.unpacked\components"
+
+          # Find the CLI JAR
+          $jar = Get-ChildItem $components -Recurse -Filter "p21-client-*.jar" |
+                   Select-Object -First 1
+          if (-not $jar) {
+            Write-Error "p21-client JAR not found under $components"
+            exit 1
+          }
+
+          # The CLI expects the JAR in a folder that contains a configs/ dir.
+          # The configs/ dir lives alongside lib/ under components/.
+          $cliDir = "$env:TEMP\p21-cli"
+          New-Item -ItemType Directory -Path $cliDir -Force | Out-Null
+          Copy-Item $jar.FullName -Destination $cliDir
+          Copy-Item (Join-Path $components "configs") -Destination $cliDir -Recurse -Force
+
+          $jarName = $jar.Name
+          Write-Host "CLI working dir: $cliDir"
+          Write-Host "CLI JAR: $jarName"
+          Get-ChildItem $cliDir
+
+          # Export for later steps
+          echo "cli_dir=$cliDir"   >> $env:GITHUB_OUTPUT
+          echo "jar_name=$jarName" >> $env:GITHUB_OUTPUT
+
+      # --- Validate SDTM ---
+      - name: Validate SDTM
+        if: steps.check-xpt.outputs.has_xpt == 'true'
+        shell: pwsh
+        run: |
+          $cliDir  = "${{ steps.p21-cli.outputs.cli_dir }}"
+          $jarName = "${{ steps.p21-cli.outputs.jar_name }}"
+          $jar     = Join-Path $cliDir $jarName
+
+          $sdtmDir = Join-Path $PWD "data\sdtm"
+          $xptFiles = Get-ChildItem $sdtmDir -Filter "*.xpt" -ErrorAction SilentlyContinue
+          Write-Host "SDTM XPT files found: $($xptFiles.Count)"
+
+          if ($xptFiles.Count -eq 0) {
+            Write-Host "No SDTM XPT files to validate — skipping."
+            exit 0
+          }
+
+          $reportPath = Join-Path $PWD "pinnacle21-report-SDTM.xlsx"
+
+          Push-Location $cliDir
+          & java -jar $jar `
+            --standard sdtm `
+            --standard.version 3.3 `
+            --source.sdtm $sdtmDir `
+            --cdisc.ct.sdtm.version $env:CDISC_CT_SDTM `
+            --report $reportPath
+          $exitCode = $LASTEXITCODE
+          Pop-Location
+
+          if ($exitCode -ne 0) {
+            Write-Host "::warning::P21 SDTM validation exited with code $exitCode"
+          }
+          if (Test-Path $reportPath) {
+            Write-Host "SDTM report written: $reportPath"
+          }
+
+      # --- Validate ADaM ---
+      - name: Validate ADaM
+        if: steps.check-xpt.outputs.has_xpt == 'true'
+        shell: pwsh
+        run: |
+          $cliDir  = "${{ steps.p21-cli.outputs.cli_dir }}"
+          $jarName = "${{ steps.p21-cli.outputs.jar_name }}"
+          $jar     = Join-Path $cliDir $jarName
+
+          $adamDir = Join-Path $PWD "data\adam"
+          $sdtmDir = Join-Path $PWD "data\sdtm"
+          $xptFiles = Get-ChildItem $adamDir -Filter "*.xpt" -ErrorAction SilentlyContinue
+          Write-Host "ADaM XPT files found: $($xptFiles.Count)"
+
+          if ($xptFiles.Count -eq 0) {
+            Write-Host "No ADaM XPT files to validate — skipping."
+            exit 0
+          }
+
+          $reportPath = Join-Path $PWD "pinnacle21-report-ADAM.xlsx"
+
+          Push-Location $cliDir
+          & java -jar $jar `
+            --standard adam `
+            --standard.version 1.3 `
+            --source.adam $adamDir `
+            --source.sdtm $sdtmDir `
+            --cdisc.ct.adam.version $env:CDISC_CT_ADAM `
+            --cdisc.ct.sdtm.version $env:CDISC_CT_SDTM `
+            --report $reportPath
+          $exitCode = $LASTEXITCODE
+          Pop-Location
+
+          if ($exitCode -ne 0) {
+            Write-Host "::warning::P21 ADaM validation exited with code $exitCode"
+          }
+          if (Test-Path $reportPath) {
+            Write-Host "ADaM report written: $reportPath"
+          }
+
+      # --- Upload validation reports ---
+      - name: Upload P21 reports
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: p21-validation-reports
+          retention-days: 90
+          if-no-files-found: warn
+          path: pinnacle21-report-*.xlsx
+
+      # --- Post summary to the PR ---
+      - name: Post validation summary
+        if: always()
+        shell: pwsh
+        run: |
+          $summary = @"
+          ## Pinnacle 21 Validation
+
+          | Standard | Version | CT Version | Status |
+          |----------|---------|------------|--------|
+          | SDTM | 3.3 | $env:CDISC_CT_SDTM | $(if (Test-Path pinnacle21-report-SDTM.xlsx) { 'Report generated' } else { 'No report (no XPT or error)' }) |
+          | ADaM | 1.3 | $env:CDISC_CT_ADAM | $(if (Test-Path pinnacle21-report-ADAM.xlsx) { 'Report generated' } else { 'No report (no XPT or error)' }) |
+
+          Download the **p21-validation-reports** artifact for the full Excel report.
+          "@
+          $summary | Out-File -Append -FilePath $env:GITHUB_STEP_SUMMARY
+
+  # ------------------------------------------------------------------
+  # Job 2: parse P21 reports and post findings to GitHub issues
+  #
+  # Runs on ubuntu-latest because the automation scripts
+  # (bootstrap_system.sh) require apt-get for R installation.
+  # Uses claude-code-action to orchestrate the p21_dataset_comments.md
+  # prompt, which reads the P21 Excel reports and posts structured
+  # comments on matching open issues.
+  # ------------------------------------------------------------------
+  post-comments:
+    needs: p21-validate
+    if: always() && needs.p21-validate.result == 'success'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      issues: write
+
+    steps:
+      - uses: actions/checkout@v4
+
+      # --- Download P21 reports from the validate job ---
+      - name: Download P21 reports
+        uses: actions/download-artifact@v4
+        with:
+          name: p21-validation-reports
+          path: .
+
+      - name: Verify reports exist
+        id: check-reports
+        run: |
+          echo "--- P21 reports in repo root ---"
+          ls -la pinnacle21-report-*.xlsx 2>/dev/null || true
+          if ls pinnacle21-report-*.xlsx 1>/dev/null 2>&1; then
+            echo "has_reports=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "::warning::No P21 reports found — skipping comment posting."
+            echo "has_reports=false" >> "$GITHUB_OUTPUT"
+          fi
+
+      # --- Run Claude Code to execute p21_dataset_comments.md ---
+      - name: Post P21 findings to issues
+        if: steps.check-reports.outputs.has_reports == 'true'
+        uses: anthropics/claude-code-action@beta
+        with:
+          anthropic_api_key: ${{ secrets.ANTHROPIC_API_KEY }}
+          prompt: |
+            Read automation/p21_dataset_comments.md from the repo root and execute it exactly as written. The file is the complete job — do not add steps, skip steps, or ask for clarification. Start by running Step 0 (bash automation/bootstrap_system.sh && Rscript automation/bootstrap_r.R); if either exits non-zero, follow the failure path in the prompt and stop. Otherwise proceed through the per-issue loop. End with the stdout summary table specified at the bottom of the file.
+          allowed_tools: "Bash,Read,Write,Edit"
