@@ -1,279 +1,38 @@
-## Build → XPT export → P21 Community validation pipeline
-## Automatically rebuilds changed datasets, exports XPT, and runs P21
-## validation on every PR that touches programs, specs, or raw data.
+## P21 Community validation + LLM-driven issue comments
 ##
-## P21 Community is downloaded and installed automatically on a
-## windows-latest runner — no secrets or self-hosted infra needed.
+## Validates existing XPT files with Pinnacle 21 Community CLI, then
+## uses Claude Code to parse the reports and post findings as comments
+## on matching GitHub issues.
+##
+## Prerequisites:
+##   - ANTHROPIC_API_KEY repo secret (for claude-code-action)
+##   - XPT files checked into data/sdtm/ and data/adam/
 ##
 ## To adjust CT or engine versions, update the env block below.
 
-name: Build, Export XPT & P21 Validate
+name: P21 Validate & Comment
 
 on:
   pull_request:
     branches: [main]
     paths:
-      - "program/sdtm/**"
-      - "program/adam/**"
-      - "program/raw/**"
-      - "spec/**"
-      - "data/raw/**"
+      - "data/sdtm/**.xpt"
+      - "data/adam/**.xpt"
+  workflow_dispatch:
 
 concurrency:
-  group: build-xpt-${{ github.head_ref }}
+  group: p21-validate-${{ github.head_ref || github.ref_name }}
   cancel-in-progress: true
 
 jobs:
   # ------------------------------------------------------------------
-  # Job 1: figure out which datasets need rebuilding
-  # ------------------------------------------------------------------
-  detect-changes:
-    runs-on: ubuntu-latest
-    outputs:
-      sdtm_datasets: ${{ steps.diff.outputs.sdtm_datasets }}
-      adam_datasets: ${{ steps.diff.outputs.adam_datasets }}
-      any_changed: ${{ steps.diff.outputs.any_changed }}
-    steps:
-      - uses: actions/checkout@v4
-        with:
-          fetch-depth: 0
-
-      - name: Detect changed datasets
-        id: diff
-        run: |
-          BASE=${{ github.event.pull_request.base.sha }}
-          HEAD=${{ github.event.pull_request.head.sha }}
-          CHANGED=$(git diff --name-only "$BASE" "$HEAD")
-
-          echo "--- changed files ---"
-          echo "$CHANGED"
-          echo "---------------------"
-
-          SDTM_ORDER="dm mh ie ae cm ds lb qs ce"
-          ADAM_ORDER="adsl adae adcm adlb adqs admh adds adie adce"
-          sdtm_set=""
-          adam_set=""
-
-          # Cascade rules ------------------------------------------------
-
-          # Rule 1: raw data or shared utility changed -> rebuild everything
-          if echo "$CHANGED" | grep -qE '^(data/raw/|program/raw/|program/sdtm/ut_visits\.R)'; then
-            sdtm_set="$SDTM_ORDER"
-            adam_set="$ADAM_ORDER"
-          else
-            # Rule 2: detect individual SDTM programs
-            for dom in $SDTM_ORDER; do
-              if echo "$CHANGED" | grep -qE "^(program/sdtm/${dom}\.R|spec/sdtm/${dom}\.yaml)"; then
-                sdtm_set="$sdtm_set $dom"
-              fi
-            done
-
-            # Rule 3: DM changed -> all SDTM rebuild (all depend on DM)
-            if echo "$sdtm_set" | grep -qw dm; then
-              sdtm_set="$SDTM_ORDER"
-            fi
-
-            # Rule 4: detect individual ADaM programs
-            for ds in $ADAM_ORDER; do
-              if echo "$CHANGED" | grep -qE "^(program/adam/${ds}\.R|spec/adam/${ds}\.yaml)"; then
-                adam_set="$adam_set $ds"
-              fi
-            done
-
-            # Rule 5: any SDTM change -> its ADaM counterpart + ADSL
-            if [ -n "$sdtm_set" ]; then
-              adam_set="$adam_set adsl"
-              for dom in $sdtm_set; do
-                case $dom in
-                  dm) adam_set="$adam_set adsl" ;;
-                  ae) adam_set="$adam_set adae" ;;
-                  cm) adam_set="$adam_set adcm" ;;
-                  lb) adam_set="$adam_set adlb" ;;
-                  qs) adam_set="$adam_set adqs" ;;
-                  mh) adam_set="$adam_set admh" ;;
-                  ds) adam_set="$adam_set adds" ;;
-                  ie) adam_set="$adam_set adie" ;;
-                  ce) adam_set="$adam_set adce" ;;
-                esac
-              done
-            fi
-
-            # Rule 6: ADSL changed -> all ADaM rebuild
-            if echo "$adam_set" | grep -qw adsl; then
-              adam_set="$ADAM_ORDER"
-            fi
-          fi
-
-          # Deduplicate and preserve order
-          dedup_ordered() {
-            local full_order="$1"
-            local selected="$2"
-            local result=""
-            for item in $full_order; do
-              if echo " $selected " | grep -qw "$item"; then
-                result="$result $item"
-              fi
-            done
-            echo "$result" | xargs
-          }
-
-          sdtm_datasets=$(dedup_ordered "$SDTM_ORDER" "$sdtm_set")
-          adam_datasets=$(dedup_ordered "$ADAM_ORDER" "$adam_set")
-          any_changed="false"
-          if [ -n "$sdtm_datasets" ] || [ -n "$adam_datasets" ]; then
-            any_changed="true"
-          fi
-
-          echo "sdtm_datasets=$sdtm_datasets" >> "$GITHUB_OUTPUT"
-          echo "adam_datasets=$adam_datasets"   >> "$GITHUB_OUTPUT"
-          echo "any_changed=$any_changed"       >> "$GITHUB_OUTPUT"
-
-          echo "SDTM to build: [$sdtm_datasets]"
-          echo "ADaM to build: [$adam_datasets]"
-
-  # ------------------------------------------------------------------
-  # Job 2: build datasets and export XPT
-  # ------------------------------------------------------------------
-  build-and-export:
-    needs: detect-changes
-    if: needs.detect-changes.outputs.any_changed == 'true'
-    runs-on: ubuntu-latest
-    env:
-      SDTM_DATASETS: ${{ needs.detect-changes.outputs.sdtm_datasets }}
-      ADAM_DATASETS: ${{ needs.detect-changes.outputs.adam_datasets }}
-
-    steps:
-      - uses: actions/checkout@v4
-
-      # --- R ---
-      - uses: r-lib/actions/setup-r@v2
-        with:
-          r-version: "4.5.2"
-
-      # --- renv cache ---
-      - name: Cache renv packages
-        uses: actions/cache@v4
-        with:
-          path: |
-            ~/.cache/R/renv
-            renv/library
-          key: renv-${{ runner.os }}-${{ hashFiles('renv.lock') }}
-          restore-keys: renv-${{ runner.os }}-
-
-      - name: Restore renv
-        run: |
-          Rscript -e 'if (!requireNamespace("renv", quietly = TRUE)) install.packages("renv")'
-          Rscript -e 'renv::restore(prompt = FALSE)'
-
-      # --- Build SDTM datasets ---
-      - name: Build SDTM datasets
-        if: env.SDTM_DATASETS != ''
-        run: |
-          for dom in $SDTM_DATASETS; do
-            echo ">>> Building SDTM: $dom"
-            Rscript "program/sdtm/${dom}.R"
-          done
-
-      # --- Convert SDTM .rds to .xpt ---
-      - name: Convert SDTM to XPT
-        if: env.SDTM_DATASETS != ''
-        run: |
-          Rscript -e '
-          library(haven)
-          library(yaml)
-
-          domains <- strsplit(Sys.getenv("SDTM_DATASETS"), "\\s+")[[1]]
-          domains <- domains[nzchar(domains)]
-
-          for (dom in domains) {
-            rds_path  <- file.path("data", "sdtm", paste0(dom, ".rds"))
-            xpt_path  <- file.path("data", "sdtm", paste0(dom, ".xpt"))
-            spec_path <- file.path("spec", "sdtm", paste0(dom, ".yaml"))
-
-            if (!file.exists(rds_path)) {
-              message("SKIP (no .rds): ", rds_path)
-              next
-            }
-
-            df <- readRDS(rds_path)
-
-            # Apply labels from spec YAML
-            if (file.exists(spec_path)) {
-              spec <- tryCatch(yaml::read_yaml(spec_path), error = function(e) {
-                message("YAML error in ", spec_path, ": ", e$message)
-                NULL
-              })
-              if (!is.null(spec)) {
-                for (v in names(df)) {
-                  lab <- spec$variables[[v]]$label
-                  if (!is.null(lab) && nzchar(lab)) attr(df[[v]], "label") <- lab
-                }
-                attr(df, "label") <- spec$label
-              }
-            }
-
-            # Coerce integer columns to double (haven::write_xpt requirement)
-            int_cols <- names(df)[vapply(df, is.integer, logical(1))]
-            for (col in int_cols) {
-              lab <- attr(df[[col]], "label")
-              df[[col]] <- as.double(df[[col]])
-              if (!is.null(lab)) attr(df[[col]], "label") <- lab
-            }
-
-            haven::write_xpt(df, path = xpt_path, version = 5,
-                              name = toupper(dom))
-            message("XPT written: ", xpt_path,
-                    " (", nrow(df), " rows x ", ncol(df), " cols)")
-          }
-          '
-
-      # --- Build ADaM datasets (these produce their own XPT) ---
-      - name: Build ADaM datasets
-        if: env.ADAM_DATASETS != ''
-        run: |
-          for ds in $ADAM_DATASETS; do
-            echo ">>> Building ADaM: $ds"
-            Rscript "program/adam/${ds}.R"
-          done
-
-      # --- Upload XPT artifacts ---
-      - name: Upload SDTM XPT files
-        if: always()
-        uses: actions/upload-artifact@v4
-        with:
-          name: sdtm-xpt
-          retention-days: 30
-          if-no-files-found: ignore
-          path: data/sdtm/*.xpt
-
-      - name: Upload ADaM XPT files
-        if: always()
-        uses: actions/upload-artifact@v4
-        with:
-          name: adam-xpt
-          retention-days: 30
-          if-no-files-found: ignore
-          path: data/adam/*.xpt
-
-      - name: Upload build logs
-        if: always()
-        uses: actions/upload-artifact@v4
-        with:
-          name: build-logs
-          retention-days: 30
-          if-no-files-found: ignore
-          path: logs/
-
-  # ------------------------------------------------------------------
-  # Job 3: validate XPT with Pinnacle 21 Community CLI
+  # Job 1: validate XPT with Pinnacle 21 Community CLI
   #
   # Runs on windows-latest because P21 Community only supports
   # Windows and macOS (no Linux).  The installer is downloaded from
   # Certara's public CDN and installed silently — no secrets needed.
   # ------------------------------------------------------------------
   p21-validate:
-    needs: build-and-export
-    if: always() && needs.build-and-export.result == 'success'
     runs-on: windows-latest
 
     env:
@@ -294,21 +53,27 @@ jobs:
           distribution: temurin
           java-version: "8"
 
-      # --- Download XPT artifacts from the build job ---
-      - name: Download SDTM XPT
-        uses: actions/download-artifact@v4
-        with:
-          name: sdtm-xpt
-          path: data/sdtm/
+      # --- Check for XPT files ---
+      - name: Check for XPT files
+        id: check-xpt
+        shell: pwsh
+        run: |
+          $sdtmXpt = Get-ChildItem "data\sdtm" -Filter "*.xpt" -ErrorAction SilentlyContinue
+          $adamXpt = Get-ChildItem "data\adam" -Filter "*.xpt" -ErrorAction SilentlyContinue
+          $total = ($sdtmXpt.Count + $adamXpt.Count)
+          Write-Host "SDTM XPT files: $($sdtmXpt.Count)"
+          Write-Host "ADaM XPT files: $($adamXpt.Count)"
 
-      - name: Download ADaM XPT
-        uses: actions/download-artifact@v4
-        with:
-          name: adam-xpt
-          path: data/adam/
+          if ($total -eq 0) {
+            Write-Host "::warning::No XPT files found — nothing to validate."
+            echo "has_xpt=false" >> $env:GITHUB_OUTPUT
+          } else {
+            echo "has_xpt=true" >> $env:GITHUB_OUTPUT
+          }
 
       # --- Cache P21 installation to skip download on repeat runs ---
       - name: Cache P21 Community install
+        if: steps.check-xpt.outputs.has_xpt == 'true'
         id: p21-cache
         uses: actions/cache@v4
         with:
@@ -317,7 +82,7 @@ jobs:
 
       # --- Download & silent-install P21 Community ---
       - name: Install P21 Community
-        if: steps.p21-cache.outputs.cache-hit != 'true'
+        if: steps.check-xpt.outputs.has_xpt == 'true' && steps.p21-cache.outputs.cache-hit != 'true'
         shell: pwsh
         run: |
           Write-Host "Downloading P21 Community $env:P21_VERSION ..."
@@ -342,6 +107,7 @@ jobs:
 
       # --- Locate the CLI JAR and set up the working directory ---
       - name: Prepare P21 CLI
+        if: steps.check-xpt.outputs.has_xpt == 'true'
         id: p21-cli
         shell: pwsh
         run: |
@@ -373,6 +139,7 @@ jobs:
 
       # --- Validate SDTM ---
       - name: Validate SDTM
+        if: steps.check-xpt.outputs.has_xpt == 'true'
         shell: pwsh
         run: |
           $cliDir  = "${{ steps.p21-cli.outputs.cli_dir }}"
@@ -388,8 +155,7 @@ jobs:
             exit 0
           }
 
-          New-Item -ItemType Directory -Path reports -Force | Out-Null
-          $reportPath = Join-Path $PWD "reports\p21-sdtm-report.xlsx"
+          $reportPath = Join-Path $PWD "pinnacle21-report-SDTM.xlsx"
 
           Push-Location $cliDir
           & java -jar $jar `
@@ -410,6 +176,7 @@ jobs:
 
       # --- Validate ADaM ---
       - name: Validate ADaM
+        if: steps.check-xpt.outputs.has_xpt == 'true'
         shell: pwsh
         run: |
           $cliDir  = "${{ steps.p21-cli.outputs.cli_dir }}"
@@ -426,8 +193,7 @@ jobs:
             exit 0
           }
 
-          New-Item -ItemType Directory -Path reports -Force | Out-Null
-          $reportPath = Join-Path $PWD "reports\p21-adam-report.xlsx"
+          $reportPath = Join-Path $PWD "pinnacle21-report-ADAM.xlsx"
 
           Push-Location $cliDir
           & java -jar $jar `
@@ -456,7 +222,7 @@ jobs:
           name: p21-validation-reports
           retention-days: 90
           if-no-files-found: warn
-          path: reports/p21-*.xlsx
+          path: pinnacle21-report-*.xlsx
 
       # --- Post summary to the PR ---
       - name: Post validation summary
@@ -468,9 +234,58 @@ jobs:
 
           | Standard | Version | CT Version | Status |
           |----------|---------|------------|--------|
-          | SDTM | 3.3 | $env:CDISC_CT_SDTM | $(if (Test-Path reports\p21-sdtm-report.xlsx) { 'Report generated' } else { 'No report (no XPT or error)' }) |
-          | ADaM | 1.3 | $env:CDISC_CT_ADAM | $(if (Test-Path reports\p21-adam-report.xlsx) { 'Report generated' } else { 'No report (no XPT or error)' }) |
+          | SDTM | 3.3 | $env:CDISC_CT_SDTM | $(if (Test-Path pinnacle21-report-SDTM.xlsx) { 'Report generated' } else { 'No report (no XPT or error)' }) |
+          | ADaM | 1.3 | $env:CDISC_CT_ADAM | $(if (Test-Path pinnacle21-report-ADAM.xlsx) { 'Report generated' } else { 'No report (no XPT or error)' }) |
 
           Download the **p21-validation-reports** artifact for the full Excel report.
           "@
           $summary | Out-File -Append -FilePath $env:GITHUB_STEP_SUMMARY
+
+  # ------------------------------------------------------------------
+  # Job 2: parse P21 reports and post findings to GitHub issues
+  #
+  # Runs on ubuntu-latest because the automation scripts
+  # (bootstrap_system.sh) require apt-get for R installation.
+  # Uses claude-code-action to orchestrate the p21_dataset_comments.md
+  # prompt, which reads the P21 Excel reports and posts structured
+  # comments on matching open issues.
+  # ------------------------------------------------------------------
+  post-comments:
+    needs: p21-validate
+    if: always() && needs.p21-validate.result == 'success'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      issues: write
+
+    steps:
+      - uses: actions/checkout@v4
+
+      # --- Download P21 reports from the validate job ---
+      - name: Download P21 reports
+        uses: actions/download-artifact@v4
+        with:
+          name: p21-validation-reports
+          path: .
+
+      - name: Verify reports exist
+        id: check-reports
+        run: |
+          echo "--- P21 reports in repo root ---"
+          ls -la pinnacle21-report-*.xlsx 2>/dev/null || true
+          if ls pinnacle21-report-*.xlsx 1>/dev/null 2>&1; then
+            echo "has_reports=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "::warning::No P21 reports found — skipping comment posting."
+            echo "has_reports=false" >> "$GITHUB_OUTPUT"
+          fi
+
+      # --- Run Claude Code to execute p21_dataset_comments.md ---
+      - name: Post P21 findings to issues
+        if: steps.check-reports.outputs.has_reports == 'true'
+        uses: anthropics/claude-code-action@beta
+        with:
+          anthropic_api_key: ${{ secrets.ANTHROPIC_API_KEY }}
+          prompt: |
+            Read automation/p21_dataset_comments.md from the repo root and execute it exactly as written. The file is the complete job — do not add steps, skip steps, or ask for clarification. Start by running Step 0 (bash automation/bootstrap_system.sh && Rscript automation/bootstrap_r.R); if either exits non-zero, follow the failure path in the prompt and stop. Otherwise proceed through the per-issue loop. End with the stdout summary table specified at the bottom of the file.
+          allowed_tools: "Bash,Read,Write,Edit"
