@@ -187,8 +187,35 @@ ae <- wide |>
          AECONTRT,
          AESTDTC, AEENDTC, AESTDY, AEENDY, AEENRF)
 
+## --------------------------------------------------------------------
+## Attach labels from spec YAML (resolves P21 label checks)
+## --------------------------------------------------------------------
+spec_yaml <- yaml::read_yaml("spec/sdtm/ae.yaml")
+
+for (v in names(ae)) {
+  lab <- spec_yaml$variables[[v]]$label
+  if (!is.null(lab) && nzchar(lab)) attr(ae[[v]], "label") <- lab
+}
+attr(ae, "label") <- spec_yaml$label
+
 saveRDS(ae, "data/sdtm/ae.rds")
 cat(sprintf("AE written: %d rows x %d cols\n", nrow(ae), ncol(ae)))
+
+## --------------------------------------------------------------------
+## Export XPT v5 for P21 validation
+## --------------------------------------------------------------------
+ae_xpt <- ae
+# haven::write_xpt does not support integer XPT columns; coerce to double.
+int_cols <- names(ae_xpt)[vapply(ae_xpt, is.integer, logical(1))]
+if (length(int_cols) > 0) {
+  for (c in int_cols) {
+    lab <- attr(ae_xpt[[c]], "label")
+    ae_xpt[[c]] <- as.double(ae_xpt[[c]])
+    if (!is.null(lab)) attr(ae_xpt[[c]], "label") <- lab
+  }
+}
+haven::write_xpt(ae_xpt, path = "data/sdtm/ae.xpt", version = 5, name = "AE")
+cat("AE XPT exported to data/sdtm/ae.xpt\n")
 
 ## Sanity checks (echo to console; non-blocking)
 cat(sprintf("AEDECOD non-null: %d / %d\n",
