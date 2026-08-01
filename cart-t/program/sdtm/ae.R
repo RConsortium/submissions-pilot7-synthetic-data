@@ -99,8 +99,10 @@ ae <- wide |>
     AEREL    = toupper(AEREL),
     AERELNST = AE_MEDREL,
 
-    ## Apply AEOUT mapping first; then if AESDTH = "Y" force AEOUT = "FATAL"
-    ## per ICH consistency (rule SD0091).
+    ## Apply AEOUT mapping first; then enforce bidirectional ICH consistency
+    ## between AESDTH and AEOUT (rule SD0091):
+    ##   AESDTH = "Y"  →  AEOUT must be "FATAL"
+    ##   AEOUT = "FATAL"  →  AESDTH must be "Y"
     AEOUT    = map_aeout(AEOUT),
     AESCONG  = toupper(AESCONG),
     AESDISAB = toupper(AESDISAB),
@@ -112,6 +114,10 @@ ae <- wide |>
 
     AEOUT    = dplyr::if_else(!is.na(AESDTH) & AESDTH == "Y",
                               "FATAL", AEOUT),
+    ## Reverse: if AEOUT mapped to "FATAL" but AESDTH was not "Y", set it.
+    AESDTH   = dplyr::if_else(!is.na(AEOUT) & AEOUT == "FATAL" &
+                                (is.na(AESDTH) | AESDTH != "Y"),
+                              "Y", AESDTH),
 
     ## SD0009: when AESER = "Y" but no seriousness qualifier is "Y",
     ## default AESMIE = "Y" (Other Medically Important Serious Event).
