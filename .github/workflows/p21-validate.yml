@@ -78,11 +78,28 @@ jobs:
         uses: actions/cache@v4
         with:
           path: C:\p21
-          key: p21-community-${{ env.P21_VERSION }}
+          key: p21-community-${{ env.P21_VERSION }}-v2
+
+      # --- Verify cache contains the expected JAR ---
+      - name: Validate cached P21 install
+        if: steps.check-xpt.outputs.has_xpt == 'true' && steps.p21-cache.outputs.cache-hit == 'true'
+        id: p21-cache-valid
+        shell: pwsh
+        run: |
+          $components = Join-Path $env:P21_INSTALL_DIR "resources\app.asar.unpacked\components"
+          $jar = Get-ChildItem $components -Recurse -Filter "p21-client-*.jar" -ErrorAction SilentlyContinue |
+                   Select-Object -First 1
+          if ($jar) {
+            Write-Host "Cached P21 install is valid: $($jar.FullName)"
+            echo "valid=true" >> $env:GITHUB_OUTPUT
+          } else {
+            Write-Host "::warning::Cached P21 install is incomplete — will re-install."
+            echo "valid=false" >> $env:GITHUB_OUTPUT
+          }
 
       # --- Download & silent-install P21 Community ---
       - name: Install P21 Community
-        if: steps.check-xpt.outputs.has_xpt == 'true' && steps.p21-cache.outputs.cache-hit != 'true'
+        if: steps.check-xpt.outputs.has_xpt == 'true' && (steps.p21-cache.outputs.cache-hit != 'true' || steps.p21-cache-valid.outputs.valid != 'true')
         shell: pwsh
         run: |
           Write-Host "Downloading P21 Community $env:P21_VERSION ..."
