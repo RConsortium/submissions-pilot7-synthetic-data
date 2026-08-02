@@ -139,12 +139,20 @@ jobs:
             exit 1
           }
 
-          # The CLI expects the JAR in a folder that contains a configs/ dir.
-          # The configs/ dir lives alongside lib/ under components/.
+          # The CLI may expect a configs/ dir alongside the JAR.
+          # Search the install tree for it — layout varies across P21 versions.
           $cliDir = "$env:TEMP\p21-cli"
           New-Item -ItemType Directory -Path $cliDir -Force | Out-Null
           Copy-Item $jar.FullName -Destination $cliDir
-          Copy-Item (Join-Path $components "configs") -Destination $cliDir -Recurse -Force
+
+          $configsDir = Get-ChildItem $env:P21_INSTALL_DIR -Recurse -Directory -Filter "configs" -ErrorAction SilentlyContinue |
+                          Select-Object -First 1
+          if ($configsDir) {
+            Write-Host "Found configs dir: $($configsDir.FullName)"
+            Copy-Item $configsDir.FullName -Destination $cliDir -Recurse -Force
+          } else {
+            Write-Host "::warning::No configs directory found in P21 install — CLI may still work without it."
+          }
 
           $jarName = $jar.Name
           Write-Host "CLI working dir: $cliDir"
