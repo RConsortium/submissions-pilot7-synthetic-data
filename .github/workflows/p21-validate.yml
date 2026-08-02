@@ -173,28 +173,55 @@ jobs:
             exit 1
           }
 
-          # Build a clean working directory with just the JAR and configs
-          $cliDir = "$env:TEMP\p21-cli"
-          New-Item -ItemType Directory -Path $cliDir -Force | Out-Null
-          Copy-Item $jar.FullName -Destination $cliDir
+          # The CLI working directory is the P21 Community user-data folder.
+          # P21 expects the JAR to live alongside a configs/ dir that holds
+          # downloaded engine metadata + licence/IQ state.  The default
+          # location is Documents\Pinnacle 21 Community.
+          $p21Home = Join-Path $env:USERPROFILE "Documents\Pinnacle 21 Community"
+          New-Item -ItemType Directory -Path $p21Home -Force | Out-Null
+          Copy-Item $jar.FullName -Destination $p21Home -Force
 
-          # Search for a configs/ directory — layout varies across P21 versions
+          # Search for a configs/ directory in the install tree
           $configsDir = Get-ChildItem $env:P21_INSTALL_DIR -Recurse -Directory -Filter "configs" -ErrorAction SilentlyContinue |
                           Select-Object -First 1
           if ($configsDir) {
-            Write-Host "Found configs dir: $($configsDir.FullName)"
-            Copy-Item $configsDir.FullName -Destination $cliDir -Recurse -Force
+            Write-Host "Found configs dir in install: $($configsDir.FullName)"
+            Copy-Item $configsDir.FullName -Destination $p21Home -Recurse -Force
+          }
+
+          # Launch the P21 GUI briefly to trigger engine download / IQ
+          # activation.  The GUI writes configs + IQ state into $p21Home.
+          $p21Exe = Get-ChildItem $env:P21_INSTALL_DIR -Recurse -Filter "Pinnacle 21 Community.exe" -ErrorAction SilentlyContinue |
+                      Select-Object -First 1
+          if ($p21Exe) {
+            Write-Host "Launching P21 GUI for IQ activation ..."
+            $proc = Start-Process -FilePath $p21Exe.FullName -PassThru
+            # Give it time to phone home and write configs
+            Start-Sleep -Seconds 30
+            if (-not $proc.HasExited) {
+              $proc.Kill()
+              Write-Host "P21 GUI killed after activation window."
+            }
           } else {
-            Write-Host "::warning::No configs directory found in P21 install — CLI may still work without it."
+            Write-Host "::warning::P21 GUI executable not found — skipping IQ activation."
+          }
+
+          # Check that configs/ now exists (either from install or GUI)
+          $cfgPath = Join-Path $p21Home "configs"
+          if (Test-Path $cfgPath) {
+            Write-Host "configs/ directory ready at $cfgPath"
+            Get-ChildItem $cfgPath -Depth 1
+          } else {
+            Write-Host "::warning::configs/ directory still absent — CLI may fail with expiration error."
           }
 
           $jarName = $jar.Name
-          Write-Host "CLI working dir: $cliDir"
+          Write-Host "CLI working dir: $p21Home"
           Write-Host "CLI JAR: $jarName"
-          Get-ChildItem $cliDir
+          Get-ChildItem $p21Home
 
           # Export for later steps
-          echo "cli_dir=$cliDir"   >> $env:GITHUB_OUTPUT
+          echo "cli_dir=$p21Home"   >> $env:GITHUB_OUTPUT
           echo "jar_name=$jarName" >> $env:GITHUB_OUTPUT
 
       # --- Validate SDTM ---
