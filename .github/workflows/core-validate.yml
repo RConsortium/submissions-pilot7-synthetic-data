@@ -259,6 +259,10 @@ jobs:
     permissions:
       contents: read
       issues: write
+      id-token: write
+    env:
+      # Secrets can't be used directly in step `if:`; surface presence here.
+      HAS_ANTHROPIC_KEY: ${{ secrets.ANTHROPIC_API_KEY != '' }}
 
     steps:
       - uses: actions/checkout@v5
@@ -283,12 +287,25 @@ jobs:
             echo "has_reports=false" >> "$GITHUB_OUTPUT"
           fi
 
+      # --- Warn (don't fail) when the API key isn't configured ---
+      - name: Note missing ANTHROPIC_API_KEY
+        if: steps.check-reports.outputs.has_reports == 'true' && env.HAS_ANTHROPIC_KEY != 'true'
+        shell: bash
+        run: |
+          echo "::warning::ANTHROPIC_API_KEY secret is not set — skipping automated issue comments. Reports are still available as the core-validation-reports artifact."
+
       # --- Run Claude Code to execute core_dataset_comments.md ---
+      # Uses `agent` mode (no trigger phrase) with an explicit github_token so
+      # the action does not attempt the OIDC/GitHub-App path. Non-fatal: a
+      # failure here must not fail the workflow — validation is the gate.
       - name: Post CORE findings to issues
-        if: steps.check-reports.outputs.has_reports == 'true'
+        if: steps.check-reports.outputs.has_reports == 'true' && env.HAS_ANTHROPIC_KEY == 'true'
+        continue-on-error: true
         uses: anthropics/claude-code-action@beta
         with:
+          mode: agent
           anthropic_api_key: ${{ secrets.ANTHROPIC_API_KEY }}
-          prompt: |
-            Read automation/core_dataset_comments.md from the repo root and execute it exactly as written. The file is the complete job — do not add steps, skip steps, or ask for clarification. Start by running Step 0 (bash automation/bootstrap_system.sh && Rscript automation/bootstrap_r.R); if either exits non-zero, follow the failure path in the prompt and stop. Otherwise proceed through the per-issue loop. End with the stdout summary table specified at the bottom of the file.
+          github_token: ${{ secrets.GITHUB_TOKEN }}
           allowed_tools: "Bash,Read,Write,Edit"
+          direct_prompt: |
+            Read automation/core_dataset_comments.md from the repo root and execute it exactly as written. The file is the complete job — do not add steps, skip steps, or ask for clarification. Start by running Step 0 (bash automation/bootstrap_system.sh && Rscript automation/bootstrap_r.R); if either exits non-zero, follow the failure path in the prompt and stop. Otherwise proceed through the per-issue loop. End with the stdout summary table specified at the bottom of the file.
