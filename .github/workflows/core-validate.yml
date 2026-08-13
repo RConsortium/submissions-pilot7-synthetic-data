@@ -97,7 +97,13 @@ jobs:
           mkdir -p core-bin
           unzip -q core.zip -d core-bin
           rm -f core.zip
-          exe=$(find core-bin -type f -name core | head -1)
+          # The bundle contains data files also named "core" (e.g. a JSON
+          # schema vocabulary), so match the actual ELF executable, not the
+          # first file named "core".
+          exe=""
+          while IFS= read -r f; do
+            if file "$f" 2>/dev/null | grep -qi 'ELF'; then exe="$f"; break; fi
+          done < <(find core-bin -type f -name core)
           if [ -z "$exe" ]; then
             echo "::error::CORE executable not found after unzip"; find core-bin | head -50; exit 1
           fi
@@ -111,7 +117,11 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          exe=$(find core-bin -type f -name core | head -1)
+          # Match the ELF executable, not the data files also named "core".
+          exe=""
+          while IFS= read -r f; do
+            if file "$f" 2>/dev/null | grep -qi 'ELF'; then exe="$f"; break; fi
+          done < <(find core-bin -type f -name core)
           if [ -z "$exe" ]; then
             echo "::error::CORE executable missing"; find core-bin | head -50; exit 1
           fi
