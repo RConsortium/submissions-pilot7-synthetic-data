@@ -54,8 +54,11 @@ jobs:
       ADAM_STANDARD: "adamig"
       ADAM_VERSION: "1-3"
       # --- CDISC CT packages (must exist in CORE's bundled cache) ---
-      CT_SDTM: "sdtmct-2024-06-28"
-      CT_ADAM: "adamct-2024-06-28"
+      # CORE bundles quarterly CT packages; 2024-06-28 is not among them, so
+      # we use the closest available release. The Locate step falls back to
+      # the newest cached package if these ids ever disappear on a version bump.
+      CT_SDTM: "sdtmct-2024-09-27"
+      CT_ADAM: "adamct-2024-09-27"
 
     steps:
       - uses: actions/checkout@v5
@@ -129,9 +132,27 @@ jobs:
           # Absolute path + its directory (CORE resolves its bundled cache
           # relative to the executable, so validation runs from that dir).
           exe_abs="$(cd "$(dirname "$exe")" && pwd)/$(basename "$exe")"
-          echo "exe=$exe_abs"      >> "$GITHUB_OUTPUT"
-          echo "dir=$(dirname "$exe_abs")" >> "$GITHUB_OUTPUT"
+          core_dir="$(dirname "$exe_abs")"
+          echo "exe=$exe_abs" >> "$GITHUB_OUTPUT"
+          echo "dir=$core_dir" >> "$GITHUB_OUTPUT"
           echo "CORE executable: $exe_abs"
+
+          # Resolve CT packages against the bundled cache: use the requested
+          # id if present, otherwise fall back to the newest cached package
+          # for that standard so validation still runs.
+          resolve_ct() {  # $1=prefix (sdtmct|adamct)  $2=desired id
+            local prefix="$1" desired="$2" hit latest
+            hit=$(find "$core_dir" -type f -name "${desired}.pkl" | head -1)
+            if [ -n "$hit" ]; then echo "$desired"; return; fi
+            latest=$(find "$core_dir" -type f -name "${prefix}-*.pkl" -exec basename {} .pkl \; | sort | tail -1)
+            echo "::warning::CT package ${desired} not in cache; falling back to ${latest}" >&2
+            echo "$latest"
+          }
+          ct_sdtm=$(resolve_ct sdtmct "$CT_SDTM")
+          ct_adam=$(resolve_ct adamct "$CT_ADAM")
+          echo "ct_sdtm=$ct_sdtm" >> "$GITHUB_OUTPUT"
+          echo "ct_adam=$ct_adam" >> "$GITHUB_OUTPUT"
+          echo "Resolved CT: SDTM=$ct_sdtm ADaM=$ct_adam"
 
       # --- Validate SDTM ---
       - name: Validate SDTM
@@ -151,7 +172,7 @@ jobs:
           ( cd "$core_dir" && "$exe" validate \
               --standard "$SDTM_STANDARD" \
               --version "$SDTM_VERSION" \
-              --controlled-terminology-package "$CT_SDTM" \
+              --controlled-terminology-package "${{ steps.core.outputs.ct_sdtm }}" \
               --data "$sdtm_dir" \
               --filetype xpt \
               --output-format JSON \
@@ -180,8 +201,8 @@ jobs:
           ( cd "$core_dir" && "$exe" validate \
               --standard "$ADAM_STANDARD" \
               --version "$ADAM_VERSION" \
-              --controlled-terminology-package "$CT_ADAM" \
-              --controlled-terminology-package "$CT_SDTM" \
+              --controlled-terminology-package "${{ steps.core.outputs.ct_adam }}" \
+              --controlled-terminology-package "${{ steps.core.outputs.ct_sdtm }}" \
               --data "$adam_dir" \
               --filetype xpt \
               --output-format JSON \
@@ -218,8 +239,8 @@ jobs:
             echo ""
             echo "| Standard | Version | CT Package | Status |"
             echo "|----------|---------|------------|--------|"
-            echo "| SDTM | ${SDTM_VERSION//-/.} | ${CT_SDTM} | ${sdtm_status} |"
-            echo "| ADaM | ${ADAM_VERSION//-/.} | ${CT_ADAM} | ${adam_status} |"
+            echo "| SDTM | ${SDTM_VERSION//-/.} | ${{ steps.core.outputs.ct_sdtm }} | ${sdtm_status} |"
+            echo "| ADaM | ${ADAM_VERSION//-/.} | ${{ steps.core.outputs.ct_adam }} | ${adam_status} |"
             echo ""
             echo "Download the **core-validation-reports** artifact for the full JSON + Excel reports."
           } >> "$GITHUB_STEP_SUMMARY"
