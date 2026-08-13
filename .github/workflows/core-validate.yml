@@ -1,0 +1,263 @@
+## CDISC CORE validation + LLM-driven issue comments
+##
+## Validates existing XPT files with the CDISC Open Rules Engine (CORE),
+## then uses Claude Code to parse the JSON reports and post findings as
+## comments on matching GitHub issues.
+##
+## Why CORE and not Pinnacle 21?
+##   P21 Community only runs on Windows/macOS and requires an interactive
+##   IQ activation that cannot be satisfied in ephemeral CI (it fails with
+##   CLI.3.17 on fresh installs). CORE is CDISC's official open-source
+##   validator: a self-contained Linux executable shipped with a bundled
+##   rules + controlled-terminology cache, so it runs on ubuntu-latest with
+##   no license, activation, or API key.
+##
+## Prerequisites:
+##   - ANTHROPIC_API_KEY repo secret (for claude-code-action)
+##   - XPT files checked into cart-t/data/sdtm/ and cart-t/data/adam/
+##
+## To adjust engine version, standards, or CT packages, edit the env block.
+
+name: CORE Validate & Comment
+
+on:
+  pull_request:
+    branches: [main]
+    paths:
+      - "cart-t/data/sdtm/**.xpt"
+      - "cart-t/data/adam/**.xpt"
+      - ".github/workflows/core-validate.yml"
+  workflow_dispatch:
+
+concurrency:
+  group: core-validate-${{ github.head_ref || github.ref_name }}
+  cancel-in-progress: true
+
+jobs:
+  # ------------------------------------------------------------------
+  # Job 1: validate XPT with the CDISC Open Rules Engine (CORE)
+  #
+  # Runs on ubuntu-latest. CORE ships a prebuilt Linux executable with a
+  # bundled cache of published rules and controlled terminology, so no
+  # `update-cache` step (and no CDISC Library API key) is needed.
+  # ------------------------------------------------------------------
+  core-validate:
+    runs-on: ubuntu-latest
+
+    env:
+      # --- CORE release (update when CDISC publishes a new version) ---
+      CORE_VERSION: "v0.16.0"
+      CORE_ASSET: "core-ubuntu-latest.zip"
+      # --- Standards & versions (CORE uses hyphenated version strings) ---
+      SDTM_STANDARD: "sdtmig"
+      SDTM_VERSION: "3-3"
+      ADAM_STANDARD: "adamig"
+      ADAM_VERSION: "1-3"
+      # --- CDISC CT packages (must exist in CORE's bundled cache) ---
+      CT_SDTM: "sdtmct-2024-06-28"
+      CT_ADAM: "adamct-2024-06-28"
+
+    steps:
+      - uses: actions/checkout@v5
+
+      # --- Check for XPT files ---
+      - name: Check for XPT files
+        id: check-xpt
+        shell: bash
+        run: |
+          sdtm=$(find cart-t/data/sdtm -maxdepth 1 -name '*.xpt' 2>/dev/null | wc -l | tr -d ' ')
+          adam=$(find cart-t/data/adam -maxdepth 1 -name '*.xpt' 2>/dev/null | wc -l | tr -d ' ')
+          echo "SDTM XPT files: $sdtm"
+          echo "ADaM XPT files: $adam"
+          if [ $((sdtm + adam)) -eq 0 ]; then
+            echo "::warning::No XPT files found — nothing to validate."
+            echo "has_xpt=false" >> "$GITHUB_OUTPUT"
+          else
+            echo "has_xpt=true" >> "$GITHUB_OUTPUT"
+          fi
+
+      # --- Cache the CORE executable + bundled rules cache ---
+      - name: Cache CORE
+        if: steps.check-xpt.outputs.has_xpt == 'true'
+        id: core-cache
+        uses: actions/cache@v5
+        with:
+          path: core-bin
+          key: cdisc-core-${{ env.CORE_VERSION }}-${{ env.CORE_ASSET }}
+
+      # --- Download & unpack CORE (skipped on a cache hit) ---
+      - name: Download CORE
+        if: steps.check-xpt.outputs.has_xpt == 'true' && steps.core-cache.outputs.cache-hit != 'true'
+        shell: bash
+        run: |
+          set -euo pipefail
+          url="https://github.com/cdisc-org/cdisc-rules-engine/releases/download/${CORE_VERSION}/${CORE_ASSET}"
+          echo "Downloading CORE from $url"
+          curl -fsSL -o core.zip "$url"
+          mkdir -p core-bin
+          unzip -q core.zip -d core-bin
+          rm -f core.zip
+          exe=$(find core-bin -type f -name core | head -1)
+          if [ -z "$exe" ]; then
+            echo "::error::CORE executable not found after unzip"; find core-bin | head -50; exit 1
+          fi
+          chmod +x "$exe"
+          echo "CORE unpacked at $exe"
+
+      # --- Locate the CORE executable (works on both fresh + cached runs) ---
+      - name: Locate CORE
+        if: steps.check-xpt.outputs.has_xpt == 'true'
+        id: core
+        shell: bash
+        run: |
+          set -euo pipefail
+          exe=$(find core-bin -type f -name core | head -1)
+          if [ -z "$exe" ]; then
+            echo "::error::CORE executable missing"; find core-bin | head -50; exit 1
+          fi
+          chmod +x "$exe"
+          # Absolute path + its directory (CORE resolves its bundled cache
+          # relative to the executable, so validation runs from that dir).
+          exe_abs="$(cd "$(dirname "$exe")" && pwd)/$(basename "$exe")"
+          echo "exe=$exe_abs"      >> "$GITHUB_OUTPUT"
+          echo "dir=$(dirname "$exe_abs")" >> "$GITHUB_OUTPUT"
+          echo "CORE executable: $exe_abs"
+
+      # --- Validate SDTM ---
+      - name: Validate SDTM
+        if: steps.check-xpt.outputs.has_xpt == 'true'
+        continue-on-error: true
+        shell: bash
+        run: |
+          set +e
+          exe="${{ steps.core.outputs.exe }}"
+          core_dir="${{ steps.core.outputs.dir }}"
+          sdtm_dir="$PWD/cart-t/data/sdtm"
+          n=$(find "$sdtm_dir" -maxdepth 1 -name '*.xpt' | wc -l | tr -d ' ')
+          echo "SDTM XPT files found: $n"
+          if [ "$n" -eq 0 ]; then echo "No SDTM XPT files — skipping."; exit 0; fi
+
+          out="$PWD/core-report-SDTM"
+          ( cd "$core_dir" && "$exe" validate \
+              --standard "$SDTM_STANDARD" \
+              --version "$SDTM_VERSION" \
+              --controlled-terminology-package "$CT_SDTM" \
+              --data "$sdtm_dir" \
+              --filetype xpt \
+              --output-format JSON \
+              --output-format XLSX \
+              --output "$out" )
+          code=$?
+          echo "CORE SDTM exit code: $code"
+          [ "$code" -ne 0 ] && echo "::warning::CORE SDTM validation exited with code $code"
+          ls -la "$PWD"/core-report-SDTM* 2>/dev/null || echo "::warning::No SDTM report produced"
+
+      # --- Validate ADaM ---
+      - name: Validate ADaM
+        if: steps.check-xpt.outputs.has_xpt == 'true'
+        continue-on-error: true
+        shell: bash
+        run: |
+          set +e
+          exe="${{ steps.core.outputs.exe }}"
+          core_dir="${{ steps.core.outputs.dir }}"
+          adam_dir="$PWD/cart-t/data/adam"
+          n=$(find "$adam_dir" -maxdepth 1 -name '*.xpt' | wc -l | tr -d ' ')
+          echo "ADaM XPT files found: $n"
+          if [ "$n" -eq 0 ]; then echo "No ADaM XPT files — skipping."; exit 0; fi
+
+          out="$PWD/core-report-ADAM"
+          ( cd "$core_dir" && "$exe" validate \
+              --standard "$ADAM_STANDARD" \
+              --version "$ADAM_VERSION" \
+              --controlled-terminology-package "$CT_ADAM" \
+              --controlled-terminology-package "$CT_SDTM" \
+              --data "$adam_dir" \
+              --filetype xpt \
+              --output-format JSON \
+              --output-format XLSX \
+              --output "$out" )
+          code=$?
+          echo "CORE ADaM exit code: $code"
+          [ "$code" -ne 0 ] && echo "::warning::CORE ADaM validation exited with code $code"
+          ls -la "$PWD"/core-report-ADAM* 2>/dev/null || echo "::warning::No ADaM report produced"
+
+      # --- Upload validation reports (JSON is parsed by job 2; XLSX for humans) ---
+      - name: Upload CORE reports
+        if: always()
+        uses: actions/upload-artifact@v5
+        with:
+          name: core-validation-reports
+          retention-days: 90
+          if-no-files-found: warn
+          path: core-report-*
+
+      # --- Post summary to the PR ---
+      - name: Post validation summary
+        if: always()
+        shell: bash
+        run: |
+          sdtm_status="No report (no XPT or error)"
+          adam_status="No report (no XPT or error)"
+          [ -f core-report-SDTM.json ] && sdtm_status="Report generated"
+          [ -f core-report-ADAM.json ] && adam_status="Report generated"
+          {
+            echo "## CDISC CORE Validation"
+            echo ""
+            echo "Engine: CORE ${CORE_VERSION}"
+            echo ""
+            echo "| Standard | Version | CT Package | Status |"
+            echo "|----------|---------|------------|--------|"
+            echo "| SDTM | ${SDTM_VERSION//-/.} | ${CT_SDTM} | ${sdtm_status} |"
+            echo "| ADaM | ${ADAM_VERSION//-/.} | ${CT_ADAM} | ${adam_status} |"
+            echo ""
+            echo "Download the **core-validation-reports** artifact for the full JSON + Excel reports."
+          } >> "$GITHUB_STEP_SUMMARY"
+
+  # ------------------------------------------------------------------
+  # Job 2: parse CORE reports and post findings to GitHub issues
+  #
+  # Runs on ubuntu-latest. Uses claude-code-action to orchestrate the
+  # core_dataset_comments.md prompt, which reads the CORE JSON reports and
+  # posts structured comments on matching open issues.
+  # ------------------------------------------------------------------
+  post-comments:
+    needs: core-validate
+    if: always() && needs.core-validate.result == 'success'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      issues: write
+
+    steps:
+      - uses: actions/checkout@v5
+
+      # --- Download CORE reports from the validate job ---
+      - name: Download CORE reports
+        uses: actions/download-artifact@v5
+        with:
+          name: core-validation-reports
+          path: .
+
+      - name: Verify reports exist
+        id: check-reports
+        shell: bash
+        run: |
+          echo "--- CORE reports in repo root ---"
+          ls -la core-report-*.json 2>/dev/null || true
+          if ls core-report-*.json 1>/dev/null 2>&1; then
+            echo "has_reports=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "::warning::No CORE JSON reports found — skipping comment posting."
+            echo "has_reports=false" >> "$GITHUB_OUTPUT"
+          fi
+
+      # --- Run Claude Code to execute core_dataset_comments.md ---
+      - name: Post CORE findings to issues
+        if: steps.check-reports.outputs.has_reports == 'true'
+        uses: anthropics/claude-code-action@beta
+        with:
+          anthropic_api_key: ${{ secrets.ANTHROPIC_API_KEY }}
+          prompt: |
+            Read automation/core_dataset_comments.md from the repo root and execute it exactly as written. The file is the complete job — do not add steps, skip steps, or ask for clarification. Start by running Step 0 (bash automation/bootstrap_system.sh && Rscript automation/bootstrap_r.R); if either exits non-zero, follow the failure path in the prompt and stop. Otherwise proceed through the per-issue loop. End with the stdout summary table specified at the bottom of the file.
+          allowed_tools: "Bash,Read,Write,Edit"

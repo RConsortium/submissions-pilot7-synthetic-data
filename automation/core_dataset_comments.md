@@ -1,7 +1,7 @@
-# P21 dataset validation comment automation
+# CORE dataset validation comment automation
 
 You are running on a schedule against the `RConsortium/submissions-pilot7-synthetic-data`
-repository. Your job is to read the latest Pinnacle21 validation report(s) and
+repository. Your job is to read the latest CDISC CORE validation report(s) and
 post validation findings as comments on open issues that mention specific
 dataset names (ADAE, ADQS, ADSL, etc.).
 
@@ -13,12 +13,13 @@ call yourself and document the reasoning in the comment.
 ## Inputs you can rely on
 
 - Git root: the parent of this `automation/` folder
-- P21 reports: Excel files matching `pinnacle21-report-*.xlsx` in git root.
+- CORE reports: JSON files matching `core-report-*.json` in git root.
   There may be more than one (e.g. a separate SDTM report and ADaM report).
   Detect domain coverage automatically — do not assume one file covers both.
+  (The `.xlsx` twins of these files are for humans; parse the `.json`.)
 - Tooling: `git` is configured, `Rscript` is available. `gh` may or may not
   be installed — detect it and fall back to `curl` if absent (see Step 1).
-- Bot identity: sign comments with `_(posted by P21 validation report)_`
+- Bot identity: sign comments with `_(posted by CDISC CORE validation report)_`
 
 ---
 
@@ -34,12 +35,12 @@ Rscript automation/bootstrap_r.R
 If either exits non-zero, stop the whole run and exit non-zero.
 
 Also ensure the system R library has the packages needed for this script
-(`readxl`, `jsonlite`, `dplyr`). These are not in the renv lockfile (they run
-outside renv). Install any that are missing:
+(`jsonlite`, `dplyr`). These are not in the renv lockfile (they run outside
+renv). Install any that are missing:
 
 ```bash
 Rscript --vanilla -e "
-  pkgs <- c('readxl', 'jsonlite', 'dplyr')
+  pkgs <- c('jsonlite', 'dplyr')
   missing <- pkgs[!pkgs %in% rownames(installed.packages())]
   if (length(missing) > 0) {
     install.packages(missing, repos='https://cloud.r-project.org', quiet=TRUE)
@@ -91,19 +92,20 @@ Use `$R_TMPDIR` (not `/tmp`) for all temp file paths throughout this run.
 
 ---
 
-## Step 3 — Find and catalogue P21 reports
+## Step 3 — Find and catalogue CORE reports
 
-There may be one file covering both SDTM and ADaM, or two separate files.
-Read every report and record which domains each covers:
+There may be one file per standard (SDTM, ADaM) or several. Read every JSON
+report and record which datasets/domains each covers. Domain coverage is
+derived from the report's `Dataset_Details` (and `Issue_Summary`) datasets,
+normalised to upper-case domain names with any `.xpt` suffix stripped.
 
 ```bash
 Rscript --vanilla - "$R_TMPDIR" <<'RSCRIPT'
-library(readxl)
 library(jsonlite)
 
 tmp <- commandArgs(trailingOnly=TRUE)[1]
 
-reports <- list.files(".", pattern="^pinnacle21-report-.*\\.xlsx$", full.names=TRUE)
+reports <- list.files(".", pattern="^core-report-.*\\.json$", full.names=TRUE)
 reports <- reports[order(file.mtime(reports), decreasing=TRUE)]  # newest first
 
 if (length(reports) == 0) {
@@ -111,23 +113,29 @@ if (length(reports) == 0) {
   quit(status=0)
 }
 
+norm_domain <- function(x) toupper(sub("\\.xpt$", "", x, ignore.case=TRUE))
+
 catalogue <- lapply(reports, function(f) {
-  details <- tryCatch(read_excel(f, sheet="Details"), error=function(e) NULL)
-  if (is.null(details)) return(NULL)
-  domains <- unique(details$Domain)
-  domains <- domains[!is.na(domains) & domains != "GLOBAL"]
+  rpt <- tryCatch(fromJSON(f, simplifyVector=FALSE), error=function(e) NULL)
+  if (is.null(rpt)) return(NULL)
+  ds <- character(0)
+  if (!is.null(rpt$Dataset_Details))
+    ds <- c(ds, vapply(rpt$Dataset_Details, function(d) d$filename %||% "", ""))
+  if (!is.null(rpt$Issue_Summary))
+    ds <- c(ds, vapply(rpt$Issue_Summary, function(d) d$dataset %||% "", ""))
+  domains <- unique(norm_domain(ds[nzchar(ds)]))
   list(file=basename(f), path=f, domains=domains)
 })
 catalogue <- Filter(Negate(is.null), catalogue)
 
-writeLines(toJSON(catalogue, auto_unbox=TRUE), file.path(tmp, "p21_catalogue.json"))
+writeLines(toJSON(catalogue, auto_unbox=TRUE), file.path(tmp, "core_catalogue.json"))
 cat(sprintf("Catalogued %d report(s)\n", length(catalogue)))
 for (r in catalogue)
   cat(sprintf("  %s -> [%s]\n", r$file, paste(r$domains, collapse=",")))
 RSCRIPT
 ```
 
-If the script prints `NO_REPORTS`, stop: no P21 reports found.
+If the script prints `NO_REPORTS`, stop: no CORE reports found.
 
 ---
 
@@ -135,14 +143,14 @@ If the script prints `NO_REPORTS`, stop: no P21 reports found.
 
 ```bash
 # gh mode
-gh label create p21-commented \
-  --description "Validation findings posted from P21 report" \
+gh label create core-commented \
+  --description "Validation findings posted from CORE report" \
   --color D4C5F9 2>/dev/null || true
 
 # curl mode equivalent
 curl -s -X POST \
   -H "Authorization: token $GH_TOKEN" -H "Content-Type: application/json" \
-  -d '{"name":"p21-commented","color":"D4C5F9","description":"Validation findings posted from P21 report"}' \
+  -d '{"name":"core-commented","color":"D4C5F9","description":"Validation findings posted from CORE report"}' \
   "https://api.github.com/repos/RConsortium/submissions-pilot7-synthetic-data/labels" > /dev/null
 ```
 
@@ -171,10 +179,10 @@ issue completely (generate → post → label) before moving to the next.
 
 ### 6a — Check skip labels
 
-Skip the issue if it carries any of: `p21-commented`, `wontfix`,
+Skip the issue if it carries any of: `core-commented`, `wontfix`,
 `duplicate`, `invalid`.
 
-**Do NOT skip** issues labeled `claude-needs-human` — P21 validation
+**Do NOT skip** issues labeled `claude-needs-human` — CORE validation
 findings should be posted regardless of triage state.
 
 ### 6b — Match datasets using word-boundary search
@@ -226,89 +234,122 @@ fi
 Use R to read the report(s) and write both a markdown file and a JSON body
 file. **Always pass `--vanilla`** to prevent renv from activating.
 
+The CORE JSON report has these top-level keys (spaces/hyphens → underscores):
+`Conformance_Details` (object), `Dataset_Details`, `Issue_Summary`
+(`{dataset, core_id, message, issues}`), `Issue_Details`
+(`{core_id, message, executability, dataset, USUBJID, row, SEQ, variables[], values[]}`),
+and `Rules_Report`. Match a domain against the `dataset` field, upper-cased
+with any `.xpt` suffix removed.
+
 ```bash
 Rscript --vanilla - "$issue_num" "$R_TMPDIR" $matched_datasets <<'RSCRIPT'
-library(readxl)
 library(jsonlite)
 library(dplyr)
+
+`%||%` <- function(a, b) if (is.null(a) || length(a) == 0) b else a
 
 args         <- commandArgs(trailingOnly=TRUE)
 issue_num    <- args[1]
 tmp          <- args[2]
 datasets     <- args[3:length(args)]
 
+norm_domain <- function(x) toupper(sub("\\.xpt$", "", x, ignore.case=TRUE))
+
 # Load report catalogue built in Step 3
-catalogue <- fromJSON(readLines(file.path(tmp, "p21_catalogue.json"), warn=FALSE))
+catalogue <- fromJSON(readLines(file.path(tmp, "core_catalogue.json"), warn=FALSE),
+                      simplifyVector=FALSE)
+
+# Cache parsed reports so each file is read at most once
+report_cache <- new.env()
+load_report <- function(path) {
+  if (!is.null(report_cache[[path]])) return(report_cache[[path]])
+  rpt <- fromJSON(path, simplifyVector=FALSE)
+  report_cache[[path]] <- rpt
+  rpt
+}
 
 # Helper: find the best report for a given domain
 best_report <- function(domain) {
-  for (r in catalogue) {
-    if (domain %in% r$domains) return(r)
-  }
+  for (r in catalogue) if (domain %in% unlist(r$domains)) return(r)
   NULL
+}
+
+join_vec <- function(v) {
+  if (is.null(v) || length(v) == 0) return("-")
+  paste(vapply(v, function(x) if (is.null(x)) "null" else as.character(x), ""),
+        collapse=";")
 }
 
 block_for_domain <- function(domain) {
   rep <- best_report(domain)
-  lines <- character(0)
+  lines <- c(sprintf("### %s", domain), "")
   if (is.null(rep)) {
-    lines <- c(lines, sprintf("### %s", domain), "",
-               sprintf("No P21 report found covering domain %s.", domain), "")
-    return(lines)
+    return(c(lines, sprintf("No CORE report found covering domain %s.", domain), ""))
   }
 
-  details <- read_excel(rep$path, sheet="Details")
-  rows    <- details |> filter(Domain == domain)
+  rpt     <- load_report(rep$path)
+  summary <- rpt$Issue_Summary %||% list()
+  details <- rpt$Issue_Details %||% list()
 
-  lines <- c(lines, sprintf("### %s", domain), "")
+  # Rows for this domain
+  srows <- Filter(function(x) norm_domain(x$dataset %||% "") == domain, summary)
+  drows <- Filter(function(x) norm_domain(x$dataset %||% "") == domain, details)
 
-  if (nrow(rows) == 0) {
-    lines <- c(lines, "No validation issues found in this report.", "")
-    return(lines)
+  if (length(srows) == 0 && length(drows) == 0) {
+    return(c(lines, sprintf("Report: `%s`", rep$file), "",
+             "No validation issues found for this domain. ✅", ""))
   }
+
+  total <- sum(vapply(srows, function(x) as.integer(x$issues %||% 0L), integer(1)))
+  rule_ids <- unique(vapply(srows, function(x) x$core_id %||% "", ""))
 
   lines <- c(lines,
     sprintf("Report: `%s`", rep$file),
-    sprintf("- **Total issues**: %d", nrow(rows)),
-    sprintf("- **Unique rules**: %d", n_distinct(rows$`Pinnacle 21 ID`)),
+    sprintf("- **Total issues**: %d", total),
+    sprintf("- **Unique rules**: %d", length(rule_ids)),
     "")
 
-  rules <- rows |>
-    group_by(`Pinnacle 21 ID`, Message) |>
-    summarise(n=n(), .groups="drop") |>
-    arrange(desc(n)) |>
-    head(10)
-
-  lines <- c(lines, "**Issues by rule:**", "")
-  for (i in seq_len(nrow(rules)))
-    lines <- c(lines, sprintf("- **%s** (%d): %s",
-                              rules$`Pinnacle 21 ID`[i], rules$n[i], rules$Message[i]))
-  lines <- c(lines, "")
-
-  samp <- rows |> select(Record, Variables, Values, `Pinnacle 21 ID`, Message) |> head(5)
-  lines <- c(lines,
-    "<details><summary>Sample records</summary>", "",
-    "| Record | Variables | Values | Rule | Message |",
-    "|--------|-----------|--------|------|---------|")
-  for (i in seq_len(nrow(samp))) {
-    rec  <- ifelse(is.na(samp$Record[i]),    "-", substr(as.character(samp$Record[i]),    1,40))
-    vars <- ifelse(is.na(samp$Variables[i]), "-", substr(as.character(samp$Variables[i]),1,30))
-    vals <- ifelse(is.na(samp$Values[i]),    "-", substr(as.character(samp$Values[i]),    1,20))
-    rule <- samp$`Pinnacle 21 ID`[i]
-    msg  <- substr(samp$Message[i], 1, 70)
-    lines <- c(lines, sprintf("| %s | %s | %s | %s | %s |", rec, vars, vals, rule, msg))
+  # Issues by rule (top 10 by count)
+  if (length(srows) > 0) {
+    ord <- order(vapply(srows, function(x) as.integer(x$issues %||% 0L), integer(1)),
+                 decreasing=TRUE)
+    top <- srows[ord][seq_len(min(10, length(srows)))]
+    lines <- c(lines, "**Issues by rule:**", "")
+    for (s in top)
+      lines <- c(lines, sprintf("- **%s** (%d): %s",
+                                s$core_id %||% "?",
+                                as.integer(s$issues %||% 0L),
+                                s$message %||% ""))
+    lines <- c(lines, "")
   }
-  lines <- c(lines, "", "</details>", "")
+
+  # Sample records (first 5 detail rows)
+  if (length(drows) > 0) {
+    samp <- drows[seq_len(min(5, length(drows)))]
+    lines <- c(lines,
+      "<details><summary>Sample records</summary>", "",
+      "| Record | Variables | Values | Rule | Message |",
+      "|--------|-----------|--------|------|---------|")
+    for (d in samp) {
+      rec  <- as.character(d$row %||% "-")
+      vars <- substr(join_vec(d$variables), 1, 30)
+      vals <- substr(join_vec(d$values),    1, 20)
+      rule <- d$core_id %||% "-"
+      msg  <- substr(d$message %||% "", 1, 70)
+      lines <- c(lines, sprintf("| %s | %s | %s | %s | %s |", rec, vars, vals, rule, msg))
+    }
+    lines <- c(lines, "", "</details>", "")
+  }
   lines
 }
 
 # Build full comment
-comment <- c("## Pinnacle21 Validation Findings", "")
+comment <- c("## CDISC CORE Validation Findings", "")
 for (d in datasets) comment <- c(comment, block_for_domain(d))
-comment <- c(comment, "---", "", "_(posted by P21 validation report)_")
+comment <- c(comment, "---", "", "_(posted by CDISC CORE validation report)_")
 
 body_text  <- paste(comment, collapse="\n")
-json_file  <- file.path(tmp, sprintf("p21_body_%s.json", issue_num))
+json_file  <- file.path(tmp, sprintf("core_body_%s.json", issue_num))
 writeLines(toJSON(list(body=body_text), auto_unbox=TRUE), json_file)
 cat(sprintf("Generated comment for issue #%s -> %s\n", issue_num, json_file))
 RSCRIPT
@@ -320,7 +361,7 @@ Detect success by checking for `html_url` in the API response (not `"id":`,
 which has a space after the colon and is easy to mis-parse).
 
 ```bash
-json_file="$R_TMPDIR/p21_body_${issue_num}.json"
+json_file="$R_TMPDIR/core_body_${issue_num}.json"
 
 if [[ ! -f "$json_file" ]]; then
   echo "Issue #$issue_num: comment generation failed, skipping"
@@ -329,7 +370,7 @@ fi
 
 # gh mode
 gh issue comment "$issue_num" --body-file <(jq -r '.body' "$json_file")
-gh issue edit   "$issue_num" --add-label p21-commented
+gh issue edit   "$issue_num" --add-label core-commented
 
 # curl mode equivalent
 resp=$(curl -s -X POST \
@@ -340,7 +381,7 @@ resp=$(curl -s -X POST \
 if echo "$resp" | grep -q '"html_url"'; then
   curl -s -X POST \
     -H "Authorization: token $GH_TOKEN" -H "Content-Type: application/json" \
-    -d '{"labels":["p21-commented"]}' \
+    -d '{"labels":["core-commented"]}' \
     "https://api.github.com/repos/RConsortium/submissions-pilot7-synthetic-data/issues/$issue_num/labels" > /dev/null
   echo "Issue #$issue_num: posted and labeled"
 else
@@ -354,15 +395,15 @@ rm -f "$json_file"
 
 ## Hard rules
 
-- **Never** close issues — only add comments and the `p21-commented` label.
+- **Never** close issues — only add comments and the `core-commented` label.
 - **Never** modify other issue metadata (assignees, milestones, projects).
 - **Never** comment more than once per issue per report (Step 6c prevents this).
 - **Never** post to issues with no word-boundary dataset match.
 - **Never** post an empty comment — if R generation fails, skip the issue.
 - Process one issue at a time. A failure on one issue must not stop the loop.
-- `claude-needs-human` does **not** block P21 comments. Post and label regardless.
+- `claude-needs-human` does **not** block CORE comments. Post and label regardless.
 - If a new report appears (new filename), posting is allowed even if
-  `p21-commented` is already set — the filename check in Step 6c prevents
+  `core-commented` is already set — the filename check in Step 6c prevents
   duplicates per report, not across all reports.
 
 ---
@@ -372,7 +413,7 @@ rm -f "$json_file"
 After the loop, print this table to stdout:
 
 ```
-Reports catalogued: pinnacle21-report-SDTM.xlsx (SDTM), pinnacle21-report-ADAM.xlsx (ADaM)
+Reports catalogued: core-report-SDTM.json (SDTM), core-report-ADAM.json (ADaM)
 
 Issue  Dataset(s)       Action   Result
 -----  ---------------  -------  ----------------------------------
