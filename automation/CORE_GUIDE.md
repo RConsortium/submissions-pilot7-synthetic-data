@@ -179,7 +179,10 @@ Everything tunable lives in the `env:` block of
 `.github/workflows/core-validate.yml`:
 
 - `CORE_VERSION` / `CORE_ASSET` — pin to a CORE GitHub release + Linux asset
-- `SDTM_VERSION` / `ADAM_VERSION` — CORE uses hyphenated versions (`3-3`, `1-3`)
+- `SDTM_VERSION` / `ADAM_VERSION` — CORE uses hyphenated versions. SDTM is
+  plain (`3-3`). For ADaM the standard id is `adam` and the version must carry
+  the product prefix (`adamig-1-3`), since the metadata key is
+  `standards/adam/adamig-1-3`.
 - `CT_SDTM` / `CT_ADAM` — CT package ids that exist in CORE's bundled cache
   (e.g. `sdtmct-2024-06-28`)
 
