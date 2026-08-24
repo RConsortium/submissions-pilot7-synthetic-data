@@ -1,24 +1,15 @@
-## CDISC CORE validation + LLM-driven issue comments
+## CDISC CORE validation
 ##
-## Validates existing XPT files with the CDISC Open Rules Engine (CORE),
-## then uses Claude Code to parse the JSON reports and post findings as
-## comments on matching GitHub issues.
-##
-## Why CORE and not Pinnacle 21?
-##   P21 Community only runs on Windows/macOS and requires an interactive
-##   IQ activation that cannot be satisfied in ephemeral CI (it fails with
-##   CLI.3.17 on fresh installs). CORE is CDISC's official open-source
-##   validator: a self-contained Linux executable shipped with a bundled
-##   rules + controlled-terminology cache, so it runs on ubuntu-latest with
-##   no license, activation, or API key.
+## Validates existing XPT files with the CDISC Open Rules Engine (CORE) and
+## publishes the JSON + XLSX reports as the `core-validation-reports`
+## artifact. That artifact is the handoff interface — nothing else here.
 ##
 ## Prerequisites:
-##   - ANTHROPIC_API_KEY repo secret (for claude-code-action)
 ##   - XPT files checked into cart-t/data/sdtm/ and cart-t/data/adam/
 ##
 ## To adjust engine version, standards, or CT packages, edit the env block.
 
-name: CORE Validate & Comment
+name: CORE Validate
 
 on:
   pull_request:
@@ -35,7 +26,7 @@ concurrency:
 
 jobs:
   # ------------------------------------------------------------------
-  # Job 1: validate XPT with the CDISC Open Rules Engine (CORE)
+  # Validate XPT with the CDISC Open Rules Engine (CORE)
   #
   # Runs on ubuntu-latest. CORE ships a prebuilt Linux executable with a
   # bundled cache of published rules and controlled terminology, so no
@@ -247,69 +238,6 @@ jobs:
             echo "| ADaM | ${ADAM_VERSION} | ${{ steps.core.outputs.ct_adam }} | ${adam_status} |"
             echo ""
             echo "Download the **core-validation-reports** artifact for the full JSON + Excel reports."
+            echo ""
+            echo "Findings are posted to matching issues by the \`core_dataset_comments\` Claude Code routine, which picks up this artifact on its next run."
           } >> "$GITHUB_STEP_SUMMARY"
-
-  # ------------------------------------------------------------------
-  # Job 2: parse CORE reports and post findings to GitHub issues
-  #
-  # Runs on ubuntu-latest. Uses claude-code-action to orchestrate the
-  # core_dataset_comments.md prompt, which reads the CORE JSON reports and
-  # posts structured comments on matching open issues.
-  # ------------------------------------------------------------------
-  post-comments:
-    needs: core-validate
-    if: always() && needs.core-validate.result == 'success'
-    runs-on: ubuntu-latest
-    permissions:
-      contents: read
-      issues: write
-      id-token: write
-    env:
-      # Secrets can't be used directly in step `if:`; surface presence here.
-      HAS_ANTHROPIC_KEY: ${{ secrets.ANTHROPIC_API_KEY != '' }}
-
-    steps:
-      - uses: actions/checkout@v5
-
-      # --- Download CORE reports from the validate job ---
-      - name: Download CORE reports
-        uses: actions/download-artifact@v5
-        with:
-          name: core-validation-reports
-          path: .
-
-      - name: Verify reports exist
-        id: check-reports
-        shell: bash
-        run: |
-          echo "--- CORE reports in repo root ---"
-          ls -la core-report-*.json 2>/dev/null || true
-          if ls core-report-*.json 1>/dev/null 2>&1; then
-            echo "has_reports=true" >> "$GITHUB_OUTPUT"
-          else
-            echo "::warning::No CORE JSON reports found — skipping comment posting."
-            echo "has_reports=false" >> "$GITHUB_OUTPUT"
-          fi
-
-      # --- Warn (don't fail) when the API key isn't configured ---
-      - name: Note missing ANTHROPIC_API_KEY
-        if: steps.check-reports.outputs.has_reports == 'true' && env.HAS_ANTHROPIC_KEY != 'true'
-        shell: bash
-        run: |
-          echo "::warning::ANTHROPIC_API_KEY secret is not set — skipping automated issue comments. Reports are still available as the core-validation-reports artifact."
-
-      # --- Run Claude Code to execute core_dataset_comments.md ---
-      # Uses `agent` mode (no trigger phrase) with an explicit github_token so
-      # the action does not attempt the OIDC/GitHub-App path. Non-fatal: a
-      # failure here must not fail the workflow — validation is the gate.
-      - name: Post CORE findings to issues
-        if: steps.check-reports.outputs.has_reports == 'true' && env.HAS_ANTHROPIC_KEY == 'true'
-        continue-on-error: true
-        uses: anthropics/claude-code-action@beta
-        with:
-          mode: agent
-          anthropic_api_key: ${{ secrets.ANTHROPIC_API_KEY }}
-          github_token: ${{ secrets.GITHUB_TOKEN }}
-          allowed_tools: "Bash,Read,Write,Edit"
-          direct_prompt: |
-            Read automation/core_dataset_comments.md from the repo root and execute it exactly as written. The file is the complete job — do not add steps, skip steps, or ask for clarification. Start by running Step 0 (bash automation/bootstrap_system.sh && Rscript automation/bootstrap_r.R); if either exits non-zero, follow the failure path in the prompt and stop. Otherwise proceed through the per-issue loop. End with the stdout summary table specified at the bottom of the file.

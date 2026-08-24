@@ -10,6 +10,7 @@ configured separately.
 |---|---|
 | `triage_issues.md`    | Triage every open GitHub issue: answer from the repo, or open a ready-for-review PR + comment. Full rules, hard limits, and end-of-run output spec are inside the file. |
 | `weekly_update.md`    | Post a weekly activity digest (commits, merged PRs, issue activity, needs-attention list) as one Slack message to `#pilot7-sdtm-adam-tlf-bench` (`C0B44HS7CNA`). Read-only on GitHub; state lives in the channel history; no R bootstrap needed. |
+| `core_dataset_comments.md` | Download the newest `core-validation-reports` artifact from the `CORE Validate` workflow and post CDISC CORE findings as comments on open issues that name a dataset. Pure `gh` + `jq`; **no R bootstrap needed**. Idempotent per workflow run — see below. |
 | `bootstrap_system.sh` | Pre-pre-flight installer. `apt-get`s `r-base` + `r-base-dev` + the system libraries `{renv}` compiles packages against, but only if `Rscript` is missing from `PATH`. Idempotent. Runs first in Step 0 of `triage_issues.md`. |
 | `bootstrap_r.R`       | Pre-flight installer. Reads `cart-t/renv.lock`, diffs against `installed.packages()`, and uses `{renv}` to install whatever is missing or version-mismatched. Idempotent — no-op on a warm machine. Runs after `bootstrap_system.sh` in Step 0. |
 
@@ -50,8 +51,41 @@ to `C0B44HS7CNA`), and paste:
 Read automation/weekly_update.md from the repo root and execute it exactly as written. The file is the complete job — do not add steps, skip steps, or ask for clarification. Skip the R bootstrap entirely; this routine only needs gh, git, and the Slack tools. Respect the idempotency guard in Step 1, send at most one Slack message to the channel named in the file, and end with the stdout summary lines specified at the bottom of the file.
 ```
 
+For the **CORE dataset comments** routine, register another separate
+routine and schedule it **hourly** (`0 * * * *`) — one hour is the
+minimum interval a routine allows, and the run exits in seconds when
+there is nothing new. Paste:
+
+```
+Read automation/core_dataset_comments.md from the repo root and execute it exactly as written. The file is the complete job — do not add steps, skip steps, or ask for clarification. Skip the R bootstrap entirely; this routine only needs gh and jq. Start at Step 0, and if Step 1 finds no successful run, no artifact, or no parseable report, print the SKIP line and exit 0 — that is a normal outcome, not a failure. End with the stdout summary table specified at the bottom of the file.
+```
+
 To run a prompt manually right now without scheduling, paste the
 contents of the prompt file into a Claude Code session at the repo root.
+
+## Why the LLM step is a routine and not a CI job
+
+`.github/workflows/core-validate.yml` used to have a second job that ran
+`claude-code-action` against `core_dataset_comments.md`, gated on an
+`ANTHROPIC_API_KEY` repo secret. That job is gone.
+
+Validation and commenting are now split at the artifact boundary:
+
+- The **workflow** runs on `pull_request` when XPT files change, runs
+  CORE, and uploads `core-validation-reports`. It needs **no secrets**.
+- The **routine** runs on a schedule, downloads that artifact from the
+  newest successful run, and posts the comments. Its Anthropic
+  credential is the Claude account the routine is registered under —
+  held by Anthropic, never stored in this repo, this org, or a runner.
+
+The tradeoff is latency: comments appear on the routine's next tick
+rather than the instant CI finishes. For issue comments read by humans,
+that is not a meaningful difference, and it is the only arrangement with
+no Anthropic credential anywhere in GitHub.
+
+**If you ever delete the routine, also delete the now-unused
+`ANTHROPIC_API_KEY` secret** if one is still set on the repo or org —
+nothing reads it any more.
 
 ## State
 
@@ -60,8 +94,17 @@ idempotent across runs and across machines:
 
 - `claude-triaged` — issue has been handled (skip next run).
 - `claude-needs-human` — automation deferred; needs a human.
+- `core-commented` — CORE findings have been posted at least once.
 
-Both labels are auto-created on first run.
+All three labels are auto-created on first run.
+
+`core-commented` is a marker, **not** the skip condition. The CORE
+routine decides whether to post by searching an issue's comments for the
+workflow run id in the footer (`run #<number> (<id>)`), so a new
+validation run posts fresh findings to an already-labelled issue while a
+re-fire of the same run is a no-op. Keying on the report *filename* would
+not work — filenames are constant (`core-report-SDTM.json` every run), so
+the first comment would block all later ones forever.
 
 The weekly update routine keeps no GitHub state at all: its reporting
 window and idempotency guard come from the most recent digest message it
@@ -90,7 +133,9 @@ list whenever you rotate credentials or change CI.
 
 ### One-time, on the machine/runner the routine uses
 
-- **R is installed** and `Rscript` is on `PATH`. The version should be
+- **R is installed** and `Rscript` is on `PATH`. Required by
+  `triage_issues.md` only — the weekly update and CORE dataset comment
+  routines do not use R and must not run the bootstrap scripts. The version should be
   close to `cart-t/renv.lock`'s `R$Version` (currently `4.6.0`). Minor
   drift is fine; major drift will be flagged by `bootstrap_r.R`. On a
   fresh Debian/Ubuntu container, `bootstrap_system.sh` will install R
@@ -109,7 +154,13 @@ list whenever you rotate credentials or change CI.
   is not required — bootstrap failures surface in the routine log
   only, not as an auto-filed issue. The **weekly update** routine only
   needs *read* access on GitHub; its single write action is a Slack
-  message.
+  message. The **CORE dataset comments** routine additionally needs
+  **`actions: read`** — it calls `gh run list` and `gh run download`
+  to pull the validation artifact. A 403 on artifact download almost
+  always means this scope is missing.
+- **`jq`** on `PATH` for the CORE dataset comments routine. It is
+  present on the standard runner images; the prompt fails loudly in
+  Step 0 if it is not.
 - **`git` user.name and user.email** set to the bot identity so commits
   and PR authorship are recognisable. Do **not** use a real person's
   identity — humans should be able to tell at a glance.
