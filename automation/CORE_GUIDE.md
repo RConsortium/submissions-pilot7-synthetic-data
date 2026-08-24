@@ -188,3 +188,34 @@ Everything tunable lives in the `env:` block of
 
 To validate against newer rules or CT than the bundled cache provides, add a
 `core update-cache` step (it accepts a CDISC Library `--apikey`).
+
+## Known limitation: ADaM reports are empty with the bundled cache
+
+The CORE release bundle (`rules.pkl`) ships **no ADaM conformance rules**.
+Confirm it yourself:
+
+```bash
+core list-rules -s adam -v adamig-1-3   # -> []   (0 rules)
+core list-rules -s sdtmig -v 3-3        # -> 423 rules
+```
+
+Scanning all bundled rules, the only standards present are SDTMIG, SENDIG,
+SENDIG-DART, TIG, USDM, SENDIG-GENETOX, and SENDIG-AR. So `core-report-ADAM.json`
+recognizes all ADaM datasets, runs in ~0 seconds, and reports **0 findings** —
+this is a cache gap, **not** a clean pass and **not** a config bug.
+
+Do **not** try to "fix" it by changing the standard/version: `adamig` is not an
+accepted `--standard` (only `adam`, `sdtmig`, `sendig`, `tig`, `usdm`), and
+`--version 1-3` raises `LibraryMetadataNotFoundError`. The values in the
+workflow (`--standard adam --version adamig-1-3`) are already correct.
+
+ADaM conformance rules exist only in the CDISC Library. To enable real ADaM
+validation, refresh the cache with a CDISC Library API key (free account at
+library.cdisc.org) before validating:
+
+```bash
+core update-cache --apikey <CDISC_LIBRARY_API_KEY>
+```
+
+In CI, store the key as a repo secret and add an `update-cache` step ahead of
+the SDTM/ADaM validate steps in `core-validate.yml`.

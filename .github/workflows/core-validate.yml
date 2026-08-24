@@ -46,6 +46,19 @@ jobs:
       # version string must carry the product prefix — the library-metadata
       # cache key is "standards/adam/adamig-1-3", so pass version "adamig-1-3"
       # (not "1-3"). Supported standards: adam, sdtmig, sendig, tig, usdm.
+      #
+      # KNOWN LIMITATION — ADaM reports come back EMPTY with the bundled cache.
+      # CORE's shipped offline cache (rules.pkl) contains ZERO ADaM conformance
+      # rules: `core list-rules -s adam -v adamig-1-3` returns [] (vs. 423 rules
+      # for sdtmig 3-3). The standard/version below are CORRECT — all ADaM
+      # datasets are recognized and the metadata loads — there are simply no
+      # ADaM rules to execute, so the run finishes in ~0s with 0 findings.
+      # This is a bundled-cache gap, NOT a config bug; do not "fix" it by
+      # changing the id/version ("adamig" is rejected; version "1-3" throws
+      # LibraryMetadataNotFoundError). ADaM conformance rules are only
+      # available from the CDISC Library API. To enable them, add a
+      # `core update-cache --apikey <CDISC_LIBRARY_API_KEY>` step (key stored
+      # as a repo secret) before the validate steps.
       ADAM_STANDARD: "adam"
       ADAM_VERSION: "adamig-1-3"
       # --- CDISC CT packages (must exist in CORE's bundled cache) ---
@@ -226,7 +239,11 @@ jobs:
           sdtm_status="No report (no XPT or error)"
           adam_status="No report (no XPT or error)"
           [ -f core-report-SDTM.json ] && sdtm_status="Report generated"
-          [ -f core-report-ADAM.json ] && adam_status="Report generated"
+          # ADaM: the bundled CORE cache has no ADaM rules, so a report is
+          # produced but always has 0 findings until the cache is refreshed
+          # from the CDISC Library (see env block). Flag it rather than imply
+          # a clean pass.
+          [ -f core-report-ADAM.json ] && adam_status="Report generated (0 rules — no ADaM rules in bundled cache; needs CDISC Library API key)"
           {
             echo "## CDISC CORE Validation"
             echo ""
