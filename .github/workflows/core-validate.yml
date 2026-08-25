@@ -209,31 +209,6 @@ jobs:
           ( cd "$core_dir" && "$exe" update-cache --apikey "$CDISC_LIBRARY_API_KEY" )
           echo "Cache refreshed."
 
-      # --- DIAGNOSTIC: how many rules does CORE actually have per standard? ---
-      # Distinguishes "no ADaM rules exist in the cache" from "our invocation
-      # is wrong". Temporary — remove once the ADaM situation is settled.
-      - name: Diagnose available conformance rules
-        if: steps.check-xpt.outputs.has_xpt == 'true'
-        continue-on-error: true
-        shell: bash
-        run: |
-          set +e
-          exe="${{ steps.core.outputs.exe }}"
-          core_dir="${{ steps.core.outputs.dir }}"
-          count_rules () {  # $1=standard  $2=version
-            local raw n
-            raw=$( cd "$core_dir" && "$exe" list-rules -s "$1" -v "$2" 2>/dev/null )
-            n=$(printf '%s' "$raw" | python3 -c 'import sys,json; d=json.load(sys.stdin); print(len(d) if isinstance(d,list) else "not-a-list")' 2>/dev/null || echo parse-fail)
-            echo "  -s $1 -v $2  -> rules=$n  (stdout bytes=${#raw})"
-          }
-          echo "== CORE list-rules counts (after cache refresh) =="
-          count_rules adam    adamig-1-3
-          count_rules adam    1-3
-          count_rules sdtmig  3-3
-          count_rules sendig  3-1
-          echo "== first 30 lines of: list-rules -s adam -v adamig-1-3 =="
-          ( cd "$core_dir" && "$exe" list-rules -s adam -v adamig-1-3 2>&1 ) | head -30
-
       # --- Validate SDTM ---
       - name: Validate SDTM
         if: steps.check-xpt.outputs.has_xpt == 'true'
@@ -360,17 +335,13 @@ jobs:
           sdtm_status="No report (no XPT or error)"
           adam_status="No report (no XPT or error)"
           [ -f core-report-SDTM.json ] && sdtm_status="Report generated"
-          # ADaM: with a CDISC Library key the cache is refreshed and ADaM
-          # rules run; without it the bundled cache has no ADaM rules, so the
-          # report is produced but always has 0 findings. Flag which path ran
-          # rather than imply a clean pass.
-          if [ -f core-report-ADAM.json ]; then
-            if [ -n "${CDISC_LIBRARY_API_KEY:-}" ]; then
-              adam_status="Report generated (ADaM rules from CDISC Library)"
-            else
-              adam_status="Report generated (0 rules — no ADaM rules in bundled cache; set CDISC_LIBRARY_API_KEY)"
-            fi
-          fi
+          # ADaM: CORE ships NO executable ADaM rules. Confirmed 2026-08-24 —
+          # even after `update-cache` from the CDISC Library with a valid key,
+          # `list-rules -s adam` returns [] (vs 423 for sdtmig, 257 for sendig).
+          # So an ADaM report is ALWAYS 0 rules / 0 findings: conformance is
+          # UNVERIFIED, not a clean pass. Setting the API key does not change
+          # this. Use Pinnacle 21 for ADaM conformance.
+          [ -f core-report-ADAM.json ] && adam_status="Report generated — 0 ADaM rules exist in CORE; conformance UNVERIFIED (use P21)"
           {
             echo "## CDISC CORE Validation"
             echo ""
