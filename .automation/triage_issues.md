@@ -13,7 +13,7 @@ make the call yourself and document the reasoning in the comment / PR.
 
 ## Inputs you can rely on
 
-- Git root: the parent of this `automation/` folder. Subprojects live in
+- Git root: the parent of this `.automation/` folder. Subprojects live in
   `cart-t/` (CART-T pilot) and `cdiscpilot1_simulation/`.
 - Project conventions: `cart-t/CLAUDE.md` is binding for any change inside
   `cart-t/`. Read it before editing anything in that subtree.
@@ -32,8 +32,8 @@ they install everything.
 
 ```bash
 # from the git root
-bash automation/bootstrap_system.sh   # installs r-base + system libs if Rscript is missing
-Rscript automation/bootstrap_r.R      # installs / version-matches every package in cart-t/renv.lock
+bash .automation/bootstrap_system.sh   # installs r-base + system libs if Rscript is missing
+Rscript .automation/bootstrap_r.R      # installs / version-matches every package in cart-t/renv.lock
 ```
 
 `bootstrap_system.sh` exits 0 immediately when `Rscript` is already on
@@ -45,7 +45,7 @@ neither is available, it exits non-zero with a clear message and you
 should follow the bootstrap-failure path below (R must be baked into
 the routine's container image in that case).
 
-Algorithm (implemented in `automation/bootstrap_r.R`):
+Algorithm (implemented in `.automation/bootstrap_r.R`):
 
 1. Read `cart-t/renv.lock` (JSON). Warn if its `R$Version` ≠ running R.
 2. Set `options(repos = …)` to the repos in the lockfile so `renv`

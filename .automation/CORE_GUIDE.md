@@ -18,7 +18,7 @@ shipped with a bundled rules + controlled-terminology cache. It runs on
 
 ## The File
 
-**`automation/core_dataset_comments.md`** — single automation prompt file
+**`.automation/core_dataset_comments.md`** — single automation prompt file
 (same pattern as `triage_issues.md`).
 
 ## How to Use
@@ -28,7 +28,7 @@ shipped with a bundled rules + controlled-terminology cache. It runs on
 In Claude Code, from the repo root:
 
 ```
-Read automation/core_dataset_comments.md and execute it
+Read .automation/core_dataset_comments.md and execute it
 ```
 
 The AI agent will:
@@ -51,7 +51,7 @@ The AI agent will:
    - **Cadence**: Daily at 10:00 AM (or after each validation run)
    - **Prompt**:
      ```
-     Read automation/core_dataset_comments.md from the repo root and execute it exactly as written. The file is the complete job — do not add steps, skip steps, or ask for clarification. Start by running Step 0 (bootstrap); if that exits non-zero, stop. Otherwise proceed through the per-issue loop. End with the stdout summary table specified at the bottom of the file.
+     Read .automation/core_dataset_comments.md from the repo root and execute it exactly as written. The file is the complete job — do not add steps, skip steps, or ask for clarification. Start by running Step 0 (bootstrap); if that exits non-zero, stop. Otherwise proceed through the per-issue loop. End with the stdout summary table specified at the bottom of the file.
      ```
 
 The `core-validate.yml` workflow already runs this prompt automatically via

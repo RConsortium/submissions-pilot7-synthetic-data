@@ -11,7 +11,7 @@
 ## renv reuses base R's downloader and supports the same pkg@version
 ## spec syntax we already emit per lockfile entry.
 ##
-## Usage:   Rscript automation/bootstrap_r.R
+## Usage:   Rscript .automation/bootstrap_r.R
 ## Exits:   0 = environment ready;  non-zero = bootstrap failed.
 ## --------------------------------------------------------------------
 

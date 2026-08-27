@@ -21,7 +21,7 @@ above. No commits, no branches, no PRs, no issues, no comments, no labels.
 
 ## Inputs you can rely on
 
-- Git root: the parent of this `automation/` folder.
+- Git root: the parent of this `.automation/` folder.
 - Tooling: `gh` is authenticated; read-only access is enough. `git` is
   configured and `origin` points at the repo.
 - The **Slack connector** is attached to the routine, with read + post

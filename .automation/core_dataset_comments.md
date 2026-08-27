@@ -13,7 +13,7 @@ call yourself and document the reasoning in the comment.
 
 ## Inputs you can rely on
 
-- Git root: the parent of this `automation/` folder. Work from there.
+- Git root: the parent of this `.automation/` folder. Work from there.
 - Tooling: `gh` is authenticated and `jq` is available. `git` is configured
   and `origin` points at the repo. **No R is needed** — do *not* run
   `bootstrap_system.sh` or `bootstrap_r.R`. This routine is pure

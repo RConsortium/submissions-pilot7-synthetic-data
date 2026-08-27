@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 ## --------------------------------------------------------------------
 ## bootstrap_system.sh — make sure Rscript is available before
-## automation/bootstrap_r.R runs.
+## .automation/bootstrap_r.R runs.
 ##
 ## Idempotent: exits 0 immediately when Rscript is already on PATH
 ## (does NOT try to "fix" or upgrade an existing R install — that is a
@@ -13,7 +13,7 @@
 ## r-base-dev and the system libraries {renv} needs to compile packages
 ## from source.
 ##
-## Usage:   bash automation/bootstrap_system.sh
+## Usage:   bash .automation/bootstrap_system.sh
 ## Exits:   0 = Rscript is present (already or after install).
 ##          non-zero = could not install (no apt, no root, unknown OS,
 ##                     CRAN repo unreachable, or apt failed).

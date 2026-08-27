@@ -1,4 +1,4 @@
-# automation/
+# .automation/
 
 Recurring tasks that run against this repo. Each task is a self-contained
 prompt file in this folder; the *runner* (a Claude Code routine) is
@@ -39,7 +39,7 @@ Copy the text inside the code block below verbatim into the routine's
 prompt field (the fence itself is just for copy-paste; don't include it):
 
 ```
-Read automation/triage_issues.md from the repo root and execute it exactly as written. The file is the complete job — do not add steps, skip steps, or ask for clarification. Start by running Step 0 (Rscript automation/bootstrap_r.R); if that exits non-zero, follow the failure path in the prompt and stop. Otherwise proceed through the per-issue loop. End with the stdout summary table specified at the bottom of the file.
+Read .automation/triage_issues.md from the repo root and execute it exactly as written. The file is the complete job — do not add steps, skip steps, or ask for clarification. Start by running Step 0 (Rscript .automation/bootstrap_r.R); if that exits non-zero, follow the failure path in the prompt and stop. Otherwise proceed through the per-issue loop. End with the stdout summary table specified at the bottom of the file.
 ```
 
 For the **weekly update** routine, register a *separate* routine (don't
@@ -48,7 +48,7 @@ before the 8–9 AM PST standup — attach the **Slack connector** (it posts
 to `C0B44HS7CNA`), and paste:
 
 ```
-Read automation/weekly_update.md from the repo root and execute it exactly as written. The file is the complete job — do not add steps, skip steps, or ask for clarification. Skip the R bootstrap entirely; this routine only needs gh, git, and the Slack tools. Respect the idempotency guard in Step 1, send at most one Slack message to the channel named in the file, and end with the stdout summary lines specified at the bottom of the file.
+Read .automation/weekly_update.md from the repo root and execute it exactly as written. The file is the complete job — do not add steps, skip steps, or ask for clarification. Skip the R bootstrap entirely; this routine only needs gh, git, and the Slack tools. Respect the idempotency guard in Step 1, send at most one Slack message to the channel named in the file, and end with the stdout summary lines specified at the bottom of the file.
 ```
 
 For the **CORE dataset comments** routine, register another separate
@@ -57,7 +57,7 @@ minimum interval a routine allows, and the run exits in seconds when
 there is nothing new. Paste:
 
 ```
-Read automation/core_dataset_comments.md from the repo root and execute it exactly as written. The file is the complete job — do not add steps, skip steps, or ask for clarification. Skip the R bootstrap entirely; this routine only needs gh and jq. Start at Step 0, and if Step 1 finds no successful run, no artifact, or no parseable report, print the SKIP line and exit 0 — that is a normal outcome, not a failure. End with the stdout summary table specified at the bottom of the file.
+Read .automation/core_dataset_comments.md from the repo root and execute it exactly as written. The file is the complete job — do not add steps, skip steps, or ask for clarification. Skip the R bootstrap entirely; this routine only needs gh and jq. Start at Step 0, and if Step 1 finds no successful run, no artifact, or no parseable report, print the SKIP line and exit 0 — that is a normal outcome, not a failure. End with the stdout summary table specified at the bottom of the file.
 ```
 
 To run a prompt manually right now without scheduling, paste the
@@ -175,7 +175,7 @@ list whenever you rotate credentials or change CI.
   6h, daily 09:00). Set via `/schedule` from this repo.
 - **Working directory** — the git root
   (`submissions-pilot7-synthetic-data/`), not `cart-t/`.
-- **Prompt** — point at `automation/triage_issues.md`. When you add new
+- **Prompt** — point at `.automation/triage_issues.md`. When you add new
   prompts in this folder, register each as its own routine; don't try
   to multiplex.
 - **Tool allowlist** — at minimum: `Bash` (for `gh`, `git`, `Rscript`),
