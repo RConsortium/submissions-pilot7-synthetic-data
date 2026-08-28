@@ -75,13 +75,24 @@ analysis datasets, and the ADaM feed the tables, listings, and figures.
 +-- tlf/                      tables, listings, and figures
 ```
 
-Stage folders that are not yet populated are tracked with an empty `.gitkeep`.
+Stage folders that are not yet populated are tracked with an empty `.gitkeep`,
+without which git would not carry the folder at all.
+
+This layout is enforced in CI by the `Structure Check` workflow. The template
+it checks against lives in `.github/repo-structure.json`, so adding a stage
+folder to every study is a one-line edit there, and adding a new study needs
+no change at all -- any top-level folder is discovered and checked
+automatically. Run it locally with:
+
+```bash
+python3 .github/scripts/check_structure.py
+```
 
 ### Supporting folders
 
 | Folder                | Contents                                                       |
 |-----------------------|----------------------------------------------------------------|
-| `.github/workflows/`  | CI, including CDISC CORE validation of the SDTM/ADaM datasets   |
+| `.github/`            | CI workflows (CDISC CORE validation, structure check) and the folder-structure manifest |
 | `.automation/`        | Scheduled Claude Code routine prompts and bootstrap scripts     |
 | `.archieve/`          | Earlier studies, retained for reference                         |
 
