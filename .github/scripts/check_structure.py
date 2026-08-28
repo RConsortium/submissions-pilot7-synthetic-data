@@ -92,10 +92,16 @@ def check_study(root: str, study: str, spec: dict) -> None:
             continue
         # Git does not track empty directories: without a .gitkeep the folder
         # disappears on a fresh clone, silently and invisibly in review.
-        if is_effectively_empty(abspath) and not os.path.isfile(
-            os.path.join(abspath, ".gitkeep")
-        ):
+        keep = os.path.join(abspath, ".gitkeep")
+        if is_effectively_empty(abspath) and not os.path.isfile(keep):
             error(path, "folder is empty and has no .gitkeep, so git will not track it")
+        # A placeholder that grows content is a file in disguise, and that is
+        # how the old "# place holder for file" .gitignore markers started.
+        if os.path.isfile(keep) and os.path.getsize(keep) > 0:
+            warn(
+                f"{path}/.gitkeep",
+                "placeholder should be empty; put documentation in a README instead",
+            )
 
     for rel in forbidden:
         path = os.path.join(study, rel)
@@ -176,6 +182,33 @@ def check_ascii(root: str, paths: list[str]) -> None:
             )
 
 
+def validate_manifest(manifest: dict) -> list[str]:
+    """Guard against a malformed template silently passing every study."""
+    problems = []
+    if "study" not in manifest or "required" not in manifest.get("study", {}):
+        return ["missing required key study.required"]
+    required = manifest["study"]["required"]
+    if not isinstance(required, list) or not required:
+        return ["study.required must be a non-empty list"]
+    for rel in required + manifest["study"].get("forbidden", []):
+        if not isinstance(rel, str) or not rel:
+            problems.append(f"path entry must be a non-empty string: {rel!r}")
+        elif rel.startswith("/") or rel.endswith("/"):
+            problems.append(f"path must not start or end with a slash: {rel!r}")
+        elif ".." in rel.split("/") or os.path.isabs(rel):
+            problems.append(f"path must be relative to the study folder: {rel!r}")
+    for ext, allowed in manifest.get("extension_locations", {}).items():
+        if not ext.startswith("."):
+            problems.append(f"extension must start with a dot: {ext!r}")
+        for rel in allowed:
+            if rel not in required:
+                problems.append(
+                    f"extension_locations[{ext!r}] points at {rel!r}, "
+                    "which is not in study.required"
+                )
+    return problems
+
+
 def write_summary(studies: list[str], strict: bool) -> None:
     path = os.environ.get("GITHUB_STEP_SUMMARY")
     if not path:
@@ -211,6 +244,12 @@ def main() -> int:
         return 2
     with open(manifest_path, encoding="utf-8") as fh:
         manifest = json.load(fh)
+
+    problems = validate_manifest(manifest)
+    if problems:
+        for problem in problems:
+            print(f"error: {MANIFEST}: {problem}", file=sys.stderr)
+        return 2
 
     studies = discover_studies(root, manifest.get("non_study_dirs", []))
     if not studies:

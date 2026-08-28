@@ -72,7 +72,9 @@ analysis datasets, and the ADaM feed the tables, listings, and figures.
 |   +-- odm/                  ODM XML -> per-form CRF data
 |   +-- sdtm/                 CRF data -> SDTM
 |   +-- adam/                 SDTM -> ADaM
++-- spec/                     dataset specifications and standards metadata
 +-- tlf/                      tables, listings, and figures
++-- log/                      execution logs, one per program
 ```
 
 Stage folders that are not yet populated are tracked with an empty `.gitkeep`,
