@@ -40,7 +40,7 @@ Together, these efforts aim to build a stronger public foundation for rigorous, 
 
 ## Join Us
 
-Pilot 7 holds weekly standups three times a month on Fridays from 8–9 AM PST. We also host monthly Submissions Working Group meetings with FDA staff, bringing together participants across different pilot subgroups.
+Pilot 7 holds weekly standups three times a month on Fridays from 8-9 AM PST. We also host monthly Submissions Working Group meetings with FDA staff, bringing together participants across different pilot subgroups.
 
 [Pilot 7 Meeting minutes](https://github.com/RConsortium/submissions-pilot7-synthetic-data/wiki/Meeting-Minutes)
 
@@ -53,7 +53,37 @@ To learn more about the R consortium Submissions Working Group, visit [here](htt
 
 ## Synthetic Trial Data
 
-All data under `CWMM-LAA1/` and `kn564/` was generated using the [clinical-trial-ipd-sim](https://github.com/RConsortium/pharma-skills/tree/main/clinical-trial-ipd-sim) skill, based on the original protocol.
+All data under `.archieve/CWMM-LAA1/` and `kn564/` was generated using the [clinical-trial-ipd-sim](https://github.com/RConsortium/pharma-skills/tree/main/clinical-trial-ipd-sim) skill, based on the original protocol.
+
+## Folder Structure
+
+Each study lives in its own top-level folder, organized by pipeline stage. The
+data flow is **ODM -> SDTM -> ADaM -> TLF**: an ODM export of the collected CRF
+data is mapped to SDTM tabulation datasets, those are derived into ADaM
+analysis datasets, and the ADaM feed the tables, listings, and figures.
+
+```
+<study>/                      a study name
++-- data/
+|   +-- odm/                  source ODM v2.0 export
+|   +-- sdtm/                 SDTM tabulation datasets
+|   +-- adam/                 ADaM analysis datasets
++-- program/
+|   +-- odm/                  ODM XML -> per-form CRF data
+|   +-- sdtm/                 CRF data -> SDTM
+|   +-- adam/                 SDTM -> ADaM
++-- tlf/                      tables, listings, and figures
+```
+
+Stage folders that are not yet populated are tracked with an empty `.gitkeep`.
+
+### Supporting folders
+
+| Folder                | Contents                                                       |
+|-----------------------|----------------------------------------------------------------|
+| `.github/workflows/`  | CI, including CDISC CORE validation of the SDTM/ADaM datasets   |
+| `.automation/`        | Scheduled Claude Code routine prompts and bootstrap scripts     |
+| `.archieve/`          | Earlier studies, retained for reference                         |
 
 ## Reference: CDISC Pilot 1 data
 - Original sdtm: [json version](https://github.com/RConsortium/submissions-pilot6-adams-tlfs/tree/main/data/sdtm)
