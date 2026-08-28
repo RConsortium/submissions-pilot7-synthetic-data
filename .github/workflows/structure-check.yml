@@ -1,0 +1,40 @@
+## Repository structure check
+##
+## Enforces the per-study folder template so every study exposes the same
+## ODM -> SDTM -> ADaM -> TLF layout, and keeps files listed as ASCII-only
+## free of non-ASCII bytes.
+##
+## The template lives in .github/repo-structure.json, not in this file:
+##   - adding a stage folder to every study is a one-line manifest edit
+##   - adding a new study needs no change at all; any top-level non-dot
+##     directory is discovered and checked automatically
+##
+## Errors fail the job (missing folder, empty folder with no .gitkeep,
+## forbidden nesting, misplaced dataset, non-ASCII byte). Unexpected extra
+## folders are warnings only -- a new stage is a manifest change, not a
+## mistake. Add --strict to the run step to fail on warnings too.
+
+name: Structure Check
+
+on:
+  pull_request:
+    branches: [main]
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+concurrency:
+  group: structure-check-${{ github.head_ref || github.ref_name }}
+  cancel-in-progress: true
+
+jobs:
+  structure-check:
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v5
+
+      # ubuntu-latest ships python3; the script is standard library only,
+      # so there is nothing to install and no setup-python step needed.
+      - name: Check folder structure
+        run: python3 .github/scripts/check_structure.py
