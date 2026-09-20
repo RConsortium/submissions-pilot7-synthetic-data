@@ -1,4 +1,4 @@
-# cdiscpilot05
+# submission-pilot5
 
 RConsortium submissions-pilot5 (the Dataset-JSON pilot), staged for
 YAMAA-based SDTM-to-ADaM derivation and the weekly schema-complexity rerun.
