@@ -1,0 +1,230 @@
+schema_version: "1.0"
+domain: ADVS
+keys: [STUDYID, USUBJID, VSSEQ, AVISIT]
+input:
+  VS:
+    path: upstream/advs_input.parquet
+    empty_string: present
+  ADSL:
+    path: upstream/adsl.parquet
+    empty_string: present
+base: VS
+
+rows:
+  - id: all-vs-rows
+    dataset: VS
+    derivations: {}
+
+intermediates:
+  - id: ADSL1
+    dataset: ADSL
+    key: [STUDYID, USUBJID]
+    order_by: [ADSL.USUBJID]
+    keep: first
+
+output:
+  path: output/advs.parquet
+  order_by: [USUBJID, PARAMCD, ATPTN, VSSEQ]
+  columns: [STUDYID, SITEID, USUBJID, AGE, AGEGR1, AGEGR1N, RACE, RACEN, SEX,
+    SAFFL, TRTSDT, TRTEDT, TRTP, TRTPN, TRTA, TRTAN, PARAMCD, PARAM, PARAMN,
+    ADT, ADY, ATPTN, ATPT, AVISIT, AVISITN, AVAL, BASE, CHG, PCHG, VISITNUM,
+    VISIT, VSSEQ, ANL01FL, ABLFL]
+
+columns:
+  - name: STUDYID
+    type: str
+    label: Study Identifier
+    derivation: VS.STUDYID
+
+  - name: USUBJID
+    type: str
+    label: Unique Subject Identifier
+    derivation: VS.USUBJID
+
+  - name: SITEID
+    type: str
+    label: Study Site Identifier
+    derivation: ADSL1.SITEID
+
+  - name: AGE
+    type: float
+    label: Age
+    derivation: ADSL1.AGE
+
+  - name: AGEGR1
+    type: str
+    label: Pooled Age Group 1
+    derivation: ADSL1.AGEGR1
+
+  - name: AGEGR1N
+    type: float
+    label: Pooled Age Group 1 (N)
+    derivation: ADSL1.AGEGR1N
+
+  - name: RACE
+    type: str
+    label: Race
+    derivation: ADSL1.RACE
+
+  - name: RACEN
+    type: float
+    label: Race (N)
+    derivation: ADSL1.RACEN
+
+  - name: SEX
+    type: str
+    label: Sex
+    derivation: ADSL1.SEX
+
+  - name: SAFFL
+    type: str
+    label: Safety Population Flag
+    derivation: ADSL1.SAFFL
+
+  - name: TRTSDT
+    type: date
+    label: Date of First Exposure to Treatment
+    derivation: ADSL1.TRTSDT
+
+  - name: TRTEDT
+    type: date
+    label: Date of Last Exposure to Treatment
+    derivation: ADSL1.TRTEDT
+
+  - name: TRTP
+    type: str
+    label: Planned Treatment
+    derivation: ADSL1.TRT01P
+
+  - name: TRTPN
+    type: float
+    label: Planned Treatment (N)
+    derivation: ADSL1.TRT01PN
+
+  - name: TRTA
+    type: str
+    label: Actual Treatment
+    derivation: ADSL1.TRT01A
+
+  - name: TRTAN
+    type: float
+    label: Actual Treatment (N)
+    derivation: ADSL1.TRT01AN
+
+  - name: PARAMCD
+    type: str
+    label: Parameter Code
+    derivation: VS.VSTESTCD
+
+  - name: PARAM
+    type: str
+    label: Parameter
+    derivation:
+      mapping:
+        source: VS.VSTESTCD
+        dict:
+          SYSBP: Systolic Blood Pressure (mmHg)
+          DIABP: Diastolic Blood Pressure (mmHg)
+          PULSE: Pulse Rate (BEATS/MIN)
+          WEIGHT: Weight (kg)
+          HEIGHT: Height (cm)
+          TEMP: Temperature (C)
+
+  - name: PARAMN
+    type: float
+    label: Parameter Number
+    derivation:
+      mapping:
+        source: VS.VSTESTCD
+        dict:
+          SYSBP: 1
+          DIABP: 2
+          PULSE: 3
+          WEIGHT: 4
+          HEIGHT: 5
+          TEMP: 6
+
+  - name: ADT
+    type: date
+    label: Analysis Date
+    derivation:
+      date_impute:
+        source: VS.VSDTC
+        month: 1
+        day: 1
+        missing: null
+        invalid: null
+
+  - name: ADY
+    type: float
+    label: Analysis Relative Day
+    derivation: VS.VSDY
+
+  - name: ATPTN
+    type: float
+    label: Analysis Timepoint (N)
+    derivation: VS.VSTPTNUM
+
+  - name: ATPT
+    type: str
+    label: Analysis Timepoint
+    derivation: VS.VSTPT
+
+  - name: AVISIT
+    type: str
+    label: Analysis Visit
+    derivation: VS.AVISIT
+
+  - name: AVISITN
+    type: float
+    label: Analysis Visit (N)
+    derivation: VS.AVISITN
+
+  - name: AVAL
+    type: float
+    label: Analysis Value
+    derivation: VS.VSSTRESN
+
+  - name: BASE
+    type: float
+    label: Baseline Value
+    derivation: VS.BASE
+
+  - name: CHG
+    type: float
+    label: Change from Baseline
+    derivation:
+      compute:
+        expr: "AVAL - BASE"
+
+  - name: PCHG
+    type: float
+    label: Percent Change from Baseline
+    derivation:
+      compute:
+        expr: "(AVAL - BASE) / BASE * 100"
+
+  - name: VISITNUM
+    type: float
+    label: Visit Number
+    derivation: VS.VISITNUM
+
+  - name: VISIT
+    type: str
+    label: Visit Name
+    derivation: VS.VISIT
+
+  - name: VSSEQ
+    type: float
+    label: Sequence Number
+    derivation: VS.VSSEQ
+
+  - name: ANL01FL
+    type: str
+    label: Analysis Record Flag 01
+    derivation: VS.ANL01FL
+
+  - name: ABLFL
+    type: str
+    label: Baseline Record Flag
+    derivation: VS.ABLFL
