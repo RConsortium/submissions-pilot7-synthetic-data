@@ -1,4 +1,4 @@
-# cdiscpilot03
+# submission-pilot3
 
 R Consortium R Submission Pilot 3 (Study CDISC Pilot 03), staged for
 YAMAA-based SDTM-to-ADaM derivation.
