@@ -1,0 +1,210 @@
+schema_version: "1.0"
+domain: ADTTE
+keys: [STUDYID, USUBJID]
+input:
+  ADSL:
+    path: upstream/adsl.parquet
+    empty_string: present
+  ADAE:
+    path: upstream/adae.parquet
+    empty_string: present
+base: ADSL
+
+rows:
+  - id: all-subjects
+    dataset: ADSL
+    derivations: {}
+
+intermediates:
+  - id: FIRST_DERM
+    dataset: ADAE
+    filter: "ADAE.AOCC01FL = 'Y'"
+    key: [STUDYID, USUBJID]
+    order_by: [ADAE.ASTDT, ADAE.AESEQ]
+    keep: first
+
+output:
+  path: output/adtte.parquet
+  order_by: [USUBJID, PARAMCD]
+  columns: [STUDYID, SITEID, USUBJID, AGE, AGEGR1, AGEGR1N, RACE, RACEN, SEX,
+    TRTSDT, TRTEDT, TRTDUR, TRTP, TRTA, TRTAN, PARAM, PARAMCD, AVAL, STARTDT,
+    ADT, CNSR, EVNTDESC, SRCDOM, SRCVAR, SRCSEQ, SAFFL]
+
+columns:
+  - name: STUDYID
+    type: str
+    label: Study Identifier
+    derivation: ADSL.STUDYID
+
+  - name: SITEID
+    type: str
+    label: Study Site Identifier
+    derivation: ADSL.SITEID
+
+  - name: USUBJID
+    type: str
+    label: Unique Subject Identifier
+    derivation: ADSL.USUBJID
+
+  - name: AGE
+    type: float
+    label: Age
+    derivation: ADSL.AGE
+
+  - name: AGEGR1
+    type: str
+    label: Pooled Age Group 1
+    derivation: ADSL.AGEGR1
+
+  - name: AGEGR1N
+    type: float
+    label: Pooled Age Group 1 (N)
+    derivation: ADSL.AGEGR1N
+
+  - name: RACE
+    type: str
+    label: Race
+    derivation: ADSL.RACE
+
+  - name: RACEN
+    type: float
+    label: Race (N)
+    derivation: ADSL.RACEN
+
+  - name: SEX
+    type: str
+    label: Sex
+    derivation: ADSL.SEX
+
+  - name: TRTSDT
+    type: date
+    label: Date of First Exposure to Treatment
+    derivation: ADSL.TRTSDT
+
+  - name: TRTEDT
+    type: date
+    label: Date of Last Exposure to Treatment
+    derivation: ADSL.TRTEDT
+
+  - name: TRTDUR
+    type: float
+    label: Duration of treatment (days)
+    derivation: ADSL.TRTDUR
+
+  - name: TRTP
+    type: str
+    label: Planned Treatment
+    derivation: ADSL.TRT01P
+
+  - name: TRTA
+    type: str
+    label: Actual Treatment
+    derivation: ADSL.TRT01A
+
+  - name: TRTAN
+    type: float
+    label: Actual Treatment (N)
+    derivation: ADSL.TRT01AN
+
+  - name: PARAM
+    type: str
+    label: Parameter Description
+    derivation:
+      literal: Time to First Dermatologic Event
+
+  - name: PARAMCD
+    type: str
+    label: Parameter Code
+    derivation:
+      literal: TTDE
+
+  - name: STARTDT
+    type: date
+    label: Time to Event Origin Date for Subject
+    derivation: ADSL.TRTSDT
+
+  - name: HAS_EVENT
+    type: str
+    label: Dermatologic event flag
+    derivation:
+      case:
+        - when: "FIRST_DERM.AESEQ IS NOT NULL"
+          then:
+            literal: "Y"
+        - otherwise:
+            literal: "N"
+
+  - name: ADT
+    type: date
+    label: Analysis Date
+    derivation:
+      case:
+        - when: "HAS_EVENT = 'Y'"
+          then:
+            source: FIRST_DERM.ASTDT
+        - otherwise:
+            source: ADSL.RFENDT
+
+  - name: AVAL
+    type: float
+    label: Analysis Value
+    derivation:
+      date_diff:
+        start: STARTDT
+        end: ADT
+        unit: day
+        bounds: inclusive
+
+  - name: CNSR
+    type: float
+    label: Censor
+    derivation:
+      case:
+        - when: "HAS_EVENT = 'Y'"
+          then:
+            literal: 0
+        - otherwise:
+            literal: 1
+
+  - name: EVNTDESC
+    type: str
+    label: Event or Censoring Description
+    derivation:
+      case:
+        - when: "HAS_EVENT = 'Y'"
+          then:
+            literal: Dematologic Event Occured
+        - otherwise:
+            literal: Study Completion Date
+
+  - name: SRCDOM
+    type: str
+    label: Source Domain
+    derivation:
+      case:
+        - when: "HAS_EVENT = 'Y'"
+          then:
+            literal: ADAE
+        - otherwise:
+            literal: ADSL
+
+  - name: SRCVAR
+    type: str
+    label: Source Variable
+    derivation:
+      case:
+        - when: "HAS_EVENT = 'Y'"
+          then:
+            literal: ASTDT
+        - otherwise:
+            literal: RFENDT
+
+  - name: SRCSEQ
+    type: float
+    label: Source Sequence Number
+    derivation: FIRST_DERM.AESEQ
+
+  - name: SAFFL
+    type: str
+    label: Safety Population Flag
+    derivation: ADSL.SAFFL

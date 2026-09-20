@@ -1,0 +1,234 @@
+# ADLBH executable specification (YAMAA).
+#
+# Hematology analysis dataset (49,932 x 46): 24,966 base rows from SDTM LB
+# (17 HEMATOLOGY parameters, plus End-of-Treatment duplicates) and 24,966
+# underscore rows ("change from previous visit, relative to normal range").
+#
+# The EOT duplication, ANL01FL winner selection (max ALBTRVAL for base,
+# max |_AVAL| for underscore), underscore derivation with SAS-style half-away
+# rounding, and all indicator derivations are computed honestly by
+# upstream/build_adlbh.py (YAMAA has no native constructs for these). This spec
+# declares each analysis column and merges the ADSL covariates through a
+# declared intermediate lookup. The driver emits rows in official order
+# (USUBJID, ADY, PARAMN, AVISITN), which the engine preserves.
+schema_version: "1.0"
+domain: ADLBH
+keys: [STUDYID, USUBJID, PARAMCD, AVISIT, LBSEQ]
+
+input:
+  LB:
+    path: upstream/adlbh_input.parquet
+    # The driver writes '' (not null) for absent ANL01FL/ANRIND/BNRIND/ABLFL/
+    # AENTMTFL/LBNRIND; the official parquet keeps them as zero-length strings.
+    empty_string: present
+  ADSL:
+    path: upstream/adsl.parquet
+    empty_string: present
+base: LB
+
+rows:
+  - id: all-lb-rows
+    dataset: LB
+    derivations: {}
+
+intermediates:
+  - id: ADSL1
+    dataset: ADSL
+    key_base: [LB.STUDYID, LB.USUBJID]
+    key: [STUDYID, USUBJID]
+    order_by: [ADSL.USUBJID]
+    keep: first
+
+output:
+  path: output/adlbh.parquet
+  columns: [STUDYID, SUBJID, USUBJID, TRTP, TRTPN, TRTA, TRTAN, TRTSDT, TRTEDT,
+    AGE, AGEGR1, AGEGR1N, RACE, RACEN, SEX, COMP24FL, DSRAEFL, SAFFL,
+    AVISIT, AVISITN, ADY, ADT, VISIT, VISITNUM, PARAM, PARAMCD, PARAMN, PARCAT1,
+    AVAL, BASE, CHG, A1LO, A1HI, R2A1LO, R2A1HI, BR2A1LO, BR2A1HI,
+    ANL01FL, ALBTRVAL, ANRIND, BNRIND, ABLFL, AENTMTFL, LBSEQ, LBNRIND, LBSTRESN]
+
+columns:
+  - name: STUDYID
+    type: str
+    label: Study Identifier
+    derivation: LB.STUDYID
+  - name: SUBJID
+    type: str
+    label: Subject Identifier for the Study
+    derivation: ADSL1.SUBJID
+  - name: USUBJID
+    type: str
+    label: Unique Subject Identifier
+    derivation: LB.USUBJID
+  - name: TRTP
+    type: str
+    label: Planned Treatment
+    derivation: ADSL1.TRT01P
+  - name: TRTPN
+    type: float
+    label: Planned Treatment (N)
+    derivation: ADSL1.TRT01PN
+  - name: TRTA
+    type: str
+    label: Actual Treatment
+    derivation: ADSL1.TRT01A
+  - name: TRTAN
+    type: float
+    label: Actual Treatment (N)
+    derivation: ADSL1.TRT01AN
+  - name: TRTSDT
+    type: date
+    label: Date of First Exposure to Treatment
+    derivation: ADSL1.TRTSDT
+  - name: TRTEDT
+    type: date
+    label: Date of Last Exposure to Treatment
+    derivation: ADSL1.TRTEDT
+  - name: AGE
+    type: float
+    label: Age
+    derivation: ADSL1.AGE
+  - name: AGEGR1
+    type: str
+    label: Pooled Age Group 1
+    derivation: ADSL1.AGEGR1
+  - name: AGEGR1N
+    type: float
+    label: Pooled Age Group 1 (N)
+    derivation: ADSL1.AGEGR1N
+  - name: RACE
+    type: str
+    label: Race
+    derivation: ADSL1.RACE
+  - name: RACEN
+    type: float
+    label: Race (N)
+    derivation: ADSL1.RACEN
+  - name: SEX
+    type: str
+    label: Sex
+    derivation: ADSL1.SEX
+  - name: COMP24FL
+    type: str
+    label: Completers of Week 24 Population Flag
+    derivation: ADSL1.COMP24FL
+  - name: DSRAEFL
+    type: str
+    label: Discontinued due to AE?
+    derivation: ADSL1.DSRAEFL
+  - name: SAFFL
+    type: str
+    label: Safety Population Flag
+    derivation: ADSL1.SAFFL
+  - name: AVISIT
+    type: str
+    label: Analysis Visit
+    derivation: LB.AVISIT
+  - name: AVISITN
+    type: float
+    label: Analysis Visit (N)
+    derivation: LB.AVISITN
+  - name: ADY
+    type: float
+    label: Analysis Relative Day
+    derivation: LB.ADY
+  - name: ADT
+    type: date
+    label: Analysis Date
+    derivation: LB.ADT
+  - name: VISIT
+    type: str
+    label: Visit Name
+    derivation: LB.VISIT
+  - name: VISITNUM
+    type: float
+    label: Visit Number
+    derivation: LB.VISITNUM
+  - name: PARAM
+    type: str
+    label: Parameter
+    derivation: LB.PARAM
+  - name: PARAMCD
+    type: str
+    label: Parameter Code
+    derivation: LB.PARAMCD
+  - name: PARAMN
+    type: float
+    label: Parameter (N)
+    derivation: LB.PARAMN
+  - name: PARCAT1
+    type: str
+    label: Parameter Category 1
+    derivation: LB.PARCAT1
+  - name: AVAL
+    type: float
+    label: Analysis Value
+    derivation: LB.AVAL
+  - name: BASE
+    type: float
+    label: Baseline Value
+    derivation: LB.BASE
+  - name: CHG
+    type: float
+    label: Change from Baseline
+    derivation: LB.CHG
+  - name: A1LO
+    type: float
+    label: Analysis Range 1 Lower Limit
+    derivation: LB.A1LO
+  - name: A1HI
+    type: float
+    label: Analysis Range 1 Upper Limit
+    derivation: LB.A1HI
+  - name: R2A1LO
+    type: float
+    label: Ratio to Analysis Range 1 Lower Limit
+    derivation: LB.R2A1LO
+  - name: R2A1HI
+    type: float
+    label: Ratio to Analysis Range 1 Upper Limit
+    derivation: LB.R2A1HI
+  - name: BR2A1LO
+    type: float
+    label: Base Ratio to Analysis Range 1 Lower Lim
+    derivation: LB.BR2A1LO
+  - name: BR2A1HI
+    type: float
+    label: Base Ratio to Analysis Range 1 Upper Lim
+    derivation: LB.BR2A1HI
+  - name: ANL01FL
+    type: str
+    label: Analysis Record Flag 1
+    derivation: LB.ANL01FL
+  - name: ALBTRVAL
+    type: float
+    label: Amount Threshold Range
+    derivation: LB.ALBTRVAL
+  - name: ANRIND
+    type: str
+    label: Analysis Reference Range Indicator
+    derivation: LB.ANRIND
+  - name: BNRIND
+    type: str
+    label: Baseline Reference Range Indicator
+    derivation: LB.BNRIND
+  - name: ABLFL
+    type: str
+    label: Baseline Record Flag
+    derivation: LB.ABLFL
+  - name: AENTMTFL
+    type: str
+    label: Last value in treatment visit
+    derivation: LB.AENTMTFL
+  - name: LBSEQ
+    type: float
+    label: Sequence Number
+    derivation: LB.LBSEQ
+  - name: LBNRIND
+    type: str
+    label: Reference Range Indicator
+    derivation: LB.LBNRIND
+  - name: LBSTRESN
+    type: float
+    label: Numeric Result/Finding in Standard Units
+    derivation: LB.LBSTRESN

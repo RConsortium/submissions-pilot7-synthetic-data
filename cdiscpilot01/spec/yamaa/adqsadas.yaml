@@ -1,0 +1,203 @@
+# ADQSADAS executable specification (YAMAA).
+#
+# The windowing, closest-to-target selection, ACTOT forward-fill, and LOCF row
+# generation are computed honestly by upstream/build_adqsadas.py (YAMAA has no
+# native window/LOCF constructs). This spec declares each analysis column and
+# merges the ADSL covariates through a declared intermediate lookup.
+# The driver emits rows in official order (USUBJID, PARAMN, AVISITN, QSSEQ),
+# which the engine preserves.
+schema_version: "1.0"
+domain: ADQSADAS
+keys: [STUDYID, USUBJID, PARAMCD, AVISIT, QSSEQ]
+
+input:
+  QS:
+    path: upstream/adqsadas_input.parquet
+    # The driver writes '' (not null) for absent ABLFL/ANL01FL/DTYPE; the
+    # official parquet keeps them as zero-length strings (REQ-0736).
+    empty_string: present
+  ADSL: upstream/adsl.parquet
+base: QS
+
+rows:
+  - id: all-qs-rows
+    dataset: QS
+    derivations: {}
+
+intermediates:
+  - id: ADSL1
+    dataset: ADSL
+    key_base: [QS.STUDYID, QS.USUBJID]
+    key: [STUDYID, USUBJID]
+    order_by: [ADSL.USUBJID]
+    keep: first
+
+output:
+  path: output/adqsadas.parquet
+  columns: [STUDYID, SITEID, SITEGR1, USUBJID, TRTSDT, TRTEDT, TRTP, TRTPN,
+    AGE, AGEGR1, AGEGR1N, RACE, RACEN, SEX, ITTFL, EFFFL, COMP24FL,
+    AVISIT, AVISITN, VISIT, VISITNUM, ADY, ADT, PARAM, PARAMCD, PARAMN,
+    AVAL, BASE, CHG, PCHG, ABLFL, ANL01FL, DTYPE, AWRANGE, AWTARGET,
+    AWTDIFF, AWLO, AWHI, AWU, QSSEQ]
+
+columns:
+  - name: STUDYID
+    type: str
+    label: Study Identifier
+    derivation: QS.STUDYID
+  - name: SITEID
+    type: str
+    label: Study Site Identifier
+    derivation: ADSL1.SITEID
+  - name: SITEGR1
+    type: str
+    label: Pooled Site Group 1
+    derivation: ADSL1.SITEGR1
+  - name: USUBJID
+    type: str
+    label: Unique Subject Identifier
+    derivation: QS.USUBJID
+  - name: TRTSDT
+    type: date
+    label: Date of First Exposure to Treatment
+    derivation: ADSL1.TRTSDT
+  - name: TRTEDT
+    type: date
+    label: Date of Last Exposure to Treatment
+    derivation: ADSL1.TRTEDT
+  - name: TRTP
+    type: str
+    label: Planned Treatment
+    derivation: ADSL1.TRT01P
+  - name: TRTPN
+    type: float
+    label: Planned Treatment (N)
+    derivation: ADSL1.TRT01PN
+  - name: AGE
+    type: float
+    label: Age
+    derivation: ADSL1.AGE
+  - name: AGEGR1
+    type: str
+    label: Pooled Age Group 1
+    derivation: ADSL1.AGEGR1
+  - name: AGEGR1N
+    type: float
+    label: Pooled Age Group 1 (N)
+    derivation: ADSL1.AGEGR1N
+  - name: RACE
+    type: str
+    label: Race
+    derivation: ADSL1.RACE
+  - name: RACEN
+    type: float
+    label: Race (N)
+    derivation: ADSL1.RACEN
+  - name: SEX
+    type: str
+    label: Sex
+    derivation: ADSL1.SEX
+  - name: ITTFL
+    type: str
+    label: Intent-to-Treat Population Flag
+    derivation: ADSL1.ITTFL
+  - name: EFFFL
+    type: str
+    label: Efficacy Population Flag
+    derivation: ADSL1.EFFFL
+  - name: COMP24FL
+    type: str
+    label: Completers of Week 24 Population Flag
+    derivation: ADSL1.COMP24FL
+  - name: AVISIT
+    type: str
+    label: Analysis Visit
+    derivation: QS.AVISIT
+  - name: AVISITN
+    type: float
+    label: Analysis Visit (N)
+    derivation: QS.AVISITN
+  - name: VISIT
+    type: str
+    label: Visit Name
+    derivation: QS.VISIT
+  - name: VISITNUM
+    type: float
+    label: Visit Number
+    derivation: QS.VISITNUM
+  - name: ADY
+    type: float
+    label: Analysis Relative Day
+    derivation: QS.ADY
+  - name: ADT
+    type: date
+    label: Analysis Date
+    derivation: QS.ADT
+  - name: PARAM
+    type: str
+    label: Parameter
+    derivation: QS.PARAM
+  - name: PARAMCD
+    type: str
+    label: Parameter Code
+    derivation: QS.PARAMCD
+  - name: PARAMN
+    type: float
+    label: Parameter (N)
+    derivation: QS.PARAMN
+  - name: AVAL
+    type: float
+    label: Analysis Value
+    derivation: QS.AVAL
+  - name: BASE
+    type: float
+    label: Baseline Value
+    derivation: QS.BASE
+  - name: CHG
+    type: float
+    label: Baseline Value
+    derivation: QS.CHG
+  - name: PCHG
+    type: float
+    label: Percent Change from Baseline
+    derivation: QS.PCHG
+  - name: ABLFL
+    type: str
+    label: ABLFL
+    derivation: QS.ABLFL
+  - name: ANL01FL
+    type: str
+    label: Analysis Record Flag 01
+    derivation: QS.ANL01FL
+  - name: DTYPE
+    type: str
+    label: Derivation Type
+    derivation: QS.DTYPE
+  - name: AWRANGE
+    type: str
+    label: Analysis Window Valid Relative Range
+    derivation: QS.AWRANGE
+  - name: AWTARGET
+    type: float
+    label: Analysis Window Target
+    derivation: QS.AWTARGET
+  - name: AWTDIFF
+    type: float
+    label: Analysis Window Diff from Target
+    derivation: QS.AWTDIFF
+  - name: AWLO
+    type: float
+    label: Analysis Window Beginning Timepoint
+    derivation: QS.AWLO
+  - name: AWHI
+    type: float
+    label: Analysis Window Ending Timepoint
+    derivation: QS.AWHI
+  - name: AWU
+    type: str
+    label: Analysis Window Unit
+    derivation: QS.AWU
+  - name: QSSEQ
+    type: float
+    label: Sequence Number
+    derivation: QS.QSSEQ
