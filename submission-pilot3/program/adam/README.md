@@ -6,6 +6,11 @@ SDTM parquets in `../data/sdtm/`. Every derivation lives in the YAML specs
 program's tribbles). `run.py` only stages inputs and runs the specs;
 `compare.py` only compares the derived datasets against the official ADaM.
 
+Each dataset is derived with one call:
+
+    import yamaa
+    adsl = yamaa.yamaa_domain("adsl.yaml").output
+
 ## End-to-end run
 
 From a fresh clone:
@@ -16,18 +21,19 @@ From a fresh clone:
     python3 compare.py    # verify every cell against ../data/adam/
 
 `run.py` stages the SDTM parquets and the planning inputs into a `work/`
-directory, runs the specs in dependency order, and writes the five derived
-datasets to `work/derived/` as `adsl-yamaa.parquet`, `adae-yamaa.parquet`,
-`adadas-yamaa.parquet`, `adtte-yamaa.parquet`, and `adlbc-yamaa.parquet`,
-each with variable labels. `compare.py` then checks every cell against the
-official ADaM in `../data/adam/` (numeric cells within
-`|derived - official| <= 1e-10`, non-numeric exact with null/`""`
+directory, runs the specs in dependency order with
+`yamaa.yamaa_domain("<ds>.yaml").output` (persisting via `.save()`), and
+writes the five derived datasets to `work/derived/` as `adsl-yamaa.parquet`,
+`adae-yamaa.parquet`, `adadas-yamaa.parquet`, `adtte-yamaa.parquet`, and
+`adlbc-yamaa.parquet`, each with variable labels. `compare.py` then checks
+every cell against the official ADaM in `../data/adam/` (numeric cells
+within `|derived - official| <= 1e-10`, non-numeric exact with null/`""`
 normalized, variable labels compared) and reports matched/total columns
-and cells per dataset.
+and cells per dataset. Its reusable helpers work standalone too:
 
-    python3 run.py --datasets adsl,adtte   # subset (predecessors auto-included)
-    python3 run.py --work /tmp/p3          # custom work directory
-    python3 compare.py --work /tmp/p3      # compare that work directory
+    from compare import compare, compare_domain
+    compare("work/derived/adsl-yamaa.parquet", "../data/adam/adsl.parquet", "adsl")
+    compare_domain("adsl")  # resolves the standard paths and compares
 
 `work/` is git-ignored build output; only the specs, inputs, scripts,
 requirements, and this README are committed.
