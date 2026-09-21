@@ -1,23 +1,21 @@
 #!/usr/bin/env python3
-"""End-to-end regeneration of the Pilot 3 ADaM datasets from yamaa specs.
+"""Derive the Pilot 3 ADaM datasets from yamaa specs.
 
 Stages the SDTM parquets from ../data/sdtm/ into a work/ directory, runs the
-specs in dependency order (derived ADSL/ADAE are staged as predecessors
-where downstream specs need them), writes the five derived datasets to
-work/derived/, and compares every derived cell against the official ADaM in
-../data/adam/.
+specs in dependency order, and writes the five derived datasets to
+work/derived/ as *-yamaa.parquet with variable labels. Derivation only --
+use compare.py to verify against the official ADaM in ../data/adam/.
 
 Every derivation lives in the YAML specs (plus the hand-built planning
 relations in inputs/, which mirror the R program's tribbles); run.py only
-stages inputs, runs the specs, and verifies.
+stages inputs and runs the specs.
 
 Requires: the yamaa engine pinned in requirements.txt, polars, pyarrow.
 
 Usage:
-    python3 run.py                          # all five datasets, then compare
-    python3 run.py --datasets adsl,adtte   # subset (predecessors auto-included)
-    python3 run.py --no-compare            # derive only
-    python3 run.py --work /tmp/p3          # custom work directory
+    python3 run.py                          # all five datasets
+    python3 run.py --datasets adsl,adtte    # subset (predecessors auto-included)
+    python3 run.py --work /tmp/p3           # custom work directory
 """
 
 import argparse
@@ -28,47 +26,20 @@ from pathlib import Path
 HERE = Path(__file__).resolve().parent
 STUDY = HERE.parent.parent
 SDTM_SRC = STUDY / "data" / "sdtm"
-OFFICIAL_ADAM = STUDY / "data" / "adam"
 
 # SDTM inputs staged verbatim from ../data/sdtm/.
 SDTM_INPUTS = [
     "dm", "ds", "ex", "qs", "sv", "vs", "sc", "mh", "ae", "lb", "supplb",
 ]
 
-# dataset -> (spec stages, predecessor datasets, derived file name, spec output)
+# dataset -> (spec stages, predecessor datasets, derived file name)
 STAGES = {
-    "adsl": (
-        ["adsl_exdose.yaml", "adsl.yaml"],
-        [],
-        "adsl-yamaa.parquet",
-        "adsl-yamaa.parquet",
-    ),
-    "adae": (["adae.yaml"], ["adsl"], "adae-yamaa.parquet", "adae-yamaa.parquet"),
-    "adadas": (
-        ["adadas.yaml"],
-        ["adsl"],
-        "adadas-yamaa.parquet",
-        "adadas-yamaa.parquet",
-    ),
-    "adtte": (
-        ["adtte.yaml"],
-        ["adsl", "adae"],
-        "adtte-yamaa.parquet",
-        "adtte-yamaa.parquet",
-    ),
-    "adlbc": (["adlbc.yaml"], ["adsl"], "adlbc-yamaa.parquet", "adlbc-yamaa.parquet"),
+    "adsl": (["adsl_exdose.yaml", "adsl.yaml"], [], "adsl-yamaa.parquet"),
+    "adae": (["adae.yaml"], ["adsl"], "adae-yamaa.parquet"),
+    "adadas": (["adadas.yaml"], ["adsl"], "adadas-yamaa.parquet"),
+    "adtte": (["adtte.yaml"], ["adsl", "adae"], "adtte-yamaa.parquet"),
+    "adlbc": (["adlbc.yaml"], ["adsl"], "adlbc-yamaa.parquet"),
 }
-
-# Row-alignment keys for the comparison (unique in both derived and official).
-KEYS = {
-    "adsl": ["STUDYID", "USUBJID"],
-    "adae": ["STUDYID", "USUBJID", "AESEQ"],
-    "adadas": ["STUDYID", "USUBJID", "PARAMCD", "AVISIT", "ADT"],
-    "adtte": ["STUDYID", "USUBJID"],
-    "adlbc": ["STUDYID", "USUBJID", "PARAMCD", "AVISIT", "LBSEQ"],
-}
-
-TOLERANCE = 1e-10
 
 
 def stage_planning_inputs(inputs):
@@ -225,102 +196,13 @@ def derive(datasets, work):
         print(f"== {ds} ==")
         for stage in STAGES[ds][0]:
             run_spec(work / stage, work)
-        _, _, canon_name, spec_out = STAGES[ds]
-        shutil.copy2(work / spec_out, derived / canon_name)
+        _, _, canon_name = STAGES[ds]
+        shutil.copy2(work / canon_name, derived / canon_name)
         # Stage the derived dataset as a predecessor for downstream specs.
         if ds in ("adsl", "adae"):
             shutil.copy2(derived / canon_name, adam / canon_name)
         print(f"  wrote derived/{canon_name}")
     return derived
-
-
-def compare(derived, datasets):
-    """Verify every derived cell against the official ADaM.
-
-    Semantics (standing tolerance): numeric cells match when
-    |derived - official| <= 1e-10 (absolute); non-numeric cells match exactly
-    with null/"" normalized (the official ADaM was produced by R, where a
-    missing character value is ""). Key columns align with zero unmatched
-    rows on either side and count as matched.
-    """
-    import polars as pl
-
-    grand_cells, grand_mismatch = 0, 0
-    for ds in datasets:
-        keys = KEYS[ds]
-        _, _, derived_name, _ = STAGES[ds]
-        # Official datasets keep their canonical names; ours are -yamaa.
-        official_name = derived_name.replace("-yamaa", "")
-        new = pl.read_parquet(derived / derived_name)
-        ref = pl.read_parquet(OFFICIAL_ADAM / official_name)
-        assert new.height == ref.height, (
-            f"{ds}: row count {new.height} != official {ref.height}"
-        )
-        joined = new.join(ref, on=keys, how="inner", suffix="_ref")
-        assert joined.height == ref.height, f"{ds}: key mismatch vs official"
-
-        common = [c for c in new.columns if c not in keys and c in ref.columns]
-        derived_only = [
-            c for c in new.columns if c not in keys and c not in ref.columns
-        ]
-        uncovered = [c for c in ref.columns if c not in keys and c not in new.columns]
-
-        total_cells = new.height * (len(common) + len(keys))
-        mismatch = 0
-        mismatches = []
-        for col in common:
-            a, b = joined[col], joined[col + "_ref"]
-            if a.dtype.is_numeric() and b.dtype.is_numeric():
-                a = a.fill_nan(None).cast(pl.Float64)
-                b = b.fill_nan(None).cast(pl.Float64)
-                ok = (
-                    (a.is_null() & b.is_null()) | ((a - b).abs() <= TOLERANCE)
-                ).fill_null(False)  # exactly-one-null is a mismatch
-            else:
-                ok = a.cast(pl.String).fill_null("") == b.cast(pl.String).fill_null("")
-            bad = (~ok).sum()
-            if bad:
-                mismatches.append((col, bad))
-                mismatch += bad
-        n_cols = len(common) + len(keys)
-
-        # Labels: every derived field must carry the official yamaa:label.
-        import pyarrow.parquet as pq
-
-        new_fields = {f.name: dict(f.metadata or {}) for f in pq.read_schema(derived / derived_name)}
-        ref_fields = {f.name: dict(f.metadata or {}) for f in pq.read_schema(OFFICIAL_ADAM / official_name)}
-        label_bad = [
-            c
-            for c in new.columns
-            if c in ref_fields
-            and new_fields[c].get(b"yamaa:label") != ref_fields[c].get(b"yamaa:label")
-        ]
-        unlabeled = [
-            c
-            for c in new.columns
-            if b"yamaa:label" not in new_fields[c]
-        ]
-        if label_bad:
-            mismatches.append(("labels", label_bad))
-        if unlabeled:
-            mismatches.append(("unlabeled", unlabeled))
-
-        status = "PASS" if not mismatches and not uncovered else (
-            f"MISMATCH {mismatches}" if mismatches else f"UNCOVERED {uncovered}"
-        )
-        print(
-            f"-- {ds}: {status} ({n_cols}/{len(ref.columns)} columns, "
-            f"{total_cells - mismatch}/{total_cells} cells match)"
-        )
-        if derived_only:
-            print(f"   derived-only columns (not in official): {derived_only}")
-        grand_cells += total_cells
-        grand_mismatch += mismatch
-    print(
-        f"TOTAL: {grand_cells - grand_mismatch}/{grand_cells} derived cells match"
-    )
-    if grand_mismatch:
-        sys.exit(1)
 
 
 def main():
@@ -330,7 +212,6 @@ def main():
         default=",".join(STAGES),
         help="comma-separated subset, e.g. adsl,adtte",
     )
-    ap.add_argument("--no-compare", action="store_true")
     ap.add_argument("--work", default=str(HERE / "work"))
     args = ap.parse_args()
 
@@ -350,10 +231,7 @@ def main():
         )
 
     work = Path(args.work)
-    derived = derive(datasets, work)
-    if not args.no_compare:
-        print("== comparison vs official ADaM ==")
-        compare(derived, datasets)
+    derive(datasets, work)
     print("DONE")
 
 

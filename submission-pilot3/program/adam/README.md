@@ -3,8 +3,8 @@
 yamaa target specs that regenerate the five Pilot 3 ADaM datasets from the
 SDTM parquets in `../data/sdtm/`. Every derivation lives in the YAML specs
 (plus the hand-built planning relations in `inputs/`, which mirror the R
-program's tribbles); `run.py` only stages inputs, runs the specs, and
-verifies the results.
+program's tribbles). `run.py` only stages inputs and runs the specs;
+`compare.py` only compares the derived datasets against the official ADaM.
 
 ## End-to-end run
 
@@ -12,20 +12,22 @@ From a fresh clone:
 
     cd submission-pilot3/program/adam
     pip install -r requirements.txt
-    python3 run.py
+    python3 run.py        # derive all five datasets into work/derived/
+    python3 compare.py    # verify every cell against ../data/adam/
 
 `run.py` stages the SDTM parquets and the planning inputs into a `work/`
-directory, runs the specs in dependency order (derived ADSL/ADAE are staged
-as predecessors where downstream specs need them), writes the five derived
+directory, runs the specs in dependency order, and writes the five derived
 datasets to `work/derived/` as `adsl-yamaa.parquet`, `adae-yamaa.parquet`,
 `adadas-yamaa.parquet`, `adtte-yamaa.parquet`, and `adlbc-yamaa.parquet`,
-and compares every cell against the official
-ADaM in `../data/adam/` (numeric cells within `|derived - official| <=
-1e-10`, non-numeric exact with null/`""` normalized).
+each with variable labels. `compare.py` then checks every cell against the
+official ADaM in `../data/adam/` (numeric cells within
+`|derived - official| <= 1e-10`, non-numeric exact with null/`""`
+normalized, variable labels compared) and reports matched/total columns
+and cells per dataset.
 
     python3 run.py --datasets adsl,adtte   # subset (predecessors auto-included)
-    python3 run.py --no-compare            # derive only
     python3 run.py --work /tmp/p3          # custom work directory
+    python3 compare.py --work /tmp/p3      # compare that work directory
 
 `work/` is git-ignored build output; only the specs, inputs, scripts,
 requirements, and this README are committed.
@@ -33,9 +35,10 @@ requirements, and this README are committed.
 ## Stage order (what run.py does)
 
 1. `adsl_exdose.yaml` — per-record exposure staging (REQ-0483): one row per
-   EX record with the imputed/capped exposure end date and per-record dose.
-2. `adsl.yaml` — from SDTM DM/DS/EX/QS/SV/VS/SC/MH plus the exdose staging.
-   Output: ADSL.
+   EX record with the imputed exposure start/end dates and per-record dose.
+2. `adsl.yaml` — from SDTM DM/DS/QS/SV/VS/SC/MH plus the exdose staging
+   (TRTSDT/TRTEDT/CUMDOSE all aggregate the staging; SDTM EX is never read
+   directly). Output: ADSL.
 3. `adae.yaml` — from SDTM AE plus the derived ADSL. Output: ADAE.
 4. `adadas.yaml` — from SDTM QS (plus a `QSDTC_D` date column parsed from
    `QSDTC` at staging time, since the planner's static gate currently rejects
@@ -45,6 +48,10 @@ requirements, and this README are committed.
 5. `adtte.yaml` — from derived ADSL, derived ADAE, and SDTM DS. Output:
    ADTTE.
 6. `adlbc.yaml` — from SDTM LB/SUPPLB plus the derived ADSL. Output: ADLBC.
+
+Subject-level variables are derived once, in ADSL; the other four specs
+read them from the derived `adsl-yamaa.parquet` predecessor instead of
+re-deriving them.
 
 ## Notes
 
@@ -70,7 +77,7 @@ requirements, and this README are committed.
 ## Verification
 
 Cell-by-cell comparison of the derived datasets against the official ADaM
-(`python3 run.py`, same tolerance as above):
+(`python3 run.py && python3 compare.py`, same tolerance as above):
 
 - ADSL: 49/49 columns, 12,446/12,446 cells.
 - ADAE: 55/55 columns, 65,505/65,505 cells.

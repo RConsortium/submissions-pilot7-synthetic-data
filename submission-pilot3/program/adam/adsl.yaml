@@ -7,7 +7,6 @@ keys: [STUDYID, USUBJID]
 input:
   DM: sdtm/dm.parquet
   DS: sdtm/ds.parquet
-  EX: sdtm/ex.parquet
   QS: sdtm/qs.parquet
   SV: sdtm/sv.parquet
   VS: sdtm/vs.parquet
@@ -17,11 +16,6 @@ input:
 base: DM
 filter: "DM.ACTARMCD <> 'Scrnfail'"
 intermediates:
-  - id: EX_FIRST
-    dataset: EX
-    key: [STUDYID, USUBJID]
-    order_by: [EX.EXSTDTC]
-    keep: first
   - id: DS_EOS
     dataset: DS
     filter: "DS.DSCAT = 'DISPOSITION EVENT' AND DS.DSDECOD <> 'SCREEN FAILURE'"
@@ -135,11 +129,10 @@ columns:
     type: date
     label: Date of First Exposure to Treatment
     derivation:
-      date_impute:
-        source: EX_FIRST.EXSTDTC
-        month: 1
-        day: last
-        missing: null
+      # First exposure start comes from the per-record staging (REQ-0483):
+      # no second scan of SDTM EX is needed.
+      aggregate:
+        expr: "MIN(EXD.EXSTDT)"
   - name: TRTEDT
     type: date
     label: Date of Last Exposure to Treatment
