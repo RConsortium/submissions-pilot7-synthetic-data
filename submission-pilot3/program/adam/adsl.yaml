@@ -65,7 +65,7 @@ intermediates:
     order_by: [MH.MHSTDTC]
     keep: first
 output:
-  path: adsl-out.parquet
+  path: adsl-yamaa.parquet
   columns: [STUDYID, USUBJID, SUBJID, SITEID, SITEGR1, ARM, TRT01P, TRT01PN,
     TRT01A, TRT01AN, TRTSDT, TRTEDT, TRTDURD, AVGDD, CUMDOSE, AGE, AGEGR1,
     AGEGR1N, AGEU, RACE, RACEN, SEX, ETHNIC, SAFFL, ITTFL, EFFFL, COMP8FL,
@@ -148,7 +148,7 @@ columns:
         expr: "MAX(EXD.EXENDT)"
   - name: TRTDURD
     type: float
-    label: Total Duration of Treatment (days)
+    label: Total Treatment Duration (Days)
     derivation:
       date_diff:
         start: TRTSDT
@@ -157,19 +157,19 @@ columns:
         bounds: inclusive
   - name: CUMDOSE
     type: float
-    label: Cumulative Dose
+    label: Cumulative Dose (as planned)
     derivation:
       aggregate:
         expr: "SUM(EXD.DOSE)"
   - name: AVGDD_RAW
     type: float
-    label: Average daily dose, unrounded (helper)
+    label: Avgdd Raw (helper)
     derivation:
       compute:
         expr: "CUMDOSE / NULLIF(TRTDURD, 0)"
   - name: AVGDD
     type: float
-    label: Average Daily Dose
+    label: Avg Daily Dose (as planned)
     derivation:
       round_half_away_from_zero:
         source: AVGDD_RAW
@@ -251,14 +251,14 @@ columns:
             literal: N
   - name: N_ACTOT
     type: float
-    label: Post-baseline ADAS-Cog records (helper)
+    label: N Actot (helper)
     derivation:
       aggregate:
         expr: "COUNT(QS.QSSEQ)"
         filter: "QS.VISITNUM > 3 AND QS.QSTESTCD = 'ACTOT'"
   - name: N_CIBIC
     type: float
-    label: Post-baseline CIBIC+ records (helper)
+    label: N Cibic (helper)
     derivation:
       aggregate:
         expr: "COUNT(QS.QSSEQ)"
@@ -275,7 +275,7 @@ columns:
             literal: N
   - name: N_WK8
     type: float
-    label: Week 8 visit records (helper)
+    label: N Wk8 (helper)
     derivation:
       aggregate:
         expr: "COUNT(SV.USUBJID)"
@@ -292,7 +292,7 @@ columns:
             literal: N
   - name: N_WK16
     type: float
-    label: Week 16 visit records (helper)
+    label: N Wk16 (helper)
     derivation:
       aggregate:
         expr: "COUNT(SV.USUBJID)"
@@ -309,7 +309,7 @@ columns:
             literal: N
   - name: N_WK24
     type: float
-    label: Week 24 visit records (helper)
+    label: N Wk24 (helper)
     derivation:
       aggregate:
         expr: "COUNT(SV.USUBJID)"
@@ -326,7 +326,7 @@ columns:
             literal: N
   - name: DISCONFL
     type: str
-    label: Discontinued from Study Flag
+    label: Did the Subject Discontinue the Study?
     derivation:
       case:
         - when: "DS_EOS.DSSTDTC IS NOT NULL AND DS_EOS.DSDECOD <> 'COMPLETED'"
@@ -334,7 +334,7 @@ columns:
             literal: Y
   - name: DSRAEFL
     type: str
-    label: Discontinued due to Adverse Event Flag
+    label: Discontinued due to AE?
     derivation:
       case:
         - when: "DS_EOS.DSDECOD = 'ADVERSE EVENT'"
@@ -342,7 +342,7 @@ columns:
             literal: Y
   - name: DTHFL
     type: str
-    label: Death Flag
+    label: Subject Died?
     derivation:
       case:
         - when: "DM.DTHFL = 'Y'"
@@ -350,7 +350,7 @@ columns:
             literal: Y
   - name: HEIGHTBL_RAW
     type: float
-    label: Baseline height, unrounded (helper)
+    label: Heightbl Raw (helper)
     derivation: VS_HT.VSSTRESN
   - name: HEIGHTBL
     type: float
@@ -361,7 +361,7 @@ columns:
         digits: 1
   - name: WEIGHTBL_RAW
     type: float
-    label: Baseline weight, unrounded (helper)
+    label: Weightbl Raw (helper)
     derivation: VS_WT.VSSTRESN
   - name: WEIGHTBL
     type: float
@@ -372,7 +372,7 @@ columns:
         digits: 1
   - name: BMIBL_RAW
     type: float
-    label: Baseline BMI, unrounded (helper)
+    label: Bmibl Raw (helper)
     derivation:
       compute:
         expr: "WEIGHTBL / POWER(NULLIF(HEIGHTBL, 0) / 100, 2)"
@@ -414,7 +414,7 @@ columns:
         day: 1
   - name: DURDISD
     type: float
-    label: Disease duration in days, inclusive (helper)
+    label: Durdisd (helper)
     derivation:
       date_diff:
         start: DISONSDT
@@ -423,20 +423,20 @@ columns:
         bounds: inclusive
   - name: DURDIS_RAW
     type: float
-    label: Disease duration in months, unrounded (helper)
+    label: Durdis Raw (helper)
     derivation:
       compute:
         expr: "DURDISD / 30.4375"
   - name: DURDIS
     type: float
-    label: Disease Duration (months)
+    label: Duration of Disease (Months)
     derivation:
       round_half_away_from_zero:
         source: DURDIS_RAW
         digits: 1
   - name: DURDSGR1
     type: str
-    label: Disease Duration Group 1
+    label: Pooled Disease Duration Group 1
     derivation:
       cut:
         source: DURDIS
@@ -453,14 +453,14 @@ columns:
     derivation: DM.RFENDTC
   - name: VISNUMEN_ROUND
     type: float
-    label: Last visit number, rounded (helper)
+    label: Visnumen Round (helper)
     derivation:
       round_half_away_from_zero:
         source: SV_LAST.VISITNUM
         digits: 0
   - name: VISNUMEN
     type: float
-    label: End of Participation Visit (numeric)
+    label: End of Trt Visit (Vis 12 or Early Term.)
     derivation:
       case:
         - when: "VISNUMEN_ROUND = 13"
@@ -470,7 +470,7 @@ columns:
             source: VISNUMEN_ROUND
   - name: RFENDT
     type: date
-    label: Subject Reference End Date
+    label: Date of Discontinuation/Completion
     derivation:
       date_impute:
         source: DM.RFENDTC
@@ -515,7 +515,7 @@ columns:
                 WITHDRAWAL BY SUBJECT: Withdrew Consent
   - name: MMSETOT
     type: float
-    label: MMSE Total Score
+    label: MMSE Total
     derivation:
       aggregate:
         expr: "SUM(QS.QSSTRESN)"

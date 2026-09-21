@@ -17,7 +17,7 @@ keys: [STUDYID, USUBJID, PARAMCD, AVISIT, ADT]
 
 input:
   QS: sdtm/qs_str.parquet
-  ADSL: adam/adsl.parquet
+  ADSL: adam/adsl-yamaa.parquet
   PLAN: inputs/plan.parquet
   AW: inputs/aw_lookup.parquet
 
@@ -73,7 +73,7 @@ rows:
       AVAL_RAW: {literal: null}
 
 output:
-  path: adadas-out.parquet
+  path: adadas-yamaa.parquet
   columns: [STUDYID, SITEID, SITEGR1, USUBJID, TRTSDT, TRTEDT, TRTP, TRTPN,
     AGE, AGEGR1, AGEGR1N, RACE, RACEN, SEX, ITTFL, EFFFL, COMP24FL,
     AVISIT, AVISITN, VISIT, VISITNUM, ADY, ADT, PARAM, PARAMCD, PARAMN,
@@ -84,79 +84,107 @@ columns:
   # ---- row-phase working columns (derived in both templates) ----
   - name: ROWSRC
     type: int
+    label: Rowsrc (helper)
   - name: USUBJID
     type: str
+    label: Unique Subject Identifier
   - name: PARAMCD
     type: str
+    label: Parameter Code
   - name: TRTSDT
     type: date
+    label: Date of First Exposure to Treatment
   - name: ADT_RAW
     type: date
+    label: Adt Raw (helper)
   - name: ADY_RAW
     type: float
+    label: Ady Raw (helper)
   - name: AVISIT
     type: str
+    label: Analysis Visit
   - name: ABLFL
     type: str
+    label: Baseline Record Flag
   - name: VISIT_RAW
     type: str
+    label: Visit Raw (helper)
   - name: VISITNUM_RAW
     type: float
+    label: Visitnum Raw (helper)
   - name: QSSEQ_RAW
     type: float
+    label: Qsseq Raw (helper)
   - name: AVAL_RAW
     type: float
+    label: Aval Raw (helper)
 
   # ---- ADSL predecessor pass-through (cross-dataset predecessor) ----
   - name: STUDYID
     type: str
+    label: Study Identifier
     derivation: {source: ADSL_LOOKUP.STUDYID}
   - name: SITEID
     type: str
+    label: Study Site Identifier
     derivation: {source: ADSL_LOOKUP.SITEID}
   - name: SITEGR1
     type: str
+    label: Pooled Site Group 1
     derivation: {source: ADSL_LOOKUP.SITEGR1}
   - name: TRTEDT
     type: date
+    label: Date of Last Exposure to Treatment
     derivation: {source: ADSL_LOOKUP.TRTEDT}
   - name: TRTP
     type: str
+    label: Planned Treatment
     derivation: {source: ADSL_LOOKUP.TRT01P}
   - name: TRTPN
     type: float
+    label: Planned Treatment (N)
     derivation: {source: ADSL_LOOKUP.TRT01PN}
   - name: AGE
     type: float
+    label: Age
     derivation: {source: ADSL_LOOKUP.AGE}
   - name: AGEGR1
     type: str
+    label: Pooled Age Group 1
     derivation: {source: ADSL_LOOKUP.AGEGR1}
   - name: AGEGR1N
     type: float
+    label: Pooled Age Group 1 (N)
     derivation: {source: ADSL_LOOKUP.AGEGR1N}
   - name: RACE
     type: str
+    label: Race
     derivation: {source: ADSL_LOOKUP.RACE}
   - name: RACEN
     type: float
+    label: Race (N)
     derivation: {source: ADSL_LOOKUP.RACEN}
   - name: SEX
     type: str
+    label: Sex
     derivation: {source: ADSL_LOOKUP.SEX}
   - name: ITTFL
     type: str
+    label: Intent-To-Treat Population Flag
     derivation: {source: ADSL_LOOKUP.ITTFL}
   - name: EFFFL
     type: str
+    label: Efficacy Population Flag
     derivation: {source: ADSL_LOOKUP.EFFFL}
   - name: COMP24FL
     type: str
+    label: Completers of Week 24 Population Flag
     derivation: {source: ADSL_LOOKUP.COMP24FL}
 
   # ---- parameter / visit metadata ----
   - name: PARAM
     type: str
+    label: Parameter
     derivation:
       mapping:
         source: PARAMCD
@@ -178,6 +206,7 @@ columns:
           ACTOT: "Adas-Cog(11) Subscore"
   - name: PARAMN
     type: float
+    label: Parameter (N)
     derivation:
       mapping:
         source: PARAMCD
@@ -199,6 +228,7 @@ columns:
           ACTOT: 15.0
   - name: AVISITN
     type: float
+    label: Analysis Visit (N)
     derivation:
       mapping:
         source: AVISIT
@@ -211,31 +241,39 @@ columns:
   # ---- analysis-window metadata (4-row lookup tribble) ----
   - name: AWRANGE
     type: str
+    label: Analysis Window Valid Relative Range
     derivation: {source: AW_LOOKUP.AWRANGE}
   - name: AWTARGET
     type: float
+    label: Analysis Window Target
     derivation: {source: AW_LOOKUP.AWTARGET}
   - name: AWLO
     type: float
+    label: Analysis Window Beginning Timepoint
     derivation: {source: AW_LOOKUP.AWLO}
   - name: AWHI
     type: float
+    label: Analysis Window Ending Timepoint
     derivation: {source: AW_LOOKUP.AWHI}
   - name: AWU
     type: str
+    label: Analysis Window Unit
     derivation: {literal: "DAYS"}
 
   # ---- record-selection flag (extreme record per subject/param/visit) ----
   - name: AWTDIFF_RAW
     type: float
+    label: Awtdiff Raw (helper)
     derivation:
       compute: {expr: "ABS(AWTARGET - ADY_RAW)"}
   - name: DIFF_RAW
     type: float
+    label: Diff Raw (helper)
     derivation:
       compute: {expr: "AWTARGET - ADY_RAW"}
   - name: ANL01_RN
     type: int
+    label: Anl01 Rn (helper)
     derivation:
       row_number:
         window:
@@ -244,6 +282,7 @@ columns:
           filter: "ROWSRC = 0"
   - name: ANL01FL
     type: str
+    label: Analysis Flag 01
     derivation:
       case:
         - when: "ROWSRC = 1"
@@ -259,6 +298,7 @@ columns:
   # finding F-NEW2.)
   - name: ADT_Y
     type: date
+    label: Adt Y (helper)
     derivation:
       case:
         - when: "ANL01FL = 'Y'"
@@ -266,6 +306,7 @@ columns:
         - otherwise: {literal: null}
   - name: ADY_Y
     type: float
+    label: Ady Y (helper)
     derivation:
       case:
         - when: "ANL01FL = 'Y'"
@@ -273,6 +314,7 @@ columns:
         - otherwise: {literal: null}
   - name: VISIT_Y
     type: str
+    label: Visit Y (helper)
     derivation:
       case:
         - when: "ANL01FL = 'Y'"
@@ -280,6 +322,7 @@ columns:
         - otherwise: {literal: null}
   - name: VISITNUM_Y
     type: float
+    label: Visitnum Y (helper)
     derivation:
       case:
         - when: "ANL01FL = 'Y'"
@@ -287,6 +330,7 @@ columns:
         - otherwise: {literal: null}
   - name: QSSEQ_Y
     type: float
+    label: Qsseq Y (helper)
     derivation:
       case:
         - when: "ANL01FL = 'Y'"
@@ -294,6 +338,7 @@ columns:
         - otherwise: {literal: null}
   - name: AVAL_Y
     type: float
+    label: Aval Y (helper)
     derivation:
       case:
         - when: "ANL01FL = 'Y'"
@@ -301,6 +346,7 @@ columns:
         - otherwise: {literal: null}
   - name: ADT
     type: date
+    label: Analysis Date
     derivation:
       case:
         - when: "ROWSRC = 1"
@@ -313,6 +359,7 @@ columns:
         - otherwise: {source: ADT_RAW}
   - name: ADY
     type: float
+    label: Analysis Relative Day
     derivation:
       case:
         - when: "ROWSRC = 1"
@@ -325,6 +372,7 @@ columns:
         - otherwise: {source: ADY_RAW}
   - name: VISIT
     type: str
+    label: Visit Name
     derivation:
       case:
         - when: "ROWSRC = 1"
@@ -337,6 +385,7 @@ columns:
         - otherwise: {source: VISIT_RAW}
   - name: VISITNUM
     type: float
+    label: Visit Number
     derivation:
       case:
         - when: "ROWSRC = 1"
@@ -349,6 +398,7 @@ columns:
         - otherwise: {source: VISITNUM_RAW}
   - name: QSSEQ
     type: float
+    label: Sequence Number
     derivation:
       case:
         - when: "ROWSRC = 1"
@@ -361,6 +411,7 @@ columns:
         - otherwise: {source: QSSEQ_RAW}
   - name: AVAL
     type: float
+    label: Analysis Value
     derivation:
       case:
         - when: "ROWSRC = 1"
@@ -375,12 +426,14 @@ columns:
   # ---- window distance on the final (possibly carried) study day ----
   - name: AWTDIFF
     type: float
+    label: Analysis Window Diff from Target
     derivation:
       compute: {expr: "ABS(AWTARGET - ADY)"}
 
   # ---- baseline and change from baseline ----
   - name: BASE
     type: float
+    label: Baseline Value
     derivation:
       aggregate:
         expr: "ONLY(AVAL)"
@@ -388,6 +441,7 @@ columns:
         group_by: [STUDYID, USUBJID, PARAMCD]
   - name: CHG
     type: float
+    label: Change from Baseline
     derivation:
       case:
         - when: "ABLFL IS NULL"
@@ -396,6 +450,7 @@ columns:
         - otherwise: {literal: null}
   - name: PCHG
     type: float
+    label: Percent Change from Baseline
     derivation:
       case:
         - when: "ABLFL IS NULL"
@@ -406,6 +461,7 @@ columns:
 
   - name: DTYPE
     type: str
+    label: Derivation Type
     derivation:
       case:
         - when: "ROWSRC = 1"

@@ -17,7 +17,9 @@ From a fresh clone:
 `run.py` stages the SDTM parquets and the planning inputs into a `work/`
 directory, runs the specs in dependency order (derived ADSL/ADAE are staged
 as predecessors where downstream specs need them), writes the five derived
-datasets to `work/derived/`, and compares every cell against the official
+datasets to `work/derived/` as `adsl-yamaa.parquet`, `adae-yamaa.parquet`,
+`adadas-yamaa.parquet`, `adtte-yamaa.parquet`, and `adlbc-yamaa.parquet`,
+and compares every cell against the official
 ADaM in `../data/adam/` (numeric cells within `|derived - official| <=
 1e-10`, non-numeric exact with null/`""` normalized).
 
@@ -46,6 +48,12 @@ requirements, and this README are committed.
 
 ## Notes
 
+- Every spec column declares a `label:` (the yamaa way); `run.py` stamps
+  them onto the derived parquet as `yamaa:label` field metadata — the
+  engine's R020 parquet profile carries no field metadata of its own
+  (REQ-0741). Labels are sourced from the official ADaM parquets and
+  cross-checked against `../spec/define-adam.xml` (100% agreement); the
+  comparison verifies every label matches.
 - `requirements.txt` pins the yamaa engine (editable install) to the merge
   commit of elong0527/yamaa PR #759, which carries the engine fixes the
   specs rely on (intermediate match hash index, window group_by through the

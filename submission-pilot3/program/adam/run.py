@@ -40,18 +40,23 @@ STAGES = {
     "adsl": (
         ["adsl_exdose.yaml", "adsl.yaml"],
         [],
-        "adsl.parquet",
-        "adsl-out.parquet",
+        "adsl-yamaa.parquet",
+        "adsl-yamaa.parquet",
     ),
-    "adae": (["adae.yaml"], ["adsl"], "adae.parquet", "adae-out.parquet"),
-    "adadas": (["adadas.yaml"], ["adsl"], "adadas.parquet", "adadas-out.parquet"),
+    "adae": (["adae.yaml"], ["adsl"], "adae-yamaa.parquet", "adae-yamaa.parquet"),
+    "adadas": (
+        ["adadas.yaml"],
+        ["adsl"],
+        "adadas-yamaa.parquet",
+        "adadas-yamaa.parquet",
+    ),
     "adtte": (
         ["adtte.yaml"],
         ["adsl", "adae"],
-        "adtte.parquet",
-        "adtte-out.parquet",
+        "adtte-yamaa.parquet",
+        "adtte-yamaa.parquet",
     ),
-    "adlbc": (["adlbc.yaml"], ["adsl"], "adlbc.parquet", "adlbc-out.parquet"),
+    "adlbc": (["adlbc.yaml"], ["adsl"], "adlbc-yamaa.parquet", "adlbc-yamaa.parquet"),
 }
 
 # Row-alignment keys for the comparison (unique in both derived and official).
@@ -124,6 +129,55 @@ def ordered_datasets(selected):
     return order
 
 
+def spec_labels(spec_path):
+    """Parse name -> label for every column block in a spec.
+
+    The engine's R020 parquet profile carries no field metadata of its own
+    (REQ-0741), so labels declared the yamaa way (column-level `label:`)
+    are stamped onto the artifact here, mirroring how the official ADaM
+    staging preserved them as `yamaa:label` field metadata.
+    """
+    import re
+
+    labels, name = {}, None
+    for line in Path(spec_path).read_text().splitlines():
+        m = re.match(r"  - name: (\w+)$", line)
+        if m:
+            name = m.group(1)
+            continue
+        if name is None:
+            continue
+        if re.match(r"  - (name|id): |^[a-z_]+:", line):
+            name = None
+            continue
+        lm = re.match(r"    label: (.*)$", line)
+        if lm:
+            labels[name] = lm.group(1).strip()
+    return labels
+
+
+def attach_labels(parquet_path, labels):
+    """Stamp `yamaa:label` field metadata onto every labeled column."""
+    import pyarrow as pa
+    import pyarrow.parquet as pq
+
+    table = pq.read_table(parquet_path)
+    fields = []
+    for field in table.schema:
+        label = labels.get(field.name)
+        metadata = dict(field.metadata or {})
+        if label:
+            metadata[b"yamaa:label"] = label.encode("utf-8")
+        fields.append(
+            field.with_metadata(metadata) if metadata else field
+        )
+    labeled = table.cast(pa.schema(fields))
+    # Keep the engine's uncompressed pages, but store the Arrow schema:
+    # `store_schema=False` (the R020 engine profile) drops field metadata
+    # on read-back, and the labels are the point of this step.
+    pq.write_table(labeled, parquet_path, compression="none")
+
+
 def run_spec(spec_path, work):
     from yamaa import yamaa_domain
 
@@ -138,6 +192,7 @@ def run_spec(spec_path, work):
         print(f"ERROR: {spec_path.name} produced no output")
         sys.exit(1)
     out = run.save()
+    attach_labels(out, spec_labels(spec_path))
     print(f"  {spec_path.name}: VALIDATION CLEAN, {frame.height} rows -> {out}")
     return out
 
@@ -193,9 +248,11 @@ def compare(derived, datasets):
     grand_cells, grand_mismatch = 0, 0
     for ds in datasets:
         keys = KEYS[ds]
-        _, _, canon_name, _ = STAGES[ds]
-        new = pl.read_parquet(derived / canon_name)
-        ref = pl.read_parquet(OFFICIAL_ADAM / canon_name)
+        _, _, derived_name, _ = STAGES[ds]
+        # Official datasets keep their canonical names; ours are -yamaa.
+        official_name = derived_name.replace("-yamaa", "")
+        new = pl.read_parquet(derived / derived_name)
+        ref = pl.read_parquet(OFFICIAL_ADAM / official_name)
         assert new.height == ref.height, (
             f"{ds}: row count {new.height} != official {ref.height}"
         )
@@ -226,6 +283,28 @@ def compare(derived, datasets):
                 mismatches.append((col, bad))
                 mismatch += bad
         n_cols = len(common) + len(keys)
+
+        # Labels: every derived field must carry the official yamaa:label.
+        import pyarrow.parquet as pq
+
+        new_fields = {f.name: dict(f.metadata or {}) for f in pq.read_schema(derived / derived_name)}
+        ref_fields = {f.name: dict(f.metadata or {}) for f in pq.read_schema(OFFICIAL_ADAM / official_name)}
+        label_bad = [
+            c
+            for c in new.columns
+            if c in ref_fields
+            and new_fields[c].get(b"yamaa:label") != ref_fields[c].get(b"yamaa:label")
+        ]
+        unlabeled = [
+            c
+            for c in new.columns
+            if b"yamaa:label" not in new_fields[c]
+        ]
+        if label_bad:
+            mismatches.append(("labels", label_bad))
+        if unlabeled:
+            mismatches.append(("unlabeled", unlabeled))
+
         status = "PASS" if not mismatches and not uncovered else (
             f"MISMATCH {mismatches}" if mismatches else f"UNCOVERED {uncovered}"
         )
