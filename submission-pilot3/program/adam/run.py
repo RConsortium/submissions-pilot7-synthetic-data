@@ -66,6 +66,47 @@ KEYS = {
 TOLERANCE = 1e-10
 
 
+def stage_planning_inputs(inputs):
+    """Materialize the hand-built planning relations as parquets.
+
+    The CSVs committed under inputs/ mirror the R program's tribbles (the
+    schema cannot generate these rows itself, REQ-0040/REQ-0041); dtypes are
+    pinned so the staged parquets are identical on every run.
+    """
+    import polars as pl
+
+    plan = pl.read_csv(
+        HERE / "inputs" / "plan.csv",
+        schema={"USUBJID": pl.String, "PARAMCD": pl.String,
+                "AVISIT": pl.String, "AVISITN": pl.Int64},
+    )
+    plan.write_parquet(inputs / "plan.parquet")
+
+    aw = pl.read_csv(
+        HERE / "inputs" / "aw_lookup.csv",
+        schema={"AVISIT": pl.String, "AWRANGE": pl.String,
+                "AWTARGET": pl.Int64, "AWLO": pl.Int64, "AWHI": pl.Int64},
+        null_values=[""],
+    )
+    aw.write_parquet(inputs / "aw_lookup.parquet")
+
+
+def build_qs_str(qs_path, out_path):
+    """QS input for ADADAS: staged QS plus a QSDTC_D date column.
+
+    The spec reads QS.QSDTC_D because the planner's static gate currently
+    rejects ISO date text for to_date (REQ-0607, REQ-1107); all staged
+    QSDTC values are clean ISO dates.
+    """
+    import polars as pl
+
+    df = pl.read_parquet(qs_path)
+    df = df.with_columns(
+        pl.col("QSDTC").str.to_date("%Y-%m-%d", strict=True).alias("QSDTC_D")
+    )
+    df.write_parquet(out_path)
+
+
 def ordered_datasets(selected):
     """Expand the selection with required predecessors, dependency-first."""
     order, seen = [], set()
@@ -110,9 +151,10 @@ def derive(datasets, work):
 
     inputs = work / "inputs"
     inputs.mkdir(parents=True, exist_ok=True)
-    for name in ["plan.parquet", "aw_lookup.parquet", "qs_str.parquet"]:
-        shutil.copy2(HERE / "inputs" / name, inputs / name)
-    shutil.copy2(HERE / "inputs" / "qs_str.parquet", sdtm / "qs_str.parquet")
+    stage_planning_inputs(inputs)
+
+    sdtm_qs = sdtm / "qs.parquet"
+    build_qs_str(sdtm_qs, sdtm / "qs_str.parquet")
     print("staged planning inputs (plan, aw_lookup, qs_str)")
 
     adam = work / "adam"

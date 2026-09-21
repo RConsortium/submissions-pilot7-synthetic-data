@@ -35,10 +35,11 @@ requirements, and this README are committed.
 2. `adsl.yaml` — from SDTM DM/DS/EX/QS/SV/VS/SC/MH plus the exdose staging.
    Output: ADSL.
 3. `adae.yaml` — from SDTM AE plus the derived ADSL. Output: ADAE.
-4. `adadas.yaml` — from SDTM QS (string-cast copy with a `QSDTC_D` date
-   column, `inputs/qs_str.parquet`), the derived ADSL, the 222-row LOCF
-   planning relation (`inputs/plan.parquet`), and the 4-row analysis-window
-   lookup (`inputs/aw_lookup.parquet`). Output: ADADAS.
+4. `adadas.yaml` — from SDTM QS (plus a `QSDTC_D` date column parsed from
+   `QSDTC` at staging time, since the planner's static gate currently rejects
+   ISO date text for `to_date`, REQ-0607/REQ-1107), the derived ADSL, the
+   222-row LOCF planning relation (`inputs/plan.csv`), and the 4-row
+   analysis-window lookup (`inputs/aw_lookup.csv`). Output: ADADAS.
 5. `adtte.yaml` — from derived ADSL, derived ADAE, and SDTM DS. Output:
    ADTTE.
 6. `adlbc.yaml` — from SDTM LB/SUPPLB plus the derived ADSL. Output: ADLBC.
@@ -51,17 +52,12 @@ requirements, and this README are committed.
   readable row view, stable column dependency order). The editable install
   is required so the engine finds its schema bundle (`yaml/schema.yaml`,
   which lives at the yamaa repo root outside the Python package).
-- `inputs/qs_str.parquet` is the staged `../data/sdtm/qs.parquet` plus a
-  `QSDTC_D` date column parsed from `QSDTC` (all values clean ISO dates);
-  all 21 columns verified cell-identical to the input the ADADAS spec was
-  verified against. The spec reads `QS.QSDTC_D` because the planner's
-  static gate currently rejects ISO date text for `to_date` (REQ-0607,
-  REQ-1107).
-- `inputs/plan.parquet` (222 missing-ACTOT visit slots) and
-  `inputs/aw_lookup.parquet` (4-row analysis-window lookup) are the
-  hand-built planning relations the schema cannot generate itself
-  (REQ-0040/REQ-0041), mirroring the R program's expected-observations
-  tribble and analysis-window tribble; both verified against the reference.
+- The planning relations under `inputs/` are committed as CSV (the repo's
+  structure check only allows `.parquet` under `data/`); `run.py` stages
+  them as parquets with pinned dtypes, and builds the ADADAS QS input
+  (`QSDTC` plus a `QSDTC_D` date column — all staged `QSDTC` values are
+  clean ISO dates) at staging time. The staged parquets are byte-identical
+  to the inputs the specs were verified against.
 
 ## Verification
 
