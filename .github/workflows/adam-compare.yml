@@ -1,0 +1,72 @@
+## ADaM comparison
+##
+## Cell-by-cell verification of derived ADaM datasets against the official
+## ones (tolerance 1e-10, see submission-pilot5/README.md). The derived
+## datasets live outside this repo, so real comparisons are manual; PRs
+## touching the script or the keys file get an official-vs-official
+## self-check to keep the tooling honest.
+
+name: ADaM Compare
+
+on:
+  pull_request:
+    branches: [main]
+    paths:
+      - .github/scripts/compare_adam.py
+      - submission-pilot5/program/adam/adam-compare-keys.json
+      - .github/workflows/adam-compare.yml
+  workflow_dispatch:
+    inputs:
+      derived:
+        description: "Derived ADaM parquet directory (or single file)"
+        required: true
+      official:
+        description: "Official ADaM parquet directory"
+        default: "submission-pilot5/data/adam"
+        required: false
+      datasets:
+        description: "Comma-separated datasets to compare (empty = all)"
+        default: ""
+        required: false
+
+concurrency:
+  group: adam-compare-${{ github.head_ref || github.ref_name }}
+  cancel-in-progress: true
+
+jobs:
+  self-check:
+    if: github.event_name == 'pull_request'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - name: Install pyarrow
+        run: pip install pyarrow
+      - name: Official vs official must pass
+        run: >
+          python3 .github/scripts/compare_adam.py
+          --official submission-pilot5/data/adam
+          --derived submission-pilot5/data/adam
+          --keys-file submission-pilot5/program/adam/adam-compare-keys.json
+          --null-empty-equal
+
+  compare:
+    if: github.event_name == 'workflow_dispatch'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - name: Install pyarrow
+        run: pip install pyarrow
+      - name: Compare derived ADaM against official
+        run: >
+          python3 .github/scripts/compare_adam.py
+          --official "${{ inputs.official }}"
+          --derived "${{ inputs.derived }}"
+          --datasets "${{ inputs.datasets }}"
+          --keys-file submission-pilot5/program/adam/adam-compare-keys.json
+          --null-empty-equal
