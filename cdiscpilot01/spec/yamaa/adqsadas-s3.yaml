@@ -1,0 +1,98 @@
+# ADQSADAS stage S3: empty-window LOCF rows for ACTOT.
+#
+# For each subject, every window w in 1..3 with no ACTOT records emits one
+# row carrying the latest prior ACTOT record's carried-forward value
+# (DTYPE='LOCF', ANL01FL='Y'). Window 0 is never empty (every subject has a
+# Baseline record).
+#
+# Each template is driven by the S2SUBJ per-subject row (filtered to
+# subjects whose window w is empty) and pulls the latest-prior record's
+# fields through the REC_LKP named lookup on (USUBJID, _KEY).
+schema_version: "1.0"
+domain: ADQSADAS_S3
+keys: [USUBJID, _W]
+
+input:
+  RECS:
+    path: output/adqsadas_s2.parquet
+    empty_string: present
+  SUBJ:
+    path: output/adqsadas_s2subj.parquet
+    empty_string: present
+
+base: SUBJ
+
+intermediates:
+  - id: REC_LKP
+    dataset: RECS
+    key: [USUBJID, _KEY]
+
+rows:
+  - id: locf-w1
+    dataset: SUBJ
+    filter: "SUBJ._EMPTY_W1 = 1"
+    derivations:
+      USUBJID: {source: SUBJ.USUBJID}
+      _W: {literal: 1}
+      _KEY: {source: SUBJ._MAX_KEY_W1}
+      STUDYID: REC_LKP.STUDYID
+      VISIT: REC_LKP.VISIT
+      VISITNUM: REC_LKP.VISITNUM
+      ADY: REC_LKP.QSDY
+      ADT: REC_LKP._ADT
+      QSSEQ: REC_LKP.QSSEQ
+      AVAL: REC_LKP._CARRIED_INCL
+  - id: locf-w2
+    dataset: SUBJ
+    filter: "SUBJ._EMPTY_W2 = 1"
+    derivations:
+      USUBJID: {source: SUBJ.USUBJID}
+      _W: {literal: 2}
+      _KEY: {source: SUBJ._MAX_KEY_W2}
+      STUDYID: REC_LKP.STUDYID
+      VISIT: REC_LKP.VISIT
+      VISITNUM: REC_LKP.VISITNUM
+      ADY: REC_LKP.QSDY
+      ADT: REC_LKP._ADT
+      QSSEQ: REC_LKP.QSSEQ
+      AVAL: REC_LKP._CARRIED_INCL
+  - id: locf-w3
+    dataset: SUBJ
+    filter: "SUBJ._EMPTY_W3 = 1"
+    derivations:
+      USUBJID: {source: SUBJ.USUBJID}
+      _W: {literal: 3}
+      _KEY: {source: SUBJ._MAX_KEY_W3}
+      STUDYID: REC_LKP.STUDYID
+      VISIT: REC_LKP.VISIT
+      VISITNUM: REC_LKP.VISITNUM
+      ADY: REC_LKP.QSDY
+      ADT: REC_LKP._ADT
+      QSSEQ: REC_LKP.QSSEQ
+      AVAL: REC_LKP._CARRIED_INCL
+
+output:
+  path: output/adqsadas_s3.parquet
+  columns: [STUDYID, USUBJID, _W, VISIT, VISITNUM, ADY, ADT, QSSEQ, AVAL]
+
+columns:
+  - name: STUDYID
+    type: str
+  - name: USUBJID
+    type: str
+  - name: _W
+    type: int
+  - name: _KEY
+    type: float
+  - name: VISIT
+    type: str
+  - name: VISITNUM
+    type: float
+  - name: ADY
+    type: float
+  - name: ADT
+    type: str
+  - name: QSSEQ
+    type: float
+  - name: AVAL
+    type: float

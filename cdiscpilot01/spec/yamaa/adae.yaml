@@ -1,0 +1,492 @@
+schema_version: "1.0"
+domain: ADAE
+keys: [STUDYID, USUBJID, AESEQ]
+input:
+  AE:
+    path: sdtm/ae.parquet
+    empty_string: present
+  ADSL:
+    path: upstream/adsl.parquet
+    empty_string: present
+base: AE
+
+rows:
+  - id: all-aes
+    dataset: AE
+    derivations: {}
+
+intermediates:
+  - id: ADSL_SBJ
+    dataset: ADSL
+    key: [STUDYID, USUBJID]
+    order_by: [ADSL.USUBJID]
+    keep: first
+
+output:
+  path: output/adae.parquet
+  order_by: [USUBJID, AESEQ]
+  columns: [STUDYID, SITEID, USUBJID, TRTA, TRTAN, AGE, AGEGR1, AGEGR1N, RACE,
+    RACEN, SEX, SAFFL, TRTSDT, TRTEDT, ASTDT, ASTDTF, ASTDY, AENDT, AENDY,
+    ADURN, ADURU, AETERM, AELLT, AELLTCD, AEDECOD, AEPTCD, AEHLT, AEHLTCD,
+    AEHLGT, AEHLGTCD, AEBODSYS, AESOC, AESOCCD, AESEV, AESER, AESCAN, AESCONG,
+    AESDISAB, AESDTH, AESHOSP, AESLIFE, AESOD, AEREL, AEACN, AEOUT, AESEQ,
+    TRTEMFL, AOCCFL, AOCCSFL, AOCCPFL, AOCC02FL, AOCC03FL, AOCC04FL, CQ01NAM,
+    AOCC01FL]
+
+columns:
+  - name: STUDYID
+    type: str
+    label: Study Identifier
+    derivation: AE.STUDYID
+
+  - name: USUBJID
+    type: str
+    label: Unique Subject Identifier
+    derivation: AE.USUBJID
+
+  - name: SITEID
+    type: str
+    label: Study Site Identifier
+    derivation: ADSL_SBJ.SITEID
+
+  - name: TRTA
+    type: str
+    label: Actual Treatment
+    derivation: ADSL_SBJ.TRT01A
+
+  - name: TRTAN
+    type: float
+    label: Actual Treatment (N)
+    derivation: ADSL_SBJ.TRT01AN
+
+  - name: AGE
+    type: float
+    label: Age
+    derivation: ADSL_SBJ.AGE
+
+  - name: AGEGR1
+    type: str
+    label: Pooled Age Group 1
+    derivation: ADSL_SBJ.AGEGR1
+
+  - name: AGEGR1N
+    type: float
+    label: Pooled Age Group 1 (N)
+    derivation: ADSL_SBJ.AGEGR1N
+
+  - name: RACE
+    type: str
+    label: Race
+    derivation: ADSL_SBJ.RACE
+
+  - name: RACEN
+    type: float
+    label: Race (N)
+    derivation: ADSL_SBJ.RACEN
+
+  - name: SEX
+    type: str
+    label: Sex
+    derivation: ADSL_SBJ.SEX
+
+  - name: SAFFL
+    type: str
+    label: Safety Population Flag
+    derivation: ADSL_SBJ.SAFFL
+
+  - name: TRTSDT
+    type: date
+    label: Date of First Exposure to Treatment
+    derivation: ADSL_SBJ.TRTSDT
+
+  - name: TRTEDT
+    type: date
+    label: Date of Last Exposure to Treatment
+    derivation: ADSL_SBJ.TRTEDT
+
+  - name: ASTDT
+    type: date
+    label: Analysis Start Date
+    derivation:
+      case:
+        - when: "AE.AESTDTC LIKE '%-%'"
+          then:
+            date_impute:
+              source: AE.AESTDTC
+              month: 1
+              day: 1
+              missing: null
+              invalid: null
+        - otherwise:
+            literal: null
+
+  - name: ASTDTF
+    type: str
+    label: Analysis Start Date Imputation Flag
+    derivation:
+      case:
+        - when: "AE.AESTDTC LIKE '%-%' AND AE.AESTDTC NOT LIKE '%-%-%'"
+          then:
+            literal: "D"
+        - otherwise:
+            literal: ""
+
+  - name: ASTDY_RAW
+    type: float
+    label: Analysis Start Day raw
+    derivation:
+      case:
+        - when: "ASTDT >= TRTSDT"
+          then:
+            date_diff:
+              start: TRTSDT
+              end: ASTDT
+              unit: day
+              bounds: inclusive
+        - otherwise:
+            date_diff:
+              start: TRTSDT
+              end: ASTDT
+              unit: day
+              bounds: exclusive
+
+  - name: ASTDY
+    type: float
+    label: Analysis Start Relative Day
+    derivation: ASTDY_RAW
+
+  - name: AENDT
+    type: date
+    label: Analysis End Date
+    derivation:
+      date_impute:
+        source: AE.AEENDTC
+        month: 1
+        day: 1
+        missing: null
+        invalid: null
+
+  - name: AENDY
+    type: float
+    label: Analysis End Relative Day
+    derivation: AE.AEENDY
+
+  - name: ADURN
+    type: float
+    label: AE Duration (N)
+    derivation:
+      case:
+        - when: "ASTDT IS NOT NULL AND AENDT IS NOT NULL AND ASTDTF = ''"
+          then:
+            date_diff:
+              start: ASTDT
+              end: AENDT
+              unit: day
+              bounds: inclusive
+        - otherwise:
+            literal: null
+
+  - name: ADURU
+    type: str
+    label: AE Duration Units
+    derivation:
+      case:
+        - when: "ADURN IS NOT NULL"
+          then:
+            literal: "DAY"
+        - otherwise:
+            literal: ""
+
+  - name: AETERM
+    type: str
+    label: Reported Term for the Adverse Event
+    derivation: AE.AETERM
+
+  - name: AELLT
+    type: str
+    label: Lowest Level Term
+    derivation: AE.AELLT
+
+  - name: AELLTCD
+    type: float
+    label: Lowest Level Term Code
+    derivation: AE.AELLTCD
+
+  - name: AEDECOD
+    type: str
+    label: Dictionary-Derived Term
+    derivation: AE.AEDECOD
+
+  - name: AEPTCD
+    type: float
+    label: Preferred Term Code
+    derivation: AE.AEPTCD
+
+  - name: AEHLT
+    type: str
+    label: High Level Term
+    derivation: AE.AEHLT
+
+  - name: AEHLTCD
+    type: float
+    label: High Level Term Code
+    derivation: AE.AEHLTCD
+
+  - name: AEHLGT
+    type: str
+    label: High Level Group Term
+    derivation: AE.AEHLGT
+
+  - name: AEHLGTCD
+    type: float
+    label: High Level Group Term Code
+    derivation: AE.AEHLGTCD
+
+  - name: AEBODSYS
+    type: str
+    label: Body System or Organ Class
+    derivation: AE.AEBODSYS
+
+  - name: AESOC
+    type: str
+    label: Primary System Organ Class
+    derivation: AE.AESOC
+
+  - name: AESOCCD
+    type: float
+    label: Primary System Organ Class Code
+    derivation: AE.AESOCCD
+
+  - name: AESEV
+    type: str
+    label: Severity/Intensity
+    derivation: AE.AESEV
+
+  - name: AESER
+    type: str
+    label: Serious Event
+    derivation: AE.AESER
+
+  - name: AESCAN
+    type: str
+    label: Involves Cancer
+    derivation: AE.AESCAN
+
+  - name: AESCONG
+    type: str
+    label: Congenital Anomaly or Birth Defect
+    derivation: AE.AESCONG
+
+  - name: AESDISAB
+    type: str
+    label: Persist or Signif Disability/Incapacity
+    derivation: AE.AESDISAB
+
+  - name: AESDTH
+    type: str
+    label: Results in Death
+    derivation: AE.AESDTH
+
+  - name: AESHOSP
+    type: str
+    label: Requires or Prolongs Hospitalization
+    derivation: AE.AESHOSP
+
+  - name: AESLIFE
+    type: str
+    label: Is Life Threatening
+    derivation: AE.AESLIFE
+
+  - name: AESOD
+    type: str
+    label: Occurred with Overdose
+    derivation: AE.AESOD
+
+  - name: AEREL
+    type: str
+    label: Causality
+    derivation: AE.AEREL
+
+  - name: AEACN
+    type: str
+    label: Action Taken with Study Treatment
+    derivation: AE.AEACN
+
+  - name: AEOUT
+    type: str
+    label: Outcome of Adverse Event
+    derivation: AE.AEOUT
+
+  - name: AESEQ
+    type: float
+    label: Sequence Number
+    derivation: AE.AESEQ
+
+  - name: TRTEMFL
+    type: str
+    label: Treatment Emergent Analysis Flag
+    derivation:
+      case:
+        - when: "ASTDT IS NOT NULL AND TRTSDT IS NOT NULL AND ASTDT >= TRTSDT"
+          then:
+            literal: "Y"
+        - otherwise:
+            literal: "N"
+
+  - name: TE_RN
+    type: float
+    label: Row number among treatment-emergent AEs
+    derivation:
+      row_number:
+        window:
+          group_by: [STUDYID, USUBJID]
+          order_by: [AESEQ]
+          filter: "TRTEMFL = 'Y'"
+
+  - name: AOCCFL
+    type: str
+    label: 1st Occurrence of Any AE Flag
+    derivation:
+      case:
+        - when: "TE_RN = 1"
+          then:
+            literal: "Y"
+        - otherwise:
+            literal: ""
+
+  - name: TE_SOC_RN
+    type: float
+    label: Row number among TE AEs per SOC
+    derivation:
+      row_number:
+        window:
+          group_by: [STUDYID, USUBJID, AESOC]
+          order_by: [AESEQ]
+          filter: "TRTEMFL = 'Y'"
+
+  - name: AOCCSFL
+    type: str
+    label: 1st Occurrence of SOC Flag
+    derivation:
+      case:
+        - when: "TE_SOC_RN = 1"
+          then:
+            literal: "Y"
+        - otherwise:
+            literal: ""
+
+  - name: TE_PT_RN
+    type: float
+    label: Row number among TE AEs per PT
+    derivation:
+      row_number:
+        window:
+          group_by: [STUDYID, USUBJID, AEDECOD]
+          order_by: [AESEQ]
+          filter: "TRTEMFL = 'Y'"
+
+  - name: AOCCPFL
+    type: str
+    label: 1st Occurrence of Preferred Term Flag
+    derivation:
+      case:
+        - when: "TE_PT_RN = 1"
+          then:
+            literal: "Y"
+        - otherwise:
+            literal: ""
+
+  - name: SER_RN
+    type: float
+    label: Row number among serious TE AEs
+    derivation:
+      row_number:
+        window:
+          group_by: [STUDYID, USUBJID]
+          order_by: [AESEQ]
+          filter: "TRTEMFL = 'Y' AND AE.AESER = 'Y'"
+
+  - name: AOCC02FL
+    type: str
+    label: 1st Occurrence 02 Flag for Serious
+    derivation:
+      case:
+        - when: "SER_RN = 1"
+          then:
+            literal: "Y"
+        - otherwise:
+            literal: ""
+
+  - name: SER_SOC_RN
+    type: float
+    label: Row number among serious TE AEs per SOC
+    derivation:
+      row_number:
+        window:
+          group_by: [STUDYID, USUBJID, AESOC]
+          order_by: [AESEQ]
+          filter: "TRTEMFL = 'Y' AND AE.AESER = 'Y'"
+
+  - name: AOCC03FL
+    type: str
+    label: 1st Occurrence 03 Flag for Serious SOC
+    derivation:
+      case:
+        - when: "SER_SOC_RN = 1"
+          then:
+            literal: "Y"
+        - otherwise:
+            literal: ""
+
+  - name: SER_PT_RN
+    type: float
+    label: Row number among serious TE AEs per PT
+    derivation:
+      row_number:
+        window:
+          group_by: [STUDYID, USUBJID, AEDECOD]
+          order_by: [AESEQ]
+          filter: "TRTEMFL = 'Y' AND AE.AESER = 'Y'"
+
+  - name: AOCC04FL
+    type: str
+    label: 1st Occurrence 04 Flag for Serious PT
+    derivation:
+      case:
+        - when: "SER_PT_RN = 1"
+          then:
+            literal: "Y"
+        - otherwise:
+            literal: ""
+
+  - name: CQ01NAM
+    type: str
+    label: Customized Query 01 Name
+    derivation:
+      case:
+        - when: "AE.AEDECOD IN ('ACTINIC KERATOSIS', 'APPLICATION SITE BLEEDING', 'APPLICATION SITE DERMATITIS', 'APPLICATION SITE DESQUAMATION', 'APPLICATION SITE DISCHARGE', 'APPLICATION SITE DISCOLOURATION', 'APPLICATION SITE ERYTHEMA', 'APPLICATION SITE INDURATION', 'APPLICATION SITE IRRITATION', 'APPLICATION SITE PAIN', 'APPLICATION SITE PERSPIRATION', 'APPLICATION SITE PRURITUS', 'APPLICATION SITE REACTION', 'APPLICATION SITE SWELLING', 'APPLICATION SITE URTICARIA', 'APPLICATION SITE VESICLES', 'APPLICATION SITE WARMTH', 'BLISTER', 'DERMATITIS ATOPIC', 'DERMATITIS CONTACT', 'DRUG ERUPTION', 'ERYTHEMA', 'PHARYNGEAL ERYTHEMA', 'PRURITUS', 'PRURITUS GENERALISED', 'RASH', 'RASH ERYTHEMATOUS', 'RASH MACULO-PAPULAR', 'RASH PAPULAR', 'RASH PRURITIC', 'SKIN EXFOLIATION', 'SKIN IRRITATION', 'SKIN ODOUR ABNORMAL', 'SKIN ULCER', 'URTICARIA')"
+          then:
+            literal: "DERMATOLOGIC EVENTS"
+        - otherwise:
+            literal: ""
+
+  - name: DERM_RN
+    type: float
+    label: Row number among dermatologic TE AEs
+    derivation:
+      row_number:
+        window:
+          group_by: [STUDYID, USUBJID]
+          order_by: [AESEQ]
+          filter: "TRTEMFL = 'Y' AND CQ01NAM = 'DERMATOLOGIC EVENTS'"
+
+  - name: AOCC01FL
+    type: str
+    label: 1st Occurrence 01 Flag for CQ01
+    derivation:
+      case:
+        - when: "DERM_RN = 1"
+          then:
+            literal: "Y"
+        - otherwise:
+            literal: ""

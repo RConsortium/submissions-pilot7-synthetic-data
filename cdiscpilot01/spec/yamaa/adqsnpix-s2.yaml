@@ -1,0 +1,84 @@
+# ADQSNPIX stage S2: per-subject NPTOTMN derivation values.
+#
+# One row per subject. Reads the S1 stage output:
+#   _B_*: fields of the subject's NPTOT baseline record (QSBLFL-derived).
+#   _MEAN: mean QSSTRESN over the subject's ANL01FL='Y' NPTOT records at
+#     Week 6/8/10/12 (_WINDOW 3,4,5,6); null when the subject has none.
+#   _N_MEAN: how many records fed _MEAN (final emits the Weeks 4-24 row
+#     only when _N_MEAN >= 1).
+schema_version: "1.0"
+domain: ADQSNPIX_S2
+keys: [USUBJID]
+
+input:
+  S1:
+    path: output/adqsnpix_s1.parquet
+    empty_string: present
+
+base: S1
+
+rows:
+  - id: subj-vals
+    dataset: S1
+    group_by: [S1.USUBJID]
+    derivations:
+      USUBJID:
+        aggregate:
+          expr: "MIN(S1.USUBJID)"
+      _B_QSSEQ:
+        aggregate:
+          filter: "S1.QSTESTCD = 'NPTOT' AND S1._ABLFL = 'Y'"
+          expr: "MIN(S1.QSSEQ)"
+      _B_QSDY:
+        aggregate:
+          filter: "S1.QSTESTCD = 'NPTOT' AND S1._ABLFL = 'Y'"
+          expr: "MIN(S1.QSDY)"
+      _B_VISIT:
+        aggregate:
+          filter: "S1.QSTESTCD = 'NPTOT' AND S1._ABLFL = 'Y'"
+          expr: "MIN(S1.VISIT)"
+      _B_VISITNUM:
+        aggregate:
+          filter: "S1.QSTESTCD = 'NPTOT' AND S1._ABLFL = 'Y'"
+          expr: "MIN(S1.VISITNUM)"
+      _B_AVAL:
+        aggregate:
+          filter: "S1.QSTESTCD = 'NPTOT' AND S1._ABLFL = 'Y'"
+          expr: "MIN(S1.QSSTRESN)"
+      _B_ADT:
+        aggregate:
+          filter: "S1.QSTESTCD = 'NPTOT' AND S1._ABLFL = 'Y'"
+          expr: "MIN(S1._ADT)"
+      _MEAN:
+        aggregate:
+          filter: "S1.QSTESTCD = 'NPTOT' AND S1._IS_SEL = 'Y' AND S1._WINDOW IN (3,4,5,6)"
+          expr: "MEAN(S1.QSSTRESN)"
+      _N_MEAN:
+        aggregate:
+          filter: "S1.QSTESTCD = 'NPTOT' AND S1._IS_SEL = 'Y' AND S1._WINDOW IN (3,4,5,6)"
+          expr: "COUNT(S1.QSSTRESN)"
+
+output:
+  path: output/adqsnpix_s2.parquet
+  columns: [USUBJID, _B_QSSEQ, _B_QSDY, _B_VISIT, _B_VISITNUM, _B_AVAL,
+    _B_ADT, _MEAN, _N_MEAN]
+
+columns:
+  - name: USUBJID
+    type: str
+  - name: _B_QSSEQ
+    type: float
+  - name: _B_QSDY
+    type: float
+  - name: _B_VISIT
+    type: str
+  - name: _B_VISITNUM
+    type: float
+  - name: _B_AVAL
+    type: float
+  - name: _B_ADT
+    type: str
+  - name: _MEAN
+    type: float
+  - name: _N_MEAN
+    type: int

@@ -1,0 +1,213 @@
+schema_version: "1.0"
+domain: ADSL
+keys: [STUDYID, USUBJID]
+input:
+  DM: sdtm/dm.parquet
+  EX: sdtm/ex.parquet
+  VS: sdtm/vs.parquet
+base: DM
+
+rows:
+  - id: treated-subjects
+    dataset: DM
+    filter: "DM.ACTARM <> 'Screen Failure'"
+    derivations: {}
+
+intermediates:
+  - id: BASE_HT
+    dataset: VS
+    filter: "VS.VSTESTCD = 'HEIGHT'"
+    key: [STUDYID, USUBJID]
+    order_by: [VS.VISITNUM]
+    keep: first
+  - id: BASE_WT
+    dataset: VS
+    filter: "VS.VSTESTCD = 'WEIGHT' AND VS.VSBLFL = 'Y'"
+    key: [STUDYID, USUBJID]
+    order_by: [VS.VISITNUM]
+    keep: first
+
+output:
+  path: adsl-dryrun.parquet
+  columns: [STUDYID, USUBJID, SUBJID, SITEID, ARM, TRT01P, TRT01PN, TRT01A,
+    TRT01AN, TRTSDT, TRTEDT, TRTDUR, AVGDD, CUMDOSE, AGE, AGEGR1, AGEGR1N,
+    SEX, RACE, SAFFL, BMIBL, HEIGHTBL, WEIGHTBL]
+
+columns:
+  - name: STUDYID
+    type: str
+    label: Study Identifier
+    derivation: DM.STUDYID
+
+  - name: USUBJID
+    type: str
+    label: Unique Subject Identifier
+    derivation: DM.USUBJID
+
+  - name: SUBJID
+    type: str
+    label: Subject Identifier for the Study
+    derivation: DM.SUBJID
+
+  - name: SITEID
+    type: str
+    label: Study Site Identifier
+    derivation: DM.SITEID
+
+  - name: ARM
+    type: str
+    label: Description of Planned Arm
+    derivation: DM.ARM
+
+  - name: TRT01P
+    type: str
+    label: Planned Treatment for Period 01
+    derivation: DM.ARM
+
+  - name: TRT01PN
+    type: float
+    label: Planned Treatment for Period 01 (N)
+    derivation:
+      mapping:
+        source: DM.ARM
+        dict:
+          Placebo: 0
+          Xanomeline Low Dose: 54
+          Xanomeline High Dose: 81
+
+  - name: TRT01A
+    type: str
+    label: Actual Treatment for Period 01
+    derivation: DM.ACTARM
+
+  - name: TRT01AN
+    type: float
+    label: Actual Treatment for Period 01 (N)
+    derivation:
+      mapping:
+        source: DM.ACTARM
+        dict:
+          Placebo: 0
+          Xanomeline Low Dose: 54
+          Xanomeline High Dose: 81
+
+  - name: EX_MINDTC
+    type: str
+    label: Earliest Exposure Start (character)
+    derivation:
+      aggregate:
+        expr: "MIN(EX.EXSTDTC)"
+
+  - name: EX_MAXDTC
+    type: str
+    label: Latest Exposure End (character)
+    derivation:
+      aggregate:
+        expr: "MAX(EX.EXENDTC)"
+
+  - name: TRTSDT
+    type: date
+    label: Date of First Exposure to Treatment
+    derivation:
+      date_impute:
+        source: EX_MINDTC
+        month: 1
+        day: 1
+        invalid: null
+
+  - name: TRTEDT
+    type: date
+    label: Date of Last Exposure to Treatment
+    derivation:
+      date_impute:
+        source: EX_MAXDTC
+        month: 1
+        day: 1
+        invalid: null
+
+  - name: TRTDUR
+    type: float
+    label: Duration of Treatment (days)
+    derivation:
+      date_diff:
+        start: TRTSDT
+        end: TRTEDT
+        unit: day
+        bounds: inclusive
+
+  - name: CUMDOSE
+    type: float
+    label: Cumulative Dose (as planned)
+    derivation:
+      aggregate:
+        expr: "SUM(EX.EXDOSE)"
+
+  - name: AVGDD
+    type: float
+    label: Avg Daily Dose (as planned)
+    derivation:
+      compute:
+        expr: "CUMDOSE / NULLIF(TRTDUR, 0)"
+
+  - name: AGE
+    type: float
+    label: Age
+    derivation: DM.AGE
+
+  - name: AGEGR1
+    type: str
+    label: Pooled Age Group 1
+    derivation:
+      cut:
+        source: DM.AGE
+        breaks: [65, 80]
+        labels: ["<65", "65-80", ">80"]
+
+  - name: AGEGR1N
+    type: float
+    label: Pooled Age Group 1 (N)
+    derivation:
+      mapping:
+        source: AGEGR1
+        dict:
+          "<65": 1
+          "65-80": 2
+          ">80": 3
+
+  - name: SEX
+    type: str
+    label: Sex
+    derivation: DM.SEX
+
+  - name: RACE
+    type: str
+    label: Race
+    derivation: DM.RACE
+
+  - name: SAFFL
+    type: str
+    label: Safety Population Flag
+    derivation:
+      case:
+        - when: "TRTSDT IS NOT NULL"
+          then:
+            literal: Y
+        - otherwise:
+            literal: N
+
+  - name: HEIGHTBL
+    type: float
+    label: Baseline Height (cm)
+    derivation: BASE_HT.VSSTRESN
+
+  - name: WEIGHTBL
+    type: float
+    label: Baseline Weight (kg)
+    derivation: BASE_WT.VSSTRESN
+
+  - name: BMIBL
+    type: float
+    label: Baseline BMI (kg/m^2)
+    derivation:
+      compute:
+        expr: "WEIGHTBL / POWER(NULLIF(HEIGHTBL, 0) / 100, 2)"

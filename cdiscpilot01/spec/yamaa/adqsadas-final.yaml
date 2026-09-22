@@ -1,0 +1,501 @@
+# ADQSADAS final: union of item rows, ACTOT carried rows, and empty-window
+# LOCF rows, with BASE/CHG/PCHG and ADSL covariates.
+#
+# Row sources (all native yamaa stages):
+#   S1: per-QS-record window assignment + closest-to-target selection
+#       (_RANK = 1 is the selected record).
+#   S2: ACTOT records with forward-filled _CARRIED analysis value and _DTYPE.
+#   S3: one LOCF row per empty ACTOT window (AVAL = carried value,
+#       DTYPE='LOCF', ANL01FL='Y').
+# BASE comes from the ABLFL='Y' record's QSSTRESN via a declared lookup.
+# CHG is null on Baseline rows, else AVAL - BASE. PCHG is null on Baseline
+# rows or when CHG/BASE is null or BASE = 0, else CHG / BASE * 100.
+# Final order: (USUBJID, PARAMN, AVISITN, QSSEQ).
+schema_version: "1.0"
+domain: ADQSADAS
+keys: [STUDYID, USUBJID, PARAMCD, AVISIT, QSSEQ]
+
+input:
+  S1:
+    path: output/adqsadas_s1.parquet
+    empty_string: present
+  S2:
+    path: output/adqsadas_s2.parquet
+    empty_string: present
+  S3:
+    path: output/adqsadas_s3.parquet
+    empty_string: present
+  ADSL:
+    path: upstream/adsl.parquet
+    empty_string: present
+
+base: S1
+
+intermediates:
+  - id: ADSL_LKP
+    dataset: ADSL
+    key: [USUBJID]
+    order_by: [ADSL.USUBJID]
+    keep: first
+  - id: BASE_LKP
+    dataset: S1
+    key: [USUBJID, QSTESTCD]
+    filter: "S1._ABLFL = 'Y'"
+    order_by: [S1.QSSEQ]
+    keep: first
+
+rows:
+  # ------------------------------------------------------------------
+  # items: natural rows for ACITM01-14 (AVAL = own QSSTRESN, no LOCF)
+  # ------------------------------------------------------------------
+  - id: items
+    dataset: S1
+    filter: "S1.QSTESTCD <> 'ACTOT'"
+    derivations:
+      STUDYID: S1.STUDYID
+      USUBJID: S1.USUBJID
+      QSTESTCD: S1.QSTESTCD
+      _W: S1._WINDOW
+      _AVISIT:
+        case:
+          - when: "_W = 0"
+            then: {literal: 'Baseline'}
+          - when: "_W = 1"
+            then: {literal: 'Week 8'}
+          - when: "_W = 2"
+            then: {literal: 'Week 16'}
+          - otherwise: {literal: 'Week 24'}
+      _AVISITN:
+        case:
+          - when: "_W = 0"
+            then: {literal: 0.0}
+          - when: "_W = 1"
+            then: {literal: 8.0}
+          - when: "_W = 2"
+            then: {literal: 16.0}
+          - otherwise: {literal: 24.0}
+      _AWTARGET:
+        case:
+          - when: "_W = 0"
+            then: {literal: 1.0}
+          - when: "_W = 1"
+            then: {literal: 56.0}
+          - when: "_W = 2"
+            then: {literal: 112.0}
+          - otherwise: {literal: 168.0}
+      _AWRANGE:
+        case:
+          - when: "_W = 0"
+            then: {literal: '<=1'}
+          - when: "_W = 1"
+            then: {literal: '2-84'}
+          - when: "_W = 2"
+            then: {literal: '85-140'}
+          - otherwise: {literal: '>140'}
+      _AWLO:
+        case:
+          - when: "_W = 1"
+            then: {literal: 2.0}
+          - when: "_W = 2"
+            then: {literal: 85.0}
+          - when: "_W = 3"
+            then: {literal: 141.0}
+      _AWHI:
+        case:
+          - when: "_W = 0"
+            then: {literal: 1.0}
+          - when: "_W = 1"
+            then: {literal: 84.0}
+          - when: "_W = 2"
+            then: {literal: 140.0}
+      _AWTDIFF:
+        compute:
+          expr: "abs(_AWTARGET - S1.QSDY)"
+      VISIT: S1.VISIT
+      VISITNUM: S1.VISITNUM
+      ADY: S1.QSDY
+      _ADT_STR: S1._ADT
+      PARAMCD: S1.QSTESTCD
+      PARAM:
+        mapping:
+          source: S1.QSTESTCD
+          dict:
+            ACITM01: 'Word Recall Task'
+            ACITM02: 'Naming Objects And Fingers (Refer To 5 C'
+            ACITM03: 'Delayed Word Recall'
+            ACITM04: 'Commands'
+            ACITM05: 'Constructional Praxis'
+            ACITM06: 'Ideational Praxis'
+            ACITM07: 'Orientation'
+            ACITM08: 'Word Recognition'
+            ACITM09: 'Attention/Visual Search Task'
+            ACITM10: 'Maze Solution'
+            ACITM11: 'Spoken Language Ability'
+            ACITM12: 'Comprehension Of Spoken Language'
+            ACITM13: 'Word Finding Difficulty In Spontaneous S'
+            ACITM14: 'Recall Of Test Instructions'
+      PARAMN:
+        mapping:
+          source: S1.QSTESTCD
+          dict:
+            ACITM01: 1.0
+            ACITM02: 2.0
+            ACITM03: 3.0
+            ACITM04: 4.0
+            ACITM05: 5.0
+            ACITM06: 6.0
+            ACITM07: 7.0
+            ACITM08: 8.0
+            ACITM09: 9.0
+            ACITM10: 10.0
+            ACITM11: 11.0
+            ACITM12: 12.0
+            ACITM13: 13.0
+            ACITM14: 14.0
+      _AVAL: S1.QSSTRESN
+      _ABLFL: S1._ABLFL
+      ANL01FL: S1._IS_SEL
+      DTYPE: {literal: ''}
+      QSSEQ: S1.QSSEQ
+  # ------------------------------------------------------------------
+  # actot: ACTOT natural rows (AVAL = carried selected value)
+  # ------------------------------------------------------------------
+  - id: actot
+    dataset: S2
+    derivations:
+      STUDYID: S2.STUDYID
+      USUBJID: S2.USUBJID
+      QSTESTCD: {literal: 'ACTOT'}
+      _W: S2._WINDOW
+      _AVISIT:
+        case:
+          - when: "_W = 0"
+            then: {literal: 'Baseline'}
+          - when: "_W = 1"
+            then: {literal: 'Week 8'}
+          - when: "_W = 2"
+            then: {literal: 'Week 16'}
+          - otherwise: {literal: 'Week 24'}
+      _AVISITN:
+        case:
+          - when: "_W = 0"
+            then: {literal: 0.0}
+          - when: "_W = 1"
+            then: {literal: 8.0}
+          - when: "_W = 2"
+            then: {literal: 16.0}
+          - otherwise: {literal: 24.0}
+      _AWTARGET:
+        case:
+          - when: "_W = 0"
+            then: {literal: 1.0}
+          - when: "_W = 1"
+            then: {literal: 56.0}
+          - when: "_W = 2"
+            then: {literal: 112.0}
+          - otherwise: {literal: 168.0}
+      _AWRANGE:
+        case:
+          - when: "_W = 0"
+            then: {literal: '<=1'}
+          - when: "_W = 1"
+            then: {literal: '2-84'}
+          - when: "_W = 2"
+            then: {literal: '85-140'}
+          - otherwise: {literal: '>140'}
+      _AWLO:
+        case:
+          - when: "_W = 1"
+            then: {literal: 2.0}
+          - when: "_W = 2"
+            then: {literal: 85.0}
+          - when: "_W = 3"
+            then: {literal: 141.0}
+      _AWHI:
+        case:
+          - when: "_W = 0"
+            then: {literal: 1.0}
+          - when: "_W = 1"
+            then: {literal: 84.0}
+          - when: "_W = 2"
+            then: {literal: 140.0}
+      _AWTDIFF:
+        compute:
+          expr: "abs(_AWTARGET - S2.QSDY)"
+      VISIT: S2.VISIT
+      VISITNUM: S2.VISITNUM
+      ADY: S2.QSDY
+      _ADT_STR: S2._ADT
+      PARAMCD: {literal: 'ACTOT'}
+      PARAM: {literal: 'Adas-Cog(11) Subscore'}
+      PARAMN: {literal: 15.0}
+      _AVAL: S2._CARRIED_INCL
+      _ABLFL: S2._ABLFL
+      ANL01FL: S2._IS_SEL
+      DTYPE: S2._DTYPE
+      QSSEQ: S2.QSSEQ
+  # ------------------------------------------------------------------
+  # locf: empty-window LOCF rows for ACTOT
+  # ------------------------------------------------------------------
+  - id: locf
+    dataset: S3
+    derivations:
+      STUDYID: S3.STUDYID
+      USUBJID: S3.USUBJID
+      QSTESTCD: {literal: 'ACTOT'}
+      _W: S3._W
+      _AVISIT:
+        case:
+          - when: "_W = 1"
+            then: {literal: 'Week 8'}
+          - when: "_W = 2"
+            then: {literal: 'Week 16'}
+          - otherwise: {literal: 'Week 24'}
+      _AVISITN:
+        case:
+          - when: "_W = 1"
+            then: {literal: 8.0}
+          - when: "_W = 2"
+            then: {literal: 16.0}
+          - otherwise: {literal: 24.0}
+      _AWTARGET:
+        case:
+          - when: "_W = 1"
+            then: {literal: 56.0}
+          - when: "_W = 2"
+            then: {literal: 112.0}
+          - otherwise: {literal: 168.0}
+      _AWRANGE:
+        case:
+          - when: "_W = 1"
+            then: {literal: '2-84'}
+          - when: "_W = 2"
+            then: {literal: '85-140'}
+          - otherwise: {literal: '>140'}
+      _AWLO:
+        case:
+          - when: "_W = 1"
+            then: {literal: 2.0}
+          - when: "_W = 2"
+            then: {literal: 85.0}
+          - otherwise: {literal: 141.0}
+      _AWHI:
+        case:
+          - when: "_W = 1"
+            then: {literal: 84.0}
+          - when: "_W = 2"
+            then: {literal: 140.0}
+      _AWTDIFF:
+        compute:
+          expr: "abs(_AWTARGET - S3.ADY)"
+      VISIT: S3.VISIT
+      VISITNUM: S3.VISITNUM
+      ADY: S3.ADY
+      _ADT_STR: S3.ADT
+      PARAMCD: {literal: 'ACTOT'}
+      PARAM: {literal: 'Adas-Cog(11) Subscore'}
+      PARAMN: {literal: 15.0}
+      _AVAL: S3.AVAL
+      _ABLFL: {literal: ''}
+      ANL01FL: {literal: 'Y'}
+      DTYPE: {literal: 'LOCF'}
+      QSSEQ: S3.QSSEQ
+
+output:
+  path: output/adqsadas.parquet
+  columns: [STUDYID, SITEID, SITEGR1, USUBJID, TRTSDT, TRTEDT, TRTP, TRTPN,
+    AGE, AGEGR1, AGEGR1N, RACE, RACEN, SEX, ITTFL, EFFFL, COMP24FL,
+    AVISIT, AVISITN, VISIT, VISITNUM, ADY, ADT, PARAM, PARAMCD, PARAMN,
+    AVAL, BASE, CHG, PCHG, ABLFL, ANL01FL, DTYPE, AWRANGE, AWTARGET,
+    AWTDIFF, AWLO, AWHI, AWU, QSSEQ]
+  order_by: [USUBJID, PARAMN, AVISITN, QSSEQ]
+
+columns:
+  - name: QSTESTCD
+    type: str
+  - name: _W
+    type: int
+  - name: _AVISIT
+    type: str
+  - name: _AVISITN
+    type: float
+  - name: _AWTARGET
+    type: float
+  - name: _AWRANGE
+    type: str
+  - name: _AWLO
+    type: float
+  - name: _AWHI
+    type: float
+  - name: _AWTDIFF
+    type: float
+  - name: _ADT_STR
+    type: str
+  - name: _AVAL
+    type: float
+  - name: _ABLFL
+    type: str
+  - name: STUDYID
+    type: str
+    label: Study Identifier
+  - name: SITEID
+    type: str
+    label: Study Site Identifier
+    derivation: ADSL_LKP.SITEID
+  - name: SITEGR1
+    type: str
+    label: Pooled Site Group 1
+    derivation: ADSL_LKP.SITEGR1
+  - name: USUBJID
+    type: str
+    label: Unique Subject Identifier
+  - name: TRTSDT
+    type: date
+    label: Date of First Exposure to Treatment
+    derivation: ADSL_LKP.TRTSDT
+  - name: TRTEDT
+    type: date
+    label: Date of Last Exposure to Treatment
+    derivation: ADSL_LKP.TRTEDT
+  - name: TRTP
+    type: str
+    label: Planned Treatment
+    derivation: ADSL_LKP.TRT01P
+  - name: TRTPN
+    type: float
+    label: Planned Treatment (N)
+    derivation: ADSL_LKP.TRT01PN
+  - name: AGE
+    type: float
+    label: Age
+    derivation: ADSL_LKP.AGE
+  - name: AGEGR1
+    type: str
+    label: Pooled Age Group 1
+    derivation: ADSL_LKP.AGEGR1
+  - name: AGEGR1N
+    type: float
+    label: Pooled Age Group 1 (N)
+    derivation: ADSL_LKP.AGEGR1N
+  - name: RACE
+    type: str
+    label: Race
+    derivation: ADSL_LKP.RACE
+  - name: RACEN
+    type: float
+    label: Race (N)
+    derivation: ADSL_LKP.RACEN
+  - name: SEX
+    type: str
+    label: Sex
+    derivation: ADSL_LKP.SEX
+  - name: ITTFL
+    type: str
+    label: Intent-to-Treat Population Flag
+    derivation: ADSL_LKP.ITTFL
+  - name: EFFFL
+    type: str
+    label: Efficacy Population Flag
+    derivation: ADSL_LKP.EFFFL
+  - name: COMP24FL
+    type: str
+    label: Completers of Week 24 Population Flag
+    derivation: ADSL_LKP.COMP24FL
+  - name: AVISIT
+    type: str
+    label: Analysis Visit
+    derivation: _AVISIT
+  - name: AVISITN
+    type: float
+    label: Analysis Visit (N)
+    derivation: _AVISITN
+  - name: VISIT
+    type: str
+    label: Visit Name
+  - name: VISITNUM
+    type: float
+    label: Visit Number
+  - name: ADY
+    type: float
+    label: Analysis Relative Day
+  - name: ADT
+    type: date
+    label: Analysis Date
+    derivation:
+      date_impute:
+        source: _ADT_STR
+        month: 1
+        day: 1
+        missing: null
+  - name: PARAM
+    type: str
+    label: Parameter
+  - name: PARAMCD
+    type: str
+    label: Parameter Code
+  - name: PARAMN
+    type: float
+    label: Parameter (N)
+  - name: AVAL
+    type: float
+    label: Analysis Value
+    derivation: _AVAL
+  - name: BASE
+    type: float
+    label: Baseline Value
+    derivation: BASE_LKP.QSSTRESN
+  - name: CHG
+    type: float
+    label: Baseline Value
+    derivation:
+      case:
+        - when: "_AVISIT <> 'Baseline' AND _AVAL IS NOT NULL AND BASE_LKP.QSSTRESN IS NOT NULL"
+          then:
+            compute:
+              expr: "_AVAL - BASE_LKP.QSSTRESN"
+  - name: PCHG
+    type: float
+    label: Percent Change from Baseline
+    derivation:
+      case:
+        - when: "_AVISIT <> 'Baseline' AND _AVAL IS NOT NULL AND BASE_LKP.QSSTRESN IS NOT NULL AND BASE_LKP.QSSTRESN <> 0"
+          then:
+            compute:
+              expr: "(_AVAL - BASE_LKP.QSSTRESN) / BASE_LKP.QSSTRESN * 100"
+  - name: ABLFL
+    type: str
+    label: ABLFL
+    derivation: _ABLFL
+  - name: ANL01FL
+    type: str
+    label: Analysis Record Flag 01
+  - name: DTYPE
+    type: str
+    label: Derivation Type
+  - name: AWRANGE
+    type: str
+    label: Analysis Window Valid Relative Range
+    derivation: _AWRANGE
+  - name: AWTARGET
+    type: float
+    label: Analysis Window Target
+    derivation: _AWTARGET
+  - name: AWTDIFF
+    type: float
+    label: Analysis Window Diff from Target
+    derivation: _AWTDIFF
+  - name: AWLO
+    type: float
+    label: Analysis Window Beginning Timepoint
+    derivation: _AWLO
+  - name: AWHI
+    type: float
+    label: Analysis Window Ending Timepoint
+    derivation: _AWHI
+  - name: AWU
+    type: str
+    label: Analysis Window Unit
+    derivation: {literal: 'DAYS'}
+  - name: QSSEQ
+    type: float
+    label: Sequence Number

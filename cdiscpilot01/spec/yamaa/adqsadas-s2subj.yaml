@@ -1,0 +1,97 @@
+# ADQSADAS stage 2b: per-subject latest-record keys for empty-window detection.
+#
+# One row per subject. Reads the S2 stage output (ACTOT records with _WINDOW
+# and _KEY as stored columns). For each subject:
+#   _MAX_KEY_W{w} = max _KEY over windows < w   (latest record before window w)
+#   _WIN_MAX_W{w} = max _KEY over window w      (latest record inside window w)
+# Window w is empty when _WIN_MAX_W{w} is null (no records in the window).
+# S3 builds the LOCF row from the record whose _KEY = _MAX_KEY_W{w}.
+#
+# Aggregates follow the benchmark pattern: qualified dataset relation +
+# filter, on a grouped row template (REQ-1088).
+schema_version: "1.0"
+domain: ADQSADAS_S2SUBJ
+keys: [USUBJID]
+
+input:
+  S2:
+    path: output/adqsadas_s2.parquet
+    empty_string: present
+
+base: S2
+
+rows:
+  - id: subj-keys
+    dataset: S2
+    group_by: [S2.USUBJID]
+    derivations:
+      USUBJID:
+        aggregate:
+          expr: "MIN(S2.USUBJID)"
+      _MAX_KEY_W1:
+        aggregate:
+          filter: "S2._WINDOW < 1"
+          expr: "MAX(S2._KEY)"
+      _MAX_KEY_W2:
+        aggregate:
+          filter: "S2._WINDOW < 2"
+          expr: "MAX(S2._KEY)"
+      _MAX_KEY_W3:
+        aggregate:
+          filter: "S2._WINDOW < 3"
+          expr: "MAX(S2._KEY)"
+      _WIN_MAX_W1:
+        aggregate:
+          filter: "S2._WINDOW = 1"
+          expr: "MAX(S2._KEY)"
+      _WIN_MAX_W2:
+        aggregate:
+          filter: "S2._WINDOW = 2"
+          expr: "MAX(S2._KEY)"
+      _WIN_MAX_W3:
+        aggregate:
+          filter: "S2._WINDOW = 3"
+          expr: "MAX(S2._KEY)"
+      _EMPTY_W1:
+        case:
+          - when: "_WIN_MAX_W1 IS NULL"
+            then: {literal: 1}
+          - otherwise: {literal: 0}
+      _EMPTY_W2:
+        case:
+          - when: "_WIN_MAX_W2 IS NULL"
+            then: {literal: 1}
+          - otherwise: {literal: 0}
+      _EMPTY_W3:
+        case:
+          - when: "_WIN_MAX_W3 IS NULL"
+            then: {literal: 1}
+          - otherwise: {literal: 0}
+
+output:
+  path: output/adqsadas_s2subj.parquet
+  columns: [USUBJID, _MAX_KEY_W1, _MAX_KEY_W2, _MAX_KEY_W3,
+    _WIN_MAX_W1, _WIN_MAX_W2, _WIN_MAX_W3,
+    _EMPTY_W1, _EMPTY_W2, _EMPTY_W3]
+
+columns:
+  - name: USUBJID
+    type: str
+  - name: _MAX_KEY_W1
+    type: float
+  - name: _MAX_KEY_W2
+    type: float
+  - name: _MAX_KEY_W3
+    type: float
+  - name: _WIN_MAX_W1
+    type: float
+  - name: _WIN_MAX_W2
+    type: float
+  - name: _WIN_MAX_W3
+    type: float
+  - name: _EMPTY_W1
+    type: int
+  - name: _EMPTY_W2
+    type: int
+  - name: _EMPTY_W3
+    type: int

@@ -1,0 +1,83 @@
+# ADLBH PREVMAP: previous scheduled AVAL for the underscore parameters.
+#
+# The "change from previous visit, relative to normal range" (_U_RAW) requires
+# PREV_AVAL = the AVAL of the previous SCHEDULED record within
+# (USUBJID, LBTESTCD), ordered by AVISITN. This reproduces upstream
+# build_adlbh.py exactly:
+#   - the shift population excludes raw VISIT = 'BASELINE' (the official
+#     builder drops it; 'SCREENING 1' is the baseline), plus
+#     'AMBUL ECG REMOVAL' and 'RETRIEVAL';
+#   - unscheduled records (VISIT LIKE 'UNSCHEDULED%') are excluded from the
+#     shift (AVISITN is null for them in the official frame);
+#   - ordering is by AVISITN (SCREENING 1 -> 0, WEEK n -> n).
+#
+# This spec outputs one row per scheduled HEMATOLOGY LB record with its
+# PREV_AVAL. adlbh-native.yaml joins to this via orchestration (the join key
+# USUBJID/LBTESTCD/LBSEQ back onto the original LB records).
+schema_version: "1.0"
+domain: ADLBH_PREVMAP
+keys: [USUBJID, LBTESTCD, LBSEQ]
+
+input:
+  LB:
+    path: sdtm/lb.parquet
+
+base: LB
+
+rows:
+  - id: sched-lb
+    dataset: LB
+    filter: "LB.LBCAT = 'HEMATOLOGY' AND LB.VISIT NOT IN ('AMBUL ECG REMOVAL', 'BASELINE', 'RETRIEVAL') AND LB.VISIT NOT LIKE 'UNSCHEDULED%'"
+    derivations:
+      USUBJID: LB.USUBJID
+      LBTESTCD: LB.LBTESTCD
+      LBSEQ: LB.LBSEQ
+      _LBDTC: LB.LBDTC
+      _AVISITN:
+        case:
+          - when: "LB.VISIT = 'SCREENING 1'"
+            then: {literal: 0.0}
+          - when: "LB.VISIT = 'WEEK 2'"
+            then: {literal: 2.0}
+          - when: "LB.VISIT = 'WEEK 4'"
+            then: {literal: 4.0}
+          - when: "LB.VISIT = 'WEEK 6'"
+            then: {literal: 6.0}
+          - when: "LB.VISIT = 'WEEK 8'"
+            then: {literal: 8.0}
+          - when: "LB.VISIT = 'WEEK 12'"
+            then: {literal: 12.0}
+          - when: "LB.VISIT = 'WEEK 16'"
+            then: {literal: 16.0}
+          - when: "LB.VISIT = 'WEEK 20'"
+            then: {literal: 20.0}
+          - when: "LB.VISIT = 'WEEK 24'"
+            then: {literal: 24.0}
+          - when: "LB.VISIT = 'WEEK 26'"
+            then: {literal: 26.0}
+          - otherwise: {literal: null}
+      PREV_AVAL:
+        row_value:
+          source: LB.LBSTRESN
+          offset: -1
+          window:
+            group_by: [USUBJID, LBTESTCD]
+            order_by: [{variable: _AVISITN}, {variable: _LBDTC}, {variable: LBSEQ}]
+
+output:
+  path: output/adlbh-prevmap.parquet
+  columns: [USUBJID, LBTESTCD, LBSEQ, PREV_AVAL]
+
+columns:
+  - name: USUBJID
+    type: str
+  - name: LBTESTCD
+    type: str
+  - name: LBSEQ
+    type: float
+  - name: _LBDTC
+    type: str
+  - name: _AVISITN
+    type: float
+  - name: PREV_AVAL
+    type: float

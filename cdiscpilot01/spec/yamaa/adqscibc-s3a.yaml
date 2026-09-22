@@ -1,0 +1,59 @@
+schema_version: "1.0"
+domain: ADQSCIBC_S3A
+keys: [USUBJID]
+input:
+  S1:
+    path: adqscibc-s1.parquet
+    empty_string: present
+base: S1
+
+rows:
+  # Latest QS record with QSDY < 85 (Week 16 LOCF source)
+  - id: prior16
+    dataset: S1
+    group_by: [S1.USUBJID, S1.QSSEQ]
+    filter: "_R16 = 1"
+    derivations:
+      _U: S1.USUBJID
+      _Q: {aggregate: "ONLY(S1.QSDY)"}
+      _S: {aggregate: "ONLY(S1.QSSEQ)"}
+      _R16:
+        rank:
+          window:
+            group_by: [_U]
+            order_by: [{variable: _Q, direction: desc}, {variable: _S, direction: desc}]
+            filter: "_Q < 85"
+      _P16_VISIT: {aggregate: "ONLY(S1.VISIT)"}
+      _P16_VISITNUM: {aggregate: "ONLY(S1.VISITNUM)"}
+      _P16_QSDY: {aggregate: "ONLY(S1.QSDY)"}
+      _P16_QSDTC: {aggregate: "ONLY(S1.QSDTC)"}
+      _P16_QSSEQ: S1.QSSEQ
+
+output:
+  path: adqscibc-s3a.parquet
+  order_by: [USUBJID]
+  columns: [USUBJID,
+    _P16_VISIT, _P16_VISITNUM, _P16_QSDY, _P16_QSDTC, _P16_QSSEQ]
+
+columns:
+  - name: _U
+    type: str
+  - name: _Q
+    type: float
+  - name: _S
+    type: float
+  - name: _R16
+    type: float
+  - name: USUBJID
+    type: str
+    derivation: {source: _U}
+  - name: _P16_VISIT
+    type: str
+  - name: _P16_VISITNUM
+    type: float
+  - name: _P16_QSDY
+    type: float
+  - name: _P16_QSDTC
+    type: str
+  - name: _P16_QSSEQ
+    type: float
