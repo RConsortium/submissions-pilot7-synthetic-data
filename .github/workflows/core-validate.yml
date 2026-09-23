@@ -201,13 +201,16 @@ jobs:
           set +e
           exe="${{ steps.core.outputs.exe }}"; core_dir="${{ steps.core.outputs.dir }}"
           data="$PWD/xpt/sdtm"
+          # Compute the output path BEFORE the subshell cd's into core_dir --
+          # inside the subshell $PWD would be core_dir, not the repo root.
+          out="$PWD/core-report-SDTM"
           if ! ls "$data"/*.xpt >/dev/null 2>&1; then echo "No SDTM XPT -- skipping."; exit 0; fi
           ( cd "$core_dir" && "$exe" validate \
               --standard "$SDTM_STANDARD" --version "$SDTM_VERSION" \
               --controlled-terminology-package "${{ steps.core.outputs.ct_sdtm }}" \
               --data "$data" --filetype xpt \
               --output-format JSON --output-format XLSX \
-              --output "$PWD/core-report-SDTM" )
+              --output "$out" )
           echo "CORE SDTM exit code: $?"
           ls -la "$PWD"/core-report-SDTM* 2>/dev/null || echo "::warning::No SDTM report produced"
 
@@ -218,6 +221,8 @@ jobs:
           set +e
           exe="${{ steps.core.outputs.exe }}"; core_dir="${{ steps.core.outputs.dir }}"
           data="$PWD/xpt/adam"
+          # Output path computed before the subshell cd (see Validate SDTM).
+          out="$PWD/core-report-ADAM"
           if ! ls "$data"/*.xpt >/dev/null 2>&1; then echo "No ADaM XPT -- skipping."; exit 0; fi
           ( cd "$core_dir" && "$exe" validate \
               --standard "$ADAM_STANDARD" --version "$ADAM_VERSION" \
@@ -225,7 +230,7 @@ jobs:
               --controlled-terminology-package "${{ steps.core.outputs.ct_sdtm }}" \
               --data "$data" --filetype xpt \
               --output-format JSON --output-format XLSX \
-              --output "$PWD/core-report-ADAM" )
+              --output "$out" )
           echo "CORE ADaM exit code: $?"
           ls -la "$PWD"/core-report-ADAM* 2>/dev/null || echo "::warning::No ADaM report produced"
 
@@ -268,12 +273,14 @@ jobs:
           echo "Staged files:"; find "staging/$study" -type f
 
       - name: Upload study reports
-        if: always()
+        # Not always(): a discovered study must produce at least one report,
+        # so an empty staging dir means something upstream failed silently.
+        # error (not warn) surfaces that instead of yielding no artifact.
         uses: actions/upload-artifact@v5
         with:
           name: core-reports-${{ matrix.study }}
           path: staging/
-          if-no-files-found: warn
+          if-no-files-found: error
           retention-days: 90
 
       - name: Job summary
