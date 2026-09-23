@@ -11,8 +11,12 @@
 def norm: ascii_upcase | sub("\\.XPT$"; "");
 def trunc($n): if (length > $n) then .[0:$n] else . end;
 def cell: gsub("\\|"; "\\|") | gsub("\n"; " ");
-def joinvec: if (. == null or (length == 0)) then "-"
-             else map(if . == null then "null" else tostring end) | join(";") end;
+def joinvec:
+  if (. == null) then "-"
+  elif (type != "array") then tostring          # CORE sometimes emits a bare
+  elif (length == 0) then "-"                    # string here (e.g. a rule
+  else map(if . == null then "null"             # "Failed to ..." error) instead
+           else tostring end) | join(";") end;   # of a list -- do not iterate it
 
 [ .Issue_Summary[]? | select(((.dataset // "") | norm) == $domain) ] as $srows |
 [ .Issue_Details[]? | select(((.dataset // "") | norm) == $domain) ] as $drows |
