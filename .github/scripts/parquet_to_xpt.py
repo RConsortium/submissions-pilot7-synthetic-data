@@ -71,6 +71,19 @@ def main() -> int:
             print(f"::warning::parquet_to_xpt: {msg}")
 
     print(f"\nConverted {ok}/{len(sources)} datasets to XPT in {args.dst}")
+    # Zero successes out of a non-empty input is a systemic failure (a missing
+    # dependency, an unreadable format) -- fail loudly rather than let the
+    # caller carry on and silently produce no reports. Partial failures still
+    # succeed: one bad table must not block a whole domain.
+    if ok == 0:
+        print(
+            "::error::parquet_to_xpt: converted 0 datasets -- treating as a "
+            "systemic failure (check pandas/pyarrow/pyreadstat install)."
+            if os.environ.get("GITHUB_ACTIONS") == "true"
+            else "ERROR: converted 0 datasets -- systemic failure.",
+            file=sys.stderr,
+        )
+        return 1
     return 0
 
 
