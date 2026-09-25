@@ -1,0 +1,652 @@
+schema_version: "1.0"
+domain: ADADAS
+keys: [STUDYID, USUBJID, PARAMCD, AVISITN, QSSEQ]
+input:
+  OBS: adadas-obs.parquet
+  SLIM: adadas-actot.parquet
+base: OBS
+
+output:
+  path: adadas-out.parquet
+  columns: [STUDYID, SITEID, SITEGR1, USUBJID, TRTSDT, TRTEDT, TRTP, TRTPN,
+    AGE, AGEGR1, AGEGR1N, RACE, RACEN, SEX, ITTFL, EFFFL, COMP24FL, AVISIT,
+    AVISITN, VISIT, VISITNUM, ADY, ADT, PARAM, PARAMCD, PARAMN, AVAL,
+    BASE, CHG, PCHG, ABLFL, ANL01FL, DTYPE, AWRANGE, AWTARGET, AWTDIFF,
+    AWLO, AWHI, AWU, QSSEQ]
+
+columns:
+  - name: STUDYID
+    type: str
+    label: Study Identifier
+  - name: SITEID
+    type: str
+    label: Study Site Identifier
+  - name: SITEGR1
+    type: str
+    label: Site Group 1
+  - name: USUBJID
+    type: str
+    label: Unique Subject Identifier
+  - name: TRTSDT
+    type: date
+    label: Date of First Exposure to Treatment
+  - name: TRTEDT
+    type: date
+    label: Date of Last Exposure to Treatment
+  - name: TRTP
+    type: str
+    label: Planned Treatment
+  - name: TRTPN
+    type: float
+    label: Planned Treatment (N)
+  - name: AGE
+    type: float
+    label: Age
+  - name: AGEGR1
+    type: str
+    label: Age Group 1
+  - name: AGEGR1N
+    type: float
+    label: Age Group 1 (N)
+  - name: RACE
+    type: str
+    label: Race
+  - name: RACEN
+    type: float
+    label: Race (N)
+  - name: SEX
+    type: str
+    label: Sex
+  - name: ITTFL
+    type: str
+    label: Intent-To-Treat Population Flag
+  - name: EFFFL
+    type: str
+    label: Efficacy Population Flag
+  - name: COMP24FL
+    type: str
+    label: Completers of Week 24 Population Flag
+  - name: AVISIT
+    type: str
+    label: Analysis Visit
+  - name: AVISITN
+    type: float
+    label: Analysis Visit (N)
+  - name: VISIT
+    type: str
+    label: Visit Name
+  - name: VISITNUM
+    type: float
+    label: Visit Number
+  - name: ADY
+    type: float
+    label: Analysis Relative Day
+  - name: ADT
+    type: date
+    label: Analysis Date
+  - name: PARAM
+    type: str
+    label: Parameter
+  - name: PARAMCD
+    type: str
+    label: Parameter Code
+  - name: PARAMN
+    type: float
+    label: Parameter (N)
+  - name: AVAL
+    type: float
+    label: Analysis Value
+  - name: ABLFL
+    type: str
+    label: Baseline Record Flag
+  - name: _HIT
+    type: float
+    label: QSSEQ of an observed ANL01FL record at the LOCF visit, if any (internal)
+  - name: _SRC_QSSEQ
+    type: float
+    label: carried QSSEQ (internal)
+  - name: _SRC_AVAL
+    type: float
+    label: carried AVAL (internal)
+  - name: _SRC_ADY
+    type: float
+    label: carried ADY (internal)
+  - name: _SRC_ADT
+    type: date
+    label: carried ADT (internal)
+  - name: _SRC_VISIT
+    type: str
+    label: carried VISIT (internal)
+  - name: _SRC_VISITNUM
+    type: float
+    label: carried VISITNUM (internal)
+  - name: ANL01FL
+    type: str
+    label: Analysis Record Flag 01
+  - name: DTYPE
+    type: str
+    label: Derivation Type
+  - name: QSSEQ
+    type: float
+    label: Sequence Number
+
+  # --- Window metadata: uniform from AVISIT, so LOCF rows re-derive it ---
+  - name: AWRANGE
+    type: str
+    label: Analysis Window Valid Relative Range
+    derivation:
+      mapping:
+        source: AVISIT
+        missing: null
+        dict:
+          "Baseline": "<=1"
+          "Week 8": "2-84"
+          "Week 16": "85-140"
+          "Week 24": ">140"
+  - name: AWTARGET
+    type: float
+    label: Analysis Window Target
+    derivation:
+      mapping:
+        source: AVISIT
+        missing: null
+        dict:
+          "Baseline": 1.0
+          "Week 8": 56.0
+          "Week 16": 112.0
+          "Week 24": 168.0
+  - name: AWLO
+    type: float
+    label: Analysis Window Low Range
+    derivation:
+      mapping:
+        source: AVISIT
+        missing: null
+        dict:
+          "Week 8": 2.0
+          "Week 16": 85.0
+          "Week 24": 141.0
+  - name: AWHI
+    type: float
+    label: Analysis Window High Range
+    derivation:
+      mapping:
+        source: AVISIT
+        missing: null
+        dict:
+          "Baseline": 1.0
+          "Week 8": 84.0
+          "Week 16": 140.0
+  - name: AWU
+    type: str
+    label: Analysis Window Unit
+    derivation:
+      literal: "DAYS"
+  - name: AWTDIFF
+    type: float
+    label: Analysis Window Difference
+    derivation:
+      compute:
+        expr: "ABS(AWTARGET - ADY)"
+
+  # --- Baseline / change: uniform over observed + LOCF rows ---
+  - name: BASE
+    type: float
+    label: Baseline Value
+    derivation:
+      aggregate:
+        filter: "ABLFL = 'Y'"
+        group_by: [STUDYID, USUBJID, PARAMCD]
+        expr: "ONLY(AVAL)"
+  - name: CHG
+    type: float
+    label: Change from Baseline
+    derivation:
+      case:
+        - when: "ABLFL IS NULL"
+          then:
+            compute:
+              expr: "AVAL - BASE"
+  - name: PCHG
+    type: float
+    label: Percent Change from Baseline
+    derivation:
+      case:
+        # admiral returns NA when the baseline denominator is zero; the
+        # engine raises division_by_zero instead, so guard it explicitly.
+        - when: "ABLFL IS NULL AND BASE <> 0"
+          then:
+            compute:
+              expr: "100 * (AVAL - BASE) / BASE"
+
+rows:
+  - id: base
+    dataset: OBS
+    derivations:
+      STUDYID: OBS.STUDYID
+      SITEID: OBS.SITEID
+      SITEGR1: OBS.SITEGR1
+      USUBJID: OBS.USUBJID
+      TRTSDT: OBS.TRTSDT
+      TRTEDT: OBS.TRTEDT
+      TRTP: OBS.TRTP
+      TRTPN: OBS.TRTPN
+      AGE: OBS.AGE
+      AGEGR1: OBS.AGEGR1
+      AGEGR1N: OBS.AGEGR1N
+      RACE: OBS.RACE
+      RACEN: OBS.RACEN
+      SEX: OBS.SEX
+      ITTFL: OBS.ITTFL
+      EFFFL: OBS.EFFFL
+      COMP24FL: OBS.COMP24FL
+      AVISIT: OBS.AVISIT
+      AVISITN: OBS.AVISITN
+      VISIT: OBS.VISIT
+      VISITNUM: OBS.VISITNUM
+      ADY: OBS.ADY
+      ADT: OBS.ADT
+      PARAM: OBS.PARAM
+      PARAMCD: OBS.PARAMCD
+      PARAMN: OBS.PARAMN
+      AVAL: OBS.AVAL
+      ABLFL: OBS.ABLFL
+      ANL01FL: OBS.ANL01FL
+      DTYPE:
+        literal: null
+      QSSEQ: OBS.QSSEQ
+      _HIT:
+        literal: null
+      _SRC_QSSEQ:
+        literal: null
+      _SRC_AVAL:
+        literal: null
+      _SRC_ADY:
+        literal: null
+      _SRC_ADT:
+        literal: null
+      _SRC_VISIT:
+        literal: null
+      _SRC_VISITNUM:
+        literal: null
+
+  - id: locf8
+    dataset: OBS
+    group_by: [OBS.STUDYID, OBS.SITEID, OBS.SITEGR1, OBS.USUBJID, OBS.TRTSDT,
+      OBS.TRTEDT, OBS.TRTP, OBS.TRTPN, OBS.AGE, OBS.AGEGR1, OBS.AGEGR1N,
+      OBS.RACE, OBS.RACEN, OBS.SEX, OBS.ITTFL, OBS.EFFFL, OBS.COMP24FL]
+    filter: "_HIT IS NULL AND _SRC_QSSEQ IS NOT NULL"
+    derivations:
+      _HIT:
+        lookup:
+          dataset: SLIM
+          key_base: [OBS.STUDYID, OBS.USUBJID]
+          key: [STUDYID, USUBJID]
+          filter: "SLIM.PARAMCD = 'ACTOT' AND SLIM.ANL01FL = 'Y' AND SLIM.AVISITN = 8"
+          value: QSSEQ
+          missing: null
+      _SRC_QSSEQ:
+        lookup:
+          dataset: SLIM
+          key_base: [OBS.STUDYID, OBS.USUBJID]
+          key: [STUDYID, USUBJID]
+          filter: "SLIM.PARAMCD = 'ACTOT' AND SLIM.ANL01FL = 'Y' AND SLIM.AVISITN < 8"
+          order_by:
+            - variable: SLIM.AVISITN
+              direction: desc
+          keep: first
+          value: QSSEQ
+          missing: null
+      _SRC_AVAL:
+        lookup:
+          dataset: SLIM
+          key_base: [OBS.STUDYID, OBS.USUBJID]
+          key: [STUDYID, USUBJID]
+          filter: "SLIM.PARAMCD = 'ACTOT' AND SLIM.ANL01FL = 'Y' AND SLIM.AVISITN < 8"
+          order_by:
+            - variable: SLIM.AVISITN
+              direction: desc
+          keep: first
+          value: AVAL
+          missing: null
+      _SRC_ADY:
+        lookup:
+          dataset: SLIM
+          key_base: [OBS.STUDYID, OBS.USUBJID]
+          key: [STUDYID, USUBJID]
+          filter: "SLIM.PARAMCD = 'ACTOT' AND SLIM.ANL01FL = 'Y' AND SLIM.AVISITN < 8"
+          order_by:
+            - variable: SLIM.AVISITN
+              direction: desc
+          keep: first
+          value: ADY
+          missing: null
+      _SRC_ADT:
+        lookup:
+          dataset: SLIM
+          key_base: [OBS.STUDYID, OBS.USUBJID]
+          key: [STUDYID, USUBJID]
+          filter: "SLIM.PARAMCD = 'ACTOT' AND SLIM.ANL01FL = 'Y' AND SLIM.AVISITN < 8"
+          order_by:
+            - variable: SLIM.AVISITN
+              direction: desc
+          keep: first
+          value: ADT
+          missing: null
+      _SRC_VISIT:
+        lookup:
+          dataset: SLIM
+          key_base: [OBS.STUDYID, OBS.USUBJID]
+          key: [STUDYID, USUBJID]
+          filter: "SLIM.PARAMCD = 'ACTOT' AND SLIM.ANL01FL = 'Y' AND SLIM.AVISITN < 8"
+          order_by:
+            - variable: SLIM.AVISITN
+              direction: desc
+          keep: first
+          value: VISIT
+          missing: null
+      _SRC_VISITNUM:
+        lookup:
+          dataset: SLIM
+          key_base: [OBS.STUDYID, OBS.USUBJID]
+          key: [STUDYID, USUBJID]
+          filter: "SLIM.PARAMCD = 'ACTOT' AND SLIM.ANL01FL = 'Y' AND SLIM.AVISITN < 8"
+          order_by:
+            - variable: SLIM.AVISITN
+              direction: desc
+          keep: first
+          value: VISITNUM
+          missing: null
+      STUDYID: OBS.STUDYID
+      SITEID: OBS.SITEID
+      SITEGR1: OBS.SITEGR1
+      USUBJID: OBS.USUBJID
+      TRTSDT: OBS.TRTSDT
+      TRTEDT: OBS.TRTEDT
+      TRTP: OBS.TRTP
+      TRTPN: OBS.TRTPN
+      AGE: OBS.AGE
+      AGEGR1: OBS.AGEGR1
+      AGEGR1N: OBS.AGEGR1N
+      RACE: OBS.RACE
+      RACEN: OBS.RACEN
+      SEX: OBS.SEX
+      ITTFL: OBS.ITTFL
+      EFFFL: OBS.EFFFL
+      COMP24FL: OBS.COMP24FL
+      AVISIT:
+        literal: "Week 8"
+      AVISITN:
+        literal: 8.0
+      VISIT: _SRC_VISIT
+      VISITNUM: _SRC_VISITNUM
+      ADY: _SRC_ADY
+      ADT: _SRC_ADT
+      PARAM:
+        literal: "Adas-Cog(11) Subscore"
+      PARAMCD:
+        literal: "ACTOT"
+      PARAMN:
+        literal: 15.0
+      AVAL: _SRC_AVAL
+      ABLFL:
+        literal: null
+      ANL01FL:
+        literal: "Y"
+      DTYPE:
+        literal: "LOCF"
+      QSSEQ: _SRC_QSSEQ
+
+  - id: locf16
+    dataset: OBS
+    group_by: [OBS.STUDYID, OBS.SITEID, OBS.SITEGR1, OBS.USUBJID, OBS.TRTSDT,
+      OBS.TRTEDT, OBS.TRTP, OBS.TRTPN, OBS.AGE, OBS.AGEGR1, OBS.AGEGR1N,
+      OBS.RACE, OBS.RACEN, OBS.SEX, OBS.ITTFL, OBS.EFFFL, OBS.COMP24FL]
+    filter: "_HIT IS NULL AND _SRC_QSSEQ IS NOT NULL"
+    derivations:
+      _HIT:
+        lookup:
+          dataset: SLIM
+          key_base: [OBS.STUDYID, OBS.USUBJID]
+          key: [STUDYID, USUBJID]
+          filter: "SLIM.PARAMCD = 'ACTOT' AND SLIM.ANL01FL = 'Y' AND SLIM.AVISITN = 16"
+          value: QSSEQ
+          missing: null
+      _SRC_QSSEQ:
+        lookup:
+          dataset: SLIM
+          key_base: [OBS.STUDYID, OBS.USUBJID]
+          key: [STUDYID, USUBJID]
+          filter: "SLIM.PARAMCD = 'ACTOT' AND SLIM.ANL01FL = 'Y' AND SLIM.AVISITN < 16"
+          order_by:
+            - variable: SLIM.AVISITN
+              direction: desc
+          keep: first
+          value: QSSEQ
+          missing: null
+      _SRC_AVAL:
+        lookup:
+          dataset: SLIM
+          key_base: [OBS.STUDYID, OBS.USUBJID]
+          key: [STUDYID, USUBJID]
+          filter: "SLIM.PARAMCD = 'ACTOT' AND SLIM.ANL01FL = 'Y' AND SLIM.AVISITN < 16"
+          order_by:
+            - variable: SLIM.AVISITN
+              direction: desc
+          keep: first
+          value: AVAL
+          missing: null
+      _SRC_ADY:
+        lookup:
+          dataset: SLIM
+          key_base: [OBS.STUDYID, OBS.USUBJID]
+          key: [STUDYID, USUBJID]
+          filter: "SLIM.PARAMCD = 'ACTOT' AND SLIM.ANL01FL = 'Y' AND SLIM.AVISITN < 16"
+          order_by:
+            - variable: SLIM.AVISITN
+              direction: desc
+          keep: first
+          value: ADY
+          missing: null
+      _SRC_ADT:
+        lookup:
+          dataset: SLIM
+          key_base: [OBS.STUDYID, OBS.USUBJID]
+          key: [STUDYID, USUBJID]
+          filter: "SLIM.PARAMCD = 'ACTOT' AND SLIM.ANL01FL = 'Y' AND SLIM.AVISITN < 16"
+          order_by:
+            - variable: SLIM.AVISITN
+              direction: desc
+          keep: first
+          value: ADT
+          missing: null
+      _SRC_VISIT:
+        lookup:
+          dataset: SLIM
+          key_base: [OBS.STUDYID, OBS.USUBJID]
+          key: [STUDYID, USUBJID]
+          filter: "SLIM.PARAMCD = 'ACTOT' AND SLIM.ANL01FL = 'Y' AND SLIM.AVISITN < 16"
+          order_by:
+            - variable: SLIM.AVISITN
+              direction: desc
+          keep: first
+          value: VISIT
+          missing: null
+      _SRC_VISITNUM:
+        lookup:
+          dataset: SLIM
+          key_base: [OBS.STUDYID, OBS.USUBJID]
+          key: [STUDYID, USUBJID]
+          filter: "SLIM.PARAMCD = 'ACTOT' AND SLIM.ANL01FL = 'Y' AND SLIM.AVISITN < 16"
+          order_by:
+            - variable: SLIM.AVISITN
+              direction: desc
+          keep: first
+          value: VISITNUM
+          missing: null
+      STUDYID: OBS.STUDYID
+      SITEID: OBS.SITEID
+      SITEGR1: OBS.SITEGR1
+      USUBJID: OBS.USUBJID
+      TRTSDT: OBS.TRTSDT
+      TRTEDT: OBS.TRTEDT
+      TRTP: OBS.TRTP
+      TRTPN: OBS.TRTPN
+      AGE: OBS.AGE
+      AGEGR1: OBS.AGEGR1
+      AGEGR1N: OBS.AGEGR1N
+      RACE: OBS.RACE
+      RACEN: OBS.RACEN
+      SEX: OBS.SEX
+      ITTFL: OBS.ITTFL
+      EFFFL: OBS.EFFFL
+      COMP24FL: OBS.COMP24FL
+      AVISIT:
+        literal: "Week 16"
+      AVISITN:
+        literal: 16.0
+      VISIT: _SRC_VISIT
+      VISITNUM: _SRC_VISITNUM
+      ADY: _SRC_ADY
+      ADT: _SRC_ADT
+      PARAM:
+        literal: "Adas-Cog(11) Subscore"
+      PARAMCD:
+        literal: "ACTOT"
+      PARAMN:
+        literal: 15.0
+      AVAL: _SRC_AVAL
+      ABLFL:
+        literal: null
+      ANL01FL:
+        literal: "Y"
+      DTYPE:
+        literal: "LOCF"
+      QSSEQ: _SRC_QSSEQ
+
+  - id: locf24
+    dataset: OBS
+    group_by: [OBS.STUDYID, OBS.SITEID, OBS.SITEGR1, OBS.USUBJID, OBS.TRTSDT,
+      OBS.TRTEDT, OBS.TRTP, OBS.TRTPN, OBS.AGE, OBS.AGEGR1, OBS.AGEGR1N,
+      OBS.RACE, OBS.RACEN, OBS.SEX, OBS.ITTFL, OBS.EFFFL, OBS.COMP24FL]
+    filter: "_HIT IS NULL AND _SRC_QSSEQ IS NOT NULL"
+    derivations:
+      _HIT:
+        lookup:
+          dataset: SLIM
+          key_base: [OBS.STUDYID, OBS.USUBJID]
+          key: [STUDYID, USUBJID]
+          filter: "SLIM.PARAMCD = 'ACTOT' AND SLIM.ANL01FL = 'Y' AND SLIM.AVISITN = 24"
+          value: QSSEQ
+          missing: null
+      _SRC_QSSEQ:
+        lookup:
+          dataset: SLIM
+          key_base: [OBS.STUDYID, OBS.USUBJID]
+          key: [STUDYID, USUBJID]
+          filter: "SLIM.PARAMCD = 'ACTOT' AND SLIM.ANL01FL = 'Y' AND SLIM.AVISITN < 24"
+          order_by:
+            - variable: SLIM.AVISITN
+              direction: desc
+          keep: first
+          value: QSSEQ
+          missing: null
+      _SRC_AVAL:
+        lookup:
+          dataset: SLIM
+          key_base: [OBS.STUDYID, OBS.USUBJID]
+          key: [STUDYID, USUBJID]
+          filter: "SLIM.PARAMCD = 'ACTOT' AND SLIM.ANL01FL = 'Y' AND SLIM.AVISITN < 24"
+          order_by:
+            - variable: SLIM.AVISITN
+              direction: desc
+          keep: first
+          value: AVAL
+          missing: null
+      _SRC_ADY:
+        lookup:
+          dataset: SLIM
+          key_base: [OBS.STUDYID, OBS.USUBJID]
+          key: [STUDYID, USUBJID]
+          filter: "SLIM.PARAMCD = 'ACTOT' AND SLIM.ANL01FL = 'Y' AND SLIM.AVISITN < 24"
+          order_by:
+            - variable: SLIM.AVISITN
+              direction: desc
+          keep: first
+          value: ADY
+          missing: null
+      _SRC_ADT:
+        lookup:
+          dataset: SLIM
+          key_base: [OBS.STUDYID, OBS.USUBJID]
+          key: [STUDYID, USUBJID]
+          filter: "SLIM.PARAMCD = 'ACTOT' AND SLIM.ANL01FL = 'Y' AND SLIM.AVISITN < 24"
+          order_by:
+            - variable: SLIM.AVISITN
+              direction: desc
+          keep: first
+          value: ADT
+          missing: null
+      _SRC_VISIT:
+        lookup:
+          dataset: SLIM
+          key_base: [OBS.STUDYID, OBS.USUBJID]
+          key: [STUDYID, USUBJID]
+          filter: "SLIM.PARAMCD = 'ACTOT' AND SLIM.ANL01FL = 'Y' AND SLIM.AVISITN < 24"
+          order_by:
+            - variable: SLIM.AVISITN
+              direction: desc
+          keep: first
+          value: VISIT
+          missing: null
+      _SRC_VISITNUM:
+        lookup:
+          dataset: SLIM
+          key_base: [OBS.STUDYID, OBS.USUBJID]
+          key: [STUDYID, USUBJID]
+          filter: "SLIM.PARAMCD = 'ACTOT' AND SLIM.ANL01FL = 'Y' AND SLIM.AVISITN < 24"
+          order_by:
+            - variable: SLIM.AVISITN
+              direction: desc
+          keep: first
+          value: VISITNUM
+          missing: null
+      STUDYID: OBS.STUDYID
+      SITEID: OBS.SITEID
+      SITEGR1: OBS.SITEGR1
+      USUBJID: OBS.USUBJID
+      TRTSDT: OBS.TRTSDT
+      TRTEDT: OBS.TRTEDT
+      TRTP: OBS.TRTP
+      TRTPN: OBS.TRTPN
+      AGE: OBS.AGE
+      AGEGR1: OBS.AGEGR1
+      AGEGR1N: OBS.AGEGR1N
+      RACE: OBS.RACE
+      RACEN: OBS.RACEN
+      SEX: OBS.SEX
+      ITTFL: OBS.ITTFL
+      EFFFL: OBS.EFFFL
+      COMP24FL: OBS.COMP24FL
+      AVISIT:
+        literal: "Week 24"
+      AVISITN:
+        literal: 24.0
+      VISIT: _SRC_VISIT
+      VISITNUM: _SRC_VISITNUM
+      ADY: _SRC_ADY
+      ADT: _SRC_ADT
+      PARAM:
+        literal: "Adas-Cog(11) Subscore"
+      PARAMCD:
+        literal: "ACTOT"
+      PARAMN:
+        literal: 15.0
+      AVAL: _SRC_AVAL
+      ABLFL:
+        literal: null
+      ANL01FL:
+        literal: "Y"
+      DTYPE:
+        literal: "LOCF"
+      QSSEQ: _SRC_QSSEQ

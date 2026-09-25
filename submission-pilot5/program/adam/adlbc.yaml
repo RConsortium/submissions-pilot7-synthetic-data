@@ -1,0 +1,525 @@
+schema_version: "1.0"
+domain: ADLBC
+keys: [STUDYID, USUBJID, PARAMCD, AVISIT, LBSEQ]
+input:
+  LB: adlbc-lb.parquet
+  ADSL: sdtm/adsl.parquet
+  EOT2S: adlbc-eot.parquet
+base: LB
+
+output:
+  path: adlbc-out.parquet
+  columns: [STUDYID, SUBJID, USUBJID, TRTP, TRTPN, TRTA, TRTAN, TRTSDT,
+    TRTEDT, AGE, AGEGR1, AGEGR1N, RACE, RACEN, SEX, COMP24FL, DSRAEFL,
+    SAFFL, AVISIT, AVISITN, ADY, ADT, VISIT, VISITNUM, PARAM, PARAMCD,
+    PARAMN, PARCAT1, AVAL, BASE, CHG, A1LO, A1HI, R2A1LO, R2A1HI,
+    BR2A1LO, BR2A1HI, ANL01FL, ALBTRVAL, ANRIND, BNRIND, ABLFL, AENTMTFL,
+    LBSEQ, LBNRIND, LBSTRESN]
+
+columns:
+  # --- Record aliases: every LB read goes through these so the grouped
+  # --- eot2 template (one row per subject-param) can supply them via
+  # --- aggregates while main/eot read the record directly.
+  - name: _r_STUDYID
+    type: str
+    label: record STUDYID (internal)
+  - name: _r_USUBJID
+    type: str
+    label: record USUBJID (internal)
+  - name: _r_LBSEQ
+    type: float
+    label: record LBSEQ (internal)
+  - name: _r_LBDTC
+    type: str
+    label: record LBDTC (internal)
+  - name: _r_VISIT
+    type: str
+    label: record VISIT (internal)
+  - name: _r_VISITNUM
+    type: float
+    label: record VISITNUM (internal)
+  - name: _r_LBTEST
+    type: str
+    label: record LBTEST (internal)
+  - name: _r_LBTESTCD
+    type: str
+    label: record LBTESTCD (internal)
+  - name: _r_LBSTRESU
+    type: str
+    label: record LBSTRESU (internal)
+  - name: _r_LBSTRESN
+    type: float
+    label: record LBSTRESN (internal)
+  - name: _r_LBBLFL
+    type: str
+    label: record LBBLFL (internal)
+  - name: _r_LO
+    type: float
+    label: record LBSTNRLO (internal)
+  - name: _r_HI
+    type: float
+    label: record LBSTNRHI (internal)
+  - name: _r_NRIND
+    type: str
+    label: record LBNRIND (internal)
+
+
+  # --- ADSL carry block (#673) ---
+  - name: STUDYID
+    type: str
+    label: Study Identifier
+    derivation: _r_STUDYID
+  - name: USUBJID
+    type: str
+    label: Unique Subject Identifier
+    derivation: _r_USUBJID
+  - name: SUBJID
+    type: str
+    label: Subject Identifier for the Study
+    derivation: ADSL.SUBJID
+  - name: TRTP
+    type: str
+    label: Planned Treatment
+    derivation: ADSL.TRT01P
+  - name: TRTPN
+    type: float
+    label: Planned Treatment (N)
+    derivation: ADSL.TRT01PN
+  - name: TRTA
+    type: str
+    label: Actual Treatment
+    derivation: ADSL.TRT01A
+  - name: TRTAN
+    type: float
+    label: Actual Treatment (N)
+    derivation: ADSL.TRT01AN
+  - name: TRTSDT
+    type: date
+    label: Date of First Exposure to Treatment
+    derivation: ADSL.TRTSDT
+  - name: TRTEDT
+    type: date
+    label: Date of Last Exposure to Treatment
+    derivation: ADSL.TRTEDT
+  - name: AGE
+    type: float
+    label: Age
+    derivation: ADSL.AGE
+  - name: AGEGR1
+    type: str
+    label: Age Group 1
+    derivation: ADSL.AGEGR1
+  - name: AGEGR1N
+    type: float
+    label: Age Group 1 (N)
+    derivation: ADSL.AGEGR1N
+  - name: RACE
+    type: str
+    label: Race
+    derivation: ADSL.RACE
+  - name: RACEN
+    type: float
+    label: Race (N)
+    derivation: ADSL.RACEN
+  - name: SEX
+    type: str
+    label: Sex
+    derivation: ADSL.SEX
+  - name: COMP24FL
+    type: str
+    label: Completers of Week 24 Population Flag
+    derivation: ADSL.COMP24FL
+  - name: DSRAEFL
+    type: str
+    label: Discontinued due to AE Flag
+    derivation: ADSL.DSRAEFL
+  - name: SAFFL
+    type: str
+    label: Safety Population Flag
+    derivation: ADSL.SAFFL
+
+  # --- Analysis visits (derived per row template) ---
+  - name: AVISIT
+    type: str
+    label: Analysis Visit
+  - name: AVISITN
+    type: float
+    label: Analysis Visit (N)
+  - name: _IS_EOT
+    type: float
+    label: EOT row marker (internal)
+
+  # --- Dates ---
+  # LBDTC is collected as datetime text ("YYYY-MM-DDTHH:MM"); date_impute
+  # admits date prefixes only, so the text first becomes a datetime via
+  # datetime_impute and to_date then drops the time fields. This matches
+  # the R derive_vars_dt(highest_imputation = "n"): no imputation, the
+  # date part is taken as-is.
+  - name: _LBDTTM
+    type: datetime
+    label: LBDTC as datetime (internal)
+    derivation:
+      datetime_impute:
+        source: _r_LBDTC
+        time: first
+        missing: null
+  - name: ADT
+    type: date
+    label: Analysis Date
+    derivation:
+      to_date:
+        source: _LBDTTM
+  - name: ADY
+    type: float
+    label: Analysis Relative Day
+    derivation:
+      study_day:
+        date: ADT
+        reference: TRTSDT
+  - name: VISIT
+    type: str
+    label: Visit Name
+    derivation: _r_VISIT
+  - name: VISITNUM
+    type: float
+    label: Visit Number
+    derivation: _r_VISITNUM
+
+  # --- Parameter ---
+  - name: PARAM
+    type: str
+    label: Parameter
+    derivation:
+      str_template:
+        template: "{_r_LBTEST} ({_r_LBSTRESU})"
+  - name: PARAMCD
+    type: str
+    label: Parameter Code
+    derivation: _r_LBTESTCD
+  - name: PARAMN
+    type: float
+    label: Parameter (N)
+    derivation:
+      mapping:
+        source: PARAM
+        missing: null
+        dict:
+          "Sodium (mmol/L)": 18
+          "Potassium (mmol/L)": 19
+          "Chloride (mmol/L)": 20
+          "Bilirubin (umol/L)": 21
+          "Alkaline Phosphatase (U/L)": 22
+          "Gamma Glutamyl Transferase (U/L)": 23
+          "Alanine Aminotransferase (U/L)": 24
+          "Aspartate Aminotransferase (U/L)": 25
+          "Blood Urea Nitrogen (mmol/L)": 26
+          "Creatinine (umol/L)": 27
+          "Urate (umol/L)": 28
+          "Phosphate (mmol/L)": 29
+          "Calcium (mmol/L)": 30
+          "Glucose (mmol/L)": 31
+          "Protein (g/L)": 32
+          "Albumin (g/L)": 33
+          "Cholesterol (mmol/L)": 34
+          "Creatine Kinase (U/L)": 35
+  - name: PARCAT1
+    type: str
+    label: Parameter Category 1
+    derivation:
+      literal: "CHEM"
+
+  # --- Values / baseline ---
+  - name: AVAL
+    type: float
+    label: Analysis Value
+    derivation: _r_LBSTRESN
+  - name: ABLFL
+    type: str
+    label: Baseline Record Flag
+    derivation: _r_LBBLFL
+  - name: BASE
+    type: float
+    label: Baseline Value
+    derivation:
+      aggregate:
+        filter: "ABLFL = 'Y'"
+        group_by: [STUDYID, USUBJID, PARAMCD]
+        expr: "ONLY(AVAL)"
+  - name: CHG
+    type: float
+    label: Change from Baseline
+    derivation:
+      case:
+        - when: "VISITNUM = 1"
+          then:
+            literal: null
+        - otherwise:
+            compute:
+              expr: "AVAL - BASE"
+
+  # --- Limits / indicators ---
+  - name: A1LO
+    type: float
+    label: Analysis Range 1 Lower Limit
+    derivation: _r_LO
+  - name: A1HI
+    type: float
+    label: Analysis Range 1 Upper Limit
+    derivation: _r_HI
+  - name: R2A1LO
+    type: float
+    label: Ratio to Analysis Range 1 Lower Limit
+    derivation:
+      compute:
+        expr: "AVAL / A1LO"
+  - name: R2A1HI
+    type: float
+    label: Ratio to Analysis Range 1 Upper Limit
+    derivation:
+      compute:
+        expr: "AVAL / A1HI"
+  - name: BR2A1LO
+    type: float
+    label: Baseline Ratio to Analysis Range 1 Lower Limit
+    derivation:
+      compute:
+        expr: "BASE / A1LO"
+  - name: BR2A1HI
+    type: float
+    label: Baseline Ratio to Analysis Range 1 Upper Limit
+    derivation:
+      compute:
+        expr: "BASE / A1HI"
+  - name: ALBTRVAL
+    type: float
+    label: Above/Below Threshold Range Value
+    derivation:
+      compute:
+        expr: "GREATEST(ABS(AVAL - 1.5 * A1HI), ABS(0.5 * A1LO - AVAL))"
+  - name: _LO_HALF
+    type: float
+    label: half of A1LO (internal)
+    derivation:
+      compute:
+        expr: "0.5 * A1LO"
+  - name: _HI_15
+    type: float
+    label: 1.5x A1HI (internal)
+    derivation:
+      compute:
+        expr: "1.5 * A1HI"
+  - name: ANRIND
+    type: str
+    label: Analysis Reference Range Indicator
+    derivation:
+      # Faithful to R's nested ifelse: NA propagates when limits are missing
+      # but AVAL is present; only a missing AVAL forces "N".
+      case:
+        - when: "AVAL IS NULL"
+          then:
+            literal: "N"
+        - when: "AVAL < _LO_HALF"
+          then:
+            literal: "L"
+        - when: "_LO_HALF IS NULL"
+          then:
+            literal: null
+        - when: "AVAL > _HI_15"
+          then:
+            literal: "H"
+        - when: "_HI_15 IS NULL"
+          then:
+            literal: null
+        - otherwise:
+            literal: "N"
+  - name: BNRIND
+    type: str
+    label: Baseline Reference Range Indicator
+    derivation:
+      aggregate:
+        filter: "ABLFL = 'Y'"
+        group_by: [STUDYID, USUBJID, PARAMCD]
+        expr: "ONLY(ANRIND)"
+
+  # --- Last-observation flag ---
+  - name: _AENT_MAX
+    type: float
+    label: Max eligible AVISITN per subject-param (internal)
+    derivation:
+      aggregate:
+        filter: "VISITNUM <= 12 AND AVISITN > 0 AND AVISITN < 99 AND NOT (VISIT LIKE '%UN%')"
+        group_by: [STUDYID, USUBJID, PARAMCD]
+        expr: "MAX(AVISITN)"
+  - name: AENTMTFL
+    type: str
+    label: Last Observation Within Visit Window Flag
+    derivation:
+      case:
+        - when: "_IS_EOT = 1"
+          then:
+            literal: "Y"
+        - when: "AVISITN = _AENT_MAX"
+          then:
+            literal: "Y"
+
+  # --- Max-deviation flag ---
+  # LBSEQ is declared here (not with the other LB carries below) because the
+  # _RN_ANL window orders by it: keys are exempt from the validator's
+  # forward-reference check, but at runtime a column is only readable after
+  # its own declaration, so the window would KeyError on a later LBSEQ.
+  - name: LBSEQ
+    type: float
+    label: Sequence Number
+    derivation: _r_LBSEQ
+  - name: _RN_ANL
+    type: float
+    label: rank by ALBTRVAL within subject-param (internal)
+    derivation:
+      row_number:
+        window:
+          group_by: [STUDYID, USUBJID, PARAMCD]
+          order_by:
+            - variable: ALBTRVAL
+              direction: desc
+            - variable: LBSEQ
+              direction: asc
+          filter: "VISITNUM >= 4 AND VISITNUM <= 12 AND NOT (VISIT LIKE '%UN%') AND ALBTRVAL IS NOT NULL"
+  - name: _WINLB
+    type: float
+    label: winning LBSEQ per subject-param (internal)
+    derivation:
+      aggregate:
+        filter: "_RN_ANL = 1"
+        group_by: [STUDYID, USUBJID, PARAMCD]
+        expr: "ONLY(LBSEQ)"
+  - name: ANL01FL
+    type: str
+    label: Analysis Record Flag 01
+    derivation:
+      case:
+        - when: "LBSEQ = _WINLB"
+          then:
+            literal: "Y"
+
+  # --- LB carries ---
+  - name: LBNRIND
+    type: str
+    label: Reference Range Indicator
+    derivation: _r_NRIND
+  - name: LBSTRESN
+    type: float
+    label: Numeric Result/Finding in Standard Units
+    derivation: _r_LBSTRESN
+
+rows:
+  - id: main
+    dataset: LB
+    filter: "LB.LBCAT = 'CHEMISTRY' AND (LB.VISIT LIKE '%WEEK%' OR LB.VISIT LIKE '%SCREENING%' OR LB.VISIT LIKE '%UNSCHEDULED%')"
+    derivations:
+      _r_STUDYID: LB.STUDYID
+      _r_USUBJID: LB.USUBJID
+      _r_LBSEQ: LB.LBSEQ
+      _r_LBDTC: LB.LBDTC
+      _r_VISIT: LB.VISIT
+      _r_VISITNUM: LB.VISITNUM
+      _r_LBTEST: LB.LBTEST
+      _r_LBTESTCD: LB.LBTESTCD
+      _r_LBSTRESU: LB.LBSTRESU
+      _r_LBSTRESN: LB.LBSTRESN
+      _r_LBBLFL: LB.LBBLFL
+      _r_LO: LB.LBSTNRLO
+      _r_HI: LB.LBSTNRHI
+      _r_NRIND: LB.LBNRIND
+      _IS_EOT:
+        literal: 0.0
+      AVISIT:
+        case:
+          - when: "_r_LBBLFL = 'Y'"
+            then:
+              literal: "Baseline"
+          - when: "_r_VISIT LIKE '%UNSCHEDULED%'"
+            then:
+              literal: ""
+          - otherwise:
+              mapping:
+                source: _r_VISIT
+                missing: null
+                dict:
+                  "WEEK 2": "Week 2"
+                  "WEEK 4": "Week 4"
+                  "WEEK 6": "Week 6"
+                  "WEEK 8": "Week 8"
+                  "WEEK 12": "Week 12"
+                  "WEEK 16": "Week 16"
+                  "WEEK 20": "Week 20"
+                  "WEEK 24": "Week 24"
+                  "WEEK 26": "Week 26"
+      AVISITN:
+        case:
+          - when: "AVISIT = 'Baseline'"
+            then:
+              literal: 0.0
+          - otherwise:
+              mapping:
+                source: AVISIT
+                missing: null
+                dict:
+                  "Week 2": 2.0
+                  "Week 4": 4.0
+                  "Week 6": 6.0
+                  "Week 8": 8.0
+                  "Week 12": 12.0
+                  "Week 16": 16.0
+                  "Week 20": 20.0
+                  "Week 24": 24.0
+                  "Week 26": 26.0
+
+  - id: eot
+    dataset: LB
+    filter: "LB.LBCAT = 'CHEMISTRY' AND (LB.VISITNUM = 12 OR LB.ENDPOINT = 'Y')"
+    derivations:
+      _r_STUDYID: LB.STUDYID
+      _r_USUBJID: LB.USUBJID
+      _r_LBSEQ: LB.LBSEQ
+      _r_LBDTC: LB.LBDTC
+      _r_VISIT: LB.VISIT
+      _r_VISITNUM: LB.VISITNUM
+      _r_LBTEST: LB.LBTEST
+      _r_LBTESTCD: LB.LBTESTCD
+      _r_LBSTRESU: LB.LBSTRESU
+      _r_LBSTRESN: LB.LBSTRESN
+      _r_LBBLFL: LB.LBBLFL
+      _r_LO: LB.LBSTNRLO
+      _r_HI: LB.LBSTNRHI
+      _r_NRIND: LB.LBNRIND
+      _IS_EOT:
+        literal: 1.0
+      AVISIT:
+        literal: "End of Treatment"
+      AVISITN:
+        literal: 99.0
+
+  - id: eot2
+    dataset: EOT2S
+    filter: "EOT2S.VISITNUM <> 12"
+    derivations:
+      _r_STUDYID: EOT2S.STUDYID
+      _r_USUBJID: EOT2S.USUBJID
+      _r_LBTESTCD: EOT2S.LBTESTCD
+      _r_LBSEQ: EOT2S.LBSEQ
+      _r_LBDTC: EOT2S.LBDTC
+      _r_VISIT: EOT2S.VISIT
+      _r_VISITNUM: EOT2S.VISITNUM
+      _r_LBTEST: EOT2S.LBTEST
+      _r_LBSTRESU: EOT2S.LBSTRESU
+      _r_LBSTRESN: EOT2S.LBSTRESN
+      _r_LBBLFL: EOT2S.LBBLFL
+      _r_LO: EOT2S.LBSTNRLO
+      _r_HI: EOT2S.LBSTNRHI
+      _r_NRIND: EOT2S.LBNRIND
+      _IS_EOT:
+        literal: 1.0
+      AVISIT:
+        literal: "End of Treatment"
+      AVISITN:
+        literal: 99.0

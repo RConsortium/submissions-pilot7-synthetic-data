@@ -1,0 +1,426 @@
+schema_version: "1.0"
+domain: ADSL
+keys: [STUDYID, USUBJID]
+input:
+  DM: sdtm/dm.parquet
+  EX: sdtm/ex.parquet
+  VS: sdtm/vs.parquet
+  DS: sdtm/ds.parquet
+  SC: sdtm/sc.parquet
+  MH: sdtm/mh.parquet
+  SV: sdtm/sv.parquet
+  QS: sdtm/qs.parquet
+base: DM
+filter: "DM.ACTARM <> 'Screen Failure'"
+
+intermediates:
+  - id: BASE_HT
+    dataset: VS
+    filter: "VS.VSTESTCD = 'HEIGHT' AND VS.VISITNUM = 1"
+    key: [STUDYID, USUBJID]
+    order_by: [VS.VSDTC]
+    keep: first
+  - id: BASE_WT
+    dataset: VS
+    filter: "VS.VSTESTCD = 'WEIGHT' AND VS.VISITNUM = 3"
+    key: [STUDYID, USUBJID]
+    order_by: [VS.VSDTC]
+    keep: first
+  - id: DS_DISP
+    dataset: DS
+    filter: "DS.DSCAT = 'DISPOSITION EVENT'"
+    key: [STUDYID, USUBJID]
+    order_by: [DS.DSSTDTC]
+    keep: first
+  - id: SC_EDU
+    dataset: SC
+    filter: "SC.SCTESTCD = 'EDLEVEL'"
+    key: [STUDYID, USUBJID]
+    order_by: [SC.SCDTC]
+    keep: first
+  - id: MH_DX
+    dataset: MH
+    filter: "MH.MHCAT = 'PRIMARY DIAGNOSIS'"
+    key: [STUDYID, USUBJID]
+    order_by: [MH.MHSTDTC]
+    keep: first
+  - id: SV_V1
+    dataset: SV
+    filter: "SV.VISITNUM = 1"
+    key: [STUDYID, USUBJID]
+    order_by: [SV.SVSTDTC]
+    keep: first
+  - id: EOS
+    dataset: DS
+    filter: "DS.DSCAT = 'DISPOSITION EVENT' AND DS.DSDECOD <> 'SCREEN FAILURE' AND DS.DSDECOD <> 'COMPLETED'"
+    key: [STUDYID, USUBJID]
+    order_by: [DS.DSSEQ]
+    keep: first
+
+output:
+  path: adsl-dryrun.parquet
+  columns: [STUDYID, USUBJID, SUBJID, SITEID, ARM, TRT01P, TRT01PN, TRT01A,
+    TRT01AN, TRTSDT, TRTEDT, TRTDUR, AVGDD, CUMDOSE, AGE, AGEGR1, AGEGR1N,
+    SEX, RACE, RACEN, SAFFL, BMIBL, HEIGHTBL, WEIGHTBL, BMIGR1, ITTFL, EFFFL,
+    COMP8FL, COMP16FL, COMP24FL, DCSREAS, EDUCLVL, DISONSDT, VISIT1DT]
+
+columns:
+  - name: STUDYID
+    type: str
+    label: Study Identifier
+    derivation: DM.STUDYID
+
+  - name: USUBJID
+    type: str
+    label: Unique Subject Identifier
+    derivation: DM.USUBJID
+
+  - name: SUBJID
+    type: str
+    label: Subject Identifier for the Study
+    derivation: DM.SUBJID
+
+  - name: SITEID
+    type: str
+    label: Study Site Identifier
+    derivation: DM.SITEID
+
+  - name: ARM
+    type: str
+    label: Description of Planned Arm
+    derivation: DM.ARM
+
+  - name: TRT01P
+    type: str
+    label: Planned Treatment for Period 01
+    derivation: DM.ARM
+
+  - name: TRT01PN
+    type: float
+    label: Planned Treatment for Period 01 (N)
+    derivation:
+      mapping:
+        source: DM.ARM
+        dict:
+          Placebo: 0
+          Xanomeline Low Dose: 54
+          Xanomeline High Dose: 81
+
+  - name: TRT01A
+    type: str
+    label: Actual Treatment for Period 01
+    derivation: TRT01P
+
+  - name: TRT01AN
+    type: float
+    label: Actual Treatment for Period 01 (N)
+    derivation: TRT01PN
+
+  - name: EX_MINDTC
+    type: str
+    label: Earliest Exposure Start (character)
+    derivation:
+      aggregate:
+        expr: "MIN(EX.EXSTDTC)"
+
+  - name: TRTSDT
+    type: date
+    label: Date of First Exposure to Treatment
+    derivation:
+      date_impute:
+        source: EX_MINDTC
+        month: 1
+        day: 1
+
+  - name: EOSDT
+    type: date
+    label: End of Study Date
+    derivation:
+      to_date:
+        source: EOS.DSSTDTC
+
+  - name: EX_MAXDTC
+    type: str
+    label: Latest exposure end (character, internal)
+    derivation:
+      aggregate:
+        filter: "EX.EXDOSE > 0 OR (EX.EXDOSE = 0 AND EX.EXTRT = 'PLACEBO')"
+        expr: "MAX(EX.EXENDTC)"
+
+  - name: EX_ENDHI
+    type: date
+    label: Latest highest-imputed exposure end (internal)
+    derivation:
+      # All EXENDTC values are complete ISO dates, so highest imputation
+      # is identity and MAX over text equals MAX over dates.
+      to_date:
+        source: EX_MAXDTC
+
+  - name: EX_NMISSEND
+    type: float
+    label: Exposure records with missing end date (internal)
+    derivation:
+      aggregate:
+        filter: "EX.EXENDTC IS NULL AND (EX.EXDOSE > 0 OR (EX.EXDOSE = 0 AND EX.EXTRT = 'PLACEBO'))"
+        expr: "COUNT(EX.EXSEQ)"
+
+  - name: TRTEDT
+    type: date
+    label: Date of Last Exposure to Treatment
+    derivation:
+      case:
+        - when: "EOSDT IS NOT NULL AND (EX_NMISSEND > 0 OR EX_ENDHI > EOSDT)"
+          then:
+            source: EOSDT
+        - when: "EX_ENDHI IS NOT NULL"
+          then:
+            source: EX_ENDHI
+
+  - name: TRTDUR
+    type: float
+    label: Duration of Treatment (days)
+    derivation:
+      date_diff:
+        start: TRTSDT
+        end: TRTEDT
+        unit: day
+        bounds: inclusive
+
+  - name: CUMDOSE
+    type: float
+    label: Cumulative Dose (as planned)
+    derivation:
+      aggregate:
+        expr: "SUM(EX.EXDOSE)"
+
+  - name: AVGDD
+    type: float
+    label: Avg Daily Dose (as planned)
+    derivation:
+      compute:
+        expr: "CUMDOSE / NULLIF(TRTDUR, 0)"
+
+  - name: AGE
+    type: float
+    label: Age
+    derivation: DM.AGE
+
+  - name: AGEGR1
+    type: str
+    label: Pooled Age Group 1
+    derivation:
+      # R rule: <65 / 65-80 / >80 - age 65 falls in 65-80, so the boundary
+      # is mixed and cannot be expressed with cut's single right flag.
+      case:
+        - when: "DM.AGE < 65"
+          then:
+            literal: "<65"
+        - when: "DM.AGE <= 80"
+          then:
+            literal: "65-80"
+        - otherwise:
+            literal: ">80"
+
+  - name: AGEGR1N
+    type: float
+    label: Pooled Age Group 1 (N)
+    derivation:
+      mapping:
+        source: AGEGR1
+        dict:
+          "<65": 1
+          "65-80": 2
+          ">80": 3
+
+  - name: SEX
+    type: str
+    label: Sex
+    derivation: DM.SEX
+
+  - name: RACE
+    type: str
+    label: Race
+    derivation: DM.RACE
+
+  - name: RACEN
+    type: float
+    label: Race (N)
+    derivation:
+      mapping:
+        source: RACE
+        dict:
+          WHITE: 1
+          BLACK OR AFRICAN AMERICAN: 2
+          AMERICAN INDIAN OR ALASKA NATIVE: 6
+          ASIAN: 7
+          NATIVE HAWAIIAN OR OTHER PACIFIC ISLANDER: 5
+
+  - name: SAFFL
+    type: str
+    label: Safety Population Flag
+    derivation:
+      case:
+        - when: "TRTSDT IS NOT NULL"
+          then:
+            literal: Y
+        - otherwise:
+            literal: N
+
+  - name: HEIGHTBL
+    type: float
+    label: Baseline Height (cm)
+    derivation: BASE_HT.VSSTRESN
+
+  - name: WEIGHTBL
+    type: float
+    label: Baseline Weight (kg)
+    derivation: BASE_WT.VSSTRESN
+
+  - name: BMIBL
+    type: float
+    label: Baseline BMI (kg/m^2)
+    derivation:
+      compute:
+        expr: "WEIGHTBL / POWER(NULLIF(HEIGHTBL, 0) / 100, 2)"
+
+  - name: BMIGR1
+    type: str
+    label: Pooled Baseline BMI Group 1
+    derivation:
+      cut:
+        source: BMIBL
+        breaks: [25, 30]
+        labels: ["<25", "25-<30", ">=30"]
+        missing: null
+
+  - name: ITTFL
+    type: str
+    label: Intent-To-Treat Population Flag
+    derivation:
+      case:
+        - when: "DM.ARMCD <> ''"
+          then:
+            literal: Y
+        - otherwise:
+            literal: N
+
+  - name: N_ACTOT
+    type: float
+    label: Post-baseline ADAS-Cog records (helper)
+    derivation:
+      aggregate:
+        expr: "COUNT(QS.QSSEQ)"
+        filter: "QS.VISITNUM > 3 AND QS.QSTESTCD = 'ACTOT'"
+
+  - name: N_CIBIC
+    type: float
+    label: Post-baseline CIBIC+ records (helper)
+    derivation:
+      aggregate:
+        expr: "COUNT(QS.QSSEQ)"
+        filter: "QS.VISITNUM > 3 AND QS.QSTESTCD = 'CIBIC'"
+
+  - name: EFFFL
+    type: str
+    label: Efficacy Population Flag
+    derivation:
+      case:
+        - when: "SAFFL = 'Y' AND N_ACTOT > 0 AND N_CIBIC > 0"
+          then:
+            literal: Y
+        - otherwise:
+            literal: N
+
+  - name: N_WK8
+    type: float
+    label: Week 8 visit records (helper)
+    derivation:
+      aggregate:
+        expr: "COUNT(SV.USUBJID)"
+        filter: "SV.VISIT = 'WEEK 8'"
+
+  - name: N_WK16
+    type: float
+    label: Week 16 visit records (helper)
+    derivation:
+      aggregate:
+        expr: "COUNT(SV.USUBJID)"
+        filter: "SV.VISIT = 'WEEK 16'"
+
+  - name: N_WK24
+    type: float
+    label: Week 24 visit records (helper)
+    derivation:
+      aggregate:
+        expr: "COUNT(SV.USUBJID)"
+        filter: "SV.VISIT = 'WEEK 24'"
+
+  - name: COMP8FL
+    type: str
+    label: Completers of Week 8 Population Flag
+    derivation:
+      case:
+        - when: "N_WK8 > 0"
+          then:
+            literal: Y
+        - otherwise:
+            literal: N
+
+  - name: COMP16FL
+    type: str
+    label: Completers of Week 16 Population Flag
+    derivation:
+      case:
+        - when: "N_WK16 > 0"
+          then:
+            literal: Y
+        - otherwise:
+            literal: N
+
+  - name: COMP24FL
+    type: str
+    label: Completers of Week 24 Population Flag
+    derivation:
+      case:
+        - when: "N_WK24 > 0"
+          then:
+            literal: Y
+        - otherwise:
+            literal: N
+
+  - name: DCSREAS
+    type: str
+    label: Reason for Discontinuation from Study
+    derivation:
+      case:
+        - when: "DS_DISP.DSDECOD <> 'COMPLETED' AND DS_DISP.DSTERM = 'PROTOCOL ENTRY CRITERIA NOT MET'"
+          then:
+            literal: "I/E Not Met"
+        - when: "DS_DISP.DSDECOD = 'COMPLETED'"
+          then:
+            literal: ""
+        - otherwise:
+            source: DS_DISP.DSDECOD
+
+  - name: EDUCLVL
+    type: str
+    label: Years of Education
+    derivation: SC_EDU.SCSTRESN
+
+  - name: DISONSDT
+    type: date
+    label: Date of Onset of Disease
+    derivation:
+      date_impute:
+        source: MH_DX.MHSTDTC
+        month: 6
+        day: 15
+
+  - name: VISIT1DT
+    type: date
+    label: Date of Visit 1
+    derivation:
+      date_impute:
+        source: SV_V1.SVSTDTC
+        month: 1
+        day: 1
