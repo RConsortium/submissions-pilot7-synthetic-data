@@ -19,7 +19,7 @@ STAGES = {
     "adsl": (["adsl.yaml"], [], "adsl-dryrun.parquet", "adsl.parquet"),
     "adae": (["adae.yaml"], ["adsl"], "adae-dryrun.parquet", "adae.parquet"),
     "adadas": (
-        ["adadas-obs.yaml", "adadas-actot.yaml", "adadas-locf.yaml"],
+        ["adadas.yaml"],
         ["adsl"],
         "adadas-out.parquet",
         "adadas.parquet",
