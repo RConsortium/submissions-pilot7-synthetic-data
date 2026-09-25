@@ -1,0 +1,90 @@
+# Staging helper for pilot3 ADSL (REQ-0483: per-record derivation staged before
+# subject-level aggregation). One row per EX record: the imputed/capped exposure
+# end date and the per-record dose. pilot3-specs/adsl.yaml aggregates this into
+# TRTSDT (MIN), TRTEDT (MAX) and CUMDOSE (SUM).
+schema_version: "1.0"
+domain: EXD
+keys: [STUDYID, USUBJID, EXSEQ]
+input:
+  EX: sdtm/ex.parquet
+  DS: sdtm/ds.parquet
+base: EX
+intermediates:
+  - id: DS_EOS
+    dataset: DS
+    filter: "DS.DSCAT = 'DISPOSITION EVENT' AND DS.DSDECOD <> 'SCREEN FAILURE'"
+    key: [STUDYID, USUBJID]
+    order_by: [DS.DSSTDTC]
+    keep: first
+rows:
+  - id: per_record
+    dataset: EX
+    derivations: {}
+output:
+  path: adsl_exdose.parquet
+  columns: [STUDYID, USUBJID, EXSEQ, EXSTDT, EXENDT, DOSE]
+columns:
+  - name: STUDYID
+    type: str
+    label: Study Identifier
+    derivation: EX.STUDYID
+  - name: USUBJID
+    type: str
+    label: Unique Subject Identifier
+    derivation: EX.USUBJID
+  - name: EXSEQ
+    type: float
+    label: Sequence Number
+    derivation: EX.EXSEQ
+  - name: EXSTDT
+    type: date
+    label: Exposure start (helper)
+    derivation:
+      date_impute:
+        source: EX.EXSTDTC
+        month: 1
+        day: last
+        missing: null
+  - name: EXENDT_RAW
+    type: date
+    label: Imputed exposure end, uncapped (helper)
+    derivation:
+      date_impute:
+        source: EX.EXENDTC
+        month: 1
+        day: last
+        missing: null
+  - name: EOSDT
+    type: date
+    label: End-of-study date for discontinued subjects (helper)
+    derivation:
+      date_impute:
+        source: DS_EOS.DSSTDTC
+        month: 1
+        day: last
+        missing: null
+  - name: EXENDT
+    type: date
+    label: Exposure end, imputed and capped at EOSDT
+    derivation:
+      least:
+        sources: [EXENDT_RAW, EOSDT]
+  - name: EXDURD
+    type: float
+    label: Exposure duration in days, inclusive (helper)
+    derivation:
+      date_diff:
+        start: EXSTDT
+        end: EXENDT
+        unit: day
+        bounds: inclusive
+  - name: EXDOSE
+    type: float
+    label: Dose per administration (helper)
+    derivation: EX.EXDOSE
+  - name: DOSE
+    type: float
+    label: Per-record dose contribution
+    derivation:
+      compute:
+        expr: "EXDOSE * EXDURD"
