@@ -173,7 +173,9 @@ def compare(derived):
             if a.dtype.is_numeric() and b.dtype.is_numeric():
                 a = a.fill_nan(None).cast(pl.Float64)
                 b = b.fill_nan(None).cast(pl.Float64)
-                ok = (a.is_null() & b.is_null()) | ((a - b).abs() <= TOLERANCE)
+                ok = (
+                    (a.is_null() & b.is_null()) | ((a - b).abs() <= TOLERANCE)
+                ).fill_null(False)  # exactly-one-null is a mismatch, not ignored
             else:
                 ok = a.cast(pl.String).fill_null("") == b.cast(pl.String).fill_null("")
             bad = (~ok).sum()
