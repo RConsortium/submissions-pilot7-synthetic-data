@@ -1,0 +1,137 @@
+schema_version: "1.0"
+domain: ADQSCIBC_S5J
+keys: [USUBJID]
+input:
+  ADSL:
+    path: upstream/adsl.parquet
+    empty_string: present
+  S3B:
+    path: adqscibc-s3b.parquet
+    empty_string: present
+  S3C:
+    path: adqscibc-s3c.parquet
+    empty_string: present
+  S3D:
+    path: adqscibc-s3d.parquet
+    empty_string: present
+  S2:
+    path: adqscibc-s2.parquet
+    empty_string: present
+base: ADSL
+
+intermediates:
+  - id: P24I
+    dataset: S3B
+    key: [USUBJID]
+  - id: W8SELI
+    dataset: S3C
+    key: [USUBJID]
+  - id: W16SELI
+    dataset: S3D
+    key: [USUBJID]
+  - id: HAS24I
+    dataset: S2
+    key: [USUBJID, _AVISITN]
+    keep: first
+    order_by: [{variable: S2.QSSEQ, direction: asc}]
+
+rows:
+  - id: join
+    dataset: ADSL
+    group_by: [ADSL.USUBJID]
+    derivations:
+      USUBJID: ADSL.USUBJID
+      _AVISITN: {literal: 24.0}
+      _SITEID: {aggregate: "ONLY(ADSL.SITEID)"}
+      _SITEGR1: {aggregate: "ONLY(ADSL.SITEGR1)"}
+      _TRTSDT: {aggregate: "ONLY(ADSL.TRTSDT)"}
+      _TRTEDT: {aggregate: "ONLY(ADSL.TRTEDT)"}
+      _TRT01P: {aggregate: "ONLY(ADSL.TRT01P)"}
+      _TRT01PN: {aggregate: "ONLY(ADSL.TRT01PN)"}
+      _AGE: {aggregate: "ONLY(ADSL.AGE)"}
+      _AGEGR1: {aggregate: "ONLY(ADSL.AGEGR1)"}
+      _AGEGR1N: {aggregate: "ONLY(ADSL.AGEGR1N)"}
+      _RACE: {aggregate: "ONLY(ADSL.RACE)"}
+      _RACEN: {aggregate: "ONLY(ADSL.RACEN)"}
+      _SEX: {aggregate: "ONLY(ADSL.SEX)"}
+      _ITTFL: {aggregate: "ONLY(ADSL.ITTFL)"}
+      _EFFFL: {aggregate: "ONLY(ADSL.EFFFL)"}
+      _COMP24FL: {aggregate: "ONLY(ADSL.COMP24FL)"}
+
+output:
+  path: adqscibc-s5j.parquet
+  order_by: [USUBJID]
+  columns: [USUBJID,
+    _SITEID, _SITEGR1, _TRTSDT, _TRTEDT, _TRT01P, _TRT01PN, _AGE, _AGEGR1,
+    _AGEGR1N, _RACE, _RACEN, _SEX, _ITTFL, _EFFFL, _COMP24FL,
+    _P24_EXISTS, _W8_EXISTS, _W16_EXISTS, _HAS24_EXISTS,
+    _P24_VISIT, _P24_VISITNUM, _P24_QSDY, _P24_QSDTC, _P24_QSSEQ, _W8_AVAL, _W16_AVAL]
+
+columns:
+  - name: USUBJID
+    type: str
+  - name: _AVISITN
+    type: float
+  - name: _P24_EXISTS
+    type: str
+    derivation: P24I.USUBJID
+  - name: _W8_EXISTS
+    type: str
+    derivation: W8SELI.USUBJID
+  - name: _W16_EXISTS
+    type: str
+    derivation: W16SELI.USUBJID
+  - name: _HAS24_EXISTS
+    type: str
+    derivation: HAS24I.USUBJID
+  - name: _P24_VISIT
+    type: str
+    derivation: P24I._P24_VISIT
+  - name: _P24_VISITNUM
+    type: float
+    derivation: P24I._P24_VISITNUM
+  - name: _P24_QSDY
+    type: float
+    derivation: P24I._P24_QSDY
+  - name: _P24_QSDTC
+    type: str
+    derivation: P24I._P24_QSDTC
+  - name: _P24_QSSEQ
+    type: float
+    derivation: P24I._P24_QSSEQ
+  - name: _W8_AVAL
+    type: float
+    derivation: W8SELI._W8_AVAL
+  - name: _W16_AVAL
+    type: float
+    derivation: W16SELI._W16_AVAL
+  - name: _SITEID
+    type: str
+  - name: _SITEGR1
+    type: str
+  - name: _TRTSDT
+    type: date
+  - name: _TRTEDT
+    type: date
+  - name: _TRT01P
+    type: str
+  - name: _TRT01PN
+    type: float
+  - name: _AGE
+    type: float
+  - name: _AGEGR1
+    type: str
+  - name: _AGEGR1N
+    type: float
+  - name: _RACE
+    type: str
+  - name: _RACEN
+    type: float
+  - name: _SEX
+    type: str
+  - name: _ITTFL
+    type: str
+  - name: _EFFFL
+    type: str
+  - name: _COMP24FL
+    type: str

@@ -1,0 +1,667 @@
+schema_version: "1.0"
+domain: ADLBHY
+keys: [STUDYID, USUBJID, AVISITN, PARAMN]
+input:
+  ADLBC:
+    path: upstream/adlbc.parquet
+    empty_string: present
+base: ADLBC
+
+rows:
+  - id: base
+    dataset: ADLBC
+    filter: "ADLBC.PARAMCD IN ('ALT', 'AST', 'BILI') AND ADLBC.AVISITN IN (0.0, 2.0, 4.0, 6.0, 8.0, 12.0, 16.0, 20.0, 24.0)"
+    derivations:
+      USUBJID: ADLBC.USUBJID
+      AVISIT: ADLBC.AVISIT
+      AVISITN: ADLBC.AVISITN
+      ADY: ADLBC.ADY
+      ADT: ADLBC.ADT
+      VISIT: ADLBC.VISIT
+      VISITNUM: ADLBC.VISITNUM
+      PARAM: ADLBC.PARAM
+      PARAMCD: ADLBC.PARAMCD
+      PARAMN: {source: _PARAMN_OUT}
+      PARAMTYP: {literal: ''}
+      PARCAT1: {literal: 'CHEM'}
+      AVAL: ADLBC.AVAL
+      BASE: ADLBC.BASE
+      A1LO: ADLBC.A1LO
+      A1HI: ADLBC.A1HI
+      R2A1LO: ADLBC.R2A1LO
+      R2A1HI: ADLBC.R2A1HI
+      BR2A1LO: ADLBC.BR2A1LO
+      BR2A1HI: ADLBC.BR2A1HI
+      ABLFL: ADLBC.ABLFL
+      SHIFT1: {literal: ''}
+      SHIFT1N: {literal: null}
+      CRIT1: {literal: 'R2A1HI > 1.5'}
+      CRIT1FL: {source: _CRIT1FL}
+      CRIT1FN: {source: _CRIT1FN}
+      _PARAMN_OUT:
+        mapping:
+          source: ADLBC.PARAMCD
+          dict:
+            ALT: 1.0
+            AST: 2.0
+            BILI: 3.0
+      _CRIT1FL:
+        case:
+          - when: "ADLBC.R2A1HI IS NULL"
+            then: {literal: ''}
+          - when: "ADLBC.R2A1HI > 1.5"
+            then: {literal: 'Y'}
+          - otherwise: {literal: 'N'}
+      _CRIT1FN:
+        case:
+          - when: "ADLBC.R2A1HI IS NULL"
+            then: {literal: null}
+          - when: "ADLBC.R2A1HI > 1.5"
+            then: {literal: 1.0}
+          - otherwise: {literal: 0.0}
+      _HAS_P: {literal: null}
+      _BILI_R: {literal: null}
+      _ALT_R: {literal: null}
+      _AST_R: {literal: null}
+      _MAX_R: {literal: null}
+      _AVAL: {literal: null}
+      _BASE_R: {literal: null}
+      _BASE_ALT_R: {literal: null}
+      _BASE_AST_R: {literal: null}
+      _BASE_BILI_R: {literal: null}
+      _BASE_MAX_R: {literal: null}
+      _BASE_D: {literal: null}
+      _BASE_BILI: {literal: null}
+      _BASE_TRANS: {literal: null}
+      _AVAL_BILI: {literal: null}
+      _AVAL_TRANS: {literal: null}
+      _HAS_BL: {literal: null}
+      _BASE: {literal: null}
+      _SHIFT1: {literal: null}
+      _SHIFT1N: {literal: null}
+  - id: bilihy
+    dataset: ADLBC
+    group_by: [ADLBC.USUBJID, ADLBC.AVISIT, ADLBC.AVISITN]
+    filter: "AVISITN IS NOT NULL AND AVISITN IN (0.0, 2.0, 4.0, 6.0, 8.0, 12.0, 16.0, 20.0, 24.0) AND _HAS_P > 0"
+    derivations:
+      _HAS_P:
+        aggregate:
+          expr: "COUNT(ADLBC.*)"
+          filter: "ADLBC.PARAMCD IN ('ALT', 'AST', 'BILI') AND ADLBC.AVISITN IS NOT NULL"
+      USUBJID: ADLBC.USUBJID
+      AVISIT: ADLBC.AVISIT
+      AVISITN: ADLBC.AVISITN
+      ADY: {literal: null}
+      ADT: {literal: null}
+      VISIT: {literal: ''}
+      VISITNUM: {literal: null}
+      PARAM: {literal: 'Bilirubin 1.5 x ULN'}
+      PARAMCD: {literal: 'BILIHY'}
+      PARAMN: {literal: 4.0}
+      PARAMTYP: {literal: 'DERIVED'}
+      PARCAT1: {literal: 'HYLAW'}
+      AVAL: {source: _AVAL}
+      BASE: {source: _BASE}
+      A1LO: {literal: null}
+      A1HI: {literal: null}
+      R2A1LO: {literal: null}
+      R2A1HI: {literal: null}
+      BR2A1LO: {literal: null}
+      BR2A1HI: {literal: null}
+      ABLFL:
+        case:
+          - when: "AVISITN = 0"
+            then: {literal: 'Y'}
+          - otherwise: {literal: ''}
+      SHIFT1: {source: _SHIFT1}
+      SHIFT1N: {source: _SHIFT1N}
+      CRIT1: {literal: ''}
+      CRIT1FL: {literal: ''}
+      CRIT1FN: {literal: null}
+      _PARAMN_OUT: {literal: null}
+      _CRIT1FL: {literal: null}
+      _CRIT1FN: {literal: null}
+      _BILI_R:
+        aggregate:
+          expr: "ONLY(ADLBC.R2A1HI)"
+          filter: "ADLBC.PARAMCD = 'BILI' AND ADLBC.AVISITN IS NOT NULL"
+      _ALT_R: {literal: null}
+      _AST_R: {literal: null}
+      _MAX_R: {literal: null}
+      _AVAL:
+        case:
+          - when: "_BILI_R IS NULL"
+            then: {literal: null}
+          - when: "_BILI_R > 1.5"
+            then: {literal: 1.0}
+          - otherwise: {literal: 0.0}
+      _BASE_R: {literal: null}
+      _BASE_ALT_R: {literal: null}
+      _BASE_AST_R: {literal: null}
+      _BASE_BILI_R: BL_BILI.R2A1HI
+      _BASE_MAX_R: {literal: null}
+      _BASE_D:
+        case:
+          - when: "_BASE_BILI_R IS NULL"
+            then: {literal: null}
+          - when: "_BASE_BILI_R > 1.5"
+            then: {literal: 1.0}
+          - otherwise: {literal: 0.0}
+      _BASE_BILI: {literal: null}
+      _BASE_TRANS: {literal: null}
+      _AVAL_BILI: {literal: null}
+      _AVAL_TRANS: {literal: null}
+      _HAS_BL: {literal: null}
+      _BASE:
+        case:
+          - when: "_AVAL IS NULL"
+            then: {literal: null}
+          - otherwise: {source: _BASE_D}
+      _SHIFT1:
+        case:
+          - when: "_BASE IS NULL OR _AVAL IS NULL"
+            then: {literal: ''}
+          - when: "_BASE = 0 AND _AVAL = 0"
+            then: {literal: 'Normal to Normal'}
+          - when: "_BASE = 0 AND _AVAL = 1"
+            then: {literal: 'Normal to High'}
+          - when: "_BASE = 1 AND _AVAL = 0"
+            then: {literal: 'High to Normal'}
+          - otherwise: {literal: ''}
+      _SHIFT1N:
+        case:
+          - when: "_BASE IS NULL OR _AVAL IS NULL"
+            then: {literal: null}
+          - when: "_BASE = 0 AND _AVAL = 0"
+            then: {literal: 1.0}
+          - when: "_BASE = 0 AND _AVAL = 1"
+            then: {literal: 2.0}
+          - when: "_BASE = 1 AND _AVAL = 0"
+            then: {literal: 0.0}
+          - otherwise: {literal: null}
+  - id: transhy
+    dataset: ADLBC
+    group_by: [ADLBC.USUBJID, ADLBC.AVISIT, ADLBC.AVISITN]
+    filter: "AVISITN IS NOT NULL AND AVISITN IN (0.0, 2.0, 4.0, 6.0, 8.0, 12.0, 16.0, 20.0, 24.0) AND _HAS_P > 0"
+    derivations:
+      _HAS_P:
+        aggregate:
+          expr: "COUNT(ADLBC.*)"
+          filter: "ADLBC.PARAMCD IN ('ALT', 'AST', 'BILI') AND ADLBC.AVISITN IS NOT NULL"
+      USUBJID: ADLBC.USUBJID
+      AVISIT: ADLBC.AVISIT
+      AVISITN: ADLBC.AVISITN
+      ADY: {literal: null}
+      ADT: {literal: null}
+      VISIT: {literal: ''}
+      VISITNUM: {literal: null}
+      PARAM: {literal: 'Transaminase 1.5 x ULN'}
+      PARAMCD: {literal: 'TRANSHY'}
+      PARAMN: {literal: 5.0}
+      PARAMTYP: {literal: 'DERIVED'}
+      PARCAT1: {literal: 'HYLAW'}
+      AVAL: {source: _AVAL}
+      BASE: {source: _BASE}
+      A1LO: {literal: null}
+      A1HI: {literal: null}
+      R2A1LO: {literal: null}
+      R2A1HI: {literal: null}
+      BR2A1LO: {literal: null}
+      BR2A1HI: {literal: null}
+      ABLFL:
+        case:
+          - when: "AVISITN = 0"
+            then: {literal: 'Y'}
+          - otherwise: {literal: ''}
+      SHIFT1: {source: _SHIFT1}
+      SHIFT1N: {source: _SHIFT1N}
+      CRIT1: {literal: ''}
+      CRIT1FL: {literal: ''}
+      CRIT1FN: {literal: null}
+      _PARAMN_OUT: {literal: null}
+      _CRIT1FL: {literal: null}
+      _CRIT1FN: {literal: null}
+      _BILI_R: {literal: null}
+      _ALT_R:
+        aggregate:
+          expr: "ONLY(ADLBC.R2A1HI)"
+          filter: "ADLBC.PARAMCD = 'ALT' AND ADLBC.AVISITN IS NOT NULL"
+      _AST_R:
+        aggregate:
+          expr: "ONLY(ADLBC.R2A1HI)"
+          filter: "ADLBC.PARAMCD = 'AST' AND ADLBC.AVISITN IS NOT NULL"
+      _MAX_R:
+        case:
+          - when: "_ALT_R IS NULL"
+            then: {source: _AST_R}
+          - when: "_AST_R IS NULL"
+            then: {source: _ALT_R}
+          - when: "_ALT_R >= _AST_R"
+            then: {source: _ALT_R}
+          - otherwise: {source: _AST_R}
+      _AVAL:
+        case:
+          - when: "_ALT_R IS NULL AND _AST_R IS NULL"
+            then: {literal: null}
+          - when: "_MAX_R > 1.5"
+            then: {literal: 1.0}
+          - otherwise: {literal: 0.0}
+      _BASE_R: {literal: null}
+      _BASE_ALT_R: BL_ALT.R2A1HI
+      _BASE_AST_R: BL_AST.R2A1HI
+      _BASE_BILI_R: {literal: null}
+      _BASE_MAX_R:
+        case:
+          - when: "_BASE_ALT_R IS NULL"
+            then: {source: _BASE_AST_R}
+          - when: "_BASE_AST_R IS NULL"
+            then: {source: _BASE_ALT_R}
+          - when: "_BASE_ALT_R >= _BASE_AST_R"
+            then: {source: _BASE_ALT_R}
+          - otherwise: {source: _BASE_AST_R}
+      _BASE_D:
+        case:
+          - when: "_BASE_ALT_R IS NULL AND _BASE_AST_R IS NULL"
+            then: {literal: null}
+          - when: "_BASE_MAX_R > 1.5"
+            then: {literal: 1.0}
+          - otherwise: {literal: 0.0}
+      _BASE_BILI: {literal: null}
+      _BASE_TRANS: {literal: null}
+      _AVAL_BILI: {literal: null}
+      _AVAL_TRANS: {literal: null}
+      _HAS_BL: {literal: null}
+      _BASE:
+        case:
+          - when: "_AVAL IS NULL"
+            then: {literal: null}
+          - otherwise: {source: _BASE_D}
+      _SHIFT1:
+        case:
+          - when: "_BASE IS NULL OR _AVAL IS NULL"
+            then: {literal: ''}
+          - when: "_BASE = 0 AND _AVAL = 0"
+            then: {literal: 'Normal to Normal'}
+          - when: "_BASE = 0 AND _AVAL = 1"
+            then: {literal: 'Normal to High'}
+          - when: "_BASE = 1 AND _AVAL = 0"
+            then: {literal: 'High to Normal'}
+          - otherwise: {literal: ''}
+      _SHIFT1N:
+        case:
+          - when: "_BASE IS NULL OR _AVAL IS NULL"
+            then: {literal: null}
+          - when: "_BASE = 0 AND _AVAL = 0"
+            then: {literal: 1.0}
+          - when: "_BASE = 0 AND _AVAL = 1"
+            then: {literal: 2.0}
+          - when: "_BASE = 1 AND _AVAL = 0"
+            then: {literal: 0.0}
+          - otherwise: {literal: null}
+  - id: hylaw
+    dataset: ADLBC
+    group_by: [ADLBC.USUBJID, ADLBC.AVISIT, ADLBC.AVISITN]
+    filter: "AVISITN IS NOT NULL AND AVISITN IN (0.0, 2.0, 4.0, 6.0, 8.0, 12.0, 16.0, 20.0, 24.0) AND _HAS_P > 0"
+    derivations:
+      _HAS_P:
+        aggregate:
+          expr: "COUNT(ADLBC.*)"
+          filter: "ADLBC.PARAMCD IN ('ALT', 'AST', 'BILI') AND ADLBC.AVISITN IS NOT NULL"
+      USUBJID: ADLBC.USUBJID
+      AVISIT: ADLBC.AVISIT
+      AVISITN: ADLBC.AVISITN
+      ADY: {literal: null}
+      ADT: {literal: null}
+      VISIT: {literal: ''}
+      VISITNUM: {literal: null}
+      PARAM: {literal: 'Total Bili 1.5 x ULN and Transaminase 1.5 x ULN'}
+      PARAMCD: {literal: 'HYLAW'}
+      PARAMN: {literal: 6.0}
+      PARAMTYP: {literal: 'DERIVED'}
+      PARCAT1: {literal: 'HYLAW'}
+      AVAL: {source: _AVAL}
+      BASE: {source: _BASE}
+      A1LO: {literal: null}
+      A1HI: {literal: null}
+      R2A1LO: {literal: null}
+      R2A1HI: {literal: null}
+      BR2A1LO: {literal: null}
+      BR2A1HI: {literal: null}
+      ABLFL:
+        case:
+          - when: "AVISITN = 0"
+            then: {literal: 'Y'}
+          - otherwise: {literal: ''}
+      SHIFT1: {source: _SHIFT1}
+      SHIFT1N: {source: _SHIFT1N}
+      CRIT1: {literal: ''}
+      CRIT1FL: {literal: ''}
+      CRIT1FN: {literal: null}
+      _PARAMN_OUT: {literal: null}
+      _CRIT1FL: {literal: null}
+      _CRIT1FN: {literal: null}
+      _BILI_R:
+        aggregate:
+          expr: "ONLY(ADLBC.R2A1HI)"
+          filter: "ADLBC.PARAMCD = 'BILI' AND ADLBC.AVISITN IS NOT NULL"
+      _ALT_R:
+        aggregate:
+          expr: "ONLY(ADLBC.R2A1HI)"
+          filter: "ADLBC.PARAMCD = 'ALT' AND ADLBC.AVISITN IS NOT NULL"
+      _AST_R:
+        aggregate:
+          expr: "ONLY(ADLBC.R2A1HI)"
+          filter: "ADLBC.PARAMCD = 'AST' AND ADLBC.AVISITN IS NOT NULL"
+      _MAX_R:
+        case:
+          - when: "_ALT_R IS NULL"
+            then: {source: _AST_R}
+          - when: "_AST_R IS NULL"
+            then: {source: _ALT_R}
+          - when: "_ALT_R >= _AST_R"
+            then: {source: _ALT_R}
+          - otherwise: {source: _AST_R}
+      _AVAL_BILI:
+        case:
+          - when: "_BILI_R IS NULL"
+            then: {literal: null}
+          - when: "_BILI_R > 1.5"
+            then: {literal: 1.0}
+          - otherwise: {literal: 0.0}
+      _AVAL_TRANS:
+        case:
+          - when: "_ALT_R IS NULL AND _AST_R IS NULL"
+            then: {literal: null}
+          - when: "_MAX_R > 1.5"
+            then: {literal: 1.0}
+          - otherwise: {literal: 0.0}
+      _AVAL:
+        case:
+          - when: "_AVAL_BILI = 1 AND _AVAL_TRANS = 1"
+            then: {literal: 1.0}
+          - otherwise: {literal: 0.0}
+      _BASE_R: {literal: null}
+      _BASE_ALT_R: BL_ALT.R2A1HI
+      _BASE_AST_R: BL_AST.R2A1HI
+      _BASE_BILI_R: BL_BILI.R2A1HI
+      _BASE_MAX_R:
+        case:
+          - when: "_BASE_ALT_R IS NULL"
+            then: {source: _BASE_AST_R}
+          - when: "_BASE_AST_R IS NULL"
+            then: {source: _BASE_ALT_R}
+          - when: "_BASE_ALT_R >= _BASE_AST_R"
+            then: {source: _BASE_ALT_R}
+          - otherwise: {source: _BASE_AST_R}
+      _BASE_D: {literal: null}
+      _BASE_BILI:
+        case:
+          - when: "_BASE_BILI_R IS NULL"
+            then: {literal: null}
+          - when: "_BASE_BILI_R > 1.5"
+            then: {literal: 1.0}
+          - otherwise: {literal: 0.0}
+      _BASE_TRANS:
+        case:
+          - when: "_BASE_ALT_R IS NULL AND _BASE_AST_R IS NULL"
+            then: {literal: null}
+          - when: "_BASE_MAX_R > 1.5"
+            then: {literal: 1.0}
+          - otherwise: {literal: 0.0}
+      _HAS_BL: BL_ANY.USUBJID
+      _BASE:
+        case:
+          - when: "_HAS_BL IS NULL"
+            then: {literal: null}
+          - when: "_BASE_BILI = 1 AND _BASE_TRANS = 1"
+            then: {literal: 1.0}
+          - otherwise: {literal: 0.0}
+      _SHIFT1:
+        case:
+          - when: "_BASE IS NULL OR _AVAL IS NULL"
+            then: {literal: ''}
+          - when: "_BASE = 0 AND _AVAL = 0"
+            then: {literal: 'Normal to Normal'}
+          - when: "_BASE = 0 AND _AVAL = 1"
+            then: {literal: 'Normal to High'}
+          - when: "_BASE = 1 AND _AVAL = 0"
+            then: {literal: 'High to Normal'}
+          - otherwise: {literal: ''}
+      _SHIFT1N:
+        case:
+          - when: "_BASE IS NULL OR _AVAL IS NULL"
+            then: {literal: null}
+          - when: "_BASE = 0 AND _AVAL = 0"
+            then: {literal: 1.0}
+          - when: "_BASE = 0 AND _AVAL = 1"
+            then: {literal: 2.0}
+          - when: "_BASE = 1 AND _AVAL = 0"
+            then: {literal: 0.0}
+          - otherwise: {literal: null}
+
+intermediates:
+  - id: VINFO
+    dataset: ADLBC
+    key: [USUBJID, AVISIT, AVISITN]
+    filter: "ADLBC.AVISITN IN (0.0, 2.0, 4.0, 6.0, 8.0, 12.0, 16.0, 20.0, 24.0)"
+    order_by: [ADLBC.PARAMCD]
+    keep: first
+  - id: BL_BILI
+    dataset: ADLBC
+    key: [USUBJID]
+    filter: "ADLBC.AVISITN = 0 AND ADLBC.PARAMCD = 'BILI'"
+  - id: BL_ALT
+    dataset: ADLBC
+    key: [USUBJID]
+    filter: "ADLBC.AVISITN = 0 AND ADLBC.PARAMCD = 'ALT'"
+  - id: BL_AST
+    dataset: ADLBC
+    key: [USUBJID]
+    filter: "ADLBC.AVISITN = 0 AND ADLBC.PARAMCD = 'AST'"
+  - id: BL_ANY
+    dataset: ADLBC
+    key: [USUBJID]
+    filter: "ADLBC.AVISITN = 0"
+    order_by: [ADLBC.PARAMCD]
+    keep: first
+
+output:
+  path: output/adlbhy.parquet
+  order_by: [USUBJID, AVISITN, PARAMN]
+  columns: [STUDYID, SUBJID, USUBJID, TRTP, TRTPN, TRTA, TRTAN, TRTSDT, TRTEDT, AGE, AGEGR1, AGEGR1N, RACE, RACEN, SEX, COMP24FL, DSRAEFL, SAFFL, AVISIT, AVISITN, ADY, ADT, VISIT, VISITNUM, PARAMTYP, PARAM, PARAMCD, PARAMN, PARCAT1, AVAL, BASE, A1LO, A1HI, R2A1LO, R2A1HI, BR2A1LO, BR2A1HI, ABLFL, SHIFT1, SHIFT1N, CRIT1, CRIT1FL, CRIT1FN]
+
+columns:
+- name: USUBJID
+  type: str
+  label: Unique Subject Identifier
+- name: AVISIT
+  type: str
+  label: Analysis Visit
+- name: AVISITN
+  type: float
+  label: Analysis Visit (N)
+- name: _PARAMN_OUT
+  type: float
+- name: _CRIT1FL
+  type: str
+- name: _CRIT1FN
+  type: float
+- name: _HAS_P
+  type: int
+- name: _BILI_R
+  type: float
+- name: _ALT_R
+  type: float
+- name: _AST_R
+  type: float
+- name: _MAX_R
+  type: float
+- name: _AVAL
+  type: float
+- name: _BASE_R
+  type: float
+- name: _BASE_ALT_R
+  type: float
+- name: _BASE_AST_R
+  type: float
+- name: _BASE_BILI_R
+  type: float
+- name: _BASE_MAX_R
+  type: float
+- name: _BASE_D
+  type: float
+- name: _BASE_BILI
+  type: float
+- name: _BASE_TRANS
+  type: float
+- name: _AVAL_BILI
+  type: float
+- name: _AVAL_TRANS
+  type: float
+- name: _HAS_BL
+  type: str
+- name: _BASE
+  type: float
+- name: _SHIFT1
+  type: str
+- name: _SHIFT1N
+  type: float
+
+- name: STUDYID
+  type: str
+  label: Study Identifier
+  derivation: VINFO.STUDYID
+- name: SUBJID
+  type: str
+  label: Subject Identifier for the Study
+  derivation: VINFO.SUBJID
+- name: TRTP
+  type: str
+  label: Planned Treatment
+  derivation: VINFO.TRTP
+- name: TRTPN
+  type: float
+  label: Planned Treatment (N)
+  derivation: VINFO.TRTPN
+- name: TRTA
+  type: str
+  label: Actual Treatment
+  derivation: VINFO.TRTA
+- name: TRTAN
+  type: float
+  label: Actual Treatment (N)
+  derivation: VINFO.TRTAN
+- name: TRTSDT
+  type: date
+  label: Date of First Exposure to Treatment
+  derivation: VINFO.TRTSDT
+- name: TRTEDT
+  type: date
+  label: Date of Last Exposure to Treatment
+  derivation: VINFO.TRTEDT
+- name: AGE
+  type: float
+  label: Age
+  derivation: VINFO.AGE
+- name: AGEGR1
+  type: str
+  label: Pooled Age Group 1
+  derivation: VINFO.AGEGR1
+- name: AGEGR1N
+  type: float
+  label: Pooled Age Group 1 (N)
+  derivation: VINFO.AGEGR1N
+- name: RACE
+  type: str
+  label: Race
+  derivation: VINFO.RACE
+- name: RACEN
+  type: float
+  label: Race (N)
+  derivation: VINFO.RACEN
+- name: SEX
+  type: str
+  label: Sex
+  derivation: VINFO.SEX
+- name: COMP24FL
+  type: str
+  label: Completers of Week 24 Population Flag
+  derivation: VINFO.COMP24FL
+- name: DSRAEFL
+  type: str
+  label: Discontinued due to AE?
+  derivation: VINFO.DSRAEFL
+- name: SAFFL
+  type: str
+  label: Safety Population Flag
+  derivation: VINFO.SAFFL
+
+- name: ADY
+  type: float
+  label: Analysis Relative Day
+- name: ADT
+  type: date
+  label: Analysis Date
+- name: VISIT
+  type: str
+  label: Visit Name
+- name: VISITNUM
+  type: float
+  label: Visit Number
+- name: PARAM
+  type: str
+  label: Parameter
+- name: PARAMCD
+  type: str
+  label: Parameter Code
+- name: PARAMN
+  type: float
+  label: Parameter (N)
+- name: PARAMTYP
+  type: str
+  label: Parameter Type
+- name: PARCAT1
+  type: str
+  label: Parameter Category 1
+- name: AVAL
+  type: float
+  label: Analysis Value
+- name: BASE
+  type: float
+  label: Baseline Value
+- name: A1LO
+  type: float
+  label: Analysis Range 1 Lower Limit
+- name: A1HI
+  type: float
+  label: Analysis Range 1 Upper Limit
+- name: R2A1LO
+  type: float
+  label: Ratio to Analysis Range 1 Lower Limit
+- name: R2A1HI
+  type: float
+  label: Ratio to Analysis Range 1 Upper Limit
+- name: BR2A1LO
+  type: float
+  label: Base Ratio to Analysis Range 1 Lower Lim
+- name: BR2A1HI
+  type: float
+  label: Base Ratio to Analysis Range 1 Upper Lim
+- name: ABLFL
+  type: str
+  label: Baseline Record Flag
+- name: SHIFT1
+  type: str
+  label: Shift 1
+- name: SHIFT1N
+  type: float
+  label: Shift 1 (N)
+- name: CRIT1
+  type: str
+  label: Analysis Criterion 1
+- name: CRIT1FL
+  type: str
+  label: Criterion 1 Evaluation Result Flag
+- name: CRIT1FN
+  type: float
+  label: Criterion 1 Evaluation Result Flag (N)

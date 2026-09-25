@@ -1,0 +1,1126 @@
+schema_version: "1.0"
+domain: ADLBH
+keys: [STUDYID, USUBJID, PARAMCD, LBSEQ, AVISIT]
+input:
+  LB:
+    path: work/lb_h_with_prev.parquet
+    # PREV_AVAL is staged from adlbh-prevmap.yaml (previous scheduled AVAL
+    # within USUBJID/LBTESTCD ordered by AVISITN, raw BASELINE excluded),
+    # joined back onto the original LB records by orchestration.
+    empty_string: present
+  ADSL:
+    path: upstream/adsl.parquet
+    empty_string: present
+base: LB
+intermediates:
+  - id: ADSL_SBJ
+    dataset: ADSL
+    key: [USUBJID]
+rows:
+  # ------------------------------------------------------------------
+  # base-ord: ordinary base rows (one per chemistry LB record)
+  # ------------------------------------------------------------------
+  - id: base-ord
+    dataset: LB
+    filter: "LB.LBCAT = 'HEMATOLOGY' AND LB.VISIT NOT IN ('RETRIEVAL', 'AMBUL ECG REMOVAL', 'BASELINE')"
+    derivations:
+      STUDYID: LB.STUDYID
+      USUBJID: LB.USUBJID
+      PARAMCD: LB.LBTESTCD
+      _IS_UNDER: {literal: ''}
+      _IS_EOT: {literal: ''}
+      VISIT: LB.VISIT
+      VISITNUM: LB.VISITNUM
+      LBSEQ: LB.LBSEQ
+      LBNRIND: LB.LBNRIND
+      LBSTRESN: LB.LBSTRESN
+      A1LO:
+        case:
+          - when: "LB.LBSTNRLO = 0"
+            then: {literal: null}
+          - otherwise: {source: LB.LBSTNRLO}
+      A1HI: LB.LBSTNRHI
+      _LBDTM_TXT: LB.LBDTC
+      _LBDTM:
+        datetime_impute:
+          source: _LBDTM_TXT
+          time: first
+          missing: null
+          invalid: null
+      _ADT_DATE:
+        to_date:
+          source: _LBDTM
+      AVISIT:
+        case:
+          - when: "LB.VISIT = 'SCREENING 1'"
+            then: {literal: '        Baseline'}
+          - when: "LB.VISIT = 'WEEK 2'"
+            then: {literal: '          Week 2'}
+          - when: "LB.VISIT = 'WEEK 4'"
+            then: {literal: '          Week 4'}
+          - when: "LB.VISIT = 'WEEK 6'"
+            then: {literal: '          Week 6'}
+          - when: "LB.VISIT = 'WEEK 8'"
+            then: {literal: '          Week 8'}
+          - when: "LB.VISIT = 'WEEK 12'"
+            then: {literal: '         Week 12'}
+          - when: "LB.VISIT = 'WEEK 16'"
+            then: {literal: '         Week 16'}
+          - when: "LB.VISIT = 'WEEK 20'"
+            then: {literal: '         Week 20'}
+          - when: "LB.VISIT = 'WEEK 24'"
+            then: {literal: '         Week 24'}
+          - when: "LB.VISIT = 'WEEK 26'"
+            then: {literal: '         Week 26'}
+          - otherwise: {literal: '               .'}
+      AVISITN:
+        case:
+          - when: "LB.VISIT = 'SCREENING 1'"
+            then: {literal: 0.0}
+          - when: "LB.VISIT = 'WEEK 2'"
+            then: {literal: 2.0}
+          - when: "LB.VISIT = 'WEEK 4'"
+            then: {literal: 4.0}
+          - when: "LB.VISIT = 'WEEK 6'"
+            then: {literal: 6.0}
+          - when: "LB.VISIT = 'WEEK 8'"
+            then: {literal: 8.0}
+          - when: "LB.VISIT = 'WEEK 12'"
+            then: {literal: 12.0}
+          - when: "LB.VISIT = 'WEEK 16'"
+            then: {literal: 16.0}
+          - when: "LB.VISIT = 'WEEK 20'"
+            then: {literal: 20.0}
+          - when: "LB.VISIT = 'WEEK 24'"
+            then: {literal: 24.0}
+          - when: "LB.VISIT = 'WEEK 26'"
+            then: {literal: 26.0}
+          - otherwise: {literal: null}
+      ABLFL:
+        case:
+          - when: "LB.LBBLFL = 'Y'"
+            then: {literal: 'Y'}
+          - otherwise: {literal: ''}
+      _PARAM_BASE:
+        mapping:
+          source: LB.LBTESTCD
+          dict:
+            HGB: 'Hemoglobin (mmol/L)'
+            HCT: 'Hematocrit'
+            MCV: 'Ery. Mean Corpuscular Volume (fL)'
+            MCH: 'Ery. Mean Corpuscular Hemoglobin (fmol(Fe))'
+            MCHC: 'Ery. Mean Corpuscular HGB Concentration (mmol/L)'
+            WBC: 'Leukocytes (GI/L)'
+            LYM: 'Lymphocytes (GI/L)'
+            MONO: 'Monocytes (GI/L)'
+            EOS: 'Eosinophils (GI/L)'
+            BASO: 'Basophils (GI/L)'
+            PLAT: 'Platelet (GI/L)'
+            RBC: 'Erythrocytes (TI/L)'
+            ANISO: 'Anisocytes'
+            MACROCY: 'Macrocytes'
+            MICROCY: 'Microcytes'
+            POIKILO: 'Poikilocytes'
+            POLYCHR: 'Polychromasia'
+          missing: null
+      _PARAMN_BASE:
+        mapping:
+          source: LB.LBTESTCD
+          dict:
+            HGB: 1.0
+            HCT: 2.0
+            MCV: 3.0
+            MCH: 4.0
+            MCHC: 5.0
+            WBC: 6.0
+            LYM: 7.0
+            MONO: 8.0
+            EOS: 9.0
+            BASO: 10.0
+            PLAT: 11.0
+            RBC: 12.0
+            ANISO: 13.0
+            MACROCY: 14.0
+            MICROCY: 15.0
+            POIKILO: 16.0
+            POLYCHR: 17.0
+      _AVAL_BASE: LB.LBSTRESN
+      _BASELINE_AVAL:
+        case:
+          - when: "ABLFL = 'Y'"
+            then: {source: _AVAL_BASE}
+          - otherwise: {literal: null}
+      _PNM_BASE:
+        previous_non_missing:
+          source: _BASELINE_AVAL
+          window:
+            group_by: [USUBJID, PARAMCD]
+            order_by: [{variable: LBSEQ}]
+      _BASE:
+        first_available:
+          sources: [_BASELINE_AVAL, _PNM_BASE]
+      _IS_LAST_ELIGIBLE:
+        row_number:
+          window:
+            group_by: [USUBJID, PARAMCD]
+            order_by: [{variable: LBSEQ, direction: desc}]
+            filter: "VISIT IN ('WEEK 2', 'WEEK 4', 'WEEK 6', 'WEEK 8', 'WEEK 12', 'WEEK 16', 'WEEK 20', 'WEEK 24')"
+      _RANK_AVISITN: {source: AVISITN}
+      _B_A1HI: {literal: null}
+      _B_A1LO: {literal: null}
+      _EOT_A1LO_RAW: {literal: null}
+      _T1:
+        compute:
+          expr: "1.5 * A1HI - _AVAL_BASE"
+      _T2:
+        compute:
+          expr: "_AVAL_BASE - 0.5 * A1LO"
+      ALBTRVAL:
+        case:
+          - when: "A1LO IS NULL AND A1HI IS NULL"
+            then: {literal: null}
+          - when: "A1LO IS NULL"
+            then:
+              greatest:
+                sources: [_T1, _AVAL_BASE]
+          - when: "A1HI IS NULL"
+            then: {source: _T2}
+          - otherwise:
+              greatest:
+                sources: [_T1, _T2]
+      _R2A1HI_R:
+        compute:
+          expr: "_AVAL_BASE / A1HI"
+      _R2A1LO_R:
+        compute:
+          expr: "_AVAL_BASE / A1LO"
+      _ANRIND_BASE:
+        case:
+          - when: "_R2A1HI_R > 1.5"
+            then: {literal: 'H'}
+          - when: "_R2A1LO_R < 0.5"
+            then: {literal: 'L'}
+          - when: "A1LO IS NULL AND A1HI IS NULL AND _AVAL_BASE IS NOT NULL"
+            then: {literal: 'H'}
+          - otherwise: {literal: 'N'}
+      _BASELINE_ANRIND:
+        case:
+          - when: "ABLFL = 'Y'"
+            then: {source: _ANRIND_BASE}
+          - otherwise: {literal: null}
+      _PNM_BNRIND:
+        previous_non_missing:
+          source: _BASELINE_ANRIND
+          window:
+            group_by: [USUBJID, PARAMCD]
+            order_by: [{variable: LBSEQ}]
+      _BNRIND_VAL:
+        first_available:
+          sources: [_BASELINE_ANRIND, _PNM_BNRIND]
+      _LBCAT: {literal: null}
+      _VISIT_RAW: {literal: null}
+      _LBBLFL: {literal: null}
+      _LBTESTCD: {literal: null}
+      _PARAMCD_BASE: {literal: null}
+      _SCHED: {literal: null}
+      _PREV_AVAL: {literal: null}
+      _U_RAW: {literal: null}
+  # ------------------------------------------------------------------
+  # base-eot: EOT base rows (last eligible record per USUBJID/PARAMCD)
+  # Single-record groups; grouped filter keeps the last eligible.
+  # ------------------------------------------------------------------
+  - id: base-eot
+    dataset: LB
+    group_by: [LB.USUBJID, LB.LBTESTCD, LB.LBSEQ]
+    filter: "_IS_LAST_ELIGIBLE = 1"
+    derivations:
+      STUDYID:
+        aggregate: "ONLY(LB.STUDYID)"
+      USUBJID: LB.USUBJID
+      PARAMCD: LB.LBTESTCD
+      LBSEQ: LB.LBSEQ
+      _IS_UNDER: {literal: ''}
+      _IS_EOT: {literal: 'Y'}
+      _LBCAT:
+        aggregate: "ONLY(LB.LBCAT)"
+      _VISIT_RAW:
+        aggregate: "ONLY(LB.VISIT)"
+      VISIT:
+        aggregate: "ONLY(LB.VISIT)"
+      VISITNUM:
+        aggregate: "ONLY(LB.VISITNUM)"
+      LBNRIND:
+        aggregate: "ONLY(LB.LBNRIND)"
+      LBSTRESN:
+        aggregate: "ONLY(LB.LBSTRESN)"
+      _EOT_A1LO_RAW:
+        aggregate: "ONLY(LB.LBSTNRLO)"
+      A1LO:
+        case:
+          - when: "_EOT_A1LO_RAW = 0"
+            then: {literal: null}
+          - otherwise: {source: _EOT_A1LO_RAW}
+      A1HI:
+        aggregate: "ONLY(LB.LBSTNRHI)"
+      _LBDTM_TXT:
+        aggregate: "ONLY(LB.LBDTC)"
+      _LBDTM:
+        datetime_impute:
+          source: _LBDTM_TXT
+          time: first
+          missing: null
+          invalid: null
+      _ADT_DATE:
+        to_date:
+          source: _LBDTM
+      _LBBLFL:
+        aggregate: "ONLY(LB.LBBLFL)"
+      _LBTESTCD:
+        aggregate: "ONLY(LB.LBTESTCD)"
+      AVISIT: {literal: 'End of Treatment'}
+      AVISITN: {literal: 99.0}
+      ABLFL: {literal: ''}
+      _PARAM_BASE:
+        mapping:
+          source: LB.LBTESTCD
+          dict:
+            HGB: 'Hemoglobin (mmol/L)'
+            HCT: 'Hematocrit'
+            MCV: 'Ery. Mean Corpuscular Volume (fL)'
+            MCH: 'Ery. Mean Corpuscular Hemoglobin (fmol(Fe))'
+            MCHC: 'Ery. Mean Corpuscular HGB Concentration (mmol/L)'
+            WBC: 'Leukocytes (GI/L)'
+            LYM: 'Lymphocytes (GI/L)'
+            MONO: 'Monocytes (GI/L)'
+            EOS: 'Eosinophils (GI/L)'
+            BASO: 'Basophils (GI/L)'
+            PLAT: 'Platelet (GI/L)'
+            RBC: 'Erythrocytes (TI/L)'
+            ANISO: 'Anisocytes'
+            MACROCY: 'Macrocytes'
+            MICROCY: 'Microcytes'
+            POIKILO: 'Poikilocytes'
+            POLYCHR: 'Polychromasia'
+          missing: null
+      _PARAMN_BASE:
+        mapping:
+          source: LB.LBTESTCD
+          dict:
+            HGB: 1.0
+            HCT: 2.0
+            MCV: 3.0
+            MCH: 4.0
+            MCHC: 5.0
+            WBC: 6.0
+            LYM: 7.0
+            MONO: 8.0
+            EOS: 9.0
+            BASO: 10.0
+            PLAT: 11.0
+            RBC: 12.0
+            ANISO: 13.0
+            MACROCY: 14.0
+            MICROCY: 15.0
+            POIKILO: 16.0
+            POLYCHR: 17.0
+          missing: null
+      _AVAL_BASE:
+        aggregate: "ONLY(LB.LBSTRESN)"
+      _BASELINE_AVAL:
+        case:
+          - when: "_LBBLFL = 'Y'"
+            then: {source: _AVAL_BASE}
+          - otherwise: {literal: null}
+      _PNM_BASE:
+        previous_non_missing:
+          source: _BASELINE_AVAL
+          window:
+            group_by: [USUBJID, PARAMCD]
+            order_by: [{variable: LBSEQ}]
+      _BASE:
+        first_available:
+          sources: [_BASELINE_AVAL, _PNM_BASE]
+      _IS_LAST_ELIGIBLE:
+        row_number:
+          window:
+            group_by: [USUBJID, PARAMCD]
+            order_by: [{variable: LBSEQ, direction: desc}]
+            filter: "_LBCAT = 'HEMATOLOGY' AND _VISIT_RAW NOT IN ('RETRIEVAL', 'AMBUL ECG REMOVAL') AND _VISIT_RAW IN ('WEEK 2', 'WEEK 4', 'WEEK 6', 'WEEK 8', 'WEEK 12', 'WEEK 16', 'WEEK 20', 'WEEK 24')"
+      _RANK_AVISITN:
+        case:
+          - when: "_VISIT_RAW = 'SCREENING 1'"
+            then: {literal: 0.0}
+          - when: "_VISIT_RAW = 'WEEK 2'"
+            then: {literal: 2.0}
+          - when: "_VISIT_RAW = 'WEEK 4'"
+            then: {literal: 4.0}
+          - when: "_VISIT_RAW = 'WEEK 6'"
+            then: {literal: 6.0}
+          - when: "_VISIT_RAW = 'WEEK 8'"
+            then: {literal: 8.0}
+          - when: "_VISIT_RAW = 'WEEK 12'"
+            then: {literal: 12.0}
+          - when: "_VISIT_RAW = 'WEEK 16'"
+            then: {literal: 16.0}
+          - when: "_VISIT_RAW = 'WEEK 20'"
+            then: {literal: 20.0}
+          - when: "_VISIT_RAW = 'WEEK 24'"
+            then: {literal: 24.0}
+          - when: "_VISIT_RAW = 'WEEK 26'"
+            then: {literal: 26.0}
+          - otherwise: {literal: null}
+      _B_A1HI: {literal: null}
+      _B_A1LO: {literal: null}
+      _T1:
+        compute:
+          expr: "1.5 * A1HI - _AVAL_BASE"
+      _T2:
+        compute:
+          expr: "_AVAL_BASE - 0.5 * A1LO"
+      ALBTRVAL:
+        case:
+          - when: "A1LO IS NULL AND A1HI IS NULL"
+            then: {literal: null}
+          - when: "A1LO IS NULL"
+            then:
+              greatest:
+                sources: [_T1, _AVAL_BASE]
+          - when: "A1HI IS NULL"
+            then: {source: _T2}
+          - otherwise:
+              greatest:
+                sources: [_T1, _T2]
+      _R2A1HI_R:
+        compute:
+          expr: "_AVAL_BASE / A1HI"
+      _R2A1LO_R:
+        compute:
+          expr: "_AVAL_BASE / A1LO"
+      _ANRIND_BASE:
+        case:
+          - when: "_R2A1HI_R > 1.5"
+            then: {literal: 'H'}
+          - when: "_R2A1LO_R < 0.5"
+            then: {literal: 'L'}
+          - when: "A1LO IS NULL AND A1HI IS NULL AND _AVAL_BASE IS NOT NULL"
+            then: {literal: 'H'}
+          - otherwise: {literal: 'N'}
+      _BASELINE_ANRIND:
+        case:
+          - when: "_LBBLFL = 'Y'"
+            then: {source: _ANRIND_BASE}
+          - otherwise: {literal: null}
+      _PNM_BNRIND:
+        previous_non_missing:
+          source: _BASELINE_ANRIND
+          window:
+            group_by: [USUBJID, PARAMCD]
+            order_by: [{variable: LBSEQ}]
+      _BNRIND_VAL:
+        first_available:
+          sources: [_BASELINE_ANRIND, _PNM_BNRIND]
+      _PARAMCD_BASE: {literal: null}
+      _SCHED: {literal: null}
+      _PREV_AVAL: {literal: null}
+      _U_RAW: {literal: null}
+  # ------------------------------------------------------------------
+  # under-ord: ordinary underscore rows (change from previous visit)
+  # ------------------------------------------------------------------
+  - id: under-ord
+    dataset: LB
+    filter: "LB.LBCAT = 'HEMATOLOGY' AND LB.VISIT NOT IN ('RETRIEVAL', 'AMBUL ECG REMOVAL', 'BASELINE')"
+    derivations:
+      STUDYID: LB.STUDYID
+      USUBJID: LB.USUBJID
+      _IS_UNDER: {literal: 'Y'}
+      _IS_EOT: {literal: ''}
+      VISIT: LB.VISIT
+      VISITNUM: LB.VISITNUM
+      LBSEQ: LB.LBSEQ
+      LBNRIND: LB.LBNRIND
+      LBSTRESN: LB.LBSTRESN
+      A1LO: {literal: null}
+      A1HI: {literal: null}
+      _LBDTM_TXT: LB.LBDTC
+      _LBDTM:
+        datetime_impute:
+          source: _LBDTM_TXT
+          time: first
+          missing: null
+          invalid: null
+      _ADT_DATE:
+        to_date:
+          source: _LBDTM
+      PARAMCD:
+        str_concat:
+          sources:
+            - {literal: '_'}
+            - {source: LB.LBTESTCD}
+      AVISIT:
+        case:
+          - when: "LB.VISIT = 'SCREENING 1'"
+            then: {literal: '        Baseline'}
+          - when: "LB.VISIT = 'WEEK 2'"
+            then: {literal: '          Week 2'}
+          - when: "LB.VISIT = 'WEEK 4'"
+            then: {literal: '          Week 4'}
+          - when: "LB.VISIT = 'WEEK 6'"
+            then: {literal: '          Week 6'}
+          - when: "LB.VISIT = 'WEEK 8'"
+            then: {literal: '          Week 8'}
+          - when: "LB.VISIT = 'WEEK 12'"
+            then: {literal: '         Week 12'}
+          - when: "LB.VISIT = 'WEEK 16'"
+            then: {literal: '         Week 16'}
+          - when: "LB.VISIT = 'WEEK 20'"
+            then: {literal: '         Week 20'}
+          - when: "LB.VISIT = 'WEEK 24'"
+            then: {literal: '         Week 24'}
+          - when: "LB.VISIT = 'WEEK 26'"
+            then: {literal: '         Week 26'}
+          - otherwise: {literal: '               .'}
+      AVISITN:
+        case:
+          - when: "LB.VISIT = 'SCREENING 1'"
+            then: {literal: 0.0}
+          - when: "LB.VISIT = 'WEEK 2'"
+            then: {literal: 2.0}
+          - when: "LB.VISIT = 'WEEK 4'"
+            then: {literal: 4.0}
+          - when: "LB.VISIT = 'WEEK 6'"
+            then: {literal: 6.0}
+          - when: "LB.VISIT = 'WEEK 8'"
+            then: {literal: 8.0}
+          - when: "LB.VISIT = 'WEEK 12'"
+            then: {literal: 12.0}
+          - when: "LB.VISIT = 'WEEK 16'"
+            then: {literal: 16.0}
+          - when: "LB.VISIT = 'WEEK 20'"
+            then: {literal: 20.0}
+          - when: "LB.VISIT = 'WEEK 24'"
+            then: {literal: 24.0}
+          - when: "LB.VISIT = 'WEEK 26'"
+            then: {literal: 26.0}
+          - otherwise: {literal: null}
+      ABLFL: {literal: ''}
+      _PARAM_BASE:
+        mapping:
+          source: LB.LBTESTCD
+          dict:
+            HGB: 'Hemoglobin (mmol/L)'
+            HCT: 'Hematocrit'
+            MCV: 'Ery. Mean Corpuscular Volume (fL)'
+            MCH: 'Ery. Mean Corpuscular Hemoglobin (fmol(Fe))'
+            MCHC: 'Ery. Mean Corpuscular HGB Concentration (mmol/L)'
+            WBC: 'Leukocytes (GI/L)'
+            LYM: 'Lymphocytes (GI/L)'
+            MONO: 'Monocytes (GI/L)'
+            EOS: 'Eosinophils (GI/L)'
+            BASO: 'Basophils (GI/L)'
+            PLAT: 'Platelet (GI/L)'
+            RBC: 'Erythrocytes (TI/L)'
+            ANISO: 'Anisocytes'
+            MACROCY: 'Macrocytes'
+            MICROCY: 'Microcytes'
+            POIKILO: 'Poikilocytes'
+            POLYCHR: 'Polychromasia'
+          missing: null
+      _PARAMN_BASE:
+        mapping:
+          source: LB.LBTESTCD
+          dict:
+            HGB: 1.0
+            HCT: 2.0
+            MCV: 3.0
+            MCH: 4.0
+            MCHC: 5.0
+            WBC: 6.0
+            LYM: 7.0
+            MONO: 8.0
+            EOS: 9.0
+            BASO: 10.0
+            PLAT: 11.0
+            RBC: 12.0
+            ANISO: 13.0
+            MACROCY: 14.0
+            MICROCY: 15.0
+            POIKILO: 16.0
+            POLYCHR: 17.0
+      _AVAL_BASE: LB.LBSTRESN
+      _BASE:
+        first_available:
+          sources: [_BASELINE_AVAL, _PNM_BASE]
+      _BASELINE_AVAL: {literal: null}
+      _PNM_BASE: {literal: null}
+      _PARAMCD_BASE: LB.LBTESTCD
+      _SCHED:
+        case:
+          - when: "AVISIT = '               .' OR AVISIT = 'End of Treatment' OR AVISIT = '        Baseline'"
+            then: {literal: ''}
+          - otherwise: {literal: 'Y'}
+      _PREV_AVAL: LB.PREV_AVAL
+      _U_RAW:
+        compute:
+          expr: "(_AVAL_BASE - _PREV_AVAL) / (0.5 * (_B_A1HI - _B_A1LO))"
+      _IS_LAST_ELIGIBLE:
+        row_number:
+          window:
+            group_by: [USUBJID, _PARAMCD_BASE]
+            order_by: [{variable: LBSEQ, direction: desc}]
+            filter: "VISIT IN ('WEEK 2', 'WEEK 4', 'WEEK 6', 'WEEK 8', 'WEEK 12', 'WEEK 16', 'WEEK 20', 'WEEK 24')"
+      _RANK_AVISITN: {source: AVISITN}
+      _B_A1HI: LB.LBSTNRHI
+      _B_A1LO: LB.LBSTNRLO
+      _EOT_A1LO_RAW: {literal: null}
+      _T1:
+        compute:
+          expr: "1.5 * _B_A1HI - _AVAL_BASE"
+      _T2:
+        compute:
+          expr: "_AVAL_BASE - 0.5 * _B_A1LO"
+      ALBTRVAL:
+        case:
+          - when: "_B_A1LO IS NULL AND _B_A1HI IS NULL"
+            then: {literal: null}
+          - when: "_B_A1LO IS NULL"
+            then: {source: _T1}
+          - when: "_B_A1HI IS NULL"
+            then: {source: _T2}
+          - otherwise:
+              greatest:
+                sources: [_T1, _T2]
+      _R2A1HI_R: {literal: null}
+      _R2A1LO_R: {literal: null}
+      _BASELINE_ANRIND: {literal: null}
+      _PNM_BNRIND: {literal: null}
+      _BNRIND_VAL: {literal: null}
+      _ANRIND_BASE: {literal: null}
+      _LBCAT: {literal: null}
+      _VISIT_RAW: {literal: null}
+      _LBBLFL: {literal: null}
+      _LBTESTCD: {literal: null}
+  # ------------------------------------------------------------------
+  # under-eot: EOT underscore rows (inherits source row's previous value)
+  # ------------------------------------------------------------------
+  - id: under-eot
+    dataset: LB
+    group_by: [LB.USUBJID, LB.LBTESTCD, LB.LBSEQ]
+    filter: "_IS_LAST_ELIGIBLE = 1"
+    derivations:
+      STUDYID:
+        aggregate: "ONLY(LB.STUDYID)"
+      USUBJID: LB.USUBJID
+      LBSEQ: LB.LBSEQ
+      _IS_UNDER: {literal: 'Y'}
+      _IS_EOT: {literal: 'Y'}
+      _LBCAT:
+        aggregate: "ONLY(LB.LBCAT)"
+      _VISIT_RAW:
+        aggregate: "ONLY(LB.VISIT)"
+      VISIT:
+        aggregate: "ONLY(LB.VISIT)"
+      VISITNUM:
+        aggregate: "ONLY(LB.VISITNUM)"
+      LBNRIND:
+        aggregate: "ONLY(LB.LBNRIND)"
+      LBSTRESN:
+        aggregate: "ONLY(LB.LBSTRESN)"
+      A1LO: {literal: null}
+      A1HI: {literal: null}
+      _LBDTM_TXT:
+        aggregate: "ONLY(LB.LBDTC)"
+      _LBDTM:
+        datetime_impute:
+          source: _LBDTM_TXT
+          time: first
+          missing: null
+          invalid: null
+      _ADT_DATE:
+        to_date:
+          source: _LBDTM
+      _LBTESTCD:
+        aggregate: "ONLY(LB.LBTESTCD)"
+      _LBBLFL:
+        aggregate: "ONLY(LB.LBBLFL)"
+      PARAMCD:
+        str_concat:
+          sources:
+            - {literal: '_'}
+            - {source: _LBTESTCD}
+      AVISIT: {literal: 'End of Treatment'}
+      AVISITN: {literal: 99.0}
+      ABLFL: {literal: ''}
+      _PARAM_BASE:
+        mapping:
+          source: LB.LBTESTCD
+          dict:
+            HGB: 'Hemoglobin (mmol/L)'
+            HCT: 'Hematocrit'
+            MCV: 'Ery. Mean Corpuscular Volume (fL)'
+            MCH: 'Ery. Mean Corpuscular Hemoglobin (fmol(Fe))'
+            MCHC: 'Ery. Mean Corpuscular HGB Concentration (mmol/L)'
+            WBC: 'Leukocytes (GI/L)'
+            LYM: 'Lymphocytes (GI/L)'
+            MONO: 'Monocytes (GI/L)'
+            EOS: 'Eosinophils (GI/L)'
+            BASO: 'Basophils (GI/L)'
+            PLAT: 'Platelet (GI/L)'
+            RBC: 'Erythrocytes (TI/L)'
+            ANISO: 'Anisocytes'
+            MACROCY: 'Macrocytes'
+            MICROCY: 'Microcytes'
+            POIKILO: 'Poikilocytes'
+            POLYCHR: 'Polychromasia'
+          missing: null
+      _PARAMN_BASE:
+        mapping:
+          source: LB.LBTESTCD
+          dict:
+            HGB: 1.0
+            HCT: 2.0
+            MCV: 3.0
+            MCH: 4.0
+            MCHC: 5.0
+            WBC: 6.0
+            LYM: 7.0
+            MONO: 8.0
+            EOS: 9.0
+            BASO: 10.0
+            PLAT: 11.0
+            RBC: 12.0
+            ANISO: 13.0
+            MACROCY: 14.0
+            MICROCY: 15.0
+            POIKILO: 16.0
+            POLYCHR: 17.0
+          missing: null
+      _AVAL_BASE:
+        aggregate: "ONLY(LB.LBSTRESN)"
+      _BASE: {literal: null}
+      _BASELINE_AVAL: {literal: null}
+      _PNM_BASE: {literal: null}
+      _PARAMCD_BASE:
+        aggregate: "ONLY(LB.LBTESTCD)"
+      _SCHED:
+        case:
+          - when: "_VISIT_RAW IN ('SCREENING 1', 'WEEK 2', 'WEEK 4', 'WEEK 6', 'WEEK 8', 'WEEK 12', 'WEEK 16', 'WEEK 20', 'WEEK 24', 'WEEK 26')"
+            then: {literal: 'Y'}
+          - otherwise: {literal: ''}
+      _PREV_AVAL:
+        aggregate: "ONLY(LB.PREV_AVAL)"
+      _U_RAW:
+        compute:
+          expr: "(_AVAL_BASE - _PREV_AVAL) / (0.5 * (_B_A1HI - _B_A1LO))"
+      _IS_LAST_ELIGIBLE:
+        row_number:
+          window:
+            group_by: [USUBJID, _PARAMCD_BASE]
+            order_by: [{variable: LBSEQ, direction: desc}]
+            filter: "_LBCAT = 'HEMATOLOGY' AND _VISIT_RAW NOT IN ('RETRIEVAL', 'AMBUL ECG REMOVAL') AND _VISIT_RAW IN ('WEEK 2', 'WEEK 4', 'WEEK 6', 'WEEK 8', 'WEEK 12', 'WEEK 16', 'WEEK 20', 'WEEK 24')"
+      _RANK_AVISITN:
+        case:
+          - when: "_VISIT_RAW = 'SCREENING 1'"
+            then: {literal: 0.0}
+          - when: "_VISIT_RAW = 'WEEK 2'"
+            then: {literal: 2.0}
+          - when: "_VISIT_RAW = 'WEEK 4'"
+            then: {literal: 4.0}
+          - when: "_VISIT_RAW = 'WEEK 6'"
+            then: {literal: 6.0}
+          - when: "_VISIT_RAW = 'WEEK 8'"
+            then: {literal: 8.0}
+          - when: "_VISIT_RAW = 'WEEK 12'"
+            then: {literal: 12.0}
+          - when: "_VISIT_RAW = 'WEEK 16'"
+            then: {literal: 16.0}
+          - when: "_VISIT_RAW = 'WEEK 20'"
+            then: {literal: 20.0}
+          - when: "_VISIT_RAW = 'WEEK 24'"
+            then: {literal: 24.0}
+          - when: "_VISIT_RAW = 'WEEK 26'"
+            then: {literal: 26.0}
+          - otherwise: {literal: null}
+      _B_A1HI:
+        aggregate: "ONLY(LB.LBSTNRHI)"
+      _B_A1LO:
+        aggregate: "ONLY(LB.LBSTNRLO)"
+      _EOT_A1LO_RAW: {literal: null}
+      _T1:
+        compute:
+          expr: "1.5 * _B_A1HI - _AVAL_BASE"
+      _T2:
+        compute:
+          expr: "_AVAL_BASE - 0.5 * _B_A1LO"
+      ALBTRVAL:
+        case:
+          - when: "_B_A1LO IS NULL AND _B_A1HI IS NULL"
+            then: {literal: null}
+          - when: "_B_A1LO IS NULL"
+            then: {source: _T1}
+          - when: "_B_A1HI IS NULL"
+            then: {source: _T2}
+          - otherwise:
+              greatest:
+                sources: [_T1, _T2]
+      _R2A1HI_R: {literal: null}
+      _R2A1LO_R: {literal: null}
+      _BASELINE_ANRIND: {literal: null}
+      _PNM_BNRIND: {literal: null}
+      _BNRIND_VAL: {literal: null}
+      _ANRIND_BASE: {literal: null}
+output:
+  path: output/adlbh.parquet
+  order_by: [USUBJID, ADY, PARAMN, AVISITN]
+  columns: [STUDYID, SUBJID, USUBJID, TRTP, TRTPN, TRTA, TRTAN, TRTSDT, TRTEDT, AGE, AGEGR1, AGEGR1N, RACE, RACEN, SEX, COMP24FL, DSRAEFL, SAFFL, AVISIT, AVISITN, ADY, ADT, VISIT, VISITNUM, PARAM, PARAMCD, PARAMN, PARCAT1, AVAL, BASE, CHG, A1LO, A1HI, R2A1LO, R2A1HI, BR2A1LO, BR2A1HI, ANL01FL, ALBTRVAL, ANRIND, BNRIND, ABLFL, AENTMTFL, LBSEQ, LBNRIND, LBSTRESN]
+columns:
+  # ADSL lookups (via ADSL_SBJ intermediate)
+  - name: STUDYID
+    type: str
+    label: Study Identifier
+  - name: SUBJID
+    type: str
+    label: Subject Identifier for the Study
+    derivation: ADSL_SBJ.SUBJID
+  - name: USUBJID
+    type: str
+    label: Unique Subject Identifier
+  - name: TRTP
+    type: str
+    label: Planned Treatment
+    derivation: ADSL_SBJ.TRT01P
+  - name: TRTPN
+    type: float
+    label: Planned Treatment (N)
+    derivation: ADSL_SBJ.TRT01PN
+  - name: TRTA
+    type: str
+    label: Actual Treatment
+    derivation: ADSL_SBJ.TRT01A
+  - name: TRTAN
+    type: float
+    label: Actual Treatment (N)
+    derivation: ADSL_SBJ.TRT01AN
+  - name: TRTSDT
+    type: date
+    label: Date of First Exposure to Treatment
+    derivation: ADSL_SBJ.TRTSDT
+  - name: TRTEDT
+    type: date
+    label: Date of Last Exposure to Treatment
+    derivation: ADSL_SBJ.TRTEDT
+  - name: AGE
+    type: float
+    label: Age
+    derivation: ADSL_SBJ.AGE
+  - name: AGEGR1
+    type: str
+    label: Pooled Age Group 1
+    derivation: ADSL_SBJ.AGEGR1
+  - name: AGEGR1N
+    type: float
+    label: Pooled Age Group 1 (N)
+    derivation: ADSL_SBJ.AGEGR1N
+  - name: RACE
+    type: str
+    label: Race
+    derivation: ADSL_SBJ.RACE
+  - name: RACEN
+    type: float
+    label: Race (N)
+    derivation: ADSL_SBJ.RACEN
+  - name: SEX
+    type: str
+    label: Sex
+    derivation: ADSL_SBJ.SEX
+  - name: COMP24FL
+    type: str
+    label: Completers of Week 24 Population Flag
+    derivation: ADSL_SBJ.COMP24FL
+  - name: DSRAEFL
+    type: str
+    label: Discontinued due to AE?
+    derivation: ADSL_SBJ.DSRAEFL
+  - name: SAFFL
+    type: str
+    label: Safety Population Flag
+    derivation: ADSL_SBJ.SAFFL
+  # Helpers (not in output)
+  - name: _IS_UNDER
+    type: str
+  - name: _IS_EOT
+    type: str
+  - name: _LBDTM_TXT
+    type: str
+  - name: _LBDTM
+    type: datetime
+  - name: _ADT_DATE
+    type: date
+  - name: _PARAM_BASE
+    type: str
+  - name: _PARAMN_BASE
+    type: float
+  - name: _EOT_A1LO_RAW
+    type: float
+  - name: _PARAM_UNDER_RAW
+    type: str
+    derivation:
+      case:
+        - when: "_IS_UNDER = 'Y'"
+          then:
+            str_concat:
+              sources:
+                - {source: _PARAM_BASE}
+                - {literal: ' change from previous visit, relative to normal range'}
+        - otherwise: {literal: null}
+  - name: _R2A1HI_R
+    type: float
+  - name: _R2A1LO_R
+    type: float
+  - name: _ANRIND_BASE
+    type: str
+  - name: _BASELINE_ANRIND
+    type: str
+  - name: _PNM_BNRIND
+    type: str
+  - name: _BNRIND_VAL
+    type: str
+  - name: _AVAL_BASE
+    type: float
+  - name: _BASE
+    type: float
+  - name: _BASELINE_AVAL
+    type: float
+  - name: _PNM_BASE
+    type: float
+  - name: _IS_LAST_ELIGIBLE
+    type: int
+  - name: _RANK_AVISITN
+    type: float
+  - name: _T1
+    type: float
+  - name: _T2
+    type: float
+  - name: _B_A1HI
+    type: float
+  - name: _B_A1LO
+    type: float
+  - name: _PARAMCD_BASE
+    type: str
+  - name: _SCHED
+    type: str
+  - name: _PREV_AVAL
+    type: float
+  - name: _U_RAW
+    type: float
+  - name: _U_AVAL_ROUNDED
+    type: float
+    derivation:
+      round_half_away_from_zero:
+        source: _U_RAW
+        digits: 1
+  - name: _U_AVAL
+    type: float
+    derivation:
+      case:
+        - when: "_IS_UNDER = 'Y' AND _SCHED = 'Y'"
+          then: {source: _U_AVAL_ROUNDED}
+        - otherwise: {literal: null}
+  - name: _ABS_U_AVAL
+    type: float
+    derivation:
+      compute:
+        expr: "abs(_U_AVAL)"
+  - name: _LBCAT
+    type: str
+  - name: _VISIT_RAW
+    type: str
+  - name: _LBBLFL
+    type: str
+  - name: _LBTESTCD
+    type: str
+  - name: ABLFL
+    type: str
+    label: Baseline Record Flag
+  - name: ALBTRVAL
+    type: float
+    label: Amount Threshold Range
+  - name: _RANK_VAL
+    type: float
+    derivation:
+      case:
+        - when: "_IS_UNDER = 'Y'"
+          then: {source: _ABS_U_AVAL}
+        - otherwise: {source: ALBTRVAL}
+  - name: _ANL01_RANK
+    type: int
+    derivation:
+      rank:
+        window:
+          group_by: [USUBJID, PARAMCD]
+          order_by: [{variable: _RANK_VAL, direction: desc}, {variable: _RANK_AVISITN}, {variable: _ADT_DATE}, {variable: LBSEQ}]
+          filter: "_RANK_AVISITN >= 2 AND _RANK_AVISITN <= 24"
+  # Row-level
+  - name: AVISIT
+    type: str
+    label: Analysis Visit
+  - name: AVISITN
+    type: float
+    label: Analysis Visit (N)
+  - name: ADY
+    type: float
+    label: Analysis Relative Day
+    derivation:
+      study_day:
+        date: _ADT_DATE
+        reference: TRTSDT
+  - name: ADT
+    type: date
+    label: Analysis Date
+    derivation: {source: _ADT_DATE}
+  - name: VISIT
+    type: str
+    label: Visit Name
+  - name: VISITNUM
+    type: float
+    label: Visit Number
+  - name: PARAM
+    type: str
+    label: Parameter
+    derivation:
+      case:
+        - when: "_IS_UNDER = 'Y'"
+          then:
+            str_extract:
+              source: _PARAM_UNDER_RAW
+              pattern: "^.{1,100}"
+        - otherwise: {source: _PARAM_BASE}
+  - name: PARAMCD
+    type: str
+    label: Parameter Code
+  - name: PARAMN
+    type: float
+    label: Parameter (N)
+    derivation:
+      case:
+        - when: "_IS_UNDER = 'Y'"
+          then:
+            compute:
+              expr: "_PARAMN_BASE + 100"
+        - otherwise: {source: _PARAMN_BASE}
+  - name: PARCAT1
+    type: str
+    label: Parameter Category 1
+    derivation: {literal: 'HEM'}
+  - name: AVAL
+    type: float
+    label: Analysis Value
+    derivation:
+      case:
+        - when: "_IS_UNDER = 'Y'"
+          then: {source: _U_AVAL}
+        - otherwise: {source: _AVAL_BASE}
+  - name: BASE
+    type: float
+    label: Baseline Value
+    derivation: {source: _BASE}
+  - name: CHG
+    type: float
+    label: Change from Baseline
+    derivation:
+      case:
+        - when: "_IS_UNDER = 'Y'"
+          then: {literal: null}
+        - when: "ABLFL = 'Y'"
+          then: {literal: null}
+        - otherwise:
+            compute:
+              expr: "_AVAL_BASE - _BASE"
+  - name: A1LO
+    type: float
+    label: Analysis Range 1 Lower Limit
+  - name: A1HI
+    type: float
+    label: Analysis Range 1 Upper Limit
+  - name: R2A1LO
+    type: float
+    label: Ratio to Analysis Range 1 Lower Limit
+    derivation:
+      compute:
+        expr: "_AVAL_BASE / A1LO"
+  - name: R2A1HI
+    type: float
+    label: Ratio to Analysis Range 1 Upper Limit
+    derivation:
+      compute:
+        expr: "_AVAL_BASE / A1HI"
+  - name: BR2A1LO
+    type: float
+    label: Base Ratio to Analysis Range 1 Lower Lim
+    derivation:
+      case:
+        - when: "_IS_UNDER = 'Y'"
+          then: {literal: null}
+        - otherwise:
+            compute:
+              expr: "_BASE / A1LO"
+  - name: BR2A1HI
+    type: float
+    label: Base Ratio to Analysis Range 1 Upper Lim
+    derivation:
+      case:
+        - when: "_IS_UNDER = 'Y'"
+          then: {literal: null}
+        - otherwise:
+            compute:
+              expr: "_BASE / A1HI"
+  - name: ANL01FL
+    type: str
+    label: Analysis Record Flag 1
+    derivation:
+      case:
+        - when: "_ANL01_RANK = 1 AND _RANK_VAL IS NOT NULL"
+          then: {literal: 'Y'}
+        - otherwise: {literal: ''}
+  - name: ANRIND
+    type: str
+    label: Analysis Reference Range Indicator
+    derivation:
+      case:
+        - when: "_IS_UNDER = 'Y' AND _U_AVAL IS NULL"
+          then: {literal: ''}
+        - when: "_IS_UNDER = 'Y' AND _U_AVAL > 1.0"
+          then: {literal: 'H'}
+        - when: "_IS_UNDER = 'Y' AND _U_AVAL < -1.0"
+          then: {literal: 'L'}
+        - when: "_IS_UNDER = 'Y'"
+          then: {literal: 'N'}
+        - otherwise: {source: _ANRIND_BASE}
+  - name: BNRIND
+    type: str
+    label: Baseline Reference Range Indicator
+    derivation:
+      case:
+        - when: "_IS_UNDER = 'Y'"
+          then: {literal: ''}
+        - when: "_BNRIND_VAL IS NULL"
+          then: {literal: ''}
+        - otherwise: {source: _BNRIND_VAL}
+  - name: AENTMTFL
+    type: str
+    label: Last value in treatment visit
+    derivation:
+      case:
+        - when: "_IS_EOT = 'Y'"
+          then: {literal: 'Y'}
+        - when: "_IS_LAST_ELIGIBLE = 1"
+          then: {literal: 'Y'}
+        - otherwise: {literal: ''}
+  - name: LBSEQ
+    type: float
+    label: Sequence Number
+  - name: LBNRIND
+    type: str
+    label: Reference Range Indicator
+  - name: LBSTRESN
+    type: float
+    label: Numeric Result/Finding in Standard Units

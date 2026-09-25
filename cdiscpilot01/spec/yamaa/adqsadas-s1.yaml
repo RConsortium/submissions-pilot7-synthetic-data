@@ -1,0 +1,115 @@
+# ADQSADAS stage S1: analysis-window assignment + closest-to-target selection.
+#
+# One row per SDTM QS record (ACITM01-14, ACTOT). Assigns each record to its
+# analysis window on QSDY (Baseline <=1 target 1; Week 8 2-84 target 56;
+# Week 16 85-140 target 112; Week 24 >=141 target 168) and ranks records
+# within (USUBJID, QSTESTCD, window) by (|QSDY - target|, QSSEQ).
+# _RANK = 1 marks the selected record (ANL01FL='Y').
+schema_version: "1.0"
+domain: ADQSADAS_S1
+keys: [USUBJID, QSTESTCD, QSSEQ]
+
+input:
+  QS:
+    path: sdtm/qs.parquet
+    empty_string: present
+
+base: QS
+
+rows:
+  - id: qs-recs
+    dataset: QS
+    filter: "QS.QSTESTCD IN ('ACITM01','ACITM02','ACITM03','ACITM04','ACITM05','ACITM06','ACITM07','ACITM08','ACITM09','ACITM10','ACITM11','ACITM12','ACITM13','ACITM14','ACTOT')"
+    derivations:
+      STUDYID: QS.STUDYID
+      USUBJID: QS.USUBJID
+      QSTESTCD: QS.QSTESTCD
+      QSSEQ: QS.QSSEQ
+      QSDY: QS.QSDY
+      QSDTC: QS.QSDTC
+      VISIT: QS.VISIT
+      VISITNUM: QS.VISITNUM
+      QSSTRESN: QS.QSSTRESN
+      QSBLFL: QS.QSBLFL
+      _WINDOW:
+        case:
+          - when: "QS.QSDY <= 1"
+            then: {literal: 0}
+          - when: "QS.QSDY <= 84"
+            then: {literal: 1}
+          - when: "QS.QSDY <= 140"
+            then: {literal: 2}
+          - otherwise: {literal: 3}
+      _TARGET:
+        case:
+          - when: "_WINDOW = 0"
+            then: {literal: 1.0}
+          - when: "_WINDOW = 1"
+            then: {literal: 56.0}
+          - when: "_WINDOW = 2"
+            then: {literal: 112.0}
+          - otherwise: {literal: 168.0}
+      _DIFF:
+        compute:
+          expr: "abs(QS.QSDY - _TARGET)"
+      _RANK:
+        rank:
+          method: dense
+          window:
+            group_by: [USUBJID, QSTESTCD, _WINDOW]
+            order_by: [{variable: _DIFF}, {variable: QSSEQ}]
+      _IS_SEL:
+        case:
+          - when: "_RANK = 1"
+            then: {literal: 'Y'}
+          - otherwise: {literal: ''}
+      _ABLFL:
+        case:
+          - when: "QS.QSBLFL = 'Y' AND _WINDOW = 0"
+            then: {literal: 'Y'}
+          - otherwise: {literal: ''}
+      _ADT:
+        str_extract:
+          source: QS.QSDTC
+          pattern: "^[0-9]{4}-[0-9]{2}-[0-9]{2}"
+
+output:
+  path: output/adqsadas-s1.parquet
+  columns: [STUDYID, USUBJID, QSTESTCD, QSSEQ, QSDY, QSDTC, VISIT, VISITNUM,
+    QSSTRESN, QSBLFL, _WINDOW, _RANK, _IS_SEL, _ABLFL, _ADT]
+
+columns:
+  - name: STUDYID
+    type: str
+  - name: USUBJID
+    type: str
+  - name: QSTESTCD
+    type: str
+  - name: QSSEQ
+    type: float
+  - name: QSDY
+    type: float
+  - name: QSDTC
+    type: str
+  - name: VISIT
+    type: str
+  - name: VISITNUM
+    type: float
+  - name: QSSTRESN
+    type: float
+  - name: QSBLFL
+    type: str
+  - name: _WINDOW
+    type: int
+  - name: _RANK
+    type: int
+  - name: _IS_SEL
+    type: str
+  - name: _ABLFL
+    type: str
+  - name: _ADT
+    type: str
+  - name: _TARGET
+    type: float
+  - name: _DIFF
+    type: float

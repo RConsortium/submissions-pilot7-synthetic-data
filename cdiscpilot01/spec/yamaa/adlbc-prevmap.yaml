@@ -1,0 +1,52 @@
+# ADLBC PREVMAP: previous scheduled AVAL for the "under" parameters.
+#
+# The "change from previous visit" (_U_RAW) requires PREV_AVAL = the AVAL of
+# the previous SCHEDULED record within (USUBJID, LBTESTCD), ordered by
+# (LBDTC, LBSEQ). Unscheduled records (VISIT LIKE 'UNSCHEDULED%') are excluded
+# from the shift, matching upstream build_adlbc.py which computes the shift
+# on base.filter(~AVISIT.is_in([DOT, EOT])).
+#
+# This spec outputs one row per scheduled LB record with its PREV_AVAL.
+# The main adlbc-native.yaml joins to this via an intermediate lookup.
+schema_version: "1.0"
+domain: ADLBC_PREVMAP
+keys: [USUBJID, LBTESTCD, LBSEQ]
+
+input:
+  LB:
+    path: sdtm/lb.parquet
+
+base: LB
+
+rows:
+  - id: sched-lb
+    dataset: LB
+    filter: "LB.VISIT NOT LIKE 'UNSCHEDULED%'"
+    derivations:
+      USUBJID: LB.USUBJID
+      LBTESTCD: LB.LBTESTCD
+      LBSEQ: LB.LBSEQ
+      _LBDTC: LB.LBDTC
+      PREV_AVAL:
+        row_value:
+          source: LB.LBSTRESN
+          offset: -1
+          window:
+            group_by: [USUBJID, LBTESTCD]
+            order_by: [{variable: _LBDTC}, {variable: LBSEQ}]
+
+output:
+  path: output/adlbc-prevmap.parquet
+  columns: [USUBJID, LBTESTCD, LBSEQ, PREV_AVAL]
+
+columns:
+  - name: USUBJID
+    type: str
+  - name: LBTESTCD
+    type: str
+  - name: LBSEQ
+    type: float
+  - name: _LBDTC
+    type: str
+  - name: PREV_AVAL
+    type: float

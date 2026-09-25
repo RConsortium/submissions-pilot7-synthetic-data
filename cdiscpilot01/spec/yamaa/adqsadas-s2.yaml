@@ -1,0 +1,103 @@
+# ADQSADAS stage S2: ACTOT forward-fill of the selected analysis value.
+#
+# One row per ACTOT record, in (QSDY, QSSEQ) order per subject. _CARRIED is
+# the record's own QSSTRESN when selected, else the closest earlier selected
+# record's QSSTRESN (previous_non_missing skips the non-selected gaps).
+# _DTYPE = 'LOCF' when the carried value differs from the record's own
+# QSSTRESN (null-safe). A second template emits one row per subject with the
+# latest-record keys per window, used for empty-window LOCF generation.
+schema_version: "1.0"
+domain: ADQSADAS_S2
+keys: [USUBJID, QSSEQ]
+
+input:
+  S1:
+    path: output/adqsadas_s1.parquet
+    empty_string: present
+
+base: S1
+
+rows:
+  - id: actot-recs
+    dataset: S1
+    filter: "S1.QSTESTCD = 'ACTOT'"
+    derivations:
+      STUDYID: S1.STUDYID
+      USUBJID: S1.USUBJID
+      QSSEQ: S1.QSSEQ
+      QSDY: S1.QSDY
+      VISIT: S1.VISIT
+      VISITNUM: S1.VISITNUM
+      QSSTRESN: S1.QSSTRESN
+      _WINDOW: S1._WINDOW
+      _IS_SEL: S1._IS_SEL
+      _ABLFL: S1._ABLFL
+      _ADT: S1._ADT
+      _SEL_AVAL:
+        case:
+          - when: "S1._IS_SEL = 'Y'"
+            then:
+              source: S1.QSSTRESN
+      _CARRIED:
+        previous_non_missing:
+          source: _SEL_AVAL
+          window:
+            group_by: [USUBJID]
+            order_by: [{variable: QSDY}, {variable: QSSEQ}]
+      _CARRIED_INCL:
+        case:
+          - when: "S1._IS_SEL = 'Y'"
+            then:
+              source: S1.QSSTRESN
+          - otherwise:
+              source: _CARRIED
+      _DTYPE:
+        case:
+          - when: "S1._IS_SEL = 'Y'"
+            then: {literal: ''}
+          - when: "_CARRIED = S1.QSSTRESN"
+            then: {literal: ''}
+          - when: "_CARRIED IS NULL AND S1.QSSTRESN IS NULL"
+            then: {literal: ''}
+          - otherwise: {literal: 'LOCF'}
+      _KEY:
+        compute:
+          expr: "S1.QSDY * 1000000 + S1.QSSEQ"
+output:
+  path: output/adqsadas-s2.parquet
+  columns: [STUDYID, USUBJID, QSSEQ, QSDY, VISIT, VISITNUM, QSSTRESN,
+    _WINDOW, _IS_SEL, _ABLFL, _ADT, _CARRIED, _CARRIED_INCL, _DTYPE, _KEY]
+
+columns:
+  - name: STUDYID
+    type: str
+  - name: USUBJID
+    type: str
+  - name: QSSEQ
+    type: float
+  - name: QSDY
+    type: float
+  - name: VISIT
+    type: str
+  - name: VISITNUM
+    type: float
+  - name: QSSTRESN
+    type: float
+  - name: _WINDOW
+    type: int
+  - name: _IS_SEL
+    type: str
+  - name: _ABLFL
+    type: str
+  - name: _ADT
+    type: str
+  - name: _CARRIED
+    type: float
+  - name: _CARRIED_INCL
+    type: float
+  - name: _DTYPE
+    type: str
+  - name: _KEY
+    type: float
+  - name: _SEL_AVAL
+    type: float
