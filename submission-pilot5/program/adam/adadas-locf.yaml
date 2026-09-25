@@ -6,6 +6,43 @@ input:
   SLIM: adadas-actot.parquet
 base: OBS
 
+# One donor selection per LOCF visit: the latest observed ACTOT analysis
+# record at or before the visit (replaces 21 inline lookups - seven per
+# visit, one per carried field - that all selected this same record).
+# _HIT tests whether the donor IS the visit (observed: no LOCF row);
+# otherwise the donor's fields are carried forward.
+intermediates:
+  - id: DONOR8
+    dataset: SLIM
+    key_base: [OBS.STUDYID, OBS.USUBJID]
+    key: [STUDYID, USUBJID]
+    filter: "SLIM.PARAMCD = 'ACTOT' AND SLIM.ANL01FL = 'Y' AND SLIM.AVISITN <= 8"
+    order_by:
+      - variable: SLIM.AVISITN
+        direction: desc
+    keep: first
+    missing: null
+  - id: DONOR16
+    dataset: SLIM
+    key_base: [OBS.STUDYID, OBS.USUBJID]
+    key: [STUDYID, USUBJID]
+    filter: "SLIM.PARAMCD = 'ACTOT' AND SLIM.ANL01FL = 'Y' AND SLIM.AVISITN <= 16"
+    order_by:
+      - variable: SLIM.AVISITN
+        direction: desc
+    keep: first
+    missing: null
+  - id: DONOR24
+    dataset: SLIM
+    key_base: [OBS.STUDYID, OBS.USUBJID]
+    key: [STUDYID, USUBJID]
+    filter: "SLIM.PARAMCD = 'ACTOT' AND SLIM.ANL01FL = 'Y' AND SLIM.AVISITN <= 24"
+    order_by:
+      - variable: SLIM.AVISITN
+        direction: desc
+    keep: first
+    missing: null
+
 output:
   path: adadas-out.parquet
   columns: [STUDYID, SITEID, SITEGR1, USUBJID, TRTSDT, TRTEDT, TRTP, TRTPN,
@@ -278,85 +315,16 @@ rows:
     filter: "_HIT IS NULL AND _SRC_QSSEQ IS NOT NULL"
     derivations:
       _HIT:
-        lookup:
-          dataset: SLIM
-          key_base: [OBS.STUDYID, OBS.USUBJID]
-          key: [STUDYID, USUBJID]
-          filter: "SLIM.PARAMCD = 'ACTOT' AND SLIM.ANL01FL = 'Y' AND SLIM.AVISITN = 8"
-          value: QSSEQ
-          missing: null
-      _SRC_QSSEQ:
-        lookup:
-          dataset: SLIM
-          key_base: [OBS.STUDYID, OBS.USUBJID]
-          key: [STUDYID, USUBJID]
-          filter: "SLIM.PARAMCD = 'ACTOT' AND SLIM.ANL01FL = 'Y' AND SLIM.AVISITN < 8"
-          order_by:
-            - variable: SLIM.AVISITN
-              direction: desc
-          keep: first
-          value: QSSEQ
-          missing: null
-      _SRC_AVAL:
-        lookup:
-          dataset: SLIM
-          key_base: [OBS.STUDYID, OBS.USUBJID]
-          key: [STUDYID, USUBJID]
-          filter: "SLIM.PARAMCD = 'ACTOT' AND SLIM.ANL01FL = 'Y' AND SLIM.AVISITN < 8"
-          order_by:
-            - variable: SLIM.AVISITN
-              direction: desc
-          keep: first
-          value: AVAL
-          missing: null
-      _SRC_ADY:
-        lookup:
-          dataset: SLIM
-          key_base: [OBS.STUDYID, OBS.USUBJID]
-          key: [STUDYID, USUBJID]
-          filter: "SLIM.PARAMCD = 'ACTOT' AND SLIM.ANL01FL = 'Y' AND SLIM.AVISITN < 8"
-          order_by:
-            - variable: SLIM.AVISITN
-              direction: desc
-          keep: first
-          value: ADY
-          missing: null
-      _SRC_ADT:
-        lookup:
-          dataset: SLIM
-          key_base: [OBS.STUDYID, OBS.USUBJID]
-          key: [STUDYID, USUBJID]
-          filter: "SLIM.PARAMCD = 'ACTOT' AND SLIM.ANL01FL = 'Y' AND SLIM.AVISITN < 8"
-          order_by:
-            - variable: SLIM.AVISITN
-              direction: desc
-          keep: first
-          value: ADT
-          missing: null
-      _SRC_VISIT:
-        lookup:
-          dataset: SLIM
-          key_base: [OBS.STUDYID, OBS.USUBJID]
-          key: [STUDYID, USUBJID]
-          filter: "SLIM.PARAMCD = 'ACTOT' AND SLIM.ANL01FL = 'Y' AND SLIM.AVISITN < 8"
-          order_by:
-            - variable: SLIM.AVISITN
-              direction: desc
-          keep: first
-          value: VISIT
-          missing: null
-      _SRC_VISITNUM:
-        lookup:
-          dataset: SLIM
-          key_base: [OBS.STUDYID, OBS.USUBJID]
-          key: [STUDYID, USUBJID]
-          filter: "SLIM.PARAMCD = 'ACTOT' AND SLIM.ANL01FL = 'Y' AND SLIM.AVISITN < 8"
-          order_by:
-            - variable: SLIM.AVISITN
-              direction: desc
-          keep: first
-          value: VISITNUM
-          missing: null
+        case:
+          - when: "DONOR8.AVISITN = 8"
+            then:
+              source: DONOR8.QSSEQ
+      _SRC_QSSEQ: DONOR8.QSSEQ
+      _SRC_AVAL: DONOR8.AVAL
+      _SRC_ADY: DONOR8.ADY
+      _SRC_ADT: DONOR8.ADT
+      _SRC_VISIT: DONOR8.VISIT
+      _SRC_VISITNUM: DONOR8.VISITNUM
       AVISIT:
         literal: "Week 8"
       AVISITN:
@@ -388,85 +356,16 @@ rows:
     filter: "_HIT IS NULL AND _SRC_QSSEQ IS NOT NULL"
     derivations:
       _HIT:
-        lookup:
-          dataset: SLIM
-          key_base: [OBS.STUDYID, OBS.USUBJID]
-          key: [STUDYID, USUBJID]
-          filter: "SLIM.PARAMCD = 'ACTOT' AND SLIM.ANL01FL = 'Y' AND SLIM.AVISITN = 16"
-          value: QSSEQ
-          missing: null
-      _SRC_QSSEQ:
-        lookup:
-          dataset: SLIM
-          key_base: [OBS.STUDYID, OBS.USUBJID]
-          key: [STUDYID, USUBJID]
-          filter: "SLIM.PARAMCD = 'ACTOT' AND SLIM.ANL01FL = 'Y' AND SLIM.AVISITN < 16"
-          order_by:
-            - variable: SLIM.AVISITN
-              direction: desc
-          keep: first
-          value: QSSEQ
-          missing: null
-      _SRC_AVAL:
-        lookup:
-          dataset: SLIM
-          key_base: [OBS.STUDYID, OBS.USUBJID]
-          key: [STUDYID, USUBJID]
-          filter: "SLIM.PARAMCD = 'ACTOT' AND SLIM.ANL01FL = 'Y' AND SLIM.AVISITN < 16"
-          order_by:
-            - variable: SLIM.AVISITN
-              direction: desc
-          keep: first
-          value: AVAL
-          missing: null
-      _SRC_ADY:
-        lookup:
-          dataset: SLIM
-          key_base: [OBS.STUDYID, OBS.USUBJID]
-          key: [STUDYID, USUBJID]
-          filter: "SLIM.PARAMCD = 'ACTOT' AND SLIM.ANL01FL = 'Y' AND SLIM.AVISITN < 16"
-          order_by:
-            - variable: SLIM.AVISITN
-              direction: desc
-          keep: first
-          value: ADY
-          missing: null
-      _SRC_ADT:
-        lookup:
-          dataset: SLIM
-          key_base: [OBS.STUDYID, OBS.USUBJID]
-          key: [STUDYID, USUBJID]
-          filter: "SLIM.PARAMCD = 'ACTOT' AND SLIM.ANL01FL = 'Y' AND SLIM.AVISITN < 16"
-          order_by:
-            - variable: SLIM.AVISITN
-              direction: desc
-          keep: first
-          value: ADT
-          missing: null
-      _SRC_VISIT:
-        lookup:
-          dataset: SLIM
-          key_base: [OBS.STUDYID, OBS.USUBJID]
-          key: [STUDYID, USUBJID]
-          filter: "SLIM.PARAMCD = 'ACTOT' AND SLIM.ANL01FL = 'Y' AND SLIM.AVISITN < 16"
-          order_by:
-            - variable: SLIM.AVISITN
-              direction: desc
-          keep: first
-          value: VISIT
-          missing: null
-      _SRC_VISITNUM:
-        lookup:
-          dataset: SLIM
-          key_base: [OBS.STUDYID, OBS.USUBJID]
-          key: [STUDYID, USUBJID]
-          filter: "SLIM.PARAMCD = 'ACTOT' AND SLIM.ANL01FL = 'Y' AND SLIM.AVISITN < 16"
-          order_by:
-            - variable: SLIM.AVISITN
-              direction: desc
-          keep: first
-          value: VISITNUM
-          missing: null
+        case:
+          - when: "DONOR16.AVISITN = 16"
+            then:
+              source: DONOR16.QSSEQ
+      _SRC_QSSEQ: DONOR16.QSSEQ
+      _SRC_AVAL: DONOR16.AVAL
+      _SRC_ADY: DONOR16.ADY
+      _SRC_ADT: DONOR16.ADT
+      _SRC_VISIT: DONOR16.VISIT
+      _SRC_VISITNUM: DONOR16.VISITNUM
       AVISIT:
         literal: "Week 16"
       AVISITN:
@@ -498,85 +397,16 @@ rows:
     filter: "_HIT IS NULL AND _SRC_QSSEQ IS NOT NULL"
     derivations:
       _HIT:
-        lookup:
-          dataset: SLIM
-          key_base: [OBS.STUDYID, OBS.USUBJID]
-          key: [STUDYID, USUBJID]
-          filter: "SLIM.PARAMCD = 'ACTOT' AND SLIM.ANL01FL = 'Y' AND SLIM.AVISITN = 24"
-          value: QSSEQ
-          missing: null
-      _SRC_QSSEQ:
-        lookup:
-          dataset: SLIM
-          key_base: [OBS.STUDYID, OBS.USUBJID]
-          key: [STUDYID, USUBJID]
-          filter: "SLIM.PARAMCD = 'ACTOT' AND SLIM.ANL01FL = 'Y' AND SLIM.AVISITN < 24"
-          order_by:
-            - variable: SLIM.AVISITN
-              direction: desc
-          keep: first
-          value: QSSEQ
-          missing: null
-      _SRC_AVAL:
-        lookup:
-          dataset: SLIM
-          key_base: [OBS.STUDYID, OBS.USUBJID]
-          key: [STUDYID, USUBJID]
-          filter: "SLIM.PARAMCD = 'ACTOT' AND SLIM.ANL01FL = 'Y' AND SLIM.AVISITN < 24"
-          order_by:
-            - variable: SLIM.AVISITN
-              direction: desc
-          keep: first
-          value: AVAL
-          missing: null
-      _SRC_ADY:
-        lookup:
-          dataset: SLIM
-          key_base: [OBS.STUDYID, OBS.USUBJID]
-          key: [STUDYID, USUBJID]
-          filter: "SLIM.PARAMCD = 'ACTOT' AND SLIM.ANL01FL = 'Y' AND SLIM.AVISITN < 24"
-          order_by:
-            - variable: SLIM.AVISITN
-              direction: desc
-          keep: first
-          value: ADY
-          missing: null
-      _SRC_ADT:
-        lookup:
-          dataset: SLIM
-          key_base: [OBS.STUDYID, OBS.USUBJID]
-          key: [STUDYID, USUBJID]
-          filter: "SLIM.PARAMCD = 'ACTOT' AND SLIM.ANL01FL = 'Y' AND SLIM.AVISITN < 24"
-          order_by:
-            - variable: SLIM.AVISITN
-              direction: desc
-          keep: first
-          value: ADT
-          missing: null
-      _SRC_VISIT:
-        lookup:
-          dataset: SLIM
-          key_base: [OBS.STUDYID, OBS.USUBJID]
-          key: [STUDYID, USUBJID]
-          filter: "SLIM.PARAMCD = 'ACTOT' AND SLIM.ANL01FL = 'Y' AND SLIM.AVISITN < 24"
-          order_by:
-            - variable: SLIM.AVISITN
-              direction: desc
-          keep: first
-          value: VISIT
-          missing: null
-      _SRC_VISITNUM:
-        lookup:
-          dataset: SLIM
-          key_base: [OBS.STUDYID, OBS.USUBJID]
-          key: [STUDYID, USUBJID]
-          filter: "SLIM.PARAMCD = 'ACTOT' AND SLIM.ANL01FL = 'Y' AND SLIM.AVISITN < 24"
-          order_by:
-            - variable: SLIM.AVISITN
-              direction: desc
-          keep: first
-          value: VISITNUM
-          missing: null
+        case:
+          - when: "DONOR24.AVISITN = 24"
+            then:
+              source: DONOR24.QSSEQ
+      _SRC_QSSEQ: DONOR24.QSSEQ
+      _SRC_AVAL: DONOR24.AVAL
+      _SRC_ADY: DONOR24.ADY
+      _SRC_ADT: DONOR24.ADT
+      _SRC_VISIT: DONOR24.VISIT
+      _SRC_VISITNUM: DONOR24.VISITNUM
       AVISIT:
         literal: "Week 24"
       AVISITN:

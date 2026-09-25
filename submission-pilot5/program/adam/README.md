@@ -6,20 +6,20 @@ Python script stages an input (it derives no ADaM variable).
 
 ## End-to-end run
 
-`run.py` executes the whole pipeline: it stages the SDTM parquets into a
-`work/` directory, runs the specs in dependency order (derived ADSL/ADAE are
-staged as predecessors where downstream specs need them), writes the five
-derived datasets to `work/derived/`, and compares every derived column
+`run.py` derives only: it stages the SDTM parquets into a `work/` directory,
+runs the specs in dependency order (derived ADSL/ADAE are staged as
+predecessors where downstream specs need them), and writes the five derived
+datasets to `work/derived/`. `compare.py` then compares every derived column
 against the official ADaM in `../data/adam/` (numeric cells within
 `|derived - official| <= 1e-10`, non-numeric exact with null/"" normalized).
 
 Requires the yamaa engine (`pip install` from
 https://github.com/elong0527/yamaa), polars, and pyarrow.
 
-    python3 run.py                          # everything, then compare
+    python3 run.py                          # derive everything
     python3 run.py --datasets adsl,adtte    # subset (predecessors auto-included)
-    python3 run.py --no-compare            # derive only
     python3 run.py --work /tmp/p5          # custom work directory
+    python3 compare.py                      # cell-by-cell comparison vs official
 
 `work/` is git-ignored build output; only the specs, scripts, and this README
 are committed.
@@ -45,7 +45,7 @@ are committed.
 ## Verification
 
 Cell-by-cell comparison of the derived datasets against the official ADaM
-(`python3 run.py`, same tolerance as above):
+(`python3 compare.py` after `python3 run.py`, same tolerance as above):
 
 - ADAE: all 52 derived columns match — 61,932/61,932 cells.
 - ADTTE: all 23 derived columns match — 5,842/5,842 cells, zero diffs.

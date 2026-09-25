@@ -1,19 +1,9 @@
 #!/usr/bin/env python3
-"""End-to-end SDTM -> ADaM derivation for submission-pilot5.
+"""Derive the five submission-pilot5 ADaM datasets (yamaa engine only).
 
-Stages the SDTM parquets from ../data/sdtm/, runs the yamaa derivation specs
-in dependency order, and writes the five derived ADaM datasets to
-work/derived/. By default the derived datasets are then compared cell by
-cell against the official ADaM in ../data/adam/.
-
-Requires: the yamaa engine (pip install from https://github.com/elong0527/yamaa),
-polars, pyarrow.
-
-Usage:
-    python3 run.py                          # everything, then compare
-    python3 run.py --datasets adsl,adtte    # subset (predecessors auto-included)
-    python3 run.py --no-compare            # derive only
-    python3 run.py --work /tmp/p5          # custom work directory
+Stages the SDTM parquets, runs the YAML specs in dependency order, and writes
+the derived datasets to work/derived/. Cell-by-cell comparison against the
+official ADaM lives in compare.py. Run with ~/workspace/pilot7-venv/bin/python.
 """
 
 import argparse
@@ -23,219 +13,70 @@ import sys
 from pathlib import Path
 
 HERE = Path(__file__).resolve().parent
-STUDY = HERE.parent.parent
-SDTM_SRC = STUDY / "data" / "sdtm"
-OFFICIAL_ADAM = STUDY / "data" / "adam"
-
-# dataset -> (spec stages, predecessor datasets, derived file name)
+SDTM = HERE.parent.parent / "data" / "sdtm"
+# dataset -> (stages, predecessors, final spec output, derived file)
 STAGES = {
-    "adsl": (["adsl.yaml"], [], "adsl.parquet"),
-    "adae": (["adae.yaml"], ["adsl"], "adae.parquet"),
+    "adsl": (["adsl.yaml"], [], "adsl-dryrun.parquet", "adsl.parquet"),
+    "adae": (["adae.yaml"], ["adsl"], "adae-dryrun.parquet", "adae.parquet"),
     "adadas": (
         ["adadas-obs.yaml", "adadas-actot.yaml", "adadas-locf.yaml"],
         ["adsl"],
+        "adadas-out.parquet",
         "adadas.parquet",
     ),
-    "adtte": (["adtte.yaml"], ["adsl", "adae"], "adtte.parquet"),
+    "adtte": (["adtte.yaml"], ["adsl", "adae"], "adtte-out.parquet", "adtte.parquet"),
     "adlbc": (
         ["stage-adlbc-lb.py", "adlbc-eot-rn.yaml", "adlbc-eot.yaml", "adlbc.yaml"],
         ["adsl"],
+        "adlbc-out.parquet",
         "adlbc.parquet",
     ),
 }
 
-# spec output file -> canonical derived name, per dataset
-SPEC_OUTPUTS = {
-    "adsl.yaml": ("adsl-dryrun.parquet", "adsl.parquet"),
-    "adae.yaml": ("adae-dryrun.parquet", "adae.parquet"),
-    "adadas-locf.yaml": ("adadas-out.parquet", "adadas.parquet"),
-    "adtte.yaml": ("adtte-out.parquet", "adtte.parquet"),
-    "adlbc.yaml": ("adlbc-out.parquet", "adlbc.parquet"),
-}
 
-# Row-alignment keys for the comparison (match adam-compare-keys.json).
-KEYS = {
-    "adsl": ["STUDYID", "USUBJID"],
-    "adae": ["STUDYID", "USUBJID", "AESEQ"],
-    "adadas": ["STUDYID", "USUBJID", "PARAMCD", "AVISITN", "QSSEQ"],
-    "adtte": ["STUDYID", "USUBJID", "PARAMCD"],
-    "adlbc": ["STUDYID", "USUBJID", "PARAMCD", "AVISIT", "LBSEQ"],
-}
-
-TOLERANCE = 1e-10
-
-
-def ordered_datasets(selected):
-    """Expand the selection with required predecessors, dependency-first."""
-    order, seen = [], set()
-
-    def visit(ds):
-        if ds in seen:
-            return
-        seen.add(ds)
-        for dep in STAGES[ds][1]:
-            visit(dep)
-        order.append(ds)
-
-    for ds in selected:
-        visit(ds)
-    return order
-
-
-def run_spec(spec_path, work):
+def run_spec(spec, work):
     from yamaa import yamaa_domain
 
-    run = yamaa_domain(spec_path, project_root=work)
+    run = yamaa_domain(work / spec, project_root=work)
     issues = run.issues
-    if issues is not None and len(issues):
-        print(f"VALIDATION FAILED for {spec_path.name}:")
-        print(issues)
-        sys.exit(1)
-    frame = run.output
-    if frame is None:
-        print(f"ERROR: {spec_path.name} produced no output")
-        sys.exit(1)
-    out = run.save()
-    print(f"  {spec_path.name}: VALIDATION CLEAN, {frame.height} rows -> {out}")
-    return out
-
-
-def derive(datasets, work):
-    sdtm = work / "sdtm"
-    sdtm.mkdir(parents=True, exist_ok=True)
-    for src in sorted(SDTM_SRC.glob("*.parquet")):
-        shutil.copy2(src, sdtm / src.name)
-    print(f"staged {len(list(sdtm.glob('*.parquet')))} SDTM parquets")
-
-    for spec_name in [
-        s for ds in STAGES for s in STAGES[ds][0] if s.endswith(".yaml")
-    ] + ["stage-adlbc-lb.py"]:
-        shutil.copy2(HERE / spec_name, work / spec_name)
-
-    derived = work / "derived"
-    derived.mkdir(exist_ok=True)
-
-    for ds in datasets:
-        print(f"== {ds} ==")
-        for stage in STAGES[ds][0]:
-            if stage == "stage-adlbc-lb.py":
-                subprocess.run(
-                    [sys.executable, "stage-adlbc-lb.py"],
-                    cwd=work,
-                    check=True,
-                )
-                print("  stage-adlbc-lb.py: adlbc-lb.parquet staged")
-            else:
-                run_spec(work / stage, work)
-        out_name, canon_name = SPEC_OUTPUTS[
-            next(s for s in STAGES[ds][0] if s in SPEC_OUTPUTS)
-        ]
-        shutil.copy2(work / out_name, derived / canon_name)
-        # Stage the derived dataset as a predecessor for downstream specs,
-        # which read it from sdtm/adsl.parquet / sdtm/adae.parquet.
-        if ds in ("adsl", "adae"):
-            shutil.copy2(derived / canon_name, sdtm / canon_name)
-        print(f"  wrote derived/{canon_name}")
-    return derived
-
-
-def compare(derived):
-    """Verify every derived column against the official ADaM.
-
-    Semantics (standing tolerance): numeric cells match when
-    |derived - official| <= 1e-10 (absolute); non-numeric cells match exactly.
-    Row alignment is by the dataset keys. Official columns the spec does not
-    derive are reported as uncovered, not failures; derived-only columns are
-    reported, never compared.
-
-    Missing-value representation: the official ADaM was produced by R, where a
-    missing character value is ""; yamaa represents missing as null. Verified
-    2026-09-21 on all five official datasets (string "" cells / string nulls):
-    adadas 21257/0, adae 10234/0, adlbc 120776/0, adsl 634/0, adtte 0/0 --
-    the official files carry zero string nulls anywhere. Derived "" cells are
-    explicit values (e.g. ADSL DCSREAS 110 "" == official 110 ""), so "" and
-    null are normalized for comparison on that basis only.
-    """
-    import polars as pl
-
-    total_cells, total_mismatch = 0, 0
-    for ds, keys in KEYS.items():
-        out_file = derived / STAGES[ds][2]
-        if not out_file.exists():
-            print(f"-- {ds}: not derived, skipped")
-            continue
-        new = pl.read_parquet(out_file)
-        ref = pl.read_parquet(OFFICIAL_ADAM / STAGES[ds][2])
-        assert new.height == ref.height, f"{ds}: row count {new.height} != {ref.height}"
-        joined = new.join(ref, on=keys, how="inner", suffix="_ref")
-        assert joined.height == ref.height, f"{ds}: key mismatch"
-        # Pair columns explicitly by name: a derived column is comparable only
-        # when the official dataset carries the same column name.
-        common = [c for c in new.columns if c not in keys and c in ref.columns]
-        derived_only = [
-            c for c in new.columns if c not in keys and c not in ref.columns
-        ]
-        uncovered = [c for c in ref.columns if c not in keys and c not in new.columns]
-        mismatches = []
-        for col in common:
-            a, b = joined[col], joined[col + "_ref"]
-            if a.dtype.is_numeric() and b.dtype.is_numeric():
-                a = a.fill_nan(None).cast(pl.Float64)
-                b = b.fill_nan(None).cast(pl.Float64)
-                ok = (
-                    (a.is_null() & b.is_null()) | ((a - b).abs() <= TOLERANCE)
-                ).fill_null(False)  # exactly-one-null is a mismatch, not ignored
-            else:
-                ok = a.cast(pl.String).fill_null("") == b.cast(pl.String).fill_null("")
-            bad = (~ok).sum()
-            total_cells += new.height
-            if bad:
-                mismatches.append((col, bad))
-                total_mismatch += bad
-        status = "PASS" if not mismatches else f"MISMATCH {mismatches}"
-        print(
-            f"-- {ds}: {status} ({len(common)} derived cols, "
-            f"{new.height * len(common)} cells checked)"
-        )
-        if derived_only:
-            print(f"   derived-only columns (not in official): {derived_only}")
-        if uncovered:
-            print(f"   official columns not derived: {uncovered}")
-    print(f"TOTAL: {total_cells - total_mismatch}/{total_cells} derived cells match")
-    if total_mismatch:
-        sys.exit(1)
+    assert issues is None or len(issues) == 0, f"{spec}: VALIDATION FAILED\n{issues}"
+    print(f"  {spec}: VALIDATION CLEAN -> {Path(run.save()).name}")
 
 
 def main():
     ap = argparse.ArgumentParser(description=__doc__.splitlines()[0])
-    ap.add_argument(
-        "--datasets",
-        default=",".join(STAGES),
-        help="comma-separated subset, e.g. adsl,adtte",
-    )
-    ap.add_argument("--no-compare", action="store_true")
+    ap.add_argument("--datasets", default=",".join(STAGES))
     ap.add_argument("--work", default=str(HERE / "work"))
     args = ap.parse_args()
+    order, seen = [], set()
 
-    selected = [d.strip() for d in args.datasets.split(",") if d.strip()]
-    unknown = [d for d in selected if d not in STAGES]
-    if unknown:
-        sys.exit(f"unknown datasets: {unknown} (choose from {list(STAGES)})")
-    datasets = ordered_datasets(selected)
-    print("datasets:", ", ".join(datasets))
+    def visit(ds):
+        if ds not in seen:
+            seen.add(ds)
+            for dep in STAGES[ds][1]:
+                visit(dep)
+            order.append(ds)
 
-    try:
-        import yamaa  # noqa: F401
-    except ImportError:
-        sys.exit(
-            "yamaa engine is required: pip install from https://github.com/elong0527/yamaa"
-        )
-
+    for ds in [d.strip() for d in args.datasets.split(",") if d.strip()]:
+        visit(ds)
     work = Path(args.work)
-    derived = derive(datasets, work)
-    if not args.no_compare:
-        print("== comparison vs official ADaM ==")
-        compare(derived)
+    (work / "sdtm").mkdir(parents=True, exist_ok=True)
+    (work / "derived").mkdir(exist_ok=True)
+    for src in sorted(SDTM.glob("*.parquet")):
+        shutil.copy2(src, work / "sdtm" / src.name)
+    for ds in STAGES:
+        for s in STAGES[ds][0]:
+            shutil.copy2(HERE / s, work / s)
+    for ds in order:
+        print(f"== {ds} ==")
+        for s in STAGES[ds][0]:
+            if s.endswith(".py"):
+                subprocess.run([sys.executable, s], cwd=work, check=True)
+            else:
+                run_spec(s, work)
+        shutil.copy2(work / STAGES[ds][2], work / "derived" / STAGES[ds][3])
+        if ds in ("adsl", "adae"):  # stage as predecessors for downstream specs
+            shutil.copy2(work / "derived" / STAGES[ds][3], work / "sdtm" / STAGES[ds][3])
     print("DONE")
 
 

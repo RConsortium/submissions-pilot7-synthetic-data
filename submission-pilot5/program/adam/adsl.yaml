@@ -62,6 +62,13 @@ intermediates:
     key: [STUDYID, USUBJID]
     order_by: [DS.DSSTDTC]
     keep: last
+  # The ongoing exposure record (missing EXENDTC), if any: at most one per
+  # subject. Selected once here; _OPEN_DOSE/_OPEN_DAYS read from it.
+  - id: EX_OPEN
+    dataset: EX
+    key: [STUDYID, USUBJID]
+    filter: "EX.EXENDTC IS NULL"
+    missing: null
 
 output:
   path: adsl-dryrun.parquet
@@ -223,29 +230,13 @@ columns:
   - name: _OPEN_DOSE
     type: float
     label: Open-record EXDOSE (internal)
-    derivation:
-      lookup:
-        dataset: EX
-        key: [STUDYID, USUBJID]
-        filter: "EX.EXENDTC IS NULL"
-        value: EXDOSE
-        missing: null
-  - name: _OPEN_START_S
-    type: str
-    label: Open-record EXSTDTC text (internal)
-    derivation:
-      lookup:
-        dataset: EX
-        key: [STUDYID, USUBJID]
-        filter: "EX.EXENDTC IS NULL"
-        value: EXSTDTC
-        missing: null
+    derivation: EX_OPEN.EXDOSE
   - name: _OPEN_STARTDT
     type: date
     label: Open-record start date (internal)
     derivation:
       date_impute:
-        source: _OPEN_START_S
+        source: EX_OPEN.EXSTDTC
         month: 1
         day: 1
         missing: null
