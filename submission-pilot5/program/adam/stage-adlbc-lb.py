@@ -9,11 +9,12 @@ Only the ENDPOINT supplement is carried: LBTMSHI is never referenced by
 adlbc.r. IDVARVAL carries leading spaces in the staged parquet, so it is
 stripped before the numeric cast. No ADaM variable is derived here; every
 derivation lives in the YAML specs.
+
+The yamaa parquet reader accepts Arrow large_string for str columns
+(yamaa#728/#736), so polars' large_string output needs no cast-back.
 """
 
 import polars as pl
-import pyarrow as pa
-import pyarrow.parquet as pq
 
 sup = pl.read_parquet("sdtm/supplb.parquet")
 endpoint = sup.filter(pl.col("QNAM") == "ENDPOINT").select(
@@ -27,23 +28,10 @@ lb = pl.read_parquet("sdtm/lb.parquet")
 out = lb.join(endpoint, on=["STUDYID", "USUBJID", "LBSEQ"], how="left").filter(
     pl.col("LBCAT") == "CHEMISTRY"
 )
-# Polars writes Arrow large_string; the staged SDTM parquets (and the yamaa
-# reader, pre-#736) use plain string. Cast back for compatibility.
-table = out.to_arrow()
-table = table.cast(
-    pa.schema(
-        [
-            pa.field(
-                f.name, pa.string() if pa.types.is_large_string(f.type) else f.type
-            )
-            for f in table.schema
-        ]
-    )
-)
-pq.write_table(table, "adlbc-lb.parquet")
+out.write_parquet("adlbc-lb.parquet")
 print(
     "WROTE adlbc-lb.parquet:",
-    table.num_rows,
+    out.height,
     "rows;",
     "ENDPOINT='Y':",
     out.filter(pl.col("ENDPOINT") == "Y").height,

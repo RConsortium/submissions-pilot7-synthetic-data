@@ -143,9 +143,18 @@ def compare(derived):
     """Verify every derived column against the official ADaM.
 
     Semantics (standing tolerance): numeric cells match when
-    |derived - official| <= 1e-10 (absolute); non-numeric cells match exactly
-    with null/"" normalized. Row alignment is by the dataset keys. Official
-    columns the spec does not derive are reported as uncovered, not failures.
+    |derived - official| <= 1e-10 (absolute); non-numeric cells match exactly.
+    Row alignment is by the dataset keys. Official columns the spec does not
+    derive are reported as uncovered, not failures; derived-only columns are
+    reported, never compared.
+
+    Missing-value representation: the official ADaM was produced by R, where a
+    missing character value is ""; yamaa represents missing as null. Verified
+    2026-09-21 on all five official datasets (string "" cells / string nulls):
+    adadas 21257/0, adae 10234/0, adlbc 120776/0, adsl 634/0, adtte 0/0 --
+    the official files carry zero string nulls anywhere. Derived "" cells are
+    explicit values (e.g. ADSL DCSREAS 110 "" == official 110 ""), so "" and
+    null are normalized for comparison on that basis only.
     """
     import polars as pl
 
@@ -160,11 +169,11 @@ def compare(derived):
         assert new.height == ref.height, f"{ds}: row count {new.height} != {ref.height}"
         joined = new.join(ref, on=keys, how="inner", suffix="_ref")
         assert joined.height == ref.height, f"{ds}: key mismatch"
-        common = [
-            c for c in new.columns if c not in keys and c + "_ref" in joined.columns
-        ]
+        # Pair columns explicitly by name: a derived column is comparable only
+        # when the official dataset carries the same column name.
+        common = [c for c in new.columns if c not in keys and c in ref.columns]
         derived_only = [
-            c for c in new.columns if c not in keys and c + "_ref" not in joined.columns
+            c for c in new.columns if c not in keys and c not in ref.columns
         ]
         uncovered = [c for c in ref.columns if c not in keys and c not in new.columns]
         mismatches = []

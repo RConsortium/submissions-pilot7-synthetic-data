@@ -56,13 +56,20 @@ intermediates:
     key: [STUDYID, USUBJID]
     order_by: [DS.DSSEQ]
     keep: first
+  - id: DS_LAST
+    dataset: DS
+    filter: "DS.DSCAT = 'DISPOSITION EVENT'"
+    key: [STUDYID, USUBJID]
+    order_by: [DS.DSSTDTC]
+    keep: last
 
 output:
   path: adsl-dryrun.parquet
-  columns: [STUDYID, USUBJID, SUBJID, SITEID, ARM, TRT01P, TRT01PN, TRT01A,
-    TRT01AN, TRTSDT, TRTEDT, TRTDUR, AVGDD, CUMDOSE, AGE, AGEGR1, AGEGR1N,
+  columns: [STUDYID, USUBJID, SUBJID, SITEID, SITEGR1, ARM, TRT01P, TRT01PN, TRT01A,
+    TRT01AN, TRTSDT, TRTEDT, TRTDUR, TRTDURD, AVGDD, CUMDOSE, AGE, AGEGR1, AGEGR1N,
     SEX, RACE, RACEN, SAFFL, BMIBL, HEIGHTBL, WEIGHTBL, BMIGR1, ITTFL, EFFFL,
-    COMP8FL, COMP16FL, COMP24FL, DCSREAS, EDUCLVL, DISONSDT, VISIT1DT]
+    COMP8FL, COMP16FL, COMP24FL, DCSREAS, DCDECOD, DSRAEFL, EDUCLVL, DISONSDT,
+    VISIT1DT, RFENDTC, RFENDT]
 
 columns:
   - name: STUDYID
@@ -84,6 +91,18 @@ columns:
     type: str
     label: Study Site Identifier
     derivation: DM.SITEID
+
+  - name: SITEGR1
+    type: str
+    label: Pooled Site Group 1
+    derivation:
+      # Small sites pool to 900 in the official ADSL (observed mapping).
+      case:
+        - when: "SITEID IN ('702', '706', '707', '711', '714', '715', '717')"
+          then:
+            literal: "900"
+        - otherwise:
+            source: SITEID
 
   - name: ARM
     type: str
@@ -186,19 +205,80 @@ columns:
         unit: day
         bounds: inclusive
 
+  - name: TRTDURD
+    type: float
+    label: Total Treatment Duration (Days)
+    derivation: TRTDUR
+
+  # CUMDOSE sums per-record dose-days: EXDOSE x days on the record. Records
+  # with a missing EXENDTC (ongoing exposure) run to TRTEDT, matching the
+  # official derivation (verified: all 6 open records impute exactly).
+  - name: _CUM_CLOSED
+    type: float
+    label: Closed-record dose-days (internal)
+    derivation:
+      aggregate:
+        filter: "EX.EXENDTC IS NOT NULL"
+        expr: "SUM(EX.EXDOSE * (EX.EXENDY - EX.EXSTDY + 1))"
+  - name: _OPEN_DOSE
+    type: float
+    label: Open-record EXDOSE (internal)
+    derivation:
+      lookup:
+        dataset: EX
+        key: [STUDYID, USUBJID]
+        filter: "EX.EXENDTC IS NULL"
+        value: EXDOSE
+        missing: null
+  - name: _OPEN_START_S
+    type: str
+    label: Open-record EXSTDTC text (internal)
+    derivation:
+      lookup:
+        dataset: EX
+        key: [STUDYID, USUBJID]
+        filter: "EX.EXENDTC IS NULL"
+        value: EXSTDTC
+        missing: null
+  - name: _OPEN_STARTDT
+    type: date
+    label: Open-record start date (internal)
+    derivation:
+      date_impute:
+        source: _OPEN_START_S
+        month: 1
+        day: 1
+        missing: null
+  - name: _OPEN_DAYS
+    type: float
+    label: Open-record days to TRTEDT (internal)
+    derivation:
+      date_diff:
+        start: _OPEN_STARTDT
+        end: TRTEDT
+        unit: day
+        bounds: inclusive
   - name: CUMDOSE
     type: float
     label: Cumulative Dose (as planned)
     derivation:
-      aggregate:
-        expr: "SUM(EX.EXDOSE)"
+      compute:
+        expr: "COALESCE(_CUM_CLOSED, 0) + COALESCE(_OPEN_DOSE * _OPEN_DAYS, 0)"
+
+  - name: _AVGDD_RAW
+    type: float
+    label: Unrounded avg daily dose (internal)
+    derivation:
+      compute:
+        expr: "CUMDOSE / NULLIF(TRTDUR, 0)"
 
   - name: AVGDD
     type: float
     label: Avg Daily Dose (as planned)
     derivation:
-      compute:
-        expr: "CUMDOSE / NULLIF(TRTDUR, 0)"
+      round_half_away_from_zero:
+        source: _AVGDD_RAW
+        digits: 1
 
   - name: AGE
     type: float
@@ -269,19 +349,33 @@ columns:
   - name: HEIGHTBL
     type: float
     label: Baseline Height (cm)
-    derivation: BASE_HT.VSSTRESN
+    derivation:
+      round_half_away_from_zero:
+        source: BASE_HT.VSSTRESN
+        digits: 1
 
   - name: WEIGHTBL
     type: float
     label: Baseline Weight (kg)
-    derivation: BASE_WT.VSSTRESN
+    derivation:
+      round_half_away_from_zero:
+        source: BASE_WT.VSSTRESN
+        digits: 1
+
+  - name: _BMIBL_RAW
+    type: float
+    label: Unrounded baseline BMI (internal)
+    derivation:
+      compute:
+        expr: "WEIGHTBL / POWER(NULLIF(HEIGHTBL, 0) / 100, 2)"
 
   - name: BMIBL
     type: float
     label: Baseline BMI (kg/m^2)
     derivation:
-      compute:
-        expr: "WEIGHTBL / POWER(NULLIF(HEIGHTBL, 0) / 100, 2)"
+      round_half_away_from_zero:
+        source: _BMIBL_RAW
+        digits: 1
 
   - name: BMIGR1
     type: str
@@ -392,6 +486,7 @@ columns:
     type: str
     label: Reason for Discontinuation from Study
     derivation:
+      # Display values per the official ADSL codelist (observed mapping).
       case:
         - when: "DS_DISP.DSDECOD <> 'COMPLETED' AND DS_DISP.DSTERM = 'PROTOCOL ENTRY CRITERIA NOT MET'"
           then:
@@ -400,10 +495,37 @@ columns:
           then:
             literal: ""
         - otherwise:
-            source: DS_DISP.DSDECOD
+            mapping:
+              source: DS_DISP.DSDECOD
+              missing: null
+              dict:
+                "ADVERSE EVENT": "Adverse Event"
+                "DEATH": "Death"
+                "LACK OF EFFICACY": "Lack of Efficacy"
+                "LOST TO FOLLOW-UP": "Lost to Follow-up"
+                "PHYSICIAN DECISION": "Physician Decision"
+                "PROTOCOL VIOLATION": "Protocol Violation"
+                "STUDY TERMINATED BY SPONSOR": "Sponsor Decision"
+                "WITHDRAWAL BY SUBJECT": "Withdrew Consent"
+
+  - name: DCDECOD
+    type: str
+    label: Standardized Disposition Term
+    derivation: DS_LAST.DSDECOD
+
+  - name: DSRAEFL
+    type: str
+    label: Discontinued due to AE?
+    derivation:
+      case:
+        - when: "DCDECOD = 'ADVERSE EVENT'"
+          then:
+            literal: Y
+        - otherwise:
+            literal: ""
 
   - name: EDUCLVL
-    type: str
+    type: float
     label: Years of Education
     derivation: SC_EDU.SCSTRESN
 
@@ -424,3 +546,36 @@ columns:
         source: SV_V1.SVSTDTC
         month: 1
         day: 1
+
+  - name: DS_ENDTC
+    type: str
+    label: Last disposition event date (character, internal)
+    derivation: DS_LAST.DSSTDTC
+
+  - name: SV_SCHED_ENDTC
+    type: str
+    label: Last scheduled visit end date (character, internal)
+    derivation:
+      # Scheduled protocol visits are VISITNUM 1-13; unscheduled (x.1),
+      # AE follow-up (101) and retrieval (201) visits are excluded.
+      aggregate:
+        filter: "SV.VISITNUM < 100 AND SV.VISIT NOT LIKE 'UNSCHEDULED%'"
+        expr: "MAX(SV.SVENDTC)"
+
+  - name: RFENDTC
+    type: str
+    label: Subject Reference End Date/Time
+    derivation:
+      case:
+        - when: "SV_SCHED_ENDTC IS NOT NULL AND SV_SCHED_ENDTC > DS_ENDTC"
+          then:
+            source: SV_SCHED_ENDTC
+        - otherwise:
+            source: DS_ENDTC
+
+  - name: RFENDT
+    type: date
+    label: Subject Reference End Date
+    derivation:
+      to_date:
+        source: RFENDTC

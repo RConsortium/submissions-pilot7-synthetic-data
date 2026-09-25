@@ -48,14 +48,16 @@ Cell-by-cell comparison of the derived datasets against the official ADaM
 (`python3 run.py`, same tolerance as above):
 
 - ADAE: all 52 derived columns match — 61,932/61,932 cells.
-- ADTTE: all 26 derived columns match — 6,604/6,604 cells, zero diffs.
+- ADTTE: all 23 derived columns match — 5,842/5,842 cells, zero diffs.
 - ADADAS: 436,205/436,205 non-key cells match exactly; zero key mismatches.
-- ADLBC: 1,708,072 cells within 1e-10 (1,692,639 exact; the remainder is
-  machine-epsilon floating-point noise in derived laboratory values).
-- ADSL: derived columns match except known documented gaps — the R program's
-  1-digit rounding on dose/weight values (AVGDD, CUMDOSE, BMIBL, HEIGHTBL,
-  WEIGHTBL; REQ-0418 deliberately keeps rounding out of derivations) and the
-  codelist mapping skipped in the sketch (DCSREAS, EDUCLVL). 17 of the 49
-  official columns are not derived by the spec.
+- ADLBC: all 41 derived columns match — 1,522,412/1,522,412 cells within
+  |derived - official| <= 1e-10.
+- ADSL: all 36 derived columns match — 9,144/9,144 cells. 11 of the 49
+  official columns are not derived by the spec (AGEU, ETHNIC, DISCONFL, DTHFL,
+  BMIBLGR1, DURDIS, DURDSGR1, RFSTDTC, VISNUMEN, EOSSTT, MMSETOT); TRTDUR and
+  BMIGR1 are derived-only helpers. Dose/weight rounding follows the R program
+  via `round_half_away_from_zero` (REQ-0418): HEIGHTBL, WEIGHTBL, BMIBL
+  (computed from the rounded height/weight), AVGDD to 1 digit; CUMDOSE sums
+  per-record EXDOSE x days, imputing a missing EXENDTC with TRTEDT.
 
 Verified 2026-09-21, yamaa engine @ main.
