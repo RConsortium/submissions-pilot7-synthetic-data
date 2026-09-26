@@ -1,0 +1,68 @@
+# Stage 1b filter for pilot5 ADLBC: keep only true EoT fallbacks.
+#
+# Keeps the _RN = 1 record per (STUDYID, USUBJID, LBTESTCD) unless its
+# _EOT_AWARE is 99, i.e. the group already has an EoT row (R's
+# filter(AVISITN != 99) after slice(1)). A separate spec is needed because
+# an ungrouped rows[].filter runs before row-template derivations and cannot
+# filter on _RN computed in the same template.
+schema_version: "1.0"
+domain: ADLBC
+keys: [STUDYID, USUBJID, LBTESTCD, LBSEQ]
+input:
+  EOTRN: adlbc-eot-rn.parquet
+base: EOTRN
+
+output:
+  path: adlbc-eot.parquet
+  columns: [STUDYID, USUBJID, LBTESTCD, LBSEQ, LBDTC, VISIT, VISITNUM, LBTEST,
+    LBSTRESU, LBSTRESN, LBBLFL, LBSTNRLO, LBSTNRHI, LBNRIND]
+
+columns:
+  - name: STUDYID
+    type: str
+  - name: USUBJID
+    type: str
+  - name: LBTESTCD
+    type: str
+  - name: LBSEQ
+    type: float
+  - name: LBDTC
+    type: str
+  - name: VISIT
+    type: str
+  - name: VISITNUM
+    type: float
+  - name: LBTEST
+    type: str
+  - name: LBSTRESU
+    type: str
+  - name: LBSTRESN
+    type: float
+  - name: LBBLFL
+    type: str
+  - name: LBSTNRLO
+    type: float
+  - name: LBSTNRHI
+    type: float
+  - name: LBNRIND
+    type: str
+
+rows:
+  - id: eot
+    dataset: EOTRN
+    filter: "EOTRN._RN = 1 AND EOTRN._EOT_AWARE <> 99"
+    derivations:
+      STUDYID: EOTRN.STUDYID
+      USUBJID: EOTRN.USUBJID
+      LBTESTCD: EOTRN.LBTESTCD
+      LBSEQ: EOTRN.LBSEQ
+      LBDTC: EOTRN.LBDTC
+      VISIT: EOTRN.VISIT
+      VISITNUM: EOTRN.VISITNUM
+      LBTEST: EOTRN.LBTEST
+      LBSTRESU: EOTRN.LBSTRESU
+      LBSTRESN: EOTRN.LBSTRESN
+      LBBLFL: EOTRN.LBBLFL
+      LBSTNRLO: EOTRN.LBSTNRLO
+      LBSTNRHI: EOTRN.LBSTNRHI
+      LBNRIND: EOTRN.LBNRIND

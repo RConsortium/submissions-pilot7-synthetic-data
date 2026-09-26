@@ -1,0 +1,117 @@
+# Stage 1b for pilot5 ADLBC: rank fallback End-of-Treatment candidates.
+#
+# Mirrors adlbc.r's eot2 exactly:
+#   eot2 <- adlb06 %>%
+#     arrange(STUDYID, USUBJID, PARAMCD, desc(AVISITN)) %>%
+#     group_by(STUDYID, USUBJID, PARAMCD) %>%
+#     filter(VISITNUM != 13) %>%
+#     slice(1) %>%
+#     filter(!is.na(AVISITN), AVISITN != 0, AVISITN != 99)
+#
+# _AVISITN follows the main template's visit logic (baseline 0, unscheduled
+# null, else the week number). _EOT_AWARE forces 99 for EoT-set records
+# (ENDPOINT = 'Y' or VISITNUM = 12, i.e. R's rbind(eot) rows), so _RN = 1
+# selects the 99 exactly when R's slice(1) would. The filter spec then drops
+# those groups, keeping only true fallbacks. VISITNUM = 13 (WEEK 26) is
+# excluded from ranking per R's filter. No ties are possible: _AVISITN is a
+# function of VISIT and there are no duplicate (subject, param, visit) rows.
+schema_version: "1.0"
+domain: ADLBC
+keys: [STUDYID, USUBJID, LBTESTCD, LBSEQ]
+input:
+  LB: adlbc-lb.parquet
+base: LB
+
+output:
+  path: adlbc-eot-rn.parquet
+  columns: [_RN, _EOT_AWARE, STUDYID, USUBJID, LBTESTCD, LBSEQ, LBDTC, VISIT,
+    VISITNUM, LBTEST, LBSTRESU, LBSTRESN, LBBLFL, LBSTNRLO, LBSTNRHI, LBNRIND]
+
+columns:
+  - name: _RN
+    type: int
+    label: EoT-aware rank within subject-param (internal)
+  - name: _EOT_AWARE
+    type: float
+    label: AVISITN with 99 forced for EoT-set records (internal)
+  - name: STUDYID
+    type: str
+  - name: USUBJID
+    type: str
+  - name: LBTESTCD
+    type: str
+  - name: LBSEQ
+    type: float
+  - name: LBDTC
+    type: str
+  - name: VISIT
+    type: str
+  - name: VISITNUM
+    type: float
+  - name: LBTEST
+    type: str
+  - name: LBSTRESU
+    type: str
+  - name: LBSTRESN
+    type: float
+  - name: LBBLFL
+    type: str
+  - name: LBSTNRLO
+    type: float
+  - name: LBSTNRHI
+    type: float
+  - name: LBNRIND
+    type: str
+
+rows:
+  - id: eotrn
+    dataset: LB
+    filter: "LB.LBCAT = 'CHEMISTRY' AND (LB.VISIT LIKE '%WEEK%' OR LB.VISIT LIKE '%SCREENING%' OR LB.VISIT LIKE '%UNSCHEDULED%')"
+    derivations:
+      _EOT_AWARE:
+        case:
+          - when: "LB.ENDPOINT = 'Y' OR LB.VISITNUM = 12"
+            then:
+              literal: 99.0
+          - when: "LB.LBBLFL = 'Y'"
+            then:
+              literal: 0.0
+          - when: "LB.VISIT LIKE '%UNSCHEDULED%'"
+            then:
+              literal: null
+          - otherwise:
+              mapping:
+                source: LB.VISIT
+                missing: null
+                dict:
+                  "WEEK 2": 2.0
+                  "WEEK 4": 4.0
+                  "WEEK 6": 6.0
+                  "WEEK 8": 8.0
+                  "WEEK 12": 12.0
+                  "WEEK 16": 16.0
+                  "WEEK 20": 20.0
+                  "WEEK 24": 24.0
+                  "WEEK 26": 26.0
+      _RN:
+        row_number:
+          window:
+            group_by: [STUDYID, USUBJID, LBTESTCD]
+            order_by:
+              - {variable: _EOT_AWARE, direction: desc}
+              - {variable: LBSEQ, direction: asc}
+            filter: "LB.VISITNUM <> 13 AND _EOT_AWARE IS NOT NULL AND _EOT_AWARE <> 0"
+      STUDYID: LB.STUDYID
+      USUBJID: LB.USUBJID
+      LBTESTCD: LB.LBTESTCD
+      LBSEQ: LB.LBSEQ
+      LBDTC: LB.LBDTC
+      VISIT: LB.VISIT
+      VISITNUM: LB.VISITNUM
+      LBTEST: LB.LBTEST
+      LBSTRESU: LB.LBSTRESU
+      LBSTRESN: LB.LBSTRESN
+      LBBLFL: LB.LBBLFL
+      LBSTNRLO: LB.LBSTNRLO
+      LBSTNRHI: LB.LBSTNRHI
+      LBNRIND: LB.LBNRIND
