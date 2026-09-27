@@ -40,20 +40,19 @@ requirements, and this README are committed.
 
 ## Stage order (what run.py does)
 
-1. `adsl_exdose.yaml` — per-record exposure staging (REQ-0483): one row per
-   EX record with the imputed exposure start/end dates and per-record dose.
-2. `adsl.yaml` — from SDTM DM/DS/QS/SV/VS/SC/MH plus the exdose staging
-   (TRTSDT/TRTEDT/CUMDOSE all aggregate the staging; SDTM EX is never read
-   directly). Output: ADSL.
-3. `adae.yaml` — from SDTM AE plus the derived ADSL. Output: ADAE.
-4. `adadas.yaml` — from SDTM QS (plus a `QSDTC_D` date column parsed from
+1. `adsl.yaml` — from SDTM DM/DS/EX/QS/SV/VS/SC/MH. Per-record exposure math
+   (impute/cap exposure end dates, inclusive duration, per-record dose) lives
+   in the TRTEDT/CUMDOSE aggregates' derive bindings over EX; the EOSDT
+   binding reads the keep-intermediate DS_EOS (REQ-1242). Output: ADSL.
+2. `adae.yaml` — from SDTM AE plus the derived ADSL. Output: ADAE.
+3. `adadas.yaml` — from SDTM QS (plus a `QSDTC_D` date column parsed from
    `QSDTC` at staging time, since the planner's static gate currently rejects
    ISO date text for `to_date`, REQ-0607/REQ-1107), the derived ADSL, the
    222-row LOCF planning relation (`inputs/plan.csv`), and the 4-row
    analysis-window lookup (`inputs/aw_lookup.csv`). Output: ADADAS.
-5. `adtte.yaml` — from derived ADSL, derived ADAE, and SDTM DS. Output:
+4. `adtte.yaml` — from derived ADSL, derived ADAE, and SDTM DS. Output:
    ADTTE.
-6. `adlbc.yaml` — from SDTM LB/SUPPLB plus the derived ADSL. Output: ADLBC.
+5. `adlbc.yaml` — from SDTM LB/SUPPLB plus the derived ADSL. Output: ADLBC.
 
 Subject-level variables are derived once, in ADSL; the other four specs
 read them from the derived `adsl-yamaa.parquet` predecessor instead of

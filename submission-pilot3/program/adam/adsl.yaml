@@ -1,21 +1,29 @@
-# Pilot 3 ADSL derived with the YAMAA schema (schema-complexity review, not a
-# transliteration of adsl.r). Per-record exposure math lives in the staging spec
-# pilot3-specs/adsl_exdose.yaml (REQ-0483); this spec aggregates it.
+# Pilot 3 ADSL derived with the yamaa schema (schema-complexity review, not a
+# transliteration of adsl.r). Per-record exposure math (impute/cap exposure end
+# dates, inclusive duration, per-record dose) lives in the TRTEDT/CUMDOSE
+# aggregates' derive bindings over EX; the EOSDT binding reads the
+# keep-intermediate DS_EOS (REQ-1242, landed for #964 via PR #1072), so no
+# staging spec is needed. TRTEDT = MAX(EXENDT), CUMDOSE = SUM(DOSE).
 schema_version: "1.0"
 domain: ADSL
 keys: [STUDYID, USUBJID]
 input:
   DM: sdtm/dm.parquet
   DS: sdtm/ds.parquet
+  EX: sdtm/ex.parquet
   QS: sdtm/qs.parquet
   SV: sdtm/sv.parquet
   VS: sdtm/vs.parquet
   SC: sdtm/sc.parquet
   MH: sdtm/mh.parquet
-  EXD: adsl_exdose.parquet
 base: DM
 filter: "DM.ACTARMCD <> 'Scrnfail'"
 intermediates:
+  - id: EX_FIRST
+    dataset: EX
+    key: [STUDYID, USUBJID]
+    order_by: [EX.EXSTDTC]
+    keep: first
   - id: DS_EOS
     dataset: DS
     filter: "DS.DSCAT = 'DISPOSITION EVENT' AND DS.DSDECOD <> 'SCREEN FAILURE'"
@@ -129,16 +137,39 @@ columns:
     type: date
     label: Date of First Exposure to Treatment
     derivation:
-      # First exposure start comes from the per-record staging (REQ-0483):
-      # no second scan of SDTM EX is needed.
-      aggregate:
-        expr: "MIN(EXD.EXSTDT)"
+      date_impute:
+        source: EX_FIRST.EXSTDTC
+        month: 1
+        day: last
+        missing: null
   - name: TRTEDT
     type: date
     label: Date of Last Exposure to Treatment
     derivation:
       aggregate:
-        expr: "MAX(EXD.EXENDT)"
+        derive:
+          - name: EXENDT_RAW
+            type: date
+            derivation:
+              date_impute:
+                source: EX.EXENDTC
+                month: 1
+                day: last
+                missing: null
+          - name: EOSDT
+            type: date
+            derivation:
+              date_impute:
+                source: DS_EOS.DSSTDTC
+                month: 1
+                day: last
+                missing: null
+          - name: EXENDT
+            type: date
+            derivation:
+              least:
+                sources: [EXENDT_RAW, EOSDT]
+        expr: "MAX(EXENDT)"
   - name: TRTDURD
     type: float
     label: Total Treatment Duration (Days)
@@ -153,10 +184,56 @@ columns:
     label: Cumulative Dose (as planned)
     derivation:
       aggregate:
-        expr: "SUM(EXD.DOSE)"
+        derive:
+          - name: EXSTDT
+            type: date
+            derivation:
+              date_impute:
+                source: EX.EXSTDTC
+                month: 1
+                day: last
+                missing: null
+          - name: EXENDT_RAW
+            type: date
+            derivation:
+              date_impute:
+                source: EX.EXENDTC
+                month: 1
+                day: last
+                missing: null
+          - name: EOSDT
+            type: date
+            derivation:
+              date_impute:
+                source: DS_EOS.DSSTDTC
+                month: 1
+                day: last
+                missing: null
+          - name: EXENDT
+            type: date
+            derivation:
+              least:
+                sources: [EXENDT_RAW, EOSDT]
+          - name: EXDURD
+            type: float
+            derivation:
+              date_diff:
+                start: EXSTDT
+                end: EXENDT
+                unit: day
+                bounds: inclusive
+          - name: EXDOSE_V
+            type: float
+            derivation: EX.EXDOSE
+          - name: DOSE
+            type: float
+            derivation:
+              compute:
+                expr: "EXDOSE_V * EXDURD"
+        expr: "SUM(DOSE)"
   - name: AVGDD_RAW
     type: float
-    label: Avgdd Raw (helper)
+    label: Average daily dose, unrounded (helper)
     derivation:
       compute:
         expr: "CUMDOSE / NULLIF(TRTDURD, 0)"
@@ -244,14 +321,14 @@ columns:
             literal: N
   - name: N_ACTOT
     type: float
-    label: N Actot (helper)
+    label: Post-baseline ADAS-Cog records (helper)
     derivation:
       aggregate:
         expr: "COUNT(QS.QSSEQ)"
         filter: "QS.VISITNUM > 3 AND QS.QSTESTCD = 'ACTOT'"
   - name: N_CIBIC
     type: float
-    label: N Cibic (helper)
+    label: Post-baseline CIBIC+ records (helper)
     derivation:
       aggregate:
         expr: "COUNT(QS.QSSEQ)"
@@ -268,7 +345,7 @@ columns:
             literal: N
   - name: N_WK8
     type: float
-    label: N Wk8 (helper)
+    label: Week 8 visit records (helper)
     derivation:
       aggregate:
         expr: "COUNT(SV.USUBJID)"
@@ -285,7 +362,7 @@ columns:
             literal: N
   - name: N_WK16
     type: float
-    label: N Wk16 (helper)
+    label: Week 16 visit records (helper)
     derivation:
       aggregate:
         expr: "COUNT(SV.USUBJID)"
@@ -302,7 +379,7 @@ columns:
             literal: N
   - name: N_WK24
     type: float
-    label: N Wk24 (helper)
+    label: Week 24 visit records (helper)
     derivation:
       aggregate:
         expr: "COUNT(SV.USUBJID)"
@@ -343,7 +420,7 @@ columns:
             literal: Y
   - name: HEIGHTBL_RAW
     type: float
-    label: Heightbl Raw (helper)
+    label: Baseline height, unrounded (helper)
     derivation: VS_HT.VSSTRESN
   - name: HEIGHTBL
     type: float
@@ -354,7 +431,7 @@ columns:
         digits: 1
   - name: WEIGHTBL_RAW
     type: float
-    label: Weightbl Raw (helper)
+    label: Baseline weight, unrounded (helper)
     derivation: VS_WT.VSSTRESN
   - name: WEIGHTBL
     type: float
@@ -365,7 +442,7 @@ columns:
         digits: 1
   - name: BMIBL_RAW
     type: float
-    label: Bmibl Raw (helper)
+    label: Baseline BMI, unrounded (helper)
     derivation:
       compute:
         expr: "WEIGHTBL / POWER(NULLIF(HEIGHTBL, 0) / 100, 2)"
@@ -407,7 +484,7 @@ columns:
         day: 1
   - name: DURDISD
     type: float
-    label: Durdisd (helper)
+    label: Disease duration in days, inclusive (helper)
     derivation:
       date_diff:
         start: DISONSDT
@@ -416,7 +493,7 @@ columns:
         bounds: inclusive
   - name: DURDIS_RAW
     type: float
-    label: Durdis Raw (helper)
+    label: Disease duration in months, unrounded (helper)
     derivation:
       compute:
         expr: "DURDISD / 30.4375"
@@ -446,7 +523,7 @@ columns:
     derivation: DM.RFENDTC
   - name: VISNUMEN_ROUND
     type: float
-    label: Visnumen Round (helper)
+    label: Last visit number, rounded (helper)
     derivation:
       round_half_away_from_zero:
         source: SV_LAST.VISITNUM

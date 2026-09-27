@@ -10,10 +10,10 @@ for n, s in schemas.items(): pl.read_csv(HERE / "inputs" / f"{n}.csv", schema=s,
 pl.read_parquet(WORK / "sdtm/qs.parquet").with_columns(pl.col("QSDTC").str.to_date("%Y-%m-%d", strict=True).alias("QSDTC_D")).write_parquet(WORK / "sdtm/qs_str.parquet")
 for spec in HERE.glob("*.yaml"): shutil.copy2(spec, WORK / spec.name)
 os.chdir(WORK)
-for ds in ["adsl_exdose", "adsl", "adae", "adadas", "adtte", "adlbc"]:
+for ds in ["adsl", "adae", "adadas", "adtte", "adlbc"]:
     run = yamaa.yamaa_domain(ds + ".yaml")
     assert len(run.issues) == 0, ds
-    out = run.save() if ds == "adsl_exdose" else run.save(WORK / "derived" / f"{ds}-yamaa.parquet")
+    out = run.save(WORK / "derived" / f"{ds}-yamaa.parquet")
     labels = {c.name: c.label for c in run.spec.columns}
     t = pq.read_table(out)
     pq.write_table(t.cast(pa.schema([f.with_metadata({**(f.metadata or {}), b"yamaa:label": labels[f.name].encode()}) for f in t.schema])), out, compression="none")
