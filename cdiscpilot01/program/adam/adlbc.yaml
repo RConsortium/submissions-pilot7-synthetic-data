@@ -3,7 +3,7 @@ domain: ADLBC
 keys: [STUDYID, USUBJID, PARAMCD, LBSEQ, AVISIT]
 input:
   LB:
-    path: work/lb_with_prev.parquet
+    path: sdtm/lb.parquet
     empty_string: present
   ADSL:
     path: upstream/adsl.parquet
@@ -13,6 +13,24 @@ intermediates:
   - id: ADSL_SBJ
     dataset: ADSL
     key: [USUBJID]
+  # PREV: previous scheduled AVAL within (USUBJID, LBTESTCD), ordered by
+  # (LBDTC, LBSEQ). Replaces the adlbc-prevmap.yaml stage + Python join:
+  # unscheduled records (VISIT LIKE 'UNSCHEDULED%') are excluded from the
+  # shift, matching upstream build_adlbc.py.
+  - id: PREV
+    dataset: LB
+    key: [USUBJID, LBTESTCD, LBSEQ]
+    key_base: [LB.USUBJID, LB.LBTESTCD, LB.LBSEQ]
+    filter: "LB.VISIT NOT LIKE 'UNSCHEDULED%'"
+    derivations:
+      PREV_AVAL:
+        row_value:
+          source: LB.LBSTRESN
+          offset: -1
+          window:
+            group_by: [LB.USUBJID, LB.LBTESTCD]
+            order_by: [{variable: LB.LBDTC}, {variable: LB.LBSEQ}]
+    columns: [PREV_AVAL]
 rows:
   # ------------------------------------------------------------------
   # base-ord: ordinary base rows (one per chemistry LB record)
@@ -568,7 +586,7 @@ rows:
           - when: "AVISIT = '               .' OR AVISIT = 'End of Treatment'"
             then: {literal: ''}
           - otherwise: {literal: 'Y'}
-      _PREV_AVAL: LB.PREV_AVAL
+      _PREV_AVAL: PREV.PREV_AVAL
 
       _U_RAW:
         compute:
@@ -744,8 +762,7 @@ rows:
           - when: "_VISIT_RAW IN ('SCREENING 1', 'WEEK 2', 'WEEK 4', 'WEEK 6', 'WEEK 8', 'WEEK 12', 'WEEK 16', 'WEEK 20', 'WEEK 24', 'WEEK 26')"
             then: {literal: 'Y'}
           - otherwise: {literal: ''}
-      _PREV_AVAL:
-        aggregate: "ONLY(LB.PREV_AVAL)"
+      _PREV_AVAL: PREV.PREV_AVAL
 
       _U_RAW:
         compute:

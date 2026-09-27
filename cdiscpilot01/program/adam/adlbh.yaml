@@ -3,10 +3,7 @@ domain: ADLBH
 keys: [STUDYID, USUBJID, PARAMCD, LBSEQ, AVISIT]
 input:
   LB:
-    path: work/lb_h_with_prev.parquet
-    # PREV_AVAL is staged from adlbh-prevmap.yaml (previous scheduled AVAL
-    # within USUBJID/LBTESTCD ordered by AVISITN, raw BASELINE excluded),
-    # joined back onto the original LB records by orchestration.
+    path: sdtm/lb.parquet
     empty_string: present
   ADSL:
     path: upstream/adsl.parquet
@@ -16,6 +13,48 @@ intermediates:
   - id: ADSL_SBJ
     dataset: ADSL
     key: [USUBJID]
+  # PREV: previous scheduled AVAL within (USUBJID, LBTESTCD), ordered by
+  # AVISITN. Replaces the adlbh-prevmap.yaml stage + Python join: the shift
+  # population excludes raw VISIT='BASELINE' (official builder drops it;
+  # 'SCREENING 1' is the baseline), 'AMBUL ECG REMOVAL', 'RETRIEVAL', and
+  # unscheduled records (VISIT LIKE 'UNSCHEDULED%').
+  - id: PREV
+    dataset: LB
+    key: [USUBJID, LBTESTCD, LBSEQ]
+    key_base: [LB.USUBJID, LB.LBTESTCD, LB.LBSEQ]
+    filter: "LB.LBCAT = 'HEMATOLOGY' AND LB.VISIT NOT IN ('AMBUL ECG REMOVAL', 'BASELINE', 'RETRIEVAL') AND LB.VISIT NOT LIKE 'UNSCHEDULED%'"
+    derivations:
+      _AVISITN:
+        case:
+          - when: "LB.VISIT = 'SCREENING 1'"
+            then: {literal: 0.0}
+          - when: "LB.VISIT = 'WEEK 2'"
+            then: {literal: 2.0}
+          - when: "LB.VISIT = 'WEEK 4'"
+            then: {literal: 4.0}
+          - when: "LB.VISIT = 'WEEK 6'"
+            then: {literal: 6.0}
+          - when: "LB.VISIT = 'WEEK 8'"
+            then: {literal: 8.0}
+          - when: "LB.VISIT = 'WEEK 12'"
+            then: {literal: 12.0}
+          - when: "LB.VISIT = 'WEEK 16'"
+            then: {literal: 16.0}
+          - when: "LB.VISIT = 'WEEK 20'"
+            then: {literal: 20.0}
+          - when: "LB.VISIT = 'WEEK 24'"
+            then: {literal: 24.0}
+          - when: "LB.VISIT = 'WEEK 26'"
+            then: {literal: 26.0}
+          - otherwise: {literal: null}
+      PREV_AVAL:
+        row_value:
+          source: LB.LBSTRESN
+          offset: -1
+          window:
+            group_by: [LB.USUBJID, LB.LBTESTCD]
+            order_by: [{variable: _AVISITN}, {variable: LB.LBDTC}, {variable: LB.LBSEQ}]
+    columns: [PREV_AVAL]
 rows:
   # ------------------------------------------------------------------
   # base-ord: ordinary base rows (one per chemistry LB record)
@@ -558,7 +597,7 @@ rows:
           - when: "AVISIT = '               .' OR AVISIT = 'End of Treatment' OR AVISIT = '        Baseline'"
             then: {literal: ''}
           - otherwise: {literal: 'Y'}
-      _PREV_AVAL: LB.PREV_AVAL
+      _PREV_AVAL: PREV.PREV_AVAL
       _U_RAW:
         compute:
           expr: "(_AVAL_BASE - _PREV_AVAL) / (0.5 * (_B_A1HI - _B_A1LO))"
@@ -706,8 +745,7 @@ rows:
           - when: "_VISIT_RAW IN ('SCREENING 1', 'WEEK 2', 'WEEK 4', 'WEEK 6', 'WEEK 8', 'WEEK 12', 'WEEK 16', 'WEEK 20', 'WEEK 24', 'WEEK 26')"
             then: {literal: 'Y'}
           - otherwise: {literal: ''}
-      _PREV_AVAL:
-        aggregate: "ONLY(LB.PREV_AVAL)"
+      _PREV_AVAL: PREV.PREV_AVAL
       _U_RAW:
         compute:
           expr: "(_AVAL_BASE - _PREV_AVAL) / (0.5 * (_B_A1HI - _B_A1LO))"

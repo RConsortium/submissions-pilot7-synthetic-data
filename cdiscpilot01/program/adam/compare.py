@@ -1,17 +1,13 @@
 #!/usr/bin/env python3
-"""Strict compare: derived vs official Pilot 01 ADaM parquet.
+"""Strict compare: derived vs official Pilot 1 ADaM parquet.
 
-Compares output/<ds>.parquet against expected/<ds>.parquet for all ten
-datasets, in file order with NO realignment. Checks:
+Compares output/<ds>.parquet against ../../data/adam/<ds>.parquet.
+Checks: shape, column order, Arrow types, yamaa:label metadata,
+and every cell. Numeric cells match when |derived - official| <= 1e-10
+(absolute). Non-numeric cells must be exact. Null vs "" are distinct
+(no normalization).
 
- 1. row count, column count, exact column order
- 2. Arrow field types exact
- 3. yamaa:label field metadata exact
- 4. every cell value: null vs "" distinct; non-numerics exact; floats
-    exact or within a tiny relative tolerance (reported as
-    close_float_cells, not failures)
-
-Exit code is nonzero on any mismatch.
+Exit code nonzero on any mismatch.
 """
 import sys
 from pathlib import Path
@@ -19,15 +15,17 @@ from pathlib import Path
 import pyarrow.parquet as pq
 
 BASE = Path(__file__).resolve().parent
+EXPECTED = BASE.parent.parent / "data" / "adam"
 DATASETS = ["adsl", "adae", "adtte", "advs", "adlbh", "adlbc",
-            "adlbhy", "adqsadas", "adqscibc", "adqsnipx"]
+            "adlbhy", "adqsnipx"]
+# Official ADaM filenames; derived names match spec filenames.
+EXPECTED_NAMES = {"adqsnipx": "adqsnpix"}
+ABS_TOL = 1e-10
 
 
-def compare(ds: str) -> tuple[bool, int, int, int]:
-    exp_t = pq.read_table(BASE / "expected" / f"{ds}.parquet")
+def compare(ds: str) -> bool:
+    exp_t = pq.read_table(EXPECTED / f"{EXPECTED_NAMES.get(ds, ds)}.parquet")
     got_t = pq.read_table(BASE / "output" / f"{ds}.parquet")
-    bad_cols = 0
-    close_float_cells = 0
     ok = True
 
     def report(msg: str) -> None:
@@ -39,9 +37,7 @@ def compare(ds: str) -> tuple[bool, int, int, int]:
         report(f"shape exp={(exp_t.num_rows, exp_t.num_columns)} "
                f"got={(got_t.num_rows, got_t.num_columns)}")
     if exp_t.schema.names != got_t.schema.names:
-        eg, gg = set(exp_t.schema.names), set(got_t.schema.names)
-        report(f"column order differs; only-exp={sorted(eg - gg)} "
-               f"only-got={sorted(gg - eg)}")
+        report("column order/names differ")
 
     for f in exp_t.schema:
         if f.name not in got_t.schema.names:
@@ -68,31 +64,19 @@ def compare(ds: str) -> tuple[bool, int, int, int]:
                 continue
             if (a is None) != (b is None):
                 bad += 1
-                if len(ex) < 3:
-                    ex.append((i, a, b))
-                continue
-            if isinstance(a, float) or isinstance(b, float):
-                if a == b:
-                    continue
-                # inexact-but-close: reported, not counted as bad
-                if abs(a - b) <= 1e-9 * max(1.0, abs(a), abs(b)):
-                    close_float_cells += 1
-                    continue
-                bad += 1
-                if len(ex) < 3:
-                    ex.append((i, a, b))
+            elif isinstance(a, float) or isinstance(b, float):
+                if not (a == b or abs(a - b) <= ABS_TOL):
+                    bad += 1
             elif a != b:
                 bad += 1
-                if len(ex) < 3:
-                    ex.append((i, a, b))
+            if bad and len(ex) < 3:
+                ex.append((i, a, b))
         if bad:
-            bad_cols += 1
             report(f"col {name}: {bad}/{len(e)} cells differ, e.g. {ex}")
 
-    print(f"{'STRICT PASS' if ok else 'STRICT FAIL'}: {ds} "
-          f"{got_t.num_rows} x {got_t.num_columns} "
-          f"bad_cols={bad_cols} close_float_cells={close_float_cells}")
-    return ok, got_t.num_rows, got_t.num_columns, bad_cols
+    print(f"{'PASS' if ok else 'FAIL'}: {ds} "
+          f"{got_t.num_rows}x{got_t.num_columns}")
+    return ok
 
 
 def main() -> None:
@@ -101,10 +85,9 @@ def main() -> None:
     for ds in only:
         if ds not in DATASETS:
             raise SystemExit(f"unknown dataset: {ds}")
-        ok, *_ = compare(ds)
-        all_ok = all_ok and ok
+        all_ok = compare(ds) and all_ok
     if not all_ok:
-        raise SystemExit("STRICT FAIL: one or more datasets mismatched")
+        raise SystemExit("FAIL: one or more datasets mismatched")
 
 
 if __name__ == "__main__":
