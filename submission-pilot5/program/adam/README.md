@@ -37,10 +37,11 @@ are committed.
    - `python3 stage-adlbc-lb.py` — stages `adlbc-lb.parquet` from SDTM
      LB + SUPPLB (input prep only: pivots the ENDPOINT supplement, keeps
      CHEMISTRY records; no ADaM variable is derived).
-   - `adlbc-eot-rn.yaml` → `adlbc-eot.yaml` — rank and filter the End-of-
-     Treatment fallback candidates (`adlbc-eot.parquet`).
-   - `adlbc.yaml` — from `adlbc-lb.parquet`, derived ADSL, and
-     `adlbc-eot.parquet`. Output: ADLBC (`adlbc-out.parquet`).
+   - `adlbc.yaml` — from `adlbc-lb.parquet` and derived ADSL. The
+     End-of-Treatment fallback candidates are ranked and filtered by the
+     in-spec `EOTFB` named intermediate (REQ-1262 row driver), whose
+     records feed the `eot2` row template. Output: ADLBC
+     (`adlbc-out.parquet`).
 
 ## Verification
 

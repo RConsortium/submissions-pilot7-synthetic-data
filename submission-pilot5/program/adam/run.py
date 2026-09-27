@@ -26,7 +26,7 @@ STAGES = {
     ),
     "adtte": (["adtte.yaml"], ["adsl", "adae"], "adtte-out.parquet", "adtte.parquet"),
     "adlbc": (
-        ["stage-adlbc-lb.py", "adlbc-eot-rn.yaml", "adlbc-eot.yaml", "adlbc.yaml"],
+        ["stage-adlbc-lb.py", "adlbc.yaml"],
         ["adsl"],
         "adlbc-out.parquet",
         "adlbc.parquet",

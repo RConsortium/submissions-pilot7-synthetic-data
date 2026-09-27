@@ -4,8 +4,56 @@ keys: [STUDYID, USUBJID, PARAMCD, AVISIT, LBSEQ]
 input:
   LB: adlbc-lb.parquet
   ADSL: sdtm/adsl.parquet
-  EOT2S: adlbc-eot.parquet
 base: LB
+
+intermediates:
+  # End-of-Treatment fallback candidates, ranked in-spec: the eot2 row
+  # template below drives off this intermediate's filtered records
+  # (REQ-1262). Replaces the former adlbc-eot-rn.yaml + adlbc-eot.yaml
+  # staging specs. The intermediate filter keeps the latest non-EoT visit
+  # per subject-param (_RN = 1, _EOT_AWARE <> 99 drops groups that already
+  # have an EoT row); the window's filter replicates the old row-template
+  # pre-filter so the ranking sees the same record set. Records retain LB
+  # source order.
+  - id: EOTFB
+    dataset: LB
+    filter: "LB._RN = 1 AND LB._EOT_AWARE <> 99"
+    columns: [STUDYID, USUBJID, LBTESTCD, LBSEQ, LBDTC, VISIT, VISITNUM,
+      LBTEST, LBSTRESU, LBSTRESN, LBBLFL, LBSTNRLO, LBSTNRHI, LBNRIND]
+    derivations:
+      _EOT_AWARE:
+        case:
+          - when: "LB.ENDPOINT = 'Y' OR LB.VISITNUM = 12"
+            then:
+              literal: 99.0
+          - when: "LB.LBBLFL = 'Y'"
+            then:
+              literal: 0.0
+          - when: "LB.VISIT LIKE '%UNSCHEDULED%'"
+            then:
+              literal: null
+          - otherwise:
+              mapping:
+                source: LB.VISIT
+                missing: null
+                dict:
+                  "WEEK 2": 2.0
+                  "WEEK 4": 4.0
+                  "WEEK 6": 6.0
+                  "WEEK 8": 8.0
+                  "WEEK 12": 12.0
+                  "WEEK 16": 16.0
+                  "WEEK 20": 20.0
+                  "WEEK 24": 24.0
+                  "WEEK 26": 26.0
+      _RN:
+        row_number:
+          window:
+            group_by: [STUDYID, USUBJID, LBTESTCD]
+            order_by:
+              - {variable: _EOT_AWARE, direction: desc}
+              - {variable: LBSEQ, direction: asc}
+            filter: "LB.LBCAT = 'CHEMISTRY' AND (LB.VISIT LIKE '%WEEK%' OR LB.VISIT LIKE '%SCREENING%' OR LB.VISIT LIKE '%UNSCHEDULED%') AND LB.VISITNUM <> 13 AND _EOT_AWARE IS NOT NULL AND _EOT_AWARE <> 0"
 
 output:
   path: adlbc-out.parquet
@@ -475,23 +523,23 @@ rows:
         literal: 99.0
 
   - id: eot2
-    dataset: EOT2S
-    filter: "EOT2S.VISITNUM <> 12"
+    dataset: EOTFB
+    filter: "EOTFB.VISITNUM <> 12"
     derivations:
-      _r_STUDYID: EOT2S.STUDYID
-      _r_USUBJID: EOT2S.USUBJID
-      _r_LBTESTCD: EOT2S.LBTESTCD
-      _r_LBSEQ: EOT2S.LBSEQ
-      _r_LBDTC: EOT2S.LBDTC
-      _r_VISIT: EOT2S.VISIT
-      _r_VISITNUM: EOT2S.VISITNUM
-      _r_LBTEST: EOT2S.LBTEST
-      _r_LBSTRESU: EOT2S.LBSTRESU
-      _r_LBSTRESN: EOT2S.LBSTRESN
-      _r_LBBLFL: EOT2S.LBBLFL
-      _r_LO: EOT2S.LBSTNRLO
-      _r_HI: EOT2S.LBSTNRHI
-      _r_NRIND: EOT2S.LBNRIND
+      _r_STUDYID: EOTFB.STUDYID
+      _r_USUBJID: EOTFB.USUBJID
+      _r_LBTESTCD: EOTFB.LBTESTCD
+      _r_LBSEQ: EOTFB.LBSEQ
+      _r_LBDTC: EOTFB.LBDTC
+      _r_VISIT: EOTFB.VISIT
+      _r_VISITNUM: EOTFB.VISITNUM
+      _r_LBTEST: EOTFB.LBTEST
+      _r_LBSTRESU: EOTFB.LBSTRESU
+      _r_LBSTRESN: EOTFB.LBSTRESN
+      _r_LBBLFL: EOTFB.LBBLFL
+      _r_LO: EOTFB.LBSTNRLO
+      _r_HI: EOTFB.LBSTNRHI
+      _r_NRIND: EOTFB.LBNRIND
       _IS_EOT:
         literal: 1.0
       AVISIT:
