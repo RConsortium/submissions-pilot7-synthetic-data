@@ -1,7 +1,10 @@
-import os, shutil
+import os, shutil, subprocess, sys
 from pathlib import Path
 import polars as pl, pyarrow as pa, pyarrow.parquet as pq, yamaa
 HERE = Path(__file__).resolve().parent; WORK = HERE / "work"
+# The LOCF planning relation is generated from its rule, not hand-maintained:
+# inputs/make_plan.py is the reviewed artifact, inputs/plan.csv the pinned output.
+subprocess.run([sys.executable, HERE / "inputs" / "make_plan.py"], check=True)
 for d in ("sdtm", "inputs", "derived"): (WORK / d).mkdir(parents=True, exist_ok=True)
 for n in "dm ds ex qs sv vs sc mh ae lb supplb".split(): shutil.copy2(HERE / "../../data/sdtm" / f"{n}.parquet", WORK / "sdtm" / f"{n}.parquet")
 S, I = pl.String, pl.Int64
