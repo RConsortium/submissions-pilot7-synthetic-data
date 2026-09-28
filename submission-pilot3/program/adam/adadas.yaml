@@ -16,8 +16,8 @@ domain: ADADAS
 keys: [STUDYID, USUBJID, PARAMCD, AVISIT, ADT]
 
 input:
-  QS: sdtm/qs_str.parquet
-  ADSL: derived/adsl-yamaa.parquet
+  QS: sdtm/qs.parquet
+  ADSL: adam/adsl-yamaa.parquet
   PLAN: inputs/plan.parquet
   AW: inputs/aw_lookup.parquet
 
@@ -38,11 +38,8 @@ rows:
       USUBJID: QS.USUBJID
       PARAMCD: QS.QSTESTCD
       TRTSDT: {source: ADSL_LOOKUP.TRTSDT}
-      # Intended spelling: to_date(source: QS.QSDTC). The planner's static
-      # gate currently rejects ISO date text for to_date despite REQ-0607,
-      # REQ-1107, and the engine accepting it, so the build normalizes the
-      # date once into QSDTC_D.
-      ADT_RAW: QS.QSDTC_D
+      ADT_RAW:
+        to_date: {source: QS.QSDTC}
       ADY_RAW:
         study_day: {date: ADT_RAW, reference: TRTSDT}
       AVISIT:
@@ -73,7 +70,7 @@ rows:
       AVAL_RAW: {literal: null}
 
 output:
-  path: adadas-yamaa.parquet
+  path: adam/adadas-yamaa.parquet
   columns: [STUDYID, SITEID, SITEGR1, USUBJID, TRTSDT, TRTEDT, TRTP, TRTPN,
     AGE, AGEGR1, AGEGR1N, RACE, RACEN, SEX, ITTFL, EFFFL, COMP24FL,
     AVISIT, AVISITN, VISIT, VISITNUM, ADY, ADT, PARAM, PARAMCD, PARAMN,

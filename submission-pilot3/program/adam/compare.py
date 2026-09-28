@@ -4,7 +4,7 @@
 Reusable entry points:
 
     from compare import compare, compare_domain
-    compare("work/derived/adsl-yamaa.parquet", "../data/adam/adsl.parquet", "adsl")
+    compare("work/adam/adsl-yamaa.parquet", "../data/adam/adsl.parquet", "adsl")
     compare_domain("adsl")   # resolves the standard paths and compares
 
 Reports matched/total columns and cells per dataset. Exits nonzero on any
@@ -153,12 +153,12 @@ def compare(output, reference, name):
 def compare_domain(name, work=None):
     """Compare one dataset using the standard pipeline paths.
 
-    Loads work/derived/<name>-yamaa.parquet (produced by run.py) against
+    Loads work/adam/<name>-yamaa.parquet (produced by run.py) against
     ../data/adam/<name>.parquet.
     """
     work = Path(work) if work else HERE / "work"
     derived_name, official_name = DATASETS[name]
-    return compare(work / "derived" / derived_name, OFFICIAL_ADAM / official_name, name)
+    return compare(work / "adam" / derived_name, OFFICIAL_ADAM / official_name, name)
 
 
 def main():
@@ -176,7 +176,7 @@ def main():
     if unknown:
         sys.exit(f"unknown datasets: {unknown} (choose from {list(DATASETS)})")
 
-    derived = Path(args.work) / "derived"
+    derived = Path(args.work) / "adam"
     missing = [
         DATASETS[d][0] for d in selected if not (derived / DATASETS[d][0]).exists()
     ]

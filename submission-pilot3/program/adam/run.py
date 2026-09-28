@@ -1,22 +1,38 @@
-import os, shutil, subprocess, sys
+#!/usr/bin/env python3
+"""Derive five Pilot 3 ADaM datasets from SDTM with yamaa."""
+
+import shutil, subprocess, sys
 from pathlib import Path
-import polars as pl, pyarrow as pa, pyarrow.parquet as pq, yamaa
-HERE = Path(__file__).resolve().parent; WORK = HERE / "work"
-# The LOCF planning relation is generated from its rule, not hand-maintained:
-# inputs/make_plan.py is the reviewed artifact, inputs/plan.csv the pinned output.
-subprocess.run([sys.executable, HERE / "inputs" / "make_plan.py"], check=True)
-for d in ("sdtm", "inputs", "derived"): (WORK / d).mkdir(parents=True, exist_ok=True)
-for n in "dm ds ex qs sv vs sc mh ae lb supplb".split(): shutil.copy2(HERE / "../../data/sdtm" / f"{n}.parquet", WORK / "sdtm" / f"{n}.parquet")
+
+import polars as pl
+import pyarrow as pa, pyarrow.parquet as pq
+from yamaa import yamaa_domain
+
+HERE = Path(__file__).resolve().parent
+WORK = HERE / "work"
 S, I = pl.String, pl.Int64
-schemas = {"plan": {"USUBJID": S, "PARAMCD": S, "AVISIT": S, "AVISITN": I}, "aw_lookup": {"AVISIT": S, "AWRANGE": S, "AWTARGET": I, "AWLO": I, "AWHI": I}}
-for n, s in schemas.items(): pl.read_csv(HERE / "inputs" / f"{n}.csv", schema=s, null_values=[""]).write_parquet(WORK / "inputs" / f"{n}.parquet")
-pl.read_parquet(WORK / "sdtm/qs.parquet").with_columns(pl.col("QSDTC").str.to_date("%Y-%m-%d", strict=True).alias("QSDTC_D")).write_parquet(WORK / "sdtm/qs_str.parquet")
-for spec in HERE.glob("*.yaml"): shutil.copy2(spec, WORK / spec.name)
-os.chdir(WORK)
-for ds in ["adsl", "adae", "adadas", "adtte", "adlbc"]:
-    run = yamaa.yamaa_domain(ds + ".yaml")
-    assert len(run.issues) == 0, ds
-    out = run.save(WORK / "derived" / f"{ds}-yamaa.parquet")
-    labels = {c.name: c.label for c in run.spec.columns}
-    t = pq.read_table(out)
-    pq.write_table(t.cast(pa.schema([f.with_metadata({**(f.metadata or {}), b"yamaa:label": labels[f.name].encode()}) for f in t.schema])), out, compression="none")
+INPUT_SCHEMAS = {"plan": {"USUBJID": S, "PARAMCD": S, "AVISIT": S, "AVISITN": I},
+                 "aw_lookup": {"AVISIT": S, "AWRANGE": S, "AWTARGET": I, "AWLO": I, "AWHI": I}}
+
+
+def main():
+    subprocess.run([sys.executable, HERE / "inputs" / "make_plan.py"], check=True)
+    for name in ("sdtm", "inputs", "adam"): (WORK / name).mkdir(parents=True, exist_ok=True)
+    for src in (HERE.parent.parent / "data" / "sdtm").glob("*.parquet"):
+        shutil.copy2(src, WORK / "sdtm" / src.name)
+    for name, schema in INPUT_SCHEMAS.items():
+        pl.read_csv(HERE / "inputs" / f"{name}.csv", schema=schema, null_values=[""]).write_parquet(WORK / "inputs" / f"{name}.parquet")
+    for spec in HERE.glob("*.yaml"): shutil.copy2(spec, WORK / spec.name)
+    for name in ("adsl", "adae", "adadas", "adtte", "adlbc"):
+        run = yamaa_domain(WORK / f"{name}.yaml", project_root=WORK)
+        if len(run.issues): raise RuntimeError(f"{name}: {run.issues}")
+        output = run.save()
+        labels = {column.name: column.label for column in run.spec.columns}
+        table = pq.read_table(output)
+        fields = [field.with_metadata({**(field.metadata or {}), b"yamaa:label": labels[field.name].encode()}) for field in table.schema]
+        pq.write_table(table.cast(pa.schema(fields)), output, compression="none")
+        print(f"{name}: {output}", flush=True)
+
+
+if __name__ == "__main__":
+    main()
