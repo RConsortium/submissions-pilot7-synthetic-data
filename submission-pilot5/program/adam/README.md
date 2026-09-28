@@ -1,64 +1,40 @@
-# Pilot 5 ADaM derivation programs (yamaa)
+# Pilot 5 ADaM derivations
 
-yamaa target specs that derive the five Pilot 5 ADaM datasets from the SDTM
-parquets in `../data/sdtm/`. Every derivation lives in the YAML specs; the one
-Python script stages an input (it derives no ADaM variable).
+One yamaa specification defines each output dataset. `run.py` stages SDTM
+inputs, runs the specifications in dependency order, and writes
+`work/adam/<dataset>-yamaa.parquet`. `compare.py` compares every official
+column and cell at absolute numeric tolerance 1e-10. Missing or extra
+columns, missing outputs, duplicate keys, and mismatched cells fail.
 
-## End-to-end run
+Install the current [yamaa](https://github.com/elong0527/yamaa) Python
+engine, Polars, and PyArrow. The latest engine checked here was `9d34c56`.
 
-`run.py` derives only: it stages the SDTM parquets into a `work/` directory,
-runs the specs in dependency order (derived ADSL/ADAE are staged as
-predecessors where downstream specs need them), and writes the five derived
-datasets to `work/derived/`. `compare.py` then compares every derived column
-against the official ADaM in `../data/adam/` (numeric cells within
-`|derived - official| <= 1e-10`, non-numeric exact with null/"" normalized).
+```bash
+python3 run.py                    # ADSL, ADAE, ADTTE
+python3 compare.py adsl,adae,adtte
+python3 run.py adadas             # manual investigation
+python3 run.py adlbc              # manual investigation
+python3 compare.py                # all five; fails until both are resolved
+```
 
-Requires the yamaa engine (`pip install` from
-https://github.com/elong0527/yamaa), polars, and pyarrow.
+The default run covers the three datasets verified against current yamaa:
 
-    python3 run.py                          # derive everything
-    python3 run.py --datasets adsl,adtte    # subset (predecessors auto-included)
-    python3 run.py --work /tmp/p5          # custom work directory
-    python3 compare.py                      # cell-by-cell comparison vs official
+| Dataset | Columns | Matching cells |
+| --- | ---: | ---: |
+| ADSL | 49/49 | 12,446/12,446 |
+| ADAE | 55/55 | 65,505/65,505 |
+| ADTTE | 26/26 | 6,604/6,604 |
 
-`work/` is git-ignored build output; only the specs, scripts, and this README
-are committed.
+The ADSL spec now derives every official column, including disease duration
+from the inclusive days between disease onset and Visit 1 (`days * 12 /
+365.25`, rounded to one decimal), the baseline MMSE total, and end of study
+status. Subject variables are derived once in ADSL and read by downstream
+specs. All output columns declare labels.
 
-## Stage order (what run.py does)
-
-1. `adsl.yaml` — from SDTM DM/EX/VS/DS/SC/MH/SV/QS. Output: ADSL.
-2. `adae.yaml` — from SDTM AE plus the derived ADSL staged as `adsl.parquet`.
-   Output: ADAE.
-3. `adadas-obs.yaml` → `adadas-actot.yaml` → `adadas-locf.yaml` — observation
-   stage from SDTM QS plus derived ADSL, then a slim ACTOT lookup relation,
-   then the LOCF completion stage. Output: ADADAS (`adadas-out.parquet`).
-4. `adtte.yaml` — from derived ADSL, derived ADAE, and SDTM DS. Output: ADTTE.
-5. ADLBC, staged then derived:
-   - `python3 stage-adlbc-lb.py` — stages `adlbc-lb.parquet` from SDTM
-     LB + SUPPLB (input prep only: pivots the ENDPOINT supplement, keeps
-     CHEMISTRY records; no ADaM variable is derived).
-   - `adlbc.yaml` — from `adlbc-lb.parquet` and derived ADSL. The
-     End-of-Treatment fallback candidates are ranked and filtered by the
-     in-spec `EOTFB` named intermediate (REQ-1262 row driver), whose
-     records feed the `eot2` row template. Output: ADLBC
-     (`adlbc-out.parquet`).
-
-## Verification
-
-Cell-by-cell comparison of the derived datasets against the official ADaM
-(`python3 compare.py` after `python3 run.py`, same tolerance as above):
-
-- ADAE: all 52 derived columns match — 61,932/61,932 cells.
-- ADTTE: all 23 derived columns match — 5,842/5,842 cells, zero diffs.
-- ADADAS: 436,205/436,205 non-key cells match exactly; zero key mismatches.
-- ADLBC: all 41 derived columns match — 1,522,412/1,522,412 cells within
-  |derived - official| <= 1e-10.
-- ADSL: all 36 derived columns match — 9,144/9,144 cells. 11 of the 49
-  official columns are not derived by the spec (AGEU, ETHNIC, DISCONFL, DTHFL,
-  BMIBLGR1, DURDIS, DURDSGR1, RFSTDTC, VISNUMEN, EOSSTT, MMSETOT); TRTDUR and
-  BMIGR1 are derived-only helpers. Dose/weight rounding follows the R program
-  via `round_half_away_from_zero` (REQ-0418): HEIGHTBL, WEIGHTBL, BMIBL
-  (computed from the rounded height/weight), AVGDD to 1 digit; CUMDOSE sums
-  per-record EXDOSE x days, imputing a missing EXENDTC with TRTEDT.
-
-Verified 2026-09-21, yamaa engine @ main.
+ADADAS and ADLBC remain under investigation on current yamaa. Their single
+specifications run for more than two and three minutes respectively on the
+full study input without producing output; neither is included in the
+default run or claimed equivalent. `stage-adlbc-lb.py` only prepares the
+LB/SUPPLB input for the ADLBC specification. The study cannot claim full
+five-dataset equivalence until these two outputs finish and pass
+`compare.py`.

@@ -20,63 +20,75 @@ intermediates:
     key: [STUDYID, USUBJID]
     order_by: [VS.VSDTC]
     keep: first
+    no_match: null
   - id: BASE_WT
     dataset: VS
     filter: "VS.VSTESTCD = 'WEIGHT' AND VS.VISITNUM = 3"
     key: [STUDYID, USUBJID]
     order_by: [VS.VSDTC]
     keep: first
+    no_match: null
   - id: DS_DISP
     dataset: DS
     filter: "DS.DSCAT = 'DISPOSITION EVENT'"
     key: [STUDYID, USUBJID]
     order_by: [DS.DSSTDTC]
     keep: first
+    no_match: null
   - id: SC_EDU
     dataset: SC
     filter: "SC.SCTESTCD = 'EDLEVEL'"
     key: [STUDYID, USUBJID]
     order_by: [SC.SCDTC]
     keep: first
+    no_match: null
   - id: MH_DX
     dataset: MH
     filter: "MH.MHCAT = 'PRIMARY DIAGNOSIS'"
     key: [STUDYID, USUBJID]
     order_by: [MH.MHSTDTC]
     keep: first
+    no_match: null
   - id: SV_V1
     dataset: SV
     filter: "SV.VISITNUM = 1"
     key: [STUDYID, USUBJID]
     order_by: [SV.SVSTDTC]
     keep: first
+    no_match: null
   - id: EOS
     dataset: DS
     filter: "DS.DSCAT = 'DISPOSITION EVENT' AND DS.DSDECOD <> 'SCREEN FAILURE' AND DS.DSDECOD <> 'COMPLETED'"
     key: [STUDYID, USUBJID]
     order_by: [DS.DSSEQ]
     keep: first
+    no_match: null
   - id: DS_LAST
     dataset: DS
     filter: "DS.DSCAT = 'DISPOSITION EVENT'"
     key: [STUDYID, USUBJID]
     order_by: [DS.DSSTDTC]
     keep: last
+    no_match: null
   # The ongoing exposure record (missing EXENDTC), if any: at most one per
   # subject. Selected once here; _OPEN_DOSE/_OPEN_DAYS read from it.
   - id: EX_OPEN
     dataset: EX
     key: [STUDYID, USUBJID]
     filter: "EX.EXENDTC IS NULL"
-    missing: null
+    no_match: null
 
 output:
-  path: adsl-dryrun.parquet
-  columns: [STUDYID, USUBJID, SUBJID, SITEID, SITEGR1, ARM, TRT01P, TRT01PN, TRT01A,
-    TRT01AN, TRTSDT, TRTEDT, TRTDUR, TRTDURD, AVGDD, CUMDOSE, AGE, AGEGR1, AGEGR1N,
-    SEX, RACE, RACEN, SAFFL, BMIBL, HEIGHTBL, WEIGHTBL, BMIGR1, ITTFL, EFFFL,
-    COMP8FL, COMP16FL, COMP24FL, DCSREAS, DCDECOD, DSRAEFL, EDUCLVL, DISONSDT,
-    VISIT1DT, RFENDTC, RFENDT]
+  path: adam/adsl-yamaa.parquet
+  columns: [
+  STUDYID, USUBJID, SUBJID, SITEID, SITEGR1, ARM, TRT01P, TRT01PN,
+  TRT01A, TRT01AN, TRTSDT, TRTEDT, TRTDURD, AVGDD, CUMDOSE, AGE,
+  AGEGR1, AGEGR1N, AGEU, RACE, RACEN, SEX, ETHNIC, SAFFL,
+  ITTFL, EFFFL, COMP8FL, COMP16FL, COMP24FL, DISCONFL, DSRAEFL, DTHFL,
+  BMIBL, BMIBLGR1, HEIGHTBL, WEIGHTBL, EDUCLVL, DISONSDT, DURDIS, DURDSGR1,
+  VISIT1DT, RFSTDTC, RFENDTC, VISNUMEN, RFENDT, DCDECOD, EOSSTT, DCSREAS,
+  MMSETOT
+  ]
 
 columns:
   - name: STUDYID
@@ -276,6 +288,11 @@ columns:
     label: Age
     derivation: DM.AGE
 
+  - name: AGEU
+    type: str
+    label: Age Units
+    derivation: DM.AGEU
+
   - name: AGEGR1
     type: str
     label: Pooled Age Group 1
@@ -326,6 +343,16 @@ columns:
           ASIAN: 7
           NATIVE HAWAIIAN OR OTHER PACIFIC ISLANDER: 5
 
+  - name: ETHNIC
+    type: str
+    label: Ethnicity
+    derivation: DM.ETHNIC
+
+  - name: DTHFL
+    type: str
+    label: Subject Died?
+    derivation: DM.DTHFL
+
   - name: SAFFL
     type: str
     label: Safety Population Flag
@@ -333,7 +360,7 @@ columns:
       flag:
         condition: "TRTSDT IS NOT NULL"
         false_value: "N"
-        missing_value: "N"
+        missing: "N"
 
   - name: HEIGHTBL
     type: float
@@ -366,7 +393,7 @@ columns:
         source: _BMIBL_RAW
         digits: 1
 
-  - name: BMIGR1
+  - name: BMIBLGR1
     type: str
     label: Pooled Baseline BMI Group 1
     derivation:
@@ -383,7 +410,7 @@ columns:
       flag:
         condition: "DM.ARMCD <> ''"
         false_value: "N"
-        missing_value: "N"
+        missing: "N"
 
   - name: N_ACTOT
     type: float
@@ -408,7 +435,7 @@ columns:
       flag:
         condition: "SAFFL = 'Y' AND N_ACTOT > 0 AND N_CIBIC > 0"
         false_value: "N"
-        missing_value: "N"
+        missing: "N"
 
   - name: N_WK8
     type: float
@@ -441,7 +468,7 @@ columns:
       flag:
         condition: "N_WK8 > 0"
         false_value: "N"
-        missing_value: "N"
+        missing: "N"
 
   - name: COMP16FL
     type: str
@@ -450,7 +477,7 @@ columns:
       flag:
         condition: "N_WK16 > 0"
         false_value: "N"
-        missing_value: "N"
+        missing: "N"
 
   - name: COMP24FL
     type: str
@@ -459,7 +486,7 @@ columns:
       flag:
         condition: "N_WK24 > 0"
         false_value: "N"
-        missing_value: "N"
+        missing: "N"
 
   - name: DCSREAS
     type: str
@@ -492,6 +519,24 @@ columns:
     label: Standardized Disposition Term
     derivation: DS_LAST.DSDECOD
 
+  - name: EOSSTT
+    type: str
+    label: End of Study Status
+    derivation:
+      case:
+        - when: "DCDECOD = 'COMPLETED'"
+          then: {literal: COMPLETED}
+        - otherwise: {literal: DISCONTINUED}
+
+  - name: DISCONFL
+    type: str
+    label: Did the Subject Discontinue the Study?
+    derivation:
+      case:
+        - when: "EOSSTT = 'DISCONTINUED'"
+          then: {literal: Y}
+        - otherwise: {literal: ""}
+
   - name: DSRAEFL
     type: str
     label: Discontinued due to AE?
@@ -499,7 +544,7 @@ columns:
       flag:
         condition: "DCDECOD = 'ADVERSE EVENT'"
         false_value: ""
-        missing_value: ""
+        missing: ""
 
   - name: EDUCLVL
     type: float
@@ -523,6 +568,53 @@ columns:
         source: SV_V1.SVSTDTC
         month: 1
         day: 1
+
+  - name: _DURDIS_DAYS
+    type: float
+    label: Disease duration days (internal)
+    derivation:
+      date_diff:
+        start: DISONSDT
+        end: VISIT1DT
+        unit: day
+        bounds: inclusive
+
+  - name: _DURDIS_MONTHS
+    type: float
+    label: Disease duration months (internal)
+    derivation:
+      compute: {expr: "_DURDIS_DAYS * 12 / 365.25"}
+
+  - name: DURDIS
+    type: float
+    label: Duration of Disease (Months)
+    derivation:
+      round_half_away_from_zero: {source: _DURDIS_MONTHS, digits: 1}
+
+  - name: DURDSGR1
+    type: str
+    label: Pooled Disease Duration Group 1
+    derivation:
+      case:
+        - when: "DURDIS < 12"
+          then: {literal: "<12"}
+        - otherwise: {literal: ">=12"}
+
+  - name: MMSETOT
+    type: float
+    label: MMSE Total
+    derivation:
+      aggregate:
+        expr: "SUM(QS.QSSTRESN)"
+        filter: "QS.VISITNUM = 1 AND QS.QSTESTCD LIKE 'MMITM%'"
+
+  - name: VISNUMEN
+    type: float
+    label: End of Trt Visit (Vis 12 or Early Term.)
+    derivation:
+      aggregate:
+        expr: "MAX(SV.VISITNUM)"
+        filter: "SV.VISITNUM <= 12 AND SV.VISIT NOT LIKE 'UNSCHEDULED%'"
 
   - name: DS_ENDTC
     type: str
@@ -549,6 +641,11 @@ columns:
             source: SV_SCHED_ENDTC
         - otherwise:
             source: DS_ENDTC
+
+  - name: RFSTDTC
+    type: str
+    label: Subject Reference Start Date/Time
+    derivation: DM.RFSTDTC
 
   - name: RFENDT
     type: date
