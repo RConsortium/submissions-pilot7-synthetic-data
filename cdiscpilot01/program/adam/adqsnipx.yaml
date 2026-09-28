@@ -30,7 +30,7 @@ input:
     path: sdtm/qs.parquet
     empty_string: present
   ADSL:
-    path: upstream/adsl.parquet
+    path: adam/adsl-yamaa.parquet
     empty_string: present
 
 base: QS
@@ -47,30 +47,41 @@ intermediates:
     filter: "QSTESTCD = 'NPTOT' AND _ABLFL = 'Y'"
     order_by: [QSSEQ]
     keep: first
+  - id: BASE_PARAM
+    dataset: SELF
+    key: [USUBJID, QSTESTCD]
+    filter: "_ABLFL = 'Y'"
+    order_by: [QSSEQ]
+    keep: first
+    no_match: null
   - id: W3_LKP
     dataset: SELF
     key: [USUBJID]
     filter: "QSTESTCD = 'NPTOT' AND _IS_SEL = 'Y' AND _WINDOW = 3"
     order_by: [QSSEQ]
     keep: first
+    no_match: null
   - id: W4_LKP
     dataset: SELF
     key: [USUBJID]
     filter: "QSTESTCD = 'NPTOT' AND _IS_SEL = 'Y' AND _WINDOW = 4"
     order_by: [QSSEQ]
     keep: first
+    no_match: null
   - id: W5_LKP
     dataset: SELF
     key: [USUBJID]
     filter: "QSTESTCD = 'NPTOT' AND _IS_SEL = 'Y' AND _WINDOW = 5"
     order_by: [QSSEQ]
     keep: first
+    no_match: null
   - id: W6_LKP
     dataset: SELF
     key: [USUBJID]
     filter: "QSTESTCD = 'NPTOT' AND _IS_SEL = 'Y' AND _WINDOW = 6"
     order_by: [QSSEQ]
     keep: first
+    no_match: null
 
 rows:
   # ------------------------------------------------------------------
@@ -546,7 +557,7 @@ rows:
       QSSEQ: {literal: null}
 
 output:
-  path: output/adqsnipx.parquet
+  path: adam/adqsnipx-yamaa.parquet
   columns: [STUDYID, SITEID, SITEGR1, USUBJID, TRTSDT, TRTEDT, TRTP, TRTPN,
     AGE, AGEGR1, AGEGR1N, RACE, RACEN, SEX, ITTFL, EFFFL, COMP24FL,
     AVISIT, AVISITN, ADY, ADT, VISITNUM, VISIT, PARAM, PARAMCD, PARAMN,
@@ -558,52 +569,76 @@ output:
 
 columns:
   - name: QSTESTCD
+    label: "Working value: QSTESTCD"
     type: str
   - name: _W
+    label: "Working value: _W"
     type: float
   - name: _B_QSDY
+    label: "Working value: _B_QSDY"
     type: float
   - name: _B_DTSTR
+    label: "Working value: _B_DTSTR"
     type: str
   - name: _WINDOW
+    label: "Working value: _WINDOW"
     type: int
   - name: _TARGET
+    label: "Working value: _TARGET"
     type: float
   - name: _DIFF
+    label: "Working value: _DIFF"
     type: float
   - name: _RANK
+    label: "Working value: _RANK"
     type: int
   - name: _IS_SEL
+    label: "Working value: _IS_SEL"
     type: str
   - name: _AVISIT
+    label: "Working value: _AVISIT"
     type: str
   - name: _AVISITN
+    label: "Working value: _AVISITN"
     type: float
   - name: _AWRANGE
+    label: "Working value: _AWRANGE"
     type: str
   - name: _AWTARGET
+    label: "Working value: _AWTARGET"
     type: float
   - name: _AWLO
+    label: "Working value: _AWLO"
     type: float
   - name: _AWHI
+    label: "Working value: _AWHI"
     type: float
   - name: _AVAL
+    label: "Working value: _AVAL"
     type: float
   - name: _ABLFL
+    label: "Working value: _ABLFL"
     type: str
   - name: _AWTDIFF
+    label: "Working value: _AWTDIFF"
     type: float
   - name: _W3N
+    label: "Working value: _W3N"
     type: int
   - name: _W4N
+    label: "Working value: _W4N"
     type: int
   - name: _W5N
+    label: "Working value: _W5N"
     type: int
   - name: _W6N
+    label: "Working value: _W6N"
     type: int
   - name: _CNT
+    label: "Working value: _CNT"
     type: int
   - name: _MEAN
+    label: "Working value: _MEAN"
     type: float
   - name: STUDYID
     type: str
@@ -710,25 +745,25 @@ columns:
   - name: BASE
     type: float
     label: Baseline Value
-    derivation: BASE_LKP._AVAL
+    derivation: BASE_PARAM._AVAL
   - name: CHG
     type: float
     label: Change from Baseline
     derivation:
       case:
-        - when: "_AVISITN <> 98.0 AND _AVAL IS NOT NULL AND BASE_LKP._AVAL IS NOT NULL"
+        - when: "_AVISITN <> 98.0 AND _AVAL IS NOT NULL AND BASE_PARAM._AVAL IS NOT NULL"
           then:
             compute:
-              expr: "_AVAL - BASE_LKP._AVAL"
+              expr: "_AVAL - BASE_PARAM._AVAL"
   - name: PCHG
     type: float
     label: Percent Change from Baseline
     derivation:
       case:
-        - when: "_AVISITN <> 98.0 AND _AVAL IS NOT NULL AND BASE_LKP._AVAL IS NOT NULL AND BASE_LKP._AVAL <> 0"
+        - when: "_AVISITN <> 98.0 AND _AVAL IS NOT NULL AND BASE_PARAM._AVAL IS NOT NULL AND BASE_PARAM._AVAL <> 0"
           then:
             compute:
-              expr: "(_AVAL - BASE_LKP._AVAL) / BASE_LKP._AVAL * 100"
+              expr: "(_AVAL - BASE_PARAM._AVAL) / BASE_PARAM._AVAL * 100"
   - name: ABLFL
     type: str
     label: Analysis Baseline Flag

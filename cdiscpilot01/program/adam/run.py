@@ -1,25 +1,36 @@
 #!/usr/bin/env python3
-"""Derive-only driver: run the yamaa engine on each single-spec YAML.
+"""Derive Pilot 1 ADaM datasets from SDTM with yamaa."""
 
-No joins, unions, sorting, recasting, shaping, comparison, or
-derivation happens here. Staged pipelines (adqsadas x5, adqscibc x11)
-stay pending yamaa fixes (#1148, validator hang); not run here.
-"""
+import shutil
+import sys
 from pathlib import Path
 
+import pyarrow as pa
+import pyarrow.parquet as pq
 from yamaa import yamaa_domain
 
-BASE = Path(__file__).resolve().parent
-
-SPECS = ["adsl.yaml", "adae.yaml", "adtte.yaml", "advs.yaml",
-         "adlbc.yaml", "adlbh.yaml", "adlbhy.yaml", "adqsnipx.yaml"]
+HERE = Path(__file__).resolve().parent
+DATASETS = ("adsl", "adae", "adtte", "advs", "adlbc", "adlbh", "adlbhy", "adqsnipx")
 
 
-def main() -> None:
-    for spec in SPECS:
-        print(f"=== {spec} ===", flush=True)
-        yamaa_domain(str(BASE / spec), project_root=str(BASE))
-    print("ALL DONE", flush=True)
+def main():
+    selected = tuple(sys.argv[1:]) or DATASETS
+    if any(name not in DATASETS for name in selected):
+        raise SystemExit(f"choose from: {', '.join(DATASETS)}")
+    for folder in ("sdtm", "adam"):
+        (HERE / folder).mkdir(exist_ok=True)
+    for source in (HERE.parent.parent / "data" / "sdtm").glob("*.parquet"):
+        shutil.copy2(source, HERE / "sdtm" / source.name)
+    for name in selected:
+        run = yamaa_domain(HERE / f"{name}.yaml", project_root=HERE)
+        if len(run.issues):
+            raise RuntimeError(f"{name}: {run.issues}")
+        output = run.save()
+        labels = {column.name: column.label for column in run.spec.columns}
+        table = pq.read_table(output)
+        fields = [field.with_metadata({**(field.metadata or {}), b"yamaa:label": labels[field.name].encode()}) for field in table.schema]
+        pq.write_table(table.cast(pa.schema(fields)), output, compression="none")
+        print(f"{name}: {output}", flush=True)
 
 
 if __name__ == "__main__":
