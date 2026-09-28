@@ -24,7 +24,7 @@ named `adqsnpix.parquet`.
 ## Verified outputs
 
 The following full comparisons passed with zero yamaa validation issues on
-yamaa `a8b2205f` (2026-09-28):
+yamaa `6ab77309` (2026-09-28):
 
 | Dataset | Columns | Matching cells |
 | --- | ---: | ---: |
