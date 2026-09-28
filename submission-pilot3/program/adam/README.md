@@ -17,7 +17,7 @@ python3 compare.py
 
 The dependency order is ADSL, ADAE, ADADAS, ADTTE, ADLBC. All downstream
 specs read the derived ADSL; ADTTE also reads derived ADAE. The current
-yamaa revision (`9d34c56`) supports `to_date` on the collected ISO `QSDTC`
+yamaa revision (`a8b2205f`) supports `to_date` on the collected ISO `QSDTC`
 text directly in `adadas.yaml`, so the runner no longer constructs a
 `QSDTC_D` source column.
 
