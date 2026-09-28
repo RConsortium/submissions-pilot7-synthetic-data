@@ -17,7 +17,7 @@ python3 compare.py
 
 The dependency order is ADSL, ADAE, ADADAS, ADTTE, ADLBC. All downstream
 specs read the derived ADSL; ADTTE also reads derived ADAE. The current
-yamaa revision (`a8b2205f`) supports `to_date` on the collected ISO `QSDTC`
+yamaa revision (`6ab77309`) supports `to_date` on the collected ISO `QSDTC`
 text directly in `adadas.yaml`, so the runner no longer constructs a
 `QSDTC_D` source column.
 
@@ -28,7 +28,7 @@ reviewed result, checked for drift in CI. The 4-row
 CSV inputs to Parquet with declared types; they are inputs, not ADaM
 outputs.
 
-Current verification against the official ADaM:
+Verification on yamaa `6ab77309` (2026-09-28) against the official ADaM:
 
 | Dataset | Columns | Matching cells |
 | --- | ---: | ---: |
