@@ -170,11 +170,11 @@ columns:
     derivation: ADSL.AGE
   - name: AGEGR1
     type: str
-    label: Age Group 1
+    label: "Pooled Age Group 1"
     derivation: ADSL.AGEGR1
   - name: AGEGR1N
     type: float
-    label: Age Group 1 (N)
+    label: "Pooled Age Group 1 (N)"
     derivation: ADSL.AGEGR1N
   - name: RACE
     type: str
@@ -194,8 +194,12 @@ columns:
     derivation: ADSL.COMP24FL
   - name: DSRAEFL
     type: str
-    label: Discontinued due to AE Flag
-    derivation: ADSL.DSRAEFL
+    label: "Discontinued due to AE?"
+    derivation:
+      case:
+        - when: "ADSL.DSRAEFL IS NULL"
+          then: {literal: ''}
+        - otherwise: {source: ADSL.DSRAEFL}
   - name: SAFFL
     type: str
     label: Safety Population Flag
@@ -299,7 +303,11 @@ columns:
   - name: ABLFL
     type: str
     label: Baseline Record Flag
-    derivation: _r_LBBLFL
+    derivation:
+      case:
+        - when: "_r_LBBLFL IS NULL"
+          then: {literal: ''}
+        - otherwise: {source: _r_LBBLFL}
   - name: BASE
     type: float
     label: Baseline Value
@@ -343,19 +351,19 @@ columns:
         expr: "AVAL / A1HI"
   - name: BR2A1LO
     type: float
-    label: Baseline Ratio to Analysis Range 1 Lower Limit
+    label: "Base Ratio to Analysis Range 1 Lower Lim"
     derivation:
       compute:
         expr: "BASE / A1LO"
   - name: BR2A1HI
     type: float
-    label: Baseline Ratio to Analysis Range 1 Upper Limit
+    label: "Base Ratio to Analysis Range 1 Upper Lim"
     derivation:
       compute:
         expr: "BASE / A1HI"
   - name: ALBTRVAL
     type: float
-    label: Above/Below Threshold Range Value
+    label: "Amount Threshold Range"
     derivation:
       compute:
         expr: "GREATEST(ABS(AVAL - 1.5 * A1HI), ABS(0.5 * A1LO - AVAL))"
@@ -395,14 +403,22 @@ columns:
             literal: null
         - otherwise:
             literal: "N"
-  - name: BNRIND
+  - name: _BNRIND_RAW
     type: str
-    label: Baseline Reference Range Indicator
+    label: Baseline Reference Range Indicator (working)
     derivation:
       aggregate:
         filter: "ABLFL = 'Y'"
         group_by: [STUDYID, USUBJID, PARAMCD]
         expr: "ONLY(ANRIND)"
+  - name: BNRIND
+    type: str
+    label: Baseline Reference Range Indicator
+    derivation:
+      case:
+        - when: "_BNRIND_RAW IS NULL"
+          then: {literal: ''}
+        - otherwise: {source: _BNRIND_RAW}
 
   # --- Last-observation flag ---
   - name: _AENT_MAX
@@ -415,11 +431,13 @@ columns:
         expr: "MAX(AVISITN)"
   - name: AENTMTFL
     type: str
-    label: Last Observation Within Visit Window Flag
+    label: "Last value in treatment visit"
     derivation:
       flag:
         condition: "_IS_EOT = 1 OR AVISITN = _AENT_MAX"
         true_value: "Y"
+        false_value: ""
+        missing: ""
 
   # --- Max-deviation flag ---
   # LBSEQ is declared here (not with the other LB carries below) because the
@@ -453,15 +471,22 @@ columns:
         expr: "ONLY(LBSEQ)"
   - name: ANL01FL
     type: str
-    label: Analysis Record Flag 01
+    label: "Analysis Flag 01"
     derivation:
-      flag: "LBSEQ = _WINLB"
+      flag:
+        condition: "LBSEQ = _WINLB"
+        false_value: ""
+        missing: ""
 
   # --- LB carries ---
   - name: LBNRIND
     type: str
     label: Reference Range Indicator
-    derivation: _r_NRIND
+    derivation:
+      case:
+        - when: "_r_NRIND IS NULL"
+          then: {literal: ''}
+        - otherwise: {source: _r_NRIND}
   - name: LBSTRESN
     type: float
     label: Numeric Result/Finding in Standard Units

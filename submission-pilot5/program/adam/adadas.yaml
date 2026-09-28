@@ -69,7 +69,7 @@ columns:
     derivation: ADSL.SITEID
   - name: SITEGR1
     type: str
-    label: Site Group 1
+    label: "Pooled Site Group 1"
     derivation: ADSL.SITEGR1
   - name: USUBJID
     type: str
@@ -97,11 +97,11 @@ columns:
     derivation: ADSL.AGE
   - name: AGEGR1
     type: str
-    label: Age Group 1
+    label: "Pooled Age Group 1"
     derivation: ADSL.AGEGR1
   - name: AGEGR1N
     type: float
-    label: Age Group 1 (N)
+    label: "Pooled Age Group 1 (N)"
     derivation: ADSL.AGEGR1N
   - name: RACE
     type: str
@@ -204,7 +204,7 @@ columns:
     label: Baseline Record Flag
   - name: ANL01FL
     type: str
-    label: Analysis Record Flag 01
+    label: "Analysis Flag 01"
   - name: DTYPE
     type: str
     label: Derivation Type
@@ -213,7 +213,7 @@ columns:
     label: Analysis Window Target
   - name: AWTDIFF
     type: float
-    label: Analysis Window Difference
+    label: "Analysis Window Diff from Target"
   - name: _DIFF
     type: float
     label: signed AWTARGET-ADY (internal)
@@ -264,7 +264,7 @@ columns:
           "Week 24": ">140"
   - name: AWLO
     type: float
-    label: Analysis Window Low Range
+    label: "Analysis Window Beginning Timepoint"
     derivation:
       mapping:
         source: AVISIT
@@ -276,7 +276,7 @@ columns:
           "Week 24": 141.0
   - name: AWHI
     type: float
-    label: Analysis Window High Range
+    label: "Analysis Window Ending Timepoint"
     derivation:
       mapping:
         source: AVISIT
@@ -306,7 +306,7 @@ columns:
     label: Change from Baseline
     derivation:
       case:
-        - when: "ABLFL IS NULL"
+        - when: "ABLFL <> 'Y'"
           then:
             compute:
               expr: "AVAL - BASE"
@@ -317,7 +317,7 @@ columns:
       case:
         # admiral returns NA when the baseline denominator is zero; the
         # engine raises division_by_zero instead, so guard it explicitly.
-        - when: "ABLFL IS NULL AND BASE <> 0"
+        - when: "ABLFL <> 'Y' AND BASE <> 0"
           then:
             compute:
               expr: "100 * (AVAL - BASE) / BASE"
@@ -389,11 +389,17 @@ rows:
               - variable: _DIFF
                 direction: asc
       ABLFL:
-        flag: "QS.QSBLFL = 'Y'"
+        flag:
+          condition: "QS.QSBLFL = 'Y'"
+          false_value: ""
+          missing: ""
       ANL01FL:
-        flag: "_RN_ANL = 1"
+        flag:
+          condition: "_RN_ANL = 1"
+          false_value: ""
+          missing: ""
       DTYPE:
-        literal: null
+        literal: ""
       _HIT:
         literal: null
       _SRC_QSSEQ:
@@ -445,7 +451,7 @@ rows:
         literal: "ACTOT"
       AVAL: _SRC_AVAL
       ABLFL:
-        literal: null
+        literal: ""
       ANL01FL:
         literal: "Y"
       DTYPE:
@@ -488,7 +494,7 @@ rows:
         literal: "ACTOT"
       AVAL: _SRC_AVAL
       ABLFL:
-        literal: null
+        literal: ""
       ANL01FL:
         literal: "Y"
       DTYPE:
@@ -531,7 +537,7 @@ rows:
         literal: "ACTOT"
       AVAL: _SRC_AVAL
       ABLFL:
-        literal: null
+        literal: ""
       ANL01FL:
         literal: "Y"
       DTYPE:

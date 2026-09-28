@@ -1,40 +1,37 @@
 # Pilot 5 ADaM derivations
 
-One yamaa specification defines each output dataset. `run.py` stages SDTM
-inputs, runs the specifications in dependency order, and writes
-`work/adam/<dataset>-yamaa.parquet`. `compare.py` compares every official
-column and cell at absolute numeric tolerance 1e-10. Missing or extra
-columns, missing outputs, duplicate keys, and mismatched cells fail.
+One yamaa specification defines each official ADaM output. `run.py` stages
+SDTM input, derives ADSL, ADAE, ADADAS, ADTTE, and ADLBC in dependency order,
+and saves `work/adam/<dataset>-yamaa.parquet`. All ADaM variables are
+calculated in the YAML specs. The ADLBC input helper selects chemistry LB
+records and joins SUPPLB to expose the ENDPOINT supplement.
 
-Install the current [yamaa](https://github.com/elong0527/yamaa) Python
-engine, Polars, and PyArrow. The latest engine checked here was `9d34c56`.
+Install the pinned yamaa revision and run from this directory:
 
 ```bash
-python3 run.py                    # ADSL, ADAE, ADTTE
-python3 compare.py adsl,adae,adtte
-python3 run.py adadas             # manual investigation
-python3 run.py adlbc              # manual investigation
-python3 compare.py                # all five; fails until both are resolved
+python3 -m pip install -r requirements.txt
+python3 run.py
+python3 compare.py
 ```
 
-The default run covers the three datasets verified against current yamaa:
+`run.py` is 30 lines of code and preserves each declared `yamaa:label` in
+the Parquet output. `compare.py` aligns on unique dataset keys, checks every
+official column and cell with absolute numeric tolerance `1e-10`, and exits
+nonzero for missing outputs or mismatches. Null and empty text are distinct.
+
+The following full comparisons passed with zero yamaa validation issues on
+`a8b2205f` (2026-09-28):
 
 | Dataset | Columns | Matching cells |
 | --- | ---: | ---: |
 | ADSL | 49/49 | 12,446/12,446 |
 | ADAE | 55/55 | 65,505/65,505 |
+| ADADAS | 40/40 | 498,520/498,520 |
 | ADTTE | 26/26 | 6,604/6,604 |
+| ADLBC | 46/46 | 1,708,072/1,708,072 |
+| **Total** | | **2,291,147/2,291,147** |
 
-The ADSL spec now derives every official column, including disease duration
-from the inclusive days between disease onset and Visit 1 (`days * 12 /
-365.25`, rounded to one decimal), the baseline MMSE total, and end of study
-status. Subject variables are derived once in ADSL and read by downstream
-specs. All output columns declare labels.
-
-ADADAS and ADLBC remain under investigation on current yamaa. Their single
-specifications run for more than two and three minutes respectively on the
-full study input without producing output; neither is included in the
-default run or claimed equivalent. `stage-adlbc-lb.py` only prepares the
-LB/SUPPLB input for the ADLBC specification. The study cannot claim full
-five-dataset equivalence until these two outputs finish and pass
-`compare.py`.
+The ADSL spec derives the official disease duration, baseline MMSE, and end
+of study variables. Downstream specs consume its derived output. String
+flags and categories explicitly emit the official empty text where
+applicable; the comparison does not normalize it to null.
