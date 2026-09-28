@@ -20,7 +20,7 @@ official column and cell with absolute numeric tolerance `1e-10`, and exits
 nonzero for missing outputs or mismatches. Null and empty text are distinct.
 
 The following full comparisons passed with zero yamaa validation issues on
-`a8b2205f` (2026-09-28):
+`6ab77309` (2026-09-28):
 
 | Dataset | Columns | Matching cells |
 | --- | ---: | ---: |
