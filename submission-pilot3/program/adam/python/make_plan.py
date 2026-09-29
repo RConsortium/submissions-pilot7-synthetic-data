@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Regenerate the ADADAS LOCF planning relation (inputs/plan.csv).
+"""Regenerate the ADADAS LOCF planning relation (data/mapping/plan.csv).
 
 The reviewed artifact is this script, not the CSV. The CSV is the pinned,
 byte-stable output of the rule below.
@@ -21,8 +21,8 @@ byte-identical against the committed plan.csv):
      reference derivation's derive_locf_records adds LOCF rows.
 
 Per REQ-0040/REQ-0041 the yamaa spec cannot create rows, so this expansion
-happens upstream. The checked-in inputs/plan.csv is verified for drift in CI;
-the spec reads it directly as ordinary input.
+happens upstream. The checked-in data/mapping/plan.csv is verified for drift
+in CI; the spec reads it directly as ordinary input.
 """
 
 from __future__ import annotations
@@ -32,8 +32,9 @@ from pathlib import Path
 
 import polars as pl
 
-HERE = Path(__file__).resolve().parent.parent / "inputs"
-DATA_SDTM = (HERE / "../../../data/sdtm").resolve()
+STUDY = Path(__file__).resolve().parents[3]
+MAPPING = STUDY / "data" / "mapping"
+DATA_SDTM = STUDY / "data" / "sdtm"
 
 PARAMCD = "ACTOT"
 # (AVISIT, AVISITN) in analysis order.
@@ -88,7 +89,7 @@ def main() -> None:
     ap = argparse.ArgumentParser(description=__doc__)
     ap.add_argument("--qs", type=Path, default=DATA_SDTM / "qs.parquet")
     ap.add_argument("--ex", type=Path, default=DATA_SDTM / "ex.parquet")
-    ap.add_argument("--out", type=Path, default=HERE / "plan.csv")
+    ap.add_argument("--out", type=Path, default=MAPPING / "plan.csv")
     args = ap.parse_args()
     args.out.write_text(build(args.qs, args.ex), encoding="utf-8", newline="")
 
