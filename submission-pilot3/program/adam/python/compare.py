@@ -29,7 +29,7 @@ import argparse
 import sys
 from pathlib import Path
 
-HERE = Path(__file__).resolve().parent
+HERE = Path(__file__).resolve().parent.parent
 STUDY = HERE.parent.parent
 OFFICIAL_ADAM = STUDY / "data" / "adam"
 

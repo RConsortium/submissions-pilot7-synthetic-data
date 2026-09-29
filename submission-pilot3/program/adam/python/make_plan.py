@@ -32,7 +32,7 @@ from pathlib import Path
 
 import polars as pl
 
-HERE = Path(__file__).resolve().parent
+HERE = Path(__file__).resolve().parent.parent / "inputs"
 DATA_SDTM = (HERE / "../../../data/sdtm").resolve()
 
 PARAMCD = "ACTOT"

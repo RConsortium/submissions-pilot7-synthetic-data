@@ -4,9 +4,13 @@
 # aggregates' derive bindings over EX; the EOSDT binding reads the
 # keep-intermediate DS_EOS (REQ-1242, landed for #964 via PR #1072), so no
 # staging spec is needed. TRTEDT = MAX(EXENDT), CUMDOSE = SUM(DOSE).
+
 schema_version: "1.0"
+
 domain: ADSL
+
 keys: [STUDYID, USUBJID]
+
 input:
   DM: sdtm/dm.parquet
   DS: sdtm/ds.parquet
@@ -16,64 +20,11 @@ input:
   VS: sdtm/vs.parquet
   SC: sdtm/sc.parquet
   MH: sdtm/mh.parquet
+
 base: DM
+
 filter: "DM.ACTARMCD <> 'Scrnfail'"
-intermediates:
-  - id: EX_FIRST
-    dataset: EX
-    key: [STUDYID, USUBJID]
-    order_by: [EX.EXSTDTC]
-    keep: first
-    no_match: null
-  - id: DS_EOS
-    dataset: DS
-    filter: "DS.DSCAT = 'DISPOSITION EVENT' AND DS.DSDECOD <> 'SCREEN FAILURE'"
-    key: [STUDYID, USUBJID]
-    order_by: [DS.DSSTDTC]
-    keep: first
-    no_match: null
-  - id: SV_V1
-    dataset: SV
-    filter: "SV.VISITNUM = 1"
-    key: [STUDYID, USUBJID]
-    order_by: [SV.SVSTDTC]
-    keep: first
-    no_match: null
-  - id: SV_LAST
-    dataset: SV
-    filter: "SV.VISITNUM < 100"
-    key: [STUDYID, USUBJID]
-    order_by: [SV.SVSTDTC]
-    keep: last
-    no_match: null
-  - id: VS_HT
-    dataset: VS
-    filter: "VS.VSTESTCD = 'HEIGHT' AND VS.VISITNUM = 1"
-    key: [STUDYID, USUBJID]
-    order_by: [VS.VSDTC]
-    keep: first
-    no_match: null
-  - id: VS_WT
-    dataset: VS
-    filter: "VS.VSTESTCD = 'WEIGHT' AND VS.VISITNUM = 3"
-    key: [STUDYID, USUBJID]
-    order_by: [VS.VSDTC]
-    keep: first
-    no_match: null
-  - id: SC_ED
-    dataset: SC
-    filter: "SC.SCTESTCD = 'EDLEVEL'"
-    key: [STUDYID, USUBJID]
-    order_by: [SC.SCDTC]
-    keep: first
-    no_match: null
-  - id: MH_DX
-    dataset: MH
-    filter: "MH.MHCAT = 'PRIMARY DIAGNOSIS'"
-    key: [STUDYID, USUBJID]
-    order_by: [MH.MHSTDTC]
-    keep: first
-    no_match: null
+
 output:
   path: adam/adsl-yamaa.parquet
   columns: [STUDYID, USUBJID, SUBJID, SITEID, SITEGR1, ARM, TRT01P, TRT01PN,
@@ -82,23 +33,92 @@ output:
     COMP16FL, COMP24FL, DISCONFL, DSRAEFL, DTHFL, BMIBL, BMIBLGR1, HEIGHTBL,
     WEIGHTBL, EDUCLVL, DISONSDT, DURDIS, DURDSGR1, VISIT1DT, RFSTDTC, RFENDTC,
     VISNUMEN, RFENDT, DCDECOD, EOSSTT, DCSREAS, MMSETOT]
+
+intermediates:
+  - id: EX_FIRST
+    dataset: EX
+    key: [STUDYID, USUBJID]
+    order_by: [EX.EXSTDTC]
+    keep: first
+    no_match: null
+
+  - id: DS_EOS
+    dataset: DS
+    filter: "DS.DSCAT = 'DISPOSITION EVENT' AND DS.DSDECOD <> 'SCREEN FAILURE'"
+    key: [STUDYID, USUBJID]
+    order_by: [DS.DSSTDTC]
+    keep: first
+    no_match: null
+
+  - id: SV_V1
+    dataset: SV
+    filter: "SV.VISITNUM = 1"
+    key: [STUDYID, USUBJID]
+    order_by: [SV.SVSTDTC]
+    keep: first
+    no_match: null
+
+  - id: SV_LAST
+    dataset: SV
+    filter: "SV.VISITNUM < 100"
+    key: [STUDYID, USUBJID]
+    order_by: [SV.SVSTDTC]
+    keep: last
+    no_match: null
+
+  - id: VS_HT
+    dataset: VS
+    filter: "VS.VSTESTCD = 'HEIGHT' AND VS.VISITNUM = 1"
+    key: [STUDYID, USUBJID]
+    order_by: [VS.VSDTC]
+    keep: first
+    no_match: null
+
+  - id: VS_WT
+    dataset: VS
+    filter: "VS.VSTESTCD = 'WEIGHT' AND VS.VISITNUM = 3"
+    key: [STUDYID, USUBJID]
+    order_by: [VS.VSDTC]
+    keep: first
+    no_match: null
+
+  - id: SC_ED
+    dataset: SC
+    filter: "SC.SCTESTCD = 'EDLEVEL'"
+    key: [STUDYID, USUBJID]
+    order_by: [SC.SCDTC]
+    keep: first
+    no_match: null
+
+  - id: MH_DX
+    dataset: MH
+    filter: "MH.MHCAT = 'PRIMARY DIAGNOSIS'"
+    key: [STUDYID, USUBJID]
+    order_by: [MH.MHSTDTC]
+    keep: first
+    no_match: null
+
 columns:
   - name: STUDYID
     type: str
     label: Study Identifier
     derivation: DM.STUDYID
+
   - name: USUBJID
     type: str
     label: Unique Subject Identifier
     derivation: DM.USUBJID
+
   - name: SUBJID
     type: str
     label: Subject Identifier for the Study
     derivation: DM.SUBJID
+
   - name: SITEID
     type: str
     label: Study Site Identifier
     derivation: DM.SITEID
+
   - name: SITEGR1
     type: str
     label: Pooled Site Group 1
@@ -109,14 +129,17 @@ columns:
             literal: "900"
         - otherwise:
             source: SITEID
+
   - name: ARM
     type: str
     label: Description of Planned Arm
     derivation: DM.ARM
+
   - name: TRT01P
     type: str
     label: Planned Treatment for Period 01
     derivation: DM.ARM
+
   - name: TRT01PN
     type: float
     label: Planned Treatment for Period 01 (N)
@@ -127,10 +150,12 @@ columns:
           Placebo: 0
           Xanomeline Low Dose: 54
           Xanomeline High Dose: 81
+
   - name: TRT01A
     type: str
     label: Actual Treatment for Period 01
     derivation: DM.ARM
+
   - name: TRT01AN
     type: float
     label: Actual Treatment for Period 01 (N)
@@ -141,6 +166,7 @@ columns:
           Placebo: 0
           Xanomeline Low Dose: 54
           Xanomeline High Dose: 81
+
   - name: TRTSDT
     type: date
     label: Date of First Exposure to Treatment
@@ -150,6 +176,7 @@ columns:
         month: 1
         day: last
         missing: null
+
   - name: TRTEDT
     type: date
     label: Date of Last Exposure to Treatment
@@ -178,6 +205,7 @@ columns:
               least:
                 sources: [EXENDT_RAW, EOSDT]
         expr: "MAX(EXENDT)"
+
   - name: TRTDURD
     type: float
     label: Total Treatment Duration (Days)
@@ -187,6 +215,7 @@ columns:
         end: TRTEDT
         unit: day
         bounds: inclusive
+
   - name: CUMDOSE
     type: float
     label: Cumulative Dose (as planned)
@@ -239,12 +268,14 @@ columns:
               compute:
                 expr: "EXDOSE_V * EXDURD"
         expr: "SUM(DOSE)"
+
   - name: AVGDD_RAW
     type: float
     label: Average daily dose, unrounded (helper)
     derivation:
       compute:
         expr: "CUMDOSE / NULLIF(TRTDURD, 0)"
+
   - name: AVGDD
     type: float
     label: Avg Daily Dose (as planned)
@@ -252,10 +283,12 @@ columns:
       round_half_away_from_zero:
         source: AVGDD_RAW
         digits: 1
+
   - name: AGE
     type: float
     label: Age
     derivation: DM.AGE
+
   - name: AGEGR1
     type: str
     label: Pooled Age Group 1
@@ -271,6 +304,7 @@ columns:
             literal: "65-80"
         - otherwise:
             literal: ">80"
+
   - name: AGEGR1N
     type: float
     label: Pooled Age Group 1 (N)
@@ -281,14 +315,17 @@ columns:
           "<65": 1
           "65-80": 2
           ">80": 3
+
   - name: AGEU
     type: str
     label: Age Units
     derivation: DM.AGEU
+
   - name: RACE
     type: str
     label: Race
     derivation: DM.RACE
+
   - name: RACEN
     type: float
     label: Race (N)
@@ -299,14 +336,17 @@ columns:
           WHITE: 1
           BLACK OR AFRICAN AMERICAN: 2
           AMERICAN INDIAN OR ALASKA NATIVE: 6
+
   - name: SEX
     type: str
     label: Sex
     derivation: DM.SEX
+
   - name: ETHNIC
     type: str
     label: Ethnicity
     derivation: DM.ETHNIC
+
   - name: SAFFL
     type: str
     label: Safety Population Flag
@@ -317,6 +357,7 @@ columns:
             literal: Y
         - otherwise:
             literal: N
+
   - name: ITTFL
     type: str
     label: Intent-To-Treat Population Flag
@@ -327,6 +368,7 @@ columns:
             literal: Y
         - otherwise:
             literal: N
+
   - name: N_ACTOT
     type: float
     label: Post-baseline ADAS-Cog records (helper)
@@ -334,6 +376,7 @@ columns:
       aggregate:
         expr: "COUNT(QS.QSSEQ)"
         filter: "QS.VISITNUM > 3 AND QS.QSTESTCD = 'ACTOT'"
+
   - name: N_CIBIC
     type: float
     label: Post-baseline CIBIC+ records (helper)
@@ -341,6 +384,7 @@ columns:
       aggregate:
         expr: "COUNT(QS.QSSEQ)"
         filter: "QS.VISITNUM > 3 AND QS.QSTESTCD = 'CIBIC'"
+
   - name: EFFFL
     type: str
     label: Efficacy Population Flag
@@ -351,6 +395,7 @@ columns:
             literal: Y
         - otherwise:
             literal: N
+
   - name: N_WK8
     type: float
     label: Week 8 visit records (helper)
@@ -358,6 +403,7 @@ columns:
       aggregate:
         expr: "COUNT(SV.USUBJID)"
         filter: "SV.VISITNUM = 8"
+
   - name: COMP8FL
     type: str
     label: Completers of Week 8 Population Flag
@@ -368,6 +414,7 @@ columns:
             literal: Y
         - otherwise:
             literal: N
+
   - name: N_WK16
     type: float
     label: Week 16 visit records (helper)
@@ -375,6 +422,7 @@ columns:
       aggregate:
         expr: "COUNT(SV.USUBJID)"
         filter: "SV.VISITNUM = 10"
+
   - name: COMP16FL
     type: str
     label: Completers of Week 16 Population Flag
@@ -385,6 +433,7 @@ columns:
             literal: Y
         - otherwise:
             literal: N
+
   - name: N_WK24
     type: float
     label: Week 24 visit records (helper)
@@ -392,6 +441,7 @@ columns:
       aggregate:
         expr: "COUNT(SV.USUBJID)"
         filter: "SV.VISITNUM = 12"
+
   - name: COMP24FL
     type: str
     label: Completers of Week 24 Population Flag
@@ -402,6 +452,7 @@ columns:
             literal: Y
         - otherwise:
             literal: N
+
   - name: DISCONFL
     type: str
     label: Did the Subject Discontinue the Study?
@@ -410,6 +461,7 @@ columns:
         - when: "DS_EOS.DSSTDTC IS NOT NULL AND DS_EOS.DSDECOD <> 'COMPLETED'"
           then:
             literal: Y
+
   - name: DSRAEFL
     type: str
     label: Discontinued due to AE?
@@ -418,6 +470,7 @@ columns:
         - when: "DS_EOS.DSDECOD = 'ADVERSE EVENT'"
           then:
             literal: Y
+
   - name: DTHFL
     type: str
     label: Subject Died?
@@ -426,10 +479,12 @@ columns:
         - when: "DM.DTHFL = 'Y'"
           then:
             literal: Y
+
   - name: HEIGHTBL_RAW
     type: float
     label: Baseline height, unrounded (helper)
     derivation: VS_HT.VSSTRESN
+
   - name: HEIGHTBL
     type: float
     label: Baseline Height (cm)
@@ -437,10 +492,12 @@ columns:
       round_half_away_from_zero:
         source: HEIGHTBL_RAW
         digits: 1
+
   - name: WEIGHTBL_RAW
     type: float
     label: Baseline weight, unrounded (helper)
     derivation: VS_WT.VSSTRESN
+
   - name: WEIGHTBL
     type: float
     label: Baseline Weight (kg)
@@ -448,12 +505,14 @@ columns:
       round_half_away_from_zero:
         source: WEIGHTBL_RAW
         digits: 1
+
   - name: BMIBL_RAW
     type: float
     label: Baseline BMI, unrounded (helper)
     derivation:
       compute:
         expr: "WEIGHTBL / POWER(NULLIF(HEIGHTBL, 0) / 100, 2)"
+
   - name: BMIBL
     type: float
     label: Baseline BMI (kg/m^2)
@@ -461,6 +520,7 @@ columns:
       round_half_away_from_zero:
         source: BMIBL_RAW
         digits: 1
+
   - name: BMIBLGR1
     type: str
     label: Pooled Baseline BMI Group 1
@@ -470,10 +530,12 @@ columns:
         breaks: [25, 30]
         labels: ["<25", "25-<30", ">=30"]
         missing: null
+
   - name: EDUCLVL
     type: float
     label: Years of Education
     derivation: SC_ED.SCSTRESN
+
   - name: DISONSDT
     type: date
     label: Date of Onset of Disease
@@ -482,6 +544,7 @@ columns:
         source: MH_DX.MHSTDTC
         month: 1
         day: 1
+
   - name: VISIT1DT
     type: date
     label: Date of Visit 1
@@ -490,6 +553,7 @@ columns:
         source: SV_V1.SVSTDTC
         month: 1
         day: 1
+
   - name: DURDISD
     type: float
     label: Disease duration in days, inclusive (helper)
@@ -499,12 +563,14 @@ columns:
         end: VISIT1DT
         unit: day
         bounds: inclusive
+
   - name: DURDIS_RAW
     type: float
     label: Disease duration in months, unrounded (helper)
     derivation:
       compute:
         expr: "DURDISD / 30.4375"
+
   - name: DURDIS
     type: float
     label: Duration of Disease (Months)
@@ -512,6 +578,7 @@ columns:
       round_half_away_from_zero:
         source: DURDIS_RAW
         digits: 1
+
   - name: DURDSGR1
     type: str
     label: Pooled Disease Duration Group 1
@@ -521,14 +588,17 @@ columns:
         breaks: [12]
         labels: ["<12", ">=12"]
         missing: null
+
   - name: RFSTDTC
     type: str
     label: Subject Reference Start Date/Time
     derivation: DM.RFSTDTC
+
   - name: RFENDTC
     type: str
     label: Subject Reference End Date/Time
     derivation: DM.RFENDTC
+
   - name: VISNUMEN_ROUND
     type: float
     label: Last visit number, rounded (helper)
@@ -536,6 +606,7 @@ columns:
       round_half_away_from_zero:
         source: SV_LAST.VISITNUM
         digits: 0
+
   - name: VISNUMEN
     type: float
     label: End of Trt Visit (Vis 12 or Early Term.)
@@ -546,6 +617,7 @@ columns:
             literal: 12
         - otherwise:
             source: VISNUMEN_ROUND
+
   - name: RFENDT
     type: date
     label: Date of Discontinuation/Completion
@@ -554,10 +626,12 @@ columns:
         source: DM.RFENDTC
         month: 1
         day: 1
+
   - name: DCDECOD
     type: str
     label: Standardized Disposition Term
     derivation: DS_EOS.DSDECOD
+
   - name: EOSSTT
     type: str
     label: End of Study Status
@@ -568,6 +642,7 @@ columns:
             literal: COMPLETED
         - otherwise:
             literal: DISCONTINUED
+
   - name: DCSREAS
     type: str
     label: Reason for Discontinuation from Study
@@ -591,6 +666,7 @@ columns:
                 PROTOCOL VIOLATION: Protocol Violation
                 STUDY TERMINATED BY SPONSOR: Sponsor Decision
                 WITHDRAWAL BY SUBJECT: Withdrew Consent
+
   - name: MMSETOT
     type: float
     label: MMSE Total

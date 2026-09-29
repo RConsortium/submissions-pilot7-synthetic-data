@@ -8,7 +8,7 @@ import polars as pl
 import pyarrow as pa, pyarrow.parquet as pq
 from yamaa import yamaa_domain
 
-HERE = Path(__file__).resolve().parent
+HERE = Path(__file__).resolve().parent.parent
 WORK = HERE / "work"
 S, I = pl.String, pl.Int64
 INPUT_SCHEMAS = {"plan": {"USUBJID": S, "PARAMCD": S, "AVISIT": S, "AVISITN": I},
@@ -16,7 +16,7 @@ INPUT_SCHEMAS = {"plan": {"USUBJID": S, "PARAMCD": S, "AVISIT": S, "AVISITN": I}
 
 
 def main():
-    subprocess.run([sys.executable, HERE / "inputs" / "make_plan.py"], check=True)
+    subprocess.run([sys.executable, HERE / "python" / "make_plan.py"], check=True)
     for name in ("sdtm", "inputs", "adam"): (WORK / name).mkdir(parents=True, exist_ok=True)
     for src in (HERE.parent.parent / "data" / "sdtm").glob("*.parquet"):
         shutil.copy2(src, WORK / "sdtm" / src.name)

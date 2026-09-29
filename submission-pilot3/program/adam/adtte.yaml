@@ -1,5 +1,7 @@
 schema_version: "1.0"
+
 domain: ADTTE
+
 keys: [STUDYID, USUBJID]
 
 # One row per subject. Base is the derived ADSL staged by run.py (adsl-yamaa.parquet);
@@ -9,6 +11,7 @@ keys: [STUDYID, USUBJID]
 # Censor source: DS disposition (DISPOSITION EVENT, excluding screen failure
 # and final lab visit), with the death-date override (RFENDTC when
 # DCDECOD='DEATH') observed through QC but not described in specs.
+
 input:
   # ADSL/ADAE are the derived predecessors staged by run.py; DS is SDTM.
   ADSL: adam/adsl-yamaa.parquet
@@ -17,6 +20,12 @@ input:
 
 base: ADSL
 
+output:
+  path: adam/adtte-yamaa.parquet
+  columns: [STUDYID, SITEID, USUBJID, AGE, AGEGR1, AGEGR1N, RACE, RACEN,
+    SEX, TRTSDT, TRTEDT, TRTDUR, TRTP, TRTA, TRTAN, PARAM, PARAMCD, AVAL,
+    STARTDT, ADT, CNSR, EVNTDESC, SRCDOM, SRCVAR, SRCSEQ, SAFFL]
+
 intermediates:
   - id: EVTSRC
     dataset: ADAE
@@ -24,18 +33,13 @@ intermediates:
     order_by: [ADAE.ASTDT]
     keep: first
     no_match: null
+
   - id: DS_DISP
     dataset: DS
     filter: "DS.DSCAT = 'DISPOSITION EVENT' AND DS.DSDECOD NOT IN ('SCREEN FAILURE', 'FINAL LAB VISIT')"
     order_by: [DS.DSSTDTC]
     keep: first
     no_match: null
-
-output:
-  path: adam/adtte-yamaa.parquet
-  columns: [STUDYID, SITEID, USUBJID, AGE, AGEGR1, AGEGR1N, RACE, RACEN,
-    SEX, TRTSDT, TRTEDT, TRTDUR, TRTP, TRTA, TRTAN, PARAM, PARAMCD, AVAL,
-    STARTDT, ADT, CNSR, EVNTDESC, SRCDOM, SRCVAR, SRCSEQ, SAFFL]
 
 columns:
   - name: STUDYID

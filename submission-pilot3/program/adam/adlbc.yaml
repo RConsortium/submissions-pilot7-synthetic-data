@@ -1,23 +1,32 @@
 schema_version: "1.0"
+
 domain: ADLBC
+
 keys: [STUDYID, USUBJID, AVISIT, LBSEQ]
 
 input:
   LB: sdtm/lb.parquet
   SUPPLB: sdtm/supplb.parquet
   ADSL: adam/adsl-yamaa.parquet
+
 base: LB
+
+output:
+  path: adam/adlbc-yamaa.parquet
+  columns: [STUDYID, SUBJID, USUBJID, TRTP, TRTPN, TRTA, TRTAN, TRTSDT, TRTEDT, AGE, AGEGR1, AGEGR1N, RACE, RACEN, SEX, COMP24FL, DSRAEFL, SAFFL, AVISIT, AVISITN, ADY, ADT, VISIT, VISITNUM, PARAM, PARAMCD, PARAMN, PARCAT1, AVAL, BASE, CHG, A1LO, A1HI, R2A1LO, R2A1HI, BR2A1LO, BR2A1HI, ANL01FL, ALBTRVAL, ANRIND, BNRIND, ABLFL, AENTMTFL, LBSEQ, LBNRIND, LBSTRESN]
 
 intermediates:
   - id: ADSL1
     dataset: ADSL
     key: [STUDYID, USUBJID]
     columns: [SUBJID, TRT01P, TRT01PN, TRT01A, TRT01AN, TRTSDT, TRTEDT, AGE, AGEGR1, AGEGR1N, RACE, RACEN, SEX, COMP24FL, DSRAEFL, SAFFL]
+
   - id: SUP_EP
     dataset: SUPPLB
     key: {STUDYID: LB.STUDYID, USUBJID: LB.USUBJID, IDVARVAL: LBSEQ_K}
     filter: "SUPPLB.QNAM = 'ENDPOINT'"
     no_match: null
+
   - id: BL
     dataset: LB
     key: {STUDYID: STUDYID, USUBJID: USUBJID, LBTESTCD: PARAMCD}
@@ -30,66 +39,82 @@ columns:
     type: str
     label: Study Identifier
     derivation: LB.STUDYID
+
   - name: SUBJID
     type: str
     label: Subject Identifier for the Study
     derivation: ADSL1.SUBJID
+
   - name: USUBJID
     type: str
     label: Unique Subject Identifier
     derivation: LB.USUBJID
+
   - name: TRTP
     type: str
     label: Planned Treatment
     derivation: ADSL1.TRT01P
+
   - name: TRTPN
     type: float
     label: Planned Treatment (N)
     derivation: ADSL1.TRT01PN
+
   - name: TRTA
     type: str
     label: Actual Treatment
     derivation: ADSL1.TRT01A
+
   - name: TRTAN
     type: float
     label: Actual Treatment (N)
     derivation: ADSL1.TRT01AN
+
   - name: TRTSDT
     type: date
     label: Date of First Exposure to Treatment
     derivation: ADSL1.TRTSDT
+
   - name: TRTEDT
     type: date
     label: Date of Last Exposure to Treatment
     derivation: ADSL1.TRTEDT
+
   - name: AGE
     type: float
     label: Age
     derivation: ADSL1.AGE
+
   - name: AGEGR1
     type: str
     label: Pooled Age Group 1
     derivation: ADSL1.AGEGR1
+
   - name: AGEGR1N
     type: float
     label: Pooled Age Group 1 (N)
     derivation: ADSL1.AGEGR1N
+
   - name: RACE
     type: str
     label: Race
     derivation: ADSL1.RACE
+
   - name: RACEN
     type: float
     label: Race (N)
     derivation: ADSL1.RACEN
+
   - name: SEX
     type: str
     label: Sex
     derivation: ADSL1.SEX
+
   - name: COMP24FL
     type: str
     label: Completers of Week 24 Population Flag
     derivation: ADSL1.COMP24FL
+
   - name: DSRAEFL
     type: str
     label: Discontinued due to AE?
@@ -97,6 +122,7 @@ columns:
       first_available:
         sources: [ADSL1.DSRAEFL]
         missing: ""
+
   - name: SAFFL
     type: str
     label: Safety Population Flag
@@ -105,6 +131,7 @@ columns:
   - name: AVISIT
     type: str
     label: Analysis Visit
+
   - name: AVISITN
     type: float
     label: Analysis Visit (N)
@@ -116,6 +143,7 @@ columns:
       str_extract:
         source: LB.LBDTC
         pattern: "^[0-9]{4}-[0-9]{2}-[0-9]{2}"
+
   - name: ADY
     type: float
     label: Analysis Relative Day
@@ -128,6 +156,7 @@ columns:
     type: str
     label: Visit Name
     derivation: LB.VISIT
+
   - name: VISITNUM
     type: float
     label: Visit Number
@@ -139,10 +168,12 @@ columns:
     derivation:
       str_template:
         template: "{LB.LBTEST} ({LB.LBSTRESU})"
+
   - name: PARAMCD
     type: str
     label: Parameter Code
     derivation: LB.LBTESTCD
+
   - name: PARAMN
     type: float
     label: Parameter (N)
@@ -151,6 +182,7 @@ columns:
         source: PARAMCD
         dict: {SODIUM: 18, K: 19, CL: 20, BILI: 21, ALP: 22, GGT: 23, ALT: 24, AST: 25, BUN: 26, CREAT: 27, URATE: 28, PHOS: 29, CA: 30, GLUC: 31, PROT: 32, ALB: 33, CHOL: 34, CK: 35}
         missing: null
+
   - name: PARCAT1
     type: str
     label: Parameter Category 1
@@ -160,6 +192,7 @@ columns:
     type: float
     label: Analysis Value
     derivation: LB.LBSTRESN
+
   - name: ABLFL
     type: str
     label: Baseline Record Flag
@@ -167,10 +200,12 @@ columns:
       first_available:
         sources: [LB.LBBLFL]
         missing: ""
+
   - name: BASE
     type: float
     label: Baseline Value
     derivation: BL.LBSTRESN
+
   - name: CHG
     type: float
     label: Change from Baseline
@@ -185,36 +220,43 @@ columns:
     type: float
     label: Analysis Range 1 Lower Limit
     derivation: LB.LBSTNRLO
+
   - name: A1HI
     type: float
     label: Analysis Range 1 Upper Limit
     derivation: LB.LBSTNRHI
+
   - name: R2A1LO
     type: float
     label: Ratio to Analysis Range 1 Lower Limit
     derivation:
       compute:
         expr: "AVAL / A1LO"
+
   - name: R2A1HI
     type: float
     label: Ratio to Analysis Range 1 Upper Limit
     derivation:
       compute:
         expr: "AVAL / A1HI"
+
   - name: B_LO
     type: float
     label: B Lo (helper)
     derivation: BL.LBSTNRLO
+
   - name: B_HI
     type: float
     label: B Hi (helper)
     derivation: BL.LBSTNRHI
+
   - name: BR2A1LO
     type: float
     label: Base Ratio to Analysis Range 1 Lower Lim
     derivation:
       compute:
         expr: "BASE / A1LO"
+
   - name: BR2A1HI
     type: float
     label: Base Ratio to Analysis Range 1 Upper Lim
@@ -228,12 +270,14 @@ columns:
     derivation:
       compute:
         expr: "ABS(AVAL - 1.5 * A1HI)"
+
   - name: T_HI
     type: float
     label: T Hi (helper)
     derivation:
       compute:
         expr: "ABS(0.5 * A1LO - AVAL)"
+
   - name: ALBTRVAL
     type: float
     label: Amount Threshold Range
@@ -243,18 +287,21 @@ columns:
           then: {source: T_LO}
         - when: "T_LO <= T_HI"
           then: {source: T_HI}
+
   - name: A1LO_H
     type: float
     label: A1lo H (helper)
     derivation:
       compute:
         expr: "0.5 * A1LO"
+
   - name: A1HI_15
     type: float
     label: A1hi 15 (helper)
     derivation:
       compute:
         expr: "1.5 * A1HI"
+
   - name: ANRIND
     type: str
     label: Analysis Reference Range Indicator
@@ -268,18 +315,21 @@ columns:
           then: {literal: "H"}
         - when: "TRUE"
           then: {literal: "N"}
+
   - name: B_LO_H
     type: float
     label: B Lo H (helper)
     derivation:
       compute:
         expr: "0.5 * B_LO"
+
   - name: B_HI_15
     type: float
     label: B Hi 15 (helper)
     derivation:
       compute:
         expr: "1.5 * B_HI"
+
   - name: BNRIND
     type: str
     label: Baseline Reference Range Indicator
@@ -302,6 +352,7 @@ columns:
         source: VISIT
         pattern: "UNSCHEDULED"
         no_match: null
+
   - name: RK_ANL
     type: int
     label: Rk Anl (helper)
@@ -316,6 +367,7 @@ columns:
             - variable: LBSEQ
               direction: asc
           filter: "VISITNUM >= 4 AND VISITNUM <= 12 AND IS_UNSCHED IS NULL AND ALBTRVAL IS NOT NULL"
+
   - name: ANL01FL
     type: str
     label: Analysis Flag 01
@@ -325,6 +377,7 @@ columns:
           then: {literal: "Y"}
         - when: "TRUE"
           then: {literal: ""}
+
   - name: RK_ENT
     type: int
     label: Rk Ent (helper)
@@ -337,6 +390,7 @@ columns:
             - variable: AVISITN
               direction: desc
           filter: "AVISITN > 0 AND AVISITN < 99 AND IS_UNSCHED IS NULL AND VISITNUM <= 12"
+
   - name: AENTMTFL
     type: str
     label: Last value in treatment visit
@@ -351,6 +405,7 @@ columns:
     type: float
     label: Sequence Number
     derivation: LB.LBSEQ
+
   - name: LBNRIND
     type: str
     label: Reference Range Indicator
@@ -358,6 +413,7 @@ columns:
       first_available:
         sources: [LB.LBNRIND]
         missing: ""
+
   - name: LBSTRESN
     type: float
     label: Numeric Result/Finding in Standard Units
@@ -366,45 +422,59 @@ columns:
   - name: STUDYID_K
     type: str
     label: Studyid K (helper)
+
   - name: USUBJID_K
     type: str
     label: Usubjid K (helper)
+
   - name: LBSEQ_S
     type: str
     label: Lbseq S (helper)
+
   - name: LBSEQ_PAD
     type: str
     label: Lbseq Pad (helper)
+
   - name: LBSEQ_K
     type: str
     label: Lbseq K (helper)
+
   - name: ENDPOINT
     type: str
     label: Endpoint (helper)
+
   - name: ISUN
     type: str
     label: Isun (helper)
+
   - name: SRC_AVISITN
     type: float
     label: Src Avisitn (helper)
+
   - name: EOT_IND
     type: int
     label: Eot Ind (helper)
+
   - name: VIS_OK
     type: str
     label: Vis Ok (helper)
+
   - name: E2_VN
     type: float
     label: E2 Vn (helper)
+
   - name: E2_SEQ
     type: float
     label: E2 Seq (helper)
+
   - name: RN2
     type: int
     label: Rn2 (helper)
+
   - name: EOT_VN
     type: float
     label: Eot Vn (helper)
+
   - name: EOT_LBCAT
     type: str
     label: Eot Lbcat (helper)
@@ -458,6 +528,7 @@ rows:
       RN2: {literal: null}
       EOT_VN: {literal: null}
       EOT_LBCAT: {literal: null}
+
   - id: eot
     dataset: LB
     group_by: [LB.STUDYID, LB.USUBJID, LB.LBSEQ, LB.LBCAT, LB.VISITNUM, LB.VISIT, LB.LBTEST, LB.LBSTRESU, LB.LBTESTCD, LB.LBSTRESN, LB.LBBLFL, LB.LBDTC, LB.LBSTNRLO, LB.LBSTNRHI, LB.LBNRIND]
@@ -485,6 +556,7 @@ rows:
       E2_VN: {literal: null}
       E2_SEQ: {literal: null}
       RN2: {literal: null}
+
   - id: eot2
     dataset: LB
     group_by: [LB.STUDYID, LB.USUBJID, LB.LBTESTCD, LB.LBSEQ, LB.LBCAT, LB.VISITNUM, LB.VISIT, LB.LBTEST, LB.LBSTRESU, LB.LBSTRESN, LB.LBBLFL, LB.LBDTC, LB.LBSTNRLO, LB.LBSTNRHI, LB.LBNRIND]
@@ -547,7 +619,3 @@ rows:
                 direction: asc
             filter: "VIS_OK IS NOT NULL AND E2_VN <> 13 AND EOT_LBCAT = 'CHEMISTRY'"
       EOT_VN: {literal: null}
-
-output:
-  path: adam/adlbc-yamaa.parquet
-  columns: [STUDYID, SUBJID, USUBJID, TRTP, TRTPN, TRTA, TRTAN, TRTSDT, TRTEDT, AGE, AGEGR1, AGEGR1N, RACE, RACEN, SEX, COMP24FL, DSRAEFL, SAFFL, AVISIT, AVISITN, ADY, ADT, VISIT, VISITNUM, PARAM, PARAMCD, PARAMN, PARCAT1, AVAL, BASE, CHG, A1LO, A1HI, R2A1LO, R2A1HI, BR2A1LO, BR2A1HI, ANL01FL, ALBTRVAL, ANRIND, BNRIND, ABLFL, AENTMTFL, LBSEQ, LBNRIND, LBSTRESN]
