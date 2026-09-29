@@ -4,7 +4,8 @@
 Reusable entry points:
 
     from compare import compare, compare_domain
-    compare("work/adam/adsl-yamaa.parquet", "../data/adam/adsl.parquet", "adsl")
+    compare("../../data/adam/adsl-yamaa.parquet", "../../data/adam/adsl.parquet",
+            "adsl", spec="adsl.yaml")
     compare_domain("adsl")   # resolves the standard paths and compares
 
 Reports matched/total columns and cells per dataset. Exits nonzero on any
@@ -14,15 +15,15 @@ Semantics (standing tolerance): numeric cells match when
 |derived - official| <= 1e-10 (absolute); non-numeric cells match exactly
 with null/"" normalized (the official ADaM was produced by R, where a
 missing character value is ""). Key columns align with zero unmatched
-rows on either side and count as matched. Variable labels must agree on
-every column carrying the official `yamaa:label` field metadata.
+rows on either side and count as matched. Spec labels must agree with the
+official `yamaa:label` field metadata.
 
-Requires: polars, pyarrow.
+Requires: polars, pyarrow, PyYAML.
 
 Usage:
     python3 compare.py                        # all five datasets
     python3 compare.py --datasets adsl,adtte  # subset
-    python3 compare.py --work /tmp/p3          # custom work directory
+    python3 compare.py --data-root /tmp/p3/data  # custom data directory
 """
 
 import argparse
@@ -73,7 +74,15 @@ def _labels(source):
     return {}
 
 
-def compare(output, reference, name):
+def _spec_labels(spec):
+    """Declared labels from a yamaa YAML specification."""
+    import yaml
+
+    columns = yaml.safe_load(Path(spec).read_text(encoding="utf-8"))["columns"]
+    return {column["name"]: column.get("label") for column in columns}
+
+
+def compare(output, reference, name, spec=None):
     """Compare one derived dataset against its official reference.
 
     `output`/`reference` are parquet paths (or polars DataFrames).
@@ -115,15 +124,18 @@ def compare(output, reference, name):
             mismatch += bad
     n_cols = len(common) + len(keys)
 
-    # Labels: every derived field must carry the official yamaa:label.
-    new_labels, ref_labels = _labels(output), _labels(reference)
-    if new_labels and ref_labels:
+    # run.save() writes data; compare the spec's declared labels separately.
+    new_labels = _spec_labels(spec) if spec else _labels(output)
+    ref_labels = _labels(reference)
+    if ref_labels:
         label_bad = [
             c
             for c in new.columns
-            if c in ref_labels and new_labels.get(c) != ref_labels[c]
+            if c in ref_labels and (
+                new_labels.get(c).encode() if new_labels.get(c) else None
+            ) != ref_labels[c]
         ]
-        unlabeled = [c for c in new.columns if c not in new_labels]
+        unlabeled = [c for c in new.columns if not new_labels.get(c)]
         if label_bad:
             mismatches.append(("labels", label_bad))
         if unlabeled:
@@ -150,15 +162,16 @@ def compare(output, reference, name):
     }
 
 
-def compare_domain(name, work=None):
+def compare_domain(name, data_root=None):
     """Compare one dataset using the standard pipeline paths.
 
-    Loads work/adam/<name>-yamaa.parquet (produced by run.py) against
-    ../data/adam/<name>.parquet.
+    Loads data/adam/<name>-yamaa.parquet (produced by run.py) against
+    data/adam/<name>.parquet.
     """
-    work = Path(work) if work else HERE / "work"
+    data_root = Path(data_root) if data_root else STUDY / "data"
     derived_name, official_name = DATASETS[name]
-    return compare(work / "adam" / derived_name, OFFICIAL_ADAM / official_name, name)
+    return compare(data_root / "adam" / derived_name, OFFICIAL_ADAM / official_name,
+                   name, HERE / f"{name}.yaml")
 
 
 def main():
@@ -168,7 +181,7 @@ def main():
         default=",".join(DATASETS),
         help="comma-separated subset, e.g. adsl,adtte",
     )
-    ap.add_argument("--work", default=str(HERE / "work"))
+    ap.add_argument("--data-root", default=str(STUDY / "data"))
     args = ap.parse_args()
 
     selected = [d.strip() for d in args.datasets.split(",") if d.strip()]
@@ -176,14 +189,14 @@ def main():
     if unknown:
         sys.exit(f"unknown datasets: {unknown} (choose from {list(DATASETS)})")
 
-    derived = Path(args.work) / "adam"
+    derived = Path(args.data_root) / "adam"
     missing = [
         DATASETS[d][0] for d in selected if not (derived / DATASETS[d][0]).exists()
     ]
     if missing:
         sys.exit(f"missing derived files in {derived}: {missing} (run run.py first)")
 
-    results = [compare_domain(ds, args.work) for ds in selected]
+    results = [compare_domain(ds, args.data_root) for ds in selected]
     total_cells = sum(r["cells"][1] for r in results)
     matched_cells = sum(r["cells"][0] for r in results)
     print(f"TOTAL: {matched_cells}/{total_cells} derived cells match")

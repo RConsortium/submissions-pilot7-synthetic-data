@@ -21,8 +21,8 @@ byte-identical against the committed plan.csv):
      reference derivation's derive_locf_records adds LOCF rows.
 
 Per REQ-0040/REQ-0041 the yamaa spec cannot create rows, so this expansion
-happens upstream: run.py calls this script before staging inputs/plan.csv
-into work/inputs/plan.parquet, and the spec reads it as ordinary input.
+happens upstream. The checked-in inputs/plan.csv is verified for drift in CI;
+the spec reads it directly as ordinary input.
 """
 
 from __future__ import annotations
