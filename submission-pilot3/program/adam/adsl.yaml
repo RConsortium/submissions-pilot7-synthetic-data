@@ -1,10 +1,3 @@
-# Pilot 3 ADSL derived with the yamaa schema (schema-complexity review, not a
-# transliteration of adsl.r). Per-record exposure math (impute/cap exposure end
-# dates, inclusive duration, per-record dose) lives in the TRTEDT/CUMDOSE
-# aggregates' derive bindings over EX; the EOSDT binding reads the
-# keep-intermediate DS_EOS (REQ-1242, landed for #964 via PR #1072), so no
-# staging spec is needed. TRTEDT = MAX(EXENDT), CUMDOSE = SUM(DOSE).
-
 schema_version: "1.0"
 
 domain: ADSL
@@ -185,26 +178,16 @@ columns:
         derive:
           - name: EXENDT_RAW
             type: date
-            derivation:
-              date_impute:
-                source: EX.EXENDTC
-                month: 1
-                day: last
-                missing: null
+            derivation: {date_impute: {source: EX.EXENDTC, month: 1, day: last, missing: null}}
           - name: EOSDT
             type: date
-            derivation:
-              date_impute:
-                source: DS_EOS.DSSTDTC
-                month: 1
-                day: last
-                missing: null
-          - name: EXENDT
+            derivation: {date_impute: {source: DS_EOS.DSSTDTC, month: 1, day: last, missing: null}}
+          - name: EXENDT_CAPPED
             type: date
             derivation:
               least:
                 sources: [EXENDT_RAW, EOSDT]
-        expr: "MAX(EXENDT)"
+        expr: "MAX(EXENDT_CAPPED)"
 
   - name: TRTDURD
     type: float
@@ -224,29 +207,14 @@ columns:
         derive:
           - name: EXSTDT
             type: date
-            derivation:
-              date_impute:
-                source: EX.EXSTDTC
-                month: 1
-                day: last
-                missing: null
+            derivation: {date_impute: {source: EX.EXSTDTC, month: 1, day: last, missing: null}}
           - name: EXENDT_RAW
             type: date
-            derivation:
-              date_impute:
-                source: EX.EXENDTC
-                month: 1
-                day: last
-                missing: null
+            derivation: {date_impute: {source: EX.EXENDTC, month: 1, day: last, missing: null}}
           - name: EOSDT
             type: date
-            derivation:
-              date_impute:
-                source: DS_EOS.DSSTDTC
-                month: 1
-                day: last
-                missing: null
-          - name: EXENDT
+            derivation: {date_impute: {source: DS_EOS.DSSTDTC, month: 1, day: last, missing: null}}
+          - name: EXENDT_CAPPED
             type: date
             derivation:
               least:
@@ -256,18 +224,15 @@ columns:
             derivation:
               date_diff:
                 start: EXSTDT
-                end: EXENDT
+                end: EXENDT_CAPPED
                 unit: day
                 bounds: inclusive
-          - name: EXDOSE_V
-            type: float
-            derivation: EX.EXDOSE
-          - name: DOSE
+          - name: EXDOSE_TOTAL
             type: float
             derivation:
               compute:
-                expr: "EXDOSE_V * EXDURD"
-        expr: "SUM(DOSE)"
+                expr: "EX.EXDOSE * EXDURD"
+        expr: "SUM(EXDOSE_TOTAL)"
 
   - name: AVGDD_RAW
     type: float
