@@ -20,8 +20,8 @@ Two severities:
              in a file listed as ASCII-only.
 
   warning -- annotated but does not fail. An unexpected extra folder is
-             usually a deliberate new stage; when it becomes part of the
-             template, add it to `study.required` in the manifest.
+             usually a deliberate new stage; add it to `study.required` or
+             `study.optional` in the manifest as appropriate.
 
 Usage:  python3 .github/scripts/check_structure.py [--repo-root .]
         Add --strict to fail on warnings too.
@@ -82,6 +82,7 @@ def is_effectively_empty(path: str) -> bool:
 
 def check_study(root: str, study: str, spec: dict) -> None:
     required = spec["required"]
+    optional = spec.get("optional", [])
     forbidden = spec["forbidden"]
 
     for rel in required:
@@ -110,8 +111,8 @@ def check_study(root: str, study: str, spec: dict) -> None:
 
     # Anything outside the template is reported, not blocked -- a new stage
     # folder is a manifest change, not a mistake.
-    expected_dirs = set(required)
-    for rel in required:
+    expected_dirs = set(required + optional)
+    for rel in required + optional:
         parts = rel.split("/")
         for i in range(1, len(parts)):
             expected_dirs.add("/".join(parts[:i]))
@@ -129,7 +130,8 @@ def check_study(root: str, study: str, spec: dict) -> None:
                 warn(
                     f"{study}/{rel}",
                     "folder is not part of the study template; add it to "
-                    "study.required in .github/repo-structure.json if it should be",
+                    "study.required or study.optional in "
+                    ".github/repo-structure.json if it should be",
                 )
 
 
@@ -190,7 +192,11 @@ def validate_manifest(manifest: dict) -> list[str]:
     required = manifest["study"]["required"]
     if not isinstance(required, list) or not required:
         return ["study.required must be a non-empty list"]
-    for rel in required + manifest["study"].get("forbidden", []):
+    optional = manifest["study"].get("optional", [])
+    if not isinstance(optional, list):
+        problems.append("study.optional must be a list")
+        optional = []
+    for rel in required + optional + manifest["study"].get("forbidden", []):
         if not isinstance(rel, str) or not rel:
             problems.append(f"path entry must be a non-empty string: {rel!r}")
         elif rel.startswith("/") or rel.endswith("/"):
