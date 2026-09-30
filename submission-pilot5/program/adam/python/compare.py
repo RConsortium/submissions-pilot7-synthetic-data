@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """Compare derived Pilot 5 ADaM datasets against the official ADaM, cell by cell.
 
-Reads work/adam/ (written by run.py) and ../data/adam/. Per dataset reports
+Reads ../work/adam/ (written by run.py) and the study's data/adam/. Reports
 matched/total columns and matched/total cells; exits nonzero on any mismatch.
 
 Semantics (standing tolerance): numeric cells match when
@@ -18,8 +18,8 @@ import pyarrow as pa
 import pyarrow.parquet as pq
 
 HERE = Path(__file__).resolve().parent
-DERIVED = HERE / "work" / "adam"
-OFFICIAL_ADAM = HERE.parent.parent / "data" / "adam"
+DERIVED = HERE.parent / "work" / "adam"
+OFFICIAL_ADAM = HERE.parents[2] / "data" / "adam"
 
 # dataset -> (derived file name, row-alignment keys); matches
 # submission-pilot5/program/adam/adam-compare-keys.json.

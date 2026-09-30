@@ -13,63 +13,84 @@ input:
 base: DM
 filter: "DM.ACTARM <> 'Screen Failure'"
 
+output:
+  path: adam/adsl-yamaa.parquet
+  columns: [
+    STUDYID, USUBJID, SUBJID, SITEID, SITEGR1, ARM, TRT01P, TRT01PN,
+    TRT01A, TRT01AN, TRTSDT, TRTEDT, TRTDURD, AVGDD, CUMDOSE, AGE,
+    AGEGR1, AGEGR1N, AGEU, RACE, RACEN, SEX, ETHNIC, SAFFL,
+    ITTFL, EFFFL, COMP8FL, COMP16FL, COMP24FL, DISCONFL, DSRAEFL, DTHFL,
+    BMIBL, BMIBLGR1, HEIGHTBL, WEIGHTBL, EDUCLVL, DISONSDT, DURDIS, DURDSGR1,
+    VISIT1DT, RFSTDTC, RFENDTC, VISNUMEN, RFENDT, DCDECOD, EOSSTT, DCSREAS,
+    MMSETOT
+    ]
+
 intermediates:
   - id: BASE_HT
     dataset: VS
-    filter: "VS.VSTESTCD = 'HEIGHT' AND VS.VISITNUM = 1"
     key: [STUDYID, USUBJID]
+    filter: "VS.VSTESTCD = 'HEIGHT' AND VS.VISITNUM = 1"
     order_by: [VS.VSDTC]
     keep: first
     no_match: null
+
   - id: BASE_WT
     dataset: VS
-    filter: "VS.VSTESTCD = 'WEIGHT' AND VS.VISITNUM = 3"
     key: [STUDYID, USUBJID]
+    filter: "VS.VSTESTCD = 'WEIGHT' AND VS.VISITNUM = 3"
     order_by: [VS.VSDTC]
     keep: first
     no_match: null
+
   - id: DS_DISP
     dataset: DS
-    filter: "DS.DSCAT = 'DISPOSITION EVENT'"
     key: [STUDYID, USUBJID]
+    filter: "DS.DSCAT = 'DISPOSITION EVENT'"
     order_by: [DS.DSSTDTC]
     keep: first
     no_match: null
+
   - id: SC_EDU
     dataset: SC
-    filter: "SC.SCTESTCD = 'EDLEVEL'"
     key: [STUDYID, USUBJID]
+    filter: "SC.SCTESTCD = 'EDLEVEL'"
     order_by: [SC.SCDTC]
     keep: first
     no_match: null
+
   - id: MH_DX
     dataset: MH
-    filter: "MH.MHCAT = 'PRIMARY DIAGNOSIS'"
     key: [STUDYID, USUBJID]
+    filter: "MH.MHCAT = 'PRIMARY DIAGNOSIS'"
     order_by: [MH.MHSTDTC]
     keep: first
     no_match: null
+
   - id: SV_V1
     dataset: SV
-    filter: "SV.VISITNUM = 1"
     key: [STUDYID, USUBJID]
+    filter: "SV.VISITNUM = 1"
     order_by: [SV.SVSTDTC]
     keep: first
     no_match: null
+
   - id: EOS
     dataset: DS
-    filter: "DS.DSCAT = 'DISPOSITION EVENT' AND DS.DSDECOD <> 'SCREEN FAILURE' AND DS.DSDECOD <> 'COMPLETED'"
     key: [STUDYID, USUBJID]
+    filter: "DS.DSCAT = 'DISPOSITION EVENT' AND DS.DSDECOD <> \
+      'SCREEN FAILURE' AND DS.DSDECOD <> 'COMPLETED'"
     order_by: [DS.DSSEQ]
     keep: first
     no_match: null
+
   - id: DS_LAST
     dataset: DS
-    filter: "DS.DSCAT = 'DISPOSITION EVENT'"
     key: [STUDYID, USUBJID]
+    filter: "DS.DSCAT = 'DISPOSITION EVENT'"
     order_by: [DS.DSSTDTC]
     keep: last
     no_match: null
+
   # The ongoing exposure record (missing EXENDTC), if any: at most one per
   # subject. Selected once here; _OPEN_DOSE/_OPEN_DAYS read from it.
   - id: EX_OPEN
@@ -77,18 +98,6 @@ intermediates:
     key: [STUDYID, USUBJID]
     filter: "EX.EXENDTC IS NULL"
     no_match: null
-
-output:
-  path: adam/adsl-yamaa.parquet
-  columns: [
-  STUDYID, USUBJID, SUBJID, SITEID, SITEGR1, ARM, TRT01P, TRT01PN,
-  TRT01A, TRT01AN, TRTSDT, TRTEDT, TRTDURD, AVGDD, CUMDOSE, AGE,
-  AGEGR1, AGEGR1N, AGEU, RACE, RACEN, SEX, ETHNIC, SAFFL,
-  ITTFL, EFFFL, COMP8FL, COMP16FL, COMP24FL, DISCONFL, DSRAEFL, DTHFL,
-  BMIBL, BMIBLGR1, HEIGHTBL, WEIGHTBL, EDUCLVL, DISONSDT, DURDIS, DURDSGR1,
-  VISIT1DT, RFSTDTC, RFENDTC, VISNUMEN, RFENDT, DCDECOD, EOSSTT, DCSREAS,
-  MMSETOT
-  ]
 
 columns:
   - name: STUDYID
@@ -118,10 +127,8 @@ columns:
       # Small sites pool to 900 in the official ADSL (observed mapping).
       case:
         - when: "SITEID IN ('702', '706', '707', '711', '714', '715', '717')"
-          then:
-            literal: "900"
-        - otherwise:
-            source: SITEID
+          then: {literal: "900"}
+        - otherwise: SITEID
 
   - name: ARM
     type: str
@@ -199,7 +206,8 @@ columns:
     label: Exposure records with missing end date (internal)
     derivation:
       aggregate:
-        filter: "EX.EXENDTC IS NULL AND (EX.EXDOSE > 0 OR (EX.EXDOSE = 0 AND EX.EXTRT = 'PLACEBO'))"
+        filter: "EX.EXENDTC IS NULL AND (EX.EXDOSE > 0 OR \
+          (EX.EXDOSE = 0 AND EX.EXTRT = 'PLACEBO'))"
         expr: "COUNT(EX.EXSEQ)"
 
   - name: TRTEDT
@@ -208,11 +216,9 @@ columns:
     derivation:
       case:
         - when: "EOSDT IS NOT NULL AND (EX_NMISSEND > 0 OR EX_ENDHI > EOSDT)"
-          then:
-            source: EOSDT
+          then: EOSDT
         - when: "EX_ENDHI IS NOT NULL"
-          then:
-            source: EX_ENDHI
+          then: EX_ENDHI
 
   - name: TRTDUR
     type: float
@@ -239,10 +245,12 @@ columns:
       aggregate:
         filter: "EX.EXENDTC IS NOT NULL"
         expr: "SUM(EX.EXDOSE * (EX.EXENDY - EX.EXSTDY + 1))"
+
   - name: _OPEN_DOSE
     type: float
     label: Open-record EXDOSE (internal)
     derivation: EX_OPEN.EXDOSE
+
   - name: _OPEN_STARTDT
     type: date
     label: Open-record start date (internal)
@@ -252,6 +260,7 @@ columns:
         month: 1
         day: 1
         missing: null
+
   - name: _OPEN_DAYS
     type: float
     label: Open-record days to TRTEDT (internal)
@@ -261,6 +270,7 @@ columns:
         end: TRTEDT
         unit: day
         bounds: inclusive
+
   - name: CUMDOSE
     type: float
     label: Cumulative Dose (as planned)
@@ -301,13 +311,10 @@ columns:
       # is mixed and cannot be expressed with cut's single right flag.
       case:
         - when: "DM.AGE < 65"
-          then:
-            literal: "<65"
+          then: {literal: "<65"}
         - when: "DM.AGE <= 80"
-          then:
-            literal: "65-80"
-        - otherwise:
-            literal: ">80"
+          then: {literal: "65-80"}
+        - otherwise: {literal: ">80"}
 
   - name: AGEGR1N
     type: float
@@ -355,7 +362,7 @@ columns:
       case:
         - when: "DM.DTHFL IS NULL"
           then: {literal: ''}
-        - otherwise: {source: DM.DTHFL}
+        - otherwise: DM.DTHFL
 
   - name: SAFFL
     type: str
@@ -498,12 +505,11 @@ columns:
     derivation:
       # Display values per the official ADSL codelist (observed mapping).
       case:
-        - when: "DS_DISP.DSDECOD <> 'COMPLETED' AND DS_DISP.DSTERM = 'PROTOCOL ENTRY CRITERIA NOT MET'"
-          then:
-            literal: "I/E Not Met"
+        - when: "DS_DISP.DSDECOD <> 'COMPLETED' AND DS_DISP.DSTERM = \
+            'PROTOCOL ENTRY CRITERIA NOT MET'"
+          then: {literal: "I/E Not Met"}
         - when: "DS_DISP.DSDECOD = 'COMPLETED'"
-          then:
-            literal: ""
+          then: {literal: ""}
         - otherwise:
             mapping:
               source: DS_DISP.DSDECOD
@@ -641,10 +647,8 @@ columns:
     derivation:
       case:
         - when: "SV_SCHED_ENDTC IS NOT NULL AND SV_SCHED_ENDTC > DS_ENDTC"
-          then:
-            source: SV_SCHED_ENDTC
-        - otherwise:
-            source: DS_ENDTC
+          then: SV_SCHED_ENDTC
+        - otherwise: DS_ENDTC
 
   - name: RFSTDTC
     type: str

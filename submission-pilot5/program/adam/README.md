@@ -1,26 +1,34 @@
 # Pilot 5 ADaM derivations
 
-One yamaa specification defines each official ADaM output. `run.py` stages
-SDTM input, derives ADSL, ADAE, ADADAS, ADTTE, and ADLBC in dependency order,
-and saves `work/adam/<dataset>-yamaa.parquet`. All ADaM variables are
-calculated in the YAML specs. The ADLBC input helper selects chemistry LB
-records and joins SUPPLB to expose the ENDPOINT supplement.
+Five single-output yamaa specifications in `../../spec/` derive ADSL, ADAE,
+ADADAS, ADTTE, and ADLBC from Pilot 5 SDTM. The Python runner and comparison
+tool live in `python/`. The ADLBC helper prepares chemistry LB and its
+SUPPLB ENDPOINT input; all ADaM variables are derived in the YAML specs.
 
-Install the pinned yamaa revision and run from this directory:
+From this directory, install the pinned yamaa revision and run:
 
 ```bash
-python3 -m pip install -r requirements.txt
-python3 run.py
-python3 compare.py
+python3 -m pip install -r python/requirements.txt
+python3 python/run.py
+python3 python/compare.py
+python3 -m yamaa.style ../../spec/
 ```
 
-`run.py` is 30 lines of code and preserves each declared `yamaa:label` in
-the Parquet output. `compare.py` aligns on unique dataset keys, checks every
-official column and cell with absolute numeric tolerance `1e-10`, and exits
-nonzero for missing outputs or mismatches. Null and empty text are distinct.
+`python/run.py` stages SDTM in the ignored `work/` directory, runs the specs
+in dependency order, and writes `work/adam/<dataset>-yamaa.parquet`. The
+derived ADSL and ADAE are staged as inputs for downstream specs.
+`python/compare.py` aligns on unique dataset keys, checks every official
+column, label, type, and cell, and exits nonzero on a mismatch. Numeric cells
+use absolute tolerance `1e-10`; null and empty text remain distinct.
 
-The following full comparisons passed with zero yamaa validation issues on
-`6ab77309` (2026-09-28):
+The specs follow yamaa's [specification style contract](https://github.com/elong0527/yamaa/blob/main/rules/specification/style.md)
+at revision `e6bca4ac`: schema field order, blank-line spacing, a 79-character
+line limit, `{literal: X}` for literal expressions, and bare strings for
+plain sources. Run `python3 -m yamaa.style --fix ../../spec/` for safe layout
+fixes; the checker reports any remaining findings.
+
+The complete comparison passed with zero yamaa validation issues on
+`e6bca4ac` (2026-09-29):
 
 | Dataset | Columns | Matching cells |
 | --- | ---: | ---: |
@@ -32,6 +40,5 @@ The following full comparisons passed with zero yamaa validation issues on
 | **Total** | | **2,291,147/2,291,147** |
 
 The ADSL spec derives the official disease duration, baseline MMSE, and end
-of study variables. Downstream specs consume its derived output. String
-flags and categories explicitly emit the official empty text where
-applicable; the comparison does not normalize it to null.
+of study variables. Downstream specs consume its derived output. String flags
+and categories explicitly emit the official empty text where applicable.
