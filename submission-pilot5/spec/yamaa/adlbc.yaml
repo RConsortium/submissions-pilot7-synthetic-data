@@ -2,12 +2,13 @@ schema_version: "1.0"
 domain: ADLBC
 keys: [STUDYID, USUBJID, PARAMCD, AVISIT, LBSEQ]
 input:
-  LB: adlbc-lb.parquet
-  ADSL: sdtm/adsl.parquet
+  LB: ../../data/sdtm/lb.parquet
+  SUPPLB: ../../data/sdtm/supplb.parquet
+  ADSL: ../../data/adam/adsl-yamaa.parquet
 base: LB
 
 output:
-  path: adam/adlbc-yamaa.parquet
+  path: ../../data/adam/adlbc-yamaa.parquet
   columns: [STUDYID, SUBJID, USUBJID, TRTP, TRTPN, TRTA, TRTAN, TRTSDT,
     TRTEDT, AGE, AGEGR1, AGEGR1N, RACE, RACEN, SEX, COMP24FL, DSRAEFL,
     SAFFL, AVISIT, AVISITN, ADY, ADT, VISIT, VISITNUM, PARAM, PARAMCD,
@@ -16,6 +17,22 @@ output:
     LBSEQ, LBNRIND, LBSTRESN]
 
 intermediates:
+  # SUPPLB ENDPOINT joined in-spec (no staging script): IDVARVAL is
+  # right-aligned text (e.g. '     259'), so str_pad formats the numeric
+  # LBSEQ to 8 chars before matching. Only ENDPOINT is carried; LBTMSHI
+  # is never referenced. Follows Pilot 3 adlbc.yaml and REQ-1263.
+  - id: SUP_EP
+    dataset: SUPPLB
+    key:
+      STUDYID: LB.STUDYID
+      USUBJID: LB.USUBJID
+      IDVARVAL:
+        str_pad:
+          source: LB.LBSEQ
+          width: 8
+    filter: "SUPPLB.QNAM = 'ENDPOINT'"
+    no_match: null
+
   # End-of-Treatment fallback candidates, ranked in-spec: the eot2 row
   # template below drives off this intermediate's filtered records
   # (REQ-1262). Replaces the former adlbc-eot-rn.yaml + adlbc-eot.yaml
@@ -30,9 +47,13 @@ intermediates:
     columns: [STUDYID, USUBJID, LBTESTCD, LBSEQ, LBDTC, VISIT, VISITNUM,
       LBTEST, LBSTRESU, LBSTRESN, LBBLFL, LBSTNRLO, LBSTNRHI, LBNRIND]
     derivations:
+      _ENDPOINT:
+        first_available:
+          sources: [SUP_EP.QVAL]
+          missing: null
       _EOT_AWARE:
         case:
-          - when: "LB.ENDPOINT = 'Y' OR LB.VISITNUM = 12"
+          - when: "_ENDPOINT = 'Y' OR LB.VISITNUM = 12"
             then: {literal: 99.0}
           - when: "LB.LBBLFL = 'Y'"
             then: {literal: 0.0}
@@ -247,6 +268,10 @@ columns:
   - name: _IS_EOT
     type: float
     label: EOT row marker (internal)
+
+  - name: ENDPOINT
+    type: str
+    label: Endpoint (helper)
 
   # --- Dates ---
   # LBDTC is collected as datetime text ("YYYY-MM-DDTHH:MM"); date_impute
@@ -551,6 +576,7 @@ rows:
       OR LB.VISIT LIKE '%SCREENING%' OR LB.VISIT LIKE '%UNSCHEDULED%')"
     derivations:
       _IS_EOT: {literal: 0.0}
+      ENDPOINT: {literal: null}
       AVISIT:
         case:
           - when: "_r_LBBLFL = 'Y'"
@@ -592,8 +618,9 @@ rows:
   - id: eot
     dataset: LB
     filter: "LB.LBCAT = 'CHEMISTRY' AND (LB.VISITNUM = 12
-      OR LB.ENDPOINT = 'Y')"
+      OR ENDPOINT = 'Y')"
     derivations:
+      ENDPOINT: SUP_EP.QVAL
       _IS_EOT: {literal: 1.0}
       AVISIT: {literal: "End of Treatment"}
       AVISITN: {literal: 99.0}
@@ -617,5 +644,6 @@ rows:
       _r_HI: EOTFB.LBSTNRHI
       _r_NRIND: EOTFB.LBNRIND
       _IS_EOT: {literal: 1.0}
+      ENDPOINT: {literal: null}
       AVISIT: {literal: "End of Treatment"}
       AVISITN: {literal: 99.0}

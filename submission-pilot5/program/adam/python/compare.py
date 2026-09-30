@@ -1,111 +1,208 @@
 #!/usr/bin/env python3
-"""Compare derived Pilot 5 ADaM datasets against the official ADaM, cell by cell.
+"""Compare the derived Pilot 5 ADaM datasets against the official ADaM.
 
-Reads ../work/adam/ (written by run.py) and the study's data/adam/. Reports
-matched/total columns and matched/total cells; exits nonzero on any mismatch.
+Reusable entry points:
+
+    from compare import compare, compare_domain
+    compare("../../data/adam/adsl-yamaa.parquet", "../../data/adam/adsl.parquet",
+            "adsl", spec="../../spec/yamaa/adsl.yaml")
+    compare_domain("adsl")   # resolves the standard paths and compares
+
+Reports matched/total columns and cells per dataset. Exits nonzero on any
+mismatch when run as a script.
 
 Semantics (standing tolerance): numeric cells match when
-|derived - official| <= 1e-10 (absolute); non-numeric cells match exactly.
-Row alignment is by the dataset keys. Missing or extra columns fail.
+|derived - official| <= 1e-10 (absolute); non-numeric cells match exactly
+with null/"" normalized (the official ADaM was produced by R, where a
+missing character value is ""). Key columns align with zero unmatched
+rows on either side and count as matched. Spec labels must agree with the
+official `yamaa:label` field metadata.
 
-Null and empty text are distinct.
+Requires: polars, pyarrow, PyYAML.
+
+Usage:
+    python3 compare.py                        # all five datasets
+    python3 compare.py --datasets adsl,adtte  # subset
+    python3 compare.py --data-root /tmp/p5/data  # custom data directory
 """
 
+import argparse
 import sys
 from pathlib import Path
 
-import pyarrow as pa
-import pyarrow.parquet as pq
+HERE = Path(__file__).resolve().parent.parent
+STUDY = HERE.parent.parent
+OFFICIAL_ADAM = STUDY / "data" / "adam"
 
-HERE = Path(__file__).resolve().parent
-DERIVED = HERE.parent / "work" / "adam"
-OFFICIAL_ADAM = HERE.parents[2] / "data" / "adam"
-
-# dataset -> (derived file name, row-alignment keys); matches
-# submission-pilot5/program/adam/adam-compare-keys.json.
+# dataset -> (derived file name, official file name)
 DATASETS = {
-    "adsl": ("adsl-yamaa.parquet", ["STUDYID", "USUBJID"]),
-    "adae": ("adae-yamaa.parquet", ["STUDYID", "USUBJID", "AESEQ"]),
-    "adadas": ("adadas-yamaa.parquet", ["STUDYID", "USUBJID", "PARAMCD", "AVISITN", "QSSEQ"]),
-    "adtte": ("adtte-yamaa.parquet", ["STUDYID", "USUBJID", "PARAMCD"]),
-    "adlbc": ("adlbc-yamaa.parquet", ["STUDYID", "USUBJID", "PARAMCD", "AVISIT", "LBSEQ"]),
+    "adsl": ("adsl-yamaa.parquet", "adsl.parquet"),
+    "adae": ("adae-yamaa.parquet", "adae.parquet"),
+    "adadas": ("adadas-yamaa.parquet", "adadas.parquet"),
+    "adtte": ("adtte-yamaa.parquet", "adtte.parquet"),
+    "adlbc": ("adlbc-yamaa.parquet", "adlbc.parquet"),
+}
+
+# Row-alignment keys for the comparison (unique in both derived and official).
+KEYS = {
+    "adsl": ["STUDYID", "USUBJID"],
+    "adae": ["STUDYID", "USUBJID", "AESEQ"],
+    "adadas": ["STUDYID", "USUBJID", "PARAMCD", "AVISITN", "QSSEQ"],
+    "adtte": ["STUDYID", "USUBJID", "PARAMCD"],
+    "adlbc": ["STUDYID", "USUBJID", "PARAMCD", "AVISIT", "LBSEQ"],
 }
 
 TOLERANCE = 1e-10
 
 
-def main():
+def _as_frame(source):
+    """Accept a parquet path or an in-memory polars frame."""
     import polars as pl
 
-    total_cells, total_mismatch, failed = 0, 0, False
-    selected = sys.argv[1].split(",") if len(sys.argv) > 1 else list(DATASETS)
-    for ds in selected:
-        fname, keys = DATASETS[ds]
-        out_file = DERIVED / fname
-        if not out_file.exists():
-            raise FileNotFoundError(f"{ds}: missing {out_file}; run run.py first")
-        new = pl.read_parquet(out_file)
-        ref_file = OFFICIAL_ADAM / f"{ds}.parquet"
-        ref = pl.read_parquet(ref_file)
-        new_schema, ref_schema = pq.read_schema(out_file), pq.read_schema(ref_file)
-        bad_labels, bad_types = [], []
-        for name in ref.columns:
-            if name not in new.columns:
-                continue
-            got, expected = new_schema.field(name), ref_schema.field(name)
-            if (got.metadata or {}).get(b"yamaa:label") != (expected.metadata or {}).get(b"yamaa:label"):
-                bad_labels.append(name)
-            got_text = pa.types.is_string(got.type) or pa.types.is_large_string(got.type)
-            expected_text = pa.types.is_string(expected.type) or pa.types.is_large_string(expected.type)
-            if not (got.type.equals(expected.type) or (got_text and expected_text)):
-                bad_types.append(name)
-        assert new.height == ref.height, f"{ds}: row count {new.height} != {ref.height}"
-        assert new.select(keys).is_unique().all() and ref.select(keys).is_unique().all(), f"{ds}: duplicate keys"
-        joined = new.join(ref, on=keys, how="inner", suffix="_ref")
-        assert joined.height == ref.height, f"{ds}: key mismatch"
-        # Pair columns explicitly by name: a derived column is comparable only
-        # when the official dataset carries the same column name.
-        common = [c for c in new.columns if c not in keys and c in ref.columns]
-        derived_only = [c for c in new.columns if c not in keys and c not in ref.columns]
-        uncovered = [c for c in ref.columns if c not in keys and c not in new.columns]
-        dataset_cells = ref.height * len(ref.columns)
-        dataset_bad = ref.height * len(uncovered)
-        total_cells += dataset_cells
-        mismatches = []
-        for col in common:
-            a, b = joined[col], joined[col + "_ref"]
-            if a.dtype.is_numeric() and b.dtype.is_numeric():
-                a = a.cast(pl.Float64)
-                b = b.cast(pl.Float64)
-                ok = ((a.is_null() & b.is_null()) | ((a - b).abs() <= TOLERANCE)).fill_null(
-                    False
-                )  # exactly-one-null is a mismatch, not ignored
-            else:
-                ok = ((a.is_null() & b.is_null()) | (a.cast(pl.String) == b.cast(pl.String))).fill_null(False)
-            bad = (~ok).sum()
-            if bad:
-                mismatches.append((col, bad))
-                dataset_bad += bad
-        total_mismatch += dataset_bad
-        failed |= bool(mismatches or uncovered or derived_only or bad_labels or bad_types)
-        status = "FAIL" if mismatches or uncovered or derived_only or bad_labels or bad_types else "PASS"
-        print(
-            f"-- {ds}: {status} ({len(common) + len(keys)}/{len(ref.columns)} columns, "
-            f"{dataset_cells - dataset_bad}/{dataset_cells} cells match)"
-        )
-        if derived_only:
-            print(f"   derived-only columns (not in official): {derived_only}")
-        if uncovered:
-            print(f"   official columns not derived: {uncovered}")
-        if mismatches:
-            print(f"   mismatched cells by column: {mismatches}")
-        if bad_labels:
-            print(f"   mismatched labels: {bad_labels}")
-        if bad_types:
-            print(f"   mismatched types: {bad_types}")
-    print(f"TOTAL: {total_cells - total_mismatch}/{total_cells} derived cells match")
-    if failed:
+    return source if isinstance(source, pl.DataFrame) else pl.read_parquet(source)
+
+
+def _labels(source):
+    """`yamaa:label` field metadata per column (paths only; frames carry none)."""
+    if isinstance(source, (str, Path)):
+        import pyarrow.parquet as pq
+
+        return {
+            field.name: dict(field.metadata or {}).get(b"yamaa:label")
+            for field in pq.read_schema(source)
+        }
+    return {}
+
+
+def _spec_labels(spec):
+    """Declared labels from a yamaa YAML specification."""
+    import yaml
+
+    columns = yaml.safe_load(Path(spec).read_text(encoding="utf-8"))["columns"]
+    return {column["name"]: column.get("label") for column in columns}
+
+
+def compare(output, reference, name, spec=None):
+    """Compare one derived dataset against its official reference.
+
+    `output`/`reference` are parquet paths (or polars DataFrames).
+    Prints a one-line report and returns a dict with matched/total
+    columns and cells plus an `ok` flag.
+    """
+    import polars as pl
+
+    keys = KEYS[name]
+    new, ref = _as_frame(output), _as_frame(reference)
+    assert new.height == ref.height, (
+        f"{name}: row count {new.height} != official {ref.height}"
+    )
+    joined = new.join(ref, on=keys, how="inner", suffix="_ref")
+    assert joined.height == ref.height, f"{name}: key mismatch vs official"
+
+    common = [c for c in new.columns if c not in keys and c in ref.columns]
+    derived_only = [
+        c for c in new.columns if c not in keys and c not in ref.columns
+    ]
+    uncovered = [c for c in ref.columns if c not in keys and c not in new.columns]
+
+    total_cells = new.height * (len(common) + len(keys))
+    mismatch = 0
+    mismatches = []
+    for col in common:
+        a, b = joined[col], joined[col + "_ref"]
+        if a.dtype.is_numeric() and b.dtype.is_numeric():
+            a = a.fill_nan(None).cast(pl.Float64)
+            b = b.fill_nan(None).cast(pl.Float64)
+            ok = (
+                (a.is_null() & b.is_null()) | ((a - b).abs() <= TOLERANCE)
+            ).fill_null(False)  # exactly-one-null is a mismatch
+        else:
+            ok = a.cast(pl.String).fill_null("") == b.cast(pl.String).fill_null("")
+        bad = (~ok).sum()
+        if bad:
+            mismatches.append((col, bad))
+            mismatch += bad
+    n_cols = len(common) + len(keys)
+
+    # run.save() writes data; compare the spec's declared labels separately.
+    new_labels = _spec_labels(spec) if spec else _labels(output)
+    ref_labels = _labels(reference)
+    if ref_labels:
+        label_bad = [
+            c
+            for c in new.columns
+            if c in ref_labels and (
+                new_labels.get(c).encode() if new_labels.get(c) else None
+            ) != ref_labels[c]
+        ]
+        unlabeled = [c for c in new.columns if not new_labels.get(c)]
+        if label_bad:
+            mismatches.append(("labels", label_bad))
+        if unlabeled:
+            mismatches.append(("unlabeled", unlabeled))
+
+    ok = not mismatches and not uncovered
+    status = "PASS" if ok else (
+        f"MISMATCH {mismatches}" if mismatches else f"UNCOVERED {uncovered}"
+    )
+    report = (
+        f"-- {name}: {status} "
+        f"({n_cols}/{len(ref.columns)} columns, "
+        f"{total_cells - mismatch}/{total_cells} cells match)"
+    )
+    print(report)
+    if derived_only:
+        print(f"   derived-only columns (not in official): {derived_only}")
+    return {
+        "name": name,
+        "columns": (n_cols, len(ref.columns)),
+        "cells": (total_cells - mismatch, total_cells),
+        "ok": ok,
+        "report": report,
+    }
+
+
+def compare_domain(name, data_root=None):
+    """Compare one dataset using the standard pipeline paths.
+
+    Loads data/adam/<name>-yamaa.parquet (produced by run.py) against
+    data/adam/<name>.parquet.
+    """
+    data_root = Path(data_root) if data_root else STUDY / "data"
+    derived_name, official_name = DATASETS[name]
+    return compare(data_root / "adam" / derived_name, OFFICIAL_ADAM / official_name,
+                   name, STUDY / "spec" / "yamaa" / f"{name}.yaml")
+
+
+def main():
+    ap = argparse.ArgumentParser(description=__doc__.splitlines()[0])
+    ap.add_argument(
+        "--datasets",
+        default=",".join(DATASETS),
+        help="comma-separated subset, e.g. adsl,adtte",
+    )
+    ap.add_argument("--data-root", default=str(STUDY / "data"))
+    args = ap.parse_args()
+
+    selected = [d.strip() for d in args.datasets.split(",") if d.strip()]
+    unknown = [d for d in selected if d not in DATASETS]
+    if unknown:
+        sys.exit(f"unknown datasets: {unknown} (choose from {list(DATASETS)})")
+
+    derived = Path(args.data_root) / "adam"
+    missing = [
+        DATASETS[d][0] for d in selected if not (derived / DATASETS[d][0]).exists()
+    ]
+    if missing:
+        sys.exit(f"missing derived files in {derived}: {missing} (run run.py first)")
+
+    results = [compare_domain(ds, args.data_root) for ds in selected]
+    total_cells = sum(r["cells"][1] for r in results)
+    matched_cells = sum(r["cells"][0] for r in results)
+    print(f"TOTAL: {matched_cells}/{total_cells} derived cells match")
+    if not all(r["ok"] for r in results):
         sys.exit(1)
+    print("DONE")
 
 
 if __name__ == "__main__":
