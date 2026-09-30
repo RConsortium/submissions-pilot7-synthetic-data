@@ -1,6 +1,6 @@
 # Pilot 3 ADaM derivations
 
-Five single-output yamaa specifications in `../../spec/` derive the official
+Five single-output yamaa specifications in `../../spec/yamaa/` derive the official
 Pilot 3 ADaM datasets from SDTM. Run `python/run.py` from this directory to
 execute the specs in dependency order and write
 `../../data/adam/<dataset>-yamaa.parquet`.
@@ -18,7 +18,7 @@ python3 python/compare.py
 The dependency order is ADSL, ADAE, ADADAS, ADTTE, ADLBC. All downstream
 specs read the derived ADSL; ADTTE also reads derived ADAE. The current
 yamaa revision (`44aa32c`) supports `to_date` on the collected ISO `QSDTC`
-text directly in `../../spec/adadas.yaml`, so the runner no longer constructs a
+text directly in `../../spec/yamaa/adadas.yaml`, so the runner no longer constructs a
 `QSDTC_D` source column.
 
 ADAE and ADLBC read the derived ADSL through an implicit join on `STUDYID`

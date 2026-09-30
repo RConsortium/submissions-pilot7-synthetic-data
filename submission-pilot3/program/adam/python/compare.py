@@ -5,7 +5,7 @@ Reusable entry points:
 
     from compare import compare, compare_domain
     compare("../../data/adam/adsl-yamaa.parquet", "../../data/adam/adsl.parquet",
-            "adsl", spec="../../spec/adsl.yaml")
+            "adsl", spec="../../spec/yamaa/adsl.yaml")
     compare_domain("adsl")   # resolves the standard paths and compares
 
 Reports matched/total columns and cells per dataset. Exits nonzero on any
@@ -171,7 +171,7 @@ def compare_domain(name, data_root=None):
     data_root = Path(data_root) if data_root else STUDY / "data"
     derived_name, official_name = DATASETS[name]
     return compare(data_root / "adam" / derived_name, OFFICIAL_ADAM / official_name,
-                   name, STUDY / "spec" / f"{name}.yaml")
+                   name, STUDY / "spec" / "yamaa" / f"{name}.yaml")
 
 
 def main():

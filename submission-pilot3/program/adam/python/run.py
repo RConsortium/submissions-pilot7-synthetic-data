@@ -7,7 +7,7 @@ from yamaa import yamaa_domain
 
 here = Path.cwd()
 project_root = here.parent.parent
-specs = [project_root / "spec" / f"{name}.yaml" for name in
+specs = [project_root / "spec" / "yamaa" / f"{name}.yaml" for name in
          ("adsl", "adae", "adadas", "adtte", "adlbc")]
 
 for spec in specs:
