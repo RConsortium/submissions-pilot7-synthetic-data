@@ -1,0 +1,882 @@
+# ADQSNIPX: single-spec derivation (collapsed from adqsnpix-s1/s2/final).
+#
+# One row per SDTM QS record (NPITM01S-12S, NPTOT) with analysis-window
+# assignment (_WINDOW 0-13), closest-to-target selection (_IS_SEL='Y'),
+# baseline flag (_ABLFL='Y'), plus NPTOTMN baseline duplicates and
+# Weeks 4-24 mean rows.
+#
+# Row sources (all native yamaa):
+#   natural: every QS record; window/rank/selection computed inline.
+#   BASE_LKP: SELF lookup of the subject's NPTOT baseline record.
+#   W3/W4/W5/W6_LKP: SELF lookups of selected NPTOT at Weeks 6/8/10/12.
+#   nptotmn_base: NPTOTMN baseline duplicate per subject.
+#   nptotmn_mean: NPTOTMN Weeks 4-24 mean per subject (_N_MEAN >= 1).
+#
+# Official behavior (verified against the expected dataset):
+#   - every QS record is kept; ANL01FL='Y' only on the selected record.
+#   - NPTOTMN baseline rows duplicate the NPTOT baseline record
+#     (PARAMTYP='DERIVED', DTYPE='AVERAGE').
+#   - one NPTOTMN row per subject with _N_MEAN >= 1 at AVISITN=98
+#     ('      Weeks 4-24'), AVAL=_MEAN, CHG/PCHG null, DTYPE='AVERAGE',
+#     VISIT='', ADY/ADT/VISITNUM/QSSEQ null.
+#   - AVISIT strings are left-padded to length 16.
+#   - order: (USUBJID, PARAMN, AVISITN, ANL01FL desc, QSSEQ asc).
+schema_version: "1.0"
+domain: ADQSNPIX
+keys: [STUDYID, USUBJID, PARAMCD, AVISITN, ANL01FL, VISIT]
+
+input:
+  QS:
+    path: ../../data/sdtm/qs.parquet
+    empty_string: present
+  ADSL:
+    path: ../../data/adam/adsl-yamaa.parquet
+    empty_string: present
+
+base: QS
+
+output:
+  path: ../../data/adam/adqsnipx-yamaa.parquet
+  columns: [STUDYID, SITEID, SITEGR1, USUBJID, TRTSDT, TRTEDT, TRTP, TRTPN,
+    AGE, AGEGR1, AGEGR1N, RACE, RACEN, SEX, ITTFL, EFFFL, COMP24FL,
+    AVISIT, AVISITN, ADY, ADT, VISITNUM, VISIT, PARAM, PARAMCD, PARAMN,
+    PARAMTYP, AVAL, BASE, CHG, PCHG, ABLFL, ANL01FL, DTYPE, AWRANGE, AWTARGET,
+    AWTDIFF, AWLO, AWHI, AWU, QSSEQ]
+  order_by: [USUBJID, PARAMN, AVISITN,
+    {variable: ANL01FL, direction: desc},
+    QSSEQ]
+
+intermediates:
+  - id: ADSL_LKP
+    dataset: ADSL
+    key: [USUBJID]
+    order_by: [ADSL.USUBJID]
+    keep: first
+
+  - id: BASE_LKP
+    dataset: SELF
+    key: [USUBJID]
+    filter: "QSTESTCD = 'NPTOT' AND _ABLFL = 'Y'"
+    order_by: [QSSEQ]
+    keep: first
+
+  - id: BASE_PARAM
+    dataset: SELF
+    key: [USUBJID, QSTESTCD]
+    filter: "_ABLFL = 'Y'"
+    order_by: [QSSEQ]
+    keep: first
+    no_match: null
+
+  - id: W3_LKP
+    dataset: SELF
+    key: [USUBJID]
+    filter: "QSTESTCD = 'NPTOT' AND _IS_SEL = 'Y' AND _WINDOW = 3"
+    order_by: [QSSEQ]
+    keep: first
+    no_match: null
+
+  - id: W4_LKP
+    dataset: SELF
+    key: [USUBJID]
+    filter: "QSTESTCD = 'NPTOT' AND _IS_SEL = 'Y' AND _WINDOW = 4"
+    order_by: [QSSEQ]
+    keep: first
+    no_match: null
+
+  - id: W5_LKP
+    dataset: SELF
+    key: [USUBJID]
+    filter: "QSTESTCD = 'NPTOT' AND _IS_SEL = 'Y' AND _WINDOW = 5"
+    order_by: [QSSEQ]
+    keep: first
+    no_match: null
+
+  - id: W6_LKP
+    dataset: SELF
+    key: [USUBJID]
+    filter: "QSTESTCD = 'NPTOT' AND _IS_SEL = 'Y' AND _WINDOW = 6"
+    order_by: [QSSEQ]
+    keep: first
+    no_match: null
+
+columns:
+  - name: QSTESTCD
+    type: str
+    label: "Working value: QSTESTCD"
+
+  - name: _W
+    type: float
+    label: "Working value: _W"
+
+  - name: _B_QSDY
+    type: float
+    label: "Working value: _B_QSDY"
+
+  - name: _B_DTSTR
+    type: str
+    label: "Working value: _B_DTSTR"
+
+  - name: _WINDOW
+    type: int
+    label: "Working value: _WINDOW"
+
+  - name: _TARGET
+    type: float
+    label: "Working value: _TARGET"
+
+  - name: _DIFF
+    type: float
+    label: "Working value: _DIFF"
+
+  - name: _RANK
+    type: int
+    label: "Working value: _RANK"
+
+  - name: _IS_SEL
+    type: str
+    label: "Working value: _IS_SEL"
+
+  - name: _AVISIT
+    type: str
+    label: "Working value: _AVISIT"
+
+  - name: _AVISITN
+    type: float
+    label: "Working value: _AVISITN"
+
+  - name: _AWRANGE
+    type: str
+    label: "Working value: _AWRANGE"
+
+  - name: _AWTARGET
+    type: float
+    label: "Working value: _AWTARGET"
+
+  - name: _AWLO
+    type: float
+    label: "Working value: _AWLO"
+
+  - name: _AWHI
+    type: float
+    label: "Working value: _AWHI"
+
+  - name: _AVAL
+    type: float
+    label: "Working value: _AVAL"
+
+  - name: _ABLFL
+    type: str
+    label: "Working value: _ABLFL"
+
+  - name: _AWTDIFF
+    type: float
+    label: "Working value: _AWTDIFF"
+
+  - name: _W3N
+    type: int
+    label: "Working value: _W3N"
+
+  - name: _W4N
+    type: int
+    label: "Working value: _W4N"
+
+  - name: _W5N
+    type: int
+    label: "Working value: _W5N"
+
+  - name: _W6N
+    type: int
+    label: "Working value: _W6N"
+
+  - name: _CNT
+    type: int
+    label: "Working value: _CNT"
+
+  - name: _MEAN
+    type: float
+    label: "Working value: _MEAN"
+
+  - name: STUDYID
+    type: str
+    label: Study Identifier
+
+  - name: SITEID
+    type: str
+    label: Study Site Identifier
+    derivation: ADSL_LKP.SITEID
+
+  - name: SITEGR1
+    type: str
+    label: Pooled Site Group 1
+    derivation: ADSL_LKP.SITEGR1
+
+  - name: USUBJID
+    type: str
+    label: Unique Subject Identifier
+
+  - name: TRTSDT
+    type: date
+    label: Date of First Exposure to Treatment
+    derivation: ADSL_LKP.TRTSDT
+
+  - name: TRTEDT
+    type: date
+    label: Date of Last Exposure to Treatment
+    derivation: ADSL_LKP.TRTEDT
+
+  - name: TRTP
+    type: str
+    label: Planned Treatment
+    derivation: ADSL_LKP.TRT01P
+
+  - name: TRTPN
+    type: float
+    label: Planned Treatment (N)
+    derivation: ADSL_LKP.TRT01PN
+
+  - name: AGE
+    type: float
+    label: Age
+    derivation: ADSL_LKP.AGE
+
+  - name: AGEGR1
+    type: str
+    label: Pooled Age Group 1
+    derivation: ADSL_LKP.AGEGR1
+
+  - name: AGEGR1N
+    type: float
+    label: Pooled Age Group 1 (N)
+    derivation: ADSL_LKP.AGEGR1N
+
+  - name: RACE
+    type: str
+    label: Race
+    derivation: ADSL_LKP.RACE
+
+  - name: RACEN
+    type: float
+    label: Race (N)
+    derivation: ADSL_LKP.RACEN
+
+  - name: SEX
+    type: str
+    label: Sex
+    derivation: ADSL_LKP.SEX
+
+  - name: ITTFL
+    type: str
+    label: Intent-to-Treat Population Flag
+    derivation: ADSL_LKP.ITTFL
+
+  - name: EFFFL
+    type: str
+    label: Efficacy Population Flag
+    derivation: ADSL_LKP.EFFFL
+
+  - name: COMP24FL
+    type: str
+    label: Completers of Week 24 Population Flag
+    derivation: ADSL_LKP.COMP24FL
+
+  - name: AVISIT
+    type: str
+    label: Analysis Visit
+    derivation: _AVISIT
+
+  - name: AVISITN
+    type: float
+    label: Analysis Visit (N)
+    derivation: _AVISITN
+
+  - name: ADY
+    type: float
+    label: Analysis Relative Day
+
+  - name: ADT
+    type: date
+    label: Analysis Date
+
+  - name: VISITNUM
+    type: float
+    label: Visit Number
+
+  - name: VISIT
+    type: str
+    label: Visit Name
+
+  - name: PARAM
+    type: str
+    label: Parameter
+
+  - name: PARAMCD
+    type: str
+    label: Parameter Code
+
+  - name: PARAMN
+    type: float
+    label: Parameter (N)
+
+  - name: PARAMTYP
+    type: str
+    label: Parameter Type
+
+  - name: AVAL
+    type: float
+    label: Analysis Value
+    derivation: _AVAL
+
+  - name: BASE
+    type: float
+    label: Baseline Value
+    derivation: BASE_PARAM._AVAL
+
+  - name: CHG
+    type: float
+    label: Change from Baseline
+    derivation:
+      case:
+        - when: "_AVISITN <> 98.0 AND _AVAL IS NOT NULL
+            AND BASE_PARAM._AVAL IS NOT NULL"
+          then:
+            compute:
+              expr: "_AVAL - BASE_PARAM._AVAL"
+
+  - name: PCHG
+    type: float
+    label: Percent Change from Baseline
+    derivation:
+      case:
+        - when: "_AVISITN <> 98.0 AND _AVAL IS NOT NULL
+            AND BASE_PARAM._AVAL IS NOT NULL AND BASE_PARAM._AVAL <> 0"
+          then:
+            compute:
+              expr: "(_AVAL - BASE_PARAM._AVAL) / BASE_PARAM._AVAL * 100"
+
+  - name: ABLFL
+    type: str
+    label: Analysis Baseline Flag
+    derivation: _ABLFL
+
+  - name: ANL01FL
+    type: str
+    label: Analysis Record Flag 01
+
+  - name: DTYPE
+    type: str
+    label: Derivation Type
+
+  - name: AWRANGE
+    type: str
+    label: Analysis Window Valid Relative Range
+    derivation: _AWRANGE
+
+  - name: AWTARGET
+    type: float
+    label: Analysis Window Target
+    derivation: _AWTARGET
+
+  - name: AWTDIFF
+    type: float
+    label: Analysis Window Diff from Target
+    derivation: _AWTDIFF
+
+  - name: AWLO
+    type: float
+    label: Analysis Window Beginning Timepoint
+    derivation: _AWLO
+
+  - name: AWHI
+    type: float
+    label: Analysis Window Ending Timepoint
+    derivation: _AWHI
+
+  - name: AWU
+    type: str
+    label: Analysis Window Unit
+    derivation: {literal: 'DAYS'}
+
+  - name: QSSEQ
+    type: float
+    label: Sequence Number
+
+rows:
+  # ------------------------------------------------------------------
+  # natural: every QS record with window assignment and selection.
+  # _WINDOW 0-13, _RANK by (|QSDY-target|, QSDY, QSSEQ), _IS_SEL='Y'
+  # on rank 1, _ABLFL='Y' on the QSBLFL baseline record.
+  # ------------------------------------------------------------------
+  - id: natural
+    dataset: QS
+    filter: "QS.QSTESTCD IN ('NPITM01S','NPITM02S','NPITM03S',\
+      'NPITM04S','NPITM05S','NPITM06S','NPITM07S','NPITM08S',\
+      'NPITM09S','NPITM10S','NPITM11S','NPITM12S','NPTOT')"
+    derivations:
+      STUDYID: QS.STUDYID
+      USUBJID: QS.USUBJID
+      QSTESTCD: QS.QSTESTCD
+      QSSEQ: QS.QSSEQ
+      _WINDOW:
+        case:
+          - when: "QS.QSDY <= 1"
+            then: {literal: 0}
+          - when: "QS.QSDY <= 21"
+            then: {literal: 1}
+          - when: "QS.QSDY <= 35"
+            then: {literal: 2}
+          - when: "QS.QSDY <= 49"
+            then: {literal: 3}
+          - when: "QS.QSDY <= 63"
+            then: {literal: 4}
+          - when: "QS.QSDY <= 77"
+            then: {literal: 5}
+          - when: "QS.QSDY <= 91"
+            then: {literal: 6}
+          - when: "QS.QSDY <= 105"
+            then: {literal: 7}
+          - when: "QS.QSDY <= 119"
+            then: {literal: 8}
+          - when: "QS.QSDY <= 133"
+            then: {literal: 9}
+          - when: "QS.QSDY <= 147"
+            then: {literal: 10}
+          - when: "QS.QSDY <= 161"
+            then: {literal: 11}
+          - when: "QS.QSDY <= 175"
+            then: {literal: 12}
+          - otherwise: {literal: 13}
+      _TARGET:
+        case:
+          - when: "_WINDOW = 0"
+            then: {literal: 1.0}
+          - when: "_WINDOW = 1"
+            then: {literal: 14.0}
+          - when: "_WINDOW = 2"
+            then: {literal: 28.0}
+          - when: "_WINDOW = 3"
+            then: {literal: 42.0}
+          - when: "_WINDOW = 4"
+            then: {literal: 56.0}
+          - when: "_WINDOW = 5"
+            then: {literal: 70.0}
+          - when: "_WINDOW = 6"
+            then: {literal: 84.0}
+          - when: "_WINDOW = 7"
+            then: {literal: 98.0}
+          - when: "_WINDOW = 8"
+            then: {literal: 112.0}
+          - when: "_WINDOW = 9"
+            then: {literal: 126.0}
+          - when: "_WINDOW = 10"
+            then: {literal: 140.0}
+          - when: "_WINDOW = 11"
+            then: {literal: 154.0}
+          - when: "_WINDOW = 12"
+            then: {literal: 168.0}
+          - otherwise: {literal: 182.0}
+      _DIFF:
+        compute:
+          expr: "abs(QS.QSDY - _TARGET)"
+      _RANK:
+        rank:
+          method: dense
+          window:
+            group_by: [USUBJID, QSTESTCD, _WINDOW]
+            order_by: [{variable: _DIFF}, {variable: QS.QSDY},
+              {variable: QSSEQ}]
+      _IS_SEL:
+        case:
+          - when: "_RANK = 1"
+            then: {literal: 'Y'}
+          - otherwise: {literal: ''}
+      _ABLFL:
+        case:
+          - when: "QS.QSBLFL = 'Y' AND _WINDOW = 0"
+            then: {literal: 'Y'}
+          - otherwise: {literal: ''}
+      _W: _WINDOW
+      _B_QSDY: QS.QSDY
+      _B_DTSTR: QS.QSDTC
+      _W3N: {literal: null}
+      _W4N: {literal: null}
+      _W5N: {literal: null}
+      _W6N: {literal: null}
+      _CNT: {literal: null}
+      _MEAN: {literal: null}
+      _AVISIT:
+        case:
+          - when: "_W = 0"
+            then: {literal: '        Baseline'}
+          - when: "_W = 1"
+            then: {literal: '          Week 2'}
+          - when: "_W = 2"
+            then: {literal: '          Week 4'}
+          - when: "_W = 3"
+            then: {literal: '          Week 6'}
+          - when: "_W = 4"
+            then: {literal: '          Week 8'}
+          - when: "_W = 5"
+            then: {literal: '         Week 10'}
+          - when: "_W = 6"
+            then: {literal: '         Week 12'}
+          - when: "_W = 7"
+            then: {literal: '         Week 14'}
+          - when: "_W = 8"
+            then: {literal: '         Week 16'}
+          - when: "_W = 9"
+            then: {literal: '         Week 18'}
+          - when: "_W = 10"
+            then: {literal: '         Week 20'}
+          - when: "_W = 11"
+            then: {literal: '         Week 22'}
+          - when: "_W = 12"
+            then: {literal: '         Week 24'}
+          - otherwise: {literal: '         Week 26'}
+      _AVISITN:
+        case:
+          - when: "_W = 0"
+            then: {literal: 0.0}
+          - when: "_W = 1"
+            then: {literal: 2.0}
+          - when: "_W = 2"
+            then: {literal: 4.0}
+          - when: "_W = 3"
+            then: {literal: 6.0}
+          - when: "_W = 4"
+            then: {literal: 8.0}
+          - when: "_W = 5"
+            then: {literal: 10.0}
+          - when: "_W = 6"
+            then: {literal: 12.0}
+          - when: "_W = 7"
+            then: {literal: 14.0}
+          - when: "_W = 8"
+            then: {literal: 16.0}
+          - when: "_W = 9"
+            then: {literal: 18.0}
+          - when: "_W = 10"
+            then: {literal: 20.0}
+          - when: "_W = 11"
+            then: {literal: 22.0}
+          - when: "_W = 12"
+            then: {literal: 24.0}
+          - otherwise: {literal: 26.0}
+      _AWRANGE:
+        case:
+          - when: "_W = 0"
+            then: {literal: '<= 1'}
+          - when: "_W = 1"
+            then: {literal: '2 - 21'}
+          - when: "_W = 2"
+            then: {literal: '22 - 35'}
+          - when: "_W = 3"
+            then: {literal: '36 - 49'}
+          - when: "_W = 4"
+            then: {literal: '50 - 63'}
+          - when: "_W = 5"
+            then: {literal: '64 - 77'}
+          - when: "_W = 6"
+            then: {literal: '78 - 91'}
+          - when: "_W = 7"
+            then: {literal: '92 - 105'}
+          - when: "_W = 8"
+            then: {literal: '106 - 119'}
+          - when: "_W = 9"
+            then: {literal: '120 - 133'}
+          - when: "_W = 10"
+            then: {literal: '134 - 147'}
+          - when: "_W = 11"
+            then: {literal: '148 - 161'}
+          - when: "_W = 12"
+            then: {literal: '162 - 175'}
+          - otherwise: {literal: '>175'}
+      _AWTARGET:
+        case:
+          - when: "_W = 0"
+            then: {literal: 1.0}
+          - when: "_W = 1"
+            then: {literal: 14.0}
+          - when: "_W = 2"
+            then: {literal: 28.0}
+          - when: "_W = 3"
+            then: {literal: 42.0}
+          - when: "_W = 4"
+            then: {literal: 56.0}
+          - when: "_W = 5"
+            then: {literal: 70.0}
+          - when: "_W = 6"
+            then: {literal: 84.0}
+          - when: "_W = 7"
+            then: {literal: 98.0}
+          - when: "_W = 8"
+            then: {literal: 112.0}
+          - when: "_W = 9"
+            then: {literal: 126.0}
+          - when: "_W = 10"
+            then: {literal: 140.0}
+          - when: "_W = 11"
+            then: {literal: 154.0}
+          - when: "_W = 12"
+            then: {literal: 168.0}
+          - otherwise: {literal: 182.0}
+      _AWLO:
+        case:
+          - when: "_W = 1"
+            then: {literal: 2.0}
+          - when: "_W = 2"
+            then: {literal: 22.0}
+          - when: "_W = 3"
+            then: {literal: 36.0}
+          - when: "_W = 4"
+            then: {literal: 50.0}
+          - when: "_W = 5"
+            then: {literal: 64.0}
+          - when: "_W = 6"
+            then: {literal: 78.0}
+          - when: "_W = 7"
+            then: {literal: 92.0}
+          - when: "_W = 8"
+            then: {literal: 106.0}
+          - when: "_W = 9"
+            then: {literal: 120.0}
+          - when: "_W = 10"
+            then: {literal: 134.0}
+          - when: "_W = 11"
+            then: {literal: 148.0}
+          - when: "_W = 12"
+            then: {literal: 162.0}
+          - when: "_W = 13"
+            then: {literal: 176.0}
+      _AWHI:
+        case:
+          - when: "_W = 0"
+            then: {literal: 1.0}
+          - when: "_W = 1"
+            then: {literal: 21.0}
+          - when: "_W = 2"
+            then: {literal: 35.0}
+          - when: "_W = 3"
+            then: {literal: 49.0}
+          - when: "_W = 4"
+            then: {literal: 63.0}
+          - when: "_W = 5"
+            then: {literal: 77.0}
+          - when: "_W = 6"
+            then: {literal: 91.0}
+          - when: "_W = 7"
+            then: {literal: 105.0}
+          - when: "_W = 8"
+            then: {literal: 119.0}
+          - when: "_W = 9"
+            then: {literal: 133.0}
+          - when: "_W = 10"
+            then: {literal: 147.0}
+          - when: "_W = 11"
+            then: {literal: 161.0}
+          - when: "_W = 12"
+            then: {literal: 175.0}
+      _AVAL: QS.QSSTRESN
+      _AWTDIFF:
+        compute:
+          expr: "abs(_AWTARGET - QS.QSDY)"
+      ANL01FL:
+        case:
+          - when: "_IS_SEL = 'Y'"
+            then: {literal: 'Y'}
+          - otherwise: {literal: ''}
+      ADY: QS.QSDY
+      ADT:
+        date_impute:
+          source: QS.QSDTC
+          month: 1
+          day: 1
+          missing: null
+      VISIT: QS.VISIT
+      VISITNUM: QS.VISITNUM
+      PARAMCD: QS.QSTESTCD
+      PARAM:
+        case:
+          - when: "QSTESTCD = 'NPITM01S'"
+            then: {literal: 'NPI-X Item A (Delusion) Score'}
+          - when: "QSTESTCD = 'NPITM02S'"
+            then: {literal: 'NPI-X Item B (Hallucination)  Score'}
+          - when: "QSTESTCD = 'NPITM03S'"
+            then: {literal: 'NPI-X Item C (Agitation/Agression) Score'}
+          - when: "QSTESTCD = 'NPITM04S'"
+            then: {literal: 'NPI-X Item D (Depression/Dysphoria) Score'}
+          - when: "QSTESTCD = 'NPITM05S'"
+            then: {literal: 'NPI-X Item E (Anxiety) Score'}
+          - when: "QSTESTCD = 'NPITM06S'"
+            then: {literal: 'NPI-X Item F (Eupohoria/Elation) Score'}
+          - when: "QSTESTCD = 'NPITM07S'"
+            then: {literal: 'NPI-X Item G (Apathy/Indifference) Score'}
+          - when: "QSTESTCD = 'NPITM08S'"
+            then: {literal: 'NPI-X Item H (Disinhibition) Score'}
+          - when: "QSTESTCD = 'NPITM09S'"
+            then: {literal: 'NPI-X Item I (Irritability/Lability) Score'}
+          - when: "QSTESTCD = 'NPITM10S'"
+            then: {literal: 'NPI-X Item J (Aberrant Motor Behavior) Score'}
+          - when: "QSTESTCD = 'NPITM11S'"
+            then: {literal: 'NPI-X Item K (Night-time Behavior) Score'}
+          - when: "QSTESTCD = 'NPITM12S'"
+            then: {literal: 'NPI-X Item L (Appetite/Eating Change) Score'}
+          - otherwise: {literal: 'NPI-X (9) Total Score'}
+      PARAMN:
+        case:
+          - when: "QSTESTCD = 'NPITM01S'"
+            then: {literal: 1.0}
+          - when: "QSTESTCD = 'NPITM02S'"
+            then: {literal: 2.0}
+          - when: "QSTESTCD = 'NPITM03S'"
+            then: {literal: 3.0}
+          - when: "QSTESTCD = 'NPITM04S'"
+            then: {literal: 4.0}
+          - when: "QSTESTCD = 'NPITM05S'"
+            then: {literal: 5.0}
+          - when: "QSTESTCD = 'NPITM06S'"
+            then: {literal: 6.0}
+          - when: "QSTESTCD = 'NPITM07S'"
+            then: {literal: 7.0}
+          - when: "QSTESTCD = 'NPITM08S'"
+            then: {literal: 8.0}
+          - when: "QSTESTCD = 'NPITM09S'"
+            then: {literal: 9.0}
+          - when: "QSTESTCD = 'NPITM10S'"
+            then: {literal: 10.0}
+          - when: "QSTESTCD = 'NPITM11S'"
+            then: {literal: 11.0}
+          - when: "QSTESTCD = 'NPITM12S'"
+            then: {literal: 12.0}
+          - otherwise: {literal: 13.0}
+      PARAMTYP: {literal: ''}
+      DTYPE: {literal: ''}
+
+  # ------------------------------------------------------------------
+  # nptotmn_base: baseline duplicate of the NPTOT baseline record.
+  # Uses BASE_LKP (SELF) instead of S2._B_*.
+  # ------------------------------------------------------------------
+  - id: nptotmn_base
+    dataset: QS
+    group_by: [QS.USUBJID]
+    derivations:
+      STUDYID: ADSL_LKP.STUDYID
+      _WINDOW: {literal: null}
+      _TARGET: {literal: null}
+      _DIFF: {literal: null}
+      _RANK: {literal: null}
+      _IS_SEL: {literal: null}
+      _W3N: {literal: null}
+      _W4N: {literal: null}
+      _W5N: {literal: null}
+      _W6N: {literal: null}
+      _CNT: {literal: null}
+      _MEAN: {literal: null}
+      _B_QSDY: {literal: null}
+      _B_DTSTR: {literal: null}
+      USUBJID:
+        aggregate:
+          expr: "MIN(QS.USUBJID)"
+      QSTESTCD: {literal: 'NPTOT'}
+      _W: {literal: null}
+      _AVISIT: {literal: '        Baseline'}
+      _AVISITN: {literal: 0.0}
+      _AWRANGE: {literal: '<= 1'}
+      _AWTARGET: {literal: 1.0}
+      _AWLO: {literal: null}
+      _AWHI: {literal: 1.0}
+      _AVAL: BASE_LKP._AVAL
+      _ABLFL: {literal: 'Y'}
+      _AWTDIFF:
+        compute:
+          expr: "abs(1.0 - BASE_LKP._B_QSDY)"
+      ANL01FL: {literal: 'Y'}
+      ADY: BASE_LKP._B_QSDY
+      ADT:
+        date_impute:
+          source: BASE_LKP._B_DTSTR
+          month: 1
+          day: 1
+          missing: null
+      VISIT: BASE_LKP.VISIT
+      VISITNUM: BASE_LKP.VISITNUM
+      PARAMCD: {literal: 'NPTOTMN'}
+      PARAM: {literal: 'Mean NPI-X (9) Total (Week 4 to 24)'}
+      PARAMN: {literal: 14.0}
+      PARAMTYP: {literal: 'DERIVED'}
+      DTYPE: {literal: 'AVERAGE'}
+      QSSEQ: BASE_LKP.QSSEQ
+
+  # ------------------------------------------------------------------
+  # nptotmn_mean: Weeks 4-24 mean of selected NPTOT at Weeks 6/8/10/12.
+  # Mean computed from W3-W6_LKP (SELF) using null-presence flags.
+  # ------------------------------------------------------------------
+  - id: nptotmn_mean
+    dataset: QS
+    group_by: [QS.USUBJID]
+    filter: "_CNT >= 1"
+    derivations:
+      STUDYID: ADSL_LKP.STUDYID
+      USUBJID:
+        aggregate:
+          expr: "MIN(QS.USUBJID)"
+      QSTESTCD: {literal: 'NPTOT'}
+      _WINDOW: {literal: null}
+      _TARGET: {literal: null}
+      _DIFF: {literal: null}
+      _RANK: {literal: null}
+      _IS_SEL: {literal: null}
+      _B_QSDY: {literal: null}
+      _B_DTSTR: {literal: null}
+      _W: {literal: null}
+      _W3N:
+        case:
+          - when: "W3_LKP._AVAL IS NOT NULL"
+            then: {literal: 1}
+          - otherwise: {literal: 0}
+      _W4N:
+        case:
+          - when: "W4_LKP._AVAL IS NOT NULL"
+            then: {literal: 1}
+          - otherwise: {literal: 0}
+      _W5N:
+        case:
+          - when: "W5_LKP._AVAL IS NOT NULL"
+            then: {literal: 1}
+          - otherwise: {literal: 0}
+      _W6N:
+        case:
+          - when: "W6_LKP._AVAL IS NOT NULL"
+            then: {literal: 1}
+          - otherwise: {literal: 0}
+      _CNT:
+        compute:
+          expr: "_W3N + _W4N + _W5N + _W6N"
+      _MEAN:
+        case:
+          - when: "_CNT >= 1"
+            then:
+              compute:
+                expr: "(coalesce(W3_LKP._AVAL, 0) + coalesce(W4_LKP._AVAL,
+                  0) + coalesce(W5_LKP._AVAL, 0) + coalesce(W6_LKP._AVAL,
+                  0)) / _CNT"
+      _AVAL: _MEAN
+      _ABLFL: {literal: ''}
+      _AWTDIFF: {literal: 0.0}
+      _AVISIT: {literal: '      Weeks 4-24'}
+      _AVISITN: {literal: 98.0}
+      _AWRANGE: {literal: '22 - 175'}
+      _AWTARGET: {literal: 98.0}
+      _AWLO: {literal: 22.0}
+      _AWHI: {literal: 175.0}
+      ANL01FL: {literal: 'Y'}
+      ADY: {literal: null}
+      ADT: {literal: null}
+      VISIT: {literal: ''}
+      VISITNUM: {literal: null}
+      PARAMCD: {literal: 'NPTOTMN'}
+      PARAM: {literal: 'Mean NPI-X (9) Total (Week 4 to 24)'}
+      PARAMN: {literal: 14.0}
+      PARAMTYP: {literal: 'DERIVED'}
+      DTYPE: {literal: 'AVERAGE'}
+      QSSEQ: {literal: null}
