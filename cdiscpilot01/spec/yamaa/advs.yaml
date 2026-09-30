@@ -3,104 +3,20 @@ domain: ADVS
 keys: [STUDYID, USUBJID, VSSEQ, AVISIT]
 input:
   VS:
-    path: sdtm/vs.parquet
+    path: ../../data/sdtm/vs.parquet
     empty_string: present
   ADSL:
-    path: adam/adsl-yamaa.parquet
+    path: ../../data/adam/adsl-yamaa.parquet
     empty_string: present
 base: VS
 
-rows:
-  - id: base
-    dataset: VS
-    derivations:
-      _SRC_AVISIT:
-        mapping:
-          source: VS.VISIT
-          dict:
-            BASELINE: Baseline
-            WEEK 2: Week 2
-            WEEK 4: Week 4
-            WEEK 6: Week 6
-            WEEK 8: Week 8
-            WEEK 12: Week 12
-            WEEK 16: Week 16
-            WEEK 20: Week 20
-            WEEK 24: Week 24
-            WEEK 26: Week 26
-          missing: ''
-          unmapped: ''
-      _SRC_AVISITN:
-        mapping:
-          source: VS.VISIT
-          dict:
-            BASELINE: 0.0
-            WEEK 2: 2.0
-            WEEK 4: 4.0
-            WEEK 6: 6.0
-            WEEK 8: 8.0
-            WEEK 12: 12.0
-            WEEK 16: 16.0
-            WEEK 20: 20.0
-            WEEK 24: 24.0
-            WEEK 26: 26.0
-          missing: null
-          unmapped: null
-      _AVISIT_OUT: {source: _SRC_AVISIT}
-      _AVISITN_OUT: {source: _SRC_AVISITN}
-      _USUBJID: {literal: null}
-      _VSTESTCD: {literal: null}
-      _VSTPT: {literal: null}
-      _RANK: {literal: null}
-  - id: eot
-    dataset: VS
-    group_by: [VS.STUDYID, VS.USUBJID, VS.VSTESTCD, VS.VSTPT, VS.VSSEQ,
-      VS.VISIT, VS.VSDTC, VS.VSDY, VS.VSTPTNUM, VS.VSSTRESN, VS.VISITNUM]
-    filter: "_RANK = 1 AND _SRC_AVISITN > 2"
-    derivations:
-      _USUBJID: VS.USUBJID
-      _VSTESTCD: VS.VSTESTCD
-      _VSTPT: VS.VSTPT
-      _SRC_AVISIT:
-        mapping:
-          source: VS.VISIT
-          dict:
-            BASELINE: Baseline
-            WEEK 2: Week 2
-            WEEK 4: Week 4
-            WEEK 6: Week 6
-            WEEK 8: Week 8
-            WEEK 12: Week 12
-            WEEK 16: Week 16
-            WEEK 20: Week 20
-            WEEK 24: Week 24
-            WEEK 26: Week 26
-          missing: ''
-          unmapped: ''
-      _SRC_AVISITN:
-        mapping:
-          source: VS.VISIT
-          dict:
-            BASELINE: 0.0
-            WEEK 2: 2.0
-            WEEK 4: 4.0
-            WEEK 6: 6.0
-            WEEK 8: 8.0
-            WEEK 12: 12.0
-            WEEK 16: 16.0
-            WEEK 20: 20.0
-            WEEK 24: 24.0
-            WEEK 26: 26.0
-          missing: null
-          unmapped: null
-      _AVISIT_OUT: {literal: 'End of Treatment'}
-      _AVISITN_OUT: {literal: 99.0}
-      _RANK:
-        rank:
-          window:
-            group_by: [_USUBJID, _VSTESTCD, _VSTPT]
-            order_by: [{variable: _SRC_AVISITN, direction: desc}]
-            filter: "_SRC_AVISITN IS NOT NULL"
+output:
+  path: ../../data/adam/advs-yamaa.parquet
+  columns: [STUDYID, SITEID, USUBJID, AGE, AGEGR1, AGEGR1N, RACE, RACEN, SEX,
+    SAFFL, TRTSDT, TRTEDT, TRTP, TRTPN, TRTA, TRTAN, PARAMCD, PARAM, PARAMN,
+    ADT, ADY, ATPTN, ATPT, AVISIT, AVISITN, AVAL, BASE, CHG, PCHG, VISITNUM,
+    VISIT, VSSEQ, ANL01FL, ABLFL]
+  order_by: [USUBJID, PARAMCD, ATPTN, VSSEQ]
 
 intermediates:
   - id: ADSL1
@@ -108,19 +24,12 @@ intermediates:
     key: [STUDYID, USUBJID]
     order_by: [ADSL.USUBJID]
     keep: first
+
   - id: BASE1
     dataset: VS
     key: {USUBJID: USUBJID, VSTESTCD: PARAMCD, VSTPT: ATPT}
     filter: "VS.VISIT = 'BASELINE'"
     no_match: null
-
-output:
-  path: adam/advs-yamaa.parquet
-  order_by: [USUBJID, PARAMCD, ATPTN, VSSEQ]
-  columns: [STUDYID, SITEID, USUBJID, AGE, AGEGR1, AGEGR1N, RACE, RACEN, SEX,
-    SAFFL, TRTSDT, TRTEDT, TRTP, TRTPN, TRTA, TRTAN, PARAMCD, PARAM, PARAMN,
-    ADT, ADY, ATPTN, ATPT, AVISIT, AVISITN, AVAL, BASE, CHG, PCHG, VISITNUM,
-    VISIT, VSSEQ, ANL01FL, ABLFL]
 
 columns:
   - name: STUDYID
@@ -263,39 +172,46 @@ columns:
     derivation: VS.VSTPT
 
   - name: _SRC_AVISIT
+    type: str
     label: "Working value: _SRC_AVISIT"
-    type: str
+
   - name: _SRC_AVISITN
+    type: float
     label: "Working value: _SRC_AVISITN"
-    type: float
+
   - name: _AVISIT_OUT
+    type: str
     label: "Working value: _AVISIT_OUT"
-    type: str
+
   - name: _AVISITN_OUT
+    type: float
     label: "Working value: _AVISITN_OUT"
-    type: float
+
   - name: _USUBJID
+    type: str
     label: "Working value: _USUBJID"
-    type: str
+
   - name: _VSTESTCD
+    type: str
     label: "Working value: _VSTESTCD"
-    type: str
+
   - name: _VSTPT
-    label: "Working value: _VSTPT"
     type: str
+    label: "Working value: _VSTPT"
+
   - name: _RANK
-    label: "Working value: _RANK"
     type: float
+    label: "Working value: _RANK"
 
   - name: AVISIT
     type: str
     label: Analysis Visit
-    derivation: {source: _AVISIT_OUT}
+    derivation: _AVISIT_OUT
 
   - name: AVISITN
     type: float
     label: Analysis Visit (N)
-    derivation: {source: _AVISITN_OUT}
+    derivation: _AVISITN_OUT
 
   - name: AVAL
     type: float
@@ -353,3 +269,96 @@ columns:
         - when: "VS.VISIT = 'BASELINE'"
           then: {literal: 'Y'}
         - otherwise: {literal: ''}
+
+rows:
+  - id: base
+    dataset: VS
+    derivations:
+      _SRC_AVISIT:
+        mapping:
+          source: VS.VISIT
+          dict:
+            BASELINE: Baseline
+            WEEK 2: Week 2
+            WEEK 4: Week 4
+            WEEK 6: Week 6
+            WEEK 8: Week 8
+            WEEK 12: Week 12
+            WEEK 16: Week 16
+            WEEK 20: Week 20
+            WEEK 24: Week 24
+            WEEK 26: Week 26
+          missing: ''
+          unmapped: ''
+      _SRC_AVISITN:
+        mapping:
+          source: VS.VISIT
+          dict:
+            BASELINE: 0.0
+            WEEK 2: 2.0
+            WEEK 4: 4.0
+            WEEK 6: 6.0
+            WEEK 8: 8.0
+            WEEK 12: 12.0
+            WEEK 16: 16.0
+            WEEK 20: 20.0
+            WEEK 24: 24.0
+            WEEK 26: 26.0
+          missing: null
+          unmapped: null
+      _AVISIT_OUT: _SRC_AVISIT
+      _AVISITN_OUT: _SRC_AVISITN
+      _USUBJID: {literal: null}
+      _VSTESTCD: {literal: null}
+      _VSTPT: {literal: null}
+      _RANK: {literal: null}
+
+  - id: eot
+    dataset: VS
+    group_by: [VS.STUDYID, VS.USUBJID, VS.VSTESTCD, VS.VSTPT, VS.VSSEQ,
+      VS.VISIT, VS.VSDTC, VS.VSDY, VS.VSTPTNUM, VS.VSSTRESN, VS.VISITNUM]
+    filter: "_RANK = 1 AND _SRC_AVISITN > 2"
+    derivations:
+      _USUBJID: VS.USUBJID
+      _VSTESTCD: VS.VSTESTCD
+      _VSTPT: VS.VSTPT
+      _SRC_AVISIT:
+        mapping:
+          source: VS.VISIT
+          dict:
+            BASELINE: Baseline
+            WEEK 2: Week 2
+            WEEK 4: Week 4
+            WEEK 6: Week 6
+            WEEK 8: Week 8
+            WEEK 12: Week 12
+            WEEK 16: Week 16
+            WEEK 20: Week 20
+            WEEK 24: Week 24
+            WEEK 26: Week 26
+          missing: ''
+          unmapped: ''
+      _SRC_AVISITN:
+        mapping:
+          source: VS.VISIT
+          dict:
+            BASELINE: 0.0
+            WEEK 2: 2.0
+            WEEK 4: 4.0
+            WEEK 6: 6.0
+            WEEK 8: 8.0
+            WEEK 12: 12.0
+            WEEK 16: 16.0
+            WEEK 20: 20.0
+            WEEK 24: 24.0
+            WEEK 26: 26.0
+          missing: null
+          unmapped: null
+      _AVISIT_OUT: {literal: 'End of Treatment'}
+      _AVISITN_OUT: {literal: 99.0}
+      _RANK:
+        rank:
+          window:
+            group_by: [_USUBJID, _VSTESTCD, _VSTPT]
+            order_by: [{variable: _SRC_AVISITN, direction: desc}]
+            filter: "_SRC_AVISITN IS NOT NULL"

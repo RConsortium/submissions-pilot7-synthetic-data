@@ -27,13 +27,24 @@ keys: [STUDYID, USUBJID, PARAMCD, AVISITN, ANL01FL, VISIT]
 
 input:
   QS:
-    path: sdtm/qs.parquet
+    path: ../../data/sdtm/qs.parquet
     empty_string: present
   ADSL:
-    path: adam/adsl-yamaa.parquet
+    path: ../../data/adam/adsl-yamaa.parquet
     empty_string: present
 
 base: QS
+
+output:
+  path: ../../data/adam/adqsnipx-yamaa.parquet
+  columns: [STUDYID, SITEID, SITEGR1, USUBJID, TRTSDT, TRTEDT, TRTP, TRTPN,
+    AGE, AGEGR1, AGEGR1N, RACE, RACEN, SEX, ITTFL, EFFFL, COMP24FL,
+    AVISIT, AVISITN, ADY, ADT, VISITNUM, VISIT, PARAM, PARAMCD, PARAMN,
+    PARAMTYP, AVAL, BASE, CHG, PCHG, ABLFL, ANL01FL, DTYPE, AWRANGE, AWTARGET,
+    AWTDIFF, AWLO, AWHI, AWU, QSSEQ]
+  order_by: [USUBJID, PARAMN, AVISITN,
+    {variable: ANL01FL, direction: desc},
+    QSSEQ]
 
 intermediates:
   - id: ADSL_LKP
@@ -41,12 +52,14 @@ intermediates:
     key: [USUBJID]
     order_by: [ADSL.USUBJID]
     keep: first
+
   - id: BASE_LKP
     dataset: SELF
     key: [USUBJID]
     filter: "QSTESTCD = 'NPTOT' AND _ABLFL = 'Y'"
     order_by: [QSSEQ]
     keep: first
+
   - id: BASE_PARAM
     dataset: SELF
     key: [USUBJID, QSTESTCD]
@@ -54,6 +67,7 @@ intermediates:
     order_by: [QSSEQ]
     keep: first
     no_match: null
+
   - id: W3_LKP
     dataset: SELF
     key: [USUBJID]
@@ -61,6 +75,7 @@ intermediates:
     order_by: [QSSEQ]
     keep: first
     no_match: null
+
   - id: W4_LKP
     dataset: SELF
     key: [USUBJID]
@@ -68,6 +83,7 @@ intermediates:
     order_by: [QSSEQ]
     keep: first
     no_match: null
+
   - id: W5_LKP
     dataset: SELF
     key: [USUBJID]
@@ -75,6 +91,7 @@ intermediates:
     order_by: [QSSEQ]
     keep: first
     no_match: null
+
   - id: W6_LKP
     dataset: SELF
     key: [USUBJID]
@@ -82,6 +99,307 @@ intermediates:
     order_by: [QSSEQ]
     keep: first
     no_match: null
+
+columns:
+  - name: QSTESTCD
+    type: str
+    label: "Working value: QSTESTCD"
+
+  - name: _W
+    type: float
+    label: "Working value: _W"
+
+  - name: _B_QSDY
+    type: float
+    label: "Working value: _B_QSDY"
+
+  - name: _B_DTSTR
+    type: str
+    label: "Working value: _B_DTSTR"
+
+  - name: _WINDOW
+    type: int
+    label: "Working value: _WINDOW"
+
+  - name: _TARGET
+    type: float
+    label: "Working value: _TARGET"
+
+  - name: _DIFF
+    type: float
+    label: "Working value: _DIFF"
+
+  - name: _RANK
+    type: int
+    label: "Working value: _RANK"
+
+  - name: _IS_SEL
+    type: str
+    label: "Working value: _IS_SEL"
+
+  - name: _AVISIT
+    type: str
+    label: "Working value: _AVISIT"
+
+  - name: _AVISITN
+    type: float
+    label: "Working value: _AVISITN"
+
+  - name: _AWRANGE
+    type: str
+    label: "Working value: _AWRANGE"
+
+  - name: _AWTARGET
+    type: float
+    label: "Working value: _AWTARGET"
+
+  - name: _AWLO
+    type: float
+    label: "Working value: _AWLO"
+
+  - name: _AWHI
+    type: float
+    label: "Working value: _AWHI"
+
+  - name: _AVAL
+    type: float
+    label: "Working value: _AVAL"
+
+  - name: _ABLFL
+    type: str
+    label: "Working value: _ABLFL"
+
+  - name: _AWTDIFF
+    type: float
+    label: "Working value: _AWTDIFF"
+
+  - name: _W3N
+    type: int
+    label: "Working value: _W3N"
+
+  - name: _W4N
+    type: int
+    label: "Working value: _W4N"
+
+  - name: _W5N
+    type: int
+    label: "Working value: _W5N"
+
+  - name: _W6N
+    type: int
+    label: "Working value: _W6N"
+
+  - name: _CNT
+    type: int
+    label: "Working value: _CNT"
+
+  - name: _MEAN
+    type: float
+    label: "Working value: _MEAN"
+
+  - name: STUDYID
+    type: str
+    label: Study Identifier
+
+  - name: SITEID
+    type: str
+    label: Study Site Identifier
+    derivation: ADSL_LKP.SITEID
+
+  - name: SITEGR1
+    type: str
+    label: Pooled Site Group 1
+    derivation: ADSL_LKP.SITEGR1
+
+  - name: USUBJID
+    type: str
+    label: Unique Subject Identifier
+
+  - name: TRTSDT
+    type: date
+    label: Date of First Exposure to Treatment
+    derivation: ADSL_LKP.TRTSDT
+
+  - name: TRTEDT
+    type: date
+    label: Date of Last Exposure to Treatment
+    derivation: ADSL_LKP.TRTEDT
+
+  - name: TRTP
+    type: str
+    label: Planned Treatment
+    derivation: ADSL_LKP.TRT01P
+
+  - name: TRTPN
+    type: float
+    label: Planned Treatment (N)
+    derivation: ADSL_LKP.TRT01PN
+
+  - name: AGE
+    type: float
+    label: Age
+    derivation: ADSL_LKP.AGE
+
+  - name: AGEGR1
+    type: str
+    label: Pooled Age Group 1
+    derivation: ADSL_LKP.AGEGR1
+
+  - name: AGEGR1N
+    type: float
+    label: Pooled Age Group 1 (N)
+    derivation: ADSL_LKP.AGEGR1N
+
+  - name: RACE
+    type: str
+    label: Race
+    derivation: ADSL_LKP.RACE
+
+  - name: RACEN
+    type: float
+    label: Race (N)
+    derivation: ADSL_LKP.RACEN
+
+  - name: SEX
+    type: str
+    label: Sex
+    derivation: ADSL_LKP.SEX
+
+  - name: ITTFL
+    type: str
+    label: Intent-to-Treat Population Flag
+    derivation: ADSL_LKP.ITTFL
+
+  - name: EFFFL
+    type: str
+    label: Efficacy Population Flag
+    derivation: ADSL_LKP.EFFFL
+
+  - name: COMP24FL
+    type: str
+    label: Completers of Week 24 Population Flag
+    derivation: ADSL_LKP.COMP24FL
+
+  - name: AVISIT
+    type: str
+    label: Analysis Visit
+    derivation: _AVISIT
+
+  - name: AVISITN
+    type: float
+    label: Analysis Visit (N)
+    derivation: _AVISITN
+
+  - name: ADY
+    type: float
+    label: Analysis Relative Day
+
+  - name: ADT
+    type: date
+    label: Analysis Date
+
+  - name: VISITNUM
+    type: float
+    label: Visit Number
+
+  - name: VISIT
+    type: str
+    label: Visit Name
+
+  - name: PARAM
+    type: str
+    label: Parameter
+
+  - name: PARAMCD
+    type: str
+    label: Parameter Code
+
+  - name: PARAMN
+    type: float
+    label: Parameter (N)
+
+  - name: PARAMTYP
+    type: str
+    label: Parameter Type
+
+  - name: AVAL
+    type: float
+    label: Analysis Value
+    derivation: _AVAL
+
+  - name: BASE
+    type: float
+    label: Baseline Value
+    derivation: BASE_PARAM._AVAL
+
+  - name: CHG
+    type: float
+    label: Change from Baseline
+    derivation:
+      case:
+        - when: "_AVISITN <> 98.0 AND _AVAL IS NOT NULL
+            AND BASE_PARAM._AVAL IS NOT NULL"
+          then:
+            compute:
+              expr: "_AVAL - BASE_PARAM._AVAL"
+
+  - name: PCHG
+    type: float
+    label: Percent Change from Baseline
+    derivation:
+      case:
+        - when: "_AVISITN <> 98.0 AND _AVAL IS NOT NULL
+            AND BASE_PARAM._AVAL IS NOT NULL AND BASE_PARAM._AVAL <> 0"
+          then:
+            compute:
+              expr: "(_AVAL - BASE_PARAM._AVAL) / BASE_PARAM._AVAL * 100"
+
+  - name: ABLFL
+    type: str
+    label: Analysis Baseline Flag
+    derivation: _ABLFL
+
+  - name: ANL01FL
+    type: str
+    label: Analysis Record Flag 01
+
+  - name: DTYPE
+    type: str
+    label: Derivation Type
+
+  - name: AWRANGE
+    type: str
+    label: Analysis Window Valid Relative Range
+    derivation: _AWRANGE
+
+  - name: AWTARGET
+    type: float
+    label: Analysis Window Target
+    derivation: _AWTARGET
+
+  - name: AWTDIFF
+    type: float
+    label: Analysis Window Diff from Target
+    derivation: _AWTDIFF
+
+  - name: AWLO
+    type: float
+    label: Analysis Window Beginning Timepoint
+    derivation: _AWLO
+
+  - name: AWHI
+    type: float
+    label: Analysis Window Ending Timepoint
+    derivation: _AWHI
+
+  - name: AWU
+    type: str
+    label: Analysis Window Unit
+    derivation: {literal: 'DAYS'}
+
+  - name: QSSEQ
+    type: float
+    label: Sequence Number
 
 rows:
   # ------------------------------------------------------------------
@@ -91,7 +409,9 @@ rows:
   # ------------------------------------------------------------------
   - id: natural
     dataset: QS
-    filter: "QS.QSTESTCD IN ('NPITM01S','NPITM02S','NPITM03S','NPITM04S','NPITM05S','NPITM06S','NPITM07S','NPITM08S','NPITM09S','NPITM10S','NPITM11S','NPITM12S','NPTOT')"
+    filter: "QS.QSTESTCD IN ('NPITM01S','NPITM02S','NPITM03S',\
+      'NPITM04S','NPITM05S','NPITM06S','NPITM07S','NPITM08S',\
+      'NPITM09S','NPITM10S','NPITM11S','NPITM12S','NPTOT')"
     derivations:
       STUDYID: QS.STUDYID
       USUBJID: QS.USUBJID
@@ -163,7 +483,8 @@ rows:
           method: dense
           window:
             group_by: [USUBJID, QSTESTCD, _WINDOW]
-            order_by: [{variable: _DIFF}, {variable: QS.QSDY}, {variable: QSSEQ}]
+            order_by: [{variable: _DIFF}, {variable: QS.QSDY},
+              {variable: QSSEQ}]
       _IS_SEL:
         case:
           - when: "_RANK = 1"
@@ -430,6 +751,7 @@ rows:
           - otherwise: {literal: 13.0}
       PARAMTYP: {literal: ''}
       DTYPE: {literal: ''}
+
   # ------------------------------------------------------------------
   # nptotmn_base: baseline duplicate of the NPTOT baseline record.
   # Uses BASE_LKP (SELF) instead of S2._B_*.
@@ -484,6 +806,7 @@ rows:
       PARAMTYP: {literal: 'DERIVED'}
       DTYPE: {literal: 'AVERAGE'}
       QSSEQ: BASE_LKP.QSSEQ
+
   # ------------------------------------------------------------------
   # nptotmn_mean: Weeks 4-24 mean of selected NPTOT at Weeks 6/8/10/12.
   # Mean computed from W3-W6_LKP (SELF) using null-presence flags.
@@ -534,7 +857,9 @@ rows:
           - when: "_CNT >= 1"
             then:
               compute:
-                expr: "(coalesce(W3_LKP._AVAL, 0) + coalesce(W4_LKP._AVAL, 0) + coalesce(W5_LKP._AVAL, 0) + coalesce(W6_LKP._AVAL, 0)) / _CNT"
+                expr: "(coalesce(W3_LKP._AVAL, 0) + coalesce(W4_LKP._AVAL,
+                  0) + coalesce(W5_LKP._AVAL, 0) + coalesce(W6_LKP._AVAL,
+                  0)) / _CNT"
       _AVAL: _MEAN
       _ABLFL: {literal: ''}
       _AWTDIFF: {literal: 0.0}
@@ -555,249 +880,3 @@ rows:
       PARAMTYP: {literal: 'DERIVED'}
       DTYPE: {literal: 'AVERAGE'}
       QSSEQ: {literal: null}
-
-output:
-  path: adam/adqsnipx-yamaa.parquet
-  columns: [STUDYID, SITEID, SITEGR1, USUBJID, TRTSDT, TRTEDT, TRTP, TRTPN,
-    AGE, AGEGR1, AGEGR1N, RACE, RACEN, SEX, ITTFL, EFFFL, COMP24FL,
-    AVISIT, AVISITN, ADY, ADT, VISITNUM, VISIT, PARAM, PARAMCD, PARAMN,
-    PARAMTYP, AVAL, BASE, CHG, PCHG, ABLFL, ANL01FL, DTYPE, AWRANGE, AWTARGET,
-    AWTDIFF, AWLO, AWHI, AWU, QSSEQ]
-  order_by: [USUBJID, PARAMN, AVISITN,
-    {variable: ANL01FL, direction: desc},
-    QSSEQ]
-
-columns:
-  - name: QSTESTCD
-    label: "Working value: QSTESTCD"
-    type: str
-  - name: _W
-    label: "Working value: _W"
-    type: float
-  - name: _B_QSDY
-    label: "Working value: _B_QSDY"
-    type: float
-  - name: _B_DTSTR
-    label: "Working value: _B_DTSTR"
-    type: str
-  - name: _WINDOW
-    label: "Working value: _WINDOW"
-    type: int
-  - name: _TARGET
-    label: "Working value: _TARGET"
-    type: float
-  - name: _DIFF
-    label: "Working value: _DIFF"
-    type: float
-  - name: _RANK
-    label: "Working value: _RANK"
-    type: int
-  - name: _IS_SEL
-    label: "Working value: _IS_SEL"
-    type: str
-  - name: _AVISIT
-    label: "Working value: _AVISIT"
-    type: str
-  - name: _AVISITN
-    label: "Working value: _AVISITN"
-    type: float
-  - name: _AWRANGE
-    label: "Working value: _AWRANGE"
-    type: str
-  - name: _AWTARGET
-    label: "Working value: _AWTARGET"
-    type: float
-  - name: _AWLO
-    label: "Working value: _AWLO"
-    type: float
-  - name: _AWHI
-    label: "Working value: _AWHI"
-    type: float
-  - name: _AVAL
-    label: "Working value: _AVAL"
-    type: float
-  - name: _ABLFL
-    label: "Working value: _ABLFL"
-    type: str
-  - name: _AWTDIFF
-    label: "Working value: _AWTDIFF"
-    type: float
-  - name: _W3N
-    label: "Working value: _W3N"
-    type: int
-  - name: _W4N
-    label: "Working value: _W4N"
-    type: int
-  - name: _W5N
-    label: "Working value: _W5N"
-    type: int
-  - name: _W6N
-    label: "Working value: _W6N"
-    type: int
-  - name: _CNT
-    label: "Working value: _CNT"
-    type: int
-  - name: _MEAN
-    label: "Working value: _MEAN"
-    type: float
-  - name: STUDYID
-    type: str
-    label: Study Identifier
-  - name: SITEID
-    type: str
-    label: Study Site Identifier
-    derivation: ADSL_LKP.SITEID
-  - name: SITEGR1
-    type: str
-    label: Pooled Site Group 1
-    derivation: ADSL_LKP.SITEGR1
-  - name: USUBJID
-    type: str
-    label: Unique Subject Identifier
-  - name: TRTSDT
-    type: date
-    label: Date of First Exposure to Treatment
-    derivation: ADSL_LKP.TRTSDT
-  - name: TRTEDT
-    type: date
-    label: Date of Last Exposure to Treatment
-    derivation: ADSL_LKP.TRTEDT
-  - name: TRTP
-    type: str
-    label: Planned Treatment
-    derivation: ADSL_LKP.TRT01P
-  - name: TRTPN
-    type: float
-    label: Planned Treatment (N)
-    derivation: ADSL_LKP.TRT01PN
-  - name: AGE
-    type: float
-    label: Age
-    derivation: ADSL_LKP.AGE
-  - name: AGEGR1
-    type: str
-    label: Pooled Age Group 1
-    derivation: ADSL_LKP.AGEGR1
-  - name: AGEGR1N
-    type: float
-    label: Pooled Age Group 1 (N)
-    derivation: ADSL_LKP.AGEGR1N
-  - name: RACE
-    type: str
-    label: Race
-    derivation: ADSL_LKP.RACE
-  - name: RACEN
-    type: float
-    label: Race (N)
-    derivation: ADSL_LKP.RACEN
-  - name: SEX
-    type: str
-    label: Sex
-    derivation: ADSL_LKP.SEX
-  - name: ITTFL
-    type: str
-    label: Intent-to-Treat Population Flag
-    derivation: ADSL_LKP.ITTFL
-  - name: EFFFL
-    type: str
-    label: Efficacy Population Flag
-    derivation: ADSL_LKP.EFFFL
-  - name: COMP24FL
-    type: str
-    label: Completers of Week 24 Population Flag
-    derivation: ADSL_LKP.COMP24FL
-  - name: AVISIT
-    type: str
-    label: Analysis Visit
-    derivation: _AVISIT
-  - name: AVISITN
-    type: float
-    label: Analysis Visit (N)
-    derivation: _AVISITN
-  - name: ADY
-    type: float
-    label: Analysis Relative Day
-  - name: ADT
-    type: date
-    label: Analysis Date
-  - name: VISITNUM
-    type: float
-    label: Visit Number
-  - name: VISIT
-    type: str
-    label: Visit Name
-  - name: PARAM
-    type: str
-    label: Parameter
-  - name: PARAMCD
-    type: str
-    label: Parameter Code
-  - name: PARAMN
-    type: float
-    label: Parameter (N)
-  - name: PARAMTYP
-    type: str
-    label: Parameter Type
-  - name: AVAL
-    type: float
-    label: Analysis Value
-    derivation: _AVAL
-  - name: BASE
-    type: float
-    label: Baseline Value
-    derivation: BASE_PARAM._AVAL
-  - name: CHG
-    type: float
-    label: Change from Baseline
-    derivation:
-      case:
-        - when: "_AVISITN <> 98.0 AND _AVAL IS NOT NULL AND BASE_PARAM._AVAL IS NOT NULL"
-          then:
-            compute:
-              expr: "_AVAL - BASE_PARAM._AVAL"
-  - name: PCHG
-    type: float
-    label: Percent Change from Baseline
-    derivation:
-      case:
-        - when: "_AVISITN <> 98.0 AND _AVAL IS NOT NULL AND BASE_PARAM._AVAL IS NOT NULL AND BASE_PARAM._AVAL <> 0"
-          then:
-            compute:
-              expr: "(_AVAL - BASE_PARAM._AVAL) / BASE_PARAM._AVAL * 100"
-  - name: ABLFL
-    type: str
-    label: Analysis Baseline Flag
-    derivation: _ABLFL
-  - name: ANL01FL
-    type: str
-    label: Analysis Record Flag 01
-  - name: DTYPE
-    type: str
-    label: Derivation Type
-  - name: AWRANGE
-    type: str
-    label: Analysis Window Valid Relative Range
-    derivation: _AWRANGE
-  - name: AWTARGET
-    type: float
-    label: Analysis Window Target
-    derivation: _AWTARGET
-  - name: AWTDIFF
-    type: float
-    label: Analysis Window Diff from Target
-    derivation: _AWTDIFF
-  - name: AWLO
-    type: float
-    label: Analysis Window Beginning Timepoint
-    derivation: _AWLO
-  - name: AWHI
-    type: float
-    label: Analysis Window Ending Timepoint
-    derivation: _AWHI
-  - name: AWU
-    type: str
-    label: Analysis Window Unit
-    derivation: {literal: 'DAYS'}
-  - name: QSSEQ
-    type: float
-    label: Sequence Number

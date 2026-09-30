@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """Strict compare: derived vs official Pilot 1 ADaM parquet.
 
-Compares adam/<ds>-yamaa.parquet against ../../data/adam/<ds>.parquet.
+Compares data/adam/<ds>-yamaa.parquet against data/adam/<ds>.parquet.
 Checks: shape, column order, Arrow types, yamaa:label metadata,
 and every cell. Numeric cells match when |derived - official| <= 1e-10
 (absolute). Non-numeric cells must be exact. Null vs "" are distinct
@@ -16,7 +16,7 @@ import pyarrow as pa
 import pyarrow.parquet as pq
 
 BASE = Path(__file__).resolve().parent
-EXPECTED = BASE.parent.parent / "data" / "adam"
+EXPECTED = BASE.parents[2] / "data" / "adam"
 DATASETS = ["adsl", "adae", "adtte", "advs", "adlbc", "adlbh",
             "adlbhy", "adqsnipx"]
 # Official ADaM filenames; derived names match spec filenames.
@@ -26,7 +26,7 @@ ABS_TOL = 1e-10
 
 def compare(ds: str) -> bool:
     exp_t = pq.read_table(EXPECTED / f"{EXPECTED_NAMES.get(ds, ds)}.parquet")
-    got_t = pq.read_table(BASE / "adam" / f"{ds}-yamaa.parquet")
+    got_t = pq.read_table(EXPECTED / f"{ds}-yamaa.parquet")
     ok = True
     missing = set(exp_t.schema.names) - set(got_t.schema.names)
     bad_columns = set(missing)

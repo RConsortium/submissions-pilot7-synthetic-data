@@ -3,33 +3,28 @@ domain: ADTTE
 keys: [STUDYID, USUBJID]
 input:
   ADSL:
-    path: adam/adsl-yamaa.parquet
+    path: ../../data/adam/adsl-yamaa.parquet
     empty_string: present
   ADAE:
-    path: adam/adae-yamaa.parquet
+    path: ../../data/adam/adae-yamaa.parquet
     empty_string: present
 base: ADSL
 
-rows:
-  - id: all-subjects
-    dataset: ADSL
-    derivations: {}
+output:
+  path: ../../data/adam/adtte-yamaa.parquet
+  columns: [STUDYID, SITEID, USUBJID, AGE, AGEGR1, AGEGR1N, RACE, RACEN, SEX,
+    TRTSDT, TRTEDT, TRTDUR, TRTP, TRTA, TRTAN, PARAM, PARAMCD, AVAL, STARTDT,
+    ADT, CNSR, EVNTDESC, SRCDOM, SRCVAR, SRCSEQ, SAFFL]
+  order_by: [USUBJID, PARAMCD]
 
 intermediates:
   - id: FIRST_DERM
     dataset: ADAE
-    filter: "ADAE.AOCC01FL = 'Y'"
     key: [STUDYID, USUBJID]
+    filter: "ADAE.AOCC01FL = 'Y'"
     order_by: [ADAE.ASTDT, ADAE.AESEQ]
     keep: first
     no_match: null
-
-output:
-  path: adam/adtte-yamaa.parquet
-  order_by: [USUBJID, PARAMCD]
-  columns: [STUDYID, SITEID, USUBJID, AGE, AGEGR1, AGEGR1N, RACE, RACEN, SEX,
-    TRTSDT, TRTEDT, TRTDUR, TRTP, TRTA, TRTAN, PARAM, PARAMCD, AVAL, STARTDT,
-    ADT, CNSR, EVNTDESC, SRCDOM, SRCVAR, SRCSEQ, SAFFL]
 
 columns:
   - name: STUDYID
@@ -110,14 +105,12 @@ columns:
   - name: PARAM
     type: str
     label: Parameter Description
-    derivation:
-      literal: Time to First Dermatologic Event
+    derivation: {literal: Time to First Dermatologic Event}
 
   - name: PARAMCD
     type: str
     label: Parameter Code
-    derivation:
-      literal: TTDE
+    derivation: {literal: TTDE}
 
   - name: STARTDT
     type: date
@@ -130,10 +123,8 @@ columns:
     derivation:
       case:
         - when: "FIRST_DERM.AESEQ IS NOT NULL"
-          then:
-            literal: "Y"
-        - otherwise:
-            literal: "N"
+          then: {literal: "Y"}
+        - otherwise: {literal: "N"}
 
   - name: ADT
     type: date
@@ -141,10 +132,8 @@ columns:
     derivation:
       case:
         - when: "HAS_EVENT = 'Y'"
-          then:
-            source: FIRST_DERM.ASTDT
-        - otherwise:
-            source: ADSL.RFENDT
+          then: FIRST_DERM.ASTDT
+        - otherwise: ADSL.RFENDT
 
   - name: AVAL
     type: float
@@ -162,10 +151,8 @@ columns:
     derivation:
       case:
         - when: "HAS_EVENT = 'Y'"
-          then:
-            literal: 0
-        - otherwise:
-            literal: 1
+          then: {literal: 0}
+        - otherwise: {literal: 1}
 
   - name: EVNTDESC
     type: str
@@ -173,10 +160,8 @@ columns:
     derivation:
       case:
         - when: "HAS_EVENT = 'Y'"
-          then:
-            literal: Dematologic Event Occured
-        - otherwise:
-            literal: Study Completion Date
+          then: {literal: Dematologic Event Occured}
+        - otherwise: {literal: Study Completion Date}
 
   - name: SRCDOM
     type: str
@@ -184,10 +169,8 @@ columns:
     derivation:
       case:
         - when: "HAS_EVENT = 'Y'"
-          then:
-            literal: ADAE
-        - otherwise:
-            literal: ADSL
+          then: {literal: ADAE}
+        - otherwise: {literal: ADSL}
 
   - name: SRCVAR
     type: str
@@ -195,10 +178,8 @@ columns:
     derivation:
       case:
         - when: "HAS_EVENT = 'Y'"
-          then:
-            literal: ASTDT
-        - otherwise:
-            literal: RFENDT
+          then: {literal: ASTDT}
+        - otherwise: {literal: RFENDT}
 
   - name: SRCSEQ
     type: float
@@ -209,3 +190,8 @@ columns:
     type: str
     label: Safety Population Flag
     derivation: ADSL.SAFFL
+
+rows:
+  - id: all-subjects
+    dataset: ADSL
+    derivations: {}
