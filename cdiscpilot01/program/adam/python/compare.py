@@ -2,12 +2,15 @@
 """Strict compare: derived vs official Pilot 1 ADaM parquet.
 
 Compares data/adam/<ds>-yamaa.parquet against data/adam/<ds>.parquet.
-Checks: shape, column order, Arrow types, yamaa:label metadata,
-and every cell. Numeric cells match when |derived - official| <= 1e-10
-(absolute). Non-numeric cells must be exact. Null vs "" are distinct
-(no normalization).
+Checks: shape, column order, Arrow types, and every cell. Numeric
+cells match when |derived - official| <= 1e-10 (absolute).
+Non-numeric cells must be exact. Null vs "" are distinct
+(no normalization). Spec labels must agree with the official
+`yamaa:label` field metadata (run.save() writes data only).
 
 Exit code nonzero on any mismatch.
+
+Requires: pyarrow, PyYAML.
 """
 import sys
 from pathlib import Path
@@ -16,12 +19,22 @@ import pyarrow as pa
 import pyarrow.parquet as pq
 
 BASE = Path(__file__).resolve().parent
-EXPECTED = BASE.parents[2] / "data" / "adam"
+STUDY = BASE.parents[2]
+EXPECTED = STUDY / "data" / "adam"
+SPECS = STUDY / "spec" / "yamaa"
 DATASETS = ["adsl", "adae", "adtte", "advs", "adlbc", "adlbh",
             "adlbhy", "adqsnipx"]
 # Official ADaM filenames; derived names match spec filenames.
 EXPECTED_NAMES = {"adqsnipx": "adqsnpix"}
 ABS_TOL = 1e-10
+
+
+def _spec_labels(spec):
+    """Declared labels from a yamaa YAML specification."""
+    import yaml
+
+    columns = yaml.safe_load(Path(spec).read_text(encoding="utf-8"))["columns"]
+    return {column["name"]: column.get("label") for column in columns}
 
 
 def compare(ds: str) -> bool:
@@ -54,11 +67,22 @@ def compare(ds: str) -> bool:
         if not (f.type.equals(g.type) or text_types):
             report(f"type {f.name}: exp={f.type} got={g.type}")
             bad_columns.add(f.name)
-        el = (f.metadata or {}).get(b"yamaa:label", b"")
-        gl = (g.metadata or {}).get(b"yamaa:label", b"")
+
+    # run.save() writes data; compare the spec's declared labels separately.
+    spec_labels = _spec_labels(SPECS / f"{ds}.yaml")
+    for f in exp_t.schema:
+        if f.name not in got_t.schema.names:
+            continue
+        el = (f.metadata or {}).get(b"yamaa:label")
+        declared = spec_labels.get(f.name)
+        gl = declared.encode() if declared else None
         if el != gl:
             report(f"label {f.name}: exp={el!r} got={gl!r}")
             bad_columns.add(f.name)
+    unlabeled = [n for n in got_t.schema.names if not spec_labels.get(n)]
+    if unlabeled:
+        report(f"unlabeled columns: {unlabeled}")
+        bad_columns.update(unlabeled)
 
     for f in exp_t.schema:
         name = f.name
