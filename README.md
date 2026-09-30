@@ -73,6 +73,8 @@ analysis datasets, and the ADaM feed the tables, listings, and figures.
 |   +-- sdtm/                 CRF data -> SDTM
 |   +-- adam/                 SDTM -> ADaM
 +-- spec/                     dataset specifications and standards metadata
+|   +-- define/              define.xml files, when present
+|   +-- yamaa/               yamaa derivation specifications, when present
 +-- tlf/                      tables, listings, and figures
 +-- log/                      execution logs, one per program
 ```
@@ -102,5 +104,4 @@ python3 .github/scripts/check_structure.py
 - Original sdtm: [json version](https://github.com/RConsortium/submissions-pilot6-adams-tlfs/tree/main/data/sdtm)
 - Original xpt versions: see pilot 5 [repo](https://github.com/RConsortium/submissions-pilot5-datasetjson) 
 - CSR: [https://github.com/cdisc-org/sdtm-adam-pilot-project/blob/master/updated-pilot-submission-package/900172/m5/53-clin-stud-rep/535-rep-effic-safety-stud/5351-stud-rep-contr/cdiscpilot01/cdiscpilot01.pdf](https://github.com/cdisc-org/sdtm-adam-pilot-project/blob/master/updated-pilot-submission-package/900172/m5/53-clin-stud-rep/535-rep-effic-safety-stud/5351-stud-rep-contr/cdiscpilot01/cdiscpilot01.pdf)
-
 
