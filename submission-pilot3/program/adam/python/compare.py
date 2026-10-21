@@ -11,12 +11,10 @@ Reusable entry points:
 Reports matched/total columns and cells per dataset. Exits nonzero on any
 mismatch when run as a script.
 
-Semantics (standing tolerance): numeric cells match when
-|derived - official| <= 1e-10 (absolute); non-numeric cells match exactly
-with null/"" normalized (the official ADaM was produced by R, where a
-missing character value is ""). Key columns align with zero unmatched
-rows on either side and count as matched. Spec labels must agree with the
-official `yamaa:label` field metadata.
+Numeric cells match exactly or within absolute tolerance 1e-10, reported
+separately. Text/null values match exactly; blank/null differences are
+reported separately and fail. Keys must be unique and have identical sets.
+Saved field labels and, when supplied, declared labels are checked.
 
 Requires: polars, pyarrow, PyYAML.
 
@@ -96,7 +94,15 @@ def compare(output, reference, name, spec=None):
     assert new.height == ref.height, (
         f"{name}: row count {new.height} != official {ref.height}"
     )
-    joined = new.join(ref, on=keys, how="inner", suffix="_ref")
+    assert not new.select(keys).is_duplicated().any(), f"{name}: duplicate derived keys"
+    assert not ref.select(keys).is_duplicated().any(), f"{name}: duplicate reference keys"
+    assert new.join(ref.select(keys), on=keys, how="anti", nulls_equal=True).height == 0, (
+        f"{name}: extra derived keys"
+    )
+    assert ref.join(new.select(keys), on=keys, how="anti", nulls_equal=True).height == 0, (
+        f"{name}: missing derived keys"
+    )
+    joined = new.join(ref, on=keys, how="inner", suffix="_ref", nulls_equal=True)
     assert joined.height == ref.height, f"{name}: key mismatch vs official"
 
     common = [c for c in new.columns if c not in keys and c in ref.columns]
@@ -105,42 +111,62 @@ def compare(output, reference, name, spec=None):
     ]
     uncovered = [c for c in ref.columns if c not in keys and c not in new.columns]
 
-    total_cells = new.height * (len(common) + len(keys))
-    mismatch = 0
+    total_cells = ref.height * ref.width
+    mismatch = ref.height * len(uncovered)
+    exact_cells = ref.height * len(keys)
+    tolerance_cells = 0
+    blank_null_cells = 0
     mismatches = []
     for col in common:
         a, b = joined[col], joined[col + "_ref"]
         if a.dtype.is_numeric() and b.dtype.is_numeric():
             a = a.fill_nan(None).cast(pl.Float64)
             b = b.fill_nan(None).cast(pl.Float64)
-            ok = (
-                (a.is_null() & b.is_null()) | ((a - b).abs() <= TOLERANCE)
-            ).fill_null(False)  # exactly-one-null is a mismatch
+            exact = ((a.is_null() & b.is_null()) | (a == b)).fill_null(False)
+            close = (~exact & ((a - b).abs() <= TOLERANCE)).fill_null(False)
+            ok = exact | close
+            tolerance_cells += close.sum()
         else:
-            ok = a.cast(pl.String).fill_null("") == b.cast(pl.String).fill_null("")
+            a, b = a.cast(pl.String), b.cast(pl.String)
+            exact = ((a.is_null() & b.is_null()) | (a == b)).fill_null(False)
+            blank = ~exact & (a.fill_null("") == b.fill_null(""))
+            blank_null_cells += blank.sum()
+            ok = exact
+        exact_cells += exact.sum()
         bad = (~ok).sum()
         if bad:
             mismatches.append((col, bad))
             mismatch += bad
     n_cols = len(common) + len(keys)
 
-    # run.save() writes data; compare the spec's declared labels separately.
-    new_labels = _spec_labels(spec) if spec else _labels(output)
+    # Verify the delivered artifact's metadata, not just the YAML declaration.
+    new_labels = _labels(output)
     ref_labels = _labels(reference)
     if ref_labels:
         label_bad = [
             c
             for c in new.columns
             if c in ref_labels and (
-                new_labels.get(c).encode() if new_labels.get(c) else None
-            ) != ref_labels[c]
+                new_labels.get(c) != ref_labels[c]
+            )
         ]
         unlabeled = [c for c in new.columns if not new_labels.get(c)]
         if label_bad:
             mismatches.append(("labels", label_bad))
         if unlabeled:
             mismatches.append(("unlabeled", unlabeled))
+        if spec:
+            declared = _spec_labels(spec)
+            declared_bad = [c for c in ref.columns if (
+                declared.get(c).encode() if declared.get(c) else None
+            ) != ref_labels.get(c)]
+            if declared_bad:
+                mismatches.append(("declared_labels", declared_bad))
 
+    if derived_only:
+        mismatches.append(("extra_columns", derived_only))
+    if new.columns != ref.columns:
+        mismatches.append(("column_order", "differs"))
     ok = not mismatches and not uncovered
     status = "PASS" if ok else (
         f"MISMATCH {mismatches}" if mismatches else f"UNCOVERED {uncovered}"
@@ -148,7 +174,9 @@ def compare(output, reference, name, spec=None):
     report = (
         f"-- {name}: {status} "
         f"({n_cols}/{len(ref.columns)} columns, "
-        f"{total_cells - mismatch}/{total_cells} cells match)"
+        f"{total_cells - mismatch}/{total_cells} cells match; "
+        f"exact={exact_cells}, tolerance-only={tolerance_cells}, "
+        f"blank/null={blank_null_cells})"
     )
     print(report)
     if derived_only:
@@ -157,6 +185,9 @@ def compare(output, reference, name, spec=None):
         "name": name,
         "columns": (n_cols, len(ref.columns)),
         "cells": (total_cells - mismatch, total_cells),
+        "exact_cells": exact_cells,
+        "tolerance_cells": tolerance_cells,
+        "blank_null_cells": blank_null_cells,
         "ok": ok,
         "report": report,
     }

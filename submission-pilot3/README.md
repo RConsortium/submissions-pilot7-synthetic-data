@@ -1,22 +1,26 @@
 # submission-pilot3
 
 R Consortium R Submission Pilot 3 (Study CDISC Pilot 03), staged for
-YAMAA-based SDTM-to-ADaM derivation.
+SDTM-to-ADaM derivation with released yamaa 0.5.0.
 
 - Source: https://github.com/RConsortium/submissions-pilot3-adam/tree/main/submission
-  (verified byte-identical to the FDA eCTD submission package at
-  https://github.com/RConsortium/submissions-pilot3-adam-to-fda)
-- `data/sdtm/`: the 22 SDTM tabulation datasets, converted from SAS transport
-  (.xpt) to parquet. Column labels are preserved in the arrow schema metadata.
-- `data/adam/`: the 5 ADaM analysis datasets from the official FDA submission
-  (adadas, adae, adlbc, adsl, adtte), converted from SAS transport (.xpt) to
-  parquet. Column labels are preserved in the arrow schema metadata.
-- `data/mapping/`: the checked-in ADADAS planning and analysis-window CSVs.
-- `spec/define/`: the official define.xml files from the submission package.
-- `spec/yamaa/`: YAMAA derivation specifications (SDTM -> ADaM).
-- `program/adam/`: the Python runner, comparison, and planning generator.
-- Note: the development repo also carries 7 additional team-defined ADaM
-  datasets (advs, adcibc, adlbcpv, adlbh, adlbhpv, adlbhy, adnpix) that were
-  not part of the FDA submission; they are not staged here.
+- `data/sdtm/`: 22 original SDTM datasets converted from XPT to Parquet.
+- `data/adam/`: the five official ADaM references (adadas, adae, adlbc, adsl,
+  adtte), with original variable labels in Arrow field metadata.
+- `data/mapping/`: the reviewed ADADAS planning and analysis-window CSVs.
+- `spec/define/`: original submission Define-XML files.
+- `spec/yamaa/`: one specification per ADaM target.
+- `project.yaml`: linked predecessor contracts for one project run.
+- `program/adam/r/`: released-package setup, execution, explicit export,
+  independent comparison and regression checks.
+- `program/adam/python/`: the optional Python runner/comparator and original
+  planning generator.
 
-The study also includes the mapping CSVs and define.xml files.
+See [the ADaM workflow](program/adam/README.md) for reproduction commands,
+exact-versus-tolerance comparison criteria, export conventions, and unresolved
+source questions. All reference inputs and outputs remain unchanged.
+
+The seven additional development-team ADaM datasets (advs, adcibc, adlbcpv,
+adlbh, adlbhpv, adlbhy, adnpix) were not in the official submission and remain
+outside this staged scope. Snapshot equality does not establish complete
+logic equivalence or qualify a new regulatory submission package.

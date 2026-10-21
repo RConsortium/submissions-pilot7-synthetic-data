@@ -1,36 +1,39 @@
-# ADADAS for CDISC Pilot 3 - yamaa schema-complexity review.
-#
-# The reference derivation (adadas.r) builds one row per selected QS record,
-# then appends 222 LOCF records for ACTOT at planned visits with no collected
-# record (admiral::derive_locf_records over a 4-row expected-observations
-# tribble). The schema cannot generate those planned rows itself (REQ-0040/
-# REQ-0041), so they arrive as a checked-in planning relation,
-# data/mapping/plan.csv (222 slots, verified against the reference LOCF slots),
-# alongside the 4-row analysis-window lookup the R program spells as a tribble.
-#
-# Row templates: `collected` (one row per selected QS record) and `planned`
-# (one row per missing ACTOT visit slot). Everything shared across the two
-# templates is derived once at column level.
-
-schema_version: "1.0"
-
+schema_version: '1.0'
 domain: ADADAS
-
 keys: [STUDYID, USUBJID, PARAMCD, AVISIT, ADT]
-
 input:
   QS: ../../data/sdtm/qs.parquet
-  ADSL: ../../data/adam/adsl-yamaa.parquet
-  PLAN: {path: ../../data/mapping/plan.csv, types: {AVISITN: int}}
-  AW: {path: ../../data/mapping/aw_lookup.csv, types: {AWTARGET: int, AWLO: int, AWHI: int}}
+  ADSL:
+    path: ../../data/adam/adsl-yamaa-raw.parquet
+    schema: adsl.yaml
+  PLAN:
+    path: ../../data/mapping/plan.csv
+    types:
+      AVISITN: int
+  AW:
+    path: ../../data/mapping/aw_lookup.csv
+    types:
+      AWTARGET: int
+      AWLO: int
+      AWHI: int
 
 output:
-  path: ../../data/adam/adadas-yamaa.parquet
-  columns: [STUDYID, SITEID, SITEGR1, USUBJID, TRTSDT, TRTEDT, TRTP, TRTPN,
-    AGE, AGEGR1, AGEGR1N, RACE, RACEN, SEX, ITTFL, EFFFL, COMP24FL,
+  path: ../../data/adam/adadas-yamaa-raw.parquet
+  columns: [STUDYID, SITEID, SITEGR1, USUBJID, TRTSDT, TRTEDT, TRTP,
+    TRTPN, AGE, AGEGR1, AGEGR1N, RACE, RACEN, SEX, ITTFL, EFFFL, COMP24FL,
     AVISIT, AVISITN, VISIT, VISITNUM, ADY, ADT, PARAM, PARAMCD, PARAMN,
     AVAL, BASE, CHG, PCHG, ABLFL, ANL01FL, DTYPE, AWRANGE, AWTARGET,
     AWTDIFF, AWLO, AWHI, AWU, QSSEQ]
+  report: ../../log/yamaa-adadas-run.csv
+
+windows:
+  ANALYSIS_SELECTION:
+    group_by: [USUBJID, PARAMCD, AVISIT]
+    order_by: [AWTDIFF_RAW, DIFF_RAW]
+    filter: ROWSRC = 0
+  LOCF_ORDER:
+    group_by: [STUDYID, USUBJID, PARAMCD]
+    order_by: [AVISITN]
 
 intermediates:
   - id: ADSL_LOOKUP
@@ -42,7 +45,6 @@ intermediates:
     key: [AVISIT]
 
 columns:
-  # ---- row-phase working columns (values differ by template) ----
   - name: ROWSRC
     type: int
     label: Rowsrc (helper)
@@ -83,109 +85,108 @@ columns:
     type: float
     label: Aval Raw (helper)
 
-  # ---- shared derivations (including missing values on planned rows) ----
   - name: TRTSDT
     type: date
     label: Date of First Exposure to Treatment
-    derivation: {source: ADSL_LOOKUP.TRTSDT}
+    derivation: ADSL_LOOKUP.TRTSDT
 
   - name: ADY_RAW
     type: float
     label: Ady Raw (helper)
     derivation:
-      study_day: {date: ADT_RAW, reference: TRTSDT}
+      study_day:
+        date: ADT_RAW
+        reference: TRTSDT
 
   - name: AVISIT
     type: str
     label: Analysis Visit
     derivation:
       case:
-        - when: "ROWSRC = 1"
-          then: {source: PLAN_AVISIT}
+        - when: ROWSRC = 1
+          then: PLAN_AVISIT
         - otherwise:
             cut:
               source: ADY_RAW
               breaks: [1, 84, 140]
-              labels: ["Baseline", "Week 8", "Week 16", "Week 24"]
+              labels: [Baseline, Week 8, Week 16, Week 24]
               right: true
 
-  # ---- ADSL predecessor pass-through (cross-dataset predecessor) ----
   - name: STUDYID
     type: str
     label: Study Identifier
-    derivation: {source: ADSL_LOOKUP.STUDYID}
+    derivation: ADSL_LOOKUP.STUDYID
 
   - name: SITEID
     type: str
     label: Study Site Identifier
-    derivation: {source: ADSL_LOOKUP.SITEID}
+    derivation: ADSL_LOOKUP.SITEID
 
   - name: SITEGR1
     type: str
     label: Pooled Site Group 1
-    derivation: {source: ADSL_LOOKUP.SITEGR1}
+    derivation: ADSL_LOOKUP.SITEGR1
 
   - name: TRTEDT
     type: date
     label: Date of Last Exposure to Treatment
-    derivation: {source: ADSL_LOOKUP.TRTEDT}
+    derivation: ADSL_LOOKUP.TRTEDT
 
   - name: TRTP
     type: str
     label: Planned Treatment
-    derivation: {source: ADSL_LOOKUP.TRT01P}
+    derivation: ADSL_LOOKUP.TRT01P
 
   - name: TRTPN
     type: float
     label: Planned Treatment (N)
-    derivation: {source: ADSL_LOOKUP.TRT01PN}
+    derivation: ADSL_LOOKUP.TRT01PN
 
   - name: AGE
     type: float
     label: Age
-    derivation: {source: ADSL_LOOKUP.AGE}
+    derivation: ADSL_LOOKUP.AGE
 
   - name: AGEGR1
     type: str
     label: Pooled Age Group 1
-    derivation: {source: ADSL_LOOKUP.AGEGR1}
+    derivation: ADSL_LOOKUP.AGEGR1
 
   - name: AGEGR1N
     type: float
     label: Pooled Age Group 1 (N)
-    derivation: {source: ADSL_LOOKUP.AGEGR1N}
+    derivation: ADSL_LOOKUP.AGEGR1N
 
   - name: RACE
     type: str
     label: Race
-    derivation: {source: ADSL_LOOKUP.RACE}
+    derivation: ADSL_LOOKUP.RACE
 
   - name: RACEN
     type: float
     label: Race (N)
-    derivation: {source: ADSL_LOOKUP.RACEN}
+    derivation: ADSL_LOOKUP.RACEN
 
   - name: SEX
     type: str
     label: Sex
-    derivation: {source: ADSL_LOOKUP.SEX}
+    derivation: ADSL_LOOKUP.SEX
 
   - name: ITTFL
     type: str
     label: Intent-To-Treat Population Flag
-    derivation: {source: ADSL_LOOKUP.ITTFL}
+    derivation: ADSL_LOOKUP.ITTFL
 
   - name: EFFFL
     type: str
     label: Efficacy Population Flag
-    derivation: {source: ADSL_LOOKUP.EFFFL}
+    derivation: ADSL_LOOKUP.EFFFL
 
   - name: COMP24FL
     type: str
     label: Completers of Week 24 Population Flag
-    derivation: {source: ADSL_LOOKUP.COMP24FL}
+    derivation: ADSL_LOOKUP.COMP24FL
 
-  # ---- parameter / visit metadata ----
   - name: PARAM
     type: str
     label: Parameter
@@ -193,21 +194,21 @@ columns:
       mapping:
         source: PARAMCD
         dict:
-          ACITM01: "Word Recall Task"
-          ACITM02: "Naming Objects And Fingers (Refer To 5 C"
-          ACITM03: "Delayed Word Recall"
-          ACITM04: "Commands"
-          ACITM05: "Constructional Praxis"
-          ACITM06: "Ideational Praxis"
-          ACITM07: "Orientation"
-          ACITM08: "Word Recognition"
-          ACITM09: "Attention/Visual Search Task"
-          ACITM10: "Maze Solution"
-          ACITM11: "Spoken Language Ability"
-          ACITM12: "Comprehension Of Spoken Language"
-          ACITM13: "Word Finding Difficulty In Spontaneous S"
-          ACITM14: "Recall Of Test Instructions"
-          ACTOT: "Adas-Cog(11) Subscore"
+          ACITM01: Word Recall Task
+          ACITM02: Naming Objects And Fingers (Refer To 5 C
+          ACITM03: Delayed Word Recall
+          ACITM04: Commands
+          ACITM05: Constructional Praxis
+          ACITM06: Ideational Praxis
+          ACITM07: Orientation
+          ACITM08: Word Recognition
+          ACITM09: Attention/Visual Search Task
+          ACITM10: Maze Solution
+          ACITM11: Spoken Language Ability
+          ACITM12: Comprehension Of Spoken Language
+          ACITM13: Word Finding Difficulty In Spontaneous S
+          ACITM14: Recall Of Test Instructions
+          ACTOT: Adas-Cog(11) Subscore
 
   - name: PARAMN
     type: float
@@ -240,82 +241,74 @@ columns:
         source: AVISIT
         dict:
           Baseline: 0.0
-          "Week 8": 8.0
-          "Week 16": 16.0
-          "Week 24": 24.0
+          Week 8: 8.0
+          Week 16: 16.0
+          Week 24: 24.0
 
-  # ---- analysis-window metadata (4-row lookup tribble) ----
   - name: AWRANGE
     type: str
     label: Analysis Window Valid Relative Range
-    derivation: {source: AW_LOOKUP.AWRANGE}
+    derivation: AW_LOOKUP.AWRANGE
 
   - name: AWTARGET
     type: float
     label: Analysis Window Target
-    derivation: {source: AW_LOOKUP.AWTARGET}
+    derivation: AW_LOOKUP.AWTARGET
 
   - name: AWLO
     type: float
     label: Analysis Window Beginning Timepoint
-    derivation: {source: AW_LOOKUP.AWLO}
+    derivation: AW_LOOKUP.AWLO
 
   - name: AWHI
     type: float
     label: Analysis Window Ending Timepoint
-    derivation: {source: AW_LOOKUP.AWHI}
+    derivation: AW_LOOKUP.AWHI
 
   - name: AWU
     type: str
     label: Analysis Window Unit
-    derivation: {literal: "DAYS"}
+    derivation: {literal: DAYS}
 
-  # ---- record-selection flag (extreme record per subject/param/visit) ----
   - name: AWTDIFF_RAW
     type: float
     label: Awtdiff Raw (helper)
     derivation:
-      compute: {expr: "ABS(AWTARGET - ADY_RAW)"}
+      compute:
+        expr: ABS(AWTARGET - ADY_RAW)
 
   - name: DIFF_RAW
     type: float
     label: Diff Raw (helper)
     derivation:
-      compute: {expr: "AWTARGET - ADY_RAW"}
+      compute:
+        expr: AWTARGET - ADY_RAW
 
   - name: ANL01_RN
     type: int
     label: Anl01 Rn (helper)
     derivation:
       row_number:
-        window:
-          group_by: [USUBJID, PARAMCD, AVISIT]
-          order_by: [AWTDIFF_RAW, DIFF_RAW]
-          filter: "ROWSRC = 0"
+        window: ANALYSIS_SELECTION
 
   - name: ANL01FL
     type: str
     label: Analysis Flag 01
     derivation:
       case:
-        - when: "ROWSRC = 1"
-          then: {literal: "Y"}
-        - when: "ANL01_RN = 1"
-          then: {literal: "Y"}
+        - when: ROWSRC = 1
+          then: {literal: Y}
+        - when: ANL01_RN = 1
+          then: {literal: Y}
         - otherwise: {literal: null}
 
-  # ---- LOCF carry: planned rows take the closest earlier analysis record ----
-  # REQ-0061 pattern: a separate completed source column that is null for
-  # non-analysis records, searched by previous_non_missing. (A window filter
-  # cannot express this: previous_non_missing ignores window.filter, see
-  # finding F-NEW2.)
   - name: ADT_Y
     type: date
     label: Adt Y (helper)
     derivation:
       case:
-        - when: "ANL01FL = 'Y'"
-          then: {source: ADT_RAW}
+        - when: ANL01FL = 'Y'
+          then: ADT_RAW
         - otherwise: {literal: null}
 
   - name: ADY_Y
@@ -323,8 +316,8 @@ columns:
     label: Ady Y (helper)
     derivation:
       case:
-        - when: "ANL01FL = 'Y'"
-          then: {source: ADY_RAW}
+        - when: ANL01FL = 'Y'
+          then: ADY_RAW
         - otherwise: {literal: null}
 
   - name: VISIT_Y
@@ -332,8 +325,8 @@ columns:
     label: Visit Y (helper)
     derivation:
       case:
-        - when: "ANL01FL = 'Y'"
-          then: {source: VISIT_RAW}
+        - when: ANL01FL = 'Y'
+          then: VISIT_RAW
         - otherwise: {literal: null}
 
   - name: VISITNUM_Y
@@ -341,8 +334,8 @@ columns:
     label: Visitnum Y (helper)
     derivation:
       case:
-        - when: "ANL01FL = 'Y'"
-          then: {source: VISITNUM_RAW}
+        - when: ANL01FL = 'Y'
+          then: VISITNUM_RAW
         - otherwise: {literal: null}
 
   - name: QSSEQ_Y
@@ -350,8 +343,8 @@ columns:
     label: Qsseq Y (helper)
     derivation:
       case:
-        - when: "ANL01FL = 'Y'"
-          then: {source: QSSEQ_RAW}
+        - when: ANL01FL = 'Y'
+          then: QSSEQ_RAW
         - otherwise: {literal: null}
 
   - name: AVAL_Y
@@ -359,8 +352,8 @@ columns:
     label: Aval Y (helper)
     derivation:
       case:
-        - when: "ANL01FL = 'Y'"
-          then: {source: AVAL_RAW}
+        - when: ANL01FL = 'Y'
+          then: AVAL_RAW
         - otherwise: {literal: null}
 
   - name: ADT
@@ -368,100 +361,93 @@ columns:
     label: Analysis Date
     derivation:
       case:
-        - when: "ROWSRC = 1"
+        - when: ROWSRC = 1
           then:
-            previous_non_missing:
+            locf:
               source: ADT_Y
-              window:
-                group_by: [STUDYID, USUBJID, PARAMCD]
-                order_by: [AVISITN]
-        - otherwise: {source: ADT_RAW}
+              window: LOCF_ORDER
+              include_current: false
+        - otherwise: ADT_RAW
 
   - name: ADY
     type: float
     label: Analysis Relative Day
     derivation:
       case:
-        - when: "ROWSRC = 1"
+        - when: ROWSRC = 1
           then:
-            previous_non_missing:
+            locf:
               source: ADY_Y
-              window:
-                group_by: [STUDYID, USUBJID, PARAMCD]
-                order_by: [AVISITN]
-        - otherwise: {source: ADY_RAW}
+              window: LOCF_ORDER
+              include_current: false
+        - otherwise: ADY_RAW
 
   - name: VISIT
     type: str
     label: Visit Name
     derivation:
       case:
-        - when: "ROWSRC = 1"
+        - when: ROWSRC = 1
           then:
-            previous_non_missing:
+            locf:
               source: VISIT_Y
-              window:
-                group_by: [STUDYID, USUBJID, PARAMCD]
-                order_by: [AVISITN]
-        - otherwise: {source: VISIT_RAW}
+              window: LOCF_ORDER
+              include_current: false
+        - otherwise: VISIT_RAW
 
   - name: VISITNUM
     type: float
     label: Visit Number
     derivation:
       case:
-        - when: "ROWSRC = 1"
+        - when: ROWSRC = 1
           then:
-            previous_non_missing:
+            locf:
               source: VISITNUM_Y
-              window:
-                group_by: [STUDYID, USUBJID, PARAMCD]
-                order_by: [AVISITN]
-        - otherwise: {source: VISITNUM_RAW}
+              window: LOCF_ORDER
+              include_current: false
+        - otherwise: VISITNUM_RAW
 
   - name: QSSEQ
     type: float
     label: Sequence Number
     derivation:
       case:
-        - when: "ROWSRC = 1"
+        - when: ROWSRC = 1
           then:
-            previous_non_missing:
+            locf:
               source: QSSEQ_Y
-              window:
-                group_by: [STUDYID, USUBJID, PARAMCD]
-                order_by: [AVISITN]
-        - otherwise: {source: QSSEQ_RAW}
+              window: LOCF_ORDER
+              include_current: false
+        - otherwise: QSSEQ_RAW
 
   - name: AVAL
     type: float
     label: Analysis Value
     derivation:
       case:
-        - when: "ROWSRC = 1"
+        - when: ROWSRC = 1
           then:
-            previous_non_missing:
+            locf:
               source: AVAL_Y
-              window:
-                group_by: [STUDYID, USUBJID, PARAMCD]
-                order_by: [AVISITN]
-        - otherwise: {source: AVAL_RAW}
+              window: LOCF_ORDER
+              include_current: false
+        - otherwise: AVAL_RAW
 
-  # ---- window distance on the final (possibly carried) study day ----
   - name: AWTDIFF
     type: float
     label: Analysis Window Diff from Target
     derivation:
-      compute: {expr: "ABS(AWTARGET - ADY)"}
+      compute:
+        expr: ABS(AWTARGET - ADY)
 
-  # ---- baseline and change from baseline ----
   - name: BASE
     type: float
     label: Baseline Value
     derivation:
       aggregate:
-        expr: "ONLY(AVAL)"
-        filter: "ABLFL = 'Y'"
+        expr: ONLY(AVAL)
+        filter: ABLFL = 'Y'
         group_by: [STUDYID, USUBJID, PARAMCD]
 
   - name: CHG
@@ -469,9 +455,10 @@ columns:
     label: Change from Baseline
     derivation:
       case:
-        - when: "ABLFL IS NULL"
+        - when: ABLFL IS NULL
           then:
-            compute: {expr: "AVAL - BASE"}
+            compute:
+              expr: AVAL - BASE
         - otherwise: {literal: null}
 
   - name: PCHG
@@ -479,10 +466,10 @@ columns:
     label: Percent Change from Baseline
     derivation:
       case:
-        - when: "ABLFL IS NULL"
+        - when: ABLFL IS NULL
           then:
-            # admiral::derive_var_pchg parenthesization: (AVAL-BASE)/BASE*100
-            compute: {expr: "(AVAL - BASE) / NULLIF(BASE, 0) * 100"}
+            compute:
+              expr: (AVAL - BASE) / NULLIF(BASE, 0) * 100
         - otherwise: {literal: null}
 
   - name: DTYPE
@@ -490,20 +477,23 @@ columns:
     label: Derivation Type
     derivation:
       case:
-        - when: "ROWSRC = 1"
-          then: {literal: "LOCF"}
+        - when: ROWSRC = 1
+          then: {literal: LOCF}
         - otherwise: {literal: null}
 
 rows:
   - id: collected
     dataset: QS
-    filter: "QS.QSTESTCD IN ('ACITM01', 'ACITM02', 'ACITM03', 'ACITM04', 'ACITM05', 'ACITM06', 'ACITM07', 'ACITM08', 'ACITM09', 'ACITM10', 'ACITM11', 'ACITM12', 'ACITM13', 'ACITM14', 'ACTOT')"
+    filter: QS.QSTESTCD IN ('ACITM01', 'ACITM02', 'ACITM03', 'ACITM04',
+      'ACITM05', 'ACITM06', 'ACITM07', 'ACITM08', 'ACITM09', 'ACITM10',
+      'ACITM11', 'ACITM12', 'ACITM13', 'ACITM14', 'ACTOT')
     derivations:
       ROWSRC: {literal: 0}
       USUBJID: QS.USUBJID
       PARAMCD: QS.QSTESTCD
       ADT_RAW:
-        to_date: {source: QS.QSDTC}
+        to_date:
+          source: QS.QSDTC
       PLAN_AVISIT: {literal: null}
       ABLFL: QS.QSBLFL
       VISIT_RAW: QS.VISIT
@@ -526,4 +516,6 @@ rows:
       AVAL_RAW: {literal: null}
 
 verifications:
-  - row_count: {min: 12463, max: 12463}
+  - row_count:
+      min: 12463
+      max: 12463

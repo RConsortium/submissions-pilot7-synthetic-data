@@ -1,9 +1,6 @@
-schema_version: "1.0"
-
+schema_version: '1.0'
 domain: ADSL
-
 keys: [STUDYID, USUBJID]
-
 input:
   DM: ../../data/sdtm/dm.parquet
   DS: ../../data/sdtm/ds.parquet
@@ -13,19 +10,19 @@ input:
   VS: ../../data/sdtm/vs.parquet
   SC: ../../data/sdtm/sc.parquet
   MH: ../../data/sdtm/mh.parquet
-
 base: DM
-
-filter: "DM.ACTARMCD <> 'Scrnfail'"
+filter: DM.ACTARMCD <> 'Scrnfail'
 
 output:
-  path: ../../data/adam/adsl-yamaa.parquet
-  columns: [STUDYID, USUBJID, SUBJID, SITEID, SITEGR1, ARM, TRT01P, TRT01PN,
-    TRT01A, TRT01AN, TRTSDT, TRTEDT, TRTDURD, AVGDD, CUMDOSE, AGE, AGEGR1,
-    AGEGR1N, AGEU, RACE, RACEN, SEX, ETHNIC, SAFFL, ITTFL, EFFFL, COMP8FL,
-    COMP16FL, COMP24FL, DISCONFL, DSRAEFL, DTHFL, BMIBL, BMIBLGR1, HEIGHTBL,
-    WEIGHTBL, EDUCLVL, DISONSDT, DURDIS, DURDSGR1, VISIT1DT, RFSTDTC, RFENDTC,
-    VISNUMEN, RFENDT, DCDECOD, EOSSTT, DCSREAS, MMSETOT]
+  path: ../../data/adam/adsl-yamaa-raw.parquet
+  columns: [STUDYID, USUBJID, SUBJID, SITEID, SITEGR1, ARM, TRT01P,
+    TRT01PN, TRT01A, TRT01AN, TRTSDT, TRTEDT, TRTDURD, AVGDD, CUMDOSE,
+    AGE, AGEGR1, AGEGR1N, AGEU, RACE, RACEN, SEX, ETHNIC, SAFFL, ITTFL,
+    EFFFL, COMP8FL, COMP16FL, COMP24FL, DISCONFL, DSRAEFL, DTHFL, BMIBL,
+    BMIBLGR1, HEIGHTBL, WEIGHTBL, EDUCLVL, DISONSDT, DURDIS, DURDSGR1,
+    VISIT1DT, RFSTDTC, RFENDTC, VISNUMEN, RFENDT, DCDECOD, EOSSTT,
+    DCSREAS, MMSETOT]
+  report: ../../log/yamaa-adsl-run.csv
 
 intermediates:
   - id: EX_FIRST
@@ -33,63 +30,66 @@ intermediates:
     key: [STUDYID, USUBJID]
     order_by: [EX.EXSTDTC]
     keep: first
-    no_match: null
+    no_match: {literal: null}
+    filter: (EX.EXDOSE > 0 OR (EX.EXDOSE = 0 AND EX.EXTRT LIKE '%PLACEBO%'))
+      AND EX.EXSTDTC IS NOT NULL
 
   - id: DS_EOS
     dataset: DS
-    filter: "DS.DSCAT = 'DISPOSITION EVENT' AND DS.DSDECOD <> 'SCREEN FAILURE'"
+    filter: DS.DSCAT = 'DISPOSITION EVENT' AND DS.DSDECOD <> 'SCREEN
+      FAILURE'
     key: [STUDYID, USUBJID]
     order_by: [DS.DSSTDTC]
     keep: first
-    no_match: null
+    no_match: {literal: null}
 
   - id: SV_V1
     dataset: SV
-    filter: "SV.VISITNUM = 1"
+    filter: SV.VISITNUM = 1
     key: [STUDYID, USUBJID]
     order_by: [SV.SVSTDTC]
     keep: first
-    no_match: null
+    no_match: {literal: null}
 
   - id: SV_LAST
     dataset: SV
-    filter: "SV.VISITNUM < 100"
+    filter: SV.VISITNUM < 100
     key: [STUDYID, USUBJID]
     order_by: [SV.SVSTDTC]
     keep: last
-    no_match: null
+    no_match: {literal: null}
 
   - id: VS_HT
     dataset: VS
-    filter: "VS.VSTESTCD = 'HEIGHT' AND VS.VISITNUM = 1"
+    filter: VS.VSTESTCD = 'HEIGHT' AND VS.VISITNUM = 1
     key: [STUDYID, USUBJID]
     order_by: [VS.VSDTC]
     keep: first
-    no_match: null
+    no_match: {literal: null}
 
   - id: VS_WT
     dataset: VS
-    filter: "VS.VSTESTCD = 'WEIGHT' AND VS.VISITNUM = 3"
+    filter: VS.VSTESTCD = 'WEIGHT' AND VS.VISITNUM = 3
     key: [STUDYID, USUBJID]
     order_by: [VS.VSDTC]
     keep: first
-    no_match: null
+    no_match: {literal: null}
 
   - id: SC_ED
     dataset: SC
-    filter: "SC.SCTESTCD = 'EDLEVEL'"
+    filter: SC.SCTESTCD = 'EDLEVEL'
     key: [STUDYID, USUBJID]
     order_by: [SC.SCDTC]
     keep: first
-    no_match: null
+    no_match: {literal: null}
 
   - id: MH_DX
     dataset: MH
-    filter: "MH.MHCAT = 'PRIMARY DIAGNOSIS'"
+    filter: MH.MHCAT = 'PRIMARY DIAGNOSIS'
     key: [STUDYID, USUBJID]
     order_by: [MH.MHSTDTC]
     keep: first
-    no_match: null
+    no_match: {literal: null}
 
 columns:
   - name: STUDYID
@@ -117,11 +117,10 @@ columns:
     label: Pooled Site Group 1
     derivation:
       case:
-        - when: "SITEID IN ('702', '706', '707', '711', '714', '715', '717')"
-          then:
-            literal: "900"
-        - otherwise:
-            source: SITEID
+        - when: SITEID IN ('702', '706', '707', '711', '714', '715',
+            '717')
+          then: {literal: '900'}
+        - otherwise: SITEID
 
   - name: ARM
     type: str
@@ -164,11 +163,11 @@ columns:
     type: date
     label: Date of First Exposure to Treatment
     derivation:
-      date_impute:
+      impute:
+        type: date
         source: EX_FIRST.EXSTDTC
         month: 1
         day: last
-        missing: null
 
   - name: TRTEDT
     type: date
@@ -178,22 +177,33 @@ columns:
         derive:
           - name: EXENDT_RAW
             type: date
-            derivation: {date_impute: {source: EX.EXENDTC, month: 1, day: last, missing: null}}
+            derivation:
+              impute:
+                type: date
+                source: EX.EXENDTC
+                month: 1
+                day: last
           - name: EOSDT
             type: date
-            derivation: {date_impute: {source: DS_EOS.DSSTDTC, month: 1, day: last, missing: null}}
+            derivation:
+              impute:
+                type: date
+                source: DS_EOS.DSSTDTC
+                month: 1
+                day: last
           - name: EXENDT_CAPPED
             type: date
             derivation:
               least:
                 sources: [EXENDT_RAW, EOSDT]
-        expr: "MAX(EXENDT_CAPPED)"
+        expr: MAX(EXENDT_CAPPED)
 
   - name: TRTDURD
     type: float
     label: Total Treatment Duration (Days)
     derivation:
-      date_diff:
+      diff:
+        type: date
         start: TRTSDT
         end: TRTEDT
         unit: day
@@ -207,13 +217,28 @@ columns:
         derive:
           - name: EXSTDT
             type: date
-            derivation: {date_impute: {source: EX.EXSTDTC, month: 1, day: last, missing: null}}
+            derivation:
+              impute:
+                type: date
+                source: EX.EXSTDTC
+                month: 1
+                day: last
           - name: EXENDT_RAW
             type: date
-            derivation: {date_impute: {source: EX.EXENDTC, month: 1, day: last, missing: null}}
+            derivation:
+              impute:
+                type: date
+                source: EX.EXENDTC
+                month: 1
+                day: last
           - name: EOSDT
             type: date
-            derivation: {date_impute: {source: DS_EOS.DSSTDTC, month: 1, day: last, missing: null}}
+            derivation:
+              impute:
+                type: date
+                source: DS_EOS.DSSTDTC
+                month: 1
+                day: last
           - name: EXENDT_CAPPED
             type: date
             derivation:
@@ -222,7 +247,8 @@ columns:
           - name: EXDURD
             type: float
             derivation:
-              date_diff:
+              diff:
+                type: date
                 start: EXSTDT
                 end: EXENDT_CAPPED
                 unit: day
@@ -231,15 +257,15 @@ columns:
             type: float
             derivation:
               compute:
-                expr: "EX.EXDOSE * EXDURD"
-        expr: "SUM(EXDOSE_TOTAL)"
+                expr: EX.EXDOSE * EXDURD
+        expr: SUM(EXDOSE_TOTAL)
 
   - name: AVGDD_RAW
     type: float
     label: Average daily dose, unrounded (helper)
     derivation:
       compute:
-        expr: "CUMDOSE / NULLIF(TRTDURD, 0)"
+        expr: CUMDOSE / NULLIF(TRTDURD, 0)
 
   - name: AVGDD
     type: float
@@ -258,17 +284,12 @@ columns:
     type: str
     label: Pooled Age Group 1
     derivation:
-      # NB: the reference groups 65 and 80 into "65-80" (closed [65, 80]
-      # interval), which cut cannot express; hence the explicit case.
       case:
-        - when: "DM.AGE < 65"
-          then:
-            literal: "<65"
-        - when: "DM.AGE <= 80"
-          then:
-            literal: "65-80"
-        - otherwise:
-            literal: ">80"
+        - when: DM.AGE < 65
+          then: {literal: <65}
+        - when: DM.AGE <= 80
+          then: {literal: 65-80}
+        - otherwise: {literal: '>80'}
 
   - name: AGEGR1N
     type: float
@@ -277,9 +298,9 @@ columns:
       mapping:
         source: AGEGR1
         dict:
-          "<65": 1
-          "65-80": 2
-          ">80": 3
+          <65: 1
+          65-80: 2
+          '>80': 3
 
   - name: AGEU
     type: str
@@ -317,133 +338,119 @@ columns:
     label: Safety Population Flag
     derivation:
       case:
-        - when: "DM.ARMCD <> 'Scrnfail' AND DM.ARMCD <> '' AND TRTSDT IS NOT NULL"
-          then:
-            literal: Y
-        - otherwise:
-            literal: N
+        - when: DM.ARMCD <> 'Scrnfail' AND DM.ARMCD <> '' AND TRTSDT
+            IS NOT NULL
+          then: {literal: Y}
+        - otherwise: {literal: N}
 
   - name: ITTFL
     type: str
     label: Intent-To-Treat Population Flag
     derivation:
       case:
-        - when: "DM.ARMCD <> 'Scrnfail' AND DM.ARMCD <> ''"
-          then:
-            literal: Y
-        - otherwise:
-            literal: N
+        - when: DM.ARMCD <> 'Scrnfail' AND DM.ARMCD <> ''
+          then: {literal: Y}
+        - otherwise: {literal: N}
 
   - name: N_ACTOT
     type: float
     label: Post-baseline ADAS-Cog records (helper)
     derivation:
       aggregate:
-        expr: "COUNT(QS.QSSEQ)"
-        filter: "QS.VISITNUM > 3 AND QS.QSTESTCD = 'ACTOT'"
+        expr: COUNT(QS.QSSEQ)
+        filter: QS.VISITNUM > 3 AND QS.QSTESTCD = 'ACTOT'
 
   - name: N_CIBIC
     type: float
     label: Post-baseline CIBIC+ records (helper)
     derivation:
       aggregate:
-        expr: "COUNT(QS.QSSEQ)"
-        filter: "QS.VISITNUM > 3 AND QS.QSTESTCD = 'CIBIC'"
+        expr: COUNT(QS.QSSEQ)
+        filter: QS.VISITNUM > 3 AND QS.QSTESTCD = 'CIBIC'
 
   - name: EFFFL
     type: str
     label: Efficacy Population Flag
     derivation:
       case:
-        - when: "SAFFL = 'Y' AND N_ACTOT > 0 AND N_CIBIC > 0"
-          then:
-            literal: Y
-        - otherwise:
-            literal: N
+        - when: SAFFL = 'Y' AND N_ACTOT > 0 AND N_CIBIC > 0
+          then: {literal: Y}
+        - otherwise: {literal: N}
 
   - name: N_WK8
     type: float
     label: Week 8 visit records (helper)
     derivation:
       aggregate:
-        expr: "COUNT(SV.USUBJID)"
-        filter: "SV.VISITNUM = 8"
+        expr: COUNT(SV.USUBJID)
+        filter: SV.VISITNUM = 8
 
   - name: COMP8FL
     type: str
     label: Completers of Week 8 Population Flag
     derivation:
       case:
-        - when: "N_WK8 > 0"
-          then:
-            literal: Y
-        - otherwise:
-            literal: N
+        - when: N_WK8 > 0
+          then: {literal: Y}
+        - otherwise: {literal: N}
 
   - name: N_WK16
     type: float
     label: Week 16 visit records (helper)
     derivation:
       aggregate:
-        expr: "COUNT(SV.USUBJID)"
-        filter: "SV.VISITNUM = 10"
+        expr: COUNT(SV.USUBJID)
+        filter: SV.VISITNUM = 10
 
   - name: COMP16FL
     type: str
     label: Completers of Week 16 Population Flag
     derivation:
       case:
-        - when: "N_WK16 > 0"
-          then:
-            literal: Y
-        - otherwise:
-            literal: N
+        - when: N_WK16 > 0
+          then: {literal: Y}
+        - otherwise: {literal: N}
 
   - name: N_WK24
     type: float
     label: Week 24 visit records (helper)
     derivation:
       aggregate:
-        expr: "COUNT(SV.USUBJID)"
-        filter: "SV.VISITNUM = 12"
+        expr: COUNT(SV.USUBJID)
+        filter: SV.VISITNUM = 12
 
   - name: COMP24FL
     type: str
     label: Completers of Week 24 Population Flag
     derivation:
       case:
-        - when: "N_WK24 > 0"
-          then:
-            literal: Y
-        - otherwise:
-            literal: N
+        - when: N_WK24 > 0
+          then: {literal: Y}
+        - otherwise: {literal: N}
 
   - name: DISCONFL
     type: str
     label: Did the Subject Discontinue the Study?
     derivation:
       case:
-        - when: "DS_EOS.DSSTDTC IS NOT NULL AND DS_EOS.DSDECOD <> 'COMPLETED'"
-          then:
-            literal: Y
+        - when: DS_EOS.DSSTDTC IS NOT NULL AND DS_EOS.DSDECOD <> 'COMPLETED'
+          then: {literal: Y}
 
   - name: DSRAEFL
     type: str
     label: Discontinued due to AE?
     derivation:
       case:
-        - when: "DS_EOS.DSDECOD = 'ADVERSE EVENT'"
-          then:
-            literal: Y
+        - when: DS_EOS.DSDECOD = 'ADVERSE EVENT'
+          then: {literal: Y}
 
   - name: DTHFL
     type: str
     label: Subject Died?
     derivation:
       case:
-        - when: "DM.DTHFL = 'Y'"
-          then:
-            literal: Y
+        - when: DM.DTHFL = 'Y'
+          then: {literal: Y}
 
   - name: HEIGHTBL_RAW
     type: float
@@ -476,7 +483,7 @@ columns:
     label: Baseline BMI, unrounded (helper)
     derivation:
       compute:
-        expr: "WEIGHTBL / POWER(NULLIF(HEIGHTBL, 0) / 100, 2)"
+        expr: WEIGHTBL / POWER(NULLIF(HEIGHTBL, 0) / 100, 2)
 
   - name: BMIBL
     type: float
@@ -493,8 +500,8 @@ columns:
       cut:
         source: BMIBL
         breaks: [25, 30]
-        labels: ["<25", "25-<30", ">=30"]
-        missing: null
+        labels: [<25, 25-<30, '>=30']
+        missing: {literal: null}
 
   - name: EDUCLVL
     type: float
@@ -505,7 +512,8 @@ columns:
     type: date
     label: Date of Onset of Disease
     derivation:
-      date_impute:
+      impute:
+        type: date
         source: MH_DX.MHSTDTC
         month: 1
         day: 1
@@ -514,7 +522,8 @@ columns:
     type: date
     label: Date of Visit 1
     derivation:
-      date_impute:
+      impute:
+        type: date
         source: SV_V1.SVSTDTC
         month: 1
         day: 1
@@ -523,7 +532,8 @@ columns:
     type: float
     label: Disease duration in days, inclusive (helper)
     derivation:
-      date_diff:
+      diff:
+        type: date
         start: DISONSDT
         end: VISIT1DT
         unit: day
@@ -534,7 +544,7 @@ columns:
     label: Disease duration in months, unrounded (helper)
     derivation:
       compute:
-        expr: "DURDISD / 30.4375"
+        expr: DURDISD / 30.4375
 
   - name: DURDIS
     type: float
@@ -551,8 +561,8 @@ columns:
       cut:
         source: DURDIS
         breaks: [12]
-        labels: ["<12", ">=12"]
-        missing: null
+        labels: [<12, '>=12']
+        missing: {literal: null}
 
   - name: RFSTDTC
     type: str
@@ -577,17 +587,16 @@ columns:
     label: End of Trt Visit (Vis 12 or Early Term.)
     derivation:
       case:
-        - when: "VISNUMEN_ROUND = 13"
-          then:
-            literal: 12
-        - otherwise:
-            source: VISNUMEN_ROUND
+        - when: VISNUMEN_ROUND = 13
+          then: {literal: 12}
+        - otherwise: VISNUMEN_ROUND
 
   - name: RFENDT
     type: date
     label: Date of Discontinuation/Completion
     derivation:
-      date_impute:
+      impute:
+        type: date
         source: DM.RFENDTC
         month: 1
         day: 1
@@ -602,23 +611,19 @@ columns:
     label: End of Study Status
     derivation:
       case:
-        - when: "DS_EOS.DSDECOD = 'COMPLETED'"
-          then:
-            literal: COMPLETED
-        - otherwise:
-            literal: DISCONTINUED
+        - when: DS_EOS.DSDECOD = 'COMPLETED'
+          then: {literal: COMPLETED}
+        - otherwise: {literal: DISCONTINUED}
 
   - name: DCSREAS
     type: str
     label: Reason for Discontinuation from Study
     derivation:
       case:
-        - when: "DS_EOS.DSTERM = 'PROTOCOL ENTRY CRITERIA NOT MET'"
-          then:
-            literal: "I/E Not Met"
-        - when: "DS_EOS.DSDECOD = 'COMPLETED'"
-          then:
-            literal: ""
+        - when: DS_EOS.DSTERM = 'PROTOCOL ENTRY CRITERIA NOT MET'
+          then: {literal: I/E Not Met}
+        - when: DS_EOS.DSDECOD = 'COMPLETED'
+          then: {literal: ''}
         - otherwise:
             mapping:
               source: DS_EOS.DSDECOD
@@ -637,5 +642,5 @@ columns:
     label: MMSE Total
     derivation:
       aggregate:
-        expr: "SUM(QS.QSSTRESN)"
-        filter: "QS.QSCAT = 'MINI-MENTAL STATE'"
+        expr: SUM(QS.QSSTRESN)
+        filter: QS.QSCAT = 'MINI-MENTAL STATE'

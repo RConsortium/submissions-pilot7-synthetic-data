@@ -1,36 +1,39 @@
-schema_version: "1.0"
-
+schema_version: '1.0'
 domain: ADTTE
-
 keys: [STUDYID, USUBJID]
-
 input:
-  ADSL: ../../data/adam/adsl-yamaa.parquet
-  ADAE: ../../data/adam/adae-yamaa.parquet
+  ADSL:
+    path: ../../data/adam/adsl-yamaa-raw.parquet
+    schema: adsl.yaml
+  ADAE:
+    path: ../../data/adam/adae-yamaa-raw.parquet
+    schema: adae.yaml
   DS: ../../data/sdtm/ds.parquet
-
 base: ADSL
 
 output:
-  path: ../../data/adam/adtte-yamaa.parquet
+  path: ../../data/adam/adtte-yamaa-raw.parquet
   columns: [STUDYID, SITEID, USUBJID, AGE, AGEGR1, AGEGR1N, RACE, RACEN,
-    SEX, TRTSDT, TRTEDT, TRTDUR, TRTP, TRTA, TRTAN, PARAM, PARAMCD, AVAL,
-    STARTDT, ADT, CNSR, EVNTDESC, SRCDOM, SRCVAR, SRCSEQ, SAFFL]
+    SEX, TRTSDT, TRTEDT, TRTDUR, TRTP, TRTA, TRTAN, PARAM, PARAMCD,
+    AVAL, STARTDT, ADT, CNSR, EVNTDESC, SRCDOM, SRCVAR, SRCSEQ, SAFFL]
+  report: ../../log/yamaa-adtte-run.csv
 
 intermediates:
   - id: EVTSRC
     dataset: ADAE
-    filter: "ADAE.AOCC01FL = 'Y' AND ADAE.CQ01NAM = 'DERMATOLOGIC EVENTS' AND ADAE.SAFFL = 'Y'"
+    filter: ADAE.AOCC01FL = 'Y' AND ADAE.CQ01NAM = 'DERMATOLOGIC EVENTS'
+      AND ADAE.SAFFL = 'Y'
     order_by: [ADAE.ASTDT]
     keep: first
-    no_match: null
+    no_match: {literal: null}
 
   - id: DS_DISP
     dataset: DS
-    filter: "DS.DSCAT = 'DISPOSITION EVENT' AND DS.DSDECOD NOT IN ('SCREEN FAILURE', 'FINAL LAB VISIT')"
+    filter: DS.DSCAT = 'DISPOSITION EVENT' AND DS.DSDECOD NOT IN ('SCREEN
+      FAILURE', 'FINAL LAB VISIT')
     order_by: [DS.DSSTDTC]
     keep: first
-    no_match: null
+    no_match: {literal: null}
 
 columns:
   - name: STUDYID
@@ -116,22 +119,19 @@ columns:
   - name: PARAM
     type: str
     label: Parameter
-    derivation:
-      literal: "Time to First Dermatologic Event"
+    derivation: {literal: Time to First Dermatologic Event}
 
   - name: PARAMCD
     type: str
     label: Parameter Code
-    derivation:
-      literal: TTDE
+    derivation: {literal: TTDE}
 
-  # Censor date: disposition completion date; death overrides with RFENDTC
-  # (QC-observed rule, not in the define Derivation text).
   - name: EOSDT
     type: date
     label: Eosdt (helper)
     derivation:
-      date_impute:
+      impute:
+        type: date
         source: DS_DISP.DSSTDTC
         month: 1
         day: 1
@@ -141,21 +141,20 @@ columns:
     label: Eos2dt (helper)
     derivation:
       case:
-        - when: "ADSL.DCDECOD = 'DEATH'"
+        - when: ADSL.DCDECOD = 'DEATH'
           then:
-            date_impute:
+            impute:
+              type: date
               source: ADSL.RFENDTC
               month: 1
               day: 1
-        - otherwise:
-            source: EOSDT
+        - otherwise: EOSDT
 
   - name: STARTDT
     type: date
     label: Time-to-Event Origin Date for Subject
     derivation: ADSL.TRTSDT
 
-  # Event date wins when a qualifying ADAE record exists; otherwise the censor date.
   - name: ADT
     type: date
     label: Analysis Date
@@ -168,59 +167,51 @@ columns:
     label: Censor
     derivation:
       case:
-        - when: "EVTSRC.ASTDT IS NOT NULL"
-          then:
-            literal: 0
-        - otherwise:
-            literal: 1
+        - when: EVTSRC.ASTDT IS NOT NULL
+          then: {literal: 0}
+        - otherwise: {literal: 1}
 
   - name: EVNTDESC
     type: str
     label: Event or Censoring Description
     derivation:
       case:
-        - when: "EVTSRC.ASTDT IS NOT NULL"
-          then:
-            literal: "Dematologic Event Occured"
-        - otherwise:
-            literal: "Study Completion Date"
+        - when: EVTSRC.ASTDT IS NOT NULL
+          then: {literal: Dematologic Event Occured}
+        - otherwise: {literal: Study Completion Date}
 
   - name: SRCDOM
     type: str
     label: Source Data
     derivation:
       case:
-        - when: "EVTSRC.ASTDT IS NOT NULL"
-          then:
-            literal: ADAE
-        - otherwise:
-            literal: ADSL
+        - when: EVTSRC.ASTDT IS NOT NULL
+          then: {literal: ADAE}
+        - otherwise: {literal: ADSL}
 
   - name: SRCVAR
     type: str
     label: Source Variable
     derivation:
       case:
-        - when: "EVTSRC.ASTDT IS NOT NULL"
-          then:
-            literal: ASTDT
-        - otherwise:
-            literal: RFENDT
+        - when: EVTSRC.ASTDT IS NOT NULL
+          then: {literal: ASTDT}
+        - otherwise: {literal: RFENDT}
 
   - name: SRCSEQ
     type: float
     label: Source Sequence Number
     derivation:
       case:
-        - when: "EVTSRC.ASTDT IS NOT NULL"
-          then:
-            source: EVTSRC.AESEQ
+        - when: EVTSRC.ASTDT IS NOT NULL
+          then: EVTSRC.AESEQ
 
   - name: AVAL
     type: float
     label: Analysis Value
     derivation:
-      date_diff:
+      diff:
+        type: date
         start: STARTDT
         end: ADT
         unit: day
