@@ -1,7 +1,7 @@
 # submission-pilot3
 
 R Consortium R Submission Pilot 3 (Study CDISC Pilot 03), staged for
-YAMAA-based SDTM-to-ADaM derivation.
+yamaa-based SDTM-to-ADaM derivation.
 
 - Source: https://github.com/RConsortium/submissions-pilot3-adam/tree/main/submission
   (verified byte-identical to the FDA eCTD submission package at
@@ -13,7 +13,7 @@ YAMAA-based SDTM-to-ADaM derivation.
   parquet. Column labels are preserved in the arrow schema metadata.
 - `data/mapping/`: the checked-in ADADAS planning and analysis-window CSVs.
 - `spec/define/`: the official define.xml files from the submission package.
-- `spec/yamaa/`: YAMAA derivation specifications (SDTM -> ADaM).
+- `spec/yamaa/`: yamaa derivation specifications (SDTM -> ADaM).
 - `program/adam/`: the Python runner, comparison, and planning generator.
 - Note: the development repo also carries 7 additional team-defined ADaM
   datasets (advs, adcibc, adlbcpv, adlbh, adlbhpv, adlbhy, adnpix) that were
