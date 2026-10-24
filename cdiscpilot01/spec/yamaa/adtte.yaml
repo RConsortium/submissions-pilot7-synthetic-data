@@ -1,30 +1,69 @@
-schema_version: "1.0"
+yamaa: "1.0"
+type: spec
+model: ADaM
 domain: ADTTE
-keys: [STUDYID, USUBJID]
+keys:
+  - STUDYID
+  - USUBJID
 input:
   ADSL:
     path: ../../data/adam/adsl-yamaa.parquet
+    schema: adsl.yaml
     empty_string: present
   ADAE:
     path: ../../data/adam/adae-yamaa.parquet
+    schema: adae.yaml
     empty_string: present
 base: ADSL
 
 output:
   path: ../../data/adam/adtte-yamaa.parquet
-  columns: [STUDYID, SITEID, USUBJID, AGE, AGEGR1, AGEGR1N, RACE, RACEN, SEX,
-    TRTSDT, TRTEDT, TRTDUR, TRTP, TRTA, TRTAN, PARAM, PARAMCD, AVAL, STARTDT,
-    ADT, CNSR, EVNTDESC, SRCDOM, SRCVAR, SRCSEQ, SAFFL]
-  order_by: [USUBJID, PARAMCD]
+  columns:
+    - STUDYID
+    - SITEID
+    - USUBJID
+    - AGE
+    - AGEGR1
+    - AGEGR1N
+    - RACE
+    - RACEN
+    - SEX
+    - TRTSDT
+    - TRTEDT
+    - TRTDUR
+    - TRTP
+    - TRTA
+    - TRTAN
+    - PARAM
+    - PARAMCD
+    - AVAL
+    - STARTDT
+    - ADT
+    - CNSR
+    - EVNTDESC
+    - SRCDOM
+    - SRCVAR
+    - SRCSEQ
+    - SAFFL
+  order_by:
+    - variable: USUBJID
+      nulls: last
+    - variable: PARAMCD
+      nulls: last
 
 intermediates:
   - id: FIRST_DERM
     dataset: ADAE
-    key: [STUDYID, USUBJID]
+    key:
+      - STUDYID
+      - USUBJID
     filter: "ADAE.AOCC01FL = 'Y'"
-    order_by: [ADAE.ASTDT, ADAE.AESEQ]
+    order_by:
+      - variable: ADAE.ASTDT
+        nulls: last
+      - variable: ADAE.AESEQ
+        nulls: last
     keep: first
-    no_match: null
 
 columns:
   - name: STUDYID
@@ -105,12 +144,12 @@ columns:
   - name: PARAM
     type: str
     label: Parameter Description
-    derivation: {literal: Time to First Dermatologic Event}
+    derivation: "'Time to First Dermatologic Event'"
 
   - name: PARAMCD
     type: str
     label: Parameter Code
-    derivation: {literal: TTDE}
+    derivation: "'TTDE'"
 
   - name: STARTDT
     type: date
@@ -123,8 +162,8 @@ columns:
     derivation:
       case:
         - when: "FIRST_DERM.AESEQ IS NOT NULL"
-          then: {literal: "Y"}
-        - otherwise: {literal: "N"}
+          then: "'Y'"
+        - otherwise: "'N'"
 
   - name: ADT
     type: date
@@ -139,11 +178,12 @@ columns:
     type: float
     label: Analysis Value
     derivation:
-      date_diff:
+      diff:
+        type: date
         start: STARTDT
         end: ADT
         unit: day
-        bounds: inclusive
+        closed: both
 
   - name: CNSR
     type: float
@@ -151,8 +191,8 @@ columns:
     derivation:
       case:
         - when: "HAS_EVENT = 'Y'"
-          then: {literal: 0}
-        - otherwise: {literal: 1}
+          then: 0
+        - otherwise: 1
 
   - name: EVNTDESC
     type: str
@@ -160,8 +200,8 @@ columns:
     derivation:
       case:
         - when: "HAS_EVENT = 'Y'"
-          then: {literal: Dematologic Event Occured}
-        - otherwise: {literal: Study Completion Date}
+          then: "'Dematologic Event Occured'"
+        - otherwise: "'Study Completion Date'"
 
   - name: SRCDOM
     type: str
@@ -169,8 +209,8 @@ columns:
     derivation:
       case:
         - when: "HAS_EVENT = 'Y'"
-          then: {literal: ADAE}
-        - otherwise: {literal: ADSL}
+          then: "'ADAE'"
+        - otherwise: "'ADSL'"
 
   - name: SRCVAR
     type: str
@@ -178,8 +218,8 @@ columns:
     derivation:
       case:
         - when: "HAS_EVENT = 'Y'"
-          then: {literal: ASTDT}
-        - otherwise: {literal: RFENDT}
+          then: "'ASTDT'"
+        - otherwise: "'RFENDT'"
 
   - name: SRCSEQ
     type: float

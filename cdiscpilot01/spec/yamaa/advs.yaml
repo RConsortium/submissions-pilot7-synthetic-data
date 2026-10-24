@@ -1,35 +1,84 @@
-schema_version: "1.0"
+yamaa: "1.0"
+type: spec
+model: ADaM
 domain: ADVS
-keys: [STUDYID, USUBJID, VSSEQ, AVISIT]
+keys:
+  - STUDYID
+  - USUBJID
+  - VSSEQ
+  - AVISIT
 input:
   VS:
     path: ../../data/sdtm/vs.parquet
     empty_string: present
   ADSL:
     path: ../../data/adam/adsl-yamaa.parquet
+    schema: adsl.yaml
     empty_string: present
 base: VS
 
 output:
   path: ../../data/adam/advs-yamaa.parquet
-  columns: [STUDYID, SITEID, USUBJID, AGE, AGEGR1, AGEGR1N, RACE, RACEN, SEX,
-    SAFFL, TRTSDT, TRTEDT, TRTP, TRTPN, TRTA, TRTAN, PARAMCD, PARAM, PARAMN,
-    ADT, ADY, ATPTN, ATPT, AVISIT, AVISITN, AVAL, BASE, CHG, PCHG, VISITNUM,
-    VISIT, VSSEQ, ANL01FL, ABLFL]
-  order_by: [USUBJID, PARAMCD, ATPTN, VSSEQ]
+  columns:
+    - STUDYID
+    - SITEID
+    - USUBJID
+    - AGE
+    - AGEGR1
+    - AGEGR1N
+    - RACE
+    - RACEN
+    - SEX
+    - SAFFL
+    - TRTSDT
+    - TRTEDT
+    - TRTP
+    - TRTPN
+    - TRTA
+    - TRTAN
+    - PARAMCD
+    - PARAM
+    - PARAMN
+    - ADT
+    - ADY
+    - ATPTN
+    - ATPT
+    - AVISIT
+    - AVISITN
+    - AVAL
+    - BASE
+    - CHG
+    - PCHG
+    - VISITNUM
+    - VISIT
+    - VSSEQ
+    - ANL01FL
+    - ABLFL
+  order_by:
+    - variable: USUBJID
+      nulls: last
+    - variable: PARAMCD
+      nulls: last
+    - variable: ATPTN
+      nulls: last
+    - variable: VSSEQ
+      nulls: last
 
 intermediates:
   - id: ADSL1
     dataset: ADSL
-    key: [STUDYID, USUBJID]
-    order_by: [ADSL.USUBJID]
+    key:
+      - STUDYID
+      - USUBJID
+    order_by:
+      - variable: ADSL.USUBJID
+        nulls: last
     keep: first
 
   - id: BASE1
     dataset: VS
     key: {USUBJID: USUBJID, VSTESTCD: PARAMCD, VSTPT: ATPT}
     filter: "VS.VISIT = 'BASELINE'"
-    no_match: null
 
 columns:
   - name: STUDYID
@@ -149,12 +198,12 @@ columns:
     type: date
     label: Analysis Date
     derivation:
-      date_impute:
+      impute:
+        type: date
         source: VS.VSDTC
         month: 1
         day: 1
-        missing: null
-        invalid: null
+        invalid:
 
   - name: ADY
     type: float
@@ -226,16 +275,12 @@ columns:
   - name: CHG
     type: float
     label: Change from Baseline
-    derivation:
-      compute:
-        expr: "AVAL - BASE"
+    derivation: "AVAL - BASE"
 
   - name: PCHG
     type: float
     label: Percent Change from Baseline
-    derivation:
-      compute:
-        expr: "(AVAL - BASE) / BASE * 100"
+    derivation: "(AVAL - BASE) / BASE * 100"
 
   - name: VISITNUM
     type: float
@@ -258,8 +303,8 @@ columns:
     derivation:
       case:
         - when: "_AVISIT_OUT <> ''"
-          then: {literal: 'Y'}
-        - otherwise: {literal: ''}
+          then: "'Y'"
+        - otherwise: "''"
 
   - name: ABLFL
     type: str
@@ -267,8 +312,8 @@ columns:
     derivation:
       case:
         - when: "VS.VISIT = 'BASELINE'"
-          then: {literal: 'Y'}
-        - otherwise: {literal: ''}
+          then: "'Y'"
+        - otherwise: "''"
 
 rows:
   - id: base
@@ -304,19 +349,28 @@ rows:
             WEEK 20: 20.0
             WEEK 24: 24.0
             WEEK 26: 26.0
-          missing: null
-          unmapped: null
+          unmapped:
       _AVISIT_OUT: _SRC_AVISIT
       _AVISITN_OUT: _SRC_AVISITN
-      _USUBJID: {literal: null}
-      _VSTESTCD: {literal: null}
-      _VSTPT: {literal: null}
-      _RANK: {literal: null}
+      _USUBJID:
+      _VSTESTCD:
+      _VSTPT:
+      _RANK:
 
   - id: eot
     dataset: VS
-    group_by: [VS.STUDYID, VS.USUBJID, VS.VSTESTCD, VS.VSTPT, VS.VSSEQ,
-      VS.VISIT, VS.VSDTC, VS.VSDY, VS.VSTPTNUM, VS.VSSTRESN, VS.VISITNUM]
+    group_by:
+      - VS.STUDYID
+      - VS.USUBJID
+      - VS.VSTESTCD
+      - VS.VSTPT
+      - VS.VSSEQ
+      - VS.VISIT
+      - VS.VSDTC
+      - VS.VSDY
+      - VS.VSTPTNUM
+      - VS.VSSTRESN
+      - VS.VISITNUM
     filter: "_RANK = 1 AND _SRC_AVISITN > 2"
     derivations:
       _USUBJID: VS.USUBJID
@@ -352,13 +406,17 @@ rows:
             WEEK 20: 20.0
             WEEK 24: 24.0
             WEEK 26: 26.0
-          missing: null
-          unmapped: null
-      _AVISIT_OUT: {literal: 'End of Treatment'}
-      _AVISITN_OUT: {literal: 99.0}
+          unmapped:
+      _AVISIT_OUT: "'End of Treatment'"
+      _AVISITN_OUT: 99.0
       _RANK:
         rank:
           window:
-            group_by: [_USUBJID, _VSTESTCD, _VSTPT]
-            order_by: [{variable: _SRC_AVISITN, direction: desc}]
+            group_by:
+              - _USUBJID
+              - _VSTESTCD
+              - _VSTPT
+            order_by:
+              - {variable: _SRC_AVISITN, direction: desc, nulls:
+                  last}
             filter: "_SRC_AVISITN IS NOT NULL"

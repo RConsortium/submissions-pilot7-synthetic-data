@@ -1,48 +1,112 @@
-schema_version: "1.0"
+yamaa: "1.0"
+type: spec
+model: ADaM
 domain: ADLBC
-keys: [STUDYID, USUBJID, PARAMCD, LBSEQ, AVISIT]
+keys:
+  - STUDYID
+  - USUBJID
+  - PARAMCD
+  - LBSEQ
+  - AVISIT
 input:
   LB:
     path: ../../data/sdtm/lb.parquet
     empty_string: present
+    key:
+      - STUDYID
+      - USUBJID
   ADSL:
     path: ../../data/adam/adsl-yamaa.parquet
+    schema: adsl.yaml
     empty_string: present
 base: LB
 
 output:
   path: ../../data/adam/adlbc-yamaa.parquet
-  columns: [STUDYID, SUBJID, USUBJID, TRTP, TRTPN, TRTA, TRTAN, TRTSDT, TRTEDT,
-            AGE, AGEGR1, AGEGR1N, RACE, RACEN, SEX, COMP24FL, DSRAEFL, SAFFL,
-            AVISIT, AVISITN, ADY, ADT, VISIT, VISITNUM, PARAM, PARAMCD, PARAMN,
-            PARCAT1, AVAL, BASE, CHG, A1LO, A1HI, R2A1LO, R2A1HI, BR2A1LO,
-            BR2A1HI, ANL01FL, ALBTRVAL, ANRIND, BNRIND, ABLFL, AENTMTFL, LBSEQ,
-            LBNRIND, LBSTRESN]
-  order_by: [USUBJID, ADY, PARAMN, AVISITN]
+  columns:
+    - STUDYID
+    - SUBJID
+    - USUBJID
+    - TRTP
+    - TRTPN
+    - TRTA
+    - TRTAN
+    - TRTSDT
+    - TRTEDT
+    - AGE
+    - AGEGR1
+    - AGEGR1N
+    - RACE
+    - RACEN
+    - SEX
+    - COMP24FL
+    - DSRAEFL
+    - SAFFL
+    - AVISIT
+    - AVISITN
+    - ADY
+    - ADT
+    - VISIT
+    - VISITNUM
+    - PARAM
+    - PARAMCD
+    - PARAMN
+    - PARCAT1
+    - AVAL
+    - BASE
+    - CHG
+    - A1LO
+    - A1HI
+    - R2A1LO
+    - R2A1HI
+    - BR2A1LO
+    - BR2A1HI
+    - ANL01FL
+    - ALBTRVAL
+    - ANRIND
+    - BNRIND
+    - ABLFL
+    - AENTMTFL
+    - LBSEQ
+    - LBNRIND
+    - LBSTRESN
+  order_by:
+    - variable: USUBJID
+      nulls: last
+    - variable: ADY
+      nulls: last
+    - variable: PARAMN
+      nulls: last
+    - variable: AVISITN
+      nulls: last
 
 intermediates:
   - id: ADSL_SBJ
     dataset: ADSL
-    key: [USUBJID]
+    key:
+      - USUBJID
 
-  # PREV: previous scheduled AVAL within (USUBJID, LBTESTCD), ordered by
-  # (LBDTC, LBSEQ). Replaces the adlbc-prevmap.yaml stage + Python join:
-  # unscheduled records (VISIT LIKE 'UNSCHEDULED%') are excluded from the
-  # shift, matching upstream build_adlbc.py.
   - id: PREV
     dataset: LB
-    key: [USUBJID, LBTESTCD, LBSEQ]
+    key:
+      - USUBJID
+      - LBTESTCD
+      - LBSEQ
     filter: "LB.VISIT NOT LIKE 'UNSCHEDULED%'"
-    columns: [PREV_AVAL]
-    no_match: null
+    columns:
+      - PREV_AVAL
     derivations:
       PREV_AVAL:
         row_value:
           source: LB.LBSTRESN
           offset: -1
           window:
-            group_by: [LB.USUBJID, LB.LBTESTCD]
-            order_by: [{variable: LB.LBDTC}, {variable: LB.LBSEQ}]
+            group_by:
+              - LB.USUBJID
+              - LB.LBTESTCD
+            order_by:
+              - {variable: LB.LBDTC, nulls: last}
+              - {variable: LB.LBSEQ, nulls: last}
             filter: "LB.VISIT NOT LIKE 'UNSCHEDULED%'"
 
 columns:
@@ -239,14 +303,12 @@ columns:
       case:
         - when: "_IS_UNDER = 'Y' AND _SCHED = 'Y'"
           then: _U_AVAL_ROUNDED
-        - otherwise: {literal: null}
+        - otherwise:
 
   - name: _ABS_U_AVAL
     type: float
     label: "Working value: _ABS_U_AVAL"
-    derivation:
-      compute:
-        expr: "abs(_U_AVAL)"
+    derivation: "abs(_U_AVAL)"
 
   - name: _R2A1HI_R
     type: float
@@ -311,10 +373,14 @@ columns:
     derivation:
       rank:
         window:
-          group_by: [USUBJID, PARAMCD]
-          order_by: [{variable: _RANK_VAL, direction: desc},
-            {variable: _RANK_AVISITN}, {variable: _ADT_DATE},
-            {variable: LBSEQ}]
+          group_by:
+            - USUBJID
+            - PARAMCD
+          order_by:
+            - {variable: _RANK_VAL, direction: desc, nulls: last}
+            - {variable: _RANK_AVISITN, nulls: last}
+            - {variable: _ADT_DATE, nulls: last}
+            - {variable: LBSEQ, nulls: last}
           filter: "_RANK_AVISITN >= 2 AND _RANK_AVISITN <= 24"
 
   # Row-level
@@ -331,7 +397,7 @@ columns:
     label: Analysis Relative Day
     derivation:
       study_day:
-        date: _ADT_DATE
+        source: _ADT_DATE
         reference: TRTSDT
 
   - name: ADT
@@ -354,11 +420,8 @@ columns:
       case:
         - when: "_IS_UNDER = 'Y'"
           then:
-            str_concat:
-              sources:
-                - {source: _PARAM_BASE}
-                - {literal: ' change from previous visit,
-                    relative to normal range'}
+            str_template: "{_PARAM_BASE} change from previous visit,
+              relative to normal range"
         - otherwise: _PARAM_BASE
 
   - name: PARAMCD
@@ -371,15 +434,13 @@ columns:
     derivation:
       case:
         - when: "_IS_UNDER = 'Y'"
-          then:
-            compute:
-              expr: "_PARAMN_BASE + 100"
+          then: "_PARAMN_BASE + 100"
         - otherwise: _PARAMN_BASE
 
   - name: PARCAT1
     type: str
     label: Parameter Category 1
-    derivation: {literal: 'CHEM'}
+    derivation: "'CHEM'"
 
   - name: AVAL
     type: float
@@ -401,12 +462,10 @@ columns:
     derivation:
       case:
         - when: "_IS_UNDER = 'Y'"
-          then: {literal: null}
+          then:
         - when: "ABLFL = 'Y'"
-          then: {literal: null}
-        - otherwise:
-            compute:
-              expr: "_AVAL_BASE - _BASE"
+          then:
+        - otherwise: "_AVAL_BASE - _BASE"
 
   - name: A1LO
     type: float
@@ -419,16 +478,12 @@ columns:
   - name: R2A1LO
     type: float
     label: Ratio to Analysis Range 1 Lower Limit
-    derivation:
-      compute:
-        expr: "_AVAL_BASE / A1LO"
+    derivation: "_AVAL_BASE / A1LO"
 
   - name: R2A1HI
     type: float
     label: Ratio to Analysis Range 1 Upper Limit
-    derivation:
-      compute:
-        expr: "_AVAL_BASE / A1HI"
+    derivation: "_AVAL_BASE / A1HI"
 
   - name: BR2A1LO
     type: float
@@ -436,10 +491,8 @@ columns:
     derivation:
       case:
         - when: "_IS_UNDER = 'Y'"
-          then: {literal: null}
-        - otherwise:
-            compute:
-              expr: "_BASE / A1LO"
+          then:
+        - otherwise: "_BASE / A1LO"
 
   - name: BR2A1HI
     type: float
@@ -447,10 +500,8 @@ columns:
     derivation:
       case:
         - when: "_IS_UNDER = 'Y'"
-          then: {literal: null}
-        - otherwise:
-            compute:
-              expr: "_BASE / A1HI"
+          then:
+        - otherwise: "_BASE / A1HI"
 
   - name: ANL01FL
     type: str
@@ -458,8 +509,8 @@ columns:
     derivation:
       case:
         - when: "_ANL01_RANK = 1 AND _RANK_VAL IS NOT NULL"
-          then: {literal: 'Y'}
-        - otherwise: {literal: ''}
+          then: "'Y'"
+        - otherwise: "''"
 
   - name: ANRIND
     type: str
@@ -467,13 +518,13 @@ columns:
     derivation:
       case:
         - when: "_IS_UNDER = 'Y' AND _U_AVAL IS NULL"
-          then: {literal: ''}
+          then: "''"
         - when: "_IS_UNDER = 'Y' AND _U_AVAL > 1.0"
-          then: {literal: 'H'}
+          then: "'H'"
         - when: "_IS_UNDER = 'Y' AND _U_AVAL < -1.0"
-          then: {literal: 'L'}
+          then: "'L'"
         - when: "_IS_UNDER = 'Y'"
-          then: {literal: 'N'}
+          then: "'N'"
         - otherwise: _ANRIND_BASE
 
   - name: BNRIND
@@ -482,9 +533,9 @@ columns:
     derivation:
       case:
         - when: "_IS_UNDER = 'Y'"
-          then: {literal: ''}
+          then: "''"
         - when: "_BNRIND_VAL IS NULL"
-          then: {literal: ''}
+          then: "''"
         - otherwise: _BNRIND_VAL
 
   - name: AENTMTFL
@@ -493,10 +544,10 @@ columns:
     derivation:
       case:
         - when: "_IS_EOT = 'Y'"
-          then: {literal: 'Y'}
+          then: "'Y'"
         - when: "_IS_LAST_ELIGIBLE = 1"
-          then: {literal: 'Y'}
-        - otherwise: {literal: ''}
+          then: "'Y'"
+        - otherwise: "''"
 
   - name: LBSEQ
     type: float
@@ -522,8 +573,8 @@ rows:
       STUDYID: LB.STUDYID
       USUBJID: LB.USUBJID
       PARAMCD: LB.LBTESTCD
-      _IS_UNDER: {literal: ''}
-      _IS_EOT: {literal: ''}
+      _IS_UNDER: "''"
+      _IS_EOT: "''"
       VISIT: LB.VISIT
       VISITNUM: LB.VISITNUM
       LBSEQ: LB.LBSEQ
@@ -533,69 +584,69 @@ rows:
       A1HI: LB.LBSTNRHI
       _LBDTM_TXT: LB.LBDTC
       _LBDTM:
-        datetime_impute:
+        impute:
+          type: datetime
           source: _LBDTM_TXT
           time: first
-          missing: null
-          invalid: null
+          invalid:
       _ADT_DATE:
         to_date:
           source: _LBDTM
       AVISIT:
         case:
           - when: "LB.VISIT = 'SCREENING 1'"
-            then: {literal: '        Baseline'}
+            then: "'        Baseline'"
           - when: "LB.VISIT = 'WEEK 2'"
-            then: {literal: '          Week 2'}
+            then: "'          Week 2'"
           - when: "LB.VISIT = 'WEEK 4'"
-            then: {literal: '          Week 4'}
+            then: "'          Week 4'"
           - when: "LB.VISIT = 'WEEK 6'"
-            then: {literal: '          Week 6'}
+            then: "'          Week 6'"
           - when: "LB.VISIT = 'WEEK 8'"
-            then: {literal: '          Week 8'}
+            then: "'          Week 8'"
           - when: "LB.VISIT = 'WEEK 12'"
-            then: {literal: '         Week 12'}
+            then: "'         Week 12'"
           - when: "LB.VISIT = 'WEEK 16'"
-            then: {literal: '         Week 16'}
+            then: "'         Week 16'"
           - when: "LB.VISIT = 'WEEK 20'"
-            then: {literal: '         Week 20'}
+            then: "'         Week 20'"
           - when: "LB.VISIT = 'WEEK 24'"
-            then: {literal: '         Week 24'}
+            then: "'         Week 24'"
           - when: "LB.VISIT = 'WEEK 26'"
-            then: {literal: '         Week 26'}
-          - otherwise: {literal: '               .'}
+            then: "'         Week 26'"
+          - otherwise: "'               .'"
       AVISITN:
         case:
           - when: "LB.VISIT = 'SCREENING 1'"
-            then: {literal: 0.0}
+            then: 0.0
           - when: "LB.VISIT = 'WEEK 2'"
-            then: {literal: 2.0}
+            then: 2.0
           - when: "LB.VISIT = 'WEEK 4'"
-            then: {literal: 4.0}
+            then: 4.0
           - when: "LB.VISIT = 'WEEK 6'"
-            then: {literal: 6.0}
+            then: 6.0
           - when: "LB.VISIT = 'WEEK 8'"
-            then: {literal: 8.0}
+            then: 8.0
           - when: "LB.VISIT = 'WEEK 12'"
-            then: {literal: 12.0}
+            then: 12.0
           - when: "LB.VISIT = 'WEEK 16'"
-            then: {literal: 16.0}
+            then: 16.0
           - when: "LB.VISIT = 'WEEK 20'"
-            then: {literal: 20.0}
+            then: 20.0
           - when: "LB.VISIT = 'WEEK 24'"
-            then: {literal: 24.0}
+            then: 24.0
           - when: "LB.VISIT = 'WEEK 26'"
-            then: {literal: 26.0}
-          - otherwise: {literal: null}
+            then: 26.0
+          - otherwise:
       ABLFL:
         case:
           - when: "LB.LBBLFL = 'Y'"
-            then: {literal: 'Y'}
-          - otherwise: {literal: ''}
+            then: "'Y'"
+          - otherwise: "''"
       _PARAM_BASE:
         mapping:
           source: LB.LBTESTCD
-          unmapped: null
+          unmapped:
           dict:
             SODIUM: 'Sodium (mmol/L)'
             K: 'Potassium (mmol/L)'
@@ -618,7 +669,7 @@ rows:
       _PARAMN_BASE:
         mapping:
           source: LB.LBTESTCD
-          unmapped: null
+          unmapped:
           dict:
             SODIUM: 18.0
             K: 19.0
@@ -643,83 +694,89 @@ rows:
         case:
           - when: "ABLFL = 'Y'"
             then: _AVAL_BASE
-          - otherwise: {literal: null}
+          - otherwise:
       _PNM_BASE:
-        previous_non_missing:
+        locf:
           source: _BASELINE_AVAL
           window:
-            group_by: [USUBJID, PARAMCD]
-            order_by: [{variable: LBSEQ}]
+            group_by:
+              - USUBJID
+              - PARAMCD
+            order_by:
+              - {variable: LBSEQ, nulls: last}
       _BASE:
         first_available:
-          sources: [_BASELINE_AVAL, _PNM_BASE]
+          sources:
+            - _BASELINE_AVAL
+            - _PNM_BASE
       _IS_LAST_ELIGIBLE:
         row_number:
           window:
-            group_by: [USUBJID, PARAMCD]
-            order_by: [{variable: LBSEQ, direction: desc}]
-            filter: "VISIT IN ('WEEK 2', 'WEEK 4', 'WEEK 6', 'WEEK 8',
-              'WEEK 12', 'WEEK 16', 'WEEK 20', 'WEEK 24')"
+            group_by:
+              - USUBJID
+              - PARAMCD
+            order_by:
+              - {variable: LBSEQ, direction: desc, nulls: last}
+            filter: "VISIT IN ('WEEK 2', 'WEEK 4', 'WEEK 6', 'WEEK
+              8', 'WEEK 12', 'WEEK 16', 'WEEK 20', 'WEEK 24')"
       _RANK_AVISITN: AVISITN
-      _B_A1HI: {literal: null}
-      _B_A1LO: {literal: null}
-      _T1:
-        compute:
-          expr: "1.5 * A1HI - _AVAL_BASE"
-      _T2:
-        compute:
-          expr: "_AVAL_BASE - 0.5 * A1LO"
+      _B_A1HI:
+      _B_A1LO:
+      _T1: "1.5 * A1HI - _AVAL_BASE"
+      _T2: "_AVAL_BASE - 0.5 * A1LO"
       ALBTRVAL:
         greatest:
-          sources: [_T1, _T2]
-      _R2A1HI_R:
-        compute:
-          expr: "_AVAL_BASE / A1HI"
+          sources:
+            - _T1
+            - _T2
+      _R2A1HI_R: "_AVAL_BASE / A1HI"
       _R2A1LO_R:
         case:
           - when: "A1LO IS NULL OR A1LO = 0"
-            then: {literal: null}
-          - otherwise:
-              compute:
-                expr: "_AVAL_BASE / A1LO"
+            then:
+          - otherwise: "_AVAL_BASE / A1LO"
       _ANRIND_BASE:
         case:
           - when: "_R2A1HI_R > 1.5"
-            then: {literal: 'H'}
+            then: "'H'"
           - when: "_R2A1LO_R < 0.5"
-            then: {literal: 'L'}
-          - otherwise: {literal: 'N'}
+            then: "'L'"
+          - otherwise: "'N'"
       _BASELINE_ANRIND:
         case:
           - when: "ABLFL = 'Y'"
             then: _ANRIND_BASE
-          - otherwise: {literal: null}
+          - otherwise:
       _PNM_BNRIND:
-        previous_non_missing:
+        locf:
           source: _BASELINE_ANRIND
           window:
-            group_by: [USUBJID, PARAMCD]
-            order_by: [{variable: LBSEQ}]
+            group_by:
+              - USUBJID
+              - PARAMCD
+            order_by:
+              - {variable: LBSEQ, nulls: last}
       _BNRIND_VAL:
         first_available:
-          sources: [_BASELINE_ANRIND, _PNM_BNRIND]
-      _LBCAT: {literal: null}
-      _VISIT_RAW: {literal: null}
-      _LBBLFL: {literal: null}
-      _LBTESTCD: {literal: null}
-      _PARAMCD_BASE: {literal: null}
+          sources:
+            - _BASELINE_ANRIND
+            - _PNM_BNRIND
+      _LBCAT:
+      _VISIT_RAW:
+      _LBBLFL:
+      _LBTESTCD:
+      _PARAMCD_BASE:
       LBTESTCD: LB.LBTESTCD
-      _SCHED: {literal: null}
-      _PREV_AVAL: {literal: null}
-      _U_RAW: {literal: null}
+      _SCHED:
+      _PREV_AVAL:
+      _U_RAW:
 
-  # ------------------------------------------------------------------
-  # base-eot: EOT base rows (last eligible record per USUBJID/PARAMCD)
-  # Single-record groups; grouped filter keeps the last eligible.
-  # ------------------------------------------------------------------
   - id: base-eot
     dataset: LB
-    group_by: [LB.USUBJID, LB.LBTESTCD, LB.LBSEQ]
+    group_by:
+      - LB.USUBJID
+      - LB.LBTESTCD
+      - LB.LBSEQ
     filter: "_IS_LAST_ELIGIBLE = 1"
     derivations:
       STUDYID:
@@ -727,8 +784,8 @@ rows:
       USUBJID: LB.USUBJID
       PARAMCD: LB.LBTESTCD
       LBSEQ: LB.LBSEQ
-      _IS_UNDER: {literal: ''}
-      _IS_EOT: {literal: 'Y'}
+      _IS_UNDER: "''"
+      _IS_EOT: "'Y'"
       _LBCAT:
         aggregate: "ONLY(LB.LBCAT)"
       _VISIT_RAW:
@@ -748,11 +805,11 @@ rows:
       _LBDTM_TXT:
         aggregate: "ONLY(LB.LBDTC)"
       _LBDTM:
-        datetime_impute:
+        impute:
+          type: datetime
           source: _LBDTM_TXT
           time: first
-          missing: null
-          invalid: null
+          invalid:
       _ADT_DATE:
         to_date:
           source: _LBDTM
@@ -760,185 +817,190 @@ rows:
         aggregate: "ONLY(LB.LBBLFL)"
       _LBTESTCD:
         aggregate: "ONLY(LB.LBTESTCD)"
-      AVISIT: {literal: 'End of Treatment'}
-      AVISITN: {literal: 99.0}
-      ABLFL: {literal: ''}
+      AVISIT: "'End of Treatment'"
+      AVISITN: 99.0
+      ABLFL: "''"
       _PARAM_BASE:
         case:
           - when: "_LBTESTCD = 'SODIUM'"
-            then: {literal: 'Sodium (mmol/L)'}
+            then: "'Sodium (mmol/L)'"
           - when: "_LBTESTCD = 'K'"
-            then: {literal: 'Potassium (mmol/L)'}
+            then: "'Potassium (mmol/L)'"
           - when: "_LBTESTCD = 'CL'"
-            then: {literal: 'Chloride (mmol/L)'}
+            then: "'Chloride (mmol/L)'"
           - when: "_LBTESTCD = 'BILI'"
-            then: {literal: 'Bilirubin (umol/L)'}
+            then: "'Bilirubin (umol/L)'"
           - when: "_LBTESTCD = 'ALP'"
-            then: {literal: 'Alkaline Phosphatase (U/L)'}
+            then: "'Alkaline Phosphatase (U/L)'"
           - when: "_LBTESTCD = 'GGT'"
-            then: {literal: 'Gamma Glutamyl Transferase (U/L)'}
+            then: "'Gamma Glutamyl Transferase (U/L)'"
           - when: "_LBTESTCD = 'ALT'"
-            then: {literal: 'Alanine Aminotransferase (U/L)'}
+            then: "'Alanine Aminotransferase (U/L)'"
           - when: "_LBTESTCD = 'AST'"
-            then: {literal: 'Aspartate Aminotransferase (U/L)'}
+            then: "'Aspartate Aminotransferase (U/L)'"
           - when: "_LBTESTCD = 'BUN'"
-            then: {literal: 'Blood Urea Nitrogen (mmol/L)'}
+            then: "'Blood Urea Nitrogen (mmol/L)'"
           - when: "_LBTESTCD = 'CREAT'"
-            then: {literal: 'Creatinine (umol/L)'}
+            then: "'Creatinine (umol/L)'"
           - when: "_LBTESTCD = 'URATE'"
-            then: {literal: 'Urate (umol/L)'}
+            then: "'Urate (umol/L)'"
           - when: "_LBTESTCD = 'PHOS'"
-            then: {literal: 'Phosphate (mmol/L)'}
+            then: "'Phosphate (mmol/L)'"
           - when: "_LBTESTCD = 'CA'"
-            then: {literal: 'Calcium (mmol/L)'}
+            then: "'Calcium (mmol/L)'"
           - when: "_LBTESTCD = 'GLUC'"
-            then: {literal: 'Glucose (mmol/L)'}
+            then: "'Glucose (mmol/L)'"
           - when: "_LBTESTCD = 'PROT'"
-            then: {literal: 'Protein (g/L)'}
+            then: "'Protein (g/L)'"
           - when: "_LBTESTCD = 'ALB'"
-            then: {literal: 'Albumin (g/L)'}
+            then: "'Albumin (g/L)'"
           - when: "_LBTESTCD = 'CHOL'"
-            then: {literal: 'Cholesterol (mmol/L)'}
+            then: "'Cholesterol (mmol/L)'"
           - when: "_LBTESTCD = 'CK'"
-            then: {literal: 'Creatine Kinase (U/L)'}
-          - otherwise: {literal: null}
+            then: "'Creatine Kinase (U/L)'"
+          - otherwise:
       _PARAMN_BASE:
         case:
           - when: "_LBTESTCD = 'SODIUM'"
-            then: {literal: 18.0}
+            then: 18.0
           - when: "_LBTESTCD = 'K'"
-            then: {literal: 19.0}
+            then: 19.0
           - when: "_LBTESTCD = 'CL'"
-            then: {literal: 20.0}
+            then: 20.0
           - when: "_LBTESTCD = 'BILI'"
-            then: {literal: 21.0}
+            then: 21.0
           - when: "_LBTESTCD = 'ALP'"
-            then: {literal: 22.0}
+            then: 22.0
           - when: "_LBTESTCD = 'GGT'"
-            then: {literal: 23.0}
+            then: 23.0
           - when: "_LBTESTCD = 'ALT'"
-            then: {literal: 24.0}
+            then: 24.0
           - when: "_LBTESTCD = 'AST'"
-            then: {literal: 25.0}
+            then: 25.0
           - when: "_LBTESTCD = 'BUN'"
-            then: {literal: 26.0}
+            then: 26.0
           - when: "_LBTESTCD = 'CREAT'"
-            then: {literal: 27.0}
+            then: 27.0
           - when: "_LBTESTCD = 'URATE'"
-            then: {literal: 28.0}
+            then: 28.0
           - when: "_LBTESTCD = 'PHOS'"
-            then: {literal: 29.0}
+            then: 29.0
           - when: "_LBTESTCD = 'CA'"
-            then: {literal: 30.0}
+            then: 30.0
           - when: "_LBTESTCD = 'GLUC'"
-            then: {literal: 31.0}
+            then: 31.0
           - when: "_LBTESTCD = 'PROT'"
-            then: {literal: 32.0}
+            then: 32.0
           - when: "_LBTESTCD = 'ALB'"
-            then: {literal: 33.0}
+            then: 33.0
           - when: "_LBTESTCD = 'CHOL'"
-            then: {literal: 34.0}
+            then: 34.0
           - when: "_LBTESTCD = 'CK'"
-            then: {literal: 35.0}
-          - otherwise: {literal: null}
+            then: 35.0
+          - otherwise:
       _AVAL_BASE:
         aggregate: "ONLY(LB.LBSTRESN)"
       _BASELINE_AVAL:
         case:
           - when: "_LBBLFL = 'Y'"
             then: _AVAL_BASE
-          - otherwise: {literal: null}
+          - otherwise:
       _PNM_BASE:
-        previous_non_missing:
+        locf:
           source: _BASELINE_AVAL
           window:
-            group_by: [USUBJID, PARAMCD]
-            order_by: [{variable: LBSEQ}]
+            group_by:
+              - USUBJID
+              - PARAMCD
+            order_by:
+              - {variable: LBSEQ, nulls: last}
       _BASE:
         first_available:
-          sources: [_BASELINE_AVAL, _PNM_BASE]
+          sources:
+            - _BASELINE_AVAL
+            - _PNM_BASE
       _IS_LAST_ELIGIBLE:
         row_number:
           window:
-            group_by: [USUBJID, PARAMCD]
-            order_by: [{variable: LBSEQ, direction: desc}]
+            group_by:
+              - USUBJID
+              - PARAMCD
+            order_by:
+              - {variable: LBSEQ, direction: desc, nulls: last}
             filter: "_LBCAT = 'CHEMISTRY' AND _VISIT_RAW NOT IN ('RETRIEVAL',
-              'AMBUL ECG REMOVAL') AND _VISIT_RAW IN ('WEEK 2', 'WEEK 4',
-              'WEEK 6', 'WEEK 8', 'WEEK 12', 'WEEK 16', 'WEEK 20', 'WEEK 24')"
+              'AMBUL ECG REMOVAL') AND _VISIT_RAW IN ('WEEK 2', 'WEEK
+              4', 'WEEK 6', 'WEEK 8', 'WEEK 12', 'WEEK 16', 'WEEK
+              20', 'WEEK 24')"
       _RANK_AVISITN:
         case:
           - when: "_VISIT_RAW = 'SCREENING 1'"
-            then: {literal: 0.0}
+            then: 0.0
           - when: "_VISIT_RAW = 'WEEK 2'"
-            then: {literal: 2.0}
+            then: 2.0
           - when: "_VISIT_RAW = 'WEEK 4'"
-            then: {literal: 4.0}
+            then: 4.0
           - when: "_VISIT_RAW = 'WEEK 6'"
-            then: {literal: 6.0}
+            then: 6.0
           - when: "_VISIT_RAW = 'WEEK 8'"
-            then: {literal: 8.0}
+            then: 8.0
           - when: "_VISIT_RAW = 'WEEK 12'"
-            then: {literal: 12.0}
+            then: 12.0
           - when: "_VISIT_RAW = 'WEEK 16'"
-            then: {literal: 16.0}
+            then: 16.0
           - when: "_VISIT_RAW = 'WEEK 20'"
-            then: {literal: 20.0}
+            then: 20.0
           - when: "_VISIT_RAW = 'WEEK 24'"
-            then: {literal: 24.0}
+            then: 24.0
           - when: "_VISIT_RAW = 'WEEK 26'"
-            then: {literal: 26.0}
-          - otherwise: {literal: null}
-      _B_A1HI: {literal: null}
-      _B_A1LO: {literal: null}
-      _T1:
-        compute:
-          expr: "1.5 * A1HI - _AVAL_BASE"
-      _T2:
-        compute:
-          expr: "_AVAL_BASE - 0.5 * A1LO"
+            then: 26.0
+          - otherwise:
+      _B_A1HI:
+      _B_A1LO:
+      _T1: "1.5 * A1HI - _AVAL_BASE"
+      _T2: "_AVAL_BASE - 0.5 * A1LO"
       ALBTRVAL:
         greatest:
-          sources: [_T1, _T2]
-      _R2A1HI_R:
-        compute:
-          expr: "_AVAL_BASE / A1HI"
+          sources:
+            - _T1
+            - _T2
+      _R2A1HI_R: "_AVAL_BASE / A1HI"
       _R2A1LO_R:
         case:
           - when: "A1LO IS NULL OR A1LO = 0"
-            then: {literal: null}
-          - otherwise:
-              compute:
-                expr: "_AVAL_BASE / A1LO"
+            then:
+          - otherwise: "_AVAL_BASE / A1LO"
       _ANRIND_BASE:
         case:
           - when: "_R2A1HI_R > 1.5"
-            then: {literal: 'H'}
+            then: "'H'"
           - when: "_R2A1LO_R < 0.5"
-            then: {literal: 'L'}
-          - otherwise: {literal: 'N'}
+            then: "'L'"
+          - otherwise: "'N'"
       _BASELINE_ANRIND:
         case:
           - when: "_LBBLFL = 'Y'"
             then: _ANRIND_BASE
-          - otherwise: {literal: null}
+          - otherwise:
       _PNM_BNRIND:
-        previous_non_missing:
+        locf:
           source: _BASELINE_ANRIND
           window:
-            group_by: [USUBJID, PARAMCD]
-            order_by: [{variable: LBSEQ}]
+            group_by:
+              - USUBJID
+              - PARAMCD
+            order_by:
+              - {variable: LBSEQ, nulls: last}
       _BNRIND_VAL:
         first_available:
-          sources: [_BASELINE_ANRIND, _PNM_BNRIND]
-      _PARAMCD_BASE: {literal: null}
+          sources:
+            - _BASELINE_ANRIND
+            - _PNM_BNRIND
+      _PARAMCD_BASE:
       LBTESTCD: LB.LBTESTCD
-      _SCHED: {literal: null}
-      _PREV_AVAL: {literal: null}
-      _U_RAW: {literal: null}
+      _SCHED:
+      _PREV_AVAL:
+      _U_RAW:
 
-  # ------------------------------------------------------------------
-  # under-ord: ordinary underscore rows (change from previous visit)
-  # ------------------------------------------------------------------
   - id: under-ord
     dataset: LB
     filter: "LB.LBCAT = 'CHEMISTRY' AND LB.VISIT NOT IN ('RETRIEVAL',
@@ -946,81 +1008,78 @@ rows:
     derivations:
       STUDYID: LB.STUDYID
       USUBJID: LB.USUBJID
-      _IS_UNDER: {literal: 'Y'}
-      _IS_EOT: {literal: ''}
+      _IS_UNDER: "'Y'"
+      _IS_EOT: "''"
       VISIT: LB.VISIT
       VISITNUM: LB.VISITNUM
       LBSEQ: LB.LBSEQ
       LBNRIND: LB.LBNRIND
       LBSTRESN: LB.LBSTRESN
-      A1LO: {literal: null}
-      A1HI: {literal: null}
+      A1LO:
+      A1HI:
       _LBDTM_TXT: LB.LBDTC
       _LBDTM:
-        datetime_impute:
+        impute:
+          type: datetime
           source: _LBDTM_TXT
           time: first
-          missing: null
-          invalid: null
+          invalid:
       _ADT_DATE:
         to_date:
           source: _LBDTM
       PARAMCD:
-        str_concat:
-          sources:
-            - {literal: '_'}
-            - {source: LB.LBTESTCD}
+        str_template: "_{LB.LBTESTCD}"
       AVISIT:
         case:
           - when: "LB.VISIT = 'SCREENING 1'"
-            then: {literal: '        Baseline'}
+            then: "'        Baseline'"
           - when: "LB.VISIT = 'WEEK 2'"
-            then: {literal: '          Week 2'}
+            then: "'          Week 2'"
           - when: "LB.VISIT = 'WEEK 4'"
-            then: {literal: '          Week 4'}
+            then: "'          Week 4'"
           - when: "LB.VISIT = 'WEEK 6'"
-            then: {literal: '          Week 6'}
+            then: "'          Week 6'"
           - when: "LB.VISIT = 'WEEK 8'"
-            then: {literal: '          Week 8'}
+            then: "'          Week 8'"
           - when: "LB.VISIT = 'WEEK 12'"
-            then: {literal: '         Week 12'}
+            then: "'         Week 12'"
           - when: "LB.VISIT = 'WEEK 16'"
-            then: {literal: '         Week 16'}
+            then: "'         Week 16'"
           - when: "LB.VISIT = 'WEEK 20'"
-            then: {literal: '         Week 20'}
+            then: "'         Week 20'"
           - when: "LB.VISIT = 'WEEK 24'"
-            then: {literal: '         Week 24'}
+            then: "'         Week 24'"
           - when: "LB.VISIT = 'WEEK 26'"
-            then: {literal: '         Week 26'}
-          - otherwise: {literal: '               .'}
+            then: "'         Week 26'"
+          - otherwise: "'               .'"
       AVISITN:
         case:
           - when: "LB.VISIT = 'SCREENING 1'"
-            then: {literal: 0.0}
+            then: 0.0
           - when: "LB.VISIT = 'WEEK 2'"
-            then: {literal: 2.0}
+            then: 2.0
           - when: "LB.VISIT = 'WEEK 4'"
-            then: {literal: 4.0}
+            then: 4.0
           - when: "LB.VISIT = 'WEEK 6'"
-            then: {literal: 6.0}
+            then: 6.0
           - when: "LB.VISIT = 'WEEK 8'"
-            then: {literal: 8.0}
+            then: 8.0
           - when: "LB.VISIT = 'WEEK 12'"
-            then: {literal: 12.0}
+            then: 12.0
           - when: "LB.VISIT = 'WEEK 16'"
-            then: {literal: 16.0}
+            then: 16.0
           - when: "LB.VISIT = 'WEEK 20'"
-            then: {literal: 20.0}
+            then: 20.0
           - when: "LB.VISIT = 'WEEK 24'"
-            then: {literal: 24.0}
+            then: 24.0
           - when: "LB.VISIT = 'WEEK 26'"
-            then: {literal: 26.0}
-          - otherwise: {literal: null}
-      ABLFL: {literal: ''}
+            then: 26.0
+          - otherwise:
+      ABLFL: "''"
       _PARAM_BASE:
         mapping:
           source: LB.LBTESTCD
-          unmapped: null
+          unmapped:
           dict:
             SODIUM: 'Sodium (mmol/L)'
             K: 'Potassium (mmol/L)'
@@ -1043,7 +1102,7 @@ rows:
       _PARAMN_BASE:
         mapping:
           source: LB.LBTESTCD
-          unmapped: null
+          unmapped:
           dict:
             SODIUM: 18.0
             K: 19.0
@@ -1066,65 +1125,67 @@ rows:
       _AVAL_BASE: LB.LBSTRESN
       _BASE:
         first_available:
-          sources: [_BASELINE_AVAL, _PNM_BASE]
-      _BASELINE_AVAL: {literal: null}
-      _PNM_BASE: {literal: null}
+          sources:
+            - _BASELINE_AVAL
+            - _PNM_BASE
+      _BASELINE_AVAL:
+      _PNM_BASE:
       _PARAMCD_BASE: LB.LBTESTCD
       LBTESTCD: LB.LBTESTCD
       _SCHED:
         case:
-          - when: "AVISIT = '               .' OR AVISIT = 'End of Treatment'"
-            then: {literal: ''}
-          - otherwise: {literal: 'Y'}
+          - when: "AVISIT = '               .' OR AVISIT = 'End of
+              Treatment'"
+            then: "''"
+          - otherwise: "'Y'"
       _PREV_AVAL: PREV.PREV_AVAL
 
-      _U_RAW:
-        compute:
-          expr: "(_AVAL_BASE - _PREV_AVAL) / (0.5 * (_B_A1HI - _B_A1LO))"
+      _U_RAW: "(_AVAL_BASE - _PREV_AVAL) / (0.5 * (_B_A1HI - _B_A1LO))"
       _IS_LAST_ELIGIBLE:
         row_number:
           window:
-            group_by: [USUBJID, _PARAMCD_BASE]
-            order_by: [{variable: LBSEQ, direction: desc}]
-            filter: "VISIT IN ('WEEK 2', 'WEEK 4', 'WEEK 6', 'WEEK 8',
-              'WEEK 12', 'WEEK 16', 'WEEK 20', 'WEEK 24')"
+            group_by:
+              - USUBJID
+              - _PARAMCD_BASE
+            order_by:
+              - {variable: LBSEQ, direction: desc, nulls: last}
+            filter: "VISIT IN ('WEEK 2', 'WEEK 4', 'WEEK 6', 'WEEK
+              8', 'WEEK 12', 'WEEK 16', 'WEEK 20', 'WEEK 24')"
       _RANK_AVISITN: AVISITN
       _B_A1HI: LB.LBSTNRHI
       _B_A1LO: LB.LBSTNRLO
-      _T1:
-        compute:
-          expr: "1.5 * _B_A1HI - _AVAL_BASE"
-      _T2:
-        compute:
-          expr: "_AVAL_BASE - 0.5 * _B_A1LO"
+      _T1: "1.5 * _B_A1HI - _AVAL_BASE"
+      _T2: "_AVAL_BASE - 0.5 * _B_A1LO"
       ALBTRVAL:
         greatest:
-          sources: [_T1, _T2]
-      _R2A1HI_R: {literal: null}
-      _R2A1LO_R: {literal: null}
-      _BASELINE_ANRIND: {literal: null}
-      _PNM_BNRIND: {literal: null}
-      _BNRIND_VAL: {literal: null}
-      _ANRIND_BASE: {literal: null}
-      _LBCAT: {literal: null}
-      _VISIT_RAW: {literal: null}
-      _LBBLFL: {literal: null}
-      _LBTESTCD: {literal: null}
+          sources:
+            - _T1
+            - _T2
+      _R2A1HI_R:
+      _R2A1LO_R:
+      _BASELINE_ANRIND:
+      _PNM_BNRIND:
+      _BNRIND_VAL:
+      _ANRIND_BASE:
+      _LBCAT:
+      _VISIT_RAW:
+      _LBBLFL:
+      _LBTESTCD:
 
-  # ------------------------------------------------------------------
-  # under-eot: EOT underscore rows (inherits source row's previous value)
-  # ------------------------------------------------------------------
   - id: under-eot
     dataset: LB
-    group_by: [LB.USUBJID, LB.LBTESTCD, LB.LBSEQ]
+    group_by:
+      - LB.USUBJID
+      - LB.LBTESTCD
+      - LB.LBSEQ
     filter: "_IS_LAST_ELIGIBLE = 1"
     derivations:
       STUDYID:
         aggregate: "ONLY(LB.STUDYID)"
       USUBJID: LB.USUBJID
       LBSEQ: LB.LBSEQ
-      _IS_UNDER: {literal: 'Y'}
-      _IS_EOT: {literal: 'Y'}
+      _IS_UNDER: "'Y'"
+      _IS_EOT: "'Y'"
       _LBCAT:
         aggregate: "ONLY(LB.LBCAT)"
       _VISIT_RAW:
@@ -1137,16 +1198,16 @@ rows:
         aggregate: "ONLY(LB.LBNRIND)"
       LBSTRESN:
         aggregate: "ONLY(LB.LBSTRESN)"
-      A1LO: {literal: null}
-      A1HI: {literal: null}
+      A1LO:
+      A1HI:
       _LBDTM_TXT:
         aggregate: "ONLY(LB.LBDTC)"
       _LBDTM:
-        datetime_impute:
+        impute:
+          type: datetime
           source: _LBDTM_TXT
           time: first
-          missing: null
-          invalid: null
+          invalid:
       _ADT_DATE:
         to_date:
           source: _LBDTM
@@ -1155,158 +1216,156 @@ rows:
       _LBBLFL:
         aggregate: "ONLY(LB.LBBLFL)"
       PARAMCD:
-        str_concat:
-          sources:
-            - {literal: '_'}
-            - {source: _LBTESTCD}
-      AVISIT: {literal: 'End of Treatment'}
-      AVISITN: {literal: 99.0}
-      ABLFL: {literal: ''}
+        str_template: "_{_LBTESTCD}"
+      AVISIT: "'End of Treatment'"
+      AVISITN: 99.0
+      ABLFL: "''"
       _PARAM_BASE:
         case:
           - when: "_LBTESTCD = 'SODIUM'"
-            then: {literal: 'Sodium (mmol/L)'}
+            then: "'Sodium (mmol/L)'"
           - when: "_LBTESTCD = 'K'"
-            then: {literal: 'Potassium (mmol/L)'}
+            then: "'Potassium (mmol/L)'"
           - when: "_LBTESTCD = 'CL'"
-            then: {literal: 'Chloride (mmol/L)'}
+            then: "'Chloride (mmol/L)'"
           - when: "_LBTESTCD = 'BILI'"
-            then: {literal: 'Bilirubin (umol/L)'}
+            then: "'Bilirubin (umol/L)'"
           - when: "_LBTESTCD = 'ALP'"
-            then: {literal: 'Alkaline Phosphatase (U/L)'}
+            then: "'Alkaline Phosphatase (U/L)'"
           - when: "_LBTESTCD = 'GGT'"
-            then: {literal: 'Gamma Glutamyl Transferase (U/L)'}
+            then: "'Gamma Glutamyl Transferase (U/L)'"
           - when: "_LBTESTCD = 'ALT'"
-            then: {literal: 'Alanine Aminotransferase (U/L)'}
+            then: "'Alanine Aminotransferase (U/L)'"
           - when: "_LBTESTCD = 'AST'"
-            then: {literal: 'Aspartate Aminotransferase (U/L)'}
+            then: "'Aspartate Aminotransferase (U/L)'"
           - when: "_LBTESTCD = 'BUN'"
-            then: {literal: 'Blood Urea Nitrogen (mmol/L)'}
+            then: "'Blood Urea Nitrogen (mmol/L)'"
           - when: "_LBTESTCD = 'CREAT'"
-            then: {literal: 'Creatinine (umol/L)'}
+            then: "'Creatinine (umol/L)'"
           - when: "_LBTESTCD = 'URATE'"
-            then: {literal: 'Urate (umol/L)'}
+            then: "'Urate (umol/L)'"
           - when: "_LBTESTCD = 'PHOS'"
-            then: {literal: 'Phosphate (mmol/L)'}
+            then: "'Phosphate (mmol/L)'"
           - when: "_LBTESTCD = 'CA'"
-            then: {literal: 'Calcium (mmol/L)'}
+            then: "'Calcium (mmol/L)'"
           - when: "_LBTESTCD = 'GLUC'"
-            then: {literal: 'Glucose (mmol/L)'}
+            then: "'Glucose (mmol/L)'"
           - when: "_LBTESTCD = 'PROT'"
-            then: {literal: 'Protein (g/L)'}
+            then: "'Protein (g/L)'"
           - when: "_LBTESTCD = 'ALB'"
-            then: {literal: 'Albumin (g/L)'}
+            then: "'Albumin (g/L)'"
           - when: "_LBTESTCD = 'CHOL'"
-            then: {literal: 'Cholesterol (mmol/L)'}
+            then: "'Cholesterol (mmol/L)'"
           - when: "_LBTESTCD = 'CK'"
-            then: {literal: 'Creatine Kinase (U/L)'}
-          - otherwise: {literal: null}
+            then: "'Creatine Kinase (U/L)'"
+          - otherwise:
       _PARAMN_BASE:
         case:
           - when: "_LBTESTCD = 'SODIUM'"
-            then: {literal: 18.0}
+            then: 18.0
           - when: "_LBTESTCD = 'K'"
-            then: {literal: 19.0}
+            then: 19.0
           - when: "_LBTESTCD = 'CL'"
-            then: {literal: 20.0}
+            then: 20.0
           - when: "_LBTESTCD = 'BILI'"
-            then: {literal: 21.0}
+            then: 21.0
           - when: "_LBTESTCD = 'ALP'"
-            then: {literal: 22.0}
+            then: 22.0
           - when: "_LBTESTCD = 'GGT'"
-            then: {literal: 23.0}
+            then: 23.0
           - when: "_LBTESTCD = 'ALT'"
-            then: {literal: 24.0}
+            then: 24.0
           - when: "_LBTESTCD = 'AST'"
-            then: {literal: 25.0}
+            then: 25.0
           - when: "_LBTESTCD = 'BUN'"
-            then: {literal: 26.0}
+            then: 26.0
           - when: "_LBTESTCD = 'CREAT'"
-            then: {literal: 27.0}
+            then: 27.0
           - when: "_LBTESTCD = 'URATE'"
-            then: {literal: 28.0}
+            then: 28.0
           - when: "_LBTESTCD = 'PHOS'"
-            then: {literal: 29.0}
+            then: 29.0
           - when: "_LBTESTCD = 'CA'"
-            then: {literal: 30.0}
+            then: 30.0
           - when: "_LBTESTCD = 'GLUC'"
-            then: {literal: 31.0}
+            then: 31.0
           - when: "_LBTESTCD = 'PROT'"
-            then: {literal: 32.0}
+            then: 32.0
           - when: "_LBTESTCD = 'ALB'"
-            then: {literal: 33.0}
+            then: 33.0
           - when: "_LBTESTCD = 'CHOL'"
-            then: {literal: 34.0}
+            then: 34.0
           - when: "_LBTESTCD = 'CK'"
-            then: {literal: 35.0}
-          - otherwise: {literal: null}
+            then: 35.0
+          - otherwise:
       _AVAL_BASE:
         aggregate: "ONLY(LB.LBSTRESN)"
-      _BASE: {literal: null}
-      _BASELINE_AVAL: {literal: null}
-      _PNM_BASE: {literal: null}
+      _BASE:
+      _BASELINE_AVAL:
+      _PNM_BASE:
       _PARAMCD_BASE:
         aggregate: "ONLY(LB.LBTESTCD)"
       LBTESTCD:
         aggregate: "ONLY(LB.LBTESTCD)"
       _SCHED:
         case:
-          - when: "_VISIT_RAW IN ('SCREENING 1', 'WEEK 2', 'WEEK 4', 'WEEK 6',
-              'WEEK 8', 'WEEK 12', 'WEEK 16', 'WEEK 20', 'WEEK 24', 'WEEK 26')"
-            then: {literal: 'Y'}
-          - otherwise: {literal: ''}
+          - when: "_VISIT_RAW IN ('SCREENING 1', 'WEEK 2', 'WEEK 4',
+              'WEEK 6', 'WEEK 8', 'WEEK 12', 'WEEK 16', 'WEEK 20',
+              'WEEK 24', 'WEEK 26')"
+            then: "'Y'"
+          - otherwise: "''"
       _PREV_AVAL: PREV.PREV_AVAL
 
-      _U_RAW:
-        compute:
-          expr: "(_AVAL_BASE - _PREV_AVAL) / (0.5 * (_B_A1HI - _B_A1LO))"
+      _U_RAW: "(_AVAL_BASE - _PREV_AVAL) / (0.5 * (_B_A1HI - _B_A1LO))"
       _IS_LAST_ELIGIBLE:
         row_number:
           window:
-            group_by: [USUBJID, _PARAMCD_BASE]
-            order_by: [{variable: LBSEQ, direction: desc}]
+            group_by:
+              - USUBJID
+              - _PARAMCD_BASE
+            order_by:
+              - {variable: LBSEQ, direction: desc, nulls: last}
             filter: "_LBCAT = 'CHEMISTRY' AND _VISIT_RAW NOT IN ('RETRIEVAL',
-              'AMBUL ECG REMOVAL') AND _VISIT_RAW IN ('WEEK 2', 'WEEK 4',
-              'WEEK 6', 'WEEK 8', 'WEEK 12', 'WEEK 16', 'WEEK 20', 'WEEK 24')"
+              'AMBUL ECG REMOVAL') AND _VISIT_RAW IN ('WEEK 2', 'WEEK
+              4', 'WEEK 6', 'WEEK 8', 'WEEK 12', 'WEEK 16', 'WEEK
+              20', 'WEEK 24')"
       _RANK_AVISITN:
         case:
           - when: "_VISIT_RAW = 'SCREENING 1'"
-            then: {literal: 0.0}
+            then: 0.0
           - when: "_VISIT_RAW = 'WEEK 2'"
-            then: {literal: 2.0}
+            then: 2.0
           - when: "_VISIT_RAW = 'WEEK 4'"
-            then: {literal: 4.0}
+            then: 4.0
           - when: "_VISIT_RAW = 'WEEK 6'"
-            then: {literal: 6.0}
+            then: 6.0
           - when: "_VISIT_RAW = 'WEEK 8'"
-            then: {literal: 8.0}
+            then: 8.0
           - when: "_VISIT_RAW = 'WEEK 12'"
-            then: {literal: 12.0}
+            then: 12.0
           - when: "_VISIT_RAW = 'WEEK 16'"
-            then: {literal: 16.0}
+            then: 16.0
           - when: "_VISIT_RAW = 'WEEK 20'"
-            then: {literal: 20.0}
+            then: 20.0
           - when: "_VISIT_RAW = 'WEEK 24'"
-            then: {literal: 24.0}
+            then: 24.0
           - when: "_VISIT_RAW = 'WEEK 26'"
-            then: {literal: 26.0}
-          - otherwise: {literal: null}
+            then: 26.0
+          - otherwise:
       _B_A1HI:
         aggregate: "ONLY(LB.LBSTNRHI)"
       _B_A1LO:
         aggregate: "ONLY(LB.LBSTNRLO)"
-      _T1:
-        compute:
-          expr: "1.5 * _B_A1HI - _AVAL_BASE"
-      _T2:
-        compute:
-          expr: "_AVAL_BASE - 0.5 * _B_A1LO"
+      _T1: "1.5 * _B_A1HI - _AVAL_BASE"
+      _T2: "_AVAL_BASE - 0.5 * _B_A1LO"
       ALBTRVAL:
         greatest:
-          sources: [_T1, _T2]
-      _R2A1HI_R: {literal: null}
-      _R2A1LO_R: {literal: null}
-      _BASELINE_ANRIND: {literal: null}
-      _PNM_BNRIND: {literal: null}
-      _BNRIND_VAL: {literal: null}
-      _ANRIND_BASE: {literal: null}
+          sources:
+            - _T1
+            - _T2
+      _R2A1HI_R:
+      _R2A1LO_R:
+      _BASELINE_ANRIND:
+      _PNM_BNRIND:
+      _BNRIND_VAL:
+      _ANRIND_BASE:
