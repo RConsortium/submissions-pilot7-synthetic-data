@@ -70,8 +70,13 @@ def materialize_sdtm(path, destination):
             kind = 'float'
         else:
             raise ValueError(f'Unsupported SDTM column type: {field}')
-        columns.append({'name': field.name, 'itemOID': field.name, 'dataType': kind,
-                        'label': field.metadata[b'yamaa:label'].decode()})
+        metadata = {'name': field.name, 'itemOID': field.name, 'dataType': kind,
+                    'label': field.metadata[b'yamaa:label'].decode()}
+        if kind == 'float':
+            # The legacy reader requires a targetDataType vector when
+            # decimals_as_floats is used, even for already numeric columns.
+            metadata['targetDataType'] = 'float'
+        columns.append(metadata)
         values.append(column.to_pylist())
     data = {'datasetJSONVersion': '1.1.0', 'datasetJSONCreationDateTime': '2026-10-24T00:00:00',
             'itemGroupOID': path.stem, 'name': path.stem.upper(), 'label': path.stem.upper(),
