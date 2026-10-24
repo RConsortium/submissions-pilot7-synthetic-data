@@ -107,13 +107,13 @@ def run(args):
     commit = subprocess.check_output(
         ['git', '-C', str(source), 'rev-parse', 'HEAD'], text=True).strip()
     subprocess.run(['git', '-C', str(source), 'diff', '--exit-code', 'HEAD', '--',
-                    '.dvc/config', 'data/sdtm', 'data/adam', 'data/adam_reference'], check=True)
+                    '.dvc/config', '.Rprofile', 'code', 'data/sdtm', 'data/adam', 'data/adam_reference'], check=True)
     if args.mirror_ref and not re.fullmatch(r'[0-9a-f]{40}', args.mirror_ref):
         raise ValueError('--mirror-ref must be a full Git commit SHA')
     manifest = {'source_repository': SOURCE_URL, 'source_commit': commit,
                 'dvc_remote': 's3://rconsortium-pilots',
                 'endpoint': 'https://s3.us-east-1.amazonaws.com',
-                'datasets': [], 'specifications': []}
+                'datasets': [], 'specifications': [], 'programs': []}
     tracked = subprocess.check_output(['git', '-C', str(source), 'ls-files'], text=True).splitlines()
     pointers = []
     for stage, expected in (('sdtm', 21), ('adam', 8)):
@@ -183,6 +183,20 @@ def run(args):
                 'source_path': original.relative_to(source).as_posix(),
                 'sha256': hashlib.sha256(raw).hexdigest(),
             })
+        for relative in sorted(p for p in tracked if p == '.Rprofile' or p.startswith('code/')):
+            raw = (source / relative).read_bytes()
+            destination = STUDY / 'program/adam/upstream' / relative
+            if not destination.exists() or destination.read_bytes() != raw:
+                if args.verify_only:
+                    raise ValueError(f'{relative}: staged source differs from upstream')
+                output = staged / 'source' / relative
+                output.parent.mkdir(parents=True, exist_ok=True)
+                output.write_bytes(raw)
+                replacements.append((output, destination))
+            manifest['programs'].append({
+                'path': destination.relative_to(ROOT).as_posix(), 'source_path': relative,
+                'sha256': hashlib.sha256(raw).hexdigest(),
+            })
         manifest_path = STUDY / 'spec/source-snapshot.json'
         if args.verify_only:
             recorded = json.loads(manifest_path.read_text())
@@ -195,6 +209,7 @@ def run(args):
                 raise ValueError('Snapshot manifest differs from the verified source and Parquet files')
         else:
             for output, destination in replacements:
+                destination.parent.mkdir(parents=True, exist_ok=True)
                 shutil.copyfile(output, destination)
             manifest_path.write_text(json.dumps(manifest, indent=2) + '\n')
         print(f'Verified {len(pointers)} SDTM/ADaM datasets at Pilot 6 commit {commit}')

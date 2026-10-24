@@ -20,7 +20,11 @@ ADaM references for YAMAA-based derivation and comparison.
   SDTM definition; Pilot 6 does not carry an SDTM define file.
 - `spec/source-snapshot.json`: source commit, DVC MD5 and byte size, metadata
   source, Parquet SHA-256 and dimensions for each dataset, plus hashes of
-  the two upstream specification files.
+  the two upstream specification files and all 19 source files.
+- `program/adam/upstream/`: the original `.Rprofile` and entire `code/`
+  tree, including all 10 ADaM programs. See
+  [the reproduction workflow](program/adam/README.md) for running those
+  programs from staged SDTM and comparing their ADaM outputs.
 
 ## Conversion and verification
 
@@ -39,7 +43,8 @@ other 28 files use their Dataset-JSON 1.1 metadata.
 The importer checks the source files against their DVC MD5s and byte sizes,
 validates dimensions, and reads back every Parquet file to verify values,
 types, order and labels. Existing Parquet files that already match are kept.
-This verifies the import; YAMAA derivation comparisons remain separate work.
+This verifies the import. The upstream R reproduction workflow separately
+checks generation and reference agreement; YAMAA comparisons remain separate work.
 
 ## Refresh or reproduce the snapshot
 
