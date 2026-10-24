@@ -72,10 +72,6 @@ def materialize_sdtm(path, destination):
             raise ValueError(f'Unsupported SDTM column type: {field}')
         metadata = {'name': field.name, 'itemOID': field.name, 'dataType': kind,
                     'label': field.metadata[b'yamaa:label'].decode()}
-        if kind == 'float':
-            # The legacy reader requires a targetDataType vector when
-            # decimals_as_floats is used, even for already numeric columns.
-            metadata['targetDataType'] = 'decimal'
         columns.append(metadata)
         values.append(column.to_pylist())
     data = {'datasetJSONVersion': '1.1.0', 'datasetJSONCreationDateTime': '2026-10-24T00:00:00',
@@ -148,9 +144,16 @@ def main():
     initial_adam_files = list((work / 'data/adam').iterdir())
     if initial_adam_files:
         raise ValueError('ADaM sandbox must be empty before execution')
+    probe = pa.Table.from_arrays([pa.array([56.72413793103448, 1.2345678901234567])],
+                                 schema=pa.schema([pa.field('NUMBER', pa.float64(),
+                                                            metadata={b'yamaa:label': b'Precision probe'})]))
+    pq.write_table(probe, work / 'probe.parquet')
+    materialize_sdtm(work / 'probe.parquet', work / 'probe.json')
     environment = dict(os.environ, PILOT6_RENV_PROJECT=str(HERE))
     command = [args.rscript, '--vanilla']
     runtime = subprocess.run(command + ['-e', 'renv::load(project=Sys.getenv("PILOT6_RENV_PROJECT"), quiet=TRUE); '
+                             'probe <- datasetjson::read_dataset_json("probe.json"); '
+                             'stopifnot(identical(as.numeric(probe$NUMBER), c(56.72413793103448, 1.2345678901234567))); '
                              'jsonlite::write_json(list(R=R.version.string, '
                              'packages=as.list(setNames(installed.packages()[,"Version"], '
                              'installed.packages()[,"Package"]))), "runtime-observed.json", auto_unbox=TRUE)'],
@@ -167,6 +170,7 @@ def main():
               'renv_lock_sha256': sha256(HERE / 'renv.lock'),
               'runtime': json.loads((work / 'runtime-observed.json').read_text()),
               'input_datasets': len(inputs), 'initial_adam_files': len(initial_adam_files),
+              'input_precision_probe': 'passed',
               'input_adapter': 'Staged Parquet to Dataset-JSON 1.1; numeric columns use float.',
               'comparison_policy': 'Original row/column order; exact text, nulls, dates, types and labels; absolute numeric tolerance 1e-10.',
               'datasets': []}

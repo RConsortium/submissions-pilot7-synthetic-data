@@ -27,12 +27,13 @@ environment from the same lockfile and runs this verification on the
 study's pull requests. Each fresh R process explicitly loads the restored
 renv project. No Docker image is required.
 
-The lockfile pins datasetjson to Git commit
-`c68cf30f6213b2195379efbc680c9cc28b1bf8fc` from
-`atorus-research/datasetjson`, which supports the upstream programs'
-`decimals_as_floats` reader argument. The current CRAN reader removed that
-argument and blocks ADSL before derivations start. Upstream does not
-provide its own lockfile; this repository records the tested environment.
+The lockfile pins datasetjson's native reader to Git commit
+`0d4a6ac11ac4224868a0c405ed52a8478cc4ec78` from
+`atorus-research/datasetjson`. The startup script accepts the legacy
+`decimals_as_floats = TRUE` argument used by upstream and delegates to the
+native reader, which already decodes numeric columns as floating-point
+values. An exact numeric precision probe runs before derivations. Upstream
+does not provide its own lockfile; this repository records the tested environment.
 
 The runner first verifies all dataset, specification and source-code hashes.
 It converts the staged SDTM Parquet files to Dataset-JSON for the R reader,
@@ -41,7 +42,8 @@ float metadata. It then creates a fresh sandbox with an empty ADaM folder.
 Each program runs in a fresh R process after loading the upstream profile,
 shared JSON writer, metatools and xportr. The latter two supply functions
 some programs expect from a shared interactive R session. No upstream
-derivation code is changed.
+derivation code is changed. The compatibility reader adapts the retired
+argument only; it does not modify clinical values or derivation rules.
 
 ADSL runs first. The other programs consume only freshly generated parent
 datasets, with ADAE before ADTTE and ADLBC before ADLBHY. A failed parent

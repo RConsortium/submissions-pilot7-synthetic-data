@@ -67,7 +67,7 @@ class ComparisonTests(unittest.TestCase):
             verify.materialize_sdtm(path, output)
             payload = json.loads(output.read_text())
             self.assertEqual(payload['records'], 2)
-            self.assertIn(payload['columns'][0]['targetDataType'], ('integer', 'decimal'))
+            self.assertIsInstance(payload['rows'][0][0], float)
             restored = importer.dataset_table(output.read_bytes(), 'dm')
             self.assertTrue(importer.same_dataset(source, restored))
 
