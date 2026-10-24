@@ -24,7 +24,7 @@ folders; specifications and execution evidence stay available for review.
 | [CDISC Pilot 01](studies/cdiscpilot01.md) | Eight ADaM specifications | Official ADaM staged in the repository |
 | [Submission Pilot 3](studies/submission-pilot3.md) | Five ADaM specifications | Official FDA submission datasets |
 | [Submission Pilot 5](studies/submission-pilot5.md) | Five ADaM specifications | Official Dataset-JSON pilot analysis datasets |
-| [Submission Pilot 6](studies/submission-pilot6.md) | Initial ADSL specification | Production ADaM not yet staged here |
+| [Submission Pilot 6](studies/submission-pilot6.md) | Initial ADSL proposal; see current status | Production ADaM not yet staged here |
 
 The [study verification pages](studies/index.md) show what built and what
 matched for the source revision used to build this website. Pilot 6's

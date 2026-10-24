@@ -3,8 +3,11 @@
 
 import argparse
 import json
+import os
 from pathlib import Path
 import shutil
+
+from study_evidence import validate_reports
 
 ROOT = Path(__file__).resolve().parents[2]
 REPO = "https://github.com/RConsortium/submissions-pilot7-synthetic-data"
@@ -27,15 +30,30 @@ def main():
              "comparator checks the derived data against the official files.", "",
              "| Study | Built datasets | Official comparison |",
              "| --- | ---: | --- |"]
-    revisions = set()
+    reports = {name: json.loads((args.reports / f"{name}.json").read_text())
+               for name in catalog}
+    validate_reports(ROOT, catalog, reports, os.environ.get("GITHUB_SHA"))
     for name, entry in catalog.items():
         report_file = args.reports / f"{name}.json"
         report = json.loads(report_file.read_text())
-        if report["study"] != name or not report["datasets"]:
-            raise ValueError(f"Invalid or empty evidence: {report_file}")
-        revisions.add(report["yamaa_revision"])
         source_ref = report.get("repository_commit") or "main"
         datasets = report["datasets"]
+        if report['status'] == 'pending':
+            index.append(f"| [{entry['title']}]({name}.md) | 0 | Project pending |")
+            page = [f"# {entry['title']}", "", entry['description'], "",
+                    "!!! note \"Project not yet merged\"", "",
+                    "    The Pilot 6 ADSL proposal is still under review. "
+                    "No Pilot 6 dataset was built or compared in this website run.", "",
+                    f"[Study source]({entry['source']}) · "
+                    f"[ADSL proposal]({REPO}/pull/104)", "",
+                    "## Remaining coverage", "",
+                    "ADSL reference validation and the other seven derivations "
+                    "remain pending. The website will validate the project "
+                    "automatically once it is merged.", "",
+                    f"[Download the validation record](../evidence/{name}.json).", ""]
+            (target / f"{name}.md").write_text("\n".join(page))
+            shutil.copyfile(report_file, evidence / f"{name}.json")
+            continue
         if any(d["build"] != "succeeded" or d["comparison"] == "failed"
                for d in datasets):
             raise ValueError(f"Cannot publish failed evidence: {report_file}")
@@ -46,7 +64,7 @@ def main():
                 f"[Study source]({entry['source']}) · "
                 f"[Repository folder]({REPO}/tree/{source_ref}/{name}) · "
                 f"[Project specification]({REPO}/blob/{source_ref}/{name}/spec/yamaa/project.yaml)", ""]
-        if entry["comparison"] == "unavailable":
+        if any(d["comparison"] == "unavailable" for d in datasets):
             page += ["!!! warning \"Built, awaiting reference comparison\"", "",
                      "    ADSL passes the engine's checks and builds from SDTM. "
                      "It has **not** been compared with Pilot 6's production ADaM. "
@@ -87,8 +105,6 @@ def main():
         page += [f"[Download the validation record](../evidence/{name}.json).", ""]
         (target / f"{name}.md").write_text("\n".join(page))
         shutil.copyfile(report_file, evidence / f"{name}.json")
-    if len(revisions) != 1:
-        raise ValueError("Study evidence uses different yamaa revisions")
     index += ["", "A successful build establishes that the specification runs. "
               "Only a passed official comparison establishes agreement with "
               "the staged reference. See [comparison policy](../verification.md) "

@@ -35,7 +35,7 @@ ADQSCIBC still need single-spec implementations and comparisons; they are
 not counted as passing. Pilots 3 and 5 cover their five staged official
 analysis datasets.
 
-Pilot 6 has one initial ADSL specification. It adapts shared derivations
+Pilot 6's initial ADSL specification is proposed in PR #104. It adapts shared derivations
 from Pilot 3 into a self-contained file, reads Pilot 6's staged SDTM, and
 adds COMPLFL from Pilot 6's workbook. Its production ADaM references
 are absent from this repository, so no official comparison is claimed.
@@ -52,3 +52,8 @@ and the Pilot 7 source commit in CI builds. A failed validation job prevents
 publication of that source revision.
 
 [View the study results](studies/index.md).
+
+Pending projects are shown explicitly and cannot contribute passing datasets.
+Publication rejects failed builds, missing dataset records, unknown comparison
+statuses, mixed source commits, and evidence from a different engine pin.
+Official studies must pass every reference comparison.

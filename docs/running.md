@@ -20,7 +20,8 @@ On Windows, activate with `.venv\Scripts\Activate.ps1` in PowerShell.
 Each study pins its engine revision and comparison dependencies in its own
 `program/adam/python/requirements.txt`. The root
 [`requirements.txt`](https://github.com/RConsortium/submissions-pilot7-synthetic-data/blob/main/requirements.txt)
-includes all four files, so pip also checks that their requirements agree.
+includes the three merged study files, so pip checks that their requirements agree.
+Pilot 6 uses its own requirements file when its project is available.
 Each study can be installed independently.
 
 ## Build and verify a study
@@ -32,11 +33,12 @@ python .github/scripts/validate_yamaa.py submission-pilot5
 python .github/scripts/validate_yamaa.py submission-pilot6
 ```
 
-Each command checks the study project without data, builds and saves its
+For a merged project, each command checks the study without data, builds and saves its
 active datasets, and runs its existing official comparator when available.
 Evidence is written to `.build/validation/<study>.json`. A check, build, or
-comparison failure exits nonzero. Pilot 6 explicitly reports its reference
-comparison as unavailable.
+comparison failure exits nonzero. Pilot 6 reports `pending` before its project is merged. Afterward, it reports
+an unavailable reference explicitly and runs its comparator once a reference
+Parquet file is present.
 
 To build alone, use the study runner:
 

@@ -10,6 +10,8 @@ on:
       - '**/data/**'
       - '.github/scripts/validate_yamaa.py'
       - '.github/scripts/build_study_docs.py'
+      - '.github/scripts/study_evidence.py'
+      - '.github/scripts/test_study_evidence.py'
       - '.github/yamaa-studies.json'
       - '.github/workflows/yamaa-site.yml'
       - 'requirements.txt'
@@ -28,7 +30,6 @@ concurrency:
 
 jobs:
   validate:
-    if: github.event_name != 'pull_request' || github.event.pull_request.draft == false
     name: Validate ${{ matrix.study }}
     runs-on: ubuntu-24.04
     timeout-minutes: 30
@@ -40,17 +41,22 @@ jobs:
       CARGO_BUILD_JOBS: '2'
     steps:
       - uses: actions/checkout@v5
+        with:
+          persist-credentials: false
       - uses: actions/setup-python@v5
         with:
           python-version: '3.12'
           cache: pip
-          cache-dependency-path: requirements.txt
+          cache-dependency-path: '**/program/adam/python/requirements.txt'
       - uses: dtolnay/rust-toolchain@1.90.0
+        if: hashFiles(format('{0}/spec/yamaa/project.yaml', matrix.study)) != ''
       - name: Install pinned engine and comparison tools
-        run: python -m pip install --config-settings build-args=--profile=dev -r requirements.txt
+        if: hashFiles(format('{0}/spec/yamaa/project.yaml', matrix.study)) != ''
+        run: python -m pip install --config-settings build-args=--profile=dev -r "${{ matrix.study }}/program/adam/python/requirements.txt"
       - name: Check, build, compare, and record evidence
         run: python .github/scripts/validate_yamaa.py "${{ matrix.study }}"
       - uses: actions/upload-artifact@v4
+        if: always()
         with:
           name: validation-${{ matrix.study }}
           path: .build/validation/${{ matrix.study }}.json
@@ -63,6 +69,8 @@ jobs:
     runs-on: ubuntu-24.04
     steps:
       - uses: actions/checkout@v5
+        with:
+          persist-credentials: false
       - uses: actions/setup-python@v5
         with:
           python-version: '3.12'
@@ -72,6 +80,8 @@ jobs:
           path: .build/validation
           merge-multiple: true
       - run: python -m pip install -r docs/requirements.txt
+      - name: Test evidence publication safeguards
+        run: python -m unittest discover -s .github/scripts -p 'test_*.py' -v
       - name: Generate study pages from this run's evidence
         run: python .github/scripts/build_study_docs.py
       - name: Build strict MkDocs site
@@ -82,13 +92,13 @@ jobs:
           path: site
           if-no-files-found: error
       - uses: actions/upload-pages-artifact@v3
-        if: github.ref == 'refs/heads/main' && github.event_name != 'pull_request'
+        if: github.repository == 'RConsortium/submissions-pilot7-synthetic-data' && github.ref == 'refs/heads/main' && github.event_name != 'pull_request'
         with:
           path: site
 
   deploy:
     name: Publish GitHub Pages
-    if: github.ref == 'refs/heads/main' && github.event_name != 'pull_request'
+    if: github.repository == 'RConsortium/submissions-pilot7-synthetic-data' && github.ref == 'refs/heads/main' && github.event_name != 'pull_request'
     needs: website
     runs-on: ubuntu-24.04
     permissions:
