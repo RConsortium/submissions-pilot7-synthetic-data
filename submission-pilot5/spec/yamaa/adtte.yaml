@@ -1,17 +1,50 @@
-schema_version: "1.0"
+yamaa: "1.0"
+type: spec
+model: ADaM
 domain: ADTTE
-keys: [STUDYID, USUBJID, PARAMCD]
+keys:
+  - STUDYID
+  - USUBJID
+  - PARAMCD
 input:
-  ADSL: ../../data/adam/adsl-yamaa.parquet
-  ADAE: ../../data/adam/adae-yamaa.parquet
+  ADSL:
+    path: ../../data/adam/adsl-yamaa.parquet
+    schema: adsl.yaml
+  ADAE:
+    path: ../../data/adam/adae-yamaa.parquet
+    schema: adae.yaml
   DS: ../../data/sdtm/ds.parquet
 base: ADSL
 
 output:
   path: ../../data/adam/adtte-yamaa.parquet
-  columns: [STUDYID, SITEID, USUBJID, AGE, AGEGR1, AGEGR1N, RACE, RACEN, SEX,
-    TRTSDT, TRTEDT, TRTDUR, TRTP, TRTA, TRTAN, PARAM, PARAMCD, AVAL, STARTDT,
-    ADT, CNSR, EVNTDESC, SRCDOM, SRCVAR, SRCSEQ, SAFFL]
+  columns:
+    - STUDYID
+    - SITEID
+    - USUBJID
+    - AGE
+    - AGEGR1
+    - AGEGR1N
+    - RACE
+    - RACEN
+    - SEX
+    - TRTSDT
+    - TRTEDT
+    - TRTDUR
+    - TRTP
+    - TRTA
+    - TRTAN
+    - PARAM
+    - PARAMCD
+    - AVAL
+    - STARTDT
+    - ADT
+    - CNSR
+    - EVNTDESC
+    - SRCDOM
+    - SRCVAR
+    - SRCSEQ
+    - SAFFL
 
 intermediates:
   # First dermatologic event per subject: the earliest ADAE record flagged as
@@ -19,22 +52,26 @@ intermediates:
   # "first" robust when a subject has several qualifying events.
   - id: DERM_EV
     dataset: ADAE
-    key: [STUDYID, USUBJID]
-    filter: "ADAE.AOCC01FL = 'Y' AND ADAE.CQ01NAM = 'DERMATOLOGIC EVENTS'
-      AND ADAE.SAFFL = 'Y'"
-    order_by: [ADAE.ASTDT]
+    key:
+      - STUDYID
+      - USUBJID
+    filter: "ADAE.AOCC01FL = 'Y' AND ADAE.CQ01NAM = 'DERMATOLOGIC
+      EVENTS' AND ADAE.SAFFL = 'Y'"
+    order_by:
+      - variable: ADAE.ASTDT
+        nulls: last
     keep: first
-    no_match: null
 
-  # End-of-study disposition record per subject. Exactly one qualifies in the
-  # pilot 5 data; `keep: first` by DSSTDTC answers multiplicity
-  # deterministically.
   - id: EOSDS
     dataset: DS
-    key: [STUDYID, USUBJID]
-    filter: "DS.DSCAT = 'DISPOSITION EVENT' AND DS.DSDECOD <> 'SCREEN FAILURE'
-      AND DS.DSDECOD <> 'FINAL LAB VISIT'"
-    order_by: [DS.DSSTDTC]
+    key:
+      - STUDYID
+      - USUBJID
+    filter: "DS.DSCAT = 'DISPOSITION EVENT' AND DS.DSDECOD <> 'SCREEN
+      FAILURE' AND DS.DSDECOD <> 'FINAL LAB VISIT'"
+    order_by:
+      - variable: DS.DSSTDTC
+        nulls: last
     keep: first
 
 columns:
@@ -134,8 +171,8 @@ columns:
 
   - name: _EOSDT
     type: date
-    label: Censor date - death uses RFENDTC,
-      otherwise disposition date (internal)
+    label: Censor date - death uses RFENDTC, otherwise
+      disposition date (internal)
     derivation:
       case:
         - when: "ADSL.DCDECOD = 'DEATH'"
@@ -146,13 +183,13 @@ columns:
 
   - name: _IS_EVENT
     type: float
-    label: Event won over censoring - earlier date,
-      ties go to the event (internal)
+    label: Event won over censoring - earlier date, ties go to
+      the event (internal)
     derivation:
       case:
         - when: "_EVDT IS NOT NULL AND _EVDT <= _EOSDT"
-          then: {literal: 1}
-        - otherwise: {literal: 0}
+          then: 1
+        - otherwise: 0
 
   # --- Analysis dates / value ---
   - name: ADT
@@ -170,8 +207,8 @@ columns:
     derivation:
       case:
         - when: "_IS_EVENT = 1"
-          then: {literal: 0}
-        - otherwise: {literal: 1}
+          then: 0
+        - otherwise: 1
 
   - name: STARTDT
     type: date
@@ -182,21 +219,22 @@ columns:
     type: float
     label: Analysis Value
     derivation:
-      date_diff:
+      diff:
+        type: date
         start: STARTDT
         end: ADT
         unit: day
-        bounds: inclusive
+        closed: both
 
   - name: PARAM
     type: str
     label: Parameter
-    derivation: {literal: "Time to First Dermatologic Event"}
+    derivation: "'Time to First Dermatologic Event'"
 
   - name: PARAMCD
     type: str
     label: Parameter Code
-    derivation: {literal: "TTDE"}
+    derivation: "'TTDE'"
 
   # --- Provenance ---
   - name: EVNTDESC
@@ -205,8 +243,8 @@ columns:
     derivation:
       case:
         - when: "_IS_EVENT = 1"
-          then: {literal: "Dematologic Event Occured"}
-        - otherwise: {literal: "Study Completion Date"}
+          then: "'Dematologic Event Occured'"
+        - otherwise: "'Study Completion Date'"
 
   - name: SRCDOM
     type: str
@@ -214,8 +252,8 @@ columns:
     derivation:
       case:
         - when: "_IS_EVENT = 1"
-          then: {literal: "ADAE"}
-        - otherwise: {literal: "ADSL"}
+          then: "'ADAE'"
+        - otherwise: "'ADSL'"
 
   - name: SRCVAR
     type: str
@@ -223,8 +261,8 @@ columns:
     derivation:
       case:
         - when: "_IS_EVENT = 1"
-          then: {literal: "ASTDT"}
-        - otherwise: {literal: "RFENDT"}
+          then: "'ASTDT'"
+        - otherwise: "'RFENDT'"
 
   - name: SRCSEQ
     type: float

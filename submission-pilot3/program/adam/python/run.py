@@ -1,14 +1,10 @@
 #!/usr/bin/env python3
-"""Run the Pilot 3 ADaM yamaa specifications in dependency order."""
-
+"""Build and save this study's ADaM datasets with the pinned yamaa engine."""
 from pathlib import Path
 
-from yamaa import yamaa_domain
+import yamaa
 
-here = Path.cwd()
-project_root = here.parent.parent
-specs = [project_root / "spec" / "yamaa" / f"{name}.yaml" for name in
-         ("adsl", "adae", "adadas", "adtte", "adlbc")]
-
-for spec in specs:
-    yamaa_domain(spec, project_root=project_root).save()
+study = Path(__file__).resolve().parents[3]
+runs = yamaa.project(study / "spec" / "yamaa" / "project.yaml").run("adam")
+print(runs)
+runs.save()
