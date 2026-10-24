@@ -1,13 +1,21 @@
-schema_version: "1.0"
-
+yamaa: "1.0"
+type: spec
+model: ADaM
 domain: ADAE
 
-keys: [STUDYID, USUBJID, AESEQ]
+keys:
+  - STUDYID
+  - USUBJID
+  - AESEQ
 
 input:
   AE: ../../data/sdtm/ae.parquet
-  ADSL: ../../data/adam/adsl-yamaa.parquet
-
+  ADSL:
+    path: ../../data/adam/adsl-yamaa.parquet
+    schema: adsl.yaml
+    key:
+      - STUDYID
+      - USUBJID
 base: AE
 
 # ADSL is read as a derived predecessor dataset, exactly as the pilot 3 R
@@ -16,13 +24,62 @@ base: AE
 
 output:
   path: ../../data/adam/adae-yamaa.parquet
-  columns: [STUDYID, SITEID, USUBJID, TRTA, TRTAN, AGE, AGEGR1, AGEGR1N,
-    RACE, RACEN, SEX, SAFFL, TRTSDT, TRTEDT, ASTDT, ASTDTF, ASTDY, AENDT,
-    AENDY, ADURN, ADURU, AETERM, AELLT, AELLTCD, AEDECOD, AEPTCD, AEHLT,
-    AEHLTCD, AEHLGT, AEHLGTCD, AEBODSYS, AESOC, AESOCCD, AESEV, AESER,
-    AESCAN, AESCONG, AESDISAB, AESDTH, AESHOSP, AESLIFE, AESOD, AEREL,
-    AEACN, AEOUT, AESEQ, TRTEMFL, AOCCFL, AOCCSFL, AOCCPFL, AOCC02FL,
-    AOCC03FL, AOCC04FL, CQ01NAM, AOCC01FL]
+  columns:
+    - STUDYID
+    - SITEID
+    - USUBJID
+    - TRTA
+    - TRTAN
+    - AGE
+    - AGEGR1
+    - AGEGR1N
+    - RACE
+    - RACEN
+    - SEX
+    - SAFFL
+    - TRTSDT
+    - TRTEDT
+    - ASTDT
+    - ASTDTF
+    - ASTDY
+    - AENDT
+    - AENDY
+    - ADURN
+    - ADURU
+    - AETERM
+    - AELLT
+    - AELLTCD
+    - AEDECOD
+    - AEPTCD
+    - AEHLT
+    - AEHLTCD
+    - AEHLGT
+    - AEHLGTCD
+    - AEBODSYS
+    - AESOC
+    - AESOCCD
+    - AESEV
+    - AESER
+    - AESCAN
+    - AESCONG
+    - AESDISAB
+    - AESDTH
+    - AESHOSP
+    - AESLIFE
+    - AESOD
+    - AEREL
+    - AEACN
+    - AEOUT
+    - AESEQ
+    - TRTEMFL
+    - AOCCFL
+    - AOCCSFL
+    - AOCCPFL
+    - AOCC02FL
+    - AOCC03FL
+    - AOCC04FL
+    - CQ01NAM
+    - AOCC01FL
 
 columns:
   - name: STUDYID
@@ -99,73 +156,68 @@ columns:
     type: date
     label: Analysis Start Date
     derivation:
-      # month: omitted -- with minimum_source_precision: month the engine imputes
-      # January automatically for a start date (month: 1 is now rejected as
-      # unreachable, same cleanup as the pilot5 ADAE run).
-      date_impute:
+      # Supply the first day when the month is collected. A year-only
+      # source stays missing because no month-imputation rule is declared.
+      impute:
+        type: date
         source: AE.AESTDTC
         day: 1
-        minimum_source_precision: month
-        missing: null
-        invalid: null
+        invalid:
 
-  # Internal: collected precision of the completed ASTDT (M = day imputed).
   - name: ASTDTPR
     type: str
     label: Astdtpr (helper)
     derivation:
-      date_precision:
+      precision:
+        type: date
         source: ASTDT
-        missing: null
 
   - name: ASTDTF
     type: str
     label: Analysis Start Date Imputation Flag
     derivation:
       case:
-        - when: "ASTDTPR = 'M'"
-          then:
-            literal: "D"
+        - when: "ASTDTPR = 'month'"
+          then: "'D'"
 
   - name: ASTDY
     type: float
     label: Analysis Start Relative Day
     derivation:
       study_day:
-        date: ASTDT
+        source: ASTDT
         reference: TRTSDT
 
   - name: AENDT
     type: date
     label: Analysis End Date
     derivation:
-      # month: omitted -- with minimum_source_precision: month the engine imputes
-      # December automatically for an end date (month: 12 now rejected as
-      # unreachable, like month: 1 on ASTDT).
-      date_impute:
+      # Complete a collected month to its last day; a year alone stays
+      # missing because no month-imputation rule is declared.
+      impute:
+        type: date
         source: AE.AEENDTC
         day: last
-        minimum_source_precision: month
-        missing: null
-        invalid: null
+        invalid:
 
   - name: AENDY
     type: float
     label: Analysis End Relative Day
     derivation:
       study_day:
-        date: AENDT
+        source: AENDT
         reference: TRTSDT
 
   - name: ADURN
     type: float
     label: Analysis Duration (N)
     derivation:
-      date_diff:
+      diff:
+        type: date
         start: ASTDT
         end: AENDT
         unit: day
-        bounds: inclusive
+        closed: both
 
   - name: ADURU
     type: str
@@ -173,8 +225,7 @@ columns:
     derivation:
       case:
         - when: "ADURN IS NOT NULL"
-          then:
-            literal: "DAYS"
+          then: "'DAYS'"
 
   - name: AETERM
     type: str
@@ -306,11 +357,10 @@ columns:
     label: Treatment Emergent Analysis Flag
     derivation:
       case:
-        - when: "ASTDT IS NOT NULL AND TRTSDT IS NOT NULL AND ASTDT >= TRTSDT"
-          then:
-            literal: "Y"
+        - when: "ASTDT IS NOT NULL AND TRTSDT IS NOT NULL AND ASTDT
+            >= TRTSDT"
+          then: "'Y'"
 
-  # Internal: the three substring tests of the dermatologic custom query.
   - name: CQ01_PT
     type: str
     label: Cq01 Pt (helper)
@@ -318,7 +368,7 @@ columns:
       str_extract:
         source: AE.AEDECOD
         pattern: "APPLICATION|DERMATITIS|ERYTHEMA|BLISTER"
-        no_match: null
+        no_match:
 
   - name: CQ01_SOC
     type: str
@@ -327,7 +377,7 @@ columns:
       str_extract:
         source: AE.AEBODSYS
         pattern: "SKIN AND SUBCUTANEOUS TISSUE DISORDERS"
-        no_match: null
+        no_match:
 
   - name: CQ01_EXCL
     type: str
@@ -336,26 +386,31 @@ columns:
       str_extract:
         source: AE.AEDECOD
         pattern: "COLD SWEAT|HYPERHIDROSIS|ALOPECIA"
-        no_match: null
+        no_match:
 
   - name: CQ01NAM
     type: str
     label: Customized Query 01 Name
     derivation:
       case:
-        - when: "CQ01_PT IS NOT NULL OR (CQ01_SOC IS NOT NULL AND CQ01_EXCL IS NULL)"
-          then:
-            literal: "DERMATOLOGIC EVENTS"
+        - when: "CQ01_PT IS NOT NULL OR (CQ01_SOC IS NOT NULL AND
+            CQ01_EXCL IS NULL)"
+          then: "'DERMATOLOGIC EVENTS'"
 
-  # Internal occurrence sequence numbers: one window per flag cohort/level.
   - name: SEQ_OCC
     type: int
     label: Seq Occ (helper)
     derivation:
       row_number:
         window:
-          group_by: [STUDYID, USUBJID]
-          order_by: [ASTDT, AESEQ]
+          group_by:
+            - STUDYID
+            - USUBJID
+          order_by:
+            - variable: ASTDT
+              nulls: last
+            - variable: AESEQ
+              nulls: last
           filter: "TRTEMFL = 'Y'"
 
   - name: SEQ_OCCS
@@ -364,8 +419,15 @@ columns:
     derivation:
       row_number:
         window:
-          group_by: [STUDYID, USUBJID, AEBODSYS]
-          order_by: [ASTDT, AESEQ]
+          group_by:
+            - STUDYID
+            - USUBJID
+            - AEBODSYS
+          order_by:
+            - variable: ASTDT
+              nulls: last
+            - variable: AESEQ
+              nulls: last
           filter: "TRTEMFL = 'Y'"
 
   - name: SEQ_OCCP
@@ -374,8 +436,16 @@ columns:
     derivation:
       row_number:
         window:
-          group_by: [STUDYID, USUBJID, AEBODSYS, AEDECOD]
-          order_by: [ASTDT, AESEQ]
+          group_by:
+            - STUDYID
+            - USUBJID
+            - AEBODSYS
+            - AEDECOD
+          order_by:
+            - variable: ASTDT
+              nulls: last
+            - variable: AESEQ
+              nulls: last
           filter: "TRTEMFL = 'Y'"
 
   - name: SEQ_OCC02
@@ -384,8 +454,14 @@ columns:
     derivation:
       row_number:
         window:
-          group_by: [STUDYID, USUBJID]
-          order_by: [ASTDT, AESEQ]
+          group_by:
+            - STUDYID
+            - USUBJID
+          order_by:
+            - variable: ASTDT
+              nulls: last
+            - variable: AESEQ
+              nulls: last
           filter: "TRTEMFL = 'Y' AND AESER = 'Y'"
 
   - name: SEQ_OCC03
@@ -394,8 +470,15 @@ columns:
     derivation:
       row_number:
         window:
-          group_by: [STUDYID, USUBJID, AEBODSYS]
-          order_by: [ASTDT, AESEQ]
+          group_by:
+            - STUDYID
+            - USUBJID
+            - AEBODSYS
+          order_by:
+            - variable: ASTDT
+              nulls: last
+            - variable: AESEQ
+              nulls: last
           filter: "TRTEMFL = 'Y' AND AESER = 'Y'"
 
   - name: SEQ_OCC04
@@ -404,8 +487,16 @@ columns:
     derivation:
       row_number:
         window:
-          group_by: [STUDYID, USUBJID, AEBODSYS, AEDECOD]
-          order_by: [ASTDT, AESEQ]
+          group_by:
+            - STUDYID
+            - USUBJID
+            - AEBODSYS
+            - AEDECOD
+          order_by:
+            - variable: ASTDT
+              nulls: last
+            - variable: AESEQ
+              nulls: last
           filter: "TRTEMFL = 'Y' AND AESER = 'Y'"
 
   - name: SEQ_OCC01
@@ -414,8 +505,14 @@ columns:
     derivation:
       row_number:
         window:
-          group_by: [STUDYID, USUBJID]
-          order_by: [ASTDT, AESEQ]
+          group_by:
+            - STUDYID
+            - USUBJID
+          order_by:
+            - variable: ASTDT
+              nulls: last
+            - variable: AESEQ
+              nulls: last
           filter: "TRTEMFL = 'Y' AND CQ01NAM = 'DERMATOLOGIC EVENTS'"
 
   - name: AOCCFL
@@ -424,10 +521,8 @@ columns:
     derivation:
       case:
         - when: "SEQ_OCC = 1"
-          then:
-            literal: "Y"
-        - otherwise:
-            literal: ""
+          then: "'Y'"
+        - otherwise: "''"
 
   - name: AOCCSFL
     type: str
@@ -435,10 +530,8 @@ columns:
     derivation:
       case:
         - when: "SEQ_OCCS = 1"
-          then:
-            literal: "Y"
-        - otherwise:
-            literal: ""
+          then: "'Y'"
+        - otherwise: "''"
 
   - name: AOCCPFL
     type: str
@@ -446,10 +539,8 @@ columns:
     derivation:
       case:
         - when: "SEQ_OCCP = 1"
-          then:
-            literal: "Y"
-        - otherwise:
-            literal: ""
+          then: "'Y'"
+        - otherwise: "''"
 
   - name: AOCC02FL
     type: str
@@ -457,10 +548,8 @@ columns:
     derivation:
       case:
         - when: "SEQ_OCC02 = 1"
-          then:
-            literal: "Y"
-        - otherwise:
-            literal: ""
+          then: "'Y'"
+        - otherwise: "''"
 
   - name: AOCC03FL
     type: str
@@ -468,10 +557,8 @@ columns:
     derivation:
       case:
         - when: "SEQ_OCC03 = 1"
-          then:
-            literal: "Y"
-        - otherwise:
-            literal: ""
+          then: "'Y'"
+        - otherwise: "''"
 
   - name: AOCC04FL
     type: str
@@ -479,10 +566,8 @@ columns:
     derivation:
       case:
         - when: "SEQ_OCC04 = 1"
-          then:
-            literal: "Y"
-        - otherwise:
-            literal: ""
+          then: "'Y'"
+        - otherwise: "''"
 
   - name: AOCC01FL
     type: str
@@ -490,7 +575,5 @@ columns:
     derivation:
       case:
         - when: "SEQ_OCC01 = 1"
-          then:
-            literal: "Y"
-        - otherwise:
-            literal: ""
+          then: "'Y'"
+        - otherwise: "''"
