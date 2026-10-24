@@ -1,6 +1,17 @@
 
 # Project Scope
 
+[Project website](https://rconsortium.github.io/submissions-pilot7-synthetic-data/)
+| [Run the yamaa studies](docs/running.md)
+
+The four reference studies now use the pinned yamaa 1.0 interface. CDISC
+Pilot 01 and submission pilots 3 and 5 reproduce 18 active ADaM datasets
+under their existing comparison policies. Pilot 6 has an initial runnable
+ADSL specification; its official comparison is pending reference data.
+GitHub Actions checks, builds and compares the studies before generating
+the website from the same run's evidence.
+
+
 ## Why this project matters
 The pharmaceutical ecosystem is seeing rapid growth of open-source R tools and AI-enabled applications across clinical development, analysis, and regulatory submissions.
 
@@ -96,7 +107,7 @@ python3 .github/scripts/check_structure.py
 
 | Folder                | Contents                                                       |
 |-----------------------|----------------------------------------------------------------|
-| `.github/`            | CI workflows (CDISC CORE validation, structure check) and the folder-structure manifest |
+| `.github/`            | CI workflows (yamaa validation and website, CDISC CORE validation, structure check) and the folder-structure manifest |
 | `.automation/`        | Scheduled Claude Code routine prompts and bootstrap scripts     |
 | `.archieve/`          | Earlier studies, retained for reference                         |
 
