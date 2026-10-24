@@ -39,7 +39,9 @@ It converts the staged SDTM Parquet files to Dataset-JSON for the R reader,
 preserving values, blanks, nulls, types and labels; numeric columns use JSON
 float metadata. It then creates a fresh sandbox with an empty ADaM folder.
 Each program runs in a fresh R process after loading the upstream profile,
-shared JSON writer and metatools. No upstream derivation code is changed.
+shared JSON writer, metatools and xportr. The latter two supply functions
+some programs expect from a shared interactive R session. No upstream
+derivation code is changed.
 
 ADSL runs first. The other programs consume only freshly generated parent
 datasets, with ADAE before ADTTE and ADLBC before ADLBHY. A failed parent

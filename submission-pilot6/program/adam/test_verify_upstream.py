@@ -3,6 +3,7 @@
 import importlib.util
 import json
 from pathlib import Path
+import re
 import tempfile
 import unittest
 from unittest.mock import patch
@@ -19,6 +20,14 @@ def table(values, name='VALUE', label='Value', kind=pa.float64()):
 
 
 class ComparisonTests(unittest.TestCase):
+    def test_all_program_libraries_are_locked(self):
+        locked = set(json.loads((verify.HERE / 'renv.lock').read_text())['Packages'])
+        files = [verify.HERE / 'upstream/code/adam' / filename for _, filename, _ in verify.PROGRAMS]
+        files += [verify.HERE / 'run_upstream.R', verify.HERE / 'upstream/code/utils/save_dataset_json.r']
+        for path in files:
+            libraries = set(re.findall(r'\blibrary\(\s*([\w.]+)', path.read_text()))
+            self.assertFalse(libraries - locked, f'{path.name}: unlocked packages {libraries - locked}')
+
     def test_failed_snapshot_check_cannot_reuse_old_success_evidence(self):
         with tempfile.TemporaryDirectory() as temp:
             report = Path(temp) / 'report.json'
@@ -56,7 +65,9 @@ class ComparisonTests(unittest.TestCase):
             path, output = Path(temp) / 'dm.parquet', Path(temp) / 'dm.json'
             pq.write_table(source, path)
             verify.materialize_sdtm(path, output)
-            self.assertEqual(json.loads(output.read_text())['records'], 2)
+            payload = json.loads(output.read_text())
+            self.assertEqual(payload['records'], 2)
+            self.assertIn(payload['columns'][0]['targetDataType'], ('integer', 'decimal'))
             restored = importer.dataset_table(output.read_bytes(), 'dm')
             self.assertTrue(importer.same_dataset(source, restored))
 

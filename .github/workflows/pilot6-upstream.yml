@@ -48,17 +48,20 @@ jobs:
         if: always()
         shell: python
         run: |
+          import json
+          import os
           from pathlib import Path
           report = Path('submission-pilot6/log/upstream-verification.json')
           if report.exists():
               print('BEGIN_PILOT6_REPORT')
               print(report.read_text())
               print('END_PILOT6_REPORT')
-          lockfile = Path('submission-pilot6/program/adam/renv.lock')
-          if lockfile.exists():
-              print('BEGIN_PILOT6_RENV_LOCK')
-              print(lockfile.read_text())
-              print('END_PILOT6_RENV_LOCK')
+              data = json.loads(report.read_text())
+              with open(os.environ['GITHUB_STEP_SUMMARY'], 'a') as summary:
+                  summary.write('# Pilot 6 upstream R reproduction\n\n')
+                  summary.write('| Dataset | Generation | Reference comparison |\n| --- | --- | --- |\n')
+                  for item in data['datasets']:
+                      summary.write(f"| {item['domain']} | {item['generation']} | {item['comparison']} |\n")
       - uses: actions/upload-artifact@v4
         if: always()
         with:
@@ -67,5 +70,6 @@ jobs:
             submission-pilot6/log/upstream-verification.json
             submission-pilot6/program/adam/renv.lock
             .build/pilot6-upstream/*/logs/*.log
+            .build/pilot6-upstream/*/data/adam/*.json
           include-hidden-files: true
           if-no-files-found: warn

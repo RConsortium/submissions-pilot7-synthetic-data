@@ -100,17 +100,19 @@ def compare_tables(actual, reference, tolerance=1e-10):
             result['label_differences'].append(name)
         if actual.num_rows != reference.num_rows:
             continue
-        differences, max_difference = 0, 0.0
-        for left, right in zip(actual[name].to_pylist(), reference[name].to_pylist()):
+        differences, max_difference, examples = 0, 0.0, []
+        for row, (left, right) in enumerate(zip(actual[name].to_pylist(), reference[name].to_pylist()), 1):
             if isinstance(left, (int, float)) and isinstance(right, (int, float)):
                 matched = math.isclose(left, right, rel_tol=0, abs_tol=tolerance)
                 max_difference = max(max_difference, abs(left - right))
             else:
                 matched = left == right
             differences += not matched
+            if not matched and len(examples) < 3:
+                examples.append({'row': row, 'actual': left, 'reference': right})
         if differences:
             result['value_differences'].append({'column': name, 'cells': differences,
-                                                 'max_numeric_difference': max_difference})
+                                                 'max_numeric_difference': max_difference, 'examples': examples})
     result['passed'] = (result['actual_rows'] == result['reference_rows']
                         and result['column_order_matches']
                         and not any(result[k] for k in ('type_differences', 'label_differences', 'value_differences')))
@@ -159,6 +161,7 @@ def main():
     importer = importlib.util.module_from_spec(spec)
     spec.loader.exec_module(importer)
     report = {'created_utc': datetime.now(timezone.utc).isoformat(), 'source_commit': manifest['source_commit'],
+              'workflow_run_id': os.environ.get('GITHUB_RUN_ID'), 'execution_commit': os.environ.get('GITHUB_SHA'),
               'snapshot_sha256': sha256(STUDY / 'spec/source-snapshot.json'),
               'runner_sha256': sha256(Path(__file__)), 'bootstrap_sha256': sha256(HERE / 'run_upstream.R'),
               'renv_lock_sha256': sha256(HERE / 'renv.lock'),
@@ -201,7 +204,7 @@ def main():
         ('mismatched', 'comparison', 'failed'), ('reference_unavailable', 'comparison', 'reference_unavailable'))}
     report['status'] = 'passed' if report['summary']['generated'] == len(PROGRAMS) and not report['summary']['mismatched'] else 'failed'
     args.report.parent.mkdir(parents=True, exist_ok=True)
-    args.report.write_text(json.dumps(report, indent=2) + '\n')
+    args.report.write_text(json.dumps(report, indent=2, default=str) + '\n')
     print(f'Evidence: {args.report}\nFull logs and outputs: {work}', flush=True)
     return int(report['status'] != 'passed')
 
