@@ -1,20 +1,77 @@
-schema_version: "1.0"
+yamaa: "1.0"
+type: spec
+model: ADaM
 domain: ADLBC
-keys: [STUDYID, USUBJID, PARAMCD, AVISIT, LBSEQ]
+keys:
+  - STUDYID
+  - USUBJID
+  - PARAMCD
+  - AVISIT
+  - LBSEQ
 input:
-  LB: ../../data/sdtm/lb.parquet
+  LB:
+    path: ../../data/sdtm/lb.parquet
+    key:
+      - STUDYID
+      - USUBJID
   SUPPLB: ../../data/sdtm/supplb.parquet
-  ADSL: ../../data/adam/adsl-yamaa.parquet
+  ADSL:
+    path: ../../data/adam/adsl-yamaa.parquet
+    schema: adsl.yaml
+    key:
+      - STUDYID
+      - USUBJID
 base: LB
 
 output:
   path: ../../data/adam/adlbc-yamaa.parquet
-  columns: [STUDYID, SUBJID, USUBJID, TRTP, TRTPN, TRTA, TRTAN, TRTSDT,
-    TRTEDT, AGE, AGEGR1, AGEGR1N, RACE, RACEN, SEX, COMP24FL, DSRAEFL,
-    SAFFL, AVISIT, AVISITN, ADY, ADT, VISIT, VISITNUM, PARAM, PARAMCD,
-    PARAMN, PARCAT1, AVAL, BASE, CHG, A1LO, A1HI, R2A1LO, R2A1HI,
-    BR2A1LO, BR2A1HI, ANL01FL, ALBTRVAL, ANRIND, BNRIND, ABLFL, AENTMTFL,
-    LBSEQ, LBNRIND, LBSTRESN]
+  columns:
+    - STUDYID
+    - SUBJID
+    - USUBJID
+    - TRTP
+    - TRTPN
+    - TRTA
+    - TRTAN
+    - TRTSDT
+    - TRTEDT
+    - AGE
+    - AGEGR1
+    - AGEGR1N
+    - RACE
+    - RACEN
+    - SEX
+    - COMP24FL
+    - DSRAEFL
+    - SAFFL
+    - AVISIT
+    - AVISITN
+    - ADY
+    - ADT
+    - VISIT
+    - VISITNUM
+    - PARAM
+    - PARAMCD
+    - PARAMN
+    - PARCAT1
+    - AVAL
+    - BASE
+    - CHG
+    - A1LO
+    - A1HI
+    - R2A1LO
+    - R2A1HI
+    - BR2A1LO
+    - BR2A1HI
+    - ANL01FL
+    - ALBTRVAL
+    - ANRIND
+    - BNRIND
+    - ABLFL
+    - AENTMTFL
+    - LBSEQ
+    - LBNRIND
+    - LBSTRESN
 
 intermediates:
   # SUPPLB ENDPOINT joined in-spec (no staging script): IDVARVAL is
@@ -31,39 +88,42 @@ intermediates:
           source: LB.LBSEQ
           width: 8
     filter: "SUPPLB.QNAM = 'ENDPOINT'"
-    no_match: null
 
-  # End-of-Treatment fallback candidates, ranked in-spec: the eot2 row
-  # template below drives off this intermediate's filtered records
-  # (REQ-1262). Replaces the former adlbc-eot-rn.yaml + adlbc-eot.yaml
-  # staging specs. The intermediate filter keeps the latest non-EoT visit
-  # per subject-param (_RN = 1, _EOT_AWARE <> 99 drops groups that already
-  # have an EoT row); the window's filter replicates the old row-template
-  # pre-filter so the ranking sees the same record set. Records retain LB
-  # source order.
   - id: EOTFB
     dataset: LB
     filter: "LB._RN = 1 AND LB._EOT_AWARE <> 99"
-    columns: [STUDYID, USUBJID, LBTESTCD, LBSEQ, LBDTC, VISIT, VISITNUM,
-      LBTEST, LBSTRESU, LBSTRESN, LBBLFL, LBSTNRLO, LBSTNRHI, LBNRIND]
+    columns:
+      - STUDYID
+      - USUBJID
+      - LBTESTCD
+      - LBSEQ
+      - LBDTC
+      - VISIT
+      - VISITNUM
+      - LBTEST
+      - LBSTRESU
+      - LBSTRESN
+      - LBBLFL
+      - LBSTNRLO
+      - LBSTNRHI
+      - LBNRIND
     derivations:
       _ENDPOINT:
         first_available:
-          sources: [SUP_EP.QVAL]
-          missing: null
+          sources:
+            - SUP_EP.QVAL
       _EOT_AWARE:
         case:
           - when: "_ENDPOINT = 'Y' OR LB.VISITNUM = 12"
-            then: {literal: 99.0}
+            then: 99.0
           - when: "LB.LBBLFL = 'Y'"
-            then: {literal: 0.0}
+            then: 0.0
           - when: "LB.VISIT LIKE '%UNSCHEDULED%'"
-            then: {literal: null}
+            then:
           - otherwise:
               mapping:
                 source: LB.VISIT
-                missing: null
-                unmapped: null
+                unmapped:
                 dict:
                   "WEEK 2": 2.0
                   "WEEK 4": 4.0
@@ -77,14 +137,18 @@ intermediates:
       _RN:
         row_number:
           window:
-            group_by: [STUDYID, USUBJID, LBTESTCD]
+            group_by:
+              - STUDYID
+              - USUBJID
+              - LBTESTCD
             order_by:
-              - {variable: _EOT_AWARE, direction: desc}
-              - {variable: LBSEQ, direction: asc}
+              - {variable: _EOT_AWARE, direction: desc, nulls:
+                  last}
+              - {variable: LBSEQ, nulls: last}
             filter: "LB.LBCAT = 'CHEMISTRY' AND (LB.VISIT LIKE '%WEEK%'
               OR LB.VISIT LIKE '%SCREENING%' OR LB.VISIT LIKE '%UNSCHEDULED%')
-              AND LB.VISITNUM <> 13 AND _EOT_AWARE IS NOT NULL
-              AND _EOT_AWARE <> 0"
+              AND LB.VISITNUM <> 13 AND _EOT_AWARE IS NOT NULL AND
+              _EOT_AWARE <> 0"
 
 columns:
   # --- Record aliases: every LB read goes through these so the grouped
@@ -248,7 +312,7 @@ columns:
     derivation:
       case:
         - when: "ADSL.DSRAEFL IS NULL"
-          then: {literal: ''}
+          then: "''"
         - otherwise: ADSL.DSRAEFL
 
   - name: SAFFL
@@ -283,10 +347,10 @@ columns:
     type: datetime
     label: LBDTC as datetime (internal)
     derivation:
-      datetime_impute:
+      impute:
+        type: datetime
         source: _r_LBDTC
         time: first
-        missing: null
 
   - name: ADT
     type: date
@@ -300,7 +364,7 @@ columns:
     label: Analysis Relative Day
     derivation:
       study_day:
-        date: ADT
+        source: ADT
         reference: TRTSDT
 
   - name: VISIT
@@ -318,8 +382,7 @@ columns:
     type: str
     label: Parameter
     derivation:
-      str_template:
-        template: "{_r_LBTEST} ({_r_LBSTRESU})"
+      str_template: "{_r_LBTEST} ({_r_LBSTRESU})"
 
   - name: PARAMCD
     type: str
@@ -332,7 +395,6 @@ columns:
     derivation:
       mapping:
         source: PARAM
-        missing: null
         dict:
           "Sodium (mmol/L)": 18
           "Potassium (mmol/L)": 19
@@ -356,7 +418,7 @@ columns:
   - name: PARCAT1
     type: str
     label: Parameter Category 1
-    derivation: {literal: "CHEM"}
+    derivation: "'CHEM'"
 
   # --- Values / baseline ---
   - name: AVAL
@@ -370,7 +432,7 @@ columns:
     derivation:
       case:
         - when: "_r_LBBLFL IS NULL"
-          then: {literal: ''}
+          then: "''"
         - otherwise: _r_LBBLFL
 
   - name: BASE
@@ -379,7 +441,10 @@ columns:
     derivation:
       aggregate:
         filter: "ABLFL = 'Y'"
-        group_by: [STUDYID, USUBJID, PARAMCD]
+        group_by:
+          - STUDYID
+          - USUBJID
+          - PARAMCD
         expr: "ONLY(AVAL)"
 
   - name: CHG
@@ -388,12 +453,9 @@ columns:
     derivation:
       case:
         - when: "VISITNUM = 1"
-          then: {literal: null}
-        - otherwise:
-            compute:
-              expr: "AVAL - BASE"
+          then:
+        - otherwise: "AVAL - BASE"
 
-  # --- Limits / indicators ---
   - name: A1LO
     type: float
     label: Analysis Range 1 Lower Limit
@@ -407,51 +469,51 @@ columns:
   - name: R2A1LO
     type: float
     label: Ratio to Analysis Range 1 Lower Limit
-    derivation:
-      compute:
-        expr: "AVAL / A1LO"
+    derivation: "AVAL / A1LO"
 
   - name: R2A1HI
     type: float
     label: Ratio to Analysis Range 1 Upper Limit
-    derivation:
-      compute:
-        expr: "AVAL / A1HI"
+    derivation: "AVAL / A1HI"
 
   - name: BR2A1LO
     type: float
     label: "Base Ratio to Analysis Range 1 Lower Lim"
-    derivation:
-      compute:
-        expr: "BASE / A1LO"
+    derivation: "BASE / A1LO"
 
   - name: BR2A1HI
     type: float
     label: "Base Ratio to Analysis Range 1 Upper Lim"
-    derivation:
-      compute:
-        expr: "BASE / A1HI"
+    derivation: "BASE / A1HI"
+
+  - name: _UPPER_DISTANCE
+    type: float
+    label: _UPPER_DISTANCE (helper)
+    derivation: ABS(AVAL - 1.5 * A1HI)
+
+  - name: _LOWER_DISTANCE
+    type: float
+    label: _LOWER_DISTANCE (helper)
+    derivation: ABS(0.5 * A1LO - AVAL)
 
   - name: ALBTRVAL
     type: float
     label: "Amount Threshold Range"
     derivation:
-      compute:
-        expr: "GREATEST(ABS(AVAL - 1.5 * A1HI), ABS(0.5 * A1LO - AVAL))"
+      greatest:
+        sources:
+          - _UPPER_DISTANCE
+          - _LOWER_DISTANCE
 
   - name: _LO_HALF
     type: float
     label: half of A1LO (internal)
-    derivation:
-      compute:
-        expr: "0.5 * A1LO"
+    derivation: "0.5 * A1LO"
 
   - name: _HI_15
     type: float
     label: 1.5x A1HI (internal)
-    derivation:
-      compute:
-        expr: "1.5 * A1HI"
+    derivation: "1.5 * A1HI"
 
   - name: ANRIND
     type: str
@@ -461,16 +523,16 @@ columns:
       # but AVAL is present; only a missing AVAL forces "N".
       case:
         - when: "AVAL IS NULL"
-          then: {literal: "N"}
+          then: "'N'"
         - when: "AVAL < _LO_HALF"
-          then: {literal: "L"}
+          then: "'L'"
         - when: "_LO_HALF IS NULL"
-          then: {literal: null}
+          then:
         - when: "AVAL > _HI_15"
-          then: {literal: "H"}
+          then: "'H'"
         - when: "_HI_15 IS NULL"
-          then: {literal: null}
-        - otherwise: {literal: "N"}
+          then:
+        - otherwise: "'N'"
 
   - name: _BNRIND_RAW
     type: str
@@ -478,7 +540,10 @@ columns:
     derivation:
       aggregate:
         filter: "ABLFL = 'Y'"
-        group_by: [STUDYID, USUBJID, PARAMCD]
+        group_by:
+          - STUDYID
+          - USUBJID
+          - PARAMCD
         expr: "ONLY(ANRIND)"
 
   - name: BNRIND
@@ -487,7 +552,7 @@ columns:
     derivation:
       case:
         - when: "_BNRIND_RAW IS NULL"
-          then: {literal: ''}
+          then: "''"
         - otherwise: _BNRIND_RAW
 
   # --- Last-observation flag ---
@@ -496,9 +561,12 @@ columns:
     label: Max eligible AVISITN per subject-param (internal)
     derivation:
       aggregate:
-        filter: "VISITNUM <= 12 AND AVISITN > 0
-          AND AVISITN < 99 AND NOT (VISIT LIKE '%UN%')"
-        group_by: [STUDYID, USUBJID, PARAMCD]
+        filter: "VISITNUM <= 12 AND AVISITN > 0 AND AVISITN < 99 AND
+          NOT (VISIT LIKE '%UN%')"
+        group_by:
+          - STUDYID
+          - USUBJID
+          - PARAMCD
         expr: "MAX(AVISITN)"
 
   - name: AENTMTFL
@@ -507,7 +575,6 @@ columns:
     derivation:
       flag:
         condition: "_IS_EOT = 1 OR AVISITN = _AENT_MAX"
-        true_value: "Y"
         false_value: ""
         missing: ""
 
@@ -527,14 +594,18 @@ columns:
     derivation:
       row_number:
         window:
-          group_by: [STUDYID, USUBJID, PARAMCD]
+          group_by:
+            - STUDYID
+            - USUBJID
+            - PARAMCD
           order_by:
             - variable: ALBTRVAL
               direction: desc
+              nulls: last
             - variable: LBSEQ
-              direction: asc
-          filter: "VISITNUM >= 4 AND VISITNUM <= 12
-            AND NOT (VISIT LIKE '%UN%') AND ALBTRVAL IS NOT NULL"
+              nulls: last
+          filter: "VISITNUM >= 4 AND VISITNUM <= 12 AND NOT (VISIT
+            LIKE '%UN%') AND ALBTRVAL IS NOT NULL"
 
   - name: _WINLB
     type: float
@@ -542,7 +613,10 @@ columns:
     derivation:
       aggregate:
         filter: "_RN_ANL = 1"
-        group_by: [STUDYID, USUBJID, PARAMCD]
+        group_by:
+          - STUDYID
+          - USUBJID
+          - PARAMCD
         expr: "ONLY(LBSEQ)"
 
   - name: ANL01FL
@@ -561,7 +635,7 @@ columns:
     derivation:
       case:
         - when: "_r_NRIND IS NULL"
-          then: {literal: ''}
+          then: "''"
         - otherwise: _r_NRIND
 
   - name: LBSTRESN
@@ -572,22 +646,21 @@ columns:
 rows:
   - id: main
     dataset: LB
-    filter: "LB.LBCAT = 'CHEMISTRY' AND (LB.VISIT LIKE '%WEEK%'
-      OR LB.VISIT LIKE '%SCREENING%' OR LB.VISIT LIKE '%UNSCHEDULED%')"
+    filter: "LB.LBCAT = 'CHEMISTRY' AND (LB.VISIT LIKE '%WEEK%' OR
+      LB.VISIT LIKE '%SCREENING%' OR LB.VISIT LIKE '%UNSCHEDULED%')"
     derivations:
-      _IS_EOT: {literal: 0.0}
-      ENDPOINT: {literal: null}
+      _IS_EOT: 0.0
+      ENDPOINT:
       AVISIT:
         case:
           - when: "_r_LBBLFL = 'Y'"
-            then: {literal: "Baseline"}
+            then: "'Baseline'"
           - when: "_r_VISIT LIKE '%UNSCHEDULED%'"
-            then: {literal: ""}
+            then: "''"
           - otherwise:
               mapping:
                 source: _r_VISIT
-                missing: null
-                unmapped: null
+                unmapped:
                 dict:
                   "WEEK 2": "Week 2"
                   "WEEK 4": "Week 4"
@@ -601,8 +674,7 @@ rows:
       AVISITN:
         mapping:
           source: AVISIT
-          missing: null
-          unmapped: null
+          unmapped:
           dict:
             "Baseline": 0.0
             "Week 2": 2.0
@@ -617,13 +689,13 @@ rows:
 
   - id: eot
     dataset: LB
-    filter: "LB.LBCAT = 'CHEMISTRY' AND (LB.VISITNUM = 12
-      OR ENDPOINT = 'Y')"
+    filter: "LB.LBCAT = 'CHEMISTRY' AND (LB.VISITNUM = 12 OR ENDPOINT
+      = 'Y')"
     derivations:
       ENDPOINT: SUP_EP.QVAL
-      _IS_EOT: {literal: 1.0}
-      AVISIT: {literal: "End of Treatment"}
-      AVISITN: {literal: 99.0}
+      _IS_EOT: 1.0
+      AVISIT: "'End of Treatment'"
+      AVISITN: 99.0
 
   - id: eot2
     dataset: EOTFB
@@ -643,7 +715,7 @@ rows:
       _r_LO: EOTFB.LBSTNRLO
       _r_HI: EOTFB.LBSTNRHI
       _r_NRIND: EOTFB.LBNRIND
-      _IS_EOT: {literal: 1.0}
-      ENDPOINT: {literal: null}
-      AVISIT: {literal: "End of Treatment"}
-      AVISITN: {literal: 99.0}
+      _IS_EOT: 1.0
+      ENDPOINT:
+      AVISIT: "'End of Treatment'"
+      AVISITN: 99.0
