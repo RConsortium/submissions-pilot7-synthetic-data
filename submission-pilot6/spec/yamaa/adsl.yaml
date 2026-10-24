@@ -89,16 +89,6 @@ output:
     - USUBJID
 
 intermediates:
-  - id: EX_FIRST
-    dataset: EX
-    key:
-      - STUDYID
-      - USUBJID
-    order_by:
-      - variable: EX.EXSTDTC
-        nulls: last
-    keep: first
-
   - id: DS_EOS
     dataset: DS
     key:
@@ -177,6 +167,13 @@ intermediates:
     keep: first
 
 columns:
+  - name: EOSDT
+    type: date
+    label: Full disposition date (helper)
+    derivation:
+      impute:
+        type: date
+        source: DS_EOS.DSSTDTC
   - name: STUDYID
     type: str
     label: Study Identifier
@@ -247,35 +244,42 @@ columns:
     type: date
     label: Date of First Exposure to Treatment
     derivation:
-      impute:
-        type: date
-        source: EX_FIRST.EXSTDTC
-        month: 1
-        day: last
-
+      aggregate:
+        derivations:
+          EXSTDT:
+            type: date
+            derivation:
+              impute:
+                type: date
+                source: EX.EXSTDTC
+        filter: EX.EXDOSE > 0 OR (EX.EXDOSE = 0 AND EX.EXTRT LIKE '%PLACEBO%')
+        expr: MIN(EXSTDT)
   - name: TRTEDT
     type: date
     label: Date of Last Exposure to Treatment
     derivation:
       aggregate:
         derivations:
-          EXENDT_RAW:
-            type: date
-            derivation: {impute: {type: date, source: EX.EXENDTC, month:
-                  1, day: last}}
           EOSDT:
             type: date
-            derivation: {impute: {type: date, source: DS_EOS.DSSTDTC,
-                  month: 1, day: last}}
-          EXENDT_CAPPED:
+            derivation:
+              case:
+                - when: DS_EOS.DSDECOD <> 'COMPLETED'
+                  then:
+                    impute:
+                      type: date
+                      source: DS_EOS.DSSTDTC
+          EXENDT:
             type: date
             derivation:
-              least:
-                sources:
-                  - EXENDT_RAW
-                  - EOSDT
-        expr: "MAX(EXENDT_CAPPED)"
-
+              impute:
+                type: date
+                source: EX.EXENDTC
+                month: 12
+                day: last
+                not_after: EOSDT
+        filter: EX.EXDOSE > 0 OR (EX.EXDOSE = 0 AND EX.EXTRT LIKE '%PLACEBO%')
+        expr: MAX(EXENDT)
   - name: TRTDURD
     type: float
     label: Total Treatment Duration (Days)
@@ -287,45 +291,102 @@ columns:
         unit: day
         closed: both
 
-  - name: CUMDOSE
+  - name: DOSE_MISSING
     type: float
-    label: Cumulative Dose (as planned)
+    label: Exposure records without calculable dose (helper)
     derivation:
       aggregate:
         derivations:
           EXSTDT:
             type: date
-            derivation: {impute: {type: date, source: EX.EXSTDTC, month:
-                  1, day: last}}
-          EXENDT_RAW:
-            type: date
-            derivation: {impute: {type: date, source: EX.EXENDTC, month:
-                  1, day: last}}
+            derivation:
+              impute:
+                type: date
+                source: EX.EXSTDTC
           EOSDT:
             type: date
-            derivation: {impute: {type: date, source: DS_EOS.DSSTDTC,
-                  month: 1, day: last}}
-          EXENDT_CAPPED:
+            derivation:
+              case:
+                - when: DS_EOS.DSDECOD <> 'COMPLETED'
+                  then:
+                    impute:
+                      type: date
+                      source: DS_EOS.DSSTDTC
+          EXENDT:
             type: date
             derivation:
-              least:
-                sources:
-                  - EXENDT_RAW
-                  - EOSDT
+              impute:
+                type: date
+                source: EX.EXENDTC
+                month: 12
+                day: last
+                not_after: EOSDT
           EXDURD:
             type: float
             derivation:
               diff:
                 type: date
                 start: EXSTDT
-                end: EXENDT_CAPPED
+                end: EXENDT
                 unit: day
                 closed: both
           EXDOSE_TOTAL:
             type: float
-            derivation: "EX.EXDOSE * EXDURD"
-        expr: "SUM(EXDOSE_TOTAL)"
-
+            derivation: EX.EXDOSE * EXDURD
+          EX_SUBJECT:
+            type: str
+            derivation: EX.USUBJID
+        expr: COUNT(EX_SUBJECT) - COUNT(EXDOSE_TOTAL)
+  - name: DOSE_SUM
+    type: float
+    label: Summed exposure dose (helper)
+    derivation:
+      aggregate:
+        derivations:
+          EXSTDT:
+            type: date
+            derivation:
+              impute:
+                type: date
+                source: EX.EXSTDTC
+          EOSDT:
+            type: date
+            derivation:
+              case:
+                - when: DS_EOS.DSDECOD <> 'COMPLETED'
+                  then:
+                    impute:
+                      type: date
+                      source: DS_EOS.DSSTDTC
+          EXENDT:
+            type: date
+            derivation:
+              impute:
+                type: date
+                source: EX.EXENDTC
+                month: 12
+                day: last
+                not_after: EOSDT
+          EXDURD:
+            type: float
+            derivation:
+              diff:
+                type: date
+                start: EXSTDT
+                end: EXENDT
+                unit: day
+                closed: both
+          EXDOSE_TOTAL:
+            type: float
+            derivation: EX.EXDOSE * EXDURD
+        expr: SUM(EXDOSE_TOTAL)
+  - name: CUMDOSE
+    type: float
+    label: Cumulative Dose (as planned)
+    derivation:
+      case:
+        - when: DOSE_MISSING = 0
+          then: DOSE_SUM
   - name: AVGDD_RAW
     type: float
     label: Average daily dose, unrounded (helper)
@@ -404,8 +465,7 @@ columns:
     label: Safety Population Flag
     derivation:
       case:
-        - when: "DM.ARMCD <> 'Scrnfail' AND DM.ARMCD <> '' AND TRTSDT IS NOT
-            NULL"
+        - when: "DM.ARMCD <> 'Scrnfail' AND DM.ARMCD <> '' AND TRTSDT IS NOT NULL"
           then: "'Y'"
         - otherwise: "'N'"
 
@@ -499,17 +559,15 @@ columns:
     label: Did the Subject Discontinue the Study?
     derivation:
       case:
-        - when: "DS_EOS.DSSTDTC IS NOT NULL AND DS_EOS.DSDECOD <> 'COMPLETED'"
+        - when: EOSDT IS NOT NULL AND DS_EOS.DSDECOD <> 'COMPLETED'
           then: "'Y'"
-
   - name: DSRAEFL
     type: str
     label: Discontinued due to AE?
     derivation:
       case:
-        - when: "DS_EOS.DSDECOD = 'ADVERSE EVENT'"
+        - when: DS_EOS.DSTERM = 'ADVERSE EVENT'
           then: "'Y'"
-
   - name: DTHFL
     type: str
     label: Subject Died?
@@ -593,9 +651,6 @@ columns:
       impute:
         type: date
         source: SV_V1.SVSTDTC
-        month: 1
-        day: 1
-
   - name: DURDISD
     type: float
     label: Disease duration in days, inclusive (helper)
@@ -666,9 +721,6 @@ columns:
       impute:
         type: date
         source: DM.RFENDTC
-        month: 1
-        day: 1
-
   - name: DCDECOD
     type: str
     label: Standardized Disposition Term
@@ -688,9 +740,10 @@ columns:
     label: Reason for Discontinuation from Study
     derivation:
       case:
-        - when: "DS_EOS.DSTERM = 'PROTOCOL ENTRY CRITERIA NOT MET'"
+        - when: DS_EOS.DSDECOD <> 'COMPLETED' AND DS_EOS.DSTERM = 'PROTOCOL ENTRY CRITERIA
+            NOT MET'
           then: "'I/E Not Met'"
-        - when: "DS_EOS.DSDECOD = 'COMPLETED'"
+        - when: DS_EOS.DSDECOD = 'COMPLETED'
           then: "''"
         - otherwise:
             mapping:
@@ -704,14 +757,17 @@ columns:
                 PROTOCOL VIOLATION: Protocol Violation
                 STUDY TERMINATED BY SPONSOR: Sponsor Decision
                 WITHDRAWAL BY SUBJECT: Withdrew Consent
-
   - name: MMSETOT
     type: float
     label: MMSE Total
     derivation:
       aggregate:
-        expr: "SUM(QS.QSSTRESN)"
-        filter: "QS.QSCAT = 'MINI-MENTAL STATE'"
+        expr: SUM(QSORRES_NUM)
+        filter: QS.QSCAT = 'MINI-MENTAL STATE'
+        derivations:
+          QSORRES_NUM:
+            type: float
+            derivation: QS.QSORRES
   - name: COMPLFL
     type: str
     label: Completers Population Flag

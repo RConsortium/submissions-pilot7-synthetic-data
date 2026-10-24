@@ -1,0 +1,54 @@
+name: Pilot 6 yamaa ADSL
+
+on:
+  pull_request:
+    branches: [main]
+    paths:
+      - 'submission-pilot6/spec/yamaa/**'
+      - 'submission-pilot6/program/adam/python/**'
+      - 'submission-pilot6/data/sdtm/**'
+      - '.github/workflows/pilot6-yamaa.yml'
+  push:
+    branches: [main]
+    paths:
+      - 'submission-pilot6/**'
+      - '.github/workflows/pilot6-yamaa.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: pilot6-yamaa-${{ github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
+jobs:
+  validate:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    env:
+      CARGO_BUILD_JOBS: '2'
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          persist-credentials: false
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+          cache: pip
+          cache-dependency-path: submission-pilot6/program/adam/python/requirements.txt
+      - uses: dtolnay/rust-toolchain@1.90.0
+      - name: Install pinned engine
+        run: python -m pip install --config-settings build-args=--profile=dev -r submission-pilot6/program/adam/python/requirements.txt
+      - name: Test clinical boundary cases and reference comparison failures
+        run: python -m unittest discover -s submission-pilot6/program/adam/python/tests -v
+      - name: Check and build the staged study
+        run: python submission-pilot6/program/adam/python/run.py
+      - name: Compare when the official reference is staged
+        if: hashFiles('submission-pilot6/data/adam/adsl.parquet') != ''
+        run: python submission-pilot6/program/adam/python/compare.py
+      - uses: actions/upload-artifact@v4
+        with:
+          name: pilot6-adsl-unverified-build
+          path: submission-pilot6/data/adam/adsl-yamaa.parquet
+          if-no-files-found: error
