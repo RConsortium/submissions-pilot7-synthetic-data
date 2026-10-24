@@ -16,10 +16,15 @@ original labels retained in Arrow schema metadata. Define-XML files and the
 Pilot 6 workbook provide source metadata. Pilot 3 also carries reviewed CSV
 planning relations used by ADADAS.
 
-Pilot 6's staged SDTM is the CDISC Pilot 01 data, excluding TS. Its production
-ADaM is DVC-tracked upstream and has not been imported here. Shared clinical
-data does not establish that the analysis datasets or derivation choices
-are identical across pilots.
+Pilot 6's 21 staged SDTM inputs are verified against the size and MD5 in its
+current DVC pointers at commit `a4f85c95cfef1f6aa27795362630f8ae43210185`.
+The exact source JSON was available in the public Pilot 5 repository; the
+study's `spec/source-snapshot.json` records retrieval URLs and output hashes.
+The ADaM definition and specification workbook come from that same Pilot 6
+revision. Its production ADaM is DVC-tracked upstream and has not been
+imported here. Upstream now supports anonymous downloads, but the import
+environment blocked the S3 endpoint. Shared clinical data does not establish
+that the analysis datasets or derivation choices are identical across pilots.
 
 ## Repository layout
 
