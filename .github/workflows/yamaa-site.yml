@@ -1,0 +1,102 @@
+name: yamaa studies and website
+
+on:
+  pull_request:
+    branches: [main]
+    types: [opened, synchronize, reopened, ready_for_review]
+    paths:
+      - '**/spec/yamaa/**'
+      - '**/program/adam/**'
+      - '**/data/**'
+      - '.github/scripts/validate_yamaa.py'
+      - '.github/scripts/build_study_docs.py'
+      - '.github/yamaa-studies.json'
+      - '.github/workflows/yamaa-site.yml'
+      - 'requirements.txt'
+      - 'mkdocs.yml'
+      - 'docs/**'
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: yamaa-site-${{ github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
+jobs:
+  validate:
+    if: github.event_name != 'pull_request' || github.event.pull_request.draft == false
+    name: Validate ${{ matrix.study }}
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    strategy:
+      fail-fast: false
+      matrix:
+        study: [cdiscpilot01, submission-pilot3, submission-pilot5, submission-pilot6]
+    env:
+      CARGO_BUILD_JOBS: '2'
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+          cache: pip
+          cache-dependency-path: requirements.txt
+      - uses: dtolnay/rust-toolchain@1.90.0
+      - name: Install pinned engine and comparison tools
+        run: python -m pip install --config-settings build-args=--profile=dev -r requirements.txt
+      - name: Check, build, compare, and record evidence
+        run: python .github/scripts/validate_yamaa.py "${{ matrix.study }}"
+      - uses: actions/upload-artifact@v4
+        with:
+          name: validation-${{ matrix.study }}
+          path: .build/validation/${{ matrix.study }}.json
+          include-hidden-files: true
+          if-no-files-found: error
+
+  website:
+    name: Build website
+    needs: validate
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - uses: actions/download-artifact@v4
+        with:
+          pattern: validation-*
+          path: .build/validation
+          merge-multiple: true
+      - run: python -m pip install -r docs/requirements.txt
+      - name: Generate study pages from this run's evidence
+        run: python .github/scripts/build_study_docs.py
+      - name: Build strict MkDocs site
+        run: python -m mkdocs build --strict
+      - uses: actions/upload-artifact@v4
+        with:
+          name: pilot7-site
+          path: site
+          if-no-files-found: error
+      - uses: actions/upload-pages-artifact@v3
+        if: github.ref == 'refs/heads/main' && github.event_name != 'pull_request'
+        with:
+          path: site
+
+  deploy:
+    name: Publish GitHub Pages
+    if: github.ref == 'refs/heads/main' && github.event_name != 'pull_request'
+    needs: website
+    runs-on: ubuntu-24.04
+    permissions:
+      pages: write
+      id-token: write
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - uses: actions/deploy-pages@v4
+        id: deployment
