@@ -75,7 +75,7 @@ def materialize_sdtm(path, destination):
         if kind == 'float':
             # The legacy reader requires a targetDataType vector when
             # decimals_as_floats is used, even for already numeric columns.
-            metadata['targetDataType'] = 'float'
+            metadata['targetDataType'] = 'decimal'
         columns.append(metadata)
         values.append(column.to_pylist())
     data = {'datasetJSONVersion': '1.1.0', 'datasetJSONCreationDateTime': '2026-10-24T00:00:00',
