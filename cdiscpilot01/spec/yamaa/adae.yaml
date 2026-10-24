@@ -1,31 +1,94 @@
-schema_version: "1.0"
+yamaa: "1.0"
+type: spec
+model: ADaM
 domain: ADAE
-keys: [STUDYID, USUBJID, AESEQ]
+keys:
+  - STUDYID
+  - USUBJID
+  - AESEQ
 input:
   AE:
     path: ../../data/sdtm/ae.parquet
     empty_string: present
   ADSL:
     path: ../../data/adam/adsl-yamaa.parquet
+    schema: adsl.yaml
     empty_string: present
 base: AE
 
 output:
   path: ../../data/adam/adae-yamaa.parquet
-  columns: [STUDYID, SITEID, USUBJID, TRTA, TRTAN, AGE, AGEGR1, AGEGR1N, RACE,
-    RACEN, SEX, SAFFL, TRTSDT, TRTEDT, ASTDT, ASTDTF, ASTDY, AENDT, AENDY,
-    ADURN, ADURU, AETERM, AELLT, AELLTCD, AEDECOD, AEPTCD, AEHLT, AEHLTCD,
-    AEHLGT, AEHLGTCD, AEBODSYS, AESOC, AESOCCD, AESEV, AESER, AESCAN, AESCONG,
-    AESDISAB, AESDTH, AESHOSP, AESLIFE, AESOD, AEREL, AEACN, AEOUT, AESEQ,
-    TRTEMFL, AOCCFL, AOCCSFL, AOCCPFL, AOCC02FL, AOCC03FL, AOCC04FL, CQ01NAM,
-    AOCC01FL]
-  order_by: [USUBJID, AESEQ]
+  columns:
+    - STUDYID
+    - SITEID
+    - USUBJID
+    - TRTA
+    - TRTAN
+    - AGE
+    - AGEGR1
+    - AGEGR1N
+    - RACE
+    - RACEN
+    - SEX
+    - SAFFL
+    - TRTSDT
+    - TRTEDT
+    - ASTDT
+    - ASTDTF
+    - ASTDY
+    - AENDT
+    - AENDY
+    - ADURN
+    - ADURU
+    - AETERM
+    - AELLT
+    - AELLTCD
+    - AEDECOD
+    - AEPTCD
+    - AEHLT
+    - AEHLTCD
+    - AEHLGT
+    - AEHLGTCD
+    - AEBODSYS
+    - AESOC
+    - AESOCCD
+    - AESEV
+    - AESER
+    - AESCAN
+    - AESCONG
+    - AESDISAB
+    - AESDTH
+    - AESHOSP
+    - AESLIFE
+    - AESOD
+    - AEREL
+    - AEACN
+    - AEOUT
+    - AESEQ
+    - TRTEMFL
+    - AOCCFL
+    - AOCCSFL
+    - AOCCPFL
+    - AOCC02FL
+    - AOCC03FL
+    - AOCC04FL
+    - CQ01NAM
+    - AOCC01FL
+  order_by:
+    - variable: USUBJID
+      nulls: last
+    - variable: AESEQ
+      nulls: last
 
 intermediates:
   - id: ADSL_SBJ
     dataset: ADSL
-    key: [STUDYID, USUBJID]
-    order_by: [ADSL.USUBJID]
+    key:
+      - STUDYID
+      - USUBJID
+    order_by:
+      - variable: ADSL.USUBJID
+        nulls: last
     keep: first
 
 columns:
@@ -106,13 +169,13 @@ columns:
       case:
         - when: "AE.AESTDTC LIKE '%-%'"
           then:
-            date_impute:
+            impute:
+              type: date
               source: AE.AESTDTC
               month: 1
               day: 1
-              missing: null
-              invalid: null
-        - otherwise: {literal: null}
+              invalid:
+        - otherwise:
 
   - name: ASTDTF
     type: str
@@ -120,8 +183,8 @@ columns:
     derivation:
       case:
         - when: "AE.AESTDTC LIKE '%-%' AND AE.AESTDTC NOT LIKE '%-%-%'"
-          then: {literal: "D"}
-        - otherwise: {literal: ""}
+          then: "'D'"
+        - otherwise: "''"
 
   - name: ASTDY_RAW
     type: float
@@ -130,17 +193,18 @@ columns:
       case:
         - when: "ASTDT >= TRTSDT"
           then:
-            date_diff:
+            diff:
+              type: date
               start: TRTSDT
               end: ASTDT
               unit: day
-              bounds: inclusive
+              closed: both
         - otherwise:
-            date_diff:
+            diff:
+              type: date
               start: TRTSDT
               end: ASTDT
               unit: day
-              bounds: exclusive
 
   - name: ASTDY
     type: float
@@ -151,12 +215,12 @@ columns:
     type: date
     label: Analysis End Date
     derivation:
-      date_impute:
+      impute:
+        type: date
         source: AE.AEENDTC
         month: 1
         day: 1
-        missing: null
-        invalid: null
+        invalid:
 
   - name: AENDY
     type: float
@@ -168,14 +232,16 @@ columns:
     label: AE Duration (N)
     derivation:
       case:
-        - when: "ASTDT IS NOT NULL AND AENDT IS NOT NULL AND ASTDTF = ''"
+        - when: "ASTDT IS NOT NULL AND AENDT IS NOT NULL AND ASTDTF
+            = ''"
           then:
-            date_diff:
+            diff:
+              type: date
               start: ASTDT
               end: AENDT
               unit: day
-              bounds: inclusive
-        - otherwise: {literal: null}
+              closed: both
+        - otherwise:
 
   - name: ADURU
     type: str
@@ -183,8 +249,8 @@ columns:
     derivation:
       case:
         - when: "ADURN IS NOT NULL"
-          then: {literal: "DAY"}
-        - otherwise: {literal: ""}
+          then: "'DAY'"
+        - otherwise: "''"
 
   - name: AETERM
     type: str
@@ -316,9 +382,10 @@ columns:
     label: Treatment Emergent Analysis Flag
     derivation:
       case:
-        - when: "ASTDT IS NOT NULL AND TRTSDT IS NOT NULL AND ASTDT >= TRTSDT"
-          then: {literal: "Y"}
-        - otherwise: {literal: "N"}
+        - when: "ASTDT IS NOT NULL AND TRTSDT IS NOT NULL AND ASTDT
+            >= TRTSDT"
+          then: "'Y'"
+        - otherwise: "'N'"
 
   - name: TE_RN
     type: float
@@ -326,8 +393,12 @@ columns:
     derivation:
       row_number:
         window:
-          group_by: [STUDYID, USUBJID]
-          order_by: [AESEQ]
+          group_by:
+            - STUDYID
+            - USUBJID
+          order_by:
+            - variable: AESEQ
+              nulls: last
           filter: "TRTEMFL = 'Y'"
 
   - name: AOCCFL
@@ -336,8 +407,8 @@ columns:
     derivation:
       case:
         - when: "TE_RN = 1"
-          then: {literal: "Y"}
-        - otherwise: {literal: ""}
+          then: "'Y'"
+        - otherwise: "''"
 
   - name: TE_SOC_RN
     type: float
@@ -345,8 +416,13 @@ columns:
     derivation:
       row_number:
         window:
-          group_by: [STUDYID, USUBJID, AESOC]
-          order_by: [AESEQ]
+          group_by:
+            - STUDYID
+            - USUBJID
+            - AESOC
+          order_by:
+            - variable: AESEQ
+              nulls: last
           filter: "TRTEMFL = 'Y'"
 
   - name: AOCCSFL
@@ -355,8 +431,8 @@ columns:
     derivation:
       case:
         - when: "TE_SOC_RN = 1"
-          then: {literal: "Y"}
-        - otherwise: {literal: ""}
+          then: "'Y'"
+        - otherwise: "''"
 
   - name: TE_PT_RN
     type: float
@@ -364,8 +440,13 @@ columns:
     derivation:
       row_number:
         window:
-          group_by: [STUDYID, USUBJID, AEDECOD]
-          order_by: [AESEQ]
+          group_by:
+            - STUDYID
+            - USUBJID
+            - AEDECOD
+          order_by:
+            - variable: AESEQ
+              nulls: last
           filter: "TRTEMFL = 'Y'"
 
   - name: AOCCPFL
@@ -374,8 +455,8 @@ columns:
     derivation:
       case:
         - when: "TE_PT_RN = 1"
-          then: {literal: "Y"}
-        - otherwise: {literal: ""}
+          then: "'Y'"
+        - otherwise: "''"
 
   - name: SER_RN
     type: float
@@ -383,8 +464,12 @@ columns:
     derivation:
       row_number:
         window:
-          group_by: [STUDYID, USUBJID]
-          order_by: [AESEQ]
+          group_by:
+            - STUDYID
+            - USUBJID
+          order_by:
+            - variable: AESEQ
+              nulls: last
           filter: "TRTEMFL = 'Y' AND AE.AESER = 'Y'"
 
   - name: AOCC02FL
@@ -393,8 +478,8 @@ columns:
     derivation:
       case:
         - when: "SER_RN = 1"
-          then: {literal: "Y"}
-        - otherwise: {literal: ""}
+          then: "'Y'"
+        - otherwise: "''"
 
   - name: SER_SOC_RN
     type: float
@@ -402,8 +487,13 @@ columns:
     derivation:
       row_number:
         window:
-          group_by: [STUDYID, USUBJID, AESOC]
-          order_by: [AESEQ]
+          group_by:
+            - STUDYID
+            - USUBJID
+            - AESOC
+          order_by:
+            - variable: AESEQ
+              nulls: last
           filter: "TRTEMFL = 'Y' AND AE.AESER = 'Y'"
 
   - name: AOCC03FL
@@ -412,8 +502,8 @@ columns:
     derivation:
       case:
         - when: "SER_SOC_RN = 1"
-          then: {literal: "Y"}
-        - otherwise: {literal: ""}
+          then: "'Y'"
+        - otherwise: "''"
 
   - name: SER_PT_RN
     type: float
@@ -421,8 +511,13 @@ columns:
     derivation:
       row_number:
         window:
-          group_by: [STUDYID, USUBJID, AEDECOD]
-          order_by: [AESEQ]
+          group_by:
+            - STUDYID
+            - USUBJID
+            - AEDECOD
+          order_by:
+            - variable: AESEQ
+              nulls: last
           filter: "TRTEMFL = 'Y' AND AE.AESER = 'Y'"
 
   - name: AOCC04FL
@@ -431,31 +526,30 @@ columns:
     derivation:
       case:
         - when: "SER_PT_RN = 1"
-          then: {literal: "Y"}
-        - otherwise: {literal: ""}
+          then: "'Y'"
+        - otherwise: "''"
 
   - name: CQ01NAM
     type: str
     label: Customized Query 01 Name
     derivation:
       case:
-        - when: "AE.AEDECOD IN ('ACTINIC KERATOSIS',
-            'APPLICATION SITE BLEEDING', 'APPLICATION SITE DERMATITIS',
-            'APPLICATION SITE DESQUAMATION', 'APPLICATION SITE DISCHARGE',
-            'APPLICATION SITE DISCOLOURATION', 'APPLICATION SITE ERYTHEMA',
-            'APPLICATION SITE INDURATION', 'APPLICATION SITE IRRITATION',
-            'APPLICATION SITE PAIN', 'APPLICATION SITE PERSPIRATION',
-            'APPLICATION SITE PRURITUS', 'APPLICATION SITE REACTION',
-            'APPLICATION SITE SWELLING', 'APPLICATION SITE URTICARIA',
-            'APPLICATION SITE VESICLES', 'APPLICATION SITE WARMTH', 'BLISTER',
+        - when: "AE.AEDECOD IN ('ACTINIC KERATOSIS', 'APPLICATION
+            SITE BLEEDING', 'APPLICATION SITE DERMATITIS', 'APPLICATION
+            SITE DESQUAMATION', 'APPLICATION SITE DISCHARGE', 'APPLICATION
+            SITE DISCOLOURATION', 'APPLICATION SITE ERYTHEMA', 'APPLICATION
+            SITE INDURATION', 'APPLICATION SITE IRRITATION', 'APPLICATION
+            SITE PAIN', 'APPLICATION SITE PERSPIRATION', 'APPLICATION
+            SITE PRURITUS', 'APPLICATION SITE REACTION', 'APPLICATION
+            SITE SWELLING', 'APPLICATION SITE URTICARIA', 'APPLICATION
+            SITE VESICLES', 'APPLICATION SITE WARMTH', 'BLISTER',
             'DERMATITIS ATOPIC', 'DERMATITIS CONTACT', 'DRUG ERUPTION',
-            'ERYTHEMA', 'PHARYNGEAL ERYTHEMA', 'PRURITUS',
-            'PRURITUS GENERALISED', 'RASH', 'RASH ERYTHEMATOUS',
-            'RASH MACULO-PAPULAR', 'RASH PAPULAR', 'RASH PRURITIC',
-            'SKIN EXFOLIATION', 'SKIN IRRITATION',
-            'SKIN ODOUR ABNORMAL', 'SKIN ULCER', 'URTICARIA')"
-          then: {literal: "DERMATOLOGIC EVENTS"}
-        - otherwise: {literal: ""}
+            'ERYTHEMA', 'PHARYNGEAL ERYTHEMA', 'PRURITUS', 'PRURITUS
+            GENERALISED', 'RASH', 'RASH ERYTHEMATOUS', 'RASH MACULO-PAPULAR',
+            'RASH PAPULAR', 'RASH PRURITIC', 'SKIN EXFOLIATION', 'SKIN
+            IRRITATION', 'SKIN ODOUR ABNORMAL', 'SKIN ULCER', 'URTICARIA')"
+          then: "'DERMATOLOGIC EVENTS'"
+        - otherwise: "''"
 
   - name: DERM_RN
     type: float
@@ -463,8 +557,12 @@ columns:
     derivation:
       row_number:
         window:
-          group_by: [STUDYID, USUBJID]
-          order_by: [AESEQ]
+          group_by:
+            - STUDYID
+            - USUBJID
+          order_by:
+            - variable: AESEQ
+              nulls: last
           filter: "TRTEMFL = 'Y' AND CQ01NAM = 'DERMATOLOGIC EVENTS'"
 
   - name: AOCC01FL
@@ -473,8 +571,8 @@ columns:
     derivation:
       case:
         - when: "DERM_RN = 1"
-          then: {literal: "Y"}
-        - otherwise: {literal: ""}
+          then: "'Y'"
+        - otherwise: "''"
 
 rows:
   - id: all-aes

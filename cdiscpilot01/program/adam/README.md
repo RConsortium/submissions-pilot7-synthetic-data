@@ -1,61 +1,33 @@
-# Pilot 1 ADaM derivations
+# CDISC Pilot 01 ADaM derivations
 
-Each active ADaM output has one yamaa specification in `../../spec/yamaa/`.
-`python/run.py` runs the specs in dependency order and saves
-`../../data/adam/<dataset>-yamaa.parquet`. The other specs read the
-derived ADSL and, for ADLBHY, the derived ADLBC. Every ADaM variable
-is derived in a specification. `python/compare.py` checks all official
-columns and cells at an absolute numeric tolerance of 1e-10, and
-compares the YAML label declarations with the official labels.
+`../../spec/yamaa/project.yaml` lists the active specifications in dependency
+order. The project uses the yamaa 1.0 language and API at the source revision
+pinned in `python/requirements.txt` (currently an unreleased engine).
+Python 3.12 or later and Rust/Cargo 1.82 or later are required for installation.
 
-Install the requirements, then run from this directory:
+From the repository root:
 
 ```bash
-python3 -m pip install -r python/requirements.txt
-python3 -m yamaa.style ../../spec/yamaa/*.yaml
-python3 python/run.py
-python3 python/compare.py
+python -m pip install -r cdiscpilot01/program/adam/python/requirements.txt
+python cdiscpilot01/program/adam/python/run.py
+python cdiscpilot01/program/adam/python/compare.py
 ```
 
-`python/compare.py` checks output shape, column order and types, and every
-cell against `../../data/adam/`. Numeric values must match within
-absolute tolerance `1e-10`; null and empty text differ. It compares the
-YAML label declarations with the official `yamaa:label` field metadata.
-Missing or mismatched outputs make it exit nonzero. The official
-ADQSNIPX file is named `adqsnpix.parquet`. The dependency order is
-ADSL, ADAE, ADTTE, ADVS, ADLBC, ADLBH, ADLBHY, ADQSNIPX.
+Both scripts resolve the study from their own locations and work from any
+working directory. Outputs are ignored `data/adam/<dataset>-yamaa.parquet`
+files; the official reference datasets are preserved.
 
-## Verified outputs
+The complete reference comparison passes with the pinned engine at
+`3e8d5f6b5d2af223fba6aa29fa7209699123f706` (2026-10-24). Numeric cells
+use the existing absolute tolerance of `1e-10`. The comparator checks row order, column order, Arrow types, every cell, and the declared labels. Null and empty text remain distinct.
 
-The following full comparisons passed with zero yamaa validation issues on
-yamaa `e6bca4ac` (2026-09-29):
+Specifications now declare explicit lookup keys, producing-specification
+links, current temporal operations, and grammar expressions. Explicit
+`nulls: last` terms preserve the prior missing-value ordering. Retired
+COALESCE/GREATEST functions are expressed with helper derivations and the
+current verbs. The migration preserves the original comparison policies.
 
-| Dataset | Columns | Matching cells |
-| --- | ---: | ---: |
-| ADSL | 48/48 | 12,192/12,192 |
-| ADAE | 55/55 | 65,505/65,505 |
-| ADTTE | 26/26 | 6,604/6,604 |
-| ADVS | 34/34 | 1,092,726/1,092,726 |
-| ADLBC | 46/46 | 3,416,144/3,416,144 |
-| ADLBH | 46/46 | 2,296,872/2,296,872 |
-| ADLBHY | 43/43 | 428,022/428,022 |
-| ADQSNIPX | 41/41 | 1,276,740/1,276,740 |
-
-The ADLBC and ADLBH specifications explicitly exclude unscheduled records
-from the previous-value window. ADQSNIPX looks up baseline by subject and
-test code.
-
-The specifications follow yamaa's [specification style contract][style]:
-schema field order, blank-line layout, lines of at most 79 characters, and
-canonical literal and source expressions.
-
-[style]: https://github.com/elong0527/yamaa/blob/e6bca4ac6589f7b884c26604afe3a0c13af71ad3/rules/specification/style.md
-
-## Outputs awaiting a single specification
-
-ADQSADAS and ADQSCIBC are excluded from `run.py` and `compare.py`. Their old
-multi-stage YAML workarounds have been removed. The rank-to-forward-fill
-limitation previously cited for ADQSADAS was fixed in
-[yamaa#1148](https://github.com/elong0527/yamaa/issues/1148); a single spec
-still needs to be built and compared. The ADQSCIBC single-spec validation
-hang is tracked in [yamaa#1484](https://github.com/elong0527/yamaa/issues/1484).
+The active order is ADSL, ADAE, ADTTE, ADVS, ADLBC, ADLBH, ADLBHY, ADQSNPIX.
+The last specification is named `adqsnipx.yaml`, while its official reference
+is `adqsnpix.parquet`. ADQSADAS and ADQSCIBC remain outside the active project;
+they still need single-spec implementations and comparisons.
