@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """Regenerate Pilot 6 ADaM from staged SDTM and compare with imported references.
 
-Runs the unchanged upstream R programs with Rscript or a Docker image. Each attempt
+Runs the unchanged upstream R programs with Rscript and the renv lockfile. Each attempt
 uses a new sandbox with no ADaM files; children read freshly generated parents.
 Requires pyarrow and PyYAML in Python and the R packages listed in the README.
 """
@@ -114,9 +114,7 @@ def compare_tables(actual, reference, tolerance=1e-10):
 
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
-    runtime_choice = parser.add_mutually_exclusive_group(required=True)
-    runtime_choice.add_argument('--image', help='R Docker image, preferably pinned by digest')
-    runtime_choice.add_argument('--rscript', help='Rscript executable in the current environment')
+    parser.add_argument('--rscript', default='Rscript', help='Rscript executable in the current environment')
     parser.add_argument('--report', type=Path, default=STUDY / 'log/upstream-verification.json')
     args = parser.parse_args()
     # A failed attempt must not publish an earlier run's evidence.
@@ -143,19 +141,10 @@ def main():
     initial_adam_files = list((work / 'data/adam').iterdir())
     if initial_adam_files:
         raise ValueError('ADaM sandbox must be empty before execution')
-    environment = {key: value for key, value in os.environ.items()
-                   if key not in ('DOCKER_HOST', 'DOCKER_CONTEXT', 'DOCKER_TLS', 'DOCKER_TLS_VERIFY', 'DOCKER_CERT_PATH')}
-    image_info = {}
-    if args.rscript:
-        command = [args.rscript, '--vanilla']
-    else:
-        docker = ['docker', '--host=unix:///var/run/docker.sock']
-        command = docker + ['run', '--rm', '--network', 'none', '--user', f'{os.getuid()}:{os.getgid()}',
-                            '--mount', f'type=bind,src={work},dst=/study', '--workdir', '/study',
-                            '--env', 'OMP_NUM_THREADS=1', '--env', 'OPENBLAS_NUM_THREADS=1',
-                            '--entrypoint', 'Rscript', args.image, '--vanilla']
-        image_info = json.loads(subprocess.check_output(docker + ['image', 'inspect', args.image], env=environment))[0]
-    runtime = subprocess.run(command + ['-e', 'jsonlite::write_json(list(R=R.version.string, '
+    environment = dict(os.environ, PILOT6_RENV_PROJECT=str(HERE))
+    command = [args.rscript, '--vanilla']
+    runtime = subprocess.run(command + ['-e', 'renv::load(project=Sys.getenv("PILOT6_RENV_PROJECT"), quiet=TRUE); '
+                             'jsonlite::write_json(list(R=R.version.string, '
                              'packages=as.list(setNames(installed.packages()[,"Version"], '
                              'installed.packages()[,"Package"]))), "runtime-observed.json", auto_unbox=TRUE)'],
                              env=environment, cwd=work, capture_output=True, text=True, timeout=120)
@@ -167,7 +156,7 @@ def main():
     report = {'created_utc': datetime.now(timezone.utc).isoformat(), 'source_commit': manifest['source_commit'],
               'snapshot_sha256': sha256(STUDY / 'spec/source-snapshot.json'),
               'runner_sha256': sha256(Path(__file__)), 'bootstrap_sha256': sha256(HERE / 'run_upstream.R'),
-              'image_id': image_info.get('Id'), 'image_digests': image_info.get('RepoDigests'),
+              'renv_lock_sha256': sha256(HERE / 'renv.lock'),
               'runtime': json.loads((work / 'runtime-observed.json').read_text()),
               'input_datasets': len(inputs), 'initial_adam_files': len(initial_adam_files),
               'input_adapter': 'Staged Parquet to Dataset-JSON 1.1; numeric columns use float.',

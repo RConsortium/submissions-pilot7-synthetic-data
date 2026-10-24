@@ -36,8 +36,10 @@ jobs:
           r-version: '4.5.1'
           use-public-rspm: true
       - uses: r-lib/actions/setup-r-dependencies@v2
+        if: hashFiles('submission-pilot6/program/adam/renv.lock') == ''
         with:
           packages: |
+            any::renv
             any::admiral
             atorus-research/datasetjson@c68cf30f6213b2195379efbc680c9cc28b1bf8fc
             any::dplyr
@@ -53,6 +55,17 @@ jobs:
             any::tibble
             any::tidyr
             any::xportr
+      - name: Capture the initial renv environment
+        if: hashFiles('submission-pilot6/program/adam/renv.lock') == ''
+        shell: Rscript {0}
+        run: |
+          project <- "submission-pilot6/program/adam"
+          options(repos = c(CRAN = "https://cloud.r-project.org"))
+          renv::snapshot(project = project, library = .libPaths()[1], type = "all", prompt = FALSE)
+          renv::hydrate(project = project, prompt = FALSE)
+      - uses: r-lib/actions/setup-renv@v2
+        with:
+          working-directory: submission-pilot6/program/adam
       - name: Test input conversion and comparison safeguards
         run: python -m unittest discover -s submission-pilot6/program/adam -p 'test_*.py' -v
       - name: Generate ADaM from SDTM and compare with references
@@ -67,12 +80,18 @@ jobs:
               print('BEGIN_PILOT6_REPORT')
               print(report.read_text())
               print('END_PILOT6_REPORT')
+          lockfile = Path('submission-pilot6/program/adam/renv.lock')
+          if lockfile.exists():
+              print('BEGIN_PILOT6_RENV_LOCK')
+              print(lockfile.read_text())
+              print('END_PILOT6_RENV_LOCK')
       - uses: actions/upload-artifact@v4
         if: always()
         with:
           name: pilot6-upstream-evidence
           path: |
             submission-pilot6/log/upstream-verification.json
+            submission-pilot6/program/adam/renv.lock
             .build/pilot6-upstream/*/logs/*.log
           include-hidden-files: true
           if-no-files-found: warn

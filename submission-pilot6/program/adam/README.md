@@ -11,26 +11,28 @@ CRF-to-SDTM generation programs. TS is not among its tracked inputs.
 
 ## Run the verification
 
-Install Python dependencies `pyarrow==26.0.0` and `PyYAML==6.0.3`. Use R
-4.5.1 with admiral, datasetjson, dplyr, glue, haven, janitor, jsonlite,
-lubridate, metacore, metatools, purrr, stringr, tibble, tidyr and xportr.
-Pin datasetjson to Git commit `c68cf30f6213b2195379efbc680c9cc28b1bf8fc`
-from `atorus-research/datasetjson`, which supports the upstream programs'
-`decimals_as_floats` reader argument. The current CRAN reader removed that
-argument and blocks ADSL before derivations start.
+Install Python dependencies `pyarrow==26.0.0` and `PyYAML==6.0.3`, and use
+R 4.5.1. Restore the R packages from `renv.lock` before running the programs.
 From the repository root:
 
 ```bash
+Rscript -e 'install.packages("renv", repos="https://cloud.r-project.org")'
+Rscript -e 'renv::restore(project="submission-pilot6/program/adam", prompt=FALSE)'
 python -m unittest discover -s submission-pilot6/program/adam -p 'test_*.py' -v
 python submission-pilot6/program/adam/verify_upstream.py --rscript Rscript
 ```
 
-Alternatively pass `--image <R-image@sha256:digest>` for an R Docker image
-containing those packages. Container execution uses no network. The
 `Pilot 6 upstream R reproduction` GitHub Actions workflow installs the R
-environment and runs the same verification on this study's pull requests.
-Upstream does not provide a dependency lockfile; the report records the
-observed R and package versions, and any Docker image identity.
+environment from the same lockfile and runs this verification on the
+study's pull requests. Each fresh R process explicitly loads the restored
+renv project. No Docker image is required.
+
+The lockfile pins datasetjson to Git commit
+`c68cf30f6213b2195379efbc680c9cc28b1bf8fc` from
+`atorus-research/datasetjson`, which supports the upstream programs'
+`decimals_as_floats` reader argument. The current CRAN reader removed that
+argument and blocks ADSL before derivations start. Upstream does not
+provide its own lockfile; this repository records the tested environment.
 
 The runner first verifies all dataset, specification and source-code hashes.
 It converts the staged SDTM Parquet files to Dataset-JSON for the R reader,
