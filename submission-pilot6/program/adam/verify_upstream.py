@@ -119,11 +119,19 @@ def main():
     runtime_choice.add_argument('--rscript', help='Rscript executable in the current environment')
     parser.add_argument('--report', type=Path, default=STUDY / 'log/upstream-verification.json')
     args = parser.parse_args()
+    # A failed attempt must not publish an earlier run's evidence.
+    args.report.unlink(missing_ok=True)
     manifest, inputs = verify_snapshot()
     build = ROOT / '.build/pilot6-upstream'
     build.mkdir(parents=True, exist_ok=True)
     work = Path(tempfile.mkdtemp(prefix='run-', dir=build))
-    shutil.copytree(HERE / 'upstream', work, dirs_exist_ok=True)
+    for entry in manifest['programs']:
+        relative = Path(entry['source_path'])
+        if relative.is_absolute() or '..' in relative.parts or not (relative == Path('.Rprofile') or relative.parts[0] == 'code'):
+            raise ValueError(f'Unexpected upstream source path: {relative}')
+        destination = work / relative
+        destination.parent.mkdir(parents=True, exist_ok=True)
+        shutil.copyfile(ROOT / entry['path'], destination)
     shutil.copyfile(HERE / 'run_upstream.R', work / 'run_upstream.R')
     for directory in ('data/sdtm', 'data/adam', 'data/adam_reference', 'logs'):
         (work / directory).mkdir(parents=True, exist_ok=True)
@@ -132,6 +140,9 @@ def main():
         materialize_sdtm(source, work / 'data/sdtm' / f'{source.stem}.json')
     shutil.copyfile(STUDY / 'spec/pilot6-specs.xlsx', work / 'data/adam_reference/pilot6-specs.xlsx')
     shutil.copyfile(STUDY / 'spec/define-adam.xml', work / 'data/adam_reference/define.xml')
+    initial_adam_files = list((work / 'data/adam').iterdir())
+    if initial_adam_files:
+        raise ValueError('ADaM sandbox must be empty before execution')
     environment = {key: value for key, value in os.environ.items()
                    if key not in ('DOCKER_HOST', 'DOCKER_CONTEXT', 'DOCKER_TLS', 'DOCKER_TLS_VERIFY', 'DOCKER_CERT_PATH')}
     image_info = {}
@@ -158,7 +169,7 @@ def main():
               'runner_sha256': sha256(Path(__file__)), 'bootstrap_sha256': sha256(HERE / 'run_upstream.R'),
               'image_id': image_info.get('Id'), 'image_digests': image_info.get('RepoDigests'),
               'runtime': json.loads((work / 'runtime-observed.json').read_text()),
-              'input_datasets': len(inputs), 'initial_adam_files': 0,
+              'input_datasets': len(inputs), 'initial_adam_files': len(initial_adam_files),
               'input_adapter': 'Staged Parquet to Dataset-JSON 1.1; numeric columns use float.',
               'comparison_policy': 'Original row/column order; exact text, nulls, dates, types and labels; absolute numeric tolerance 1e-10.',
               'datasets': []}

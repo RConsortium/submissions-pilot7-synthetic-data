@@ -5,6 +5,7 @@ import json
 from pathlib import Path
 import tempfile
 import unittest
+from unittest.mock import patch
 
 import pyarrow as pa
 import pyarrow.parquet as pq
@@ -18,6 +19,16 @@ def table(values, name='VALUE', label='Value', kind=pa.float64()):
 
 
 class ComparisonTests(unittest.TestCase):
+    def test_failed_snapshot_check_cannot_reuse_old_success_evidence(self):
+        with tempfile.TemporaryDirectory() as temp:
+            report = Path(temp) / 'report.json'
+            report.write_text('{"status": "passed"}')
+            with patch('sys.argv', ['verify_upstream.py', '--rscript', 'Rscript', '--report', str(report)]), \
+                    patch.object(verify, 'verify_snapshot', side_effect=ValueError('checksum mismatch')):
+                with self.assertRaisesRegex(ValueError, 'checksum mismatch'):
+                    verify.main()
+            self.assertFalse(report.exists())
+
     def test_absolute_tolerance_does_not_hide_large_value_errors(self):
         self.assertTrue(verify.compare_tables(table([1.0]), table([1.0 + 1e-11]))['passed'])
         self.assertFalse(verify.compare_tables(table([1e10]), table([1e10 + 0.1]))['passed'])

@@ -14,6 +14,10 @@ CRF-to-SDTM generation programs. TS is not among its tracked inputs.
 Install Python dependencies `pyarrow==26.0.0` and `PyYAML==6.0.3`. Use R
 4.5.1 with admiral, datasetjson, dplyr, glue, haven, janitor, jsonlite,
 lubridate, metacore, metatools, purrr, stringr, tibble, tidyr and xportr.
+Pin datasetjson to Git commit `c68cf30f6213b2195379efbc680c9cc28b1bf8fc`
+from `atorus-research/datasetjson`, which supports the upstream programs'
+`decimals_as_floats` reader argument. The current CRAN reader removed that
+argument and blocks ADSL before derivations start.
 From the repository root:
 
 ```bash
