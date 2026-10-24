@@ -1,35 +1,87 @@
-schema_version: "1.0"
-
+yamaa: "1.0"
+type: spec
+model: ADaM
 domain: ADLBC
 
-keys: [STUDYID, USUBJID, AVISIT, LBSEQ]
+keys:
+  - STUDYID
+  - USUBJID
+  - AVISIT
+  - LBSEQ
 
 input:
-  LB: ../../data/sdtm/lb.parquet
+  LB:
+    path: ../../data/sdtm/lb.parquet
+    empty_string: present
   SUPPLB: ../../data/sdtm/supplb.parquet
-  ADSL: ../../data/adam/adsl-yamaa.parquet
+  ADSL:
+    path: ../../data/adam/adsl-yamaa.parquet
+    schema: adsl.yaml
+    key:
+      - STUDYID
+      - USUBJID
 
 output:
   path: ../../data/adam/adlbc-yamaa.parquet
-  columns: [STUDYID, SUBJID, USUBJID, TRTP, TRTPN, TRTA, TRTAN, TRTSDT,
-    TRTEDT, AGE, AGEGR1, AGEGR1N, RACE, RACEN, SEX, COMP24FL, DSRAEFL,
-    SAFFL, AVISIT, AVISITN, ADY, ADT, VISIT, VISITNUM, PARAM, PARAMCD,
-    PARAMN, PARCAT1, AVAL, BASE, CHG, A1LO, A1HI, R2A1LO, R2A1HI,
-    BR2A1LO, BR2A1HI, ANL01FL, ALBTRVAL, ANRIND, BNRIND, ABLFL,
-    AENTMTFL, LBSEQ, LBNRIND, LBSTRESN]
+  columns:
+    - STUDYID
+    - SUBJID
+    - USUBJID
+    - TRTP
+    - TRTPN
+    - TRTA
+    - TRTAN
+    - TRTSDT
+    - TRTEDT
+    - AGE
+    - AGEGR1
+    - AGEGR1N
+    - RACE
+    - RACEN
+    - SEX
+    - COMP24FL
+    - DSRAEFL
+    - SAFFL
+    - AVISIT
+    - AVISITN
+    - ADY
+    - ADT
+    - VISIT
+    - VISITNUM
+    - PARAM
+    - PARAMCD
+    - PARAMN
+    - PARCAT1
+    - AVAL
+    - BASE
+    - CHG
+    - A1LO
+    - A1HI
+    - R2A1LO
+    - R2A1HI
+    - BR2A1LO
+    - BR2A1HI
+    - ANL01FL
+    - ALBTRVAL
+    - ANRIND
+    - BNRIND
+    - ABLFL
+    - AENTMTFL
+    - LBSEQ
+    - LBNRIND
+    - LBSTRESN
 
 intermediates:
   - id: SUP_EP
     dataset: SUPPLB
-    key: {STUDYID: LB.STUDYID, USUBJID: LB.USUBJID, IDVARVAL: LBSEQ_K}
+    key: {STUDYID: LB.STUDYID, USUBJID: LB.USUBJID, IDVARVAL:
+        LBSEQ_K}
     filter: "SUPPLB.QNAM = 'ENDPOINT'"
-    no_match: null
 
   - id: BL
     dataset: LB
     key: {STUDYID: STUDYID, USUBJID: USUBJID, LBTESTCD: PARAMCD}
     filter: "LB.LBBLFL = 'Y'"
-    no_match: null
 
 columns:
   # Subject-level (from ADSL)
@@ -118,13 +170,15 @@ columns:
     label: Discontinued due to AE?
     derivation:
       first_available:
-        sources: [ADSL.DSRAEFL]
+        sources:
+          - ADSL.DSRAEFL
         missing: ""
 
   - name: SAFFL
     type: str
     label: Safety Population Flag
     derivation: ADSL.SAFFL
+
   # Visit (row-template derived)
   - name: AVISIT
     type: str
@@ -133,6 +187,7 @@ columns:
   - name: AVISITN
     type: float
     label: Analysis Visit (N)
+
   # Dates
   - name: ADT
     type: date
@@ -147,8 +202,9 @@ columns:
     label: Analysis Relative Day
     derivation:
       study_day:
-        date: ADT
+        source: ADT
         reference: TRTSDT
+
   # Visit echoes
   - name: VISIT
     type: str
@@ -159,13 +215,13 @@ columns:
     type: float
     label: Visit Number
     derivation: LB.VISITNUM
+
   # Parameters
   - name: PARAM
     type: str
     label: Parameter
     derivation:
-      str_template:
-        template: "{LB.LBTEST} ({LB.LBSTRESU})"
+      str_template: "{LB.LBTEST} ({LB.LBSTRESU})"
 
   - name: PARAMCD
     type: str
@@ -197,12 +253,12 @@ columns:
           ALB: 33
           CHOL: 34
           CK: 35
-        missing: null
 
   - name: PARCAT1
     type: str
     label: Parameter Category 1
-    derivation: {literal: "CHEM"}
+    derivation: "'CHEM'"
+
   # Values
   - name: AVAL
     type: float
@@ -214,7 +270,8 @@ columns:
     label: Baseline Record Flag
     derivation:
       first_available:
-        sources: [LB.LBBLFL]
+        sources:
+          - LB.LBBLFL
         missing: ""
 
   - name: BASE
@@ -228,10 +285,8 @@ columns:
     derivation:
       case:
         - when: "VISITNUM <> 1"
-          then:
-            compute:
-              expr: "AVAL - BASE"
-  # Limits
+          then: "AVAL - BASE"
+
   - name: A1LO
     type: float
     label: Analysis Range 1 Lower Limit
@@ -245,55 +300,55 @@ columns:
   - name: R2A1LO
     type: float
     label: Ratio to Analysis Range 1 Lower Limit
-    derivation:
-      compute:
-        expr: "AVAL / A1LO"
+    derivation: "AVAL / A1LO"
 
   - name: R2A1HI
     type: float
     label: Ratio to Analysis Range 1 Upper Limit
-    derivation:
-      compute:
-        expr: "AVAL / A1HI"
+    derivation: "AVAL / A1HI"
 
   - name: BR2A1LO
     type: float
     label: Base Ratio to Analysis Range 1 Lower Lim
-    derivation:
-      compute:
-        expr: "BASE / A1LO"
+    derivation: "BASE / A1LO"
 
   - name: BR2A1HI
     type: float
     label: Base Ratio to Analysis Range 1 Upper Lim
-    derivation:
-      compute:
-        expr: "BASE / A1HI"
+    derivation: "BASE / A1HI"
+
+  - name: _UPPER_DISTANCE
+    type: float
+    label: _UPPER_DISTANCE (helper)
+    derivation: ABS(AVAL - 1.5 * A1HI)
+
+  - name: _LOWER_DISTANCE
+    type: float
+    label: _LOWER_DISTANCE (helper)
+    derivation: ABS(0.5 * A1LO - AVAL)
+
   - name: ALBTRVAL
     type: float
     label: Amount Threshold Range
     derivation:
       case:
         - when: "AVAL IS NULL OR A1LO IS NULL OR A1HI IS NULL"
-          then: {literal: null}
+          then:
         - otherwise:
-            compute:
-              expr: "GREATEST(ABS(AVAL - 1.5 * A1HI), ABS(0.5 * A1LO - AVAL))"
+            greatest:
+              sources:
+                - _UPPER_DISTANCE
+                - _LOWER_DISTANCE
 
-  # Predicates compare named values, so keep the four range thresholds.
   - name: A1LO_H
     type: float
     label: A1lo H (helper)
-    derivation:
-      compute:
-        expr: "0.5 * A1LO"
+    derivation: "0.5 * A1LO"
 
   - name: A1HI_15
     type: float
     label: A1hi 15 (helper)
-    derivation:
-      compute:
-        expr: "1.5 * A1HI"
+    derivation: "1.5 * A1HI"
 
   - name: ANRIND
     type: str
@@ -301,27 +356,23 @@ columns:
     derivation:
       case:
         - when: "AVAL IS NULL"
-          then: {literal: "N"}
+          then: "'N'"
         - when: "AVAL < A1LO_H"
-          then: {literal: "L"}
+          then: "'L'"
         - when: "AVAL > A1HI_15"
-          then: {literal: "H"}
+          then: "'H'"
         - when: "TRUE"
-          then: {literal: "N"}
+          then: "'N'"
 
   - name: B_LO_H
     type: float
     label: B Lo H (helper)
-    derivation:
-      compute:
-        expr: "0.5 * BL.LBSTNRLO"
+    derivation: "0.5 * BL.LBSTNRLO"
 
   - name: B_HI_15
     type: float
     label: B Hi 15 (helper)
-    derivation:
-      compute:
-        expr: "1.5 * BL.LBSTNRHI"
+    derivation: "1.5 * BL.LBSTNRHI"
 
   - name: BNRIND
     type: str
@@ -329,13 +380,14 @@ columns:
     derivation:
       case:
         - when: "BASE IS NULL"
-          then: {literal: ""}
+          then: "''"
         - when: "BASE < B_LO_H"
-          then: {literal: "L"}
+          then: "'L'"
         - when: "BASE > B_HI_15"
-          then: {literal: "H"}
+          then: "'H'"
         - when: "TRUE"
-          then: {literal: "N"}
+          then: "'N'"
+
   # Flags
   - name: IS_UNSCHED
     type: str
@@ -348,13 +400,18 @@ columns:
       rank:
         method: dense
         window:
-          group_by: [STUDYID, USUBJID, PARAMCD]
+          group_by:
+            - STUDYID
+            - USUBJID
+            - PARAMCD
           order_by:
             - variable: ALBTRVAL
               direction: desc
+              nulls: last
             - variable: LBSEQ
-              direction: asc
-          filter: "VISITNUM >= 4 AND VISITNUM <= 12 AND IS_UNSCHED IS NULL AND ALBTRVAL IS NOT NULL"
+              nulls: last
+          filter: "VISITNUM >= 4 AND VISITNUM <= 12 AND IS_UNSCHED
+            IS NULL AND ALBTRVAL IS NOT NULL"
 
   - name: ANL01FL
     type: str
@@ -362,9 +419,9 @@ columns:
     derivation:
       case:
         - when: "RK_ANL = 1"
-          then: {literal: "Y"}
+          then: "'Y'"
         - when: "TRUE"
-          then: {literal: ""}
+          then: "''"
 
   - name: RK_ENT
     type: int
@@ -373,11 +430,16 @@ columns:
       rank:
         method: dense
         window:
-          group_by: [STUDYID, USUBJID, PARAMCD]
+          group_by:
+            - STUDYID
+            - USUBJID
+            - PARAMCD
           order_by:
             - variable: AVISITN
               direction: desc
-          filter: "AVISITN > 0 AND AVISITN < 99 AND IS_UNSCHED IS NULL AND VISITNUM <= 12"
+              nulls: last
+          filter: "AVISITN > 0 AND AVISITN < 99 AND IS_UNSCHED IS
+            NULL AND VISITNUM <= 12"
 
   - name: AENTMTFL
     type: str
@@ -385,9 +447,10 @@ columns:
     derivation:
       case:
         - when: "AVISITN = 99 OR RK_ENT = 1"
-          then: {literal: "Y"}
+          then: "'Y'"
         - when: "TRUE"
-          then: {literal: ""}
+          then: "''"
+
   # Record identifiers
   - name: LBSEQ
     type: float
@@ -399,7 +462,8 @@ columns:
     label: Reference Range Indicator
     derivation:
       first_available:
-        sources: [LB.LBNRIND]
+        sources:
+          - LB.LBNRIND
         missing: ""
 
   - name: LBSTRESN
@@ -456,63 +520,81 @@ columns:
 rows:
   - id: main
     dataset: LB
-    filter: "LB.LBCAT = 'CHEMISTRY' AND (LB.VISIT LIKE '%WEEK%' OR LB.VISIT LIKE '%UNSCHEDULED%' OR LB.VISIT LIKE '%SCREENING%')"
+    filter: "LB.LBCAT = 'CHEMISTRY' AND (LB.VISIT LIKE '%WEEK%' OR
+      LB.VISIT LIKE '%UNSCHEDULED%' OR LB.VISIT LIKE '%SCREENING%')"
     derivations:
       AVISIT:
         case:
           - when: "LB.LBBLFL = 'Y'"
-            then: {literal: "Baseline"}
+            then: "'Baseline'"
           - when: "IS_UNSCHED IS NOT NULL"
-            then: {literal: ""}
+            then: "''"
           - when: "TRUE"
             then:
               mapping:
                 source: LB.VISIT
-                dict: {"WEEK 2": "Week 2", "WEEK 4": "Week 4", "WEEK 6": "Week 6", "WEEK 8": "Week 8", "WEEK 12": "Week 12", "WEEK 16": "Week 16", "WEEK 20": "Week 20", "WEEK 24": "Week 24", "WEEK 26": "Week 26"}
-                missing: null
-                unmapped: null
+                dict: {"WEEK 2": "Week 2", "WEEK 4": "Week 4", "WEEK 6": "Week
+                    6", "WEEK 8": "Week 8", "WEEK 12": "Week 12",
+                  "WEEK 16": "Week 16", "WEEK 20": "Week 20", "WEEK 24": "Week
+                    24", "WEEK 26": "Week 26"}
+                unmapped:
       AVISITN:
         case:
           - when: "LB.LBBLFL = 'Y'"
-            then: {literal: 0}
+            then: 0
           - when: "IS_UNSCHED IS NOT NULL"
-            then: {literal: null}
+            then:
           - when: "TRUE"
             then:
               str_extract:
                 source: LB.VISIT
                 pattern: "[0-9]+"
-                no_match: null
+                no_match:
       IS_UNSCHED:
         str_extract:
           source: LB.VISIT
           pattern: "UNSCHEDULED"
-          no_match: null
-      LBSEQ_S: {literal: null}
-      LBSEQ_PAD: {literal: null}
-      LBSEQ_K: {literal: null}
-      ENDPOINT: {literal: null}
-      SRC_AVISITN: {literal: null}
-      EOT_IND: {literal: null}
-      VIS_OK: {literal: null}
-      E2_VN: {literal: null}
-      E2_SEQ: {literal: null}
-      RN2: {literal: null}
-      EOT_LBCAT: {literal: null}
+          no_match:
+      LBSEQ_S:
+      LBSEQ_PAD:
+      LBSEQ_K:
+      ENDPOINT:
+      SRC_AVISITN:
+      EOT_IND:
+      VIS_OK:
+      E2_VN:
+      E2_SEQ:
+      RN2:
+      EOT_LBCAT:
 
   - id: eot
     dataset: LB
-    group_by: [LB.STUDYID, LB.USUBJID, LB.LBSEQ, LB.LBCAT, LB.VISITNUM, LB.VISIT, LB.LBTEST, LB.LBSTRESU, LB.LBTESTCD, LB.LBSTRESN, LB.LBBLFL, LB.LBDTC, LB.LBSTNRLO, LB.LBSTNRHI, LB.LBNRIND]
-    filter: "EOT_LBCAT = 'CHEMISTRY' AND (ENDPOINT = 'Y' OR E2_VN = 12)"
+    group_by:
+      - LB.STUDYID
+      - LB.USUBJID
+      - LB.LBSEQ
+      - LB.LBCAT
+      - LB.VISITNUM
+      - LB.VISIT
+      - LB.LBTEST
+      - LB.LBSTRESU
+      - LB.LBTESTCD
+      - LB.LBSTRESN
+      - LB.LBBLFL
+      - LB.LBDTC
+      - LB.LBSTNRLO
+      - LB.LBSTNRHI
+      - LB.LBNRIND
+    filter: "EOT_LBCAT = 'CHEMISTRY' AND (ENDPOINT = 'Y' OR E2_VN
+      = 12)"
     derivations:
-      AVISIT: {literal: "End of Treatment"}
-      AVISITN: {literal: 99}
+      AVISIT: "'End of Treatment'"
+      AVISITN: 99
       EOT_LBCAT: LB.LBCAT
       E2_VN: LB.VISITNUM
       LBSEQ_S: LB.LBSEQ
       LBSEQ_PAD:
-        str_template:
-          template: "                {LBSEQ_S}"
+        str_template: "                {LBSEQ_S}"
       LBSEQ_K:
         str_extract:
           source: LBSEQ_PAD
@@ -522,25 +604,40 @@ rows:
         str_extract:
           source: LB.VISIT
           pattern: "UNSCHEDULED"
-          no_match: null
-      SRC_AVISITN: {literal: null}
-      EOT_IND: {literal: null}
-      VIS_OK: {literal: null}
-      E2_SEQ: {literal: null}
-      RN2: {literal: null}
+          no_match:
+      SRC_AVISITN:
+      EOT_IND:
+      VIS_OK:
+      E2_SEQ:
+      RN2:
 
   - id: eot2
     dataset: LB
-    group_by: [LB.STUDYID, LB.USUBJID, LB.LBTESTCD, LB.LBSEQ, LB.LBCAT, LB.VISITNUM, LB.VISIT, LB.LBTEST, LB.LBSTRESU, LB.LBSTRESN, LB.LBBLFL, LB.LBDTC, LB.LBSTNRLO, LB.LBSTNRHI, LB.LBNRIND]
-    filter: "RN2 = 1 AND EOT_IND = 0 AND SRC_AVISITN IS NOT NULL AND SRC_AVISITN <> 0 AND EOT_LBCAT = 'CHEMISTRY'"
+    group_by:
+      - LB.STUDYID
+      - LB.USUBJID
+      - LB.LBTESTCD
+      - LB.LBSEQ
+      - LB.LBCAT
+      - LB.VISITNUM
+      - LB.VISIT
+      - LB.LBTEST
+      - LB.LBSTRESU
+      - LB.LBSTRESN
+      - LB.LBBLFL
+      - LB.LBDTC
+      - LB.LBSTNRLO
+      - LB.LBSTNRHI
+      - LB.LBNRIND
+    filter: "RN2 = 1 AND EOT_IND = 0 AND SRC_AVISITN IS NOT NULL AND
+      SRC_AVISITN <> 0 AND EOT_LBCAT = 'CHEMISTRY'"
     derivations:
-      AVISIT: {literal: "End of Treatment"}
-      AVISITN: {literal: 99}
+      AVISIT: "'End of Treatment'"
+      AVISITN: 99
       EOT_LBCAT: LB.LBCAT
       LBSEQ_S: LB.LBSEQ
       LBSEQ_PAD:
-        str_template:
-          template: "                {LBSEQ_S}"
+        str_template: "                {LBSEQ_S}"
       LBSEQ_K:
         str_extract:
           source: LBSEQ_PAD
@@ -549,42 +646,48 @@ rows:
       EOT_IND:
         case:
           - when: "ENDPOINT = 'Y' OR LB.VISITNUM = 12"
-            then: {literal: 1}
+            then: 1
           - when: "TRUE"
-            then: {literal: 0}
+            then: 0
       IS_UNSCHED:
         str_extract:
           source: LB.VISIT
           pattern: "UNSCHEDULED"
-          no_match: null
+          no_match:
       SRC_AVISITN:
         case:
           - when: "LB.LBBLFL = 'Y'"
-            then: {literal: 0}
+            then: 0
           - when: "IS_UNSCHED IS NOT NULL"
-            then: {literal: null}
+            then:
           - when: "TRUE"
             then:
               str_extract:
                 source: LB.VISIT
                 pattern: "[0-9]+"
-                no_match: null
+                no_match:
       VIS_OK:
         str_extract:
           source: LB.VISIT
           pattern: "WEEK|UNSCHEDULED|SCREENING"
-          no_match: null
+          no_match:
       E2_VN: LB.VISITNUM
       E2_SEQ: LB.LBSEQ
       RN2:
         row_number:
           window:
-            group_by: [LB.STUDYID, LB.USUBJID, LB.LBTESTCD]
+            group_by:
+              - LB.STUDYID
+              - LB.USUBJID
+              - LB.LBTESTCD
             order_by:
               - variable: EOT_IND
                 direction: desc
+                nulls: last
               - variable: SRC_AVISITN
                 direction: desc
+                nulls: last
               - variable: E2_SEQ
-                direction: asc
-            filter: "VIS_OK IS NOT NULL AND E2_VN <> 13 AND EOT_LBCAT = 'CHEMISTRY'"
+                nulls: last
+            filter: "VIS_OK IS NOT NULL AND E2_VN <> 13 AND EOT_LBCAT
+              = 'CHEMISTRY'"
