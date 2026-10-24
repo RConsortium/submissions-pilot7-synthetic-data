@@ -1,25 +1,43 @@
-# cdiscpilot06
+# Submission Pilot 6
 
-RConsortium submissions-pilot6 (ADaM and TLF expansion on the CDISC Pilot 01
-study), staged for YAMAA-based SDTM-to-ADaM derivation and the weekly
-schema-complexity rerun.
+R Consortium's ADaM and TLF expansion on the CDISC Pilot 01 study.
 
 - Source: https://github.com/RConsortium/submissions-pilot6-adams-tlfs
-- `data/sdtm/`: the 21 SDTM tabulation datasets Pilot 6 builds on (ae, cm, dm,
-  ds, ex, lb, mh, qs, relrec, sc, se, suppae, suppdm, suppds, supplb, sv, ta,
-  te, ti, tv, vs). Pilot 6 targets the CDISC Pilot 01 study ("Protocol:
-  CDISCPILOT01" in its TLF programs), so these are the verified cdiscpilot01
-  SDTM parquets, minus `ts` which Pilot 6 does not stage. Column labels are
-  preserved in the arrow schema metadata.
-- `data/adam/`: PENDING. Pilot 6's 8 production ADaM datasets (adadas, adae,
-  adlbc, adlbh, adnpix, adsl, adtte, advs) are DVC-tracked in a private S3
-  bucket; pulling them needs signup credentials (see the pilot6 repo README).
-  They will be added here as parquet once the credentials are available.
-- `spec/define-adam.xml` and `spec/pilot6-specs.xlsx`: the ADaM define.xml and
-  derivation specs from the pilot6 repo. `spec/define-sdtm.xml`: the CDISC
-  Pilot 01 SDTM define (shared study, same file as cdiscpilot01).
-- `program/adam/`: YAMAA derivation specs (SDTM -> ADaM), added one dataset at
-  a time by the weekly rerun job.
+- `data/sdtm/`: 21 CDISC Pilot 01 SDTM datasets, excluding TS, as staged
+  previously. Labels are preserved in Arrow schema metadata.
+- `data/adam/`: official production ADaM references are not staged here.
+  Locally generated `*-yamaa.parquet` files are ignored.
+- `spec/define-adam.xml`, `spec/define-sdtm.xml`, and `spec/pilot6-specs.xlsx`:
+  source metadata and derivation specifications.
+- `spec/yamaa/`: an initial ADSL specification and a yamaa 1.0 project.
+- `program/adam/python/`: the location-independent runner and requirements.
 
-All data files are parquet; the only exceptions are the define.xml and
-specs files.
+## Current yamaa coverage
+
+ADSL adapts the shared Pilot 3 study derivations into a self-contained
+specification. It reads only Pilot 6's staged SDTM and adds COMPLFL from
+the Pilot 6 workbook.
+It builds 254 subjects and 50 columns with zero engine issues. It has not
+been compared with Pilot 6's production ADSL and remains a starting point
+for review, not a verified replacement for the production program.
+
+ADADAS, ADAE, ADLBC, ADLBH, ADNPIX, ADTTE, and ADVS still need specifications.
+They are not listed in the active project and are not counted as passing.
+
+From the repository root:
+
+```bash
+python -m pip install -r submission-pilot6/program/adam/python/requirements.txt
+python submission-pilot6/program/adam/python/run.py
+```
+
+The runner checks and builds ADSL. No official reference comparison is
+performed because the production reference data is not staged here.
+
+## Reference data
+
+The upstream repository documents anonymous DVC downloads of its S3-backed
+data. The S3 endpoint was blocked by the development environment's network
+policy during this update. No production ADaM was substituted from another
+pilot. Once the official references are imported and the derivations are
+reviewed, add a strict comparator before treating the output as verified.
