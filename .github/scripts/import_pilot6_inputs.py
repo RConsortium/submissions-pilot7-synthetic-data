@@ -1,12 +1,14 @@
 #!/usr/bin/env python3
-"""Import Pilot 6 SDTM from a checkout, verifying its DVC hashes before conversion.
+"""Import Pilot 6 SDTM and ADaM, verifying DVC hashes before conversion.
 
 Requires pyarrow and PyYAML. Read JSON from the checkout after `dvc pull`,
-from --json-dir, or from a pinned Pilot 5 GitHub mirror with --mirror-ref.
+with optional SDTM inputs from --json-dir or a pinned Pilot 5 --mirror-ref.
+ADaM JSON is always read from the DVC-pulled checkout.
 Only byte-for-byte matches to the Pilot 6 DVC pointers are accepted.
 """
 
 import argparse
+from datetime import date
 import hashlib
 import json
 import math
@@ -16,6 +18,7 @@ import shutil
 import subprocess
 import tempfile
 from urllib.request import urlopen
+from xml.etree import ElementTree as ET
 
 import pyarrow as pa
 import pyarrow.parquet as pq
@@ -27,9 +30,39 @@ SOURCE_URL = 'https://github.com/RConsortium/submissions-pilot6-adams-tlfs'
 MIRROR_URL = 'https://raw.githubusercontent.com/RConsortium/submissions-pilot5-datasetjson'
 
 
-def dataset_table(raw, domain):
-    """Decode SDTM Dataset-JSON 1.1, retaining order, text, nulls and labels."""
+def record_columns(source, domain):
+    """Recover metadata for the upstream plain-record ADNPIX export."""
+    ns = {'o': 'http://www.cdisc.org/ns/odm/v1.3'}
+    root = ET.parse(source / 'data/adam_reference/define.xml').getroot()
+    items = {x.attrib['OID']: x for x in root.findall('.//o:ItemDef', ns)}
+    group = next(x for x in root.findall('.//o:ItemGroupDef', ns)
+                 if x.attrib['Name'] == domain.upper())
+    columns = []
+    for ref in group.findall('o:ItemRef', ns):
+        item = items[ref.attrib['ItemOID']]
+        kind = item.attrib['DataType']
+        if item.attrib.get('{http://www.cdisc.org/ns/def/v2.1}DisplayFormat') == 'DATE9.':
+            kind = 'date'
+        columns.append({
+            'name': item.attrib['Name'], 'dataType': kind,
+            'label': item.findtext('o:Description/o:TranslatedText', namespaces=ns),
+        })
+    return columns
+
+
+def dataset_table(raw, domain, source=None):
+    """Decode Dataset-JSON or ADNPIX records, preserving order, text and labels."""
     data = json.loads(raw)
+    if isinstance(data, list):
+        if domain != 'adnpix' or source is None:
+            raise ValueError(f'{domain}: plain records require ADNPIX Define-XML metadata')
+        columns = record_columns(source, domain)
+        names = [column['name'] for column in columns]
+        if any(set(row) != set(names) for row in data):
+            raise ValueError(f'{domain}: records do not match Define-XML')
+        data = {'datasetJSONVersion': '1.1.0', 'name': domain,
+                'columns': columns, 'records': len(data),
+                'rows': [[row[name] for name in names] for row in data]}
     if data['datasetJSONVersion'] != '1.1.0' or data['name'].lower() != domain:
         raise ValueError(f'{domain}: unexpected Dataset-JSON version or name')
     columns, rows = data['columns'], data['rows']
@@ -42,9 +75,13 @@ def dataset_table(raw, domain):
     for index, column in enumerate(columns):
         values = [row[index] for row in rows]
         kind = column['dataType']
-        if kind == 'string':
+        if kind in ('string', 'text', 'datetime'):
+            # Retain partial ISO datetime text, including ADSL DTC variables.
             arrow_type = pa.large_string()
-        elif kind == 'decimal':
+        elif kind == 'date':
+            values = [date.fromisoformat(v) if v is not None else None for v in values]
+            arrow_type = pa.date32()
+        elif kind in ('decimal', 'integer', 'float', 'double'):
             # Upstream serializes numeric values as text, including padded NA.
             values = [None if v is None or str(v).strip() in ('', 'NA', '.')
                       else float(v) for v in values]
@@ -70,14 +107,20 @@ def run(args):
     commit = subprocess.check_output(
         ['git', '-C', str(source), 'rev-parse', 'HEAD'], text=True).strip()
     subprocess.run(['git', '-C', str(source), 'diff', '--exit-code', 'HEAD', '--',
-                    'data/sdtm', 'data/adam_reference'], check=True)
+                    '.dvc/config', 'data/sdtm', 'data/adam', 'data/adam_reference'], check=True)
     if args.mirror_ref and not re.fullmatch(r'[0-9a-f]{40}', args.mirror_ref):
         raise ValueError('--mirror-ref must be a full Git commit SHA')
     manifest = {'source_repository': SOURCE_URL, 'source_commit': commit,
+                'dvc_remote': 's3://rconsortium-pilots',
+                'endpoint': 'https://s3.us-east-1.amazonaws.com',
                 'datasets': [], 'specifications': []}
-    pointers = sorted((source / 'data/sdtm').glob('*.json.dvc'))
-    if len(pointers) != 21:
-        raise ValueError(f'Expected 21 SDTM pointers, found {len(pointers)}; review upstream changes')
+    tracked = subprocess.check_output(['git', '-C', str(source), 'ls-files'], text=True).splitlines()
+    pointers = []
+    for stage, expected in (('sdtm', 21), ('adam', 8)):
+        paths = sorted(p for p in tracked if p.startswith(f'data/{stage}/') and p.endswith('.json.dvc'))
+        if len(paths) != expected:
+            raise ValueError(f'Expected {expected} {stage} pointers, found {len(paths)}; review upstream changes')
+        pointers.extend(source / p for p in paths)
     # Stage and verify the entire snapshot before replacing any tracked files.
     with tempfile.TemporaryDirectory() as temp:
         staged = Path(temp)
@@ -85,24 +128,27 @@ def run(args):
         for pointer in pointers:
             entry, = yaml.safe_load(pointer.read_text())['outs']
             domain = pointer.name.removesuffix('.json.dvc')
+            stage = pointer.parent.name
             if entry['path'] != f'{domain}.json' or entry['hash'] != 'md5':
                 raise ValueError(f'{domain}: unexpected DVC pointer')
-            if args.mirror_ref:
+            if stage == 'sdtm' and args.mirror_ref:
                 url = (f'{MIRROR_URL}/{args.mirror_ref}/pilot5-submission/'
                        f'pilot5-input/sdtmdata/datasetjson/{domain}.json')
                 with urlopen(url, timeout=60) as response:
                     raw = response.read()
             else:
-                raw = ((args.json_dir or source / 'data/sdtm') / entry['path']).read_bytes()
-                url = None
+                directory = args.json_dir if stage == 'sdtm' and args.json_dir else pointer.parent
+                raw = (directory / entry['path']).read_bytes()
+                md5 = entry['md5']
+                url = f'https://s3.us-east-1.amazonaws.com/rconsortium-pilots/files/md5/{md5[:2]}/{md5[2:]}'
             if len(raw) != entry['size'] or hashlib.md5(raw).hexdigest() != entry['md5']:
                 raise ValueError(f'{domain}: JSON does not match the Pilot 6 DVC size/MD5')
-            table = dataset_table(raw, domain)
-            destination = STUDY / 'data/sdtm' / f'{domain}.parquet'
+            table = dataset_table(raw, domain, source)
+            destination = STUDY / 'data' / stage / f'{domain}.parquet'
             identical = destination.exists() and same_dataset(pq.read_table(destination), table)
             if args.verify_only and not identical:
                 raise ValueError(f'{domain}: staged Parquet differs from the source JSON')
-            output = destination if identical else staged / destination.name
+            output = destination if identical else staged / f'{stage}-{destination.name}'
             if not identical:
                 pq.write_table(table, output, compression='snappy')
                 if not same_dataset(pq.read_table(output), table):
@@ -111,6 +157,8 @@ def run(args):
             record = {
                 'path': destination.relative_to(ROOT).as_posix(),
                 'dvc_pointer': pointer.relative_to(source).as_posix(),
+                'metadata_source': ('data/adam_reference/define.xml' if domain == 'adnpix'
+                                    else pointer.relative_to(source).as_posix().removesuffix('.dvc')),
                 'source_md5': entry['md5'], 'source_bytes': entry['size'],
                 'rows': table.num_rows, 'columns': table.num_columns,
                 'parquet_sha256': hashlib.sha256(output.read_bytes()).hexdigest(),
@@ -149,7 +197,7 @@ def run(args):
             for output, destination in replacements:
                 shutil.copyfile(output, destination)
             manifest_path.write_text(json.dumps(manifest, indent=2) + '\n')
-        print(f'Verified {len(pointers)} SDTM inputs at Pilot 6 commit {commit}')
+        print(f'Verified {len(pointers)} SDTM/ADaM datasets at Pilot 6 commit {commit}')
 
 
 def main():

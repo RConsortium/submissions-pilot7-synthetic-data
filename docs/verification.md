@@ -37,11 +37,12 @@ analysis datasets.
 
 Pilot 6's initial ADSL specification is proposed in PR #104. It adapts shared derivations
 from Pilot 3 into a self-contained file, reads Pilot 6's staged SDTM, and
-adds COMPLFL from Pilot 6's workbook. Its production ADaM references
-are absent from this repository, so no official comparison is claimed.
+adds COMPLFL from Pilot 6's workbook. Its eight production ADaM references
+are now staged from upstream DVC data, with checksummed import provenance.
+The import has been verified; no YAMAA reference comparison is claimed here.
 ADADAS, ADAE, ADLBC, ADLBH, ADNPIX, ADTTE, and ADVS remain outside its active
-project. The upstream repository documents anonymous DVC downloads; access
-to that S3 endpoint was blocked in the environment used for this update.
+project. The upstream repository supports anonymous DVC downloads; see
+[data and provenance](data.md) for the snapshot and refresh workflow.
 
 ## Evidence published with the site
 

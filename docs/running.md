@@ -36,9 +36,9 @@ python .github/scripts/validate_yamaa.py submission-pilot6
 For a merged project, each command checks the study without data, builds and saves its
 active datasets, and runs its existing official comparator when available.
 Evidence is written to `.build/validation/<study>.json`. A check, build, or
-comparison failure exits nonzero. Pilot 6 reports `pending` before its project is merged. Afterward, it reports
-an unavailable reference explicitly and runs its comparator once a reference
-Parquet file is present.
+comparison failure exits nonzero. Pilot 6 reports `pending` before its project
+is merged. Its eight production reference Parquet files are staged; official
+comparison requires the study's project and comparator to be merged too.
 
 To build alone, use the study runner:
 

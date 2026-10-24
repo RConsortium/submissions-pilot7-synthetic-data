@@ -16,15 +16,15 @@ original labels retained in Arrow schema metadata. Define-XML files and the
 Pilot 6 workbook provide source metadata. Pilot 3 also carries reviewed CSV
 planning relations used by ADADAS.
 
-Pilot 6's 21 staged SDTM inputs are verified against the size and MD5 in its
-current DVC pointers at commit `a4f85c95cfef1f6aa27795362630f8ae43210185`.
-The exact source JSON was available in the public Pilot 5 repository; the
-study's `spec/source-snapshot.json` records retrieval URLs and output hashes.
-The ADaM definition and specification workbook come from that same Pilot 6
-revision. Its production ADaM is DVC-tracked upstream and has not been
-imported here. Upstream now supports anonymous downloads, but the import
-environment blocked the S3 endpoint. Shared clinical data does not establish
-that the analysis datasets or derivation choices are identical across pilots.
+Pilot 6 stages all 21 SDTM inputs and 8 production ADaM references from its
+upstream DVC snapshot at `a4f85c95cfef1f6aa27795362630f8ae43210185`.
+Its S3 remote permits anonymous downloads. The study's
+[`spec/source-snapshot.json`](https://github.com/RConsortium/submissions-pilot7-synthetic-data/blob/main/submission-pilot6/spec/source-snapshot.json)
+records source and output hashes, dimensions and metadata sources; its
+[README](https://github.com/RConsortium/submissions-pilot7-synthetic-data/blob/main/submission-pilot6/README.md)
+documents conversion and refresh commands. Shared clinical data does not
+establish that the analysis datasets or derivation choices are identical
+across pilots. Import verification does not establish YAMAA reference agreement.
 
 ## Repository layout
 

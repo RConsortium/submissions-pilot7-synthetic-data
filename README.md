@@ -6,8 +6,9 @@
 
 The four reference studies now use the pinned yamaa 1.0 interface. CDISC
 Pilot 01 and submission pilots 3 and 5 reproduce 18 active ADaM datasets
-under their existing comparison policies. Pilot 6 has an initial runnable
-ADSL specification; its official comparison is pending reference data.
+under their existing comparison policies. Pilot 6's 21 SDTM inputs and 8
+production ADaM references are staged from its current DVC snapshot;
+its initial ADSL proposal and official comparisons remain pending.
 GitHub Actions checks, builds and compares the studies before generating
 the website from the same run's evidence.
 
