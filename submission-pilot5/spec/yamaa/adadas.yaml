@@ -1,18 +1,66 @@
-schema_version: "1.0"
+yamaa: "1.0"
+type: spec
+model: ADaM
 domain: ADADAS
-keys: [STUDYID, USUBJID, PARAMCD, AVISITN, QSSEQ]
+keys:
+  - STUDYID
+  - USUBJID
+  - PARAMCD
+  - AVISITN
+  - QSSEQ
 input:
   QS: ../../data/sdtm/qs.parquet
-  ADSL: ../../data/adam/adsl-yamaa.parquet
+  ADSL:
+    path: ../../data/adam/adsl-yamaa.parquet
+    schema: adsl.yaml
+    key:
+      - STUDYID
+      - USUBJID
 base: QS
 
 output:
   path: ../../data/adam/adadas-yamaa.parquet
-  columns: [STUDYID, SITEID, SITEGR1, USUBJID, TRTSDT, TRTEDT, TRTP, TRTPN,
-    AGE, AGEGR1, AGEGR1N, RACE, RACEN, SEX, ITTFL, EFFFL, COMP24FL, AVISIT,
-    AVISITN, VISIT, VISITNUM, ADY, ADT, PARAM, PARAMCD, PARAMN, AVAL,
-    BASE, CHG, PCHG, ABLFL, ANL01FL, DTYPE, AWRANGE, AWTARGET, AWTDIFF,
-    AWLO, AWHI, AWU, QSSEQ]
+  columns:
+    - STUDYID
+    - SITEID
+    - SITEGR1
+    - USUBJID
+    - TRTSDT
+    - TRTEDT
+    - TRTP
+    - TRTPN
+    - AGE
+    - AGEGR1
+    - AGEGR1N
+    - RACE
+    - RACEN
+    - SEX
+    - ITTFL
+    - EFFFL
+    - COMP24FL
+    - AVISIT
+    - AVISITN
+    - VISIT
+    - VISITNUM
+    - ADY
+    - ADT
+    - PARAM
+    - PARAMCD
+    - PARAMN
+    - AVAL
+    - BASE
+    - CHG
+    - PCHG
+    - ABLFL
+    - ANL01FL
+    - DTYPE
+    - AWRANGE
+    - AWTARGET
+    - AWTDIFF
+    - AWLO
+    - AWHI
+    - AWU
+    - QSSEQ
 
 # LOCF donors read this spec's own observed rows (SELF): the latest
 # observed ACTOT analysis record at or before each visit. ANL01FL is a
@@ -24,36 +72,63 @@ output:
 intermediates:
   - id: DONOR8
     dataset: SELF
-    key: [STUDYID, USUBJID]
+    key:
+      - STUDYID
+      - USUBJID
     filter: "PARAMCD = 'ACTOT' AND ANL01FL = 'Y' AND AVISITN <= 8"
     order_by:
       - variable: AVISITN
         direction: desc
+        nulls: last
     keep: first
-    columns: [QSSEQ, AVAL, ADY, ADT, VISIT, VISITNUM, AVISITN]
-    no_match: null
+    columns:
+      - QSSEQ
+      - AVAL
+      - ADY
+      - ADT
+      - VISIT
+      - VISITNUM
+      - AVISITN
 
   - id: DONOR16
     dataset: SELF
-    key: [STUDYID, USUBJID]
+    key:
+      - STUDYID
+      - USUBJID
     filter: "PARAMCD = 'ACTOT' AND ANL01FL = 'Y' AND AVISITN <= 16"
     order_by:
       - variable: AVISITN
         direction: desc
+        nulls: last
     keep: first
-    columns: [QSSEQ, AVAL, ADY, ADT, VISIT, VISITNUM, AVISITN]
-    no_match: null
+    columns:
+      - QSSEQ
+      - AVAL
+      - ADY
+      - ADT
+      - VISIT
+      - VISITNUM
+      - AVISITN
 
   - id: DONOR24
     dataset: SELF
-    key: [STUDYID, USUBJID]
+    key:
+      - STUDYID
+      - USUBJID
     filter: "PARAMCD = 'ACTOT' AND ANL01FL = 'Y' AND AVISITN <= 24"
     order_by:
       - variable: AVISITN
         direction: desc
+        nulls: last
     keep: first
-    columns: [QSSEQ, AVAL, ADY, ADT, VISIT, VISITNUM, AVISITN]
-    no_match: null
+    columns:
+      - QSSEQ
+      - AVAL
+      - ADY
+      - ADT
+      - VISIT
+      - VISITNUM
+      - AVISITN
 
 columns:
   # --- Subject / record fields: uniform across all four templates, so they
@@ -182,7 +257,6 @@ columns:
       # obs mapping below, so one column-level mapping serves all templates.
       mapping:
         source: PARAMCD
-        missing: null
         dict:
           "ACITM01": "Word Recall Task"
           "ACITM02": "Naming Objects And Fingers (Refer To 5 C"
@@ -206,7 +280,6 @@ columns:
     derivation:
       mapping:
         source: PARAMCD
-        missing: null
         dict:
           "ACITM01": 1.0
           "ACITM02": 2.0
@@ -254,15 +327,16 @@ columns:
 
   - name: _RN_ANL
     type: float
-    label: rank by window closeness within subject-param-visit (internal)
+    label: rank by window closeness within subject-param-visit
+      (internal)
     # Column-level default: the three locf templates inherit _RN_ANL = 1;
     # the obs template overrides it with its ranking window (REQ-0199).
-    derivation: {literal: 1.0}
+    derivation: 1.0
 
   - name: _HIT
     type: float
-    label: QSSEQ of an observed ANL01FL record at the LOCF visit,
-      if any (internal)
+    label: QSSEQ of an observed ANL01FL record at the LOCF
+      visit, if any (internal)
 
   - name: _SRC_QSSEQ
     type: float
@@ -299,7 +373,6 @@ columns:
     derivation:
       mapping:
         source: AVISIT
-        missing: null
         dict:
           "Baseline": "<=1"
           "Week 8": "2-84"
@@ -312,9 +385,8 @@ columns:
     derivation:
       mapping:
         source: AVISIT
-        missing: null
         dict:
-          "Baseline": null
+          "Baseline":
           "Week 8": 2.0
           "Week 16": 85.0
           "Week 24": 141.0
@@ -325,17 +397,16 @@ columns:
     derivation:
       mapping:
         source: AVISIT
-        missing: null
         dict:
           "Baseline": 1.0
           "Week 8": 84.0
           "Week 16": 140.0
-          "Week 24": null
+          "Week 24":
 
   - name: AWU
     type: str
     label: Analysis Window Unit
-    derivation: {literal: "DAYS"}
+    derivation: "'DAYS'"
 
   # --- Baseline / change: uniform over observed + LOCF rows ---
   - name: BASE
@@ -344,7 +415,10 @@ columns:
     derivation:
       aggregate:
         filter: "ABLFL = 'Y'"
-        group_by: [STUDYID, USUBJID, PARAMCD]
+        group_by:
+          - STUDYID
+          - USUBJID
+          - PARAMCD
         expr: "ONLY(AVAL)"
 
   - name: CHG
@@ -353,9 +427,7 @@ columns:
     derivation:
       case:
         - when: "ABLFL <> 'Y'"
-          then:
-            compute:
-              expr: "AVAL - BASE"
+          then: "AVAL - BASE"
 
   - name: PCHG
     type: float
@@ -365,44 +437,37 @@ columns:
         # admiral returns NA when the baseline denominator is zero; the
         # engine raises division_by_zero instead, so guard it explicitly.
         - when: "ABLFL <> 'Y' AND BASE <> 0"
-          then:
-            compute:
-              expr: "100 * (AVAL - BASE) / BASE"
+          then: "100 * (AVAL - BASE) / BASE"
 
 rows:
   - id: obs
     dataset: QS
-    filter: "QS.QSTESTCD IN ('ACITM01','ACITM02','ACITM03',\
-      'ACITM04','ACITM05','ACITM06','ACITM07','ACITM08',\
-      'ACITM09','ACITM10','ACITM11','ACITM12','ACITM13',\
-      'ACITM14','ACTOT')"
+    filter: "QS.QSTESTCD IN ('ACITM01','ACITM02','ACITM03','ACITM04','ACITM05','ACITM06','ACITM07','ACITM08','ACITM09','ACITM10','ACITM11','ACITM12','ACITM13','ACITM14','ACTOT')"
     derivations:
       QSSEQ: QS.QSSEQ
       PARAMCD: QS.QSTESTCD
       ADT:
-        date_impute:
+        impute:
+          type: date
           source: QS.QSDTC
           day: 1
-          minimum_source_precision: month
-          missing: null
       ADY:
         study_day:
-          date: ADT
+          source: ADT
           reference: TRTSDT
       AVISIT:
         case:
           - when: "ADY <= 1"
-            then: {literal: "Baseline"}
+            then: "'Baseline'"
           - when: "ADY >= 2 AND ADY <= 84"
-            then: {literal: "Week 8"}
+            then: "'Week 8'"
           - when: "ADY >= 85 AND ADY <= 140"
-            then: {literal: "Week 16"}
-          - otherwise: {literal: "Week 24"}
+            then: "'Week 16'"
+          - otherwise: "'Week 24'"
       AVAL: QS.QSSTRESN
       AVISITN:
         mapping:
           source: AVISIT
-          missing: null
           dict:
             "Baseline": 0.0
             "Week 8": 8.0
@@ -413,27 +478,26 @@ rows:
       AWTARGET:
         mapping:
           source: AVISIT
-          missing: null
           dict:
             "Baseline": 1.0
             "Week 8": 56.0
             "Week 16": 112.0
             "Week 24": 168.0
-      AWTDIFF:
-        compute:
-          expr: "ABS(AWTARGET - ADY)"
-      _DIFF:
-        compute:
-          expr: "AWTARGET - ADY"
+      AWTDIFF: "ABS(AWTARGET - ADY)"
+      _DIFF: "AWTARGET - ADY"
       _RN_ANL:
         row_number:
           window:
-            group_by: [STUDYID, USUBJID, PARAMCD, AVISIT]
+            group_by:
+              - STUDYID
+              - USUBJID
+              - PARAMCD
+              - AVISIT
             order_by:
               - variable: AWTDIFF
-                direction: asc
+                nulls: last
               - variable: _DIFF
-                direction: asc
+                nulls: last
       ABLFL:
         flag:
           condition: "QS.QSBLFL = 'Y'"
@@ -444,18 +508,20 @@ rows:
           condition: "_RN_ANL = 1"
           false_value: ""
           missing: ""
-      DTYPE: {literal: ""}
-      _HIT: {literal: null}
-      _SRC_QSSEQ: {literal: null}
-      _SRC_AVAL: {literal: null}
-      _SRC_ADY: {literal: null}
-      _SRC_ADT: {literal: null}
-      _SRC_VISIT: {literal: null}
-      _SRC_VISITNUM: {literal: null}
+      DTYPE: "''"
+      _HIT:
+      _SRC_QSSEQ:
+      _SRC_AVAL:
+      _SRC_ADY:
+      _SRC_ADT:
+      _SRC_VISIT:
+      _SRC_VISITNUM:
 
   - id: locf8
     dataset: QS
-    group_by: [QS.STUDYID, QS.USUBJID]
+    group_by:
+      - QS.STUDYID
+      - QS.USUBJID
     filter: "_HIT IS NULL AND _SRC_QSSEQ IS NOT NULL"
     derivations:
       _HIT:
@@ -468,29 +534,27 @@ rows:
       _SRC_ADT: DONOR8.ADT
       _SRC_VISIT: DONOR8.VISIT
       _SRC_VISITNUM: DONOR8.VISITNUM
-      AVISIT: {literal: "Week 8"}
-      AVISITN: {literal: 8.0}
-      AWTARGET: {literal: 56.0}
-      AWTDIFF:
-        compute:
-          expr: "ABS(AWTARGET - ADY)"
-      _DIFF:
-        compute:
-          expr: "AWTARGET - ADY"
+      AVISIT: "'Week 8'"
+      AVISITN: 8.0
+      AWTARGET: 56.0
+      AWTDIFF: "ABS(AWTARGET - ADY)"
+      _DIFF: "AWTARGET - ADY"
       VISIT: _SRC_VISIT
       VISITNUM: _SRC_VISITNUM
       ADY: _SRC_ADY
       ADT: _SRC_ADT
-      PARAMCD: {literal: "ACTOT"}
+      PARAMCD: "'ACTOT'"
       AVAL: _SRC_AVAL
-      ABLFL: {literal: ""}
-      ANL01FL: {literal: "Y"}
-      DTYPE: {literal: "LOCF"}
+      ABLFL: "''"
+      ANL01FL: "'Y'"
+      DTYPE: "'LOCF'"
       QSSEQ: _SRC_QSSEQ
 
   - id: locf16
     dataset: QS
-    group_by: [QS.STUDYID, QS.USUBJID]
+    group_by:
+      - QS.STUDYID
+      - QS.USUBJID
     filter: "_HIT IS NULL AND _SRC_QSSEQ IS NOT NULL"
     derivations:
       _HIT:
@@ -503,29 +567,27 @@ rows:
       _SRC_ADT: DONOR16.ADT
       _SRC_VISIT: DONOR16.VISIT
       _SRC_VISITNUM: DONOR16.VISITNUM
-      AVISIT: {literal: "Week 16"}
-      AVISITN: {literal: 16.0}
-      AWTARGET: {literal: 112.0}
-      AWTDIFF:
-        compute:
-          expr: "ABS(AWTARGET - ADY)"
-      _DIFF:
-        compute:
-          expr: "AWTARGET - ADY"
+      AVISIT: "'Week 16'"
+      AVISITN: 16.0
+      AWTARGET: 112.0
+      AWTDIFF: "ABS(AWTARGET - ADY)"
+      _DIFF: "AWTARGET - ADY"
       VISIT: _SRC_VISIT
       VISITNUM: _SRC_VISITNUM
       ADY: _SRC_ADY
       ADT: _SRC_ADT
-      PARAMCD: {literal: "ACTOT"}
+      PARAMCD: "'ACTOT'"
       AVAL: _SRC_AVAL
-      ABLFL: {literal: ""}
-      ANL01FL: {literal: "Y"}
-      DTYPE: {literal: "LOCF"}
+      ABLFL: "''"
+      ANL01FL: "'Y'"
+      DTYPE: "'LOCF'"
       QSSEQ: _SRC_QSSEQ
 
   - id: locf24
     dataset: QS
-    group_by: [QS.STUDYID, QS.USUBJID]
+    group_by:
+      - QS.STUDYID
+      - QS.USUBJID
     filter: "_HIT IS NULL AND _SRC_QSSEQ IS NOT NULL"
     derivations:
       _HIT:
@@ -538,22 +600,18 @@ rows:
       _SRC_ADT: DONOR24.ADT
       _SRC_VISIT: DONOR24.VISIT
       _SRC_VISITNUM: DONOR24.VISITNUM
-      AVISIT: {literal: "Week 24"}
-      AVISITN: {literal: 24.0}
-      AWTARGET: {literal: 168.0}
-      AWTDIFF:
-        compute:
-          expr: "ABS(AWTARGET - ADY)"
-      _DIFF:
-        compute:
-          expr: "AWTARGET - ADY"
+      AVISIT: "'Week 24'"
+      AVISITN: 24.0
+      AWTARGET: 168.0
+      AWTDIFF: "ABS(AWTARGET - ADY)"
+      _DIFF: "AWTARGET - ADY"
       VISIT: _SRC_VISIT
       VISITNUM: _SRC_VISITNUM
       ADY: _SRC_ADY
       ADT: _SRC_ADT
-      PARAMCD: {literal: "ACTOT"}
+      PARAMCD: "'ACTOT'"
       AVAL: _SRC_AVAL
-      ABLFL: {literal: ""}
-      ANL01FL: {literal: "Y"}
-      DTYPE: {literal: "LOCF"}
+      ABLFL: "''"
+      ANL01FL: "'Y'"
+      DTYPE: "'LOCF'"
       QSSEQ: _SRC_QSSEQ
