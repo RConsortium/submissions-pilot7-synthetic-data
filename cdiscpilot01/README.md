@@ -12,3 +12,12 @@ SDTM-to-ADaM derivation.
 - `data/adam/`: official ADaM reference datasets and ignored yamaa outputs.
 
 All data files are parquet; the only exception is define.xml.
+
+## License and attribution
+
+Data and imported reference metadata originate from the CDISC SDTM/ADaM Pilot
+Project, published by CDISC. They are excluded from the root MIT grant and
+remain subject to upstream terms. Original Pilot 7 code and documentation are
+MIT-licensed. See [LICENSING.md](../LICENSING.md#cdisc-pilot-data-and-reference-material)
+and the retained [CDISC notice](../LICENSE-CDISC.txt). The existing Parquet
+conversions do not establish permission to modify or redistribute the data.

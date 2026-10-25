@@ -41,3 +41,13 @@ Comparison policy (all five pilot 5 datasets pass under it):
   comparing. Column order differences are warnings; column set or row count
   differences are failures. Arrow schema metadata (e.g. column labels) is
   ignored.
+
+## License and attribution
+
+This pilot uses the CDISC SDTM/ADaM Pilot Project study, published by CDISC,
+through the Pilot 5 source linked above. Study data, including derived
+datasets, and imported reference metadata are excluded from the root MIT
+grant. Original Pilot 7 code and documentation are MIT-licensed. See
+[LICENSING.md](../LICENSING.md#cdisc-pilot-data-and-reference-material) and the
+retained [CDISC notice](../LICENSE-CDISC.txt) for attribution, upstream terms,
+and the limits on conversion and redistribution.

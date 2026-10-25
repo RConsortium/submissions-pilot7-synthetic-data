@@ -23,3 +23,13 @@ schema-complexity rerun.
 
 All data files are parquet; the only exceptions are the define.xml and
 specs files.
+
+## License and attribution
+
+This pilot uses the CDISC SDTM/ADaM Pilot Project study, published by CDISC,
+with the Pilot 6 references linked above. Study data, including any later
+staged ADaM datasets, and imported reference metadata are excluded from the
+root MIT grant. Original Pilot 7 code and documentation are MIT-licensed. See
+[LICENSING.md](../LICENSING.md#cdisc-pilot-data-and-reference-material) and the
+retained [CDISC notice](../LICENSE-CDISC.txt) for attribution, upstream terms,
+and the limits on conversion and redistribution.

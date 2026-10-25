@@ -62,3 +62,11 @@ analysis datasets, and the ADaM feed the tables, listings, and figures.
 
 - [pharma-skills](https://github.com/RConsortium/pharma-skills)
 - [yamaa](https://github.com/elong0527/yamaa)
+
+## License
+
+Original Pilot 7 code and documentation are licensed under the [MIT
+License](LICENSE). Study data, including synthetic and derived datasets, and
+imported reference material are excluded from the root MIT grant. CDISC pilot
+material remains subject to CDISC's terms; existing third-party notices are
+retained. See [LICENSING.md](LICENSING.md) for scope, sources, and reuse limits.
