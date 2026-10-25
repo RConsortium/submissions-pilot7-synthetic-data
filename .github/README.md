@@ -2,10 +2,40 @@
 
 | Workflow | Responsibility | Writes |
 | --- | --- | --- |
-| `ci.yml` | Structure, ASCII, all tooling tests, Pilot 3 plan reproducibility, comparator self-check. Runs on every PR and push to main. | None. |
+| `ci.yml` | One shared check job on every PR; only affected studies get additional validation jobs. | Layout-preview and validation artifacts only. |
+| `study-check.yml` | Reusable per-study yamaa, R, and/or CORE checks. Multiple checks for one study share one runner; CORE reads committed data before derivations run. | Validation artifacts only. |
 | `adam-compare.yml` | Manual generic ADaM comparison using workflow inputs. | None. |
-| `core-validate.yml` | CORE checks on committed study datasets and report artifacts. | On main only: a `core/reports` PR. |
-| `yamaa-site.yml` | Build the cataloged studies, compare against independent references, validate evidence, and build the website. | GitHub Pages on main in the upstream repository. |
+| `core-validate.yml` | Full CORE checks and report delivery on relevant main pushes or manual runs. | On main only: a `core/reports` PR. |
+| `yamaa-site.yml` | Fresh validation of the full publication catalog, then website build. Runs on main or manually. | GitHub Pages on main in the upstream repository. |
+
+## PR scope
+
+`ci_scope.py` selects checks from the complete merge-base-to-head Git diff.
+Renames include both paths, deleted inputs remain in scope, and selection has no
+API file-count limit. The always-present `structure-check` job runs structure,
+ASCII, tooling tests, and whitespace checks; optional small checks run as steps
+in that same job.
+
+| Changed files | Additional work | Runner jobs for a single-study PR |
+| --- | --- | ---: |
+| Prompts, READMEs, agent guides, generated CORE reports | None. | 1 |
+| Site text, CSS, or MkDocs config | Strict layout/link preview in the shared job. | 1 |
+| A study's yamaa specs or Python runner/comparator | Build and compare that study. | 2 |
+| A study's SDTM/ADaM binary data | yamaa comparison and CORE in one study job. | 2 |
+| A study's R program | Run R with the pinned engine and compare outputs. | 2 |
+| Pilot 3 planning generator or its QS/EX/plan.csv inputs | Relevant Python/R plan reproduction steps in the shared job. Input data changes also select the study job. | 1 or 2 |
+| Generic comparison tool or its keys | Comparator self-check in the shared job. | 1 |
+| Shared execution code or the reusable worker | Every affected study; each study still uses one runner. | Depends on scope |
+
+PR site previews use an isolated docs tree with explicit placeholders for study
+results. They assert no dataset builds or comparisons and are never deployed.
+The canonical generator and publication safeguards are unchanged: publication on
+main requires fresh reports for the complete catalog from that same commit.
+Changes to publication code or the shared study worker also run the complete
+publication path on the PR using fresh study artifacts; allowed pending studies
+get explicit pending records without installing an engine.
+Planning checks compare against `data/mapping/plan.csv`; the separate
+`analysis_window.csv` lookup selects study validation, not plan regeneration.
 
 The folder template is `repo-structure.json`. `check_structure.py` owns directory
 discovery, reused by CORE discovery; empty study scaffolds remain structure-only.
@@ -24,12 +54,12 @@ git diff --check
 ```
 
 CI also installs Polars for the Pilot 3 plan reproduction and PyArrow for the
-generic comparator's reference-versus-itself self-check. These checks do not
-establish agreement between derived data and official references.
+generic comparator's reference-versus-itself self-check, only when those
+checks are in scope. These checks do not establish agreement between derived data and official references.
 
 For study validation and website checks, follow root `AGENTS.md`. Keep each
-study's pinned requirements and existing comparison policy. The website checks
-ASCII again after generation and rejects incomplete, failed, or stale evidence.
+study's pinned requirements and existing comparison policy. The publication
+workflow checks ASCII again after generation and rejects incomplete, failed, or stale evidence.
 
 ## CORE runner and delivery
 

@@ -4,21 +4,6 @@
 name: CORE Validate
 
 on:
-  pull_request:
-    branches: [main]
-    paths:
-      - "*/data/sdtm/**.parquet"
-      - "*/data/adam/**.parquet"
-      - "*/data/sdtm/**.xpt"
-      - "*/data/adam/**.xpt"
-      - ".github/workflows/core-validate.yml"
-      - ".github/scripts/parquet_to_xpt.py"
-      - ".github/scripts/discover_core_studies.py"
-      - ".github/scripts/check_structure.py"
-      - ".github/repo-structure.json"
-      - ".github/scripts/run_core.py"
-      - ".github/scripts/core_render_block.sh"
-      - ".github/scripts/core_block.jq"
   push:
     branches: [main]
     paths:
@@ -27,6 +12,7 @@ on:
       - "*/data/sdtm/**.xpt"
       - "*/data/adam/**.xpt"
       - ".github/workflows/core-validate.yml"
+      - ".github/workflows/study-check.yml"
       - ".github/scripts/parquet_to_xpt.py"
       - ".github/scripts/discover_core_studies.py"
       - ".github/scripts/check_structure.py"
@@ -66,49 +52,18 @@ jobs:
   validate:
     needs: discover
     if: needs.discover.outputs.studies != '[]' && needs.discover.outputs.studies != ''
-    runs-on: ubuntu-latest
     strategy:
       fail-fast: false
       matrix:
         study: ${{ fromJSON(needs.discover.outputs.studies) }}
-
-    steps:
-      - uses: actions/checkout@v5
-        with:
-          persist-credentials: false
-
-      - uses: actions/setup-python@v5
-        with:
-          python-version: "3.12"
-
-      - name: Install conversion deps
-        # pandas is required by pyarrow.to_pandas() and pyreadstat.write_xport;
-        # it is NOT a hard dep of either wheel, so name it explicitly.
-        run: pip install --quiet pyarrow pandas pyreadstat
-
-      - name: Cache CORE
-        uses: actions/cache@v5
-        with:
-          path: .build/core-bin
-          key: cdisc-core-${{ runner.os }}-${{ hashFiles('.github/scripts/run_core.py') }}
-
-      - name: Validate and stage study reports
-        env:
-          STUDY: ${{ matrix.study }}
-        run: python .github/scripts/run_core.py "$STUDY" --output staging
-
-      - name: Upload study reports and execution coverage
-        if: always()
-        uses: actions/upload-artifact@v5
-        with:
-          name: core-reports-${{ matrix.study }}
-          path: staging/
-          if-no-files-found: error
-          retention-days: 90
+    uses: ./.github/workflows/study-check.yml
+    with:
+      study: ${{ matrix.study }}
+      core: true
 
   # ------------------------------------------------------------------
   # Deliver committed reports + comments into study folders via auto-PR.
-  # Push to main only (PRs just validate).
+  # Main only; PR checks use ci.yml and never deliver reports.
   # ------------------------------------------------------------------
   deliver:
     needs: validate
