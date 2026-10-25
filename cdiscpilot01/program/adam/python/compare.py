@@ -23,7 +23,7 @@ STUDY = BASE.parents[2]
 EXPECTED = STUDY / "data" / "adam"
 SPECS = STUDY / "spec" / "yamaa"
 DATASETS = ["adsl", "adae", "adtte", "advs", "adlbc", "adlbh",
-            "adlbhy", "adqsnipx"]
+            "adlbhy", "adqsnipx", "adqsadas", "adqscibc"]
 # Official ADaM filenames; derived names match spec filenames.
 EXPECTED_NAMES = {"adqsnipx": "adqsnpix"}
 ABS_TOL = 1e-10

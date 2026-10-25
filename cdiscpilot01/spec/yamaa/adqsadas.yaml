@@ -1,0 +1,613 @@
+# ADAS-Cog observations, closest-to-target selection, and ACTOT LOCF.
+# Published reference behavior carries selected ACTOT scores onto
+# unselected records while retaining each record's date and sequence.
+# DTYPE marks a changed score or an added visit; equal collected/carried
+# scores keep the observed record's blank DTYPE.
+# Variable metadata: ../define/define-adam.xml, ADQSADAS.
+
+yamaa: '1.0'
+type: spec
+model: ADaM
+domain: ADQSADAS
+keys:
+- STUDYID
+- USUBJID
+- PARAMCD
+- AVISITN
+- QSSEQ
+input:
+  QS:
+    path: ../../data/sdtm/qs.parquet
+    empty_string: present
+  ADSL:
+    path: ../../data/adam/adsl-yamaa.parquet
+    schema: adsl.yaml
+    key:
+    - STUDYID
+    - USUBJID
+    empty_string: present
+base: QS
+output:
+  path: ../../data/adam/adqsadas-yamaa.parquet
+  columns:
+  - STUDYID
+  - SITEID
+  - SITEGR1
+  - USUBJID
+  - TRTSDT
+  - TRTEDT
+  - TRTP
+  - TRTPN
+  - AGE
+  - AGEGR1
+  - AGEGR1N
+  - RACE
+  - RACEN
+  - SEX
+  - ITTFL
+  - EFFFL
+  - COMP24FL
+  - AVISIT
+  - AVISITN
+  - VISIT
+  - VISITNUM
+  - ADY
+  - ADT
+  - PARAM
+  - PARAMCD
+  - PARAMN
+  - AVAL
+  - BASE
+  - CHG
+  - PCHG
+  - ABLFL
+  - ANL01FL
+  - DTYPE
+  - AWRANGE
+  - AWTARGET
+  - AWTDIFF
+  - AWLO
+  - AWHI
+  - AWU
+  - QSSEQ
+  order_by:
+  - variable: USUBJID
+    nulls: last
+  - variable: PARAMN
+    nulls: last
+  - variable: AVISITN
+    nulls: last
+  - variable: QSSEQ
+    nulls: last
+intermediates:
+- id: DONOR8
+  dataset: SELF
+  key:
+  - STUDYID
+  - USUBJID
+  filter: "PARAMCD = 'ACTOT' AND AVISITN <= 8"
+  order_by:
+  - variable: AVISITN
+    direction: desc
+    nulls: last
+  - variable: ADY
+    direction: desc
+    nulls: last
+  - variable: QSSEQ
+    direction: desc
+    nulls: last
+  keep: first
+  columns:
+  - QSSEQ
+  - AVAL
+  - ADY
+  - ADT
+  - VISIT
+  - VISITNUM
+  - AVISITN
+- id: DONOR16
+  dataset: SELF
+  key:
+  - STUDYID
+  - USUBJID
+  filter: "PARAMCD = 'ACTOT' AND AVISITN <= 16"
+  order_by:
+  - variable: AVISITN
+    direction: desc
+    nulls: last
+  - variable: ADY
+    direction: desc
+    nulls: last
+  - variable: QSSEQ
+    direction: desc
+    nulls: last
+  keep: first
+  columns:
+  - QSSEQ
+  - AVAL
+  - ADY
+  - ADT
+  - VISIT
+  - VISITNUM
+  - AVISITN
+- id: DONOR24
+  dataset: SELF
+  key:
+  - STUDYID
+  - USUBJID
+  filter: "PARAMCD = 'ACTOT' AND AVISITN <= 24"
+  order_by:
+  - variable: AVISITN
+    direction: desc
+    nulls: last
+  - variable: ADY
+    direction: desc
+    nulls: last
+  - variable: QSSEQ
+    direction: desc
+    nulls: last
+  keep: first
+  columns:
+  - QSSEQ
+  - AVAL
+  - ADY
+  - ADT
+  - VISIT
+  - VISITNUM
+  - AVISITN
+columns:
+- name: STUDYID
+  type: str
+  label: Study Identifier
+  derivation: QS.STUDYID
+- name: SITEID
+  type: str
+  label: Study Site Identifier
+  derivation: ADSL.SITEID
+- name: SITEGR1
+  type: str
+  label: Pooled Site Group 1
+  derivation: ADSL.SITEGR1
+- name: USUBJID
+  type: str
+  label: Unique Subject Identifier
+  derivation: QS.USUBJID
+- name: TRTSDT
+  type: date
+  label: Date of First Exposure to Treatment
+  derivation: ADSL.TRTSDT
+- name: TRTEDT
+  type: date
+  label: Date of Last Exposure to Treatment
+  derivation: ADSL.TRTEDT
+- name: TRTP
+  type: str
+  label: Planned Treatment
+  derivation: ADSL.TRT01P
+- name: TRTPN
+  type: float
+  label: Planned Treatment (N)
+  derivation: ADSL.TRT01PN
+- name: AGE
+  type: float
+  label: Age
+  derivation: ADSL.AGE
+- name: AGEGR1
+  type: str
+  label: Pooled Age Group 1
+  derivation: ADSL.AGEGR1
+- name: AGEGR1N
+  type: float
+  label: Pooled Age Group 1 (N)
+  derivation: ADSL.AGEGR1N
+- name: RACE
+  type: str
+  label: Race
+  derivation: ADSL.RACE
+- name: RACEN
+  type: float
+  label: Race (N)
+  derivation: ADSL.RACEN
+- name: SEX
+  type: str
+  label: Sex
+  derivation: ADSL.SEX
+- name: ITTFL
+  type: str
+  label: Intent-to-Treat Population Flag
+  derivation: ADSL.ITTFL
+- name: EFFFL
+  type: str
+  label: Efficacy Population Flag
+  derivation: ADSL.EFFFL
+- name: COMP24FL
+  type: str
+  label: Completers of Week 24 Population Flag
+  derivation: ADSL.COMP24FL
+- name: AVISIT
+  type: str
+  label: Analysis Visit
+- name: AVISITN
+  type: float
+  label: Analysis Visit (N)
+- name: VISIT
+  type: str
+  label: Visit Name
+- name: VISITNUM
+  type: float
+  label: Visit Number
+- name: ADY
+  type: float
+  label: Analysis Relative Day
+- name: ADT
+  type: date
+  label: Analysis Date
+- name: PARAMCD
+  type: str
+  label: Parameter Code
+- name: PARAM
+  type: str
+  label: Parameter
+  derivation:
+    mapping:
+      source: PARAMCD
+      dict:
+        ACITM01: Word Recall Task
+        ACITM02: Naming Objects And Fingers (Refer To 5 C
+        ACITM03: Delayed Word Recall
+        ACITM04: Commands
+        ACITM05: Constructional Praxis
+        ACITM06: Ideational Praxis
+        ACITM07: Orientation
+        ACITM08: Word Recognition
+        ACITM09: Attention/Visual Search Task
+        ACITM10: Maze Solution
+        ACITM11: Spoken Language Ability
+        ACITM12: Comprehension Of Spoken Language
+        ACITM13: Word Finding Difficulty In Spontaneous S
+        ACITM14: Recall Of Test Instructions
+        ACTOT: Adas-Cog(11) Subscore
+- name: PARAMN
+  type: float
+  label: Parameter (N)
+  derivation:
+    mapping:
+      source: PARAMCD
+      dict:
+        ACITM01: 1.0
+        ACITM02: 2.0
+        ACITM03: 3.0
+        ACITM04: 4.0
+        ACITM05: 5.0
+        ACITM06: 6.0
+        ACITM07: 7.0
+        ACITM08: 8.0
+        ACITM09: 9.0
+        ACITM10: 10.0
+        ACITM11: 11.0
+        ACITM12: 12.0
+        ACITM13: 13.0
+        ACITM14: 14.0
+        ACTOT: 15.0
+- name: AVAL
+  type: float
+  label: Analysis Value
+- name: ABLFL
+  type: str
+  label: ABLFL
+- name: ANL01FL
+  type: str
+  label: Analysis Record Flag 01
+- name: DTYPE
+  type: str
+  label: Derivation Type
+- name: AWTARGET
+  type: float
+  label: Analysis Window Target
+- name: AWTDIFF
+  type: float
+  label: Analysis Window Diff from Target
+- name: _DIFF
+  type: float
+  label: signed AWTARGET-ADY (internal)
+- name: _RN_ANL
+  type: float
+  label: rank by window closeness within subject-param-visit (internal)
+  derivation: 1.0
+- name: _HIT
+  type: float
+  label: QSSEQ of an observed ANL01FL record at the LOCF visit, if any (internal)
+- name: _SRC_QSSEQ
+  type: float
+  label: carried QSSEQ (internal)
+- name: _SRC_AVAL
+  type: float
+  label: carried AVAL (internal)
+- name: _SRC_ADY
+  type: float
+  label: carried ADY (internal)
+- name: _SRC_ADT
+  type: date
+  label: carried ADT (internal)
+- name: _SRC_VISIT
+  type: str
+  label: carried VISIT (internal)
+- name: _SRC_VISITNUM
+  type: float
+  label: carried VISITNUM (internal)
+- name: QSSEQ
+  type: float
+  label: Sequence Number
+- name: AWRANGE
+  type: str
+  label: Analysis Window Valid Relative Range
+  derivation:
+    mapping:
+      source: AVISIT
+      dict:
+        Baseline: <=1
+        Week 8: 2-84
+        Week 16: 85-140
+        Week 24: '>140'
+- name: AWLO
+  type: float
+  label: Analysis Window Beginning Timepoint
+  derivation:
+    mapping:
+      source: AVISIT
+      dict:
+        Baseline: null
+        Week 8: 2.0
+        Week 16: 85.0
+        Week 24: 141.0
+- name: AWHI
+  type: float
+  label: Analysis Window Ending Timepoint
+  derivation:
+    mapping:
+      source: AVISIT
+      dict:
+        Baseline: 1.0
+        Week 8: 84.0
+        Week 16: 140.0
+        Week 24: null
+- name: AWU
+  type: str
+  label: Analysis Window Unit
+  derivation: "'DAYS'"
+- name: BASE
+  type: float
+  label: Baseline Value
+  derivation:
+    aggregate:
+      filter: "ABLFL = 'Y'"
+      group_by:
+      - STUDYID
+      - USUBJID
+      - PARAMCD
+      expr: ONLY(AVAL)
+- name: CHG
+  type: float
+  label: Baseline Value
+  derivation:
+    case:
+    - when: "ABLFL <> 'Y'"
+      then: AVAL - BASE
+- name: PCHG
+  type: float
+  label: Percent Change from Baseline
+  derivation:
+    case:
+    - when: "ABLFL <> 'Y' AND BASE <> 0"
+      then: 100 * (AVAL - BASE) / BASE
+- name: _SELECTED_AVAL
+  type: float
+  label: Selected observed score (helper)
+- name: _CARRIED_AVAL
+  type: float
+  label: Carried selected score (helper)
+rows:
+- id: obs
+  dataset: QS
+  filter: "QS.QSTESTCD IN ('ACITM01','ACITM02','ACITM03','ACITM04','ACITM05','ACITM06','ACITM07','ACITM08','ACITM09','ACITM10','ACITM11','ACITM12','ACITM13','ACITM14','ACTOT')"
+  derivations:
+    QSSEQ: QS.QSSEQ
+    PARAMCD: QS.QSTESTCD
+    ADT:
+      impute:
+        type: date
+        source: QS.QSDTC
+        day: 1
+    ADY:
+      study_day:
+        source: ADT
+        reference: TRTSDT
+    AVISIT:
+      case:
+      - when: ADY <= 1
+        then: "'Baseline'"
+      - when: ADY >= 2 AND ADY <= 84
+        then: "'Week 8'"
+      - when: ADY >= 85 AND ADY <= 140
+        then: "'Week 16'"
+      - otherwise: "'Week 24'"
+    AVAL:
+      case:
+      - when: "PARAMCD = 'ACTOT'"
+        then: _CARRIED_AVAL
+      - otherwise: QS.QSSTRESN
+    AVISITN:
+      mapping:
+        source: AVISIT
+        dict:
+          Baseline: 0.0
+          Week 8: 8.0
+          Week 16: 16.0
+          Week 24: 24.0
+    VISIT: QS.VISIT
+    VISITNUM: QS.VISITNUM
+    AWTARGET:
+      mapping:
+        source: AVISIT
+        dict:
+          Baseline: 1.0
+          Week 8: 56.0
+          Week 16: 112.0
+          Week 24: 168.0
+    AWTDIFF: ABS(AWTARGET - ADY)
+    _DIFF: AWTARGET - ADY
+    _RN_ANL:
+      row_number:
+        window:
+          group_by:
+          - STUDYID
+          - USUBJID
+          - PARAMCD
+          - AVISIT
+          order_by:
+          - variable: AWTDIFF
+            nulls: last
+          - variable: _DIFF
+            nulls: last
+    ABLFL:
+      flag:
+        condition: "QS.QSBLFL = 'Y'"
+        false_value: ""
+        missing: ""
+    ANL01FL:
+      flag:
+        condition: _RN_ANL = 1
+        false_value: ""
+        missing: ""
+    DTYPE:
+      case:
+      - when: "PARAMCD = 'ACTOT' AND (AVAL <> QS.QSSTRESN OR (AVAL IS NOT NULL AND QS.QSSTRESN\
+          \ IS NULL))"
+        then: "'LOCF'"
+      - otherwise: "''"
+    _HIT: null
+    _SRC_QSSEQ: null
+    _SRC_AVAL: null
+    _SRC_ADY: null
+    _SRC_ADT: null
+    _SRC_VISIT: null
+    _SRC_VISITNUM: null
+    _SELECTED_AVAL:
+      case:
+      - when: "ANL01FL = 'Y'"
+        then: QS.QSSTRESN
+    _CARRIED_AVAL:
+      locf:
+        source: _SELECTED_AVAL
+        window:
+          group_by:
+          - STUDYID
+          - USUBJID
+          - PARAMCD
+          order_by:
+          - variable: ADY
+            nulls: last
+          - variable: QSSEQ
+            nulls: last
+- id: locf8
+  dataset: QS
+  group_by:
+  - QS.STUDYID
+  - QS.USUBJID
+  filter: _HIT IS NULL AND _SRC_QSSEQ IS NOT NULL
+  derivations:
+    _HIT:
+      case:
+      - when: DONOR8.AVISITN = 8
+        then: DONOR8.QSSEQ
+    _SRC_QSSEQ: DONOR8.QSSEQ
+    _SRC_AVAL: DONOR8.AVAL
+    _SRC_ADY: DONOR8.ADY
+    _SRC_ADT: DONOR8.ADT
+    _SRC_VISIT: DONOR8.VISIT
+    _SRC_VISITNUM: DONOR8.VISITNUM
+    AVISIT: "'Week 8'"
+    AVISITN: 8.0
+    AWTARGET: 56.0
+    AWTDIFF: ABS(AWTARGET - ADY)
+    _DIFF: AWTARGET - ADY
+    VISIT: _SRC_VISIT
+    VISITNUM: _SRC_VISITNUM
+    ADY: _SRC_ADY
+    ADT: _SRC_ADT
+    PARAMCD: "'ACTOT'"
+    AVAL: _SRC_AVAL
+    ABLFL: "''"
+    ANL01FL: "'Y'"
+    DTYPE: "'LOCF'"
+    QSSEQ: _SRC_QSSEQ
+    _SELECTED_AVAL: null
+    _CARRIED_AVAL: null
+- id: locf16
+  dataset: QS
+  group_by:
+  - QS.STUDYID
+  - QS.USUBJID
+  filter: _HIT IS NULL AND _SRC_QSSEQ IS NOT NULL
+  derivations:
+    _HIT:
+      case:
+      - when: DONOR16.AVISITN = 16
+        then: DONOR16.QSSEQ
+    _SRC_QSSEQ: DONOR16.QSSEQ
+    _SRC_AVAL: DONOR16.AVAL
+    _SRC_ADY: DONOR16.ADY
+    _SRC_ADT: DONOR16.ADT
+    _SRC_VISIT: DONOR16.VISIT
+    _SRC_VISITNUM: DONOR16.VISITNUM
+    AVISIT: "'Week 16'"
+    AVISITN: 16.0
+    AWTARGET: 112.0
+    AWTDIFF: ABS(AWTARGET - ADY)
+    _DIFF: AWTARGET - ADY
+    VISIT: _SRC_VISIT
+    VISITNUM: _SRC_VISITNUM
+    ADY: _SRC_ADY
+    ADT: _SRC_ADT
+    PARAMCD: "'ACTOT'"
+    AVAL: _SRC_AVAL
+    ABLFL: "''"
+    ANL01FL: "'Y'"
+    DTYPE: "'LOCF'"
+    QSSEQ: _SRC_QSSEQ
+    _SELECTED_AVAL: null
+    _CARRIED_AVAL: null
+- id: locf24
+  dataset: QS
+  group_by:
+  - QS.STUDYID
+  - QS.USUBJID
+  filter: _HIT IS NULL AND _SRC_QSSEQ IS NOT NULL
+  derivations:
+    _HIT:
+      case:
+      - when: DONOR24.AVISITN = 24
+        then: DONOR24.QSSEQ
+    _SRC_QSSEQ: DONOR24.QSSEQ
+    _SRC_AVAL: DONOR24.AVAL
+    _SRC_ADY: DONOR24.ADY
+    _SRC_ADT: DONOR24.ADT
+    _SRC_VISIT: DONOR24.VISIT
+    _SRC_VISITNUM: DONOR24.VISITNUM
+    AVISIT: "'Week 24'"
+    AVISITN: 24.0
+    AWTARGET: 168.0
+    AWTDIFF: ABS(AWTARGET - ADY)
+    _DIFF: AWTARGET - ADY
+    VISIT: _SRC_VISIT
+    VISITNUM: _SRC_VISITNUM
+    ADY: _SRC_ADY
+    ADT: _SRC_ADT
+    PARAMCD: "'ACTOT'"
+    AVAL: _SRC_AVAL
+    ABLFL: "''"
+    ANL01FL: "'Y'"
+    DTYPE: "'LOCF'"
+    QSSEQ: _SRC_QSSEQ
+    _SELECTED_AVAL: null
+    _CARRIED_AVAL: null

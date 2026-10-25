@@ -1,7 +1,8 @@
 # CDISC Pilot 01 ADaM derivations
 
 R and Python run the same [yamaa project](../../spec/yamaa/project.yaml):
-ADSL -> ADAE -> ADTTE -> ADVS -> ADLBC -> ADLBH -> ADLBHY -> ADQSNPIX.
+ADSL -> ADAE -> ADTTE -> ADVS -> ADLBC -> ADLBH -> ADLBHY -> ADQSNPIX
+-> ADQSADAS -> ADQSCIBC.
 The engine revision is pinned in [python/requirements.txt](python/requirements.txt).
 
 Run the commands below from the repository root.
@@ -51,5 +52,6 @@ Compare the outputs with the official references:
 python cdiscpilot01/program/adam/python/compare.py
 ```
 
-ADQSADAS and ADQSCIBC remain outside the active project. The ADQSNPIX
-specification is named `adqsnipx.yaml`; its reference is `adqsnpix.parquet`.
+The ADQSNPIX specification is named `adqsnipx.yaml`; its reference is
+`adqsnpix.parquet`. ADQSADAS and ADQSCIBC read SDTM QS and derived ADSL,
+with window selection and LOCF implemented in their yamaa specifications.

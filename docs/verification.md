@@ -30,10 +30,10 @@ not regulatory validation or a claim that every possible input is covered.
 
 ## Coverage and remaining work
 
-The active CDISC Pilot 01 project covers eight datasets. ADQSADAS and
-ADQSCIBC still need single-spec implementations and comparisons; they are
-not counted as passing. Pilots 3 and 5 cover their five staged official
-analysis datasets.
+CDISC Pilot 01 covers all ten staged official analysis datasets. ADQSADAS and
+ADQSCIBC have single-spec implementations and are included in the project and
+reference comparison. Pilots 3 and 5 cover their five staged official analysis
+datasets.
 
 Pilot 6's initial ADSL specification is proposed in PR #104. It adapts shared derivations
 from Pilot 3 into a self-contained file, reads Pilot 6's staged SDTM, and
