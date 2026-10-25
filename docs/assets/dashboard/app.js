@@ -106,7 +106,7 @@ import { mountSynthetic } from "./synthetic.js";
       if (!layouts.has(model.id))
         layouts.set(model.id, {
           spec: 36,
-          inputs: 50,
+          inputs: null,
           panels: {},
           columns: {},
         });
@@ -119,7 +119,7 @@ import { mountSynthetic } from "./synthetic.js";
   const { allFindings, findingRows, findingsView, materialsView, drawer } =
       createReport(ctx),
     { commentsView, commentContext, loadComments } = createComments(ctx);
-  const resizing = createResizing(ctx);
+  const resizing = createResizing(ctx, fitWorkbench);
   function updatePlan() {
     plan = reviewPlan(model, state, graph);
   }
@@ -424,7 +424,7 @@ import { mountSynthetic } from "./synthetic.js";
     if (target.id === "reset-layout") {
       Object.assign(ctx.layout, {
         spec: 36,
-        inputs: 50,
+        inputs: null,
         panels: {},
         columns: {},
       });

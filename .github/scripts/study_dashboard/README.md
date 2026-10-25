@@ -148,6 +148,10 @@ source path/hash, download URL, and chunk URLs. Compressed chunks are arrays
 `[original_row_ordinal, ...values]`, grouped by subjects; the browser restores
 source ordering and pages the display at 10, 25, 50, or 100 rows per panel without
 limiting subject selection.
+Panels grow to fit the current page; the specification stays sticky on desktop.
+Table metadata includes declared `keys` and their repository `key_source`.
+SDTM/reference keys come from Define-XML (DomainKeys or KeySequence); derived
+keys come from yamaa specifications. Related-column views retain these keys.
 Subject-independent lookups stay visible. Dates use ISO text; nonfinite numbers
 use explicit text. Complete source files remain in the bundle for evidence; table download controls
 are omitted from the reviewer interface. Keep generation and
