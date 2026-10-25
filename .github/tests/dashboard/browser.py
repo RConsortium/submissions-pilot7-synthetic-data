@@ -238,7 +238,8 @@ def check(browser, base, site_dir, screenshots):
     expect(page.locator("#record-search")).to_have_value("<img src=x>")
     expect(page.locator("#view-content img")).to_have_count(0)
     page.goto(base + "/studies/")
-    expect(page.locator(".study-card")).to_have_count(3)
+    index = json.loads((site_dir / "evidence/dashboard/index.json").read_text())
+    expect(page.locator(".study-card")).to_have_count(len(index["studies"]))
     assert not errors, errors
     context.close()
 
