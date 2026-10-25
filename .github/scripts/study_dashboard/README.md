@@ -21,6 +21,8 @@ The reviewer guide is `docs/review.md`.
     config.py                            settings and confined reference paths
     datasets.py                          CSV/Parquet adapters and subject chunks
     lineage.py                           conservative YAML dependencies and source spans
+    domains.py                           dataset descriptions from retained Define-XML
+    synthetic.py                         separate source/readiness manifests
     documents.py                         retained originals and searchable reading copies
     consistency.py                       metadata checks and source-backed review questions
     artifacts.py                         versioned study and gallery manifests
@@ -30,6 +32,8 @@ docs/assets/dashboard/
   state.js                               validated, shareable review URLs
   data.js                                versioned transport, subject selection, and search
   lineage.js                             dependency graph traversal
+  review-model.js                        cross-specification identity and panel planning
+  resize.js, synthetic.js                 sizing and synthetic-development views
   shell.js, workspace.js                 study layout and linked review panels
   report.js, comments.js, ui.js           evidence, discussions, and shared primitives
 docs/stylesheets/dashboard.css           responsive layout and light/dark themes
@@ -135,7 +139,8 @@ JSON) declare `schema_version: 1`. Unsupported versions fail visibly in the
 browser. Catalog tables contain typed columns, total rows, subject index,
 source path/hash, download URL, and chunk URLs. Compressed chunks are arrays
 `[original_row_ordinal, ...values]`, grouped by subjects; the browser restores
-source ordering and pages the display ten rows at a time without limiting subject selection.
+source ordering and pages the display at 10, 25, 50, or 100 rows per panel without
+limiting subject selection.
 Subject-independent lookups stay visible. Dates use ISO text; nonfinite numbers
 use explicit text. Complete source files remain in the bundle for evidence; table download controls
 are omitted from the reviewer interface. Keep generation and
@@ -144,3 +149,32 @@ browser schema versions aligned when changing this contract.
 New consistency checks belong in `consistency.py`, document adapters in
 `documents.py`, dataset adapters in `datasets.py`, and UI components alongside
 `workspace.js`. Add meaningful boundary coverage with each new capability.
+
+## Dataset comparisons and synthetic workspaces
+
+`review-model.js` scopes each specification's nodes before joining lineage
+through shared derived tables. It plans manually selected input/output panels,
+automatically linked input datasets, and related columns. Equal column names
+in different datasets remain distinct. `resize.js` owns pane and column sizing;
+`workspace.js` renders independent table pages with 10/25/50/100 row choices.
+The shared URL records compared datasets and per-panel row counts. Layout sizes
+are local view state. Changing the focused specification preserves comparisons.
+
+`domains.py` reads dataset descriptions from retained Define-XML, with browser
+fallbacks for common domains and lookup tables. Adding a domain does not require
+a study-specific UI branch.
+
+Synthetic studies are declared separately in `.github/synthetic-studies.json`.
+`synthetic.py` inspects source archive headers and staged-file availability,
+without extracting the archive or loading its clinical XML. It writes small
+source/readiness manifests under `synthetic/` in the evidence bundle.
+`synthetic.js` provides the distinct development dashboard. Availability is
+separate from derivation and comparison success. Original archives stay in the
+repository and are linked at the publication revision.
+
+To add a synthetic workspace, add its title, description, and study-relative
+archive paths to that catalog and create a maintained page like
+`docs/studies/kn189.md` with a `synthetic-dashboard` container and `data-study`
+matching the catalog key. Navigation and source inventory follow the catalog.
+Keep a study in the catalog for its intended purpose; pilot verification and
+synthetic source development use different dashboard contracts.

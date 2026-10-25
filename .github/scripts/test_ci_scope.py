@@ -107,10 +107,17 @@ class ScopeTests(unittest.TestCase):
         for path in ('.github/scripts/build_study_docs.py', '.github/scripts/build_index_table.py',
                      '.github/yamaa-studies.json', WORKER,
                      '.github/scripts/study_dashboard/artifacts.py', '.github/scripts/study_artifacts.py',
-                     '.github/dashboard.json', 'docs/assets/dashboard/app.js',
+                     '.github/dashboard.json', '.github/synthetic-studies.json', 'docs/assets/dashboard/app.js',
                      'docs/stylesheets/dashboard.css', '.github/tests/dashboard/modules.test.js',
                      'submission-pilot3/spec/review/questions.json',
                      'submission-pilot3/spec/source/adrg.pdf'):
+            scope = self.scope(path)
+            self.assertTrue(scope['publication'])
+            self.assertEqual(sum(row['yamaa'] for row in scope['studies']), 3)
+
+    def test_synthetic_source_changes_check_the_source_dashboard_publication(self):
+        (self.root / '.github/synthetic-studies.json').write_text(json.dumps({'kn189': {'title': 'KN189'}}))
+        for path in ('kn189/data/odm/kn189_odm.tar.gz', 'kn189/spec/define/define.xml'):
             scope = self.scope(path)
             self.assertTrue(scope['publication'])
             self.assertEqual(sum(row['yamaa'] for row in scope['studies']), 3)

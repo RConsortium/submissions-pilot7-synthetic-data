@@ -12,7 +12,7 @@ export function createComments(ctx) {
   }
   function commentContext() {
     const { model, state, dataset, link } = ctx;
-    return `Study: ${model.id}\nDataset: ${state.dataset}\nSelection: ${state.focus || "none"}\nSubjects: ${state.subjects.length === model.subjects.length ? "all" : state.subjects.join(", ")}\nSource revision: ${model.revision}\nReview link: ${location.href}\n\nObservation:\n\nSupporting evidence:\n`;
+    return `Study: ${model.id}\nDataset: ${state.dataset}\nSelection: ${state.focus || "none"}\nSubjects: ${state.subjects.length === model.subjects.length ? "all" : state.subjects.join(", ")}\nCompared outputs: ${[state.dataset, ...state.outputs].join(", ")}\nSource revision: ${model.revision}\nReview link: ${location.href}\n\nObservation:\n\nSupporting evidence:\n`;
   }
   function loadComments() {
     const { model, index, state, byId, dataset, link } = ctx;

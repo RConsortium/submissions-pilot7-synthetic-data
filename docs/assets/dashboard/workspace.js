@@ -1,42 +1,68 @@
-import { connectedNodes } from "./lineage.js";
 import { filterRows } from "./data.js";
+import {
+  PAGE_SIZES,
+  inputOptions,
+  domainName,
+  domainLabel,
+  canonicalNode,
+  tableNode,
+  columnIndexes,
+} from "./review-model.js";
 
-/** Components read the live application context at render time. */
+/** Shared specification and independently paged, resizable dataset panels. */
 export function createWorkspace(ctx) {
   function subjectPicker() {
     const { model, state, esc } = ctx;
-    return `<details class="subject-picker" id="subject-picker"><summary id="subject-summary">Subjects <strong>${state.subjects.length} / ${model.subjects.length}</strong><span aria-hidden="true">&#9662;</span></summary><div class="subject-popover"><label class="field-label" for="subject-search">Find a subject</label><input id="subject-search" type="search" placeholder="Search ${esc(model.settings.subject_key)}..."><div class="subject-actions">${[...new Set([model.settings.default_subject_count, 10, 25, 50])].map((n) => `<button data-subject-count="${n}">First ${n}</button>`).join("")}<button data-subject-count="all">Select all</button><button data-subject-count="0">Clear</button><button data-close-subjects>Done</button></div><div class="subject-options">${model.subjects.map((s) => `<label data-subject-option="${esc(s)}"><input type="checkbox" data-subject="${esc(s)}" ${state.subjects.includes(s) ? "checked" : ""}>${esc(s)}</label>`).join("")}</div><p>All records for selected subjects are available. Subject-independent lookup rows stay visible.</p></div></details>`;
+    return `<details class="subject-picker" id="subject-picker" data-popover><summary id="subject-summary">Subjects <strong>${state.subjects.length} / ${model.subjects.length}</strong><span aria-hidden="true">&#9662;</span></summary><div class="subject-popover"><label class="field-label" for="subject-search">Find a subject</label><input id="subject-search" type="search" placeholder="Search ${esc(model.settings.subject_key)}..."><div class="subject-actions">${[...new Set([model.settings.default_subject_count, 10, 25, 50])].map((n) => `<button data-subject-count="${n}">First ${n}</button>`).join("")}<button data-subject-count="all">Select all</button><button data-subject-count="0">Clear</button><button data-close-subjects>Done</button></div><div class="subject-options">${model.subjects.map((s) => `<label data-subject-option="${esc(s)}"><input type="checkbox" data-subject="${esc(s)}" ${state.subjects.includes(s) ? "checked" : ""}>${esc(s)}</label>`).join("")}</div><p>Select any number of subjects. Subject-independent lookup rows stay visible.</p></div></details>`;
+  }
+  function datasetPicker(kind) {
+    const { model, state, plan, esc } = ctx,
+      inputs = kind === "input";
+    const options = inputs ? inputOptions(model) : model.datasets;
+    return `<details class="dataset-picker" id="${kind}-picker" data-popover><summary>${inputs ? "Select domains" : "Compare outputs"} (${inputs ? plan.inputs.length : plan.outputs.length})</summary><div class="dataset-popover"><p>${inputs ? "Linked domains open automatically. Select additional datasets to compare." : "Select additional output datasets. Click an output column to review its specification."}</p>${options
+      .map((item) => {
+        const id = inputs ? item.id : item.name,
+          linked = inputs && plan.linked.includes(id),
+          primary = !inputs && id === state.dataset;
+        const checked = inputs
+          ? plan.manual.includes(id) || linked
+          : state.outputs.includes(id) || primary;
+        const label = inputs
+          ? domainLabel(item)
+          : domainLabel({ ...model.tables[item.output], domain: item.name });
+        return `<label><input type="checkbox" data-${kind}-dataset="${esc(id)}" ${checked ? "checked" : ""} ${linked || primary ? "disabled" : ""}><span>${esc(label)}${linked ? " <small>Linked</small>" : primary ? " <small>Current specification</small>" : ""}</span></label>`;
+      })
+      .join("")}</div></details>`;
+  }
+  function panelMarkup(panel, index) {
+    const { model, state, layout, esc } = ctx,
+      size = layout.panels[panel.key] || {};
+    const title = domainLabel({ ...panel.meta, domain: panel.domain });
+    const primary = index === 0,
+      region = primary ? panel.kind + "-table" : "table-" + panel.key,
+      footer = primary ? panel.kind + "-footer" : "footer-" + panel.key;
+    const version =
+      panel.kind === "output"
+        ? state.output === "reference" && panel.dataset.reference
+          ? "Official reference"
+          : "yamaa derived"
+        : panel.linked
+          ? "Linked source"
+          : "";
+    return `<section class="pane dataset-panel ${panel.kind}-pane" data-panel="${panel.key}" data-domain="${esc(panel.domain)}" id="panel-${panel.key}" style="${size.width ? "width:" + size.width + "px;" : ""}${size.height ? "height:" + size.height + "px;" : ""}" aria-label="${esc(title)} ${panel.kind} dataset"><header class="pane-header"><div><h3>${esc(title)}</h3>${version ? `<span>${version}</span>` : ""}</div><div class="panel-size-buttons"><button data-panel-size="-80" data-panel-key="${panel.key}" aria-label="Narrow ${esc(panel.domain)} ${panel.kind} panel">&#8722;</button><button data-panel-size="80" data-panel-key="${panel.key}" aria-label="Widen ${esc(panel.domain)} ${panel.kind} panel">+</button></div></header><div id="${region}" class="data-region" data-table-for="${panel.key}"></div><footer id="${footer}" class="pane-footer" data-footer-for="${panel.key}"></footer></section>`;
+  }
+  function group(kind) {
+    const { model, state, plan } = ctx,
+      panels = kind === "input" ? plan.inputs : plan.outputs;
+    return `<section class="dataset-group ${kind}-group" aria-label="${kind === "input" ? "Input" : "Output"} datasets"><header class="dataset-group-header"><h2>${kind === "input" ? "Input datasets" : "Output datasets"}</h2>${datasetPicker(kind)}${kind === "output" ? `<label class="output-version"><span class="sr-only">Output dataset type</span><select id="output-select"><option value="derived">yamaa derived</option>${plan.outputs.some((p) => p.dataset.reference) ? `<option value="reference" ${state.output === "reference" ? "selected" : ""}>Official reference</option>` : ""}</select></label>` : ""}</header><div class="panel-strip" data-panel-count="${panels.length}" style="--panel-count:${Math.max(1, Math.min(panels.length, 4))}">${panels.length ? panels.map(panelMarkup).join("") : '<p class="empty-state">Select input domains to display datasets here.</p>'}</div></section>`;
   }
   function workspace() {
-    const {
-      model,
-      specification,
-      state,
-      esc,
-      sourceUrl,
-      dataset,
-      source,
-      link,
-    } = ctx;
-    const d = dataset();
-    return `<div class="workspace-toolbar"><label class="select-field">ADaM dataset<select id="dataset-select">${model.datasets.map((x) => `<option ${d.name === x.name ? "selected" : ""}>${x.name}</option>`).join("")}</select></label>${subjectPicker()}<label class="search-field"><span class="field-label">Search records</span><input id="record-search" type="search" placeholder="Subject or value across input and output..." value="${esc(state.rowSearch)}"></label><button class="button" id="clear-selection">Clear highlight</button></div><div class="lineage-toolbar"><div id="lineage-summary" role="status">Select an input column, specification block, or output column to follow its connections.</div><span class="lineage-legend"><i class="swatch selected"></i>Selected <i class="swatch related"></i>Related</span></div><div class="review-workbench"><section class="spec-pane pane" aria-labelledby="spec-heading"><header class="pane-header"><div><h2 id="spec-heading">yamaa specification</h2><span id="spec-caption">Complete YAML / ${specification.text.split("\n").length} lines${specification.lineage.unresolved.length ? " / " + specification.lineage.unresolved.length + " unresolved references" : ""}</span></div>${link(sourceUrl(specification.path), "Open source")}</header><div class="spec-scroll" id="spec-scroll" tabindex="0" aria-label="Complete YAML specification">${renderSpec()}</div><footer class="pane-footer">Column dependencies include declared filters, joins and ordering. No contributing-row trace.</footer></section><div class="spec-resizer" id="spec-resizer" role="separator" aria-label="Resize specification panel" aria-orientation="vertical" aria-valuemin="25" aria-valuemax="60" aria-valuenow="36" tabindex="0"></div><div class="data-panes"><section class="pane input-pane" aria-labelledby="input-heading"><header class="pane-header"><div><h2 id="input-heading">Input data</h2><label class="sr-only" for="input-select">Input dataset</label><select id="input-select">${d.inputs.map((x) => `<option value="${x.alias}" ${state.input === x.alias ? "selected" : ""}>${x.alias} / ${model.tables[x.table].path.includes("-yamaa") ? "derived ADaM input" : "SDTM or lookup"}</option>`).join("")}<optgroup label="Other staged inputs">${Object.values(
-      model.tables,
-    )
-      .filter(
-        (t) =>
-          t.path.includes("/sdtm/") && !d.inputs.some((x) => x.table === t.id),
-      )
-      .map(
-        (t) =>
-          `<option value="${t.id}" ${state.input === t.id ? "selected" : ""}>${t.name}</option>`,
-      )
-      .join(
-        "",
-      )}</optgroup></select></div></header><div id="input-table" class="data-region"></div><footer id="input-footer" class="pane-footer"></footer></section><section class="pane output-pane" aria-labelledby="output-heading"><header class="pane-header"><div><h2 id="output-heading">ADaM output</h2><label class="sr-only" for="output-select">Output dataset type</label><select id="output-select"><option value="derived">yamaa derived</option>${d.reference ? `<option value="reference" ${state.output === "reference" ? "selected" : ""}>Official reference</option>` : ""}</select></div></header><div id="output-table" class="data-region"></div><footer id="output-footer" class="pane-footer"></footer></section></div></div><div id="data-status" role="status" class="data-status"></div><div id="evidence-drawer"></div>`;
+    const { model, specification, state, layout, esc, sourceUrl, link } = ctx;
+    return `<div class="workspace-toolbar"><label class="select-field">Specification<select id="dataset-select">${model.datasets.map((d) => `<option value="${d.name}" ${state.dataset === d.name ? "selected" : ""}>${d.name}</option>`).join("")}</select></label>${subjectPicker()}<label class="search-field"><span class="field-label">Search records</span><input id="record-search" type="search" placeholder="Subject or value across displayed datasets..." value="${esc(state.rowSearch)}"></label><label class="select-field">Columns<select id="column-mode"><option value="related" ${state.relatedOnly ? "selected" : ""}>Related columns</option><option value="all" ${!state.relatedOnly ? "selected" : ""}>All columns</option></select></label><button class="button" id="clear-selection">Clear highlight</button><button class="button" id="reset-layout">Reset layout</button></div><div class="lineage-toolbar"><div id="lineage-summary" role="status"></div><span class="lineage-legend"><i class="swatch selected"></i>Selected <i class="swatch related"></i>Related</span></div><div class="review-workbench" style="--spec-width:${layout.spec}%;--input-height:${layout.inputs}%"><section class="spec-pane pane" aria-labelledby="spec-heading"><header class="pane-header"><div><h2 id="spec-heading">yamaa specification</h2><span id="spec-caption">${state.dataset} / ${specification.text.split("\n").length} lines${specification.lineage.unresolved.length ? " / " + specification.lineage.unresolved.length + " unresolved references" : ""}</span></div>${link(sourceUrl(specification.path), "Open source")}</header><div class="spec-scroll" id="spec-scroll" tabindex="0" aria-label="Complete YAML specification">${renderSpec()}</div><footer class="pane-footer">Declared column dependencies; contributing rows are not traced.</footer></section><div class="spec-resizer" id="spec-resizer" role="separator" aria-label="Resize specification panel" aria-orientation="vertical" aria-valuemin="25" aria-valuemax="60" aria-valuenow="${Math.round(layout.spec)}" tabindex="0"></div><div class="data-panes">${group("input")}<div id="data-resizer" class="data-resizer" role="separator" aria-label="Resize input and output areas" aria-orientation="horizontal" aria-valuemin="25" aria-valuemax="75" aria-valuenow="${Math.round(layout.inputs)}" tabindex="0"></div>${group("output")}</div></div><div id="data-status" role="status" class="data-status"></div><div id="evidence-drawer"></div>`;
   }
   function renderSpec() {
-    const { specification, esc } = ctx;
-    const positions = specification.lineage.spans;
+    const { specification, esc } = ctx,
+      positions = specification.lineage.spans;
     return specification.text
       .split("\n")
       .map((line, i) => {
@@ -51,187 +77,158 @@ export function createWorkspace(ctx) {
                 ? "row."
                 : "intermediate.") + pair[0]
           : "";
-        const first = pair && number === pair[1].start;
-        return `<div class="spec-line" id="spec-L${number}" ${node ? `data-line-node="${esc(node)}"` : ""}><button class="line-number" ${node ? `data-node="${esc(node)}"` : "disabled"} tabindex="${first ? 0 : -1}" aria-label="${node ? "Select " + esc(node) + " at" : ""} line ${number}">${number}</button><code>${esc(line) || " "}</code></div>`;
+        return `<div class="spec-line" id="spec-L${number}" ${node ? `data-line-node="${esc(node)}"` : ""}><button class="line-number" ${node ? `data-node="${esc(node)}"` : "disabled"} tabindex="${pair && number === pair[1].start ? 0 : -1}" aria-label="${node ? "Select " + esc(node) + " at " : ""}line ${number}">${number}</button><code>${esc(line) || " "}</code></div>`;
       })
       .join("");
   }
   function applyHighlight(scroll = false) {
-    const { specification, state, byId, root, dataset } = ctx;
-    const related = graphSelection();
-    root()
-      .querySelectorAll("[data-node],[data-line-node]")
-      .forEach((el) => {
-        const node = el.dataset.node || el.dataset.lineNode;
-        el.classList.toggle("node-selected", node === state.focus);
-        el.classList.toggle(
-          "node-related",
-          node !== state.focus && related.has(node),
+    const { model, state, plan, root, byId } = ctx;
+    for (const el of root().querySelectorAll("[data-node],[data-line-node]")) {
+      const node =
+        el.dataset.canonical ||
+        canonicalNode(
+          model,
+          state.dataset,
+          el.dataset.node || el.dataset.lineNode,
         );
-        if (el.tagName === "BUTTON" && el.dataset.node)
-          el.setAttribute("aria-pressed", String(node === state.focus));
-      });
-    const summary = byId("lineage-summary");
-    if (summary)
-      summary.textContent = state.focus
-        ? `${state.focus.replace(/^spec\./, "YAML ").replace(/^output\./, "Output ")} selected / ${[...related].filter((n) => !n.startsWith("intermediate.")).length - 1} connected columns and rules. Static dependencies, including context.`
-        : "Select an input column, specification block, or output column to follow its connections.";
+      el.classList.toggle("node-selected", node === plan.focus);
+      el.classList.toggle(
+        "node-related",
+        node !== plan.focus && plan.related.has(node),
+      );
+      if (el.tagName === "BUTTON")
+        el.setAttribute("aria-pressed", String(node === plan.focus));
+    }
+    byId("lineage-summary").textContent = state.focus
+      ? `${state.focus.replace(/^output\./, "Output ").replace(/^spec\./, "YAML ")} selected. ${state.relatedOnly ? "Related source datasets and columns are shown." : "Linked columns are highlighted across displayed datasets."}`
+      : "Select an output column to reveal connected input datasets and columns. Drag pane edges or column separators to resize.";
     if (scroll && state.focus) {
-      const node = state.focus.startsWith("output.")
-        ? state.focus.replace("output.", "spec.")
-        : state.focus;
+      const lines = [...root().querySelectorAll("[data-line-node]")];
+      const preferred = state.focus.replace(/^output\./, "spec.");
       const line =
-        Array.from(root().querySelectorAll("[data-line-node]")).find(
-          (el) => el.dataset.lineNode === node,
-        ) ||
-        Array.from(root().querySelectorAll("[data-line-node]")).find((el) =>
-          related.has(el.dataset.lineNode),
+        lines.find((el) => el.dataset.lineNode === preferred) ||
+        lines.find((el) =>
+          plan.related.has(
+            canonicalNode(model, state.dataset, el.dataset.lineNode),
+          ),
         );
-      if (line) {
-        const pane = byId("spec-scroll");
-        pane.scrollTop = Math.max(0, line.offsetTop - 50);
-      }
-      for (const id of ["input-table", "output-table"]) {
-        const region = byId(id);
-        const selectedSpec = state.focus.replace(/^output\./, "spec.");
-        const immediate = specification.lineage.edges[selectedSpec] || [];
-        const direct =
-          id === "input-table"
-            ? Array.from(region?.querySelectorAll("th[data-node]") || []).find(
-                (el) => immediate.includes(el.dataset.node),
-              )
-            : null;
-        const th =
-          direct || region?.querySelector("th.node-selected,th.node-related");
-        if (th) {
-          const pinned =
-            region.querySelector("th:nth-child(2)")?.offsetWidth || 120;
-          region.scrollLeft = Math.max(0, th.offsetLeft - pinned - 35);
-        }
+      if (line)
+        byId("spec-scroll").scrollTop = Math.max(0, line.offsetTop - 50);
+      for (const region of root().querySelectorAll("[data-table-for]")) {
+        const target =
+          region.querySelector("th.node-selected") ||
+          [...region.querySelectorAll("th.node-related")].find(
+            (el) =>
+              !el.classList.contains("subject-column") &&
+              !el.dataset.node.endsWith(".STUDYID"),
+          );
+        if (target) region.scrollLeft = Math.max(0, target.offsetLeft - 170);
       }
     }
   }
-  function selectFocus(node) {
-    const { state, save } = ctx;
-    state.focus = state.focus === node ? "" : node;
-    save();
-    applyHighlight(true);
-  }
-  function visibleRows(rows) {
-    const { inputRows, outputRows, inputMeta, outputMeta, state } = ctx;
-    return filterRows(
-      rows,
-      rows === inputRows ? inputMeta() : outputMeta(),
-      state.rowSearch,
-      [
-        { rows: inputRows, meta: inputMeta() },
-        { rows: outputRows, meta: outputMeta() },
-      ],
+  function tableMarkup(panel, rows, peers) {
+    const { model, state, plan, layout, esc } = ctx,
+      meta = panel.meta;
+    const filtered = filterRows(rows, meta, state.rowSearch, peers),
+      size = state.pageSizes[panel.key] || 10;
+    const page = Math.max(
+      0,
+      Math.min(
+        state.pages[panel.key] || 0,
+        Math.max(0, Math.ceil(filtered.length / size) - 1),
+      ),
     );
-  }
-  function tableMarkup(kind, rows, meta) {
-    const { state, PAGE, esc, dataset, source } = ctx;
-    const filtered = visibleRows(rows),
-      key = kind + "Page";
-    state[key] = Math.min(
-      state[key],
-      Math.max(0, Math.ceil(filtered.length / PAGE) - 1),
+    state.pages[panel.key] = page;
+    const start = page * size,
+      shown = filtered.slice(start, start + size),
+      indices = columnIndexes(
+        model,
+        panel,
+        plan.related,
+        state.relatedOnly,
+        plan.focus,
+      );
+    const current = model.datasets.find((d) => d.name === state.dataset),
+      alias = current.inputs.find((i) => i.table === panel.table)?.alias;
+    const raw = (name) =>
+      panel.kind === "output"
+        ? "output." + name
+        : alias
+          ? alias + "." + name
+          : tableNode(model, panel.table, name);
+    const canonical = (name) =>
+      panel.kind === "output"
+        ? `out:${panel.domain}.${name}`
+        : tableNode(model, panel.table, name);
+    const widths = indices.map(
+      (i) =>
+        layout.columns[panel.key]?.[meta.columns[i].name] ||
+        (i === meta.subject_index ? 140 : 120),
     );
-    const start = state[key] * PAGE,
-      shown = filtered.slice(start, start + PAGE);
-    const names = meta.columns.map((c) => c.name),
-      subject = meta.subject_index ?? -1;
-    const order = [
-      ...(subject >= 0 ? [subject] : []),
-      ...names.map((_, i) => i).filter((i) => i !== subject),
-    ];
-    const alias = kind === "output" ? "output" : source()?.alias || meta.name;
     return {
       filtered,
       start,
-      html: `<table class="review-table"><caption class="sr-only">${kind === "output" ? "Analysis output" : "Input"} records. Column headers select declared lineage.</caption><thead><tr><th scope="col" class="row-number">Row</th>${order.map((i) => `<th scope="col" data-node="${esc(alias + "." + names[i])}"><button data-node="${esc(alias + "." + names[i])}" title="${esc((meta.columns[i].label || meta.columns[i].declared_label || names[i]) + " / " + meta.columns[i].type)}">${esc(names[i])}<small>${esc(meta.columns[i].type)}</small></button></th>`).join("")}</tr></thead><tbody>${shown.length ? shown.map((r) => `<tr><th scope="row" class="row-number">${r[0] + 1}</th>${order.map((i) => `<td data-node="${esc(alias + "." + names[i])}" title="${esc(r[i + 1])}">${r[i + 1] === null ? '<span class="missing" aria-label="Missing value">&#8212;</span>' : esc(r[i + 1])}</td>`).join("")}</tr>`).join("") : `<tr><td colspan="${names.length + 1}" class="empty-rows">${state.subjects.length ? "No records for these subjects and this search. Subjects with no events may have no rows in this dataset." : "No subjects selected. Use the Subjects dropdown to select subjects."}</td></tr>`}</tbody></table>`,
+      size,
+      html: `<table class="review-table" style="width:${36 + widths.reduce((a, b) => a + b, 0)}px"><caption class="sr-only">${esc(panel.domain)} ${panel.kind} records. Select column headers to follow declared lineage.</caption><colgroup><col style="width:36px">${indices.map((i, n) => `<col data-column="${esc(meta.columns[i].name)}" style="width:${widths[n]}px">`).join("")}</colgroup><thead><tr><th scope="col" class="row-number">Row</th>${indices
+        .map((i, n) => {
+          const c = meta.columns[i],
+            node = canonical(c.name);
+          return `<th scope="col" class="${i === meta.subject_index ? "subject-column" : ""}" data-node="${esc(raw(c.name))}" data-canonical="${esc(node)}"><button data-node="${esc(raw(c.name))}" data-canonical="${esc(node)}" ${panel.kind === "output" ? `data-output-dataset="${esc(panel.domain)}"` : ""} title="${esc((c.label || c.declared_label || c.name) + " / " + c.type)}">${esc(c.name)}<small>${esc(c.type)}</small></button><span class="column-resizer" data-resize-column="${esc(c.name)}" role="separator" aria-label="Resize ${esc(panel.domain + "." + c.name)} column" aria-orientation="vertical" aria-valuemin="72" aria-valuemax="640" aria-valuenow="${widths[n]}" tabindex="0"></span></th>`;
+        })
+        .join(
+          "",
+        )}</tr></thead><tbody>${shown.length ? shown.map((r) => `<tr><th scope="row" class="row-number">${r[0] + 1}</th>${indices.map((i) => `<td data-canonical="${esc(canonical(meta.columns[i].name))}" title="${esc(r[i + 1])}">${r[i + 1] === null ? '<span class="missing" aria-label="Missing value">&#8212;</span>' : esc(r[i + 1])}</td>`).join("")}</tr>`).join("") : `<tr><td colspan="${indices.length + 1}" class="empty-rows">${state.subjects.length ? "No records for these subjects and this search." : "No subjects selected. Use the Subjects dropdown to select subjects."}</td></tr>`}</tbody></table>`,
     };
   }
   function paintTables() {
-    const {
-      model,
-      inputRows,
-      outputRows,
-      state,
-      PAGE,
-      byId,
-      resource,
-      inputMeta,
-      outputMeta,
-      link,
-    } = ctx;
-    for (const [kind, rows, meta] of [
-      ["input", inputRows, inputMeta()],
-      ["output", outputRows, outputMeta()],
-    ]) {
-      if (!meta || !byId(kind + "-table")) continue;
-      const result = tableMarkup(kind, rows, meta),
-        el = byId(kind + "-table");
-      el.innerHTML = result.html;
-      el.tabIndex = 0;
-      el.setAttribute("role", "region");
-      el.setAttribute("aria-label", kind + " data table");
-      byId(kind + "-footer").innerHTML =
-        `<span>${result.filtered.length ? result.start + 1 : 0}-${Math.min(result.start + PAGE, result.filtered.length)} of ${result.filtered.length.toLocaleString()} selected rows / ${meta.rows.toLocaleString()} total${meta.subject_index === null ? " / subject-independent lookup" : ""}</span><span class="pagination"><button data-page="${kind}" data-step="-1" ${!state[kind + "Page"] ? "disabled" : ""} aria-label="Previous ${kind} rows">&#8592;</button><button data-page="${kind}" data-step="1" ${result.start + PAGE >= result.filtered.length ? "disabled" : ""} aria-label="Next ${kind} rows">&#8594;</button></span>`;
+    if (ctx.rowsLoading) return;
+    const { model, state, plan, rowsByTable, rowErrors, root, esc } = ctx;
+    const peers = plan.panels
+      .filter((p) => rowsByTable.has(p.table))
+      .map((p) => ({ rows: rowsByTable.get(p.table), meta: p.meta }));
+    for (const panel of plan.panels) {
+      const region = root().querySelector(`[data-table-for="${panel.key}"]`),
+        footer = root().querySelector(`[data-footer-for="${panel.key}"]`);
+      if (!region) continue;
+      if (rowErrors.has(panel.table)) {
+        region.innerHTML = `<div class="error-state" role="alert">${esc(rowErrors.get(panel.table))}<button data-retry>Retry loading</button></div>`;
+        footer.textContent = "Dataset unavailable; retry to load records.";
+        continue;
+      }
+      const result = tableMarkup(
+        panel,
+        rowsByTable.get(panel.table) || [],
+        peers,
+      );
+      region.innerHTML = result.html;
+      region.tabIndex = 0;
+      region.setAttribute("role", "region");
+      region.setAttribute(
+        "aria-label",
+        panel.domain + " " + panel.kind + " data table",
+      );
+      footer.innerHTML = `<label class="row-size">Rows <select data-page-size="${panel.key}" aria-label="${esc(panel.domain)} ${panel.kind} rows per page">${PAGE_SIZES.map((size) => `<option ${size === result.size ? "selected" : ""}>${size}</option>`).join("")}</select></label><span>${result.filtered.length ? result.start + 1 : 0}-${Math.min(result.start + result.size, result.filtered.length)} of ${result.filtered.length.toLocaleString()} selected rows / ${panel.meta.rows.toLocaleString()} total${panel.meta.subject_index === null ? " / subject-independent lookup" : ""}</span><span class="pagination"><button data-panel-page="${panel.key}" data-step="-1" ${!state.pages[panel.key] ? "disabled" : ""} aria-label="Previous ${esc(panel.domain)} ${panel.kind} rows">&#8592;</button><button data-panel-page="${panel.key}" data-step="1" ${result.start + result.size >= result.filtered.length ? "disabled" : ""} aria-label="Next ${esc(panel.domain)} ${panel.kind} rows">&#8594;</button></span>`;
     }
     fitWorkbench();
-    byId("data-status").textContent =
-      `${state.subjects.length} of ${model.subjects.length} study subjects selected. All matching records are accessible through the row controls. Missing values are shown as a dash. Input and output retain their original values and row order.`;
     applyHighlight();
+    ctx.byId("data-status").textContent =
+      `${state.subjects.length} of ${model.subjects.length} subjects selected. ${plan.inputs.length} input and ${plan.outputs.length} output datasets displayed. Each table has its own row count and pagination. Missing values are shown as a dash.`;
   }
   function fitWorkbench() {
-    const { root } = ctx;
-    const el = root()?.querySelector(".review-workbench");
+    const el = ctx.root()?.querySelector(".review-workbench");
     if (!el) return;
-    if (innerWidth > 700) {
-      el.style.height =
-        Math.max(
-          340,
-          Math.min(
-            1000,
+    el.style.height =
+      innerWidth > 700
+        ? Math.max(
+            440,
             innerHeight - el.getBoundingClientRect().top - scrollY - 35,
-          ),
-        ) + "px";
-      el.style.minHeight = "340px";
-    } else {
-      el.style.height = "";
-      el.style.minHeight = "";
-    }
-  }
-  function resizeSpec(percent) {
-    const { byId, root } = ctx;
-    const value = Math.max(25, Math.min(60, percent));
-    root().style.setProperty("--spec-width", value + "%");
-    byId("spec-resizer")?.setAttribute(
-      "aria-valuenow",
-      String(Math.round(value)),
-    );
+          ) + "px"
+        : "";
+    el.style.minHeight = innerWidth > 700 ? "440px" : "";
   }
   function overview() {
-    const { model, report, specification, dataset, link } = ctx;
-    return `<div class="section-heading"><div><h2>Dataset coverage</h2><p>Validated outputs and their independent official references. Open a dataset to inspect its complete specification and data.</p></div></div><div class="overview-table"><table class="review-table"><thead><tr><th>Dataset</th><th>Output rows</th><th>Columns</th><th>Reference comparison</th><th>Documentation</th></tr></thead><tbody>${model.datasets.map((d) => `<tr><td><button class="text-link" data-dataset="${d.name}">${d.name}</button></td><td>${model.tables[d.output].rows.toLocaleString()}</td><td>${model.tables[d.output].columns.length}</td><td><span class="status ${d.comparison === "passed" ? "good" : "neutral"}">${d.comparison === "passed" ? "Passed" : "Unavailable"}</span></td><td><button class="text-link" data-domain-findings="${d.name}">${report.findings.filter((f) => f.dataset === d.name).length} observations / tasks</button></td></tr>`).join("")}</tbody></table></div>`;
+    const { model, report } = ctx;
+    return `<div class="section-heading"><h2>Dataset coverage</h2></div><div class="overview-table"><table class="review-table"><thead><tr><th>Dataset</th><th>Output rows</th><th>Columns</th><th>Reference comparison</th><th>Documentation</th></tr></thead><tbody>${model.datasets.map((d) => `<tr><td><button class="text-link" data-dataset="${d.name}">${d.name}</button></td><td>${model.tables[d.output].rows.toLocaleString()}</td><td>${model.tables[d.output].columns.length}</td><td><span class="status ${d.comparison === "passed" ? "good" : "neutral"}">${d.comparison === "passed" ? "Passed" : "Unavailable"}</span></td><td><button class="text-link" data-domain-findings="${d.name}">${report.findings.filter((f) => f.dataset === d.name).length} observations / tasks</button></td></tr>`).join("")}</tbody></table></div>`;
   }
-
-  function graphSelection() {
-    return connectedNodes(ctx.specification.lineage.edges, ctx.state.focus);
-  }
-
-  return {
-    subjectPicker,
-    workspace,
-    renderSpec,
-    applyHighlight,
-    selectFocus,
-    visibleRows,
-    tableMarkup,
-    paintTables,
-    fitWorkbench,
-    resizeSpec,
-    overview,
-  };
+  return { workspace, applyHighlight, paintTables, fitWorkbench, overview };
 }

@@ -16,7 +16,8 @@ import {
 const model = {
   id: "new-study",
   subjects: ["001", "002", "003", "004"],
-  datasets: [{ name: "CUSTOM" }],
+  datasets: [{ name: "CUSTOM", inputs: [] }],
+  tables: {},
   settings: { default_subject_count: 2 },
 };
 test("new study defaults and shared routes validate unknown and duplicate selections", () => {

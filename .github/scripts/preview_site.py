@@ -8,7 +8,7 @@ import sys
 
 from study_evidence import catalog
 from build_index_table import BEGIN, replace_block
-from dashboard_nav import study_navigation
+from dashboard_nav import study_navigation, synthetic_navigation
 
 ROOT = Path(__file__).resolve().parents[2]
 
@@ -42,8 +42,11 @@ def prepare_preview(root, work):
     source_config = yaml.safe_load((root / "mkdocs.yml").read_text())
     nav = source_config.get("nav", [])
     for item in nav:
-        if "Studies" in item:
-            item["Studies"] = study_navigation(root, item["Studies"])
+        for title in ('Pilot studies', 'Studies'):
+            if title in item:
+                item[title] = study_navigation(root, item[title])
+        if 'Synthetic data' in item:
+            item['Synthetic data'] = synthetic_navigation(root)
     config.write_text(f'INHERIT: {root / "mkdocs.yml"}\ndocs_dir: {docs}\n'
                       f'site_dir: {work / "site"}\nhooks: []\n' +
                       (yaml.safe_dump({"nav": nav}, sort_keys=False) if nav else ""))

@@ -13,6 +13,8 @@ from .config import SCHEMA_VERSION, comments, reference_path, settings, study_pa
 from .datasets import export_table, write_json
 from .lineage import build_lineage
 from .consistency import build_report
+from .domains import domain_labels
+from .synthetic import build_synthetic
 
 
 def build_bundle(root, destination, entries, reports, revision):
@@ -82,6 +84,8 @@ def build_bundle(root, destination, entries, reports, revision):
                 cache[key] = identifier
             return cache[key]
 
+        labels_sdtm = domain_labels(base / "spec/define/define-sdtm.xml")
+        labels_adam = domain_labels(base / "spec/define/define-adam.xml")
         specifications = []
         results = {d["domain"]: d for d in validation["datasets"]}
         for domain, spec_path in project_specs(root, study):
@@ -100,6 +104,8 @@ def build_bundle(root, destination, entries, reports, revision):
             labels = {c["name"]: c.get("label", "") for c in spec["columns"]}
             for column in exported[output]["columns"]:
                 column["declared_label"] = labels.get(column["name"], "")
+            exported[output]["domain"] = domain
+            exported[output]["description"] = labels_adam.get(domain, "")
             reference = reference_path(root, study, domain, options)
             reference_id = table(reference) if reference.exists() else None
             if results[domain]["comparison"] == "passed" and reference_id is None:
@@ -135,6 +141,14 @@ def build_bundle(root, destination, entries, reports, revision):
             specifications.append((spec_path, spec, lineage))
         for path in sorted((base / "data/sdtm").glob("*.parquet")):
             table(path)
+        for metadata in exported.values():
+            metadata.setdefault("domain", metadata["name"].removesuffix("-YAMAA"))
+            metadata.setdefault(
+                "description",
+                (labels_sdtm if "/sdtm/" in metadata["path"] else labels_adam).get(
+                    metadata["domain"], ""
+                ),
+            )
         report = build_report(root, study, specifications, target, revision)
         write_json(target / "report.json", report)
         record.update(
@@ -162,5 +176,6 @@ def build_bundle(root, destination, entries, reports, revision):
         )
     # A concurrent source/output change must never promote partial or mixed evidence.
     verify_report_artifacts(root, entries, reports)
+    index["synthetic_studies"] = build_synthetic(root, destination, revision)
     write_json(destination / "index.json", index)
     return index
