@@ -271,22 +271,49 @@ def check(browser, base, site_dir, screenshots):
     page.get_by_role("button", name="Copy review context", exact=True).click()
     expect(page.locator("#share-url")).to_have_value(copied)
     page.locator('.review-tabs [data-view="materials"]').click()
-    page.locator("#document-select").select_option(
-        "cdiscpilot01/spec/define/define-adam.xml"
-    )
-    expect(page.locator("#source-frame")).to_have_attribute(
-        "title", "Original XML HTML: define-adam.xml"
-    )
+    primary_tabs = page.get_by_role("tablist", name="Document 1 files", exact=True)
+    primary_tabs.get_by_role("tab", name="define-adam.xml", exact=True).click()
+    expect(page.locator("#source-frame")).to_have_attribute("title", "Original XML HTML: define-adam.xml")
     expect(page.frame_locator("#source-frame").locator("table").first).to_be_visible()
-    capture(page, screenshots, "original-xml.png")
+    expect(page.locator("#document-select, #document-mode")).to_have_count(0)
+    expect(page.get_by_role("link", name="Original document", exact=True)).to_have_count(0)
+    expect(page.get_by_role("link", name="Published upstream source", exact=True)).to_have_count(0)
+    expect(page.get_by_role("link", name="Source manifest", exact=True)).to_have_count(0)
+    expect(page.locator(".source-viewer-heading")).not_to_contain_text("cdiscpilot01/spec/")
+    expect(page.locator(".source-viewer-heading").get_by_role("link", name="Source", exact=True)).to_have_attribute("href", f'https://github.com/RConsortium/submissions-pilot7-synthetic-data/blob/{catalog["revision"]}/cdiscpilot01/spec/define/define-adam.xml')
+    page.evaluate("window.originalSourceFrame=document.querySelector('#source-frame')")
+    page.get_by_role("button", name="Compare side by side", exact=True).click()
+    expect(page.locator(".source-pane")).to_have_count(2)
+    secondary_tabs = page.get_by_role("tablist", name="Document 2 files", exact=True)
+    expect(secondary_tabs.get_by_role("tab", name="define-adam.xml", exact=True)).to_be_disabled()
+    secondary_tabs.get_by_role("tab", name="SAP.pdf", exact=True).click()
+    expect(page.locator("#source-frame-compare")).to_have_attribute("src", re.compile(r"SAP\.pdf$"))
+    assert page.evaluate("window.originalSourceFrame===document.querySelector('#source-frame')")
+    left = page.locator(".source-pane").nth(0).bounding_box()
+    right = page.locator(".source-pane").nth(1).bounding_box()
+    assert left["x"] + left["width"] <= right["x"] and abs(left["y"] - right["y"]) < 2
+    page.evaluate("window.comparedSourceFrame=document.querySelector('#source-frame-compare')")
+    primary_tabs.get_by_role("tab", name="define-sdtm.xml", exact=True).click()
+    assert page.evaluate("window.comparedSourceFrame===document.querySelector('#source-frame-compare')")
+    primary_tabs.get_by_role("tab", name="define-adam.xml", exact=True).click()
+    page.wait_for_load_state("networkidle")
+    capture(page, screenshots, "source-documents-side-by-side.png")
     page.reload()
-    expect(page.locator("#document-select")).to_have_value(
-        "cdiscpilot01/spec/define/define-adam.xml"
-    )
-    page.locator("#document-mode").select_option("reading")
-    expect(
-        page.frame_locator("#source-frame").locator("#ADAE\\.ASTDT")
-    ).to_contain_text("Label:")
+    expect(page.locator(".source-pane")).to_have_count(2)
+    expect(page.locator("#source-frame-compare")).to_have_attribute("src", re.compile(r"SAP\.pdf$"))
+    page.set_viewport_size({"width": 375, "height": 1000})
+    assert page.evaluate("document.documentElement.scrollWidth<=innerWidth")
+    assert page.locator(".source-pane").nth(1).bounding_box()["y"] > page.locator(".source-pane").nth(0).bounding_box()["y"]
+    page.set_viewport_size({"width": 1600, "height": 1000})
+    page.get_by_role("button", name="Close comparison", exact=True).click()
+    expect(page.locator(".source-pane")).to_have_count(1)
+    primary_tabs = page.get_by_role("tablist", name="Document 1 files", exact=True)
+    primary_tabs.get_by_role("tab", name="define-adam.xml", exact=True).focus()
+    page.keyboard.press("End")
+    expect(primary_tabs.get_by_role("tab", name="dataguide.pdf", exact=True)).to_have_attribute("aria-selected", "true")
+    page.keyboard.press("Home")
+    expect(primary_tabs.get_by_role("tab", name="define-adam.xml", exact=True)).to_have_attribute("aria-selected", "true")
+    capture(page, screenshots, "original-xml.png")
     page.locator('.review-tabs [data-view="overview"]').click()
     page.get_by_role("button", name="Clear filters", exact=True).click()
     expect(page.locator(".consistency-table tbody tr")).not_to_have_count(0)
@@ -311,9 +338,7 @@ def check(browser, base, site_dir, screenshots):
     page.locator('.study-card[href*="submission-pilot3"]').click()
     expect(page.locator("#output-table tbody tr")).to_have_count(3)
     page.locator('.review-tabs [data-view="materials"]').click()
-    page.locator("#document-select").select_option(
-        "submission-pilot3/spec/source/adam-pilot-3.xlsx"
-    )
+    page.get_by_role("tablist", name="Document 1 files", exact=True).get_by_role("tab", name="adam-pilot-3.xlsx", exact=True).click()
     expect(page.locator("#source-frame")).to_have_attribute(
         "title", "Excel tables: adam-pilot-3.xlsx"
     )
@@ -322,9 +347,7 @@ def check(browser, base, site_dir, screenshots):
         page.frame_locator("#source-frame").locator("#sheet-1-row-1")
     ).to_be_visible()
     capture(page, screenshots, "excel-source-tables.png")
-    page.locator("#document-select").select_option(
-        "submission-pilot3/spec/define/define-adam.xml"
-    )
+    page.get_by_role("tablist", name="Document 1 files", exact=True).get_by_role("tab", name="define-adam.xml", exact=True).click()
     expect(page.frame_locator("#source-frame").locator("table").first).to_be_visible()
     page.locator('.review-tabs [data-view="datasets"]').click()
     page.locator("#dataset-select").select_option("ADADAS")
@@ -510,7 +533,7 @@ def main():
         server.server_close()
         worker.join()
     print(
-        "Browser checks passed: separate pilot/synthetic dashboards, repository source links, 10/25/50/100 row counts, compared datasets, cross-specification lineage, dynamic columns, pane/column resizing, source evidence, shared URLs, inline comments, responsive layouts, and retryable panel errors. Comment posting/authentication is not exercised."
+        "Browser checks passed: separate pilot/synthetic dashboards, repository source links, 10/25/50/100 row counts, compared datasets, cross-specification lineage, dynamic columns, pane/column resizing, source evidence, original-file tabs and two-pane comparisons, shared URLs, inline comments, responsive layouts, and retryable panel errors. Comment posting/authentication is not exercised."
     )
 
 

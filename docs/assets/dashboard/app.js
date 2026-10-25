@@ -12,6 +12,7 @@ import {
 import { createShell } from "./shell.js";
 import { createWorkspace } from "./workspace.js";
 import { createReport } from "./report.js";
+import { createSourceDocuments } from "./source-documents.js";
 import { createComments } from "./comments.js";
 import { createResizing } from "./resize.js";
 import { mountSynthetic } from "./synthetic.js";
@@ -116,9 +117,10 @@ import { mountSynthetic } from "./synthetic.js";
   const { frame } = createShell(ctx),
     { workspace, applyHighlight, paintTables, fitWorkbench } =
       createWorkspace(ctx);
-  const { allFindings, findingRows, findingsView, materialsView, drawer } =
-      createReport(ctx),
+  const { allFindings, findingRows, findingsView, drawer } = createReport(ctx),
     { commentsView, commentContext, loadComments } = createComments(ctx);
+  const sourceDocuments = createSourceDocuments(ctx),
+    { materialsView } = sourceDocuments;
   const resizing = createResizing(ctx, fitWorkbench);
   function updatePlan() {
     plan = reviewPlan(model, state, graph);
@@ -301,6 +303,7 @@ import { mountSynthetic } from "./synthetic.js";
         return;
       }
     }
+    if (sourceDocuments.keyboard(event)) return;
     resizing.keyboard(event);
   });
   window.addEventListener("resize", fitWorkbench);
@@ -334,6 +337,7 @@ import { mountSynthetic } from "./synthetic.js";
     }
     const target = event.target.closest("button,[data-line-node]");
     if (!target || !root()?.contains(target)) return;
+    if (sourceDocuments.click(target)) return;
     if (target.dataset.view) {
       navigate(target.dataset.view);
       return;
@@ -395,7 +399,6 @@ import { mountSynthetic } from "./synthetic.js";
     if (target.dataset.document) {
       state.document = target.dataset.document;
       state.documentSection = target.dataset.documentSection || "";
-      state.documentMode = target.dataset.documentMode || "original";
       navigate("materials");
       return;
     }
@@ -524,16 +527,6 @@ import { mountSynthetic } from "./synthetic.js";
       state.pages[el.dataset.pageSize] = 0;
       save();
       paintTables();
-      return;
-    }
-    if (["document-select", "document-mode"].includes(el.id)) {
-      if (el.id === "document-select") {
-        state.document = el.value;
-        state.documentMode = "original";
-        state.documentSection = "";
-      } else state.documentMode = el.value;
-      save();
-      byId("view-content").innerHTML = materialsView();
       return;
     }
     if (["finding-kind", "finding-comparison"].includes(el.id)) {
