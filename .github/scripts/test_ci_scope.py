@@ -38,7 +38,7 @@ class ScopeTests(unittest.TestCase):
 
     def test_prompts_guides_and_generated_reports_need_no_study_jobs(self):
         for path in ('.automation/triage_issues.md', 'AGENTS.md', 'README.md',
-                     '.github/README.md', 'submission-pilot3/program/adam/README.md',
+                     '.github/AUTOMATION.md', 'submission-pilot3/program/adam/README.md',
                      'submission-pilot3/spec/yamaa/README.md',
                      'submission-pilot3/data/adam/dataset_comment.md',
                      'submission-pilot3/data/adam/core-report-ADAM.xlsx'):
