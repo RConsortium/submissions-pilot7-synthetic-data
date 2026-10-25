@@ -9,8 +9,7 @@
 # core_block.jq's "no issues found" line, so an empty ADaM report is never
 # mistaken for a clean pass. Otherwise it delegates to core_block.jq.
 #
-# Shared by the validate job (committed dataset_comment.md) and the
-# issue-comments job so the two renderings never drift.
+# Used by the validate job to produce dataset_comment.md in study reports.
 set -uo pipefail
 
 rep="$1"

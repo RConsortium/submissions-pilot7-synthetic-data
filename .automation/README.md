@@ -28,13 +28,12 @@ For the weekly digest, schedule it before the Friday standup in
 `C0B44HS7CNA` in `rconsortium.slack.com`. Follow the prompt's reporting window,
 send guard, and destination exactly.
 
-## CORE comments are handled by CI
+## CORE reports are handled by CI
 
 `.github/workflows/core-validate.yml` runs CORE, proposes report updates through
-`core/reports`, and posts matching issue comments using `GITHUB_TOKEN`.
-`core-commented` records that findings were posted; the workflow run ID in each
-comment prevents duplicates. Reports use per-study `core-reports-<study>`
-artifacts, retained for 90 days. No scheduled agent or R bootstrap is involved.
+`core/reports`, and retains per-study `core-reports-<study>` artifacts for 90
+days. It does not post comments or add labels to issues. No scheduled agent or
+R bootstrap is involved.
 
 When migrating an existing routine configuration:
 
