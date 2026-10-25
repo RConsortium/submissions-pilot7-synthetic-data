@@ -6,13 +6,22 @@ standardization.
 
 ## Pilot studies
 
-We use AI agents to review pilot submission packages, reproduce ADaM
-datasets, and share findings. Automated comparisons check the derived
-datasets against published ADaM.
+AI agents review pilot submission packages and generate derivation
+specifications in YAML format.
+The yamaa engine executes these specifications to derive
+ADaM datasets from SDTM. We compare the yamaa outputs with the published
+ADaM datasets from the original submissions.
+
+<div class="pilot-metrics" markdown="1" role="region" aria-label="Pilot study comparison metrics" tabindex="0">
 
 <!-- pilot-metrics:begin -->
 [View the latest validated study metrics on the project website](https://rconsortium.github.io/submissions-pilot7-synthetic-data/).
 <!-- pilot-metrics:end -->
+
+</div>
+
+Values are **fully matched / reference total (percentage)**; **M**
+means one million.
 
 ## Synthetic studies
 

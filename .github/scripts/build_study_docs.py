@@ -33,6 +33,11 @@ def main():
     reports = {name: json.loads((args.reports / f"{name}.json").read_text())
                for name in catalog}
     validate_reports(ROOT, catalog, reports, os.environ.get("GITHUB_SHA"))
+    # Remove generated pages and evidence for studies retired from publication.
+    for report_file in evidence.glob('*.json'):
+        if report_file.stem not in catalog:
+            (target / f'{report_file.stem}.md').unlink(missing_ok=True)
+            report_file.unlink()
     for name, entry in catalog.items():
         report_file = args.reports / f"{name}.json"
         report = json.loads(report_file.read_text())
