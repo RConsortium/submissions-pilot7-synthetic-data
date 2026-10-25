@@ -28,9 +28,9 @@ REPORTS = ROOT / ".build" / "validation"
 
 BEGIN = "<!-- pilot-metrics:begin -->"
 END = "<!-- pilot-metrics:end -->"
-HEADER = ["| Study | Status | Datasets fully matched | Columns fully matched | Cells fully matched |",
+HEADER = ["| Study | Status | Datasets | Columns | Cells |",
           "| --- | --- | --- | --- | --- |"]
-PENDING_DATASETS = "n/a (no reference staged)"
+PENDING_DATASETS = "n/a"
 
 
 def _percent(matched, total):
