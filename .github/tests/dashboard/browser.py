@@ -144,7 +144,7 @@ def check(browser, base, site_dir, screenshots):
     before = page.locator(".spec-pane").bounding_box()["width"]
     page.locator("#spec-resizer").focus()
     page.keyboard.press("ArrowRight")
-    expect(page.locator("#spec-resizer")).to_have_attribute("aria-valuenow", "38")
+    expect(page.locator("#spec-resizer")).to_have_attribute("aria-valuenow", "27")
     assert page.locator(".spec-pane").bounding_box()["width"] > before
     before = page.locator(".input-group").bounding_box()["height"]
     page.locator("#data-resizer").focus()
@@ -166,7 +166,7 @@ def check(browser, base, site_dir, screenshots):
     page.get_by_role("button", name="Widen DM input panel", exact=True).click()
     assert card.bounding_box()["width"] > before + 70
     page.get_by_role("button", name="Reset layout", exact=True).click()
-    expect(page.locator("#spec-resizer")).to_have_attribute("aria-valuenow", "36")
+    expect(page.locator("#spec-resizer")).to_have_attribute("aria-valuenow", "25")
     # Manual multiple input and output choices remain open while choosing datasets.
     page.locator("#input-picker summary").click()
     page.locator(f'[data-input-dataset="{ex}"]').check()
