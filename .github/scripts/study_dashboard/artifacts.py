@@ -13,7 +13,7 @@ from .config import SCHEMA_VERSION, comments, reference_path, settings, study_pa
 from .datasets import export_table, write_json
 from .lineage import build_lineage
 from .consistency import build_report
-from .domains import domain_labels
+from .domains import domain_labels, domain_keys
 from .synthetic import build_synthetic
 
 
@@ -86,6 +86,8 @@ def build_bundle(root, destination, entries, reports, revision):
 
         labels_sdtm = domain_labels(base / "spec/define/define-sdtm.xml")
         labels_adam = domain_labels(base / "spec/define/define-adam.xml")
+        keys_sdtm = domain_keys(base / "spec/define/define-sdtm.xml")
+        keys_adam = domain_keys(base / "spec/define/define-adam.xml")
         specifications = []
         results = {d["domain"]: d for d in validation["datasets"]}
         for domain, spec_path in project_specs(root, study):
@@ -106,6 +108,8 @@ def build_bundle(root, destination, entries, reports, revision):
                 column["declared_label"] = labels.get(column["name"], "")
             exported[output]["domain"] = domain
             exported[output]["description"] = labels_adam.get(domain, "")
+            exported[output]["keys"] = spec.get("keys", [])
+            exported[output]["key_source"] = spec_path.relative_to(root).as_posix()
             reference = reference_path(root, study, domain, options)
             reference_id = table(reference) if reference.exists() else None
             if results[domain]["comparison"] == "passed" and reference_id is None:
@@ -149,6 +153,18 @@ def build_bundle(root, destination, entries, reports, revision):
                     metadata["domain"], ""
                 ),
             )
+            sdtm = "/sdtm/" in metadata["path"]
+            metadata.setdefault(
+                "keys",
+                (keys_sdtm if sdtm else keys_adam).get(metadata["domain"], []),
+            )
+            names = {column["name"] for column in metadata["columns"]}
+            metadata["keys"] = [key for key in metadata["keys"] if key in names]
+            if metadata["keys"]:
+                metadata.setdefault(
+                    "key_source",
+                    f"{study}/spec/define/define-{'sdtm' if sdtm else 'adam'}.xml",
+                )
         report = build_report(root, study, specifications, target, revision)
         write_json(target / "report.json", report)
         record.update(

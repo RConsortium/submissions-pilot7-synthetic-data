@@ -1,5 +1,5 @@
 /** Pointer and keyboard resizing for the specification, dataset panes and columns. */
-export function createResizing(ctx) {
+export function createResizing(ctx, refit) {
   const clamp = (n, min, max) => Math.max(min, Math.min(max, n));
   function rememberPanels() {
     for (const card of ctx.root()?.querySelectorAll("[data-panel]") || []) {
@@ -21,6 +21,7 @@ export function createResizing(ctx) {
         isSpec ? "--spec-width" : "--input-height",
         adjusted + "%",
       );
+    refit();
     ctx
       .byId(isSpec ? "spec-resizer" : "data-resizer")
       ?.setAttribute("aria-valuenow", String(Math.round(adjusted)));
@@ -48,6 +49,7 @@ export function createResizing(ctx) {
         Math.max(640, innerWidth * 1.5),
       ) + "px";
     rememberPanels();
+    refit();
   }
   function pointer(event) {
     const handle = event.target.closest(

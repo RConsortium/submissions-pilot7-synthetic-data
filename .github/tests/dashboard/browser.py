@@ -37,6 +37,14 @@ def capture(page, directory, name):
         )
 
 
+def assert_page_fits(page, selector):
+    assert page.locator(selector).evaluate("""region => {
+      const last = region.querySelector('tbody tr:last-child');
+      return region.scrollHeight <= region.clientHeight + 1 &&
+        last.getBoundingClientRect().bottom <= region.getBoundingClientRect().bottom + 1;
+    }"""), selector + " clips the selected page of rows"
+
+
 def check(browser, base, site_dir, screenshots):
     context = browser.new_context(viewport={"width": 1600, "height": 1000})
     context.route(
@@ -76,6 +84,10 @@ def check(browser, base, site_dir, screenshots):
     links = page.locator(".hero-actions").bounding_box()
     assert title["x"] + title["width"] < links["x"] < title["x"] + title["width"] + 50
     assert abs(links["y"] - title["y"]) < 15
+    expect(page.locator("#input-picker summary")).to_have_text("Select domain (1)")
+    expect(page.locator("#output-picker summary")).to_have_text("Select domain (1)")
+    expect(page.locator('#input-table th[data-node="DM.STUDYID"]')).to_have_class("key-column")
+    expect(page.locator('#output-table th[data-node="output.USUBJID"] .key-badge')).to_have_text("Key")
     # Outside clicks, focus changes and Escape dismiss selection popovers.
     page.locator("#subject-summary").click()
     page.locator("#subject-search").fill(catalog["subjects"][0])
@@ -98,6 +110,9 @@ def check(browser, base, site_dir, screenshots):
     assert page.locator("#output-table tbody th").all_text_contents() == [
         str(i) for i in range(1, 11)
     ]
+    assert_page_fits(page, "#input-table")
+    assert_page_fits(page, "#output-table")
+    ten_row_height = page.locator("#input-table").bounding_box()["height"]
     for size in [25, 50, 100]:
         page.get_by_label("DM input rows per page", exact=True).select_option(str(size))
         expect(page.locator("#input-table tbody tr")).to_have_count(size)
@@ -105,6 +120,9 @@ def check(browser, base, site_dir, screenshots):
             str(size)
         )
         expect(page.locator("#output-table tbody tr")).to_have_count(size)
+        assert_page_fits(page, "#input-table")
+        assert_page_fits(page, "#output-table")
+        assert page.locator("#input-table").bounding_box()["height"] > ten_row_height
     page.get_by_label("ADSL output rows per page", exact=True).select_option("25")
     expect(page.locator("#input-table tbody tr")).to_have_count(100)
     page.get_by_role("button", name="Next ADSL output rows", exact=True).click()
@@ -117,6 +135,9 @@ def check(browser, base, site_dir, screenshots):
     page.locator("#output-select").select_option("derived")
     for name in ["DM input rows per page", "ADSL output rows per page"]:
         page.get_by_label(name, exact=True).select_option("10")
+    assert_page_fits(page, "#input-table")
+    assert_page_fits(page, "#output-table")
+    assert page.locator("#input-table").bounding_box()["height"] < ten_row_height + 5
     # Specification, area split and table columns resize with keyboard and pointer.
     before = page.locator(".spec-pane").bounding_box()["width"]
     page.locator("#spec-resizer").focus()
@@ -178,6 +199,8 @@ def check(browser, base, site_dir, screenshots):
         "node-selected"
     )
     expect(page.locator('[data-line-node="spec.TRTSDT"]').first).to_be_in_viewport()
+    expect(page.locator('#panel-o-ADAE th[data-node="output.AESEQ"] .key-badge')).to_have_text("Key")
+    assert page.locator('#panel-o-ADAE th.key-column').first.evaluate("e=>getComputedStyle(e).backgroundColor") != page.locator('#panel-o-ADAE th.node-selected').evaluate("e=>getComputedStyle(e).backgroundColor")
     capture(page, screenshots, "connected-datasets.png")
     # All columns can be restored; clearing focus restores manually pinned panels.
     page.locator("#column-mode").select_option("all")
@@ -298,6 +321,8 @@ def check(browser, base, site_dir, screenshots):
             page.goto(study + f"#cdiscpilot01/{view}/ADAE?focus=output.TRTSDT")
             if view == "datasets":
                 expect(page.locator("#dataset-select")).to_be_visible()
+                expect(page.locator("#output-table tbody tr")).not_to_have_count(0)
+                assert_page_fits(page, "#output-table")
             elif view == "findings":
                 expect(
                     page.get_by_role("heading", name="Consistency verification report")
