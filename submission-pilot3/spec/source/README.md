@@ -13,10 +13,7 @@ match the same submission snapshot and are inventoried without modification.
 | [SDTM Define-XML](../define/define-sdtm.xml) | Published input metadata. |
 | [Shared study SAP](../../../cdiscpilot01/spec/source/SAP.pdf) | Supporting study definitions; applicability to Pilot 3 remains to be reviewed. |
 
-[rule-coverage.csv](../validation/rule-coverage.csv) starts with metadata
-review for the five active datasets. It is not an exhaustive derivation
-inventory. Every row is pending review, and its proposed check is not yet
-implemented. Source document identity was verified; alignment of the staged
+Source document identity was verified; alignment of the staged
 Parquet references was not revalidated.
 
 Follow the shared [review and provenance conventions](../../../cdiscpilot01/spec/source/README.md).
