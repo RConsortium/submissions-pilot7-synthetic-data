@@ -1,0 +1,53 @@
+# CDISC CORE validation -- submission-pilot6 (ADAM)
+
+- Engine: CORE v0.16.0
+- Commit: 5243296
+- Generated: 2026-10-25T03:04Z
+
+### ADADAS
+
+Report: `core-report-ADAM.json`
+
+> No CORE rules were executed for this standard (0 rules). Conformance is **UNVERIFIED**, not a clean pass. CORE ships no ADaM rulebook (see issue #66); use Pinnacle 21 for ADaM conformance.
+
+### ADAE
+
+Report: `core-report-ADAM.json`
+
+> No CORE rules were executed for this standard (0 rules). Conformance is **UNVERIFIED**, not a clean pass. CORE ships no ADaM rulebook (see issue #66); use Pinnacle 21 for ADaM conformance.
+
+### ADLBC
+
+Report: `core-report-ADAM.json`
+
+> No CORE rules were executed for this standard (0 rules). Conformance is **UNVERIFIED**, not a clean pass. CORE ships no ADaM rulebook (see issue #66); use Pinnacle 21 for ADaM conformance.
+
+### ADLBH
+
+Report: `core-report-ADAM.json`
+
+> No CORE rules were executed for this standard (0 rules). Conformance is **UNVERIFIED**, not a clean pass. CORE ships no ADaM rulebook (see issue #66); use Pinnacle 21 for ADaM conformance.
+
+### ADNPIX
+
+Report: `core-report-ADAM.json`
+
+> No CORE rules were executed for this standard (0 rules). Conformance is **UNVERIFIED**, not a clean pass. CORE ships no ADaM rulebook (see issue #66); use Pinnacle 21 for ADaM conformance.
+
+### ADSL
+
+Report: `core-report-ADAM.json`
+
+> No CORE rules were executed for this standard (0 rules). Conformance is **UNVERIFIED**, not a clean pass. CORE ships no ADaM rulebook (see issue #66); use Pinnacle 21 for ADaM conformance.
+
+### ADTTE
+
+Report: `core-report-ADAM.json`
+
+> No CORE rules were executed for this standard (0 rules). Conformance is **UNVERIFIED**, not a clean pass. CORE ships no ADaM rulebook (see issue #66); use Pinnacle 21 for ADaM conformance.
+
+### ADVS
+
+Report: `core-report-ADAM.json`
+
+> No CORE rules were executed for this standard (0 rules). Conformance is **UNVERIFIED**, not a clean pass. CORE ships no ADaM rulebook (see issue #66); use Pinnacle 21 for ADaM conformance.
