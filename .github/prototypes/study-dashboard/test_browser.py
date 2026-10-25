@@ -216,6 +216,11 @@ def check(browser, base, site_dir, screenshots):
                 view,
             )
             if width == 375 and view == "datasets":
+                page.locator("#subject-summary").click()
+                box = page.locator(".subject-popover").bounding_box()
+                assert box["x"] >= 0 and box["x"] + box["width"] <= width
+                page.locator("[data-close-subjects]").click()
+                expect(page.locator("#subject-picker")).not_to_have_attribute("open", "")
                 capture(page, screenshots, "mobile-workspace.png")
     page.goto(study + "#cdiscpilot01/datasets/ADSL?focus=output.TRT01P")
     expect(page.locator("#output-table th.node-selected")).to_have_count(1)

@@ -144,7 +144,7 @@
     return `<div class="metric-strip">${["Datasets", "Columns", "Cells"].map((n, i) => `<span><strong>${n}</strong> ${metric(m.matched[i])} / ${metric(m.reference[i])} <small>${m.reference[i] ? Math.round((100 * m.matched[i]) / m.reference[i]) + "%" : "n/a"}</small></span>`).join("")}<button data-view="findings"><strong>Documentation review</strong> ${report.findings.length} observations / tasks</button></div>`;
   }
   function subjectPicker() {
-    return `<details class="subject-picker" id="subject-picker"><summary id="subject-summary">Subjects <strong>${state.subjects.length} / ${model.subjects.length}</strong><span aria-hidden="true">&#9662;</span></summary><div class="subject-popover"><label class="field-label" for="subject-search">Find a subject</label><input id="subject-search" type="search" placeholder="Search USUBJID..."><div class="subject-actions">${[3, 10, 25, 50].map((n) => `<button data-subject-count="${n}">First ${n}</button>`).join("")}<button data-subject-count="all">Select all</button><button data-subject-count="0">Clear</button></div><div class="subject-options">${model.subjects.map((s) => `<label data-subject-option="${esc(s)}"><input type="checkbox" data-subject="${esc(s)}" ${state.subjects.includes(s) ? "checked" : ""}>${esc(s)}</label>`).join("")}</div><p>All records for selected subjects are available. Subject-independent lookup rows stay visible.</p></div></details>`;
+    return `<details class="subject-picker" id="subject-picker"><summary id="subject-summary">Subjects <strong>${state.subjects.length} / ${model.subjects.length}</strong><span aria-hidden="true">&#9662;</span></summary><div class="subject-popover"><label class="field-label" for="subject-search">Find a subject</label><input id="subject-search" type="search" placeholder="Search USUBJID..."><div class="subject-actions">${[3, 10, 25, 50].map((n) => `<button data-subject-count="${n}">First ${n}</button>`).join("")}<button data-subject-count="all">Select all</button><button data-subject-count="0">Clear</button><button data-close-subjects>Done</button></div><div class="subject-options">${model.subjects.map((s) => `<label data-subject-option="${esc(s)}"><input type="checkbox" data-subject="${esc(s)}" ${state.subjects.includes(s) ? "checked" : ""}>${esc(s)}</label>`).join("")}</div><p>All records for selected subjects are available. Subject-independent lookup rows stay visible.</p></div></details>`;
   }
   function frame() {
     return `<header class="review-hero"><div><p class="eyebrow">PILOT 7 / SDTM &#8594; ADaM</p><h1>${esc(model.title)}</h1><p>Agentic review SDTM to ADaM derivations against the published submission package.</p></div><div class="hero-actions">${link(model.source, "Study source", "button")}<button class="button" id="copy-view">Copy view link</button><button class="button primary" data-view="findings">Consistency report</button></div></header>${metrics()}<div class="provenance">Real staged inputs and official references. Derived outputs passed the study's existing comparator. <span>Source ${link(`${REPO}/commit/${model.revision}`, model.revision.slice(0, 8))}</span></div><nav class="review-tabs" aria-label="Study sections">${[
@@ -714,6 +714,11 @@
     }
     if (target.dataset.node || target.dataset.lineNode) {
       selectFocus(target.dataset.node || target.dataset.lineNode);
+      return;
+    }
+    if (target.hasAttribute("data-close-subjects")) {
+      byId("subject-picker").open = false;
+      byId("subject-summary").focus();
       return;
     }
     if (target.dataset.subjectCount) {
