@@ -10,12 +10,9 @@ We use AI agents to review pilot submission packages, reproduce ADaM
 datasets, and share findings. Automated comparisons check the derived
 datasets against published ADaM.
 
-| Study | Status |
-| --- | --- |
-| [CDISC Pilot 01](studies/cdiscpilot01.md) | Done |
-| [Submission Pilot 3](studies/submission-pilot3.md) | Done |
-| [Submission Pilot 5](studies/submission-pilot5.md) | Done |
-| [Submission Pilot 6](studies/submission-pilot6.md) | Ongoing |
+<!-- pilot-metrics:begin -->
+[View the latest validated study metrics on the project website](https://rconsortium.github.io/submissions-pilot7-synthetic-data/).
+<!-- pilot-metrics:end -->
 
 ## Synthetic studies
 

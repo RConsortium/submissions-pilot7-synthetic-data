@@ -104,7 +104,8 @@ class ScopeTests(unittest.TestCase):
         self.assertTrue(next(row['r'] for row in scope['studies'] if row['study'] == 'submission-pilot3'))
 
     def test_publication_code_requires_fresh_full_publication_check(self):
-        for path in ('.github/scripts/build_study_docs.py', '.github/yamaa-studies.json', WORKER):
+        for path in ('.github/scripts/build_study_docs.py', '.github/scripts/build_index_table.py',
+                     '.github/yamaa-studies.json', WORKER):
             scope = self.scope(path)
             self.assertTrue(scope['publication'])
             self.assertTrue(any(row['yamaa'] for row in scope['studies']))
@@ -161,6 +162,9 @@ class ScopeTests(unittest.TestCase):
         (docs / 'submission-pilot3.md').write_text('old generated result')
         (self.root / 'docs/evidence').mkdir()
         (self.root / 'docs/evidence/study.json').write_text('{"status":"succeeded"}')
+        source_index = ('# Home\n\n<!-- pilot-metrics:begin -->\n'
+                        'old numeric snapshot\n<!-- pilot-metrics:end -->\n')
+        (self.root / 'docs/index.md').write_text(source_index)
         (self.root / 'mkdocs.yml').write_text('site_name: Preview\n')
         config = prepare_preview(self.root, self.root / '.build/site-preview')
         page = config.parent / 'docs/studies/submission-pilot3.md'
@@ -169,6 +173,12 @@ class ScopeTests(unittest.TestCase):
         self.assertFalse((config.parent / 'docs/evidence').exists())
         self.assertEqual((docs / 'submission-pilot3.md').read_text(), 'old generated result')
         self.assertEqual((config.parent / 'docs/studies/kn189.md').read_text(), '# Synthetic study\n')
+        preview_index = (config.parent / 'docs/index.md').read_text()
+        self.assertIn('PR layout preview', preview_index)
+        self.assertNotIn('old numeric snapshot', preview_index)
+        self.assertNotIn('<!-- pilot-metrics:begin -->', preview_index)
+        self.assertEqual((self.root / 'docs/index.md').read_text(), source_index)
+        self.assertIn('hooks: []', config.read_text())
 
 
 if __name__ == '__main__':

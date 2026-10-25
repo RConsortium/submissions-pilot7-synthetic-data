@@ -38,6 +38,9 @@ Keep explanations short, concrete, and easy to follow.
 - Generate pilot study pages and JSON evidence with
   `python3 .github/scripts/build_study_docs.py` after validating the studies.
   Do not hand-edit or commit these generated files.
+- MkDocs renders landing-page metrics from `.build/validation` during the build.
+  Keep the source block between the pilot-metrics markers as a website link;
+  do not commit generated numbers to `docs/index.md`.
 - Keep Responsibilities and Tools as separate sections. Describe human review,
   AI drafting, engine execution, and automated checks clearly.
 

@@ -14,7 +14,8 @@ from study_evidence import catalog
 CORE_CODE = {'.github/scripts/run_core.py', '.github/scripts/parquet_to_xpt.py',
              '.github/scripts/core_render_block.sh', '.github/scripts/core_block.jq'}
 YAMAA_CODE = {'.github/scripts/validate_yamaa.py', '.github/scripts/study_evidence.py',
-              '.github/scripts/build_study_docs.py', '.github/yamaa-studies.json',
+              '.github/scripts/build_study_docs.py', '.github/scripts/build_index_table.py',
+              '.github/yamaa-studies.json',
               '.github/workflows/yamaa-site.yml', 'requirements.txt'}
 WORKER = '.github/workflows/study-check.yml'
 PLAN = 'submission-pilot3/data/mapping/plan.csv'
@@ -64,10 +65,12 @@ def select_checks(root, changed):
         'compare': bool(changed & (COMPARE_INPUTS | {'.github/workflows/ci.yml'}))
                    or any(path.startswith('submission-pilot5/data/adam/') and path.endswith('.parquet') for path in changed),
         'publication': bool(changed & {'.github/scripts/build_study_docs.py',
+                                      '.github/scripts/build_index_table.py',
                                       '.github/scripts/study_evidence.py', '.github/yamaa-studies.json',
                                       '.github/workflows/yamaa-site.yml', WORKER}),
         'website': any(path.startswith('docs/') for path in changed)
                    or bool(changed & {'mkdocs.yml', '.github/scripts/build_study_docs.py',
+                                      '.github/scripts/build_index_table.py',
                                       '.github/scripts/preview_site.py', '.github/yamaa-studies.json',
                                       '.github/workflows/yamaa-site.yml', '.github/scripts/check_ascii.py'}),
     }
