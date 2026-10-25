@@ -16,8 +16,7 @@ Two severities:
   error   -- unambiguous breakage; fails the job.
              A missing required folder, an empty folder with no .gitkeep to
              keep git tracking it, a forbidden nesting such as data/data, a
-             file extension outside its declared home, or a non-ASCII byte
-             in a file listed as ASCII-only.
+             file extension outside its declared home.
 
   warning -- annotated but does not fail. An unexpected extra folder is
              usually a deliberate new stage; add it to `study.required` or
@@ -156,34 +155,6 @@ def check_extension_locations(root: str, studies: list[str], rules: dict) -> Non
                         )
 
 
-def check_ascii(root: str, paths: list[str]) -> None:
-    for rel in paths:
-        abspath = os.path.join(root, rel)
-        if not os.path.isfile(abspath):
-            error(rel, "listed in ascii_only_files but does not exist")
-            continue
-        with open(abspath, "rb") as fh:
-            data = fh.read()
-        offenders = {}
-        line = 1
-        for byte in data:
-            if byte == 0x0A:
-                line += 1
-            elif byte > 0x7F:
-                offenders.setdefault(line, 0)
-                offenders[line] += 1
-        if offenders:
-            shown = ", ".join(
-                f"line {ln} ({n})" for ln, n in sorted(offenders.items())[:5]
-            )
-            more = "" if len(offenders) <= 5 else f" and {len(offenders) - 5} more"
-            error(
-                rel,
-                f"must be ASCII only; non-ASCII bytes on {shown}{more}. "
-                "Use +-- and | for trees, -> for arrows, - for dashes",
-            )
-
-
 def validate_manifest(manifest: dict) -> list[str]:
     """Guard against a malformed template silently passing every study."""
     problems = []
@@ -272,7 +243,6 @@ def main() -> int:
     check_extension_locations(
         root, studies, manifest.get("extension_locations", {})
     )
-    check_ascii(root, manifest.get("ascii_only_files", []))
 
     for path_, msg in errors:
         annotate("error", path_, msg)

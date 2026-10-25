@@ -28,7 +28,7 @@ above. No commits, no branches, no PRs, no issues, no comments, no labels.
   access to channel `C0B44HS7CNA`. If Slack tools are missing or the
   channel is unreachable, print the error to stdout and exit non-zero --
   do **not** fall back to posting a GitHub issue or any other channel.
-- No R needed. Do **not** run `bootstrap_system.sh` or `bootstrap_r.R`.
+- No study environment or package installation is needed.
 
 ## Step 1 -- Determine the reporting window and check idempotency
 

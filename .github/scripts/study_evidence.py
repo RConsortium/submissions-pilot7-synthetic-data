@@ -1,6 +1,7 @@
 """Shared project inventory and publication checks for study evidence."""
 
 import json
+import os
 import re
 from pathlib import Path
 
@@ -78,3 +79,12 @@ def validate_reports(root, entries, reports, expected_commit=None):
         raise ValueError('Study evidence comes from different source commits')
     if len(revisions) != 1:
         raise ValueError('Study evidence uses different yamaa revisions')
+
+
+if __name__ == '__main__':
+    # Emit the publication catalog as a GitHub Actions matrix.
+    studies = json.dumps(list(catalog(Path(__file__).resolve().parents[2])))
+    print(studies)
+    if os.environ.get('GITHUB_OUTPUT'):
+        with open(os.environ['GITHUB_OUTPUT'], 'a') as output:
+            output.write(f'studies={studies}\n')

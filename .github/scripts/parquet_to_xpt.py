@@ -14,7 +14,7 @@ that cannot be written (e.g. a variable name longer than 8 chars) is logged
 and skipped, so one bad table never blocks the rest of a domain.
 
 Usage:  python3 .github/scripts/parquet_to_xpt.py --in <src_dir> --out <dst_dir>
-Exit code is always 0 (skips are warnings); prints a per-file summary.
+Exit code 1 if every input fails conversion; partial skips are warnings.
 """
 
 from __future__ import annotations

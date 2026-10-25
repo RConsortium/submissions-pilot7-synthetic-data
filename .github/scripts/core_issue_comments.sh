@@ -2,9 +2,8 @@
 # Post CDISC CORE findings as comments on matching open issues.
 #
 # Deterministic gh + jq, no AI agent and no stored secret -- authenticated by
-# the workflow's GITHUB_TOKEN (needs issues: write). Adapted from the original
-# automation/core_dataset_comments.md spec, but reads reports that the CI job
-# already downloaded (no artifact fetch here) and spans every study.
+# the workflow's GITHUB_TOKEN (needs issues: write). Reads the per-study
+# reports already downloaded by CI; this script owns all CORE issue comments.
 #
 # Usage: core_issue_comments.sh [<artifacts_dir>]   (default: _core_artifacts)
 #   Expects report JSONs at <artifacts_dir>/<study>/data/{sdtm,adam}/core-report-*.json
