@@ -47,27 +47,57 @@ the project home and verification policy, and removes publication hooks in
 its staged configuration. It does not edit production Markdown, navigation,
 the study catalog, validation evidence, or reference datasets.
 
-The owner-private hosted review copy is
-<https://pilot7-study-dashboard-review.yamaa-2308.chatgpt.site/studies/cdiscpilot01/>.
-Use the local build and screenshots when that private site is inaccessible.
+The owner-private hosted review copy at
+<https://pilot7-study-dashboard-review.yamaa-2308.chatgpt.site/studies/cdiscpilot01/>
+preserves the earlier design. It is not updated by this PR. Use the local build
+and committed screenshots for the current exploration features.
 
 ## What is implemented
 
 - Study overview with the four requested metrics and two-stage pilot scope.
-- Dataset browser with search, dataset selection, linked subject highlighting,
-  source/derived/reference previews, and a collapsible specification panel.
-- Documentation review with three example questions, source links, and an
-  explicit statement that no document audit has been performed.
+- Dataset search by name or description, sorting by name, row count, or open
+  documentation questions, and a filter for datasets with questions.
+- A dataset browser with linked subject highlighting, source/derived/reference
+  previews, column focus, sample-row search, and a collapsible specification
+  panel. Search finds matching subjects across source and output values;
+  source columns remain visible when focusing an ADaM variable.
+- Documentation review with searchable, dataset-filtered example questions,
+  expandable review guidance, source links, and direct navigation to the
+  relevant dataset variable and specification. Counts share one example list.
+- Shareable view links retaining dataset, filters, highlighted subject, column,
+  and specification visibility. Refresh and browser back/forward restore them.
+  A selectable text field is available if clipboard access is denied.
+- CSV download of the currently filtered illustrative output rows and columns.
+  The filename explicitly identifies the preview as illustrative.
 - Links to specifications, programs, source documents, and validation
   workflows; sample evidence download.
 - Responsive layouts and support for Material's dark palette and instant
-  page navigation.
+  page navigation, including hosting under a project URL prefix.
+- Larger helper/table text, labeled scrollable tables, keyboard-accessible
+  controls, result announcements, and focus movement on section navigation.
 
 The sample state is embedded in `dashboard.js`. The `3` open findings,
 `100%` agreement, and preview rows are examples, not measured results. Pending
 studies display "Not reviewed" rather than a false zero findings count.
 Pilot 6 appears only as a pending example in this isolated preview; the
 production catalog and current decision to hide it remain unchanged.
+
+## Try the review flow
+
+1. Open CDISC Pilot 01. Search for a dataset or select **Has doc questions**.
+   Sort by **Most doc questions** to find the example review work.
+2. Open **2 open** beside ADSL. Search the questions for `SAFFL`, then expand
+   **How to review this question**.
+3. Select **Explore ADSL.SAFFL**. The workspace opens with the specification
+   visible and SAFFL in focus in both ADaM previews.
+4. Search sample rows for `72`. The source and both output previews retain
+   DEMO-002. Highlight the subject and download **Sample CSV**.
+5. Use **Copy view link** and open it in another tab. The same filters and
+   selections are restored. **Reset preview** restores all sample rows and
+   columns without changing dataset-browser filters.
+
+These actions explore fabricated examples. They do not perform document
+review, validate derivations, or change the study's actual evidence.
 
 ## Continue implementation
 
@@ -106,18 +136,41 @@ integration has been completed by this prototype.
 
 ## Preview verification
 
-The saved prototype passed a strict MkDocs build and browser checks for:
-legacy-link redirect, native MkDocs shell, exact description, title actions,
-four metrics, two-stage pilot scope, findings links, instant study navigation,
-dataset selection/search, subject highlighting, specification toggling,
-sample evidence download, narrow layouts, and dark mode.
+Build the prototype first, then run the repeatable browser checks with the
+optional Playwright test dependency:
+
+```bash
+.venv/bin/python -m pip install playwright
+.venv/bin/python -m playwright install chromium
+.venv/bin/python .github/prototypes/study-dashboard/test_browser.py
+```
+
+An installed Chromium can be selected with `--browser-path /usr/bin/chromium`.
+Use `--screenshots .github/prototypes/study-dashboard/screenshots` to refresh
+the saved review images. The test starts and stops its own local server under
+a project URL prefix; no running preview server or hosted account is needed.
+
+The browser checks cover dataset/finding filters, no-result states, variable
+navigation, row/column filtering, subject highlighting, refresh/shared links,
+back/forward, clipboard denial, filtered CSV and sample JSON downloads, invalid
+route values, escaped search input, pending studies, native instant navigation,
+project-prefix routes, mobile/tablet/desktop widths, and dark mode. They also
+check legible helper text, focus movement, and browser JavaScript errors.
 
 The repository copy should also pass the shared ASCII, structure, unittest,
-and whitespace checks. Study engine execution is not needed to render this
-isolated design preview and does not follow from its sample success states.
+and whitespace checks, the prototype's strict build, and the repository's
+`python .github/scripts/preview_site.py` layout check. Study engine execution
+is not needed to render this isolated design preview and does not follow from
+its sample success states. Production publication still requires the full
+validation workflow described in `AGENTS.md`.
 
 ## Screenshots
 
 ![MkDocs study overview](screenshots/overview.png)
 
 ![Documentation review](screenshots/documentation-findings.png)
+
+![Dataset exploration workspace](screenshots/dataset-workspace.png)
+
+[Mobile workspace](screenshots/mobile-workspace.png) /
+[Dark workspace](screenshots/dark-workspace.png)
