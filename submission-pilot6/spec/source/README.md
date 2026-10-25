@@ -24,14 +24,8 @@ changes together with the corresponding input and ADaM reference snapshot
 before an update. The manifest records both versions to make the difference
 explicit; alignment of the staged Parquet data was not revalidated.
 
-## Pending review
-
-[rule-coverage.csv](../validation/rule-coverage.csv) starts with metadata
-review for the eight target datasets. It is not an exhaustive derivation
-inventory. No active Pilot 6 yamaa project or production ADaM references are
-staged on this PR's base commit. Every row is pending review, and its
-proposed check is not yet implemented. Copying documents does not establish
-a successful derivation or a passed reference comparison.
+Copying documents does not establish a successful derivation or a passed
+reference comparison.
 
 Follow the shared [review and provenance conventions](../../../cdiscpilot01/spec/source/README.md).
 
