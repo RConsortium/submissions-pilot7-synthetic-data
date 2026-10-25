@@ -84,16 +84,3 @@ export function filterRows(rows, metadata, query, peers) {
         subjects.has(r[metadata.subject_index + 1])),
   );
 }
-export function csvContent(rows, columns) {
-  const quote = (value) => {
-    let text = String(value ?? "");
-    if (typeof value === "string" && /^[=+@\t\r-]/.test(text))
-      text = "'" + text;
-    return '"' + text.replaceAll('"', '""') + '"';
-  };
-  return (
-    [columns.map((c) => c.name), ...rows.map((r) => r.slice(1))]
-      .map((r) => r.map(quote).join(","))
-      .join("\r\n") + "\r\n"
-  );
-}

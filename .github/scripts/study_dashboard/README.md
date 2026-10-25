@@ -28,7 +28,7 @@ The reviewer guide is `docs/review.md`.
 docs/assets/dashboard/
   app.js                                 lifecycle, events, and navigation
   state.js                               validated, shareable review URLs
-  data.js                                versioned transport, selection, search, CSV export
+  data.js                                versioned transport, subject selection, and search
   lineage.js                             dependency graph traversal
   shell.js, workspace.js                 study layout and linked review panels
   report.js, comments.js, ui.js           evidence, discussions, and shared primitives
@@ -109,7 +109,7 @@ bash .github/scripts/check_dashboard.sh site
 Use the catalog's full study list when it changes. Node 22+ runs dependency-free
 module tests. Browser checks require Chromium; `browser.py --browser-path PATH`
 can use an installed browser. The browser suite exercises real study bundles,
-project prefixes, all-subject exports, lineage in each direction, source links,
+project prefixes, full-width layout, ten-row paging, lineage in each direction, source links,
 instant navigation, retryable fetches, mobile, and dark mode. It intercepts the
 comment widget and checks its configuration without signing in or posting.
 
@@ -135,9 +135,10 @@ JSON) declare `schema_version: 1`. Unsupported versions fail visibly in the
 browser. Catalog tables contain typed columns, total rows, subject index,
 source path/hash, download URL, and chunk URLs. Compressed chunks are arrays
 `[original_row_ordinal, ...values]`, grouped by subjects; the browser restores
-source ordering and pages the display without limiting selection or CSV export.
+source ordering and pages the display ten rows at a time without limiting subject selection.
 Subject-independent lookups stay visible. Dates use ISO text; nonfinite numbers
-use explicit text. Original downloads retain source values. Keep generation and
+use explicit text. Complete source files remain in the bundle for evidence; table download controls
+are omitted from the reviewer interface. Keep generation and
 browser schema versions aligned when changing this contract.
 
 New consistency checks belong in `consistency.py`, document adapters in

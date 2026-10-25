@@ -34,7 +34,7 @@ import { createComments } from "./comments.js";
     inputPage: 0,
     outputPage: 0,
   };
-  const PAGE = 40;
+  const PAGE = 10;
   const root = () => document.getElementById("study-dashboard");
   const byId = (id) => document.getElementById(id);
   const resource = (path) => new URL(`${model.id}/${path}`, dataRoot).href;
@@ -143,15 +143,19 @@ import { createComments } from "./comments.js";
     paintTables,
     fitWorkbench,
     resizeSpec,
-    exportCsv,
     overview,
   } = createWorkspace(ctx);
-  const { findingItems, findingCards, findingsView, materialsView, drawer } =
+  const { findingCards, findingsView, materialsView, drawer } =
     createReport(ctx);
-  const { commentsView, issueUrl, commentContext, loadComments } =
-    createComments(ctx);
+  const { commentsView, commentContext, loadComments } = createComments(ctx);
 
+  function dismissSubjects(event) {
+    const picker = byId("subject-picker");
+    if (picker?.open && !picker.contains(event.target)) picker.open = false;
+  }
+  document.addEventListener("focusin", dismissSubjects);
   document.addEventListener("pointerdown", (event) => {
+    dismissSubjects(event);
     if (event.target.id !== "spec-resizer") return;
     event.preventDefault();
     const grid = root().querySelector(".review-workbench");
@@ -167,6 +171,12 @@ import { createComments } from "./comments.js";
     document.addEventListener("pointerup", done);
   });
   document.addEventListener("keydown", (event) => {
+    if (event.key === "Escape" && byId("subject-picker")?.open) {
+      byId("subject-picker").open = false;
+      byId("subject-summary").focus();
+      event.preventDefault();
+      return;
+    }
     if (event.target.id !== "spec-resizer") return;
     const value = Number(event.target.getAttribute("aria-valuenow"));
     if (["ArrowLeft", "ArrowRight", "Home", "End"].includes(event.key)) {
@@ -184,6 +194,7 @@ import { createComments } from "./comments.js";
   async function renderView() {
     const token = ++ticket,
       d = dataset();
+    state.inputPage = state.outputPage = 0;
     const loaded = await get(resource(d.spec));
     if (token !== ticket) return;
     specification = loaded;
@@ -209,9 +220,9 @@ import { createComments } from "./comments.js";
           ? overview()
           : state.view === "findings"
             ? findingsView()
-            : state.view === "materials"
-              ? materialsView()
-              : commentsView();
+            : materialsView();
+    byId("review-comments").innerHTML = commentsView();
+    loadComments();
     if (state.view === "datasets") {
       await refreshRows();
       if (token === ticket) {
@@ -219,12 +230,11 @@ import { createComments } from "./comments.js";
         applyHighlight(true);
       }
     }
-    if (state.view === "comments") loadComments();
   }
   async function mount() {
     const main = root();
     if (!main) {
-      document.body.classList.remove("study-review-page", "review-wide");
+      document.body.classList.remove("study-review-page");
       const [legacyStudy, legacyView] = location.hash.slice(1).split("/");
       if (legacyStudy && legacyView) {
         const catalog = await get(new URL("index.json", dataRoot));
@@ -243,7 +253,7 @@ import { createComments } from "./comments.js";
     try {
       index = await get(new URL("index.json", dataRoot));
       if (token !== mount.token) return;
-      document.body.classList.remove("study-review-page", "review-wide");
+      document.body.classList.remove("study-review-page");
       const page = main.dataset.study;
       if (page === "gallery") {
         main.innerHTML = `<h1>Study review workspaces</h1><p>Explore the complete staged inputs, validated derived outputs, specifications, and submission-package sources.</p><div class="material-grid">${index.studies.map((s) => `<a class="study-card" href="${new URL("studies/" + s.id + "/", site)}"><h2>${esc(s.title)}</h2><p>${s.status === "pending" ? "Validation pending" : s.datasets + " datasets / " + s.subjects + " subjects"}</p><span>${s.findings === null ? "Not reviewed" : s.findings + " documentation observations and tasks"} &#8594;</span></a>`).join("")}</div>`;
@@ -278,6 +288,8 @@ import { createComments } from "./comments.js";
       Object.assign(state, readRoute(location.hash, model));
       document.body.classList.add("study-review-page");
       await renderView();
+      if (location.hash.split("?")[0].split("/")[1] === "comments")
+        byId("review-comments")?.scrollIntoView({ block: "start" });
     } catch (e) {
       if (token === mount.token)
         main.innerHTML = `<div class="error-state" role="alert"><h1>Review data could not be loaded</h1><p>${esc(e.message)}</p><button class="button" id="reload-review">Retry</button></div>`;
@@ -359,13 +371,11 @@ import { createComments } from "./comments.js";
       paintTables();
       return;
     }
-    if (target.dataset.export) {
-      exportCsv(target.dataset.export);
-      return;
-    }
-    if (target.id === "copy-view") {
-      save();
-      await copy(location.href);
+    if (target.hasAttribute("data-comment")) {
+      byId("review-comments").scrollIntoView({
+        behavior: "smooth",
+        block: "start",
+      });
       return;
     }
     if (target.id === "copy-comment-context") {
@@ -376,13 +386,6 @@ import { createComments } from "./comments.js";
       state.focus = "";
       save();
       applyHighlight();
-      return;
-    }
-    if (target.id === "wide-mode") {
-      const on = document.body.classList.toggle("review-wide");
-      target.setAttribute("aria-pressed", String(on));
-      target.textContent = on ? "Restore navigation" : "Widen workspace";
-      fitWorkbench();
       return;
     }
     if (target.id === "clear-findings") {
