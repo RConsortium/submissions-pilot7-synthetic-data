@@ -64,4 +64,4 @@ build repeats it after generating study pages; a violation blocks deployment.
 PR CI keeps shared checks in one job and selects additional study jobs from
 the changed files. Site-only PRs use a layout preview with no study results.
 Publication on main still requires fresh validation of the full study catalog.
-See `.github/README.md` for scope rules and the reusable study worker.
+See `.github/AUTOMATION.md` for scope rules and the reusable study worker.
