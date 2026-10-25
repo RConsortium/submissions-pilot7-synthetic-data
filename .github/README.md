@@ -4,7 +4,7 @@
 | --- | --- | --- |
 | `ci.yml` | Structure, ASCII, all tooling tests, Pilot 3 plan reproducibility, comparator self-check. Runs on every PR and push to main. | None. |
 | `adam-compare.yml` | Manual generic ADaM comparison using workflow inputs. | None. |
-| `core-validate.yml` | CORE checks on committed study datasets; report artifacts and issue findings. | On main only: a `core/reports` PR and issue comments. |
+| `core-validate.yml` | CORE checks on committed study datasets and report artifacts. | On main only: a `core/reports` PR. |
 | `yamaa-site.yml` | Build the cataloged studies, compare against independent references, validate evidence, and build the website. | GitHub Pages on main in the upstream repository. |
 
 The folder template is `repo-structure.json`. `check_structure.py` owns directory
@@ -64,8 +64,8 @@ conversion remains explicit and does not become a clean pass.
 
 Artifacts are retained for 90 days, including available records on failed runs.
 Only successful validation jobs can deliver reports. The report PR copies only
-XLSX and `dataset_comment.md`; JSON stays artifact-only. The issue-comment job
-uses the same renderer and keys deduplication on the workflow run ID.
+XLSX and `dataset_comment.md`; JSON stays artifact-only. CORE validation does not
+post comments or add labels to issues.
 
 Report PRs require the repository setting that allows Actions to create PRs.
 Human review and merge remain separate from engine execution and automated
