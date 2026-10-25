@@ -13,7 +13,7 @@ derivation.
 
 - Pilot 7 derivation assets:
   - `data/mapping/`: ADADAS LOCF planning (`plan.csv`) and analysis-window
-    definitions (`aw_lookup.csv`).
+    definitions (`analysis_window.csv`).
     [R](program/adam/R/make_plan.R) and
     [Python](program/adam/python/make_plan.py) programs regenerate `plan.csv`.
   - `spec/yamaa/`: yamaa specifications for SDTM-to-ADaM derivation.
