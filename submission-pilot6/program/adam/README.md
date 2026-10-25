@@ -65,7 +65,7 @@ is separate from validating Pilot 7's yamaa specifications.
 
 ## Recorded verification
 
-[GitHub Actions run 40144529053](https://github.com/RConsortium/submissions-pilot7-synthetic-data/actions/runs/40144529053)
+[GitHub Actions run 40145768527](https://github.com/RConsortium/submissions-pilot7-synthetic-data/actions/runs/40145768527)
 restored the committed lockfile and passed the exact input precision probe.
 The [machine-readable report](../../log/upstream-verification.json) binds
 these results to the source snapshot, R runner, bootstrap and lockfile hashes.
