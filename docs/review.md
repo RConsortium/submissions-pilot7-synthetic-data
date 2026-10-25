@@ -41,6 +41,13 @@ selected comparison datasets remain available. Input headers and YAML blocks
 also select declared connections. **Clear highlight** restores the manual input
 selection and removes the column focus.
 
+The YAML pane also focuses `columns:` and `rows:` on related entries. The
+selected column is highlighted in both its column definition and its row
+derivations. Selecting a row rule highlights that rule. Inputs, outputs,
+intermediates, verifications and other sections stay visible in full. Original
+source text and line numbers are retained. **All columns** or **Clear highlight**
+restores every specification entry.
+
 Connections include declared values, joins, filters, keys, and ordering. They
 describe column dependencies; they do not identify contributing input rows.
 Unresolved references are reported above the specification.

@@ -15,7 +15,7 @@ import sys
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[2] / "scripts"))
 from study_dashboard.datasets import export_table, read_table
-from study_dashboard.lineage import build_lineage
+from study_dashboard.lineage import build_lineage, source_locations
 from study_dashboard.consistency import build_report
 from study_dashboard.documents import define_metadata
 
@@ -101,6 +101,45 @@ rows:
             "row-created values retain source and row-selection dependencies",
         )
         self.assertEqual(r["unresolved"], [])
+
+    def test_source_locations_cover_inline_columns_and_individual_row_expressions(self):
+        text = """domain: ADX
+columns:
+  - {name: AGE}
+rows:
+  - id: collected
+    derivations:
+      AGE: DM.AGE
+      SEX:
+        mapping:
+          source: DM.SEX
+      EMPTY:
+  - id: planned
+    derivations: {AGE: 65, SEX: F}
+verifications:
+  - row_count: {min: 1}
+"""
+        self.assertEqual(
+            source_locations(text),
+            {
+                "spans": {
+                    "AGE": {"start": 3, "end": 3, "kind": "columns"},
+                    "collected": {"start": 5, "end": 11, "kind": "rows"},
+                    "planned": {"start": 12, "end": 13, "kind": "rows"},
+                },
+                "row_derivations": {
+                    "collected": {
+                        "AGE": {"start": 7, "end": 7},
+                        "SEX": {"start": 8, "end": 10},
+                        "EMPTY": {"start": 11, "end": 11},
+                    },
+                    "planned": {
+                        "AGE": {"start": 13, "end": 13},
+                        "SEX": {"start": 13, "end": 13},
+                    },
+                },
+            },
+        )
 
     def test_complete_chunks_preserve_all_rows_dates_nulls_and_original_order(self):
         with tempfile.TemporaryDirectory() as tmp:

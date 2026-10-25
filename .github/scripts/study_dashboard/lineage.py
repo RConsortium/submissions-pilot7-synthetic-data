@@ -9,7 +9,6 @@ import re
 
 import yaml
 
-
 TOKENS = re.compile(
     r"'(?:(?:'')|[^'])*'|\b[A-Za-z_][A-Za-z_0-9]*(?:\.[A-Za-z_][A-Za-z_0-9]*)?\b"
 )
@@ -27,10 +26,15 @@ def strings(value):
             yield from strings(item)
 
 
-def spans(text):
+def source_locations(text):
     """Read positions from YAML nodes instead of guessing with text searches."""
     root = yaml.compose(text)
-    sections = {}
+    sections, row_derivations = {}, {}
+
+    def line_span(start, end):
+        last = start.line + 1 + text[start.index : end.index].rstrip().count("\n")
+        return {"start": start.line + 1, "end": max(last, end.line)}
+
     for key, value in root.value:
         if key.value in {"columns", "intermediates", "rows"}:
             for item in value.value:
@@ -38,15 +42,22 @@ def spans(text):
                 identifier = fields.get("name" if key.value == "columns" else "id")
                 if identifier:
                     sections[identifier.value] = {
-                        "start": item.start_mark.line + 1,
-                        "end": item.end_mark.line,
+                        **line_span(item.start_mark, item.end_mark),
                         "kind": key.value,
                     }
-    return sections
+                    derivations = fields.get("derivations")
+                    if key.value == "rows" and isinstance(
+                        derivations, yaml.MappingNode
+                    ):
+                        row_derivations[identifier.value] = {
+                            name.value: line_span(name.start_mark, expression.end_mark)
+                            for name, expression in derivations.value
+                        }
+    return {"spans": sections, "row_derivations": row_derivations}
 
 
 def build_lineage(text, spec, input_columns):
-    positions = spans(text)
+    locations = source_locations(text)
     local = {c["name"] for c in spec.get("columns", [])}
     templates = spec.get("rows", [])
     local |= {name for row in templates for name in row.get("derivations", {})}
@@ -140,7 +151,7 @@ def build_lineage(text, spec, input_columns):
         edges[f"output.{name}"] = {f"spec.{name}"} | input_context | output_context
     return {
         "edges": {k: sorted(v - {k}) for k, v in edges.items()},
-        "spans": positions,
+        **locations,
         "unresolved": sorted(unresolved),
         "level": "static_column_dependencies",
         "note": "Declared value and context dependencies; contributing rows are not traced.",

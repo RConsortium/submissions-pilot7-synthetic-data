@@ -350,7 +350,7 @@ import { mountSynthetic } from "./synthetic.js";
       state.pages = {};
       save();
       if (owner && specification.domain !== owner) await renderView();
-      else await redrawWorkspace(true);
+      else await redrawWorkspace(target.closest(".spec-line")?.id || true);
       return;
     }
     if (target.hasAttribute("data-close-subjects")) {

@@ -196,7 +196,14 @@ def check(browser, base, site_dir, screenshots):
         '.input-group [data-domain="DM"] thead button[data-node]'
     ).all_text_contents()
     assert not any("AGE" in name for name in visible)
-    assert page.locator('[data-line-node="spec.TRTSDT"].node-related').count() > 0
+    assert page.locator('[data-line-node="spec.TRTSDT"].node-selected').count() > 0
+    assert page.locator('.spec-line[data-spec-kind="columns"][hidden]').count() > 0
+    assert (
+        page.locator(
+            '.spec-line[hidden]:not([data-spec-kind="columns"]):not([data-spec-kind="rows"])'
+        ).count()
+        == 0
+    )
     expect(page.locator('#panel-o-ADAE th[data-node="output.TRTSDT"]')).to_have_class(
         "node-selected"
     )
@@ -206,6 +213,7 @@ def check(browser, base, site_dir, screenshots):
     capture(page, screenshots, "connected-datasets.png")
     # All columns can be restored; clearing focus restores manually pinned panels.
     page.locator("#column-mode").select_option("all")
+    expect(page.locator(".spec-line[hidden]")).to_have_count(0)
     assert (
         page.locator('.input-group [data-domain="DM"] thead button[data-node]').count()
         > 10
@@ -328,6 +336,31 @@ def check(browser, base, site_dir, screenshots):
     expect(page.frame_locator("#source-frame").locator("table").first).to_be_visible()
     page.locator('.review-tabs [data-view="datasets"]').click()
     page.locator("#dataset-select").select_option("ADADAS")
+    expression = page.locator(
+        '.spec-line[data-row-node="row.collected"][data-line-node="spec.ADT_RAW"]'
+    ).first
+    expression.click()
+    expect(expression).to_have_class("spec-line node-selected")
+    expect(expression).to_be_in_viewport()
+    expect(
+        page.locator(
+            '.spec-line[data-spec-kind="columns"][data-line-node="spec.ADT_RAW"]'
+        ).first
+    ).to_have_class("spec-line node-selected")
+    expect(
+        page.locator(
+            '.spec-line[data-row-node="row.collected"][data-line-node="spec.AVAL_RAW"]'
+        ).first
+    ).not_to_be_visible()
+    page.locator(
+        '.spec-line[data-row-node="row.collected"][data-line-node="row.collected"]'
+    ).first.click()
+    expect(
+        page.locator('.spec-line[data-row-node="row.collected"]:not(.node-selected)')
+    ).to_have_count(0)
+    capture(page, screenshots, "focused-row-specification.png")
+    page.get_by_role("button", name="Clear highlight", exact=True).click()
+    expect(page.locator(".spec-line[hidden]")).to_have_count(0)
     p3 = json.loads(
         (site_dir / "evidence/dashboard/submission-pilot3/catalog.json").read_text()
     )
