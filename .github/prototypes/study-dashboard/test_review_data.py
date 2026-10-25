@@ -1,6 +1,7 @@
 """Review-index boundaries: literal names, row context, source versions, data fidelity."""
 
 from datetime import date
+import gzip
 import json
 from pathlib import Path
 import tempfile
@@ -124,7 +125,7 @@ rows:
                 [
                     row
                     for c in metadata["chunks"]
-                    for row in json.loads((target / c["url"]).read_text())
+                    for row in json.loads(gzip.decompress((target / c["url"]).read_bytes()))
                 ]
             )
             self.assertEqual(

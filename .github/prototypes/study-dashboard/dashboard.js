@@ -64,10 +64,22 @@
       cache.set(
         key,
         fetch(key, { cache: "no-cache" })
-          .then((r) => {
+          .then(async (r) => {
             if (!r.ok)
               throw Error(`Cannot load ${new URL(key).pathname} (${r.status})`);
-            return r.json();
+            if (!new URL(key).pathname.endsWith(".json.gz")) return r.json();
+            const bytes = new Uint8Array(await r.arrayBuffer());
+            // Hosts may apply HTTP content decoding before Fetch exposes bytes.
+            if (bytes[0] !== 0x1f || bytes[1] !== 0x8b)
+              return JSON.parse(new TextDecoder().decode(bytes));
+            if (typeof DecompressionStream === "undefined")
+              throw Error(
+                "Please use a current browser to load the study data.",
+              );
+            const stream = new Blob([bytes])
+              .stream()
+              .pipeThrough(new DecompressionStream("gzip"));
+            return new Response(stream).json();
           })
           .catch((e) => {
             cache.delete(key);

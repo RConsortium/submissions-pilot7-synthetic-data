@@ -2,6 +2,7 @@
 """Exercise complete real-data review bundles in a browser, with no write actions."""
 import argparse
 import csv
+import gzip
 from functools import partial
 from http.server import SimpleHTTPRequestHandler, ThreadingHTTPServer
 import json
@@ -250,12 +251,26 @@ def check(browser, base, site_dir, screenshots):
         else:
             route.continue_()
 
-    failure.route("**/cdiscpilot01/tables/t000/0.json", once)
+    failure.route("**/cdiscpilot01/tables/t000/0.json.gz", once)
     failure.goto(study)
     expect(failure.locator("#input-table .error-state")).to_be_visible()
     failure.locator("#input-table #retry-data").click()
     expect(failure.locator("#input-table tbody tr")).to_have_count(3)
     failure_context.close()
+
+    # Fetch may expose already-decoded bytes when a host sets Content-Encoding.
+    decoded_context = browser.new_context()
+    decoded = decoded_context.new_page()
+    chunk = site_dir / "assets/review-data/cdiscpilot01/tables/t000/0.json.gz"
+    decoded.route(
+        "**/cdiscpilot01/tables/t000/0.json.gz",
+        lambda route: route.fulfill(
+            body=gzip.decompress(chunk.read_bytes()), content_type="application/json"
+        ),
+    )
+    decoded.goto(study)
+    expect(decoded.locator("#input-table tbody tr")).to_have_count(3)
+    decoded_context.close()
 
 
 def main():

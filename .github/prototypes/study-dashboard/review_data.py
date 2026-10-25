@@ -2,6 +2,7 @@
 
 from datetime import date, datetime
 import csv
+import gzip
 import importlib.util
 import json
 import math
@@ -35,7 +36,7 @@ def clean(value):
 
 def write_json(path, value):
     path.parent.mkdir(parents=True, exist_ok=True)
-    path.write_text(
+    text = (
         json.dumps(
             value,
             ensure_ascii=True,
@@ -45,6 +46,10 @@ def write_json(path, value):
         )
         + "\n"
     )
+    if path.suffix == ".gz":
+        path.write_bytes(gzip.compress(text.encode("utf-8"), compresslevel=9, mtime=0))
+    else:
+        path.write_text(text)
 
 
 def read_table(path, types=None):
@@ -87,7 +92,7 @@ def export_table(path, target, identifier, types=None):
         chunks[lookup.get(subject, 0)].append([index, *row])
     chunk_info = []
     for index, chunk in enumerate(chunks):
-        relative = f"tables/{identifier}/{index}.json"
+        relative = f"tables/{identifier}/{index}.json.gz"
         write_json(target / relative, chunk)
         chunk_info.append(
             {"url": relative, "subjects": groups[index], "rows": len(chunk)}

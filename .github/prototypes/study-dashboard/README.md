@@ -77,7 +77,9 @@ older `pilot7-study-dashboard-review` hosted design is a previous snapshot.
 ## Source and evidence boundaries
 
 `review_data.py` exports complete Arrow values in subject-group chunks with
-original row ordinals, schemas, and source paths. Subject-independent lookup
+original row ordinals, schemas, and source paths. Data chunks use deterministic
+gzip compression and browser-native decompression, keeping the complete static
+bundle within hosting limits without a data-serving backend. Subject-independent lookup
 relations stay visible. JSON represents non-finite numbers explicitly as
 strings, preserving null as a separate missing value; raw downloads retain
 original data types. `review_lineage.py` indexes YAML node source spans and
