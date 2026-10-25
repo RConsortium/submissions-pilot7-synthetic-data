@@ -61,3 +61,41 @@ and generated files stay under ignored `.build/pilot6-upstream/`. GitHub
 Actions uploads the report and logs as `pilot6-upstream-evidence`. Any
 generation failure or reference mismatch exits nonzero. This R comparison
 is separate from validating Pilot 7's YAMAA specifications.
+
+## Recorded verification
+
+[GitHub Actions run 40144529053](https://github.com/RConsortium/submissions-pilot7-synthetic-data/actions/runs/40144529053)
+restored the committed lockfile and passed the exact input precision probe.
+The [machine-readable report](../../log/upstream-verification.json) binds
+these results to the source snapshot, R runner, bootstrap and lockfile hashes.
+It also records the actual package versions. The run staged all 21 SDTM
+inputs; individual programs select the domains they need.
+
+Nine of the ten upstream programs generated output. Five of the eight
+stored reference datasets matched. The remaining results require review:
+
+| Dataset | Generated rows | Reference comparison |
+| --- | ---: | --- |
+| ADSL | 254 | Matched |
+| ADAE | 1,191 | Matched |
+| ADADAS | 12,463 | Matched |
+| ADLBC | 37,132 | Matched |
+| ADLBH | - | Export failed |
+| ADNPIX | 2,360 | Different |
+| ADVS | 32,139 | Matched |
+| ADTTE | 254 | Different |
+| ADLBHY | 9,954 | Reference unavailable |
+| ADCIBC | 730 | Reference unavailable |
+
+- ADLBH reaches export but produces NaN or infinite numeric values, which
+  the Dataset-JSON writer rejects. Its reference comparison did not run.
+- ADNPIX generates 2,360 rows; its stored reference contains 31,140.
+- ADTTE differs in 152 EVNTDESC cells: the program writes
+  `Dermatologic Event Occurred`, while the reference contains
+  `Dematologic Event Occured`. The other columns match.
+- Upstream has no stored ADLBHY or ADCIBC reference, so generation alone
+  cannot establish reference agreement for those datasets.
+
+The workflow exits nonzero for the export failure and reference differences.
+Official references and upstream derivation programs have been preserved.
+The CI artifact includes the full logs, report, lockfile and generated JSON.

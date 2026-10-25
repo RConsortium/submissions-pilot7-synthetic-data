@@ -25,6 +25,10 @@ ADaM references for YAMAA-based derivation and comparison.
   tree, including all 10 ADaM programs. See
   [the reproduction workflow](program/adam/README.md) for running those
   programs from staged SDTM and comparing their ADaM outputs.
+- `program/adam/renv.lock`: the tested R 4.5.1 package environment, restored
+  directly by CI. The [recorded results](program/adam/README.md#recorded-verification)
+  show five reference matches, two reference differences, one export failure
+  and two generated datasets without stored upstream references.
 
 ## Conversion and verification
 

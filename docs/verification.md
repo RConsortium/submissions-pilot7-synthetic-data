@@ -44,6 +44,13 @@ ADADAS, ADAE, ADLBC, ADLBH, ADNPIX, ADTTE, and ADVS remain outside its active
 project. The upstream repository supports anonymous DVC downloads; see
 [data and provenance](data.md) for the snapshot and refresh workflow.
 
+The upstream R programs have a separate reproduction check using a committed
+renv environment. ADSL, ADAE, ADADAS, ADLBC and ADVS match their stored
+references. ADLBH fails JSON export on non-finite values; ADNPIX has a
+different row count; ADTTE has an event-description text difference.
+ADLBHY and ADCIBC generate successfully but have no upstream reference.
+See the [R reproduction evidence](https://github.com/RConsortium/submissions-pilot7-synthetic-data/blob/main/submission-pilot6/program/adam/README.md#recorded-verification).
+
 ## Evidence published with the site
 
 GitHub Actions validates the four study projects before building the site.

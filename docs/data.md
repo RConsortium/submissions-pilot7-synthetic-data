@@ -26,6 +26,13 @@ documents conversion and refresh commands. Shared clinical data does not
 establish that the analysis datasets or derivation choices are identical
 across pilots. Import verification does not establish YAMAA reference agreement.
 
+Pilot 6 also carries its complete upstream R code tree, with 19 source-file
+hashes in the snapshot manifest. Its ADaM reproduction workflow restores a
+committed `renv.lock` and runs from staged SDTM with an empty ADaM output
+folder. The [recorded R results](https://github.com/RConsortium/submissions-pilot7-synthetic-data/blob/main/submission-pilot6/program/adam/README.md#recorded-verification)
+show five reference matches, two reference differences, one export failure
+and two generated datasets without an upstream reference.
+
 ## Repository layout
 
 ```text
