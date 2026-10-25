@@ -34,6 +34,7 @@ docs/assets/dashboard/
   data.js                                versioned transport, subject selection, and search
   lineage.js                             dependency graph traversal
   review-model.js                        cross-specification identity and panel planning
+  specification.js                       focused column/row entries with original source lines
   resize.js, synthetic.js                 sizing and synthetic-development views
   shell.js, workspace.js                 study layout and linked review panels
   source-documents.js                    independent file tabs and two original viewers
