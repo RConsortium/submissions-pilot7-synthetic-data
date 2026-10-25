@@ -105,10 +105,15 @@ class ScopeTests(unittest.TestCase):
 
     def test_publication_code_requires_fresh_full_publication_check(self):
         for path in ('.github/scripts/build_study_docs.py', '.github/scripts/build_index_table.py',
-                     '.github/yamaa-studies.json', WORKER):
+                     '.github/yamaa-studies.json', WORKER,
+                     '.github/scripts/study_dashboard/artifacts.py', '.github/scripts/study_artifacts.py',
+                     '.github/dashboard.json', 'docs/assets/dashboard/app.js',
+                     'docs/stylesheets/dashboard.css', '.github/tests/dashboard/modules.test.js',
+                     'submission-pilot3/spec/review/questions.json',
+                     'submission-pilot3/spec/source/adrg.pdf'):
             scope = self.scope(path)
             self.assertTrue(scope['publication'])
-            self.assertTrue(any(row['yamaa'] for row in scope['studies']))
+            self.assertEqual(sum(row['yamaa'] for row in scope['studies']), 3)
 
     def test_missing_official_project_cannot_silently_skip_validation(self):
         import shutil

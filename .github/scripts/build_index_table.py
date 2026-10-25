@@ -22,6 +22,8 @@ import os
 from pathlib import Path
 
 from study_evidence import catalog, validate_reports
+from study_artifacts import verify_report_artifacts
+from study_metrics import matched_totals, reference_totals
 
 ROOT = Path(__file__).resolve().parents[2]
 REPORTS = ROOT / ".build" / "validation"
@@ -43,52 +45,26 @@ def _millions(value):
     return f"{value / 1e6:.1f}M"
 
 
-def _matched(report):
-    passed = [d for d in report["datasets"] if d["comparison"] == "passed"]
-    return (len(passed),
-            sum(d["columns"] for d in passed),
-            sum(d["rows"] * d["columns"] for d in passed))
-
-
-def _reference_totals(root, study):
-    try:
-        import pyarrow.parquet as pq
-    except ImportError as err:
-        raise ImportError("build_index_table.py needs pyarrow to read "
-                          "reference parquet dimensions") from err
-    adam = root / study / "data" / "adam"
-    if not adam.is_dir():
-        raise ValueError(f"{study}: reference folder is missing: {adam}")
-    datasets = columns = cells = 0
-    for path in sorted(adam.glob("*.parquet")):
-        if "-yamaa" in path.name:
-            continue
-        table = pq.read_metadata(path)
-        datasets += 1
-        columns += table.num_columns
-        cells += table.num_rows * table.num_columns
-    return datasets, columns, cells
-
-
 def build_table(root, reports_dir):
     entries = catalog(root)
     reports = {name: json.loads((reports_dir / f"{name}.json").read_text())
                for name in entries}
     validate_reports(root, entries, reports, os.environ.get("GITHUB_SHA"))
+    verify_report_artifacts(root, entries, reports)
     rows = []
     total_matched = [0, 0, 0]
     total_reference = [0, 0, 0]
     for name, entry in entries.items():
         report = reports[name]
         title = entry["title"]
-        reference = _reference_totals(root, name)
+        reference = reference_totals(root, name)
         if not reference[0]:
             if entry["comparison"] == "official":
                 raise ValueError(f"{name}: official reference datasets are missing")
             rows.append(f"| [{title}](studies/{name}.md) | Ongoing | "
                         f"{PENDING_DATASETS} | n/a | n/a |")
             continue
-        matched = _matched(report)
+        matched = matched_totals(report)
         for i in range(3):
             total_matched[i] += matched[i]
             total_reference[i] += reference[i]
