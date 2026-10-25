@@ -5,8 +5,9 @@ import json
 import shutil
 import xml.etree.ElementTree as ET
 
-from openpyxl import load_workbook
 from pypdf import PdfReader
+
+from .document_views import render_xml, workbook_body
 
 
 def save_json(path, data):
@@ -117,6 +118,30 @@ def materials(root, study, target, metadata):
             "sections": [],
         }
         if path.suffix.lower() == ".pdf":
+            record.update(view=record["original"], view_label="Original PDF")
+        elif path.suffix.lower() == ".xlsx":
+            body, record["sections"] = workbook_body(path)
+            view = original.with_name(original.name + ".table.html")
+            view.write_text(
+                document_html(
+                    path.name,
+                    "<p>Workbook cells in their original sheet, row and column positions. Formulas are shown as entered. The original Excel file is retained.</p>"
+                    + body,
+                ),
+                encoding="utf-8",
+            )
+            record.update(
+                view=view.relative_to(target).as_posix(), view_label="Excel tables"
+            )
+        elif path.suffix.lower() == ".xml":
+            view = render_xml(root, path, original, entry)
+            record.update(
+                view=(
+                    view.relative_to(target).as_posix() if view else record["original"]
+                ),
+                view_label="Original XML HTML" if view else "XML source",
+            )
+        if path.suffix.lower() == ".pdf":
             for number, page in enumerate(PdfReader(path).pages, 1):
                 record["sections"].append(
                     {
@@ -125,20 +150,6 @@ def materials(root, study, target, metadata):
                         "text": page.extract_text() or "",
                     }
                 )
-        elif path.suffix.lower() == ".xlsx":
-            book = load_workbook(path, read_only=True, data_only=True)
-            for sheet_number, sheet in enumerate(book, 1):
-                for number, row in enumerate(sheet.iter_rows(values_only=True), 1):
-                    values = [str(value) if value is not None else "" for value in row]
-                    if any(values):
-                        record["sections"].append(
-                            {
-                                "id": f"sheet-{sheet_number}-row-{number}",
-                                "title": f"{sheet.title} / row {number}",
-                                "text": " | ".join(values),
-                            }
-                        )
-            book.close()
         elif path.name == "define-adam.xml":
             for domain, columns in metadata.items():
                 for name, item in columns.items():

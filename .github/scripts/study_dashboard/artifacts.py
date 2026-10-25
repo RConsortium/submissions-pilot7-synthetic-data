@@ -165,7 +165,7 @@ def build_bundle(root, destination, entries, reports, revision):
                     "key_source",
                     f"{study}/spec/define/define-{'sdtm' if sdtm else 'adam'}.xml",
                 )
-        report = build_report(root, study, specifications, target, revision)
+        report = build_report(root, study, specifications, target, revision, validation)
         write_json(target / "report.json", report)
         record.update(
             tables=exported,

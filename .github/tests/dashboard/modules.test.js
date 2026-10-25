@@ -48,6 +48,13 @@ test("new study defaults and shared routes validate unknown and duplicate select
     500,
   );
 });
+test("legacy findings and overview links use one review table and retain source-view context", () => {
+  const state = readRoute("#new-study/findings/CUSTOM?comparison=source_documents&document=spec%2Fguide.pdf&documentSection=page-5&documentMode=reading", model);
+  assert.equal(state.view, "overview");
+  assert.deepEqual(readRoute(formatRoute(state, model), model), state);
+  assert.equal(state.document, "spec/guide.pdf");
+  assert.equal(state.documentSection, "page-5");
+});
 test("lineage supports every selection direction, cycles, and excludes unrelated siblings", () => {
   const edges = {
     "spec.A": ["DM.AGE"],
