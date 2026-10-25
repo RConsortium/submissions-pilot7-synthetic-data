@@ -1,33 +1,55 @@
 # CDISC Pilot 01 ADaM derivations
 
-`../../spec/yamaa/project.yaml` lists the active specifications in dependency
-order. The project uses the yamaa 1.0 language and API at the source revision
-pinned in `python/requirements.txt` (currently an unreleased engine).
-Python 3.12 or later and Rust/Cargo 1.82 or later are required for installation.
+R and Python run the same [yamaa project](../../spec/yamaa/project.yaml):
+ADSL -> ADAE -> ADTTE -> ADVS -> ADLBC -> ADLBH -> ADLBHY -> ADQSNPIX.
+The engine revision is pinned in [python/requirements.txt](python/requirements.txt).
 
-From the repository root:
+Run the commands below from the repository root.
+
+## Setup
+
+Source installation requires Python 3.12+, Rust/Cargo 1.82+, Git, and a C
+compiler. The R runner also requires R 4.2+.
+
+Install the Python engine and comparison tools:
 
 ```bash
 python -m pip install -r cdiscpilot01/program/adam/python/requirements.txt
+```
+
+For R, build the package from the same pinned revision:
+
+```bash
+mkdir -p .build/cdiscpilot01-r/library
+git clone https://github.com/elong0527/yamaa.git .build/cdiscpilot01-r/yamaa-source
+git -C .build/cdiscpilot01-r/yamaa-source checkout --detach 3e8d5f6b5d2af223fba6aa29fa7209699123f706
+(
+  cd .build/cdiscpilot01-r/yamaa-source
+  python -m tools.staging.stage_r_package ../package
+)
+R CMD INSTALL --library=.build/cdiscpilot01-r/library .build/cdiscpilot01-r/package
+```
+
+With rustup, staging uses the checkout's declared Rust toolchain.
+
+## Run and compare
+
+Choose either runner:
+
+```bash
+# R
+R_LIBS="$PWD/.build/cdiscpilot01-r/library" Rscript --vanilla cdiscpilot01/program/adam/R/run.R
+
+# Python
 python cdiscpilot01/program/adam/python/run.py
+```
+
+Both write `cdiscpilot01/data/adam/<dataset>-yamaa.parquet`.
+Compare the outputs with the official references:
+
+```bash
 python cdiscpilot01/program/adam/python/compare.py
 ```
 
-Both scripts resolve the study from their own locations and work from any
-working directory. Outputs are ignored `data/adam/<dataset>-yamaa.parquet`
-files; the official reference datasets are preserved.
-
-The complete reference comparison passes with the pinned engine at
-`3e8d5f6b5d2af223fba6aa29fa7209699123f706` (2026-10-24). Numeric cells
-use the existing absolute tolerance of `1e-10`. The comparator checks row order, column order, Arrow types, every cell, and the declared labels. Null and empty text remain distinct.
-
-Specifications now declare explicit lookup keys, producing-specification
-links, current temporal operations, and grammar expressions. Explicit
-`nulls: last` terms preserve the prior missing-value ordering. Retired
-COALESCE/GREATEST functions are expressed with helper derivations and the
-current verbs. The migration preserves the original comparison policies.
-
-The active order is ADSL, ADAE, ADTTE, ADVS, ADLBC, ADLBH, ADLBHY, ADQSNPIX.
-The last specification is named `adqsnipx.yaml`, while its official reference
-is `adqsnpix.parquet`. ADQSADAS and ADQSCIBC remain outside the active project;
-they still need single-spec implementations and comparisons.
+ADQSADAS and ADQSCIBC remain outside the active project. The ADQSNPIX
+specification is named `adqsnipx.yaml`; its reference is `adqsnpix.parquet`.
