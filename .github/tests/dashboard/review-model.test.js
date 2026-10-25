@@ -145,3 +145,21 @@ test("changing the focused specification preserves already compared outputs", ()
   changePrimary(state, "NEW");
   assert.deepEqual(state, { dataset: "NEW", outputs: ["ADAE"] });
 });
+
+test("related-column views retain declared keys and the subject identifier", () => {
+  const panel = {
+    kind: "input",
+    table: "dm",
+    meta: { ...model.tables.dm, keys: ["AGE", "MISSING"] },
+  };
+  assert.deepEqual(
+    columnIndexes(
+      model,
+      panel,
+      new Set(["table:dm.ARM"]),
+      true,
+      "out:ADSL.ARM",
+    ),
+    [0, 2, 1],
+  );
+});

@@ -11,6 +11,16 @@ import {
 
 /** Shared specification and independently paged, resizable dataset panels. */
 export function createWorkspace(ctx) {
+  const observedSizes = new WeakMap();
+  const sizes = new ResizeObserver((entries) => {
+    let changed = false;
+    for (const { target } of entries) {
+      const size = target.clientWidth + ":" + target.style.height;
+      if (observedSizes.get(target) !== size) changed = true;
+      observedSizes.set(target, size);
+    }
+    if (changed) fitWorkbench();
+  });
   function subjectPicker() {
     const { model, state, esc } = ctx;
     return `<details class="subject-picker" id="subject-picker" data-popover><summary id="subject-summary">Subjects <strong>${state.subjects.length} / ${model.subjects.length}</strong><span aria-hidden="true">&#9662;</span></summary><div class="subject-popover"><label class="field-label" for="subject-search">Find a subject</label><input id="subject-search" type="search" placeholder="Search ${esc(model.settings.subject_key)}..."><div class="subject-actions">${[...new Set([model.settings.default_subject_count, 10, 25, 50])].map((n) => `<button data-subject-count="${n}">First ${n}</button>`).join("")}<button data-subject-count="all">Select all</button><button data-subject-count="0">Clear</button><button data-close-subjects>Done</button></div><div class="subject-options">${model.subjects.map((s) => `<label data-subject-option="${esc(s)}"><input type="checkbox" data-subject="${esc(s)}" ${state.subjects.includes(s) ? "checked" : ""}>${esc(s)}</label>`).join("")}</div><p>Select any number of subjects. Subject-independent lookup rows stay visible.</p></div></details>`;
@@ -19,7 +29,7 @@ export function createWorkspace(ctx) {
     const { model, state, plan, esc } = ctx,
       inputs = kind === "input";
     const options = inputs ? inputOptions(model) : model.datasets;
-    return `<details class="dataset-picker" id="${kind}-picker" data-popover><summary>${inputs ? "Select domains" : "Compare outputs"} (${inputs ? plan.inputs.length : plan.outputs.length})</summary><div class="dataset-popover"><p>${inputs ? "Linked domains open automatically. Select additional datasets to compare." : "Select additional output datasets. Click an output column to review its specification."}</p>${options
+    return `<details class="dataset-picker" id="${kind}-picker" data-popover><summary>Select domain (${inputs ? plan.inputs.length : plan.outputs.length})</summary><div class="dataset-popover"><p>${inputs ? "Linked domains open automatically. Select additional datasets to compare." : "Select additional output datasets. Click an output column to review its specification."}</p>${options
       .map((item) => {
         const id = inputs ? item.id : item.name,
           linked = inputs && plan.linked.includes(id),
@@ -58,7 +68,7 @@ export function createWorkspace(ctx) {
   }
   function workspace() {
     const { model, specification, state, layout, esc, sourceUrl, link } = ctx;
-    return `<div class="workspace-toolbar"><label class="select-field">Specification<select id="dataset-select">${model.datasets.map((d) => `<option value="${d.name}" ${state.dataset === d.name ? "selected" : ""}>${d.name}</option>`).join("")}</select></label>${subjectPicker()}<label class="search-field"><span class="field-label">Search records</span><input id="record-search" type="search" placeholder="Subject or value across displayed datasets..." value="${esc(state.rowSearch)}"></label><label class="select-field">Columns<select id="column-mode"><option value="related" ${state.relatedOnly ? "selected" : ""}>Related columns</option><option value="all" ${!state.relatedOnly ? "selected" : ""}>All columns</option></select></label><button class="button" id="clear-selection">Clear highlight</button><button class="button" id="reset-layout">Reset layout</button></div><div class="lineage-toolbar"><div id="lineage-summary" role="status"></div><span class="lineage-legend"><i class="swatch selected"></i>Selected <i class="swatch related"></i>Related</span></div><div class="review-workbench" style="--spec-width:${layout.spec}%;--input-height:${layout.inputs}%"><section class="spec-pane pane" aria-labelledby="spec-heading"><header class="pane-header"><div><h2 id="spec-heading">yamaa specification</h2><span id="spec-caption">${state.dataset} / ${specification.text.split("\n").length} lines${specification.lineage.unresolved.length ? " / " + specification.lineage.unresolved.length + " unresolved references" : ""}</span></div>${link(sourceUrl(specification.path), "Open source")}</header><div class="spec-scroll" id="spec-scroll" tabindex="0" aria-label="Complete YAML specification">${renderSpec()}</div><footer class="pane-footer">Declared column dependencies; contributing rows are not traced.</footer></section><div class="spec-resizer" id="spec-resizer" role="separator" aria-label="Resize specification panel" aria-orientation="vertical" aria-valuemin="25" aria-valuemax="60" aria-valuenow="${Math.round(layout.spec)}" tabindex="0"></div><div class="data-panes">${group("input")}<div id="data-resizer" class="data-resizer" role="separator" aria-label="Resize input and output areas" aria-orientation="horizontal" aria-valuemin="25" aria-valuemax="75" aria-valuenow="${Math.round(layout.inputs)}" tabindex="0"></div>${group("output")}</div></div><div id="data-status" role="status" class="data-status"></div><div id="evidence-drawer"></div>`;
+    return `<div class="workspace-toolbar"><label class="select-field">Specification<select id="dataset-select">${model.datasets.map((d) => `<option value="${d.name}" ${state.dataset === d.name ? "selected" : ""}>${d.name}</option>`).join("")}</select></label>${subjectPicker()}<label class="search-field"><span class="field-label">Search records</span><input id="record-search" type="search" placeholder="Subject or value across displayed datasets..." value="${esc(state.rowSearch)}"></label><label class="select-field">Columns<select id="column-mode"><option value="related" ${state.relatedOnly ? "selected" : ""}>Related columns</option><option value="all" ${!state.relatedOnly ? "selected" : ""}>All columns</option></select></label><button class="button" id="clear-selection">Clear highlight</button><button class="button" id="reset-layout">Reset layout</button></div><div class="lineage-toolbar"><div id="lineage-summary" role="status"></div><span class="lineage-legend"><i class="swatch key"></i>Key / ID <i class="swatch selected"></i>Selected <i class="swatch related"></i>Related</span></div><div class="review-workbench" style="--spec-width:${layout.spec}%;--input-height:${layout.inputs ?? 50}%"><section class="spec-pane pane" aria-labelledby="spec-heading"><header class="pane-header"><div><h2 id="spec-heading">yamaa specification</h2><span id="spec-caption">${state.dataset} / ${specification.text.split("\n").length} lines${specification.lineage.unresolved.length ? " / " + specification.lineage.unresolved.length + " unresolved references" : ""}</span></div>${link(sourceUrl(specification.path), "Open source")}</header><div class="spec-scroll" id="spec-scroll" tabindex="0" aria-label="Complete YAML specification">${renderSpec()}</div><footer class="pane-footer">Declared column dependencies; contributing rows are not traced.</footer></section><div class="spec-resizer" id="spec-resizer" role="separator" aria-label="Resize specification panel" aria-orientation="vertical" aria-valuemin="25" aria-valuemax="60" aria-valuenow="${Math.round(layout.spec)}" tabindex="0"></div><div class="data-panes">${group("input")}<div id="data-resizer" class="data-resizer" role="separator" aria-label="Resize input and output areas" aria-orientation="horizontal" aria-valuemin="25" aria-valuemax="75" aria-valuenow="${Math.round(layout.inputs ?? 50)}" tabindex="0"></div>${group("output")}</div></div><div id="data-status" role="status" class="data-status"></div><div id="evidence-drawer"></div>`;
   }
   function renderSpec() {
     const { specification, esc } = ctx,
@@ -160,6 +170,9 @@ export function createWorkspace(ctx) {
       panel.kind === "output"
         ? `out:${panel.domain}.${name}`
         : tableNode(model, panel.table, name);
+    const isKey = (i) =>
+      (meta.keys || []).includes(meta.columns[i].name) ||
+      i === meta.subject_index;
     const widths = indices.map(
       (i) =>
         layout.columns[panel.key]?.[meta.columns[i].name] ||
@@ -173,11 +186,11 @@ export function createWorkspace(ctx) {
         .map((i, n) => {
           const c = meta.columns[i],
             node = canonical(c.name);
-          return `<th scope="col" class="${i === meta.subject_index ? "subject-column" : ""}" data-node="${esc(raw(c.name))}" data-canonical="${esc(node)}"><button data-node="${esc(raw(c.name))}" data-canonical="${esc(node)}" ${panel.kind === "output" ? `data-output-dataset="${esc(panel.domain)}"` : ""} title="${esc((c.label || c.declared_label || c.name) + " / " + c.type)}">${esc(c.name)}<small>${esc(c.type)}</small></button><span class="column-resizer" data-resize-column="${esc(c.name)}" role="separator" aria-label="Resize ${esc(panel.domain + "." + c.name)} column" aria-orientation="vertical" aria-valuemin="72" aria-valuemax="640" aria-valuenow="${widths[n]}" tabindex="0"></span></th>`;
+          return `<th scope="col" class="${i === meta.subject_index ? "subject-column " : ""}${isKey(i) ? "key-column" : ""}" data-node="${esc(raw(c.name))}" data-canonical="${esc(node)}"><button data-node="${esc(raw(c.name))}" data-canonical="${esc(node)}" ${panel.kind === "output" ? `data-output-dataset="${esc(panel.domain)}"` : ""} title="${esc((c.label || c.declared_label || c.name) + " / " + c.type)}">${esc(c.name)}${isKey(i) ? `<span class="key-badge">${(meta.keys || []).includes(c.name) ? "Key" : "ID"}</span>` : ""}<small>${esc(c.type)}</small></button><span class="column-resizer" data-resize-column="${esc(c.name)}" role="separator" aria-label="Resize ${esc(panel.domain + "." + c.name)} column" aria-orientation="vertical" aria-valuemin="72" aria-valuemax="640" aria-valuenow="${widths[n]}" tabindex="0"></span></th>`;
         })
         .join(
           "",
-        )}</tr></thead><tbody>${shown.length ? shown.map((r) => `<tr><th scope="row" class="row-number">${r[0] + 1}</th>${indices.map((i) => `<td data-canonical="${esc(canonical(meta.columns[i].name))}" title="${esc(r[i + 1])}">${r[i + 1] === null ? '<span class="missing" aria-label="Missing value">&#8212;</span>' : esc(r[i + 1])}</td>`).join("")}</tr>`).join("") : `<tr><td colspan="${indices.length + 1}" class="empty-rows">${state.subjects.length ? "No records for these subjects and this search." : "No subjects selected. Use the Subjects dropdown to select subjects."}</td></tr>`}</tbody></table>`,
+        )}</tr></thead><tbody>${shown.length ? shown.map((r) => `<tr><th scope="row" class="row-number">${r[0] + 1}</th>${indices.map((i) => `<td class="${isKey(i) ? "key-column" : ""}" data-canonical="${esc(canonical(meta.columns[i].name))}" title="${esc(r[i + 1])}">${r[i + 1] === null ? '<span class="missing" aria-label="Missing value">&#8212;</span>' : esc(r[i + 1])}</td>`).join("")}</tr>`).join("") : `<tr><td colspan="${indices.length + 1}" class="empty-rows">${state.subjects.length ? "No records for these subjects and this search." : "No subjects selected. Use the Subjects dropdown to select subjects."}</td></tr>`}</tbody></table>`,
     };
   }
   function paintTables() {
@@ -210,6 +223,9 @@ export function createWorkspace(ctx) {
       footer.innerHTML = `<label class="row-size">Rows <select data-page-size="${panel.key}" aria-label="${esc(panel.domain)} ${panel.kind} rows per page">${PAGE_SIZES.map((size) => `<option ${size === result.size ? "selected" : ""}>${size}</option>`).join("")}</select></label><span>${result.filtered.length ? result.start + 1 : 0}-${Math.min(result.start + result.size, result.filtered.length)} of ${result.filtered.length.toLocaleString()} selected rows / ${panel.meta.rows.toLocaleString()} total${panel.meta.subject_index === null ? " / subject-independent lookup" : ""}</span><span class="pagination"><button data-panel-page="${panel.key}" data-step="-1" ${!state.pages[panel.key] ? "disabled" : ""} aria-label="Previous ${esc(panel.domain)} ${panel.kind} rows">&#8592;</button><button data-panel-page="${panel.key}" data-step="1" ${result.start + result.size >= result.filtered.length ? "disabled" : ""} aria-label="Next ${esc(panel.domain)} ${panel.kind} rows">&#8594;</button></span>`;
     }
     fitWorkbench();
+    sizes.disconnect();
+    for (const card of root().querySelectorAll("[data-panel]"))
+      sizes.observe(card);
     applyHighlight();
     ctx.byId("data-status").textContent =
       `${state.subjects.length} of ${model.subjects.length} subjects selected. ${plan.inputs.length} input and ${plan.outputs.length} output datasets displayed. Each table has its own row count and pagination. Missing values are shown as a dash.`;
@@ -217,14 +233,46 @@ export function createWorkspace(ctx) {
   function fitWorkbench() {
     const el = ctx.root()?.querySelector(".review-workbench");
     if (!el) return;
-    el.style.height =
-      innerWidth > 700
-        ? Math.max(
-            440,
-            innerHeight - el.getBoundingClientRect().top - scrollY - 35,
-          ) + "px"
-        : "";
-    el.style.minHeight = innerWidth > 700 ? "440px" : "";
+    const groups = [...el.querySelectorAll(".dataset-group")];
+    const heights = groups.map((group) => {
+      const cards = [...group.querySelectorAll("[data-panel]")];
+      const cardHeights = cards.map((card) => {
+        const region = card.querySelector(".data-region");
+        const height = Math.ceil(
+          card.querySelector(".pane-header").offsetHeight +
+            card.querySelector(".pane-footer").offsetHeight +
+            (region.querySelector("table")?.offsetHeight || 90) +
+            // Borders and room for the horizontal table scrollbar.
+            24,
+        );
+        card.style.minHeight = height + "px";
+        return Math.max(height, parseFloat(card.style.height) || 0);
+      });
+      return (
+        group.querySelector(".dataset-group-header").offsetHeight +
+        Math.max(120, ...cardHeights) +
+        24
+      );
+    });
+    const panes = el.querySelector(".data-panes");
+    if (innerWidth > 700) {
+      let [input, output] = heights;
+      if (ctx.layout.inputs !== null) {
+        const fraction = ctx.layout.inputs / 100;
+        const space = Math.max(input / fraction, output / (1 - fraction));
+        input = Math.ceil(space * fraction);
+        output = Math.ceil(space * (1 - fraction));
+      }
+      panes.style.gridTemplateRows = `${input}px 8px ${output}px`;
+      el.style.height = input + output + 16 + "px";
+      el.style.setProperty(
+        "--spec-height",
+        Math.min(input + output + 16, Math.max(280, innerHeight - 100)) + "px",
+      );
+    } else {
+      panes.style.gridTemplateRows = "";
+      el.style.height = "";
+    }
   }
   function overview() {
     const { model, report } = ctx;

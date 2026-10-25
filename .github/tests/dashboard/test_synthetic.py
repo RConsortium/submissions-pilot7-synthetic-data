@@ -10,7 +10,7 @@ import unittest
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[2] / "scripts"))
 from study_dashboard.synthetic import inventory, build_synthetic
-from study_dashboard.domains import domain_labels
+from study_dashboard.domains import domain_labels, domain_keys
 from dashboard_nav import study_navigation, synthetic_navigation
 
 
@@ -101,3 +101,26 @@ class SyntheticTests(unittest.TestCase):
                     + "</ODM>"
                 )
                 self.assertEqual(domain_labels(path), {"DM": "Demographics"})
+
+    def test_domain_keys_use_define_declarations_and_resolve_item_names(self):
+        with tempfile.TemporaryDirectory() as temporary:
+            path = Path(temporary) / "define.xml"
+            self.assertEqual(domain_keys(path), {})
+            path.write_text(
+                '<ODM xmlns:def="http://www.cdisc.org/ns/def/v1.0">'
+                '<ItemGroupDef Name="AE" def:DomainKeys="STUDYID, USUBJID, AESEQ"/>'
+                '<ItemGroupDef Name="UNKNOWN"/></ODM>'
+            )
+            self.assertEqual(
+                domain_keys(path),
+                {"AE": ["STUDYID", "USUBJID", "AESEQ"], "UNKNOWN": []},
+            )
+            path.write_text(
+                '<ODM xmlns="http://www.cdisc.org/ns/odm/v1.3">'
+                '<ItemDef OID="item-one" Name="USUBJID"/>'
+                '<ItemDef OID="item-two" Name="AESEQ"/>'
+                '<ItemGroupDef Name="AE"><ItemRef ItemOID="item-two" KeySequence="2"/>'
+                '<ItemRef ItemOID="item-one" KeySequence="1"/>'
+                '<ItemRef ItemOID="not-a-key"/></ItemGroupDef></ODM>'
+            )
+            self.assertEqual(domain_keys(path), {"AE": ["USUBJID", "AESEQ"]})

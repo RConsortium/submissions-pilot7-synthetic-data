@@ -16,15 +16,16 @@ identifiers, choose individual subjects or a larger group, or select all. There
 is no subject selection limit. Click outside a picker, move focus outside it,
 or press Escape to close it.
 
-**Select domains** opens multiple input datasets. Names include the domain and
-description, such as **DM - Demographics**. **Compare outputs** adds output
+**Select domain** opens multiple input datasets. Names include the domain and
+description, such as **DM - Demographics**. The output **Select domain** control adds output
 datasets beside the current output. **Specification** chooses the YAML currently
 shown; selecting a column in another output focuses that output's specification.
 Previously selected comparisons remain open.
 
 Each table starts with up to ten matching rows. Its **Rows** control independently
 selects 10, 25, 50, or 100 rows per page. Use its arrow controls to explore all
-remaining records. A subject without events can correctly have no event rows.
+remaining records. Table heights grow to show the selected page without an inner
+vertical scrollbar; scroll the page to review larger row counts. A subject without events can correctly have no event rows.
 Subject-independent lookup tables remain visible. Search matches values across
 the displayed datasets and links records with matching subject identifiers.
 
@@ -33,7 +34,10 @@ the displayed datasets and links records with matching subject identifiers.
 Select an output column to reveal its connected input datasets automatically.
 The connection can pass through another derived dataset into its upstream
 sources. **Related columns** narrows tables to linked variables while retaining
-the subject identifier. **All columns** restores the complete schemas. Manually
+the subject identifier and declared keys. Purple **Key** badges and cells identify
+keys from each dataset's Define-XML or yamaa specification. An **ID** badge marks
+the configured subject identifier when no key is declared. Blue marks the selected
+column and amber marks related columns; keys keep their purple background. **All columns** restores the complete schemas. Manually
 selected comparison datasets remain available. Input headers and YAML blocks
 also select declared connections. **Clear highlight** restores the manual input
 selection and removes the column focus.

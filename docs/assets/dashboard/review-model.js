@@ -150,7 +150,12 @@ export function columnIndexes(model, panel, related, onlyRelated, focus) {
       ? relevant
       : panel.meta.columns.map((_, i) => i);
   const subject = panel.meta.subject_index;
-  return [...new Set([...(subject !== null ? [subject] : []), ...available])];
+  const keys = panel.meta.columns
+    .map((c, i) => ((panel.meta.keys || []).includes(c.name) ? i : -1))
+    .filter((i) => i >= 0);
+  return [
+    ...new Set([...(subject !== null ? [subject] : []), ...keys, ...available]),
+  ];
 }
 
 /** Focusing an already compared output preserves the comparison set. */
