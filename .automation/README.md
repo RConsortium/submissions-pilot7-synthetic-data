@@ -44,4 +44,4 @@ When migrating an existing routine configuration:
   or Pilot3 plan.csv workflows; their jobs now run in `CI`.
 
 Routine registrations live outside this repository and are managed separately.
-See `.github/README.md` for CI ownership, local commands, and report delivery.
+See `.github/AUTOMATION.md` for CI ownership, local commands, and report delivery.

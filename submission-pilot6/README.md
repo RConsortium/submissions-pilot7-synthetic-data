@@ -78,3 +78,20 @@ must still be pulled with DVC into the source checkout in these modes.
 Local file reads omit `retrieved_from`; the importer records a retrieval URL
 only when it downloads SDTM from the pinned GitHub mirror. All acquisition
 modes still verify the source DVC size and MD5.
+
+## Source documents
+
+[spec/source/](spec/source/README.md) records provenance for the workbook and
+Define-XML files and links the shared study SAP. The workbook, ADaM
+Define-XML, SDTM inputs and ADaM references come from the same upstream
+snapshot.
+
+## License and attribution
+
+This pilot uses the CDISC SDTM/ADaM Pilot Project study, published by CDISC,
+with the Pilot 6 references linked above. Study data, including the staged
+ADaM references, and imported reference metadata are excluded from the
+root MIT grant. Original Pilot 7 code and documentation are MIT-licensed. See
+[LICENSING.md](../LICENSING.md#cdisc-pilot-data-and-reference-material) and the
+retained [CDISC notice](../LICENSE-CDISC.txt) for attribution, upstream terms,
+and the limits on conversion and redistribution.

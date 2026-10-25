@@ -1,25 +1,6 @@
 name: yamaa studies and website
 
 on:
-  pull_request:
-    branches: [main]
-    types: [opened, synchronize, reopened, ready_for_review]
-    paths:
-      - '**/spec/yamaa/**'
-      - '**/program/adam/**'
-      - '**/data/**'
-      - '.github/scripts/validate_yamaa.py'
-      - '.github/scripts/build_study_docs.py'
-      - '.github/scripts/study_evidence.py'
-      - '.github/scripts/test_study_evidence.py'
-      - '.github/scripts/check_ascii.py'
-      - '.github/scripts/test_ascii.py'
-      - '.github/yamaa-studies.json'
-      - '.github/workflows/yamaa-site.yml'
-      - 'requirements.txt'
-      - 'AGENTS.md'
-      - 'mkdocs.yml'
-      - 'docs/**'
   push:
     branches: [main]
   workflow_dispatch:
@@ -45,38 +26,14 @@ jobs:
 
   validate:
     needs: inventory
-    name: Validate ${{ matrix.study }}
-    runs-on: ubuntu-24.04
-    timeout-minutes: 30
     strategy:
       fail-fast: false
       matrix:
         study: ${{ fromJSON(needs.inventory.outputs.studies) }}
-    env:
-      CARGO_BUILD_JOBS: '2'
-    steps:
-      - uses: actions/checkout@v5
-        with:
-          persist-credentials: false
-      - uses: actions/setup-python@v5
-        with:
-          python-version: '3.12'
-          cache: ${{ hashFiles(format('{0}/spec/yamaa/project.yaml', matrix.study)) != '' && 'pip' || '' }}
-          cache-dependency-path: '**/program/adam/python/requirements.txt'
-      - uses: dtolnay/rust-toolchain@1.90.0
-        if: hashFiles(format('{0}/spec/yamaa/project.yaml', matrix.study)) != ''
-      - name: Install pinned engine and comparison tools
-        if: hashFiles(format('{0}/spec/yamaa/project.yaml', matrix.study)) != ''
-        run: python -m pip install --config-settings build-args=--profile=dev -r "${{ matrix.study }}/program/adam/python/requirements.txt"
-      - name: Check, build, compare, and record evidence
-        run: python .github/scripts/validate_yamaa.py "${{ matrix.study }}"
-      - uses: actions/upload-artifact@v4
-        if: always()
-        with:
-          name: validation-${{ matrix.study }}
-          path: .build/validation/${{ matrix.study }}.json
-          include-hidden-files: true
-          if-no-files-found: error
+    uses: ./.github/workflows/study-check.yml
+    with:
+      study: ${{ matrix.study }}
+      yamaa: true
 
   website:
     name: Build website

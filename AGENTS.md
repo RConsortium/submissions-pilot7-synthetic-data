@@ -60,3 +60,8 @@ generate study pages with `python3 .github/scripts/build_study_docs.py`, and run
 
 CI runs the ASCII check on pull requests and pushes to `main`. The website
 build repeats it after generating study pages; a violation blocks deployment.
+
+PR CI keeps shared checks in one job and selects additional study jobs from
+the changed files. Site-only PRs use a layout preview with no study results.
+Publication on main still requires fresh validation of the full study catalog.
+See `.github/AUTOMATION.md` for scope rules and the reusable study worker.

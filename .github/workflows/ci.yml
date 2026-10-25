@@ -17,48 +17,93 @@ concurrency:
 jobs:
   structure-check:
     runs-on: ubuntu-latest
+    outputs:
+      studies: ${{ steps.scope.outputs.studies }}
+      publication: ${{ steps.scope.outputs.publication }}
     steps:
       - uses: actions/checkout@v5
         with:
           persist-credentials: false
+          fetch-depth: 0
+          filter: blob:none
       - uses: actions/setup-python@v5
         with:
           python-version: '3.12'
+      - name: Select checks from the changed files
+        id: scope
+        env:
+          BASE: ${{ github.event.pull_request.base.sha || github.event.before }}
+          HEAD: ${{ github.event.pull_request.head.sha || github.sha }}
+        run: |
+          if [ -z "$BASE" ] || [[ "$BASE" =~ ^0+$ ]]; then BASE=$(git rev-parse "$HEAD^"); fi
+          if [ "${{ github.event_name }}" = pull_request ]; then BASE=$(git merge-base "$BASE" "$HEAD"); fi
+          python .github/scripts/ci_scope.py --base "$BASE" --head "$HEAD"
+          git diff --check "$BASE" "$HEAD"
       - run: python -m pip install PyYAML==6.0.3
       - run: python .github/scripts/check_structure.py
       - run: python .github/scripts/check_ascii.py
       - run: python -m unittest discover -s .github/scripts -p 'test_*.py' -v
       - run: git diff --check
-
-  plan-repro:
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v5
-        with:
-          persist-credentials: false
-      - uses: actions/setup-python@v5
-        with:
-          python-version: '3.12'
-      - run: python -m pip install polars==1.44.2
-      - name: Reproduce the pinned Pilot 3 plan with Python
+      - name: Install Python planning tools
+        if: steps.scope.outputs.plan_python == 'true'
+        run: python -m pip install polars==1.44.2
+      - name: Reproduce the pinned planning relation with Python
+        if: steps.scope.outputs.plan_python == 'true'
         run: |
-          python submission-pilot3/program/adam/python/make_plan.py --out "$RUNNER_TEMP/plan.regen.csv"
-          diff "$RUNNER_TEMP/plan.regen.csv" submission-pilot3/data/mapping/plan.csv
+          python submission-pilot3/program/adam/python/make_plan.py --out "$RUNNER_TEMP/plan.python.csv"
+          diff "$RUNNER_TEMP/plan.python.csv" submission-pilot3/data/mapping/plan.csv
       - uses: r-lib/actions/setup-r@v2
+        if: steps.scope.outputs.plan_r == 'true'
         with:
           r-version: '4.6.1'
           use-public-rspm: true
       - uses: r-lib/actions/setup-r-dependencies@v2
+        if: steps.scope.outputs.plan_r == 'true'
         with:
           packages: any::arrow
           dependencies: '"hard"'
-      - name: Reproduce the pinned Pilot 3 plan with R
+      - name: Reproduce the pinned planning relation with R
+        if: steps.scope.outputs.plan_r == 'true'
         run: |
           Rscript --vanilla submission-pilot3/program/adam/R/make_plan.R --out "$RUNNER_TEMP/plan.r.csv"
           diff "$RUNNER_TEMP/plan.r.csv" submission-pilot3/data/mapping/plan.csv
+      - name: Comparator self-check
+        if: steps.scope.outputs.compare == 'true'
+        run: |
+          python -m pip install pyarrow==25.0.1
+          python .github/scripts/compare_adam.py \
+            --official submission-pilot5/data/adam --derived submission-pilot5/data/adam \
+            --keys-file submission-pilot5/program/adam/adam-compare-keys.json --null-empty-equal
+      - name: Check website layout and links (no study results)
+        if: github.event_name == 'pull_request' && steps.scope.outputs.website == 'true' && steps.scope.outputs.publication != 'true'
+        run: |
+          python -m pip install -r docs/requirements.txt
+          python .github/scripts/preview_site.py
+      - uses: actions/upload-artifact@v4
+        if: github.event_name == 'pull_request' && steps.scope.outputs.website == 'true' && steps.scope.outputs.publication != 'true'
+        with:
+          name: pilot7-layout-preview
+          path: .build/site-preview/site
+          include-hidden-files: true
+          if-no-files-found: error
 
-  self-check:
-    runs-on: ubuntu-latest
+  study-check:
+    if: github.event_name == 'pull_request' && needs.structure-check.outputs.studies != '{}'
+    needs: structure-check
+    strategy:
+      fail-fast: false
+      matrix: ${{ fromJSON(needs.structure-check.outputs.studies) }}
+    uses: ./.github/workflows/study-check.yml
+    with:
+      study: ${{ matrix.study }}
+      yamaa: ${{ matrix.yamaa }}
+      core: ${{ matrix.core }}
+      r: ${{ matrix.r }}
+
+  publication-check:
+    needs: [structure-check, study-check]
+    if: needs.structure-check.outputs.publication == 'true'
+    runs-on: ubuntu-24.04
     steps:
       - uses: actions/checkout@v5
         with:
@@ -66,11 +111,31 @@ jobs:
       - uses: actions/setup-python@v5
         with:
           python-version: '3.12'
-      - run: python -m pip install pyarrow==25.0.1
-      - name: Comparator self-check (reference versus itself)
-        run: >-
-          python .github/scripts/compare_adam.py
-          --official submission-pilot5/data/adam
-          --derived submission-pilot5/data/adam
-          --keys-file submission-pilot5/program/adam/adam-compare-keys.json
-          --null-empty-equal
+      - uses: actions/download-artifact@v4
+        with:
+          pattern: validation-*
+          path: .build/validation
+          merge-multiple: true
+      - run: python -m pip install -r docs/requirements.txt
+      - name: Record allowed pending studies without installing an engine
+        run: |
+          python - <<'PYTHON'
+          from pathlib import Path
+          import subprocess
+          import sys
+          sys.path.insert(0, '.github/scripts')
+          from study_evidence import catalog
+          for study, entry in catalog(Path.cwd()).items():
+              if entry.get('allow_pending') and not Path(study, 'spec/yamaa/project.yaml').exists():
+                  subprocess.run([sys.executable, '.github/scripts/validate_yamaa.py', study], check=True)
+          PYTHON
+      - name: Verify the full publication path with this commit's evidence
+        run: |
+          python .github/scripts/build_study_docs.py
+          python .github/scripts/check_ascii.py
+          python -m mkdocs build --strict
+      - uses: actions/upload-artifact@v4
+        with:
+          name: pilot7-publication-check
+          path: site
+          if-no-files-found: error

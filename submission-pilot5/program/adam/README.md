@@ -1,32 +1,52 @@
 # Submission Pilot 5 ADaM derivations
 
-`../../spec/yamaa/project.yaml` lists the active specifications in dependency
-order. The project uses the yamaa 1.0 language and API at the source revision
-pinned in `python/requirements.txt` (currently an unreleased engine).
-Python 3.12 or later and Rust/Cargo 1.82 or later are required for installation.
+R and Python run the same [yamaa project](../../spec/yamaa/project.yaml):
+ADSL -> ADAE -> ADADAS -> ADTTE -> ADLBC.
+The engine revision is pinned in [python/requirements.txt](python/requirements.txt).
 
-From the repository root:
+Run the commands below from the repository root.
+
+## Setup
+
+Source installation requires Python 3.12+, Rust/Cargo 1.82+, Git, and a C
+compiler. The R runner also requires R 4.2+.
+
+Install the Python engine and comparison tools:
 
 ```bash
 python -m pip install -r submission-pilot5/program/adam/python/requirements.txt
-python submission-pilot5/program/adam/python/run.py
-python submission-pilot5/program/adam/python/compare.py
 ```
 
-Both scripts resolve the study from their own locations and work from any
-working directory. Outputs are ignored `data/adam/<dataset>-yamaa.parquet`
-files; the official reference datasets are preserved.
+For R, build the package from the same pinned revision:
 
-The complete reference comparison passes with the pinned engine at
-`3e8d5f6b5d2af223fba6aa29fa7209699123f706` (2026-10-24). Numeric cells
-use the existing absolute tolerance of `1e-10`. The comparator aligns rows by its dataset keys and checks all official columns, cells, and declared labels. Null and empty text are normalized according to the original comparison policy.
+```bash
+mkdir -p .build/pilot5-r/library
+git clone https://github.com/elong0527/yamaa.git .build/pilot5-r/yamaa-source
+git -C .build/pilot5-r/yamaa-source checkout --detach 3e8d5f6b5d2af223fba6aa29fa7209699123f706
+(
+  cd .build/pilot5-r/yamaa-source
+  python -m tools.staging.stage_r_package ../package
+)
+R CMD INSTALL --library=.build/pilot5-r/library .build/pilot5-r/package
+```
 
-Specifications now declare explicit lookup keys, producing-specification
-links, current temporal operations, and grammar expressions. Explicit
-`nulls: last` terms preserve the prior missing-value ordering. Retired
-COALESCE/GREATEST functions are expressed with helper derivations and the
-current verbs. The migration preserves the original comparison policies.
+With rustup, staging uses the checkout's declared Rust toolchain.
 
-The active order is ADSL, ADAE, ADADAS, ADTTE, ADLBC. ADLBC reads SUPPLB
-ENDPOINT through a named intermediate and ranks fallback candidates in-spec;
-no external input staging program is needed.
+## Run and compare
+
+Choose either runner:
+
+```bash
+# R
+R_LIBS="$PWD/.build/pilot5-r/library" Rscript --vanilla submission-pilot5/program/adam/R/run.R
+
+# Python
+python submission-pilot5/program/adam/python/run.py
+```
+
+Both write `submission-pilot5/data/adam/<dataset>-yamaa.parquet`.
+Compare the outputs with the official references:
+
+```bash
+python submission-pilot5/program/adam/python/compare.py
+```
