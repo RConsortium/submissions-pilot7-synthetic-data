@@ -61,6 +61,13 @@ including format conversions or redistribution of converted datasets.
 
 ## Other third-party notices
 
+- Define-XML stylesheets under `cdiscpilot01/spec/define/` and
+  `submission-pilot3/spec/define/` are retained unchanged from the submission
+  packages identified by each study's `spec/source/manifest.json`.
+  Their original copyright and license notices are preserved. Pilot 5 reuses
+  the identical retained Pilot 3 stylesheets; each manifest records the
+  corresponding upstream source. These imported files are not original Pilot 7
+  code and are not relicensed by the root license.
 - `.archieve/cart-t/` retains its existing [OpenClinica MIT
   notice](.archieve/cart-t/LICENSE). This change does not replace that license
   or its copyright attribution.

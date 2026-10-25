@@ -149,7 +149,7 @@ def build_bundle(root, destination, entries, reports, revision):
                     metadata["domain"], ""
                 ),
             )
-        report = build_report(root, study, specifications, target, revision)
+        report = build_report(root, study, specifications, target, revision, validation)
         write_json(target / "report.json", report)
         record.update(
             tables=exported,

@@ -24,6 +24,7 @@ The reviewer guide is `docs/review.md`.
     domains.py                           dataset descriptions from retained Define-XML
     synthetic.py                         separate source/readiness manifests
     documents.py                         retained originals and searchable reading copies
+    document_views.py                    workbook tables and original XML HTML
     consistency.py                       metadata checks and source-backed review questions
     artifacts.py                         versioned study and gallery manifests
     pages.py                             accessible page shells and static fallback evidence
@@ -75,7 +76,13 @@ Heading-based URL tracking is disabled because dashboard fragments own review st
    `manifest.json` `files` array. Define-XML under `spec/define/` is discovered
    automatically. PDF pages, workbook rows, and Define variable sections have
    stable reading-copy anchors; originals are preserved. Missing declared sources
-   remain visible. No source document is fetched during publication.
+   remain visible. XML entries can declare a repo-relative `stylesheet` and its
+   `stylesheet_upstream` provenance URL. Retain the exact publisher stylesheet;
+   it is included in artifact verification, even when shared across studies.
+   Publication renders the original HTML using lxml with external resource access
+   disabled. PDF originals are embedded directly; workbook HTML preserves sheet,
+   row and column positions and merged cells. No source document is fetched
+   during publication.
 5. Optionally add `spec/review/questions.json`, with `schema_version: 1` and a
    `questions` array. Each question needs unique `id`, `dataset`, optional
    `variable`, `title`, study-relative `document`, `section`, exact `excerpt`,

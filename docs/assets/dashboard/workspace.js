@@ -226,9 +226,5 @@ export function createWorkspace(ctx) {
         : "";
     el.style.minHeight = innerWidth > 700 ? "440px" : "";
   }
-  function overview() {
-    const { model, report } = ctx;
-    return `<div class="section-heading"><h2>Dataset coverage</h2></div><div class="overview-table"><table class="review-table"><thead><tr><th>Dataset</th><th>Output rows</th><th>Columns</th><th>Reference comparison</th><th>Documentation</th></tr></thead><tbody>${model.datasets.map((d) => `<tr><td><button class="text-link" data-dataset="${d.name}">${d.name}</button></td><td>${model.tables[d.output].rows.toLocaleString()}</td><td>${model.tables[d.output].columns.length}</td><td><span class="status ${d.comparison === "passed" ? "good" : "neutral"}">${d.comparison === "passed" ? "Passed" : "Unavailable"}</span></td><td><button class="text-link" data-domain-findings="${d.name}">${report.findings.filter((f) => f.dataset === d.name).length} observations / tasks</button></td></tr>`).join("")}</tbody></table></div>`;
-  }
-  return { workspace, applyHighlight, paintTables, fitWorkbench, overview };
+  return { workspace, applyHighlight, paintTables, fitWorkbench };
 }

@@ -222,6 +222,16 @@ columns:
                 self.assertIn(
                     "Not comprehensively reviewed", result["coverage"]["narrative"]
                 )
+                finding = result["findings"][0]
+                self.assertEqual(finding["comparison"], "source_documents")
+                self.assertIn("derivation: DM.AGE", finding["spec"]["excerpt"])
+                self.assertEqual(
+                    finding["data"],
+                    {
+                        "path": "study/data/adam/adsl.parquet",
+                        "summary": 'AGE: int64; 1 rows; 0 missing. Label: (not stored). Example values: ["65"].',
+                    },
+                )
 
 
 if __name__ == "__main__":

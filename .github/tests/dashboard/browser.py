@@ -1,11 +1,13 @@
 #!/usr/bin/env python3
 """Exercise complete real-data review bundles in a browser, with no write actions."""
+
 import argparse
 import gzip
 from functools import partial
 from http.server import SimpleHTTPRequestHandler, ThreadingHTTPServer
 import json
 from pathlib import Path
+import re
 from threading import Thread
 
 from playwright.sync_api import expect, sync_playwright
@@ -210,18 +212,27 @@ def check(browser, base, site_dir, screenshots):
     shared.close()
     # Evidence and bottom-of-page comments retain the selected dataset context.
     page.locator("#dataset-select").select_option("ADAE")
-    page.locator('.metric-strip [data-view="findings"]').click()
-    expect(page.locator(".finding-card")).not_to_have_count(0)
+    page.locator('.metric-strip [data-view="overview"]').click()
+    expect(page.locator(".consistency-table")).to_be_visible()
+    page.locator("#finding-comparison").select_option("input_output")
+    expect(page.locator(".consistency-table tbody tr")).to_have_count(10)
+    expect(page.locator(".consistency-table tbody")).to_contain_text("Executed")
+    page.locator("#finding-comparison").select_option("source_documents")
     page.locator("#finding-search").fill("imputation")
-    expect(page.locator(".finding-card")).to_have_count(1)
-    page.locator(".finding-card summary").click()
+    expect(page.locator(".consistency-table tbody tr")).to_have_count(1)
+    expect(page.locator(".consistency-table tbody")).to_contain_text("ADAE.ASTDT")
+    expect(page.locator(".consistency-table tbody")).to_contain_text("Example values")
+    capture(page, screenshots, "consistency-review.png")
     page.get_by_role("button", name="Open evidence in workspace", exact=True).click()
     expect(page.locator(".evidence-drawer")).to_be_visible()
-    cited = page.get_by_role(
-        "link", name="Open cited source", exact=True
-    ).get_attribute("href")
-    assert page.request.get(cited.split("#")[0]).status == 200
     capture(page, screenshots, "source-evidence.png")
+    page.get_by_role("button", name="Open cited source", exact=True).click()
+    expect(page.locator("#source-frame")).to_have_attribute(
+        "src", re.compile(r"dataguide\.pdf#page=5$")
+    )
+    cited = page.locator("#source-frame").get_attribute("src")
+    assert page.request.get(cited.split("#")[0]).body().startswith(b"%PDF")
+    page.locator('.review-tabs [data-view="datasets"]').click()
     page.get_by_role("button", name="Close source evidence", exact=True).click()
     expect(page.locator("#comments-host script")).to_have_attribute(
         "data-term", "pilot7/studies/cdiscpilot01/ADAE"
@@ -237,14 +248,30 @@ def check(browser, base, site_dir, screenshots):
     page.get_by_role("button", name="Copy review context", exact=True).click()
     expect(page.locator("#share-url")).to_have_value(copied)
     page.locator('.review-tabs [data-view="materials"]').click()
-    for anchor in page.locator(".material-card a").all():
-        href = anchor.get_attribute("href")
-        if href.startswith(base):
-            assert page.request.get(href).status == 200, href
+    page.locator("#document-select").select_option(
+        "cdiscpilot01/spec/define/define-adam.xml"
+    )
+    expect(page.locator("#source-frame")).to_have_attribute(
+        "title", "Original XML HTML: define-adam.xml"
+    )
+    expect(page.frame_locator("#source-frame").locator("table").first).to_be_visible()
+    capture(page, screenshots, "original-xml.png")
+    page.reload()
+    expect(page.locator("#document-select")).to_have_value(
+        "cdiscpilot01/spec/define/define-adam.xml"
+    )
+    page.locator("#document-mode").select_option("reading")
+    expect(
+        page.frame_locator("#source-frame").locator("#ADAE\\.ASTDT")
+    ).to_contain_text("Label:")
     page.locator('.review-tabs [data-view="overview"]').click()
-    expect(page.locator(".overview-table tbody tr")).to_have_count(10)
-    expect(page.locator(".overview-table")).not_to_contain_text(
-        "These are real results"
+    page.get_by_role("button", name="Clear filters", exact=True).click()
+    expect(page.locator(".consistency-table tbody tr")).not_to_have_count(0)
+    page.locator("#finding-kind").select_option("inconsistent")
+    expect(page.locator(".consistency-table tbody")).not_to_contain_text("Executed")
+    page.locator("#finding-search").fill("no such source rule")
+    expect(page.locator(".consistency-table tbody")).to_contain_text(
+        "No comparisons match"
     )
     # Pilot and synthetic sections have separate galleries and dashboard purposes.
     page.get_by_role("link", name="All pilot studies", exact=True).click()
@@ -260,6 +287,23 @@ def check(browser, base, site_dir, screenshots):
     expect(nav).to_contain_text("Synthetic data")
     page.locator('.study-card[href*="submission-pilot3"]').click()
     expect(page.locator("#output-table tbody tr")).to_have_count(3)
+    page.locator('.review-tabs [data-view="materials"]').click()
+    page.locator("#document-select").select_option(
+        "submission-pilot3/spec/source/adam-pilot-3.xlsx"
+    )
+    expect(page.locator("#source-frame")).to_have_attribute(
+        "title", "Excel tables: adam-pilot-3.xlsx"
+    )
+    expect(page.frame_locator("#source-frame").locator("table").first).to_be_visible()
+    expect(
+        page.frame_locator("#source-frame").locator("#sheet-1-row-1")
+    ).to_be_visible()
+    capture(page, screenshots, "excel-source-tables.png")
+    page.locator("#document-select").select_option(
+        "submission-pilot3/spec/define/define-adam.xml"
+    )
+    expect(page.frame_locator("#source-frame").locator("table").first).to_be_visible()
+    page.locator('.review-tabs [data-view="datasets"]').click()
     page.locator("#dataset-select").select_option("ADADAS")
     p3 = json.loads(
         (site_dir / "evidence/dashboard/submission-pilot3/catalog.json").read_text()
@@ -300,10 +344,10 @@ def check(browser, base, site_dir, screenshots):
                 expect(page.locator("#dataset-select")).to_be_visible()
             elif view == "findings":
                 expect(
-                    page.get_by_role("heading", name="Consistency verification report")
+                    page.get_by_role("heading", name="Consistency review", exact=True)
                 ).to_be_visible()
             else:
-                expect(page.locator(".material-card")).not_to_have_count(0)
+                expect(page.locator("#source-frame")).to_be_visible()
             assert page.evaluate("document.documentElement.scrollWidth<=innerWidth"), (
                 width,
                 view,

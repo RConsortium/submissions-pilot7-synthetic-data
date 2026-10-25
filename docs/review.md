@@ -52,17 +52,35 @@ stack vertically.
 
 ## Verify documentation observations
 
-Select **Documentation review** in the summary and search a variable, dataset,
-document, or phrase in the consistency report. Each observation links relevant
-YAML lines and available source evidence. **Open evidence in workspace** opens
-the affected dataset with its evidence panel. **Open cited source** goes to the
-extracted location; use the retained original to confirm wording and context.
+The **Consistency review** tab follows **Review workspace**. Its table compares
+**Input -> output logic** and **Source documents** with the derived datasets.
+Search a variable, dataset, document, or phrase, or filter the comparison and
+review status. Each row shows the yamaa rule, observed dataset values, source
+information and the difference or remaining review task. **Executed** records a
+yamaa build and its separate independent-reference result; it does not establish
+that the original rule was interpreted correctly.
+
+**Open evidence in workspace** opens the affected dataset and variable with its
+evidence panel and derived output. **View source** opens the cited document
+inside the website. Old Dataset overview and findings links lead to this table.
 
 Label differences and missing columns require review. **Not reviewed** identifies
 an authored question with a verified source excerpt. **Missing evidence** means
 the expected source or excerpt could not be verified. Narrative coverage is
 partial. Reference agreement is separate from this report and is not regulatory
 validation. See the [verification policy](verification.md).
+
+## View source documents
+
+Use **Source documents** to select a retained document. PDF pages display in the
+browser viewer with their original tables and layout. Excel workbooks display
+sheet tables with row numbers, column letters and merged cells; formulas are
+shown as entered. XML displays the HTML produced by the publisher's retained
+stylesheet. Original files remain available through **Original document**.
+
+Where available, choose **Extracted reading copy** for searchable text and exact
+citation locations. The selected document, view and cited location are included
+in the review URL. Missing documents remain explicitly unavailable.
 
 ## Review synthetic workflow readiness
 

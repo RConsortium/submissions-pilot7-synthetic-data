@@ -212,6 +212,29 @@ columns:
             pa.schema([("PARTICIPANT", pa.string()), ("VALUE", pa.int64())]),
         )
 
+    def test_shared_stylesheet_changes_invalidate_the_study_evidence(self):
+        self.write(
+            "other-study/spec/source/original.xsl", "retained publisher stylesheet"
+        )
+        self.write(
+            "future-study/spec/source/manifest.json",
+            json.dumps(
+                {
+                    "files": [
+                        {
+                            "path": "future-study/spec/define/define-adam.xml",
+                            "stylesheet": "other-study/spec/source/original.xsl",
+                        }
+                    ]
+                }
+            ),
+        )
+        self.refresh()
+        self.generate()
+        self.write("other-study/spec/source/original.xsl", "changed stylesheet")
+        with self.assertRaisesRegex(ValueError, "artifacts changed"):
+            self.generate()
+
 
 if __name__ == "__main__":
     unittest.main()

@@ -1,6 +1,7 @@
 """Bind validation evidence to the exact clinical and documentation artifacts."""
 
 import hashlib
+import json
 from pathlib import Path
 
 
@@ -14,6 +15,13 @@ def artifact_snapshot(root, study):
     root = Path(root).resolve()
     base = root / study
     files = set()
+    manifest = base / "spec/source/manifest.json"
+    if manifest.is_file():
+        for entry in json.loads(manifest.read_text()).get("files", []):
+            if entry.get("stylesheet"):
+                stylesheet = (root / entry["stylesheet"]).resolve()
+                stylesheet.relative_to(root)
+                files.add(stylesheet)
     for relative in (
         ".github/yamaa-studies.json",
         ".github/dashboard.json",

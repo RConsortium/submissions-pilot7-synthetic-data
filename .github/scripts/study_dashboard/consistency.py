@@ -6,9 +6,10 @@ import pyarrow.parquet as pq
 
 from .config import SCHEMA_VERSION
 from .documents import define_metadata, materials
+from .datasets import clean
 
 
-def build_report(root, study, specifications, target, revision):
+def build_report(root, study, specifications, target, revision, validation=None):
     define_path = root / study / "spec/define/define-adam.xml"
     metadata = define_metadata(define_path) if define_path.exists() else {}
     manifest, documents = materials(root, study, target, metadata)
@@ -139,11 +140,88 @@ def build_report(root, study, specifications, target, revision):
             "Verify which package version applies before interpreting narrative rules.",
         )
     append_questions(root, study, specifications, documents, findings, revision)
+    logic_checks = []
+    results = {d["domain"]: d for d in (validation or {}).get("datasets", [])}
+    for spec_path, spec, lineage in specifications:
+        domain = spec["domain"]
+        output_path = (spec_path.parent / spec["output"]["path"]).resolve()
+        schema = pq.read_schema(output_path)
+        result = results.get(domain)
+        if result:
+            logic_checks.append(
+                {
+                    "id": f"{study}:{domain}:execution",
+                    "dataset": domain,
+                    "variable": "",
+                    "comparison": "input_output",
+                    "kind": (
+                        "executed" if result["build"] == "succeeded" else "inconsistent"
+                    ),
+                    "status": (
+                        "Executed" if result["build"] == "succeeded" else "Needs review"
+                    ),
+                    "title": "Input -> output execution",
+                    "observation": f'yamaa build: {result["build"]}. Independent reference comparison: {result["comparison"]}.',
+                    "source": {
+                        "path": "",
+                        "section": "",
+                        "excerpt": "Source-document interpretation is reviewed separately.",
+                        "url": "",
+                    },
+                    "spec": {
+                        "path": spec_path.relative_to(root).as_posix(),
+                        "line": 1,
+                        "url": f"{repo}/blob/{revision}/{spec_path.relative_to(root)}#L1",
+                    },
+                    "recommendation": "Inspect the linked inputs, rules and output records. Successful execution does not independently verify the intended derivation logic.",
+                }
+            )
+        related = [f for f in findings + logic_checks if f["dataset"] == domain]
+        for finding in related:
+            name = finding["variable"]
+            finding.setdefault(
+                "comparison",
+                (
+                    "input_output"
+                    if finding["source"]["path"]
+                    == output_path.relative_to(root).as_posix()
+                    else "source_documents"
+                ),
+            )
+            span = lineage["spans"].get(name)
+            text = spec_path.read_text().splitlines()
+            finding["spec"]["excerpt"] = (
+                "\n".join(text[span["start"] - 1 : span["end"]])
+                if span
+                else f'Inputs: {", ".join(spec["input"])} -> {domain}\nOutput columns: {", ".join(spec["output"]["columns"])}'
+            )
+            summary = f"{pq.read_metadata(output_path).num_rows:,} rows; {len(schema)} columns."
+            if name and name in schema.names:
+                column = pq.read_table(output_path, columns=[name]).column(name)
+                samples = []
+                for value in column.to_pylist():
+                    if (
+                        value is not None
+                        and (value := str(clean(value))) not in samples
+                    ):
+                        samples.append(value)
+                    if len(samples) == 3:
+                        break
+                field = schema.field(name)
+                label = (field.metadata or {}).get(b"yamaa:label", b"").decode("utf-8")
+                summary = f'{name}: {field.type}; {len(column):,} rows; {column.null_count:,} missing. Label: {label or "(not stored)"}. Example values: {json.dumps(samples, ensure_ascii=True)}.'
+            elif name:
+                summary = f"{name} is absent from the dataset schema. " + summary
+            finding["data"] = {
+                "path": output_path.relative_to(root).as_posix(),
+                "summary": summary,
+            }
     return {
         "schema_version": SCHEMA_VERSION,
         "study": study,
         "revision": revision,
         "findings": findings,
+        "logic_checks": logic_checks,
         "checks": checks,
         "documents": [
             {k: v for k, v in d.items() if k != "sections"} for d in documents

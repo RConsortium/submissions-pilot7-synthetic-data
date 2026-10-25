@@ -114,9 +114,9 @@ import { mountSynthetic } from "./synthetic.js";
     },
   };
   const { frame } = createShell(ctx),
-    { workspace, applyHighlight, paintTables, fitWorkbench, overview } =
+    { workspace, applyHighlight, paintTables, fitWorkbench } =
       createWorkspace(ctx);
-  const { findingCards, findingsView, materialsView, drawer } =
+  const { allFindings, findingRows, findingsView, materialsView, drawer } =
       createReport(ctx),
     { commentsView, commentContext, loadComments } = createComments(ctx);
   const resizing = createResizing(ctx);
@@ -181,10 +181,8 @@ import { mountSynthetic } from "./synthetic.js";
       state.view === "datasets"
         ? workspace()
         : state.view === "overview"
-          ? overview()
-          : state.view === "findings"
-            ? findingsView()
-            : materialsView();
+          ? findingsView()
+          : materialsView();
     byId("review-comments").innerHTML = commentsView();
     loadComments();
     if (state.view === "datasets") {
@@ -380,16 +378,25 @@ import { mountSynthetic } from "./synthetic.js";
     }
     if (target.dataset.domainFindings) {
       state.findingSearch = target.dataset.domainFindings;
-      navigate("findings");
+      navigate("overview");
       return;
     }
     if (target.dataset.finding) {
-      const f = report.findings.find((x) => x.id === target.dataset.finding);
+      const f = allFindings().find((x) => x.id === target.dataset.finding);
       state.dataset = f.dataset;
       state.focus = f.variable ? "spec." + f.variable : "";
       state.evidence = f.id;
       state.inputs = null;
+      state.outputs = [];
+      state.output = "derived";
       navigate("datasets");
+      return;
+    }
+    if (target.dataset.document) {
+      state.document = target.dataset.document;
+      state.documentSection = target.dataset.documentSection || "";
+      state.documentMode = target.dataset.documentMode || "original";
+      navigate("materials");
       return;
     }
     if (target.dataset.panelPage) {
@@ -434,10 +441,12 @@ import { mountSynthetic } from "./synthetic.js";
     if (target.id === "clear-findings") {
       state.findingSearch = "";
       state.kind = "";
+      state.comparison = "";
       save();
       byId("finding-search").value = "";
       byId("finding-kind").value = "";
-      byId("finding-results").innerHTML = findingCards();
+      byId("finding-comparison").value = "";
+      byId("finding-results").innerHTML = findingRows();
       return;
     }
     if (target.id === "close-evidence") {
@@ -517,10 +526,20 @@ import { mountSynthetic } from "./synthetic.js";
       paintTables();
       return;
     }
-    if (el.id === "finding-kind") {
-      state.kind = el.value;
+    if (["document-select", "document-mode"].includes(el.id)) {
+      if (el.id === "document-select") {
+        state.document = el.value;
+        state.documentMode = "original";
+        state.documentSection = "";
+      } else state.documentMode = el.value;
       save();
-      byId("finding-results").innerHTML = findingCards();
+      byId("view-content").innerHTML = materialsView();
+      return;
+    }
+    if (["finding-kind", "finding-comparison"].includes(el.id)) {
+      state[el.id === "finding-kind" ? "kind" : "comparison"] = el.value;
+      save();
+      byId("finding-results").innerHTML = findingRows();
     }
   });
   document.addEventListener("input", (event) => {
@@ -540,7 +559,7 @@ import { mountSynthetic } from "./synthetic.js";
     if (el.id === "finding-search") {
       state.findingSearch = el.value;
       save();
-      byId("finding-results").innerHTML = findingCards();
+      byId("finding-results").innerHTML = findingRows();
     }
   });
   window.addEventListener("hashchange", mount);
