@@ -75,15 +75,17 @@ validation. See the [verification policy](verification.md).
 
 ## View source documents
 
-Use **Source documents** to select a retained document. PDF pages display in the
-browser viewer with their original tables and layout. Excel workbooks display
-sheet tables with row numbers, column letters and merged cells; formulas are
-shown as entered. XML displays the HTML produced by the publisher's retained
-stylesheet. Original files remain available through **Original document**.
+Each retained file has its own tab in **Source documents**. Choose a file and use
+**Compare side by side** to open a second independent viewer. Switch files within
+either pane; **Close comparison** returns to one. On narrow screens, the two
+viewers stack vertically. Use arrow keys, Home, or End to move between file tabs.
 
-Where available, choose **Extracted reading copy** for searchable text and exact
-citation locations. The selected document, view and cited location are included
-in the review URL. Missing documents remain explicitly unavailable.
+PDF pages retain their original layout. Excel sheet tables retain coordinates,
+merged cells and formulas. XML uses the publisher's retained stylesheet. Each
+file title has a **Source** link to that file in the repository at the displayed
+study revision. Extracted reading copies and repository paths are omitted from
+this interface. Selected files and the primary cited location are preserved in
+the review URL. Missing documents remain explicitly unavailable.
 
 ## Review synthetic workflow readiness
 

@@ -36,6 +36,7 @@ docs/assets/dashboard/
   review-model.js                        cross-specification identity and panel planning
   resize.js, synthetic.js                 sizing and synthetic-development views
   shell.js, workspace.js                 study layout and linked review panels
+  source-documents.js                    independent file tabs and two original viewers
   report.js, comments.js, ui.js           evidence, discussions, and shared primitives
 docs/stylesheets/dashboard.css           responsive layout and light/dark themes
 .github/tests/dashboard/                 artifact, extension, module, and browser checks
@@ -82,7 +83,8 @@ Heading-based URL tracking is disabled because dashboard fragments own review st
    Publication renders the original HTML using lxml with external resource access
    disabled. PDF originals are embedded directly; workbook HTML preserves sheet,
    row and column positions and merged cells. No source document is fetched
-   during publication.
+   during publication. Source documents use the original views only, with one or
+   two independent tabbed panes; extracted text is kept for consistency checks.
 5. Optionally add `spec/review/questions.json`, with `schema_version: 1` and a
    `questions` array. Each question needs unique `id`, `dataset`, optional
    `variable`, `title`, study-relative `document`, `section`, exact `excerpt`,
