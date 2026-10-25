@@ -75,9 +75,19 @@ class ComparisonTests(unittest.TestCase):
             verify.materialize_sdtm(path, output)
             payload = json.loads(output.read_text())
             self.assertEqual(payload['records'], 2)
-            self.assertIsInstance(payload['rows'][0][0], float)
+            # Upstream SDTM numerics are decimal/decimal text; adlbh.r reads them as text.
+            self.assertEqual((payload['columns'][0]['dataType'], payload['columns'][0]['targetDataType']),
+                             ('decimal', 'decimal'))
+            self.assertEqual([row[0] for row in payload['rows']], ['1.25', None])
             restored = importer.dataset_table(output.read_bytes(), 'dm')
             self.assertTrue(importer.same_dataset(source, restored))
+
+    def test_decimal_text_round_trips_and_rejects_nonfinite(self):
+        for value in (56.72413793103448, 1.2345678901234567, 5e-07, -7.0):
+            self.assertEqual(float(verify.decimal_text(value)), value)
+        for value in (float('nan'), float('inf')):
+            with self.assertRaisesRegex(ValueError, 'Nonfinite'):
+                verify.decimal_text(value)
 
 
 class SnapshotTests(unittest.TestCase):

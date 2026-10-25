@@ -30,7 +30,8 @@ production ADaM references for data standardization and comparison.
 - `program/adam/renv.lock`: the tested R 4.5.1 package environment, restored
   directly by CI. The [recorded results](program/adam/README.md#recorded-verification)
   show five reference matches, two reference differences, one export failure
-  and two generated datasets without stored upstream references.
+  and two generated datasets without stored upstream references. The current
+  startup script fixes the export failure, and ADLBH then matches.
 
 ## Conversion and verification
 

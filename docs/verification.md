@@ -46,10 +46,11 @@ project. The upstream repository supports anonymous DVC downloads; see
 for the snapshot and refresh workflow.
 
 The upstream R programs have a separate reproduction check using a committed
-renv environment. ADSL, ADAE, ADADAS, ADLBC and ADVS match their stored
-references. ADLBH fails JSON export on non-finite values; ADNPIX has a
-different row count; ADTTE has an event-description text difference.
-ADLBHY and ADCIBC generate successfully but have no upstream reference.
+renv environment. ADSL, ADAE, ADADAS, ADLBC, ADLBH and ADVS match their
+stored references. ADNPIX and ADTTE differ because upstream stored their
+references before later program changes: ADNPIX has a different row count,
+and ADTTE has an event-description spelling difference. ADLBHY and ADCIBC
+generate successfully but have no upstream reference.
 See the [R reproduction evidence](https://github.com/RConsortium/submissions-pilot7-synthetic-data/blob/main/submission-pilot6/program/adam/README.md#recorded-verification).
 
 ## Evidence published with the site

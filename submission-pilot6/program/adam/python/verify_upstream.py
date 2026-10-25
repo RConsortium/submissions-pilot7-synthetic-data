@@ -101,21 +101,35 @@ def run_program(command, environment, work, domain):
     return failure, log
 
 
+def decimal_text(value):
+    """Shortest text that parses back to the same double, as Dataset-JSON decimals require."""
+    if value is None:
+        return None
+    if not math.isfinite(value):
+        raise ValueError(f'Nonfinite SDTM value: {value}')
+    return repr(float(value))
+
+
 def materialize_sdtm(path, destination):
-    """Convert staged Parquet to Dataset-JSON for the upstream reader."""
+    """Convert staged Parquet to Dataset-JSON for the upstream reader.
+
+    Upstream declares every SDTM numeric column decimal/decimal, and adlbh.r reads
+    them as text through the legacy reader default; keep that typing.
+    """
     table = pq.read_table(path)
     columns, values = [], []
     for field, column in zip(table.schema, table.columns):
+        metadata = {'name': field.name, 'itemOID': field.name,
+                    'label': field.metadata[b'yamaa:label'].decode()}
         if pa.types.is_large_string(field.type) or pa.types.is_string(field.type):
-            kind = 'string'
+            metadata['dataType'] = 'string'
+            values.append(column.to_pylist())
         elif pa.types.is_floating(field.type) or pa.types.is_integer(field.type):
-            kind = 'float'
+            metadata.update(dataType='decimal', targetDataType='decimal')
+            values.append([decimal_text(v) for v in column.to_pylist()])
         else:
             raise ValueError(f'Unsupported SDTM column type: {field}')
-        metadata = {'name': field.name, 'itemOID': field.name, 'dataType': kind,
-                    'label': field.metadata[b'yamaa:label'].decode()}
         columns.append(metadata)
-        values.append(column.to_pylist())
     data = {'datasetJSONVersion': '1.1.0', 'datasetJSONCreationDateTime': '2026-10-24T00:00:00',
             'itemGroupOID': path.stem, 'name': path.stem.upper(), 'label': path.stem.upper(),
             'records': table.num_rows, 'columns': columns, 'rows': list(map(list, zip(*values)))}
@@ -213,7 +227,7 @@ def main():
               'runtime': json.loads((work / 'runtime-observed.json').read_text()),
               'input_datasets': len(inputs), 'initial_adam_files': len(initial_adam_files),
               'input_precision_probe': 'passed',
-              'input_adapter': 'Staged Parquet to Dataset-JSON 1.1; numeric columns use float.',
+              'input_adapter': 'Staged Parquet to Dataset-JSON 1.1; numeric columns use decimal, as upstream.',
               'comparison_policy': 'Original row/column order; exact text, nulls, dates, types and labels; absolute numeric tolerance 1e-10.',
               'datasets': []}
     generated = set()

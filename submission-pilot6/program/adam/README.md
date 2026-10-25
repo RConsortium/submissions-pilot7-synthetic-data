@@ -31,10 +31,15 @@ renv project. No Docker image is required.
 
 The lockfile pins datasetjson's native reader to Git commit
 `0d4a6ac11ac4224868a0c405ed52a8478cc4ec78` from
-`atorus-research/datasetjson`. The startup script accepts the legacy
-`decimals_as_floats = TRUE` argument used by upstream and delegates to the
-native reader, which already decodes numeric columns as floating-point
-values. An exact numeric precision probe runs before derivations. Upstream
+`atorus-research/datasetjson`. Upstream ran datasetjson 0.3.0, so the
+startup script restores that version's behaviour where programs depend on
+it. With the legacy `decimals_as_floats = TRUE` argument it delegates to the
+native reader, which decodes decimal columns as floating-point values.
+Without it, as in `adlbh.r`, 0.3.0 returned decimal columns as text; the
+script rebuilds that text with `format(x, digits = 16)`, which matches
+0.3.0's reading of the original upstream SDTM files. The 0.3.0 writer stored
+infinite numbers as null, which the native writer rejects; the script writes
+them as null again. An exact numeric precision probe runs before derivations. Upstream
 does not provide its own lockfile; this repository records the tested environment.
 CRAN package records use renv's `Repository` source without pak's `any`
 remote metadata, so cold restores can retrieve the pinned versions.
@@ -48,13 +53,15 @@ The runner requires all 21 named SDTM inputs, all 8 named ADaM references,
 both upstream specifications, and all 14 retained source files before it
 verifies their hashes. Missing or duplicate manifest entries fail verification.
 It converts the staged SDTM Parquet files to Dataset-JSON for the R reader,
-preserving values, blanks, nulls, types and labels; numeric columns use JSON
-float metadata. It then creates a fresh sandbox with an empty ADaM folder.
+preserving values, blanks, nulls, types and labels; numeric columns are
+`decimal` text, as in upstream's SDTM files. It then creates a fresh
+sandbox with an empty ADaM folder.
 Each program runs in a fresh R process after loading the upstream profile,
 shared JSON writer, metatools and xportr. The latter two supply functions
 some programs expect from a shared interactive R session. No upstream
-derivation code is changed. The compatibility reader adapts the retired
-argument only; it does not modify clinical values or derivation rules.
+derivation code is changed. The compatibility reader and writer reproduce
+datasetjson 0.3.0 input and output only; they do not modify clinical values
+or derivation rules.
 
 ADSL runs first. The other programs consume only freshly generated parent
 datasets, with ADAE before ADTTE and ADLBC before ADLBHY. A failed parent
@@ -103,15 +110,29 @@ stored reference datasets matched. The remaining results require review:
 | ADLBHY | 9,954 | Reference unavailable |
 | ADCIBC | 730 | Reference unavailable |
 
-- ADLBH reaches export but produces NaN or infinite numeric values, which
-  the Dataset-JSON writer rejects. Its reference comparison did not run.
-- ADNPIX generates 2,360 rows; its stored reference contains 31,140.
+- ADLBH failed in this workflow's compatibility layer, not upstream. R2A1LO
+  and BR2A1LO divide by a zero lower limit for BASO and EOS; the native
+  writer rejected the infinite results that 0.3.0 stored as null. The
+  reader also returned LB numbers where `adlbh.r` reads text. The current
+  startup script restores both behaviours, and ADLBH then matches its
+  reference.
+- Because `adlbh.r` reads VISITNUM as padded text, its numeric comparisons
+  compare text: baseline CHG stays 0, ANL01FL is never set, and AENTMTFL
+  can flag Week 26. The reference carries these upstream results.
+- ADNPIX generates 2,360 rows; its stored reference contains 31,140. The
+  reference predates the program: upstream stored it on 2026-04-17 and
+  added `adqsnpix.r` on 2026-04-24 (commit `a6fbbed3bc`). The reference
+  holds all 14 NPI-X parameters with 2-week analysis windows; the program
+  derives NPTOT only, with Week 8, 16 and 24 windows.
 - ADTTE differs in 152 EVNTDESC cells: the program writes
   `Dermatologic Event Occurred`, while the reference contains
-  `Dematologic Event Occured`. The other columns match.
+  `Dematologic Event Occured`. The other columns match. Upstream stored
+  the reference on 2026-03-19 and corrected the spelling in `adtte.r` on
+  2026-04-23 (commit `cb8fb327bd`) without regenerating it.
 - Upstream has no stored ADLBHY or ADCIBC reference, so generation alone
   cannot establish reference agreement for those datasets.
 
-The workflow exits nonzero for the export failure and reference differences.
+The current runner matches six of the eight references and exits nonzero
+for ADNPIX and ADTTE, whose references only upstream can regenerate.
 Official references and upstream derivation programs have been preserved.
 The CI artifact includes the full logs, report, lockfile and generated JSON.
