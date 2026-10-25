@@ -42,6 +42,11 @@ Comparison policy (all five pilot 5 datasets pass under it):
   differences are failures. Arrow schema metadata (e.g. column labels) is
   ignored.
 
+## Source documents
+
+[spec/source/](spec/source/README.md) retains the original ADaM workbook,
+reviewer guide, pinned provenance, and a starter inventory of rules for review.
+
 ## License and attribution
 
 This pilot uses the CDISC SDTM/ADaM Pilot Project study, published by CDISC,

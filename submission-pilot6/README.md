@@ -24,6 +24,13 @@ schema-complexity rerun.
 All data files are parquet; the only exceptions are the define.xml and
 specs files.
 
+## Source documents
+
+[spec/source/](spec/source/README.md) records provenance for the existing
+workbook and Define-XML files, links the shared study SAP, and starts an
+inventory of rules for review. The staged workbook differs from the newer
+upstream version; its bytes are preserved pending review against the staged data.
+
 ## License and attribution
 
 This pilot uses the CDISC SDTM/ADaM Pilot Project study, published by CDISC,

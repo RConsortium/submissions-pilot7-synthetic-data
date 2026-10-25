@@ -13,6 +13,11 @@ SDTM-to-ADaM derivation.
 
 All data files are parquet; the only exception is define.xml.
 
+## Source documents
+
+[spec/source/](spec/source/README.md) retains the analysis data guide, shared
+study SAP, pinned provenance, and a starter inventory of rules for review.
+
 ## License and attribution
 
 Data and imported reference metadata originate from the CDISC SDTM/ADaM Pilot
