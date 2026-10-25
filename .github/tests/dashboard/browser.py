@@ -1,7 +1,6 @@
 #!/usr/bin/env python3
 """Exercise complete real-data review bundles in a browser, with no write actions."""
 import argparse
-import csv
 import gzip
 from functools import partial
 from http.server import SimpleHTTPRequestHandler, ThreadingHTTPServer
@@ -57,6 +56,33 @@ def check(browser, base, site_dir, screenshots):
         f'3 / {len(catalog["subjects"])}'
     )
     assert page.locator(".spec-line").count() > 700
+    expect(page.locator(".md-sidebar--primary")).not_to_be_visible()
+    assert page.locator("#study-dashboard").bounding_box()["width"] >= 0.95 * 1600
+    expect(page.locator("#copy-view, #wide-mode, .provenance")).to_have_count(0)
+    expect(
+        page.locator(
+            '.review-tabs [data-view="comments"], .review-tabs [data-view="findings"]'
+        )
+    ).to_have_count(0)
+    expect(page.locator("#review-comments #comments-host script")).to_have_attribute(
+        "data-term", "pilot7/studies/cdiscpilot01/ADSL"
+    )
+    page.locator("#subject-summary").click()
+    page.locator("#subject-search").fill(catalog["subjects"][0])
+    expect(page.locator("#subject-picker")).to_have_attribute("open", "")
+    page.locator("#record-search").click()
+    expect(page.locator("#subject-picker")).not_to_have_attribute("open", "")
+    page.locator("#subject-summary").click()
+    page.keyboard.press("Escape")
+    expect(page.locator("#subject-picker")).not_to_have_attribute("open", "")
+    page.locator("#subject-summary").click()
+    page.locator("#subject-search").focus()
+    page.locator("#record-search").focus()
+    expect(page.locator("#subject-picker")).not_to_have_attribute("open", "")
+    # Reset the search without dismissing interactions inside the picker.
+    page.locator("#subject-summary").click()
+    page.locator("#subject-search").fill("")
+    page.locator("#subject-summary").click()
     pane = page.locator(".review-workbench").bounding_box()
     assert (
         pane["y"] + pane["height"] <= 1000
@@ -85,17 +111,23 @@ def check(browser, base, site_dir, screenshots):
     page.get_by_role("button", name="Select all", exact=True).click()
     total = catalog["tables"][catalog["datasets"][0]["output"]]["rows"]
     expect(page.locator("#output-footer")).to_contain_text(f"of {total} selected rows")
-    expect(page.locator("#output-table tbody tr")).to_have_count(40)
+    expect(page.locator("#output-table tbody tr")).to_have_count(10)
+    expect(page.locator("#input-table tbody tr")).to_have_count(10)
+    assert page.locator("#output-table tbody th").all_text_contents() == [
+        str(i) for i in range(1, 11)
+    ]
+    assert page.locator("#input-table tbody th").all_text_contents() == [
+        str(i) for i in range(1, 11)
+    ]
     page.locator("#subject-summary").click()
     page.get_by_role("button", name="Next output rows", exact=True).click()
-    expect(page.locator("#output-footer")).to_contain_text(f"41-80 of {total}")
-    with page.expect_download() as download:
-        page.locator("#output-actions [data-export]").click()
-    with Path(download.value.path()).open(newline="") as handle:
-        rows = list(csv.reader(handle))
-    assert (
-        len(rows) == total + 1 and "USUBJID" in rows[0]
-    ), "CSV exports all selected rows, not only the displayed page"
+    expect(page.locator("#output-footer")).to_contain_text(f"11-20 of {total}")
+    assert page.locator("#output-table tbody th").all_text_contents() == [
+        str(i) for i in range(11, 21)
+    ]
+    expect(
+        page.locator("[data-export], #input-actions, #output-actions")
+    ).to_have_count(0)
     page.locator("#output-select").select_option("reference")
     expect(page.locator("#output-footer")).to_contain_text(f"of {total} selected rows")
     page.locator("#subject-summary").click()
@@ -125,15 +157,6 @@ def check(browser, base, site_dir, screenshots):
     shared.goto(bookmark)
     expect(shared.locator("#output-table tbody tr")).to_have_count(1)
     shared.close()
-    context.grant_permissions(["clipboard-read", "clipboard-write"])
-    page.get_by_role("button", name="Copy view link", exact=True).click()
-    expect(page.locator("#review-toast")).to_contain_text("copied")
-    assert page.evaluate("navigator.clipboard.readText()") == page.url
-    page.evaluate(
-        'Object.defineProperty(navigator,"clipboard",{value:{writeText:async()=>{throw Error("Denied")}}})'
-    )
-    page.get_by_role("button", name="Copy view link", exact=True).click()
-    expect(page.locator("#share-url")).to_have_value(page.url)
     page.locator("#record-search").fill("not present in these records")
     expect(page.locator("#output-table")).to_contain_text(
         "No records for these subjects"
@@ -148,7 +171,7 @@ def check(browser, base, site_dir, screenshots):
     expect(page.locator('#input-table th[data-node="AE.AESTDTC"]')).to_have_class(
         "node-related"
     )
-    page.locator('.review-tabs [data-view="findings"]').click()
+    page.locator('.metric-strip [data-view="findings"]').click()
     expect(page.locator(".finding-card")).not_to_have_count(0)
     capture(page, screenshots, "documentation-findings.png")
     page.locator("#finding-search").fill("imputation")
@@ -171,7 +194,10 @@ def check(browser, base, site_dir, screenshots):
     capture(page, screenshots, "source-evidence.png")
     page.get_by_role("button", name="Close source evidence").click()
     expect(page.locator(".evidence-drawer")).to_have_count(0)
-    page.locator('.review-tabs [data-view="comments"]').click()
+    page.locator("#review-comments").scroll_into_view_if_needed()
+    assert page.locator("#review-comments").evaluate(
+        "el => Boolean(el.compareDocumentPosition(document.getElementById('view-content')) & Node.DOCUMENT_POSITION_PRECEDING)"
+    )
     expect(page.locator("#comments-host script")).to_have_attribute(
         "data-repo", "elong0527/yamaa"
     )
@@ -179,6 +205,16 @@ def check(browser, base, site_dir, screenshots):
         "data-term", "pilot7/studies/cdiscpilot01/ADAE"
     )
     expect(page.locator(".comment-fallback a")).to_have_count(2)
+    context.grant_permissions(["clipboard-read", "clipboard-write"])
+    page.get_by_role("button", name="Copy review context", exact=True).click()
+    expect(page.locator("#review-toast")).to_contain_text("copied")
+    copied = page.evaluate("navigator.clipboard.readText()")
+    assert "Dataset: ADAE\n" in copied and page.url in copied
+    page.evaluate(
+        'Object.defineProperty(navigator,"clipboard",{value:{writeText:async()=>{throw Error("Denied")}}})'
+    )
+    page.get_by_role("button", name="Copy review context", exact=True).click()
+    expect(page.locator("#share-url")).to_have_value(copied)
     page.locator('.review-tabs [data-view="materials"]').click()
     expect(page.locator(".material-card")).not_to_have_count(0)
     for anchor in page.locator(".material-card a").all():
@@ -189,8 +225,16 @@ def check(browser, base, site_dir, screenshots):
     expect(page.locator(".overview-table tbody tr")).to_have_count(10)
     capture(page, screenshots, "overview.png")
 
-    # Native instant navigation, CSV planning inputs, and subject-independent lookups.
-    page.locator('.md-nav--primary a[href*="submission-pilot3"]').click()
+    expect(page.locator(".overview-table")).not_to_contain_text(
+        "These are real results"
+    )
+    # Return through the gallery with native navigation, then open another study.
+    page.get_by_role("link", name="All studies", exact=True).click()
+    expect(page.locator(".study-card")).not_to_have_count(0)
+    assert not page.locator("body").evaluate(
+        "el => el.classList.contains('study-review-page')"
+    )
+    page.locator('.study-card[href*="submission-pilot3"]').click()
     expect(page.locator("#study-dashboard")).to_have_attribute(
         "data-study", "submission-pilot3"
     )
@@ -201,7 +245,8 @@ def check(browser, base, site_dir, screenshots):
     expect(page.locator("#input-footer")).to_contain_text("subject-independent lookup")
     expect(page.locator("#input-table tbody tr")).to_have_count(4)
     page.locator("#input-select").select_option("PLAN")
-    expect(page.locator("#input-actions a")).to_contain_text("CSV")
+    expect(page.locator("#input-table tbody tr")).to_have_count(1)
+    expect(page.locator("#input-footer")).to_contain_text("1-1 of 1 selected rows")
     page.go_back()
     page.go_forward()
     expect(page.locator("#input-select")).to_have_value("PLAN")
@@ -210,7 +255,12 @@ def check(browser, base, site_dir, screenshots):
         page.set_viewport_size({"width": width, "height": 1000})
         for view in ["datasets", "findings", "materials"]:
             page.goto(study + f"#cdiscpilot01/{view}/ADAE")
-            expect(page.locator(".review-tabs .active")).to_be_visible()
+            if view == "findings":
+                expect(
+                    page.get_by_role("heading", name="Consistency verification report")
+                ).to_be_visible()
+            else:
+                expect(page.locator(".review-tabs .active")).to_be_visible()
             assert page.evaluate("document.documentElement.scrollWidth<=innerWidth"), (
                 width,
                 view,
@@ -219,7 +269,7 @@ def check(browser, base, site_dir, screenshots):
                 page.locator("#subject-summary").click()
                 box = page.locator(".subject-popover").bounding_box()
                 assert box["x"] >= 0 and box["x"] + box["width"] <= width
-                page.locator("[data-close-subjects]").click()
+                page.locator("#record-search").click()
                 expect(page.locator("#subject-picker")).not_to_have_attribute(
                     "open", ""
                 )
@@ -237,6 +287,13 @@ def check(browser, base, site_dir, screenshots):
     expect(page.locator("#output-table")).to_contain_text("No subjects selected")
     expect(page.locator("#record-search")).to_have_value("<img src=x>")
     expect(page.locator("#view-content img")).to_have_count(0)
+    # Legacy discussion links now show the workspace with comments below it.
+    page.goto(study + "#cdiscpilot01/comments/ADAE")
+    expect(page.locator("#input-table tbody tr")).not_to_have_count(0)
+    expect(page.locator("#review-comments")).to_be_in_viewport()
+    expect(page.locator("#comments-host script")).to_have_attribute(
+        "data-term", "pilot7/studies/cdiscpilot01/ADAE"
+    )
     page.goto(base + "/studies/")
     index = json.loads((site_dir / "evidence/dashboard/index.json").read_text())
     expect(page.locator(".study-card")).to_have_count(len(index["studies"]))
@@ -314,7 +371,7 @@ def main():
         server.server_close()
         worker.join()
     print(
-        "Browser checks passed: complete subjects and CSV, bidirectional lineage, source evidence, shared links, comments configuration, instant navigation, CSV lookups, responsive layouts, dark mode, and retryable data errors. Comment posting/authentication is not exercised."
+        "Browser checks passed: full-width studies, ten-row paging, outside-click/keyboard picker dismissal, bidirectional lineage, source evidence, restored links, inline dataset comments, gallery navigation, CSV lookups, responsive layouts, dark mode, and retryable data errors. Comment posting/authentication is not exercised."
     )
 
 

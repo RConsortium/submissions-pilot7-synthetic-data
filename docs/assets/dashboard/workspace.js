@@ -1,5 +1,5 @@
 import { connectedNodes } from "./lineage.js";
-import { filterRows, csvContent } from "./data.js";
+import { filterRows } from "./data.js";
 
 /** Components read the live application context at render time. */
 export function createWorkspace(ctx) {
@@ -19,7 +19,7 @@ export function createWorkspace(ctx) {
       link,
     } = ctx;
     const d = dataset();
-    return `<div class="workspace-toolbar"><label class="select-field">ADaM dataset<select id="dataset-select">${model.datasets.map((x) => `<option ${d.name === x.name ? "selected" : ""}>${x.name}</option>`).join("")}</select></label>${subjectPicker()}<label class="search-field"><span class="field-label">Search records</span><input id="record-search" type="search" placeholder="Subject or value across input and output..." value="${esc(state.rowSearch)}"></label><button class="button" id="clear-selection">Clear highlight</button><button class="button" id="wide-mode" aria-pressed="${document.body.classList.contains("review-wide")}">Widen workspace</button></div><div class="lineage-toolbar"><div id="lineage-summary" role="status">Select an input column, specification block, or output column to follow its connections.</div><span class="lineage-legend"><i class="swatch selected"></i>Selected <i class="swatch related"></i>Related</span></div><div class="review-workbench"><section class="spec-pane pane" aria-labelledby="spec-heading"><header class="pane-header"><div><h2 id="spec-heading">yamaa specification</h2><span id="spec-caption">Complete YAML / ${specification.text.split("\n").length} lines${specification.lineage.unresolved.length ? " / " + specification.lineage.unresolved.length + " unresolved references" : ""}</span></div>${link(sourceUrl(specification.path), "Open source")}</header><div class="spec-scroll" id="spec-scroll" tabindex="0" aria-label="Complete YAML specification">${renderSpec()}</div><footer class="pane-footer">Column dependencies include declared filters, joins and ordering. No contributing-row trace.</footer></section><div class="spec-resizer" id="spec-resizer" role="separator" aria-label="Resize specification panel" aria-orientation="vertical" aria-valuemin="25" aria-valuemax="60" aria-valuenow="36" tabindex="0"></div><div class="data-panes"><section class="pane input-pane" aria-labelledby="input-heading"><header class="pane-header"><div><h2 id="input-heading">Input data</h2><label class="sr-only" for="input-select">Input dataset</label><select id="input-select">${d.inputs.map((x) => `<option value="${x.alias}" ${state.input === x.alias ? "selected" : ""}>${x.alias} / ${model.tables[x.table].path.includes("-yamaa") ? "derived ADaM input" : "SDTM or lookup"}</option>`).join("")}<optgroup label="Other staged inputs">${Object.values(
+    return `<div class="workspace-toolbar"><label class="select-field">ADaM dataset<select id="dataset-select">${model.datasets.map((x) => `<option ${d.name === x.name ? "selected" : ""}>${x.name}</option>`).join("")}</select></label>${subjectPicker()}<label class="search-field"><span class="field-label">Search records</span><input id="record-search" type="search" placeholder="Subject or value across input and output..." value="${esc(state.rowSearch)}"></label><button class="button" id="clear-selection">Clear highlight</button></div><div class="lineage-toolbar"><div id="lineage-summary" role="status">Select an input column, specification block, or output column to follow its connections.</div><span class="lineage-legend"><i class="swatch selected"></i>Selected <i class="swatch related"></i>Related</span></div><div class="review-workbench"><section class="spec-pane pane" aria-labelledby="spec-heading"><header class="pane-header"><div><h2 id="spec-heading">yamaa specification</h2><span id="spec-caption">Complete YAML / ${specification.text.split("\n").length} lines${specification.lineage.unresolved.length ? " / " + specification.lineage.unresolved.length + " unresolved references" : ""}</span></div>${link(sourceUrl(specification.path), "Open source")}</header><div class="spec-scroll" id="spec-scroll" tabindex="0" aria-label="Complete YAML specification">${renderSpec()}</div><footer class="pane-footer">Column dependencies include declared filters, joins and ordering. No contributing-row trace.</footer></section><div class="spec-resizer" id="spec-resizer" role="separator" aria-label="Resize specification panel" aria-orientation="vertical" aria-valuemin="25" aria-valuemax="60" aria-valuenow="36" tabindex="0"></div><div class="data-panes"><section class="pane input-pane" aria-labelledby="input-heading"><header class="pane-header"><div><h2 id="input-heading">Input data</h2><label class="sr-only" for="input-select">Input dataset</label><select id="input-select">${d.inputs.map((x) => `<option value="${x.alias}" ${state.input === x.alias ? "selected" : ""}>${x.alias} / ${model.tables[x.table].path.includes("-yamaa") ? "derived ADaM input" : "SDTM or lookup"}</option>`).join("")}<optgroup label="Other staged inputs">${Object.values(
       model.tables,
     )
       .filter(
@@ -32,7 +32,7 @@ export function createWorkspace(ctx) {
       )
       .join(
         "",
-      )}</optgroup></select></div><div id="input-actions"></div></header><div id="input-table" class="data-region"></div><footer id="input-footer" class="pane-footer"></footer></section><section class="pane output-pane" aria-labelledby="output-heading"><header class="pane-header"><div><h2 id="output-heading">ADaM output</h2><label class="sr-only" for="output-select">Output dataset type</label><select id="output-select"><option value="derived">yamaa derived</option>${d.reference ? `<option value="reference" ${state.output === "reference" ? "selected" : ""}>Official reference</option>` : ""}</select></div><div id="output-actions"></div></header><div id="output-table" class="data-region"></div><footer id="output-footer" class="pane-footer"></footer></section></div></div><div id="data-status" role="status" class="data-status"></div><div id="evidence-drawer"></div>`;
+      )}</optgroup></select></div></header><div id="input-table" class="data-region"></div><footer id="input-footer" class="pane-footer"></footer></section><section class="pane output-pane" aria-labelledby="output-heading"><header class="pane-header"><div><h2 id="output-heading">ADaM output</h2><label class="sr-only" for="output-select">Output dataset type</label><select id="output-select"><option value="derived">yamaa derived</option>${d.reference ? `<option value="reference" ${state.output === "reference" ? "selected" : ""}>Official reference</option>` : ""}</select></div></header><div id="output-table" class="data-region"></div><footer id="output-footer" class="pane-footer"></footer></section></div></div><div id="data-status" role="status" class="data-status"></div><div id="evidence-drawer"></div>`;
   }
   function renderSpec() {
     const { specification, esc } = ctx;
@@ -178,8 +178,6 @@ export function createWorkspace(ctx) {
       el.setAttribute("aria-label", kind + " data table");
       byId(kind + "-footer").innerHTML =
         `<span>${result.filtered.length ? result.start + 1 : 0}-${Math.min(result.start + PAGE, result.filtered.length)} of ${result.filtered.length.toLocaleString()} selected rows / ${meta.rows.toLocaleString()} total${meta.subject_index === null ? " / subject-independent lookup" : ""}</span><span class="pagination"><button data-page="${kind}" data-step="-1" ${!state[kind + "Page"] ? "disabled" : ""} aria-label="Previous ${kind} rows">&#8592;</button><button data-page="${kind}" data-step="1" ${result.start + PAGE >= result.filtered.length ? "disabled" : ""} aria-label="Next ${kind} rows">&#8594;</button></span>`;
-      byId(kind + "-actions").innerHTML =
-        `<button class="text-link" data-export="${kind}">Selected CSV</button>${link(resource(meta.download), "Full " + meta.format)}`;
     }
     fitWorkbench();
     byId("data-status").textContent =
@@ -214,33 +212,9 @@ export function createWorkspace(ctx) {
       String(Math.round(value)),
     );
   }
-  function exportCsv(kind) {
-    const {
-      model,
-      inputRows,
-      outputRows,
-      state,
-      dataset,
-      inputMeta,
-      outputMeta,
-      notice,
-    } = ctx;
-    const rows = visibleRows(kind === "input" ? inputRows : outputRows),
-      meta = kind === "input" ? inputMeta() : outputMeta();
-    const csv = csvContent(rows, meta.columns);
-    const url = URL.createObjectURL(
-      new Blob([csv], { type: "text/csv;charset=utf-8" }),
-    );
-    const a = document.createElement("a");
-    a.href = url;
-    a.download = `${model.id}-${state.dataset.toLowerCase()}-${kind}-${state.subjects.length}-subjects.csv`;
-    a.click();
-    setTimeout(() => URL.revokeObjectURL(url), 1000);
-    notice(`${rows.length} selected records exported`);
-  }
   function overview() {
     const { model, report, specification, dataset, link } = ctx;
-    return `<div class="section-heading"><div><h2>Dataset coverage</h2><p>Validated outputs and their independent official references. Open a dataset to inspect its complete specification and data.</p></div></div><div class="overview-table"><table class="review-table"><thead><tr><th>Dataset</th><th>Output rows</th><th>Columns</th><th>Reference comparison</th><th>Documentation</th></tr></thead><tbody>${model.datasets.map((d) => `<tr><td><button class="text-link" data-dataset="${d.name}">${d.name}</button></td><td>${model.tables[d.output].rows.toLocaleString()}</td><td>${model.tables[d.output].columns.length}</td><td><span class="status ${d.comparison === "passed" ? "good" : "neutral"}">${d.comparison === "passed" ? "Passed" : "Unavailable"}</span></td><td><button class="text-link" data-domain-findings="${d.name}">${report.findings.filter((f) => f.dataset === d.name).length} observations / tasks</button></td></tr>`).join("")}</tbody></table></div><div class="coverage-note"><strong>These are real results.</strong> This study was run with its pinned yamaa engine and configured comparison policy. Narrative document interpretation remains a separate human review activity.</div>`;
+    return `<div class="section-heading"><div><h2>Dataset coverage</h2><p>Validated outputs and their independent official references. Open a dataset to inspect its complete specification and data.</p></div></div><div class="overview-table"><table class="review-table"><thead><tr><th>Dataset</th><th>Output rows</th><th>Columns</th><th>Reference comparison</th><th>Documentation</th></tr></thead><tbody>${model.datasets.map((d) => `<tr><td><button class="text-link" data-dataset="${d.name}">${d.name}</button></td><td>${model.tables[d.output].rows.toLocaleString()}</td><td>${model.tables[d.output].columns.length}</td><td><span class="status ${d.comparison === "passed" ? "good" : "neutral"}">${d.comparison === "passed" ? "Passed" : "Unavailable"}</span></td><td><button class="text-link" data-domain-findings="${d.name}">${report.findings.filter((f) => f.dataset === d.name).length} observations / tasks</button></td></tr>`).join("")}</tbody></table></div>`;
   }
 
   function graphSelection() {
@@ -258,7 +232,6 @@ export function createWorkspace(ctx) {
     paintTables,
     fitWorkbench,
     resizeSpec,
-    exportCsv,
     overview,
   };
 }

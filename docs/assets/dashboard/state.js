@@ -1,11 +1,5 @@
 /** Stable, validated URLs are independent of study-specific rendering. */
-export const sections = [
-  "datasets",
-  "overview",
-  "findings",
-  "materials",
-  "comments",
-];
+export const sections = ["datasets", "overview", "findings", "materials"];
 const fields = [
   "input",
   "focus",

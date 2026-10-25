@@ -10,7 +10,6 @@ import {
   decodeResponse,
   createClient,
   loadRows,
-  csvContent,
   filterRows,
 } from "../../../docs/assets/dashboard/data.js";
 
@@ -41,6 +40,7 @@ test("new study defaults and shared routes validate unknown and duplicate select
     readRoute("#new-study/datasets/CUSTOM?subjects=all", model).subjects,
     model.subjects,
   );
+  assert.equal(readRoute("#new-study/comments/CUSTOM", model).view, "datasets");
   assert.equal(
     readRoute("#new-study/datasets/CUSTOM?rowSearch=" + "x".repeat(700), model)
       .rowSearch.length,
@@ -147,18 +147,6 @@ test("complete selection restores original order; independent lookups remain vis
       .length,
     4,
   );
-});
-test("CSV exports complete selected records and protects string formulas while keeping negative numbers", () => {
-  const csv = csvContent(
-    [
-      [0, "001", -2, "=SUM(A1)", 'line\n"quote"'],
-      [1, "002", null, "-text", "@name"],
-    ],
-    ["ID", "N", "TEXT", "NOTE"].map((name) => ({ name })),
-  );
-  assert.ok(csv.includes('"001","-2","\'=SUM(A1)","line\n""quote"""'));
-  assert.ok(csv.includes('"002","","\'-text","\'@name"'));
-  assert.equal(csv.split("\r\n").length, 4);
 });
 test("record search links matching subjects across the two tables", () => {
   const input = [

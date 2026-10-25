@@ -8,13 +8,11 @@ export function createShell(ctx) {
     return `<div class="metric-strip">${["Datasets", "Columns", "Cells"].map((n, i) => `<span><strong>${n}</strong> ${metric(m.matched[i])} / ${metric(m.reference[i])} <small>${m.reference[i] ? Math.round((100 * m.matched[i]) / m.reference[i]) + "%" : "n/a"}</small></span>`).join("")}<button data-view="findings"><strong>Documentation review</strong> ${report.findings.length} observations / tasks</button></div>`;
   }
   function frame() {
-    const { model, report, state, REPO, site, esc, source, link } = ctx;
-    return `<header class="review-hero"><div><p class="eyebrow">PILOT 7 / SDTM &#8594; ADaM</p><h1>${esc(model.title)}</h1><p>Review SDTM to ADaM derivations against the published submission package.</p></div><div class="hero-actions">${link(model.source, "Study source", "button")}<button class="button" id="copy-view">Copy view link</button><button class="button primary" data-view="findings">Consistency report</button></div></header>${metrics()}<div class="provenance">Actual staged inputs and derived outputs. ${model.datasets.filter((d) => d.comparison === "passed").length} / ${model.datasets.length} official reference comparisons passed. <span>Source ${link(`${REPO}/commit/${model.revision}`, model.revision.slice(0, 8))}</span></div><nav class="review-tabs" aria-label="Study sections">${[
+    const { model, state, site, esc, link } = ctx;
+    return `<header class="review-hero"><div><p class="eyebrow">PILOT 7 / SDTM &#8594; ADaM</p><h1>${esc(model.title)}</h1><p>Review SDTM to ADaM derivations against the published submission package.</p></div><div class="hero-actions"><a class="button" href="${new URL("studies/", site).href}">All studies</a>${link(model.source, "Study source", "button")}</div></header>${metrics()}<nav class="review-tabs" aria-label="Study sections">${[
       ["datasets", "Review workspace"],
       ["overview", "Dataset overview"],
-      ["findings", "Consistency report"],
       ["materials", "Source documents"],
-      ["comments", "Comments"],
     ]
       .map(
         ([id, label]) =>
@@ -22,7 +20,7 @@ export function createShell(ctx) {
       )
       .join(
         "",
-      )}</nav><div id="view-content"></div><div id="share-fallback" hidden><label>Copy this review link<input id="share-url" readonly></label></div><div class="review-footnote">Build success, reference agreement, and documentation consistency are separate checks. ${link(new URL("verification/", site).href, "Verification policy")}</div>`;
+      )}</nav><div id="view-content"></div><div class="review-footnote">Build success, reference agreement, and documentation consistency are separate checks. ${link(new URL("verification/", site).href, "Verification policy")}</div><section id="review-comments" class="review-comments" aria-label="Review comments"></section>`;
   }
 
   return { metrics, frame };
