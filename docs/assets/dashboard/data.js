@@ -1,4 +1,4 @@
-/** Versioned static transport, subject selection, filtering, and complete exports. */
+/** Versioned static transport, subject selection and cross-dataset filtering. */
 export const SCHEMA_VERSION = 1;
 export async function decodeResponse(response, url) {
   if (!response.ok)
@@ -76,11 +76,11 @@ export function filterRows(rows, metadata, query, peers) {
   for (const { rows: records, meta } of peers)
     if (meta.subject_index !== null)
       for (const row of records)
-        if (match(row)) subjects.add(row[meta.subject_index + 1]);
+        if (match(row)) subjects.add(String(row[meta.subject_index + 1]));
   return rows.filter(
     (r) =>
       match(r) ||
       (metadata.subject_index !== null &&
-        subjects.has(r[metadata.subject_index + 1])),
+        subjects.has(String(r[metadata.subject_index + 1]))),
   );
 }

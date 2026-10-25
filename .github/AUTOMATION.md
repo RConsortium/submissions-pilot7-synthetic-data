@@ -25,7 +25,7 @@ in that same job.
 | A study's R program | Run R with the pinned engine and compare outputs. | 2 |
 | Pilot 3 planning generator or its QS/EX/plan.csv inputs | Relevant Python/R plan reproduction steps in the shared job. Input data changes also select the study job. | 1 or 2 |
 | Generic comparison tool or its keys | Comparator self-check in the shared job. | 1 |
-| Dashboard code, tests, configuration, or study source documents | Full catalog validation, strict production build, module and browser tests. | Catalog + 2 |
+| Dashboard code, tests, configuration, synthetic source archives, or study source documents | Full catalog validation, strict production build, module and browser tests. | Catalog + 2 |
 | Shared execution code or the reusable worker | Every affected study; each study still uses one runner. | Depends on scope |
 
 PR site previews use an isolated docs tree with explicit placeholders for study

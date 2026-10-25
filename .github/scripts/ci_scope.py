@@ -10,6 +10,7 @@ import subprocess
 from check_structure import discover_studies
 from discover_core_studies import has_validatable_data
 from study_evidence import catalog
+from study_dashboard.synthetic import synthetic_catalog
 
 CORE_CODE = {'.github/scripts/run_core.py', '.github/scripts/parquet_to_xpt.py',
              '.github/scripts/core_render_block.sh', '.github/scripts/core_block.jq'}
@@ -21,7 +22,7 @@ PUBLICATION_CODE = {'.github/scripts/build_study_docs.py', '.github/scripts/buil
                     '.github/scripts/study_evidence.py', '.github/scripts/study_artifacts.py',
                     '.github/scripts/study_metrics.py', '.github/scripts/dashboard_nav.py',
                     '.github/scripts/stage_study_artifacts.py', '.github/scripts/check_dashboard.sh',
-                    '.github/dashboard.json', '.github/yamaa-studies.json',
+                    '.github/dashboard.json', '.github/yamaa-studies.json', '.github/synthetic-studies.json',
                     '.github/workflows/yamaa-site.yml', '.github/workflows/study-check.yml'}
 PUBLICATION_PREFIXES = ('.github/scripts/study_dashboard/', '.github/tests/dashboard/',
                         'docs/assets/dashboard/', 'docs/stylesheets/dashboard.css')
@@ -39,10 +40,13 @@ COMPARE_INPUTS = {'.github/scripts/compare_adam.py',
 def select_checks(root, changed):
     changed = set(changed)
     entries = catalog(root)
+    synthetic = synthetic_catalog(root)
     manifest = json.loads((root / '.github/repo-structure.json').read_text())
     studies = sorted(set(entries) | set(discover_studies(str(root), manifest.get('non_study_dirs', []))))
     publication = bool(changed & PUBLICATION_CODE) or any(
         path.startswith(PUBLICATION_PREFIXES) or
+        any(path.startswith((f'{study}/data/', f'{study}/spec/')) and Path(path).suffix != '.md'
+            for study in synthetic) or
         any(path.startswith(f'{study}/spec/{part}/') for study in entries
             for part in ('source', 'define', 'review')) for path in changed)
     all_yamaa = publication or bool(changed & (YAMAA_CODE | {WORKER}))

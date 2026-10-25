@@ -56,8 +56,8 @@ def study_page(name, entry, report):
 
 def gallery_page(entries, reports):
     lines = [
-        "---\ntitle: Study verification\nhide:\n  - toc\n---\n",
-        '<div id="study-dashboard" class="study-dashboard" data-study="gallery"><h1>Study review workspaces</h1>',
+        "---\ntitle: Pilot study dashboards\nhide:\n  - toc\n---\n",
+        '<div id="study-dashboard" class="study-dashboard" data-study="gallery"><h1>Pilot study dashboards</h1>',
         "<noscript>Use the study links below to explore static validation evidence.</noscript></div>",
         '\n<details class="dashboard-fallback" markdown="1"><summary>Study validation records</summary>\n',
         "| Study | Dataset builds | Official comparisons |",
