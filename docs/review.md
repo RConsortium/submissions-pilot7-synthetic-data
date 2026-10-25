@@ -6,8 +6,7 @@ submission packages. [Synthetic workspaces](synthetic/index.md) support source
 exploration and development of the EDC-to-submission workflow.
 
 The links beside each study name return to its gallery and open that study's
-source folder in this repository. Build evidence remains available in the
-expandable reproduction section of pilot pages.
+source folder in this repository.
 
 ## Compare pilot datasets
 
