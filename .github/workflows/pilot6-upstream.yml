@@ -1,0 +1,75 @@
+name: Pilot 6 upstream R reproduction
+
+on:
+  pull_request:
+    branches: [main]
+    paths:
+      - 'submission-pilot6/**'
+      - '.github/scripts/import_pilot6_inputs.py'
+      - '.github/workflows/pilot6-upstream.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: pilot6-upstream-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  reproduce:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    env:
+      OMP_NUM_THREADS: '1'
+      OPENBLAS_NUM_THREADS: '1'
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          persist-credentials: false
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Clear previous execution evidence
+        run: python -c 'from pathlib import Path; Path("submission-pilot6/log/upstream-verification.json").unlink(missing_ok=True)'
+      - run: python -m pip install -r submission-pilot6/program/adam/python/requirements.txt
+      - uses: r-lib/actions/setup-r@v2
+        with:
+          r-version: '4.5.1'
+          use-public-rspm: true
+      - uses: r-lib/actions/setup-renv@v2
+        with:
+          working-directory: submission-pilot6/program/adam
+      - name: Test input conversion and comparison safeguards
+        run: python -m unittest discover -s submission-pilot6/program/adam/python -p 'test_*.py' -v
+      - name: Generate ADaM from SDTM and compare with references
+        run: python submission-pilot6/program/adam/python/verify_upstream.py --rscript Rscript
+      - name: Print verification evidence
+        if: always()
+        shell: python
+        run: |
+          import json
+          import os
+          from pathlib import Path
+          report = Path('submission-pilot6/log/upstream-verification.json')
+          if report.exists():
+              print('BEGIN_PILOT6_REPORT')
+              print(report.read_text())
+              print('END_PILOT6_REPORT')
+              data = json.loads(report.read_text())
+              with open(os.environ['GITHUB_STEP_SUMMARY'], 'a') as summary:
+                  summary.write('# Pilot 6 upstream R reproduction\n\n')
+                  summary.write('| Dataset | Generation | Reference comparison |\n| --- | --- | --- |\n')
+                  for item in data['datasets']:
+                      summary.write(f"| {item['domain']} | {item['generation']} | {item['comparison']} |\n")
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: pilot6-upstream-evidence
+          path: |
+            submission-pilot6/log/upstream-verification.json
+            submission-pilot6/program/adam/renv.lock
+            .build/pilot6-upstream/*/logs/*.log
+            .build/pilot6-upstream/*/data/adam/*.json
+          include-hidden-files: true
+          if-no-files-found: warn

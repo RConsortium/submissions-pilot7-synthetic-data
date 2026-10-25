@@ -36,7 +36,7 @@ pilots that use the same study. They are not relicensed under MIT:
 | CDISC Pilot 01 | `cdiscpilot01/data/`, `cdiscpilot01/spec/define/` | [CDISC pilot repository](https://github.com/cdisc-org/sdtm-adam-pilot-project) |
 | Submission Pilot 3 | `submission-pilot3/data/`, `submission-pilot3/spec/define/` | [Development repository](https://github.com/RConsortium/submissions-pilot3-adam/tree/main/submission), [submission package](https://github.com/RConsortium/submissions-pilot3-adam-to-fda) |
 | Submission Pilot 5 | `submission-pilot5/data/`, `submission-pilot5/spec/define/` | [Dataset-JSON submission package](https://github.com/RConsortium/submissions-pilot5-datasetjson/tree/main/pilot5-submission) |
-| Submission Pilot 6 | `submission-pilot6/data/`, `submission-pilot6/spec/define-adam.xml`, `submission-pilot6/spec/define-sdtm.xml`, `submission-pilot6/spec/pilot6-specs.xlsx` | [Pilot 6 repository](https://github.com/RConsortium/submissions-pilot6-adams-tlfs); SDTM data are staged from CDISC Pilot 01 |
+| Submission Pilot 6 | `submission-pilot6/data/`, `submission-pilot6/spec/define/`, `submission-pilot6/spec/pilot6-specs.xlsx` | [Pilot 6 repository](https://github.com/RConsortium/submissions-pilot6-adams-tlfs); SDTM and ADaM data are staged from its DVC snapshot |
 | Archived CDISC references | `.archieve/cdiscpilot1_simulation/reference/` | CDISC Pilot 01 study report and extracted tables and figures |
 
 CDISC-origin content remains subject to CDISC's published terms; additional
@@ -66,6 +66,10 @@ including format conversions or redistribution of converted datasets.
   or its copyright attribution.
 - `docs/stylesheets/extra.css` retains the [yamaa MIT
   notice](docs/stylesheets/LICENSE-yamaa.txt).
+- `submission-pilot6/program/adam/upstream/` holds unchanged R programs and
+  utilities from the [Pilot 6 repository](https://github.com/RConsortium/submissions-pilot6-adams-tlfs),
+  which publishes no license. They are not original Pilot 7 code, are not
+  relicensed under MIT, and retain their original rights.
 - Other imported protocols, publications, registry extracts, and reference
   documents, including those in `.archieve/`, retain their original rights
   and any applicable terms. Public availability alone is not a data license.

@@ -37,11 +37,21 @@ analysis datasets.
 
 Pilot 6's initial ADSL specification is proposed in PR #104. It adapts shared derivations
 from Pilot 3 into a self-contained file, reads Pilot 6's staged SDTM, and
-adds COMPLFL from Pilot 6's workbook. Its production ADaM references
-are absent from this repository, so no official comparison is claimed.
+adds COMPLFL from Pilot 6's workbook. Its eight production ADaM references
+are now staged from upstream DVC data, with checksummed import provenance.
+The import has been verified; no yamaa reference comparison is claimed here.
 ADADAS, ADAE, ADLBC, ADLBH, ADNPIX, ADTTE, and ADVS remain outside its active
-project. The upstream repository documents anonymous DVC downloads; access
-to that S3 endpoint was blocked in the environment used for this update.
+project. The upstream repository supports anonymous DVC downloads; see
+[Pilot 6 study README](https://github.com/RConsortium/submissions-pilot7-synthetic-data/blob/main/submission-pilot6/README.md)
+for the snapshot and refresh workflow.
+
+The upstream R programs have a separate reproduction check using a committed
+renv environment. ADSL, ADAE, ADADAS, ADLBC, ADLBH and ADVS match their
+stored references. ADNPIX and ADTTE differ because upstream stored their
+references before later program changes: ADNPIX has a different row count,
+and ADTTE has an event-description spelling difference. ADLBHY and ADCIBC
+generate successfully but have no upstream reference.
+See the [R reproduction evidence](https://github.com/RConsortium/submissions-pilot7-synthetic-data/blob/main/submission-pilot6/program/adam/README.md#recorded-verification).
 
 ## Evidence published with the site
 
