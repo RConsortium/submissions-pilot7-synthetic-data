@@ -34,6 +34,9 @@ main requires fresh reports for the complete catalog from that same commit.
 Changes to publication code or the shared study worker also run the complete
 publication path on the PR using fresh study artifacts; allowed pending studies
 get explicit pending records without installing an engine.
+MkDocs renders the landing-page metrics from those same validated reports and
+the staged reference Parquet dimensions. The source Markdown retains a link to
+the live website, without a numeric snapshot. Layout previews omit metrics.
 Planning checks compare against `data/mapping/plan.csv`; the separate
 `analysis_window.csv` lookup selects study validation, not plan regeneration.
 

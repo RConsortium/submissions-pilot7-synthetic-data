@@ -7,6 +7,7 @@ import subprocess
 import sys
 
 from study_evidence import catalog
+from build_index_table import BEGIN, replace_block
 
 ROOT = Path(__file__).resolve().parents[2]
 
@@ -27,14 +28,18 @@ def prepare_preview(root, work):
     note = ('!!! note "PR layout preview"\n\n'
             '    Study results are omitted from this preview. Full validation and\n'
             '    reference comparison run before publication on main.\n')
+    index = docs / 'index.md'
+    if index.exists() and BEGIN in index.read_text():
+        index.write_text(replace_block(index.read_text(), note.splitlines()))
     entries = catalog(root)
     for name, entry in entries.items():
         (studies / f'{name}.md').write_text(f'# {entry["title"]}\n\n{note}')
     (studies / 'index.md').write_text('# Study verification\n\n' + note + '\n' + '\n'.join(
         f'- [{entry["title"]}]({name}.md)' for name, entry in entries.items()) + '\n')
     config = work / 'mkdocs.yml'
-    # INHERIT preserves paths resolved relative to the original configuration.
-    config.write_text(f'INHERIT: {root / "mkdocs.yml"}\ndocs_dir: {docs}\nsite_dir: {work / "site"}\n')
+    # The layout preview omits the hook that requires fresh validation reports.
+    config.write_text(f'INHERIT: {root / "mkdocs.yml"}\ndocs_dir: {docs}\n'
+                      f'site_dir: {work / "site"}\nhooks: []\n')
     return config
 
 
