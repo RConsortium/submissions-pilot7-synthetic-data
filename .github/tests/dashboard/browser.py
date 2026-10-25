@@ -63,6 +63,16 @@ def check(browser, base, site_dir, screenshots):
     ex = next(i["table"] for i in adsl["inputs"] if i["alias"] == "EX")
     page = context.new_page()
     study = base + "/studies/cdiscpilot01/"
+    # Treatment codes use DM; exposure dates retain EX and its matching keys.
+    for name in ["cdiscpilot01", "submission-pilot3", "submission-pilot5"]:
+        url = base + f"/studies/{name}/#{name}/datasets/ADSL?focus=output."
+        page.goto(url + "TRT01AN")
+        expect(page.locator('.input-group [data-panel]')).to_have_count(1)
+        expect(page.locator('.input-group [data-domain="DM"]')).to_be_visible()
+        expect(page.locator('.input-group [data-domain="EX"]')).to_have_count(0)
+        page.goto(url + "TRTSDT")
+        expect(page.locator('.input-group [data-domain="EX"]')).to_be_visible()
+        expect(page.locator('.input-group [data-domain="EX"] .key-badge')).not_to_have_count(0)
     page.goto(study)
     expect(page.locator("#output-table tbody tr")).to_have_count(3)
     expect(page.locator("#subject-summary")).to_contain_text("3 /")

@@ -94,7 +94,7 @@ rows:
             },
             {
                 "spec.VALUE": ["DM.AGE", "row.collected"],
-                "spec.BASE": ["BASE_ROW.VALUE"],
+                "spec.BASE": ["BASE_ROW.VALUE", "row.collected"],
                 "BASE_ROW.VALUE": ["intermediate.BASE_ROW", "spec.VALUE"],
                 "row.collected": ["DM.AGE"],
             },

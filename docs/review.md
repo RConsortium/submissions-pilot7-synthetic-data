@@ -52,6 +52,13 @@ Connections include declared values, joins, filters, keys, and ordering. They
 describe column dependencies; they do not identify contributing input rows.
 Unresolved references are reported above the specification.
 
+Matching keys are included for the input or lookup a derivation actually reads.
+Unused inputs and sibling lookup fields do not become sources of every column.
+Row filters, grouping and lookup selection order remain part of the trace;
+final output sorting does not add value dependencies. For example, `TRT01AN`
+traces to DM, while an exposure-derived `TRTSDT` also opens EX. Manually selected
+comparison panes remain open independently of automatic lineage.
+
 Drag the specification separator to change its width, or the horizontal
 separator between input and output areas to change their heights. Dataset
 panels can be resized using their bottom-right corners or the width buttons in

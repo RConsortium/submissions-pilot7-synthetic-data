@@ -21,6 +21,7 @@ The reviewer guide is `docs/review.md`.
     config.py                            settings and confined reference paths
     datasets.py                          CSV/Parquet adapters and subject chunks
     lineage.py                           conservative YAML dependencies and source spans
+    references.py                        scoped lookup keys and expression-local bindings
     domains.py                           dataset descriptions from retained Define-XML
     synthetic.py                         separate source/readiness manifests
     documents.py                         retained originals and searchable reading copies
@@ -173,6 +174,16 @@ in different datasets remain distinct. `resize.js` owns pane and column sizing;
 `workspace.js` renders independent table pages with 10/25/50/100 row choices.
 The shared URL records compared datasets and per-panel row counts. Layout sizes
 are local view state. Changing the focused specification preserves comparisons.
+
+Column lineage attaches an input's matching keys only when that input is read.
+Named lookups retain their own key pairs, filters and record-selection order;
+one field does not inherit sibling field derivations. Row filters and grouping
+remain dependencies of the values those rows produce, and row overrides replace
+the corresponding root derivation. Aggregate-local names are scoped separately
+from output columns and unused local expressions do not add sources. Final
+output sort references are recorded as `output_order`, separately from column
+value dependencies. This remains a conservative static index across declared
+branches, not contributing-row provenance.
 
 `domains.py` reads dataset descriptions from retained Define-XML, with browser
 fallbacks for common domains and lookup tables. Adding a domain does not require
