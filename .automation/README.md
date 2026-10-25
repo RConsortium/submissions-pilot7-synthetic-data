@@ -30,10 +30,10 @@ send guard, and destination exactly.
 
 ## CORE reports are handled by CI
 
-`.github/workflows/core-validate.yml` runs CORE, proposes report updates through
-`core/reports`, and retains per-study `core-reports-<study>` artifacts for 90
-days. It does not post comments or add labels to issues. No scheduled agent or
-R bootstrap is involved.
+`.github/workflows/core-validate.yml` runs CORE and retains per-study
+`core-reports-<study>` artifacts for 90 days. Reports stay in those artifacts;
+the workflow does not open PRs, post comments, or add labels to issues. No
+scheduled agent or R bootstrap is involved.
 
 When migrating an existing routine configuration:
 
@@ -44,4 +44,4 @@ When migrating an existing routine configuration:
   or Pilot3 plan.csv workflows; their jobs now run in `CI`.
 
 Routine registrations live outside this repository and are managed separately.
-See `.github/AUTOMATION.md` for CI ownership, local commands, and report delivery.
+See `.github/AUTOMATION.md` for CI ownership, local commands, and report artifacts.

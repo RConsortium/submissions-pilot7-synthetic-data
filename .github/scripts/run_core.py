@@ -172,8 +172,8 @@ def write_summary(study, records):
                      f'| {record["engine_exit_code"]} | {status} |')
     lines += ['', 'A generated report is not a conformance pass. Conversion skips and engine '
               'exit codes are recorded in the artifact-only `core-execution.json` files.', '',
-              'On main, reports and `dataset_comment.md` are proposed via **core/reports**; '
-              'findings are also posted to matching issues.', '']
+              'Download reports and dataset comments from the per-study '
+              '`core-reports-<study>` workflow artifacts, retained for 90 days.', '']
     summary = '\n'.join(lines)
     print(summary, flush=True)
     if os.environ.get('GITHUB_STEP_SUMMARY'):

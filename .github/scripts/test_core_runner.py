@@ -5,14 +5,13 @@ import io
 import json
 import os
 from pathlib import Path
-import subprocess
 import tempfile
 from types import SimpleNamespace
 import unittest
 from unittest.mock import patch
 
 from discover_core_studies import discover_studies, has_validatable_data
-from run_core import ROOT, resolve_ct, run_study
+from run_core import resolve_ct, run_study
 
 
 class CoreRunnerTests(unittest.TestCase):
@@ -132,27 +131,6 @@ raise SystemExit(1 if os.environ.get('TEST_CORE_MODE') == 'nonzero' else 0)
         self.assertEqual(studies, ['scaffold', 'study'])
         self.assertEqual([name for name in studies if has_validatable_data(str(self.root), name)],
                          ['study'])
-
-    def test_delivery_copies_only_publishable_reports_and_preserves_reference_data(self):
-        import yaml
-
-        workflow = yaml.safe_load((ROOT / '.github/workflows/core-validate.yml').read_text())
-        step = next(step for step in workflow['jobs']['deliver']['steps']
-                    if step.get('name') == 'Copy publishable reports into study folders')
-        incoming = self.root / '_dl/study/data/adam'
-        incoming.mkdir(parents=True)
-        for name in ('core-report-ADAM.json', 'core-report-ADAM.xlsx',
-                     'core-execution.json', 'dataset_comment.md', 'adsl.parquet'):
-            (incoming / name).write_text('artifact')
-        reference = self.root / 'study/data/adam/adsl.parquet'
-        reference.write_text('independent reference')
-        subprocess.run(['bash', '-c', step['run']], cwd=self.root, check=True)
-        published = self.root / 'study/data/adam'
-        self.assertTrue((published / 'core-report-ADAM.xlsx').exists())
-        self.assertTrue((published / 'dataset_comment.md').exists())
-        self.assertFalse((published / 'core-report-ADAM.json').exists())
-        self.assertFalse((published / 'core-execution.json').exists())
-        self.assertEqual(reference.read_text(), 'independent reference')
 
 
 if __name__ == '__main__':

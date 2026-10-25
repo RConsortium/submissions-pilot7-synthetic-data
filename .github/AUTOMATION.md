@@ -5,7 +5,7 @@
 | `ci.yml` | One shared check job on every PR; only affected studies get additional validation jobs. | Layout-preview and validation artifacts only. |
 | `study-check.yml` | Reusable per-study yamaa, R, and/or CORE checks. Multiple checks for one study share one runner; CORE reads committed data before derivations run. | Validation artifacts only. |
 | `adam-compare.yml` | Manual generic ADaM comparison using workflow inputs. | None. |
-| `core-validate.yml` | Full CORE checks and report delivery on relevant main pushes or manual runs. | On main only: a `core/reports` PR. |
+| `core-validate.yml` | Full CORE checks on relevant main pushes or manual runs. | Validation artifacts only. |
 | `yamaa-site.yml` | Fresh validation of the full publication catalog, then website build. Runs on main or manually. | GitHub Pages on main in the upstream repository. |
 
 ## PR scope
@@ -64,7 +64,7 @@ For study validation and website checks, follow root `AGENTS.md`. Keep each
 study's pinned requirements and existing comparison policy. The publication
 workflow checks ASCII again after generation and rejects incomplete, failed, or stale evidence.
 
-## CORE runner and delivery
+## CORE runner and reports
 
 On Linux, install `pyarrow`, `pandas`, `pyreadstat`, and `jq`, then run:
 
@@ -96,11 +96,8 @@ expected JSON reports and total conversion failures fail the job. Partial
 conversion remains explicit and does not become a clean pass.
 
 Artifacts are retained for 90 days, including available records on failed runs.
-Only successful validation jobs can deliver reports. The report PR copies only
-XLSX and `dataset_comment.md`; JSON stays artifact-only. CORE validation does not
-post comments or add labels to issues.
+Reports, dataset comments, and execution records stay in those artifacts.
+CORE validation does not open report PRs, post comments, or add labels to issues.
 
-Report PRs require the repository setting that allows Actions to create PRs.
-Human review and merge remain separate from engine execution and automated
-checks. External agent routines and their migration steps are documented in
-`.automation/README.md`.
+Human review uses the downloaded reports and execution records. External agent
+routines and their migration steps are documented in `.automation/README.md`.
