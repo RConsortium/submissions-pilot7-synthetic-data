@@ -53,13 +53,3 @@ Compare the outputs with the official references:
 ```bash
 python submission-pilot3/program/adam/python/compare.py
 ```
-
-Both builds passed the reference comparisons on 2026-10-24:
-2,291,147/2,291,147 cells matched. The comparator aligns rows by dataset keys,
-checks declared labels, uses numeric tolerance `1e-10`, and treats null and
-empty text as equivalent. See the [verification policy](../../../docs/verification.md).
-
-ADADAS uses the reviewed CSVs in `data/mapping/`. Both `R/make_plan.R` and
-`python/make_plan.py` regenerate `plan.csv`. Use `--out PATH` to write a
-separate copy, or `--qs PATH` and `--ex PATH` to select the SDTM inputs.
-CI checks both generators against the checked-in CSV byte for byte.
