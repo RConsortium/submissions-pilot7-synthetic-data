@@ -28,6 +28,11 @@ ROOT = Path(__file__).resolve().parents[2]
 STUDY = ROOT / 'submission-pilot6'
 SOURCE_URL = 'https://github.com/RConsortium/submissions-pilot6-adams-tlfs'
 MIRROR_URL = 'https://raw.githubusercontent.com/RConsortium/submissions-pilot5-datasetjson'
+DATA_UTILITIES = (
+    'code/utils/compare_data.r',
+    'code/utils/dvc_compare.sh',
+    'code/utils/save_dataset_json.r',
+)
 
 
 def record_columns(source, domain):
@@ -107,7 +112,8 @@ def run(args):
     commit = subprocess.check_output(
         ['git', '-C', str(source), 'rev-parse', 'HEAD'], text=True).strip()
     subprocess.run(['git', '-C', str(source), 'diff', '--exit-code', 'HEAD', '--',
-                    '.dvc/config', '.Rprofile', 'code', 'data/sdtm', 'data/adam', 'data/adam_reference'], check=True)
+                    '.dvc/config', '.Rprofile', 'code/adam', *DATA_UTILITIES,
+                    'data/sdtm', 'data/adam', 'data/adam_reference'], check=True)
     if args.mirror_ref and not re.fullmatch(r'[0-9a-f]{40}', args.mirror_ref):
         raise ValueError('--mirror-ref must be a full Git commit SHA')
     manifest = {'source_repository': SOURCE_URL, 'source_commit': commit,
@@ -183,7 +189,8 @@ def run(args):
                 'source_path': original.relative_to(source).as_posix(),
                 'sha256': hashlib.sha256(raw).hexdigest(),
             })
-        for relative in sorted(p for p in tracked if p == '.Rprofile' or p.startswith('code/')):
+        for relative in sorted(p for p in tracked
+                               if p == '.Rprofile' or p.startswith('code/adam/') or p in DATA_UTILITIES):
             raw = (source / relative).read_bytes()
             destination = STUDY / 'program/adam/upstream' / relative
             if not destination.exists() or destination.read_bytes() != raw:

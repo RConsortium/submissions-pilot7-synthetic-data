@@ -1,8 +1,7 @@
 # cdiscpilot06
 
-R Consortium submissions-pilot6 expands the ADaM and TLF programs for the
-CDISC Pilot 01 study. This folder stages its source data and production
-ADaM references for yamaa-based derivation and comparison.
+This folder stages Pilot 6's SDTM inputs, ADaM derivation programs and
+production ADaM references for data standardization and comparison.
 
 - Source: https://github.com/RConsortium/submissions-pilot6-adams-tlfs
 - Snapshot: `a4f85c95cfef1f6aa27795362630f8ae43210185`, the upstream `main`
@@ -20,9 +19,9 @@ ADaM references for yamaa-based derivation and comparison.
   SDTM definition; Pilot 6 does not carry an SDTM define file.
 - `spec/source-snapshot.json`: source commit, DVC MD5 and byte size, metadata
   source, Parquet SHA-256 and dimensions for each dataset, plus hashes of
-  the two upstream specification files and all 19 source files.
-- `program/adam/upstream/`: the original `.Rprofile` and entire `code/`
-  tree, including all 10 ADaM programs. See
+  the two upstream specification files and all 14 retained source files.
+- `program/adam/upstream/`: the original `.Rprofile`, all 10 ADaM programs,
+  and 3 dataset I/O and comparison utilities. See
   [the reproduction workflow](program/adam/README.md) for running those
   programs from staged SDTM and comparing their ADaM outputs.
 - `program/adam/renv.lock`: the tested R 4.5.1 package environment, restored

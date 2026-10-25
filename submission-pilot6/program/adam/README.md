@@ -1,15 +1,11 @@
 # Reproduce the upstream R derivations
 
-`upstream/` contains the unchanged `.Rprofile` and complete `code/` tree from
-Pilot 6 commit `a4f85c95cfef1f6aa27795362630f8ae43210185`: 10 ADaM programs,
-3 TLF programs and 5 shared utilities. `spec/source-snapshot.json` records
-each original path and SHA-256. The importer refreshes and verifies this
-code together with the data and specifications.
-
-The ASCII checker explicitly preserves the original `t_14_1_03.r` table
-program, whose comment includes a multiplication symbol. This is an
-immutable source snapshot; editing that comment would invalidate its
-upstream checksum. Maintained wrappers and documentation remain ASCII.
+`upstream/` contains 14 unchanged source files from Pilot 6 commit
+`a4f85c95cfef1f6aa27795362630f8ae43210185`: the `.Rprofile`, all 10 ADaM
+programs, and 3 utilities for dataset I/O and comparison.
+`spec/source-snapshot.json` records each original path and SHA-256. The
+importer refreshes and verifies this code with the data and specifications.
+It selects data-standardization programs and utilities explicitly.
 
 Pilot 6 starts at SDTM: its repository carries 21 SDTM datasets, not ODM or
 CRF-to-SDTM generation programs. TS is not among its tracked inputs.

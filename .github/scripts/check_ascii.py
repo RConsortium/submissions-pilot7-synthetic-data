@@ -22,9 +22,6 @@ REFERENCE_FILES = {
     'cdiscpilot01/spec/define/define-adam.xml',
     'submission-pilot3/spec/define/define-adam.xml',
     'submission-pilot5/spec/define/define-adam.xml',
-    # Immutable upstream table source: its original multiplication-sign
-    # comment is retained so the snapshot's source checksum stays exact.
-    'submission-pilot6/program/adam/upstream/code/tables/t_14_1_03.r',
 }
 
 

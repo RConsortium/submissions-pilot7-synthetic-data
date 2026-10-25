@@ -55,7 +55,6 @@ class AsciiTests(unittest.TestCase):
             'cdiscpilot01/spec/define/define-adam.xml',
             'submission-pilot3/spec/define/define-adam.xml',
             'submission-pilot5/spec/define/define-adam.xml',
-            'submission-pilot6/program/adam/upstream/code/tables/t_14_1_03.r',
         )
         for name in names:
             self.write(name, 'Original \u00e9 data\n')
@@ -69,7 +68,6 @@ class AsciiTests(unittest.TestCase):
             'docs/data/notes.md', 'docs/build/notes.md',
             '.github/data/notes.md',
             'core-report-helper.py',
-            'submission-pilot6/program/adam/upstream/code/adam/adsl.r',
         )
         for name in names:
             self.write(name, '\u00e9\n')
