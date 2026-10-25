@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """Discover studies that have datasets CORE can validate, for the matrix.
 
-Mirrors the discovery rule used by check_structure.py: any top-level
+Uses the discovery rule from check_structure.py: any top-level
 directory that does not start with "." and is not in `non_study_dirs`
 (from .github/repo-structure.json) is a study. A study is included here
 only if it actually holds a validatable dataset -- a `.parquet` or `.xpt`
@@ -23,20 +23,10 @@ import json
 import os
 import sys
 
-MANIFEST = os.path.join(".github", "repo-structure.json")
+from check_structure import MANIFEST, discover_studies
+
 DATA_DIRS = ("data/sdtm", "data/adam")
 DATA_EXTS = (".parquet", ".xpt")
-
-
-def discover_studies(root: str, non_study_dirs: list[str]) -> list[str]:
-    skip = set(non_study_dirs)
-    return sorted(
-        name
-        for name in os.listdir(root)
-        if os.path.isdir(os.path.join(root, name))
-        and not name.startswith(".")
-        and name not in skip
-    )
 
 
 def has_validatable_data(root: str, study: str) -> bool:
