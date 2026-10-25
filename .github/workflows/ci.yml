@@ -116,6 +116,14 @@ jobs:
           pattern: validation-*
           path: .build/validation
           merge-multiple: true
+      - uses: actions/download-artifact@v4
+        with:
+          pattern: derived-*
+          path: .
+          merge-multiple: true
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
       - run: python -m pip install -r docs/requirements.txt
       - name: Record allowed pending studies without installing an engine
         run: |
@@ -134,6 +142,18 @@ jobs:
           python .github/scripts/build_study_docs.py
           python .github/scripts/check_ascii.py
           python -m mkdocs build --strict
+      - name: Install browser checks
+        run: |
+          python -m pip install -r .github/tests/dashboard/requirements.txt
+          python -m playwright install --with-deps chromium
+      - name: Check dashboard modules and reviewer workflows
+        run: bash .github/scripts/check_dashboard.sh site
+      - uses: actions/upload-artifact@v4
+        if: failure()
+        with:
+          name: dashboard-browser-failure
+          path: .build/dashboard-browser/
+          if-no-files-found: ignore
       - uses: actions/upload-artifact@v4
         with:
           name: pilot7-publication-check

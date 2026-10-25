@@ -8,6 +8,7 @@ import sys
 
 from study_evidence import catalog
 from build_index_table import BEGIN, replace_block
+from dashboard_nav import study_navigation
 
 ROOT = Path(__file__).resolve().parents[2]
 
@@ -17,8 +18,7 @@ def prepare_preview(root, work):
     docs = work / 'docs'
     if work.exists():
         shutil.rmtree(work)
-    shutil.copytree(root / 'docs', docs)
-    shutil.rmtree(docs / 'evidence', ignore_errors=True)
+    shutil.copytree(root / 'docs', docs, ignore=shutil.ignore_patterns('evidence'))
     studies = docs / 'studies'
     studies.mkdir(exist_ok=True)
     # Drop local generated pages so this also works after a full local site build.
@@ -38,8 +38,15 @@ def prepare_preview(root, work):
         f'- [{entry["title"]}]({name}.md)' for name, entry in entries.items()) + '\n')
     config = work / 'mkdocs.yml'
     # The layout preview omits the hook that requires fresh validation reports.
+    import yaml
+    source_config = yaml.safe_load((root / "mkdocs.yml").read_text())
+    nav = source_config.get("nav", [])
+    for item in nav:
+        if "Studies" in item:
+            item["Studies"] = study_navigation(root, item["Studies"])
     config.write_text(f'INHERIT: {root / "mkdocs.yml"}\ndocs_dir: {docs}\n'
-                      f'site_dir: {work / "site"}\nhooks: []\n')
+                      f'site_dir: {work / "site"}\nhooks: []\n' +
+                      (yaml.safe_dump({"nav": nav}, sort_keys=False) if nav else ""))
     return config
 
 

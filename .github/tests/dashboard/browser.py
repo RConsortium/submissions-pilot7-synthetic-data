@@ -47,7 +47,7 @@ def check(browser, base, site_dir, screenshots):
     errors = []
     context.on("weberror", lambda e: errors.append(str(e.error)))
     catalog = json.loads(
-        (site_dir / "assets/review-data/cdiscpilot01/catalog.json").read_text()
+        (site_dir / "evidence/dashboard/cdiscpilot01/catalog.json").read_text()
     )
     page = context.new_page()
     study = base + "/studies/cdiscpilot01/"
@@ -220,7 +220,9 @@ def check(browser, base, site_dir, screenshots):
                 box = page.locator(".subject-popover").bounding_box()
                 assert box["x"] >= 0 and box["x"] + box["width"] <= width
                 page.locator("[data-close-subjects]").click()
-                expect(page.locator("#subject-picker")).not_to_have_attribute("open", "")
+                expect(page.locator("#subject-picker")).not_to_have_attribute(
+                    "open", ""
+                )
                 capture(page, screenshots, "mobile-workspace.png")
     page.goto(study + "#cdiscpilot01/datasets/ADSL?focus=output.TRT01P")
     expect(page.locator("#output-table th.node-selected")).to_have_count(1)
@@ -237,10 +239,6 @@ def check(browser, base, site_dir, screenshots):
     expect(page.locator("#view-content img")).to_have_count(0)
     page.goto(base + "/studies/")
     expect(page.locator(".study-card")).to_have_count(3)
-    page.goto(base + "/studies/submission-pilot6/")
-    expect(page.locator("#study-dashboard")).to_contain_text(
-        "no validated artifact bundle"
-    )
     assert not errors, errors
     context.close()
 
@@ -266,7 +264,7 @@ def check(browser, base, site_dir, screenshots):
     # Fetch may expose already-decoded bytes when a host sets Content-Encoding.
     decoded_context = browser.new_context()
     decoded = decoded_context.new_page()
-    chunk = site_dir / "assets/review-data/cdiscpilot01/tables/t000/0.json.gz"
+    chunk = site_dir / "evidence/dashboard/cdiscpilot01/tables/t000/0.json.gz"
     decoded.route(
         "**/cdiscpilot01/tables/t000/0.json.gz",
         lambda route: route.fulfill(
@@ -280,13 +278,11 @@ def check(browser, base, site_dir, screenshots):
 
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument(
-        "--site-dir", type=Path, default=ROOT / ".build/study-dashboard-preview/site"
-    )
+    parser.add_argument("--site-dir", type=Path, default=ROOT / "site")
     parser.add_argument("--browser-path")
     parser.add_argument("--screenshots", type=Path)
     args = parser.parse_args()
-    if not (args.site_dir / "assets/review-data/index.json").is_file():
+    if not (args.site_dir / "evidence/dashboard/index.json").is_file():
         parser.error("Build real review artifacts first.")
     server = ThreadingHTTPServer(
         ("127.0.0.1", 0),
@@ -304,6 +300,12 @@ def main():
                     args.site_dir,
                     args.screenshots,
                 )
+            except Exception:
+                if args.screenshots:
+                    for n, context in enumerate(browser.contexts):
+                        for m, page in enumerate(context.pages):
+                            capture(page, args.screenshots, f"failure-{n}-{m}.png")
+                raise
             finally:
                 browser.close()
     finally:

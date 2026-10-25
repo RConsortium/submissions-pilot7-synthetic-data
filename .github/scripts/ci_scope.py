@@ -17,6 +17,14 @@ YAMAA_CODE = {'.github/scripts/validate_yamaa.py', '.github/scripts/study_eviden
               '.github/scripts/build_study_docs.py', '.github/scripts/build_index_table.py',
               '.github/yamaa-studies.json',
               '.github/workflows/yamaa-site.yml', 'requirements.txt'}
+PUBLICATION_CODE = {'.github/scripts/build_study_docs.py', '.github/scripts/build_index_table.py',
+                    '.github/scripts/study_evidence.py', '.github/scripts/study_artifacts.py',
+                    '.github/scripts/study_metrics.py', '.github/scripts/dashboard_nav.py',
+                    '.github/scripts/stage_study_artifacts.py', '.github/scripts/check_dashboard.sh',
+                    '.github/dashboard.json', '.github/yamaa-studies.json',
+                    '.github/workflows/yamaa-site.yml', '.github/workflows/study-check.yml'}
+PUBLICATION_PREFIXES = ('.github/scripts/study_dashboard/', '.github/tests/dashboard/',
+                        'docs/assets/dashboard/', 'docs/stylesheets/dashboard.css')
 WORKER = '.github/workflows/study-check.yml'
 PLAN = 'submission-pilot3/data/mapping/plan.csv'
 PLAN_INPUTS = {PLAN,
@@ -33,7 +41,11 @@ def select_checks(root, changed):
     entries = catalog(root)
     manifest = json.loads((root / '.github/repo-structure.json').read_text())
     studies = sorted(set(entries) | set(discover_studies(str(root), manifest.get('non_study_dirs', []))))
-    all_yamaa = bool(changed & (YAMAA_CODE | {WORKER}))
+    publication = bool(changed & PUBLICATION_CODE) or any(
+        path.startswith(PUBLICATION_PREFIXES) or
+        any(path.startswith(f'{study}/spec/{part}/') for study in entries
+            for part in ('source', 'define', 'review')) for path in changed)
+    all_yamaa = publication or bool(changed & (YAMAA_CODE | {WORKER}))
     all_core = bool(changed & (CORE_CODE | {WORKER}))
     selected = []
     for study in studies:
@@ -64,11 +76,8 @@ def select_checks(root, changed):
         'plan_r': bool(changed & (PLAN_INPUTS | {R_PLAN, '.github/workflows/ci.yml'})),
         'compare': bool(changed & (COMPARE_INPUTS | {'.github/workflows/ci.yml'}))
                    or any(path.startswith('submission-pilot5/data/adam/') and path.endswith('.parquet') for path in changed),
-        'publication': bool(changed & {'.github/scripts/build_study_docs.py',
-                                      '.github/scripts/build_index_table.py',
-                                      '.github/scripts/study_evidence.py', '.github/yamaa-studies.json',
-                                      '.github/workflows/yamaa-site.yml', WORKER}),
-        'website': any(path.startswith('docs/') for path in changed)
+        'publication': publication,
+        'website': publication or any(path.startswith('docs/') for path in changed)
                    or bool(changed & {'mkdocs.yml', '.github/scripts/build_study_docs.py',
                                       '.github/scripts/build_index_table.py',
                                       '.github/scripts/preview_site.py', '.github/yamaa-studies.json',

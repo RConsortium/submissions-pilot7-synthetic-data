@@ -9,6 +9,7 @@ import os
 from pathlib import Path
 
 from study_evidence import catalog, engine_revision, project_specs
+from study_artifacts import artifact_snapshot
 
 ROOT = Path(__file__).resolve().parents[2]
 
@@ -67,6 +68,8 @@ def validate(study_name, entry, report):
         })
     report['status'] = ('failed' if any(d['comparison'] == 'failed'
                                       for d in report['datasets']) else 'succeeded')
+    if report['status'] == 'succeeded':
+        report['artifacts'] = artifact_snapshot(ROOT, study_name)
 
 
 def main():

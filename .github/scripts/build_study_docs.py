@@ -1,120 +1,81 @@
 #!/usr/bin/env python3
-"""Generate study pages from the catalog and this build's validation reports."""
+"""Generate the production study dashboard from fresh, artifact-bound evidence."""
 
 import argparse
 import json
 import os
 from pathlib import Path
 import shutil
+import subprocess
+import tempfile
 
-from study_evidence import validate_reports
+from study_evidence import catalog, validate_reports
+from study_artifacts import verify_report_artifacts
+from study_dashboard.artifacts import build_bundle
+from study_dashboard.pages import gallery_page, study_page
 
 ROOT = Path(__file__).resolve().parents[2]
-REPO = "https://github.com/RConsortium/submissions-pilot7-synthetic-data"
-CATALOG = ROOT / ".github" / "yamaa-studies.json"
+
+
+def generate(root, reports_dir, expected_commit=None):
+    """Prepare everything before promoting any generated production content."""
+    root, reports_dir = Path(root), Path(reports_dir)
+    entries = catalog(root)
+    revision = (
+        expected_commit
+        or subprocess.check_output(
+            ["git", "rev-parse", "HEAD"], cwd=root, text=True
+        ).strip()
+    )
+    reports = {
+        name: json.loads((reports_dir / f"{name}.json").read_text()) for name in entries
+    }
+    validate_reports(root, entries, reports, revision)
+    verify_report_artifacts(root, entries, reports)
+    work = root / ".build"
+    work.mkdir(exist_ok=True)
+    evidence = root / "docs/evidence"
+    pages = root / "docs/studies"
+    evidence.mkdir(parents=True, exist_ok=True)
+    pages.mkdir(parents=True, exist_ok=True)
+    with tempfile.TemporaryDirectory(prefix="dashboard-", dir=work) as temporary:
+        stage = Path(temporary)
+        build_bundle(root, stage / "dashboard", entries, reports, revision)
+        staged_pages = {
+            name: study_page(name, entry, reports[name])
+            for name, entry in entries.items()
+        }
+        index = gallery_page(entries, reports)
+        # Verify again after reading and rendering: mutable outputs cannot acquire
+        # an old successful label, including when a file changes during export.
+        verify_report_artifacts(root, entries, reports)
+        current = evidence / "dashboard"
+        backup = stage / "previous"
+        if current.exists():
+            current.rename(backup)
+        try:
+            (stage / "dashboard").rename(current)
+        except OSError:
+            if backup.exists():
+                backup.rename(current)
+            raise
+        for name, page in staged_pages.items():
+            (pages / f"{name}.md").write_text(page)
+            shutil.copyfile(reports_dir / f"{name}.json", evidence / f"{name}.json")
+        (pages / "index.md").write_text(index)
+        for old in evidence.glob("*.json"):
+            if old.stem not in entries:
+                (pages / f"{old.stem}.md").unlink(missing_ok=True)
+                old.unlink()
+    return current
 
 
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("--reports", type=Path,
-                        default=ROOT / ".build" / "validation")
+    parser.add_argument("--reports", type=Path, default=ROOT / ".build/validation")
     args = parser.parse_args()
-    catalog = json.loads(CATALOG.read_text())
-    target = ROOT / "docs" / "studies"
-    target.mkdir(parents=True, exist_ok=True)
-    evidence = ROOT / "docs" / "evidence"
-    evidence.mkdir(parents=True, exist_ok=True)
-    index = ["# Study verification", "",
-             "These results come from the checks that built this website. "
-             "Each project is checked, run and saved before its existing "
-             "comparator checks the derived data against the official files.", "",
-             "| Study | Built datasets | Official comparison |",
-             "| --- | ---: | --- |"]
-    reports = {name: json.loads((args.reports / f"{name}.json").read_text())
-               for name in catalog}
-    validate_reports(ROOT, catalog, reports, os.environ.get("GITHUB_SHA"))
-    # Remove generated pages and evidence for studies retired from publication.
-    for report_file in evidence.glob('*.json'):
-        if report_file.stem not in catalog:
-            (target / f'{report_file.stem}.md').unlink(missing_ok=True)
-            report_file.unlink()
-    for name, entry in catalog.items():
-        report_file = args.reports / f"{name}.json"
-        report = json.loads(report_file.read_text())
-        source_ref = report.get("repository_commit") or "main"
-        datasets = report["datasets"]
-        if report['status'] == 'pending':
-            index.append(f"| [{entry['title']}]({name}.md) | 0 | Project pending |")
-            page = [f"# {entry['title']}", "", entry['description'], "",
-                    "!!! note \"Project not yet merged\"", "",
-                    "    The Pilot 6 ADSL proposal is still under review. "
-                    "No Pilot 6 dataset was built or compared in this website run.", "",
-                    f"[Study source]({entry['source']}) - "
-                    f"[ADSL proposal]({REPO}/pull/104)", "",
-                    "## Remaining coverage", "",
-                    "ADSL reference validation and the other seven derivations "
-                    "remain pending. The website will validate the project "
-                    "automatically once it is merged.", "",
-                    f"[Download the validation record](../evidence/{name}.json).", ""]
-            (target / f"{name}.md").write_text("\n".join(page))
-            shutil.copyfile(report_file, evidence / f"{name}.json")
-            continue
-        if any(d["build"] != "succeeded" or d["comparison"] == "failed"
-               for d in datasets):
-            raise ValueError(f"Cannot publish failed evidence: {report_file}")
-        verified = sum(d["comparison"] == "passed" for d in datasets)
-        status = f"{verified} passed" if verified else "Reference unavailable"
-        index.append(f"| [{entry['title']}]({name}.md) | {len(datasets)} | {status} |")
-        page = [f"# {entry['title']}", "", entry["description"], "",
-                f"[Study source]({entry['source']}) - "
-                f"[Repository folder]({REPO}/tree/{source_ref}/{name}) - "
-                f"[Project specification]({REPO}/blob/{source_ref}/{name}/spec/yamaa/project.yaml)", ""]
-        if any(d["comparison"] == "unavailable" for d in datasets):
-            page += ["!!! warning \"Built, awaiting reference comparison\"", "",
-                     "    ADSL passes the engine's checks and builds from SDTM. "
-                     "It has **not** been compared with Pilot 6's production ADaM. "
-                     "The other seven target datasets still need specifications.", "",
-                     "    The initial ADSL adapts Pilot 3's shared study "
-                     "derivations into a self-contained specification, reads Pilot 6 SDTM, "
-                     "and adds COMPLFL from Pilot 6's workbook. "
-                     "Review against the production programs and reference data "
-                     "is still required.", ""]
-        page += ["## Dataset results", "",
-                 "| Dataset / specification | Rows | Columns | Build | Official comparison |",
-                 "| --- | ---: | ---: | --- | --- |"]
-        for d in datasets:
-            comparison = "Passed" if d["comparison"] == "passed" else "Unavailable"
-            page.append(
-                f"| [{d['domain']}]({REPO}/blob/{source_ref}/{d['spec']}) | "
-                f"{d['rows']:,} | {d['columns']} | Succeeded | {comparison} |"
-            )
-        cells = sum(d["rows"] * d["columns"] for d in datasets
-                    if d["comparison"] == "passed")
-        if cells:
-            page += ["", f"**{cells:,} cells matched** under the "
-                     "[established comparison policy](../verification.md)."]
-        page += ["", "## Run this study", "", "From the repository root, "
-                 "after installing the study's pinned requirements:", "",
-                 "```bash", f"python .github/scripts/validate_yamaa.py {name}", "```", ""]
-        if entry["pending"]:
-            page += ["## Remaining coverage", "",
-                     ", ".join(entry["pending"]) + " are outside the active project.", ""]
-        page += ["## Evidence", "",
-                 f"Generated: `{report['created_utc']}`. "
-                 f"Engine: `yamaa {report['yamaa_version']}` at "
-                 f"[`{report['yamaa_revision'][:12]}`]"
-                 f"(https://github.com/elong0527/yamaa/commit/{report['yamaa_revision']}).", ""]
-        if report.get("repository_commit"):
-            sha = report["repository_commit"]
-            page += [f"Pilot 7 source: [`{sha[:12]}`]({REPO}/commit/{sha}).", ""]
-        page += [f"[Download the validation record](../evidence/{name}.json).", ""]
-        (target / f"{name}.md").write_text("\n".join(page))
-        shutil.copyfile(report_file, evidence / f"{name}.json")
-    index += ["", "A successful build establishes that the specification runs. "
-              "Only a passed official comparison establishes agreement with "
-              "the staged reference. See [comparison policy](../verification.md) "
-              "for tolerance, labels, keys and missing-value handling.", ""]
-    (target / "index.md").write_text("\n".join(index))
+    result = generate(ROOT, args.reports, os.environ.get("GITHUB_SHA"))
+    print(f"Generated production study dashboard: {result}")
 
 
 if __name__ == "__main__":

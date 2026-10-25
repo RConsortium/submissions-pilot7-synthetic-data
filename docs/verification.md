@@ -40,8 +40,14 @@ datasets.
 GitHub Actions validates every study in the publication catalog before building the site.
 Each study page links its JSON record, including the engine revision,
 dataset dimensions, build status, comparison status, execution time stamp,
-and the Pilot 7 source commit in CI builds. A failed validation job prevents
+the Pilot 7 source commit in CI builds, and SHA256 inventories of the validated
+inputs, outputs, references, and submission documents. Publication checks these
+inventories before and after exporting the dashboard. A failed validation job prevents
 publication of that source revision.
+
+The dashboard also publishes source-backed documentation observations and
+authored questions. These are distinct from dataset agreement, with partial
+narrative coverage stated explicitly. See the [review guide](review.md).
 
 [View the study results](studies/index.md).
 

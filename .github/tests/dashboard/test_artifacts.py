@@ -11,9 +11,13 @@ import pyarrow as pa
 import pyarrow.parquet as pq
 import yaml
 
-from review_data import export_table, read_table
-from review_lineage import build_lineage
-from review_report import build_report, define_metadata
+import sys
+
+sys.path.insert(0, str(Path(__file__).resolve().parents[2] / "scripts"))
+from study_dashboard.datasets import export_table, read_table
+from study_dashboard.lineage import build_lineage
+from study_dashboard.consistency import build_report
+from study_dashboard.documents import define_metadata
 
 
 class ReviewDataTests(unittest.TestCase):
@@ -112,20 +116,14 @@ rows:
                 }
             )
             pq.write_table(table, source)
-            # export_table records repo-relative provenance; a scratch root isolates this boundary.
-            import review_data
-
-            original = review_data.ROOT
-            try:
-                review_data.ROOT = root
-                metadata = export_table(source, target, "sample")
-            finally:
-                review_data.ROOT = original
+            metadata = export_table(source, target, "sample", root=root)
             rows = sorted(
                 [
                     row
                     for c in metadata["chunks"]
-                    for row in json.loads(gzip.decompress((target / c["url"]).read_bytes()))
+                    for row in json.loads(
+                        gzip.decompress((target / c["url"]).read_bytes())
+                    )
                 ]
             )
             self.assertEqual(
@@ -212,7 +210,7 @@ columns:
                             "AGE",
                             "inconsistent",
                             "Needs review",
-                            "documents/define-adam.html#ADSL.AGE",
+                            "documents/study/spec/define/define-adam.xml.html#ADSL.AGE",
                             5,
                         )
                     ],

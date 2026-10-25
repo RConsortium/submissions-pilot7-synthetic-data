@@ -19,19 +19,21 @@ in that same job.
 | Changed files | Additional work | Runner jobs for a single-study PR |
 | --- | --- | ---: |
 | Prompts, READMEs, agent guides, generated CORE reports | None. | 1 |
-| Site text, CSS, or MkDocs config | Strict layout/link preview in the shared job. | 1 |
+| Site prose, general CSS, or MkDocs config | Strict layout/link preview in the shared job. | 1 |
 | A study's yamaa specs or Python runner/comparator | Build and compare that study. | 2 |
 | A study's SDTM/ADaM binary data | yamaa comparison and CORE in one study job. | 2 |
 | A study's R program | Run R with the pinned engine and compare outputs. | 2 |
 | Pilot 3 planning generator or its QS/EX/plan.csv inputs | Relevant Python/R plan reproduction steps in the shared job. Input data changes also select the study job. | 1 or 2 |
 | Generic comparison tool or its keys | Comparator self-check in the shared job. | 1 |
+| Dashboard code, tests, configuration, or study source documents | Full catalog validation, strict production build, module and browser tests. | Catalog + 2 |
 | Shared execution code or the reusable worker | Every affected study; each study still uses one runner. | Depends on scope |
 
 PR site previews use an isolated docs tree with explicit placeholders for study
 results. They assert no dataset builds or comparisons and are never deployed.
-The canonical generator and publication safeguards are unchanged: publication on
-main requires fresh reports for the complete catalog from that same commit.
-Changes to publication code or the shared study worker also run the complete
+Publication on main requires fresh reports and the exact validated output bytes
+for the complete catalog from that same commit. The artifact inventory rejects
+post-validation changes, additions, and deletions, including ignored outputs.
+Changes to dashboard publication code, tests, source documents, or the shared study worker also run the complete
 publication path on the PR using fresh study artifacts; allowed pending studies
 get explicit pending records without installing an engine.
 MkDocs renders the landing-page metrics from those same validated reports and
@@ -62,7 +64,9 @@ checks are in scope. These checks do not establish agreement between derived dat
 
 For study validation and website checks, follow root `AGENTS.md`. Keep each
 study's pinned requirements and existing comparison policy. The publication
-workflow checks ASCII again after generation and rejects incomplete, failed, or stale evidence.
+workflow checks ASCII again after generation and rejects incomplete, failed, stale,
+or artifact-mismatched evidence. The production architecture and extension guide
+is in `scripts/study_dashboard/README.md`.
 
 ## CORE runner and reports
 

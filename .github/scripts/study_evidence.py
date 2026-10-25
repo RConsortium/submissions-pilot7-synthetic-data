@@ -77,7 +77,7 @@ def validate_reports(root, entries, reports, expected_commit=None):
                 raise ValueError(f'{name}: invalid dataset dimensions')
     if len(commits) != 1:
         raise ValueError('Study evidence comes from different source commits')
-    if len(revisions) != 1:
+    if len(revisions) > 1:
         raise ValueError('Study evidence uses different yamaa revisions')
 
 

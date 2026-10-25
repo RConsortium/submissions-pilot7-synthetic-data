@@ -41,6 +41,10 @@ Keep explanations short, concrete, and easy to follow.
 - MkDocs renders landing-page metrics from `.build/validation` during the build.
   Keep the source block between the pilot-metrics markers as a website link;
   do not commit generated numbers to `docs/index.md`.
+- The production dashboard generator is `.github/scripts/study_dashboard/`;
+  browser modules are `docs/assets/dashboard/`, with `docs/stylesheets/dashboard.css`.
+  Read the package README for study extension, artifact integrity, and tests.
+  Add study-specific review questions under `<study>/spec/review/`, not shared code.
 - Keep Responsibilities and Tools as separate sections. Describe human review,
   AI drafting, engine execution, and automated checks clearly.
 
