@@ -32,14 +32,26 @@ concurrency:
   cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
 jobs:
+  inventory:
+    runs-on: ubuntu-24.04
+    outputs:
+      studies: ${{ steps.catalog.outputs.studies }}
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          persist-credentials: false
+      - id: catalog
+        run: python3 .github/scripts/study_evidence.py
+
   validate:
+    needs: inventory
     name: Validate ${{ matrix.study }}
     runs-on: ubuntu-24.04
     timeout-minutes: 30
     strategy:
       fail-fast: false
       matrix:
-        study: [cdiscpilot01, submission-pilot3, submission-pilot5, submission-pilot6]
+        study: ${{ fromJSON(needs.inventory.outputs.studies) }}
     env:
       CARGO_BUILD_JOBS: '2'
     steps:

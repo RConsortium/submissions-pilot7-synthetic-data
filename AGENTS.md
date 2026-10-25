@@ -11,7 +11,7 @@ Keep explanations short, concrete, and easy to follow.
 - `docs/` contains the project website; `mkdocs.yml` defines its navigation.
 - `.github/scripts/` contains validation, comparison, and documentation tools.
 - `.github/workflows/` contains CI and website deployment workflows.
-- `.automation/` contains automation prompts and bootstrap scripts.
+- `.automation/` contains scheduled triage and weekly update prompts.
 - `.archieve/` contains historical studies retained for reference.
 
 ## Working rules

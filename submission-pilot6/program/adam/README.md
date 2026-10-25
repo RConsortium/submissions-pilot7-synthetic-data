@@ -12,15 +12,16 @@ CRF-to-SDTM generation programs. TS is not among its tracked inputs.
 
 ## Run the verification
 
-Install Python dependencies `pyarrow==26.0.0` and `PyYAML==6.0.3`, and use
-R 4.5.1. Restore the R packages from `renv.lock` before running the programs.
+Use the pinned Python dependencies in `python/requirements.txt` and R 4.5.1.
+Restore the R packages from `renv.lock` before running the programs.
 From the repository root:
 
 ```bash
+python -m pip install -r submission-pilot6/program/adam/python/requirements.txt
 Rscript -e 'install.packages("renv", repos="https://cloud.r-project.org")'
 Rscript -e 'renv::restore(project="submission-pilot6/program/adam", prompt=FALSE)'
-python -m unittest discover -s submission-pilot6/program/adam -p 'test_*.py' -v
-python submission-pilot6/program/adam/verify_upstream.py --rscript Rscript
+python -m unittest discover -s submission-pilot6/program/adam/python -p 'test_*.py' -v
+python submission-pilot6/program/adam/python/verify_upstream.py --rscript Rscript
 ```
 
 `Pilot 6 upstream R reproduction` GitHub Actions workflow installs the R
@@ -35,8 +36,17 @@ The lockfile pins datasetjson's native reader to Git commit
 native reader, which already decodes numeric columns as floating-point
 values. An exact numeric precision probe runs before derivations. Upstream
 does not provide its own lockfile; this repository records the tested environment.
+CRAN package records use renv's `Repository` source without pak's `any`
+remote metadata, so cold restores can retrieve the pinned versions.
 
-The runner first verifies all dataset, specification and source-code hashes.
+As in Pilot 3, Python programs live in `python/`, R startup lives in `R/`,
+and published Define-XML lives in `spec/define/` under the study root. The
+unchanged imported source stays in `upstream/`; `renv.lock` stays at the
+ADaM project root.
+
+The runner requires all 21 named SDTM inputs, all 8 named ADaM references,
+both upstream specifications, and all 14 retained source files before it
+verifies their hashes. Missing or duplicate manifest entries fail verification.
 It converts the staged SDTM Parquet files to Dataset-JSON for the R reader,
 preserving values, blanks, nulls, types and labels; numeric columns use JSON
 float metadata. It then creates a fresh sandbox with an empty ADaM folder.
@@ -60,7 +70,9 @@ are reported as `reference_unavailable`, rather than matched.
 Results go to `log/upstream-verification.json`; complete per-program logs
 and generated files stay under ignored `.build/pilot6-upstream/`. GitHub
 Actions uploads the report and logs as `pilot6-upstream-evidence`. Any
-generation failure or reference mismatch exits nonzero. This R comparison
+generation failure, missing required reference, or reference mismatch exits
+nonzero. A derivation timeout saves partial stdout/stderr, marks the dataset
+failed, blocks its children, and still writes the final report. This R comparison
 is separate from validating Pilot 7's yamaa specifications.
 
 ## Recorded verification
@@ -68,7 +80,10 @@ is separate from validating Pilot 7's yamaa specifications.
 [GitHub Actions run 40145768527](https://github.com/RConsortium/submissions-pilot7-synthetic-data/actions/runs/40145768527)
 restored the committed lockfile and passed the exact input precision probe.
 The [machine-readable report](../../log/upstream-verification.json) binds
-these results to the source snapshot, R runner, bootstrap and lockfile hashes.
+these historical results to the source snapshot, R runner, bootstrap and
+lockfile hashes tested at that commit. The report predates the Pilot 3 folder
+layout and inventory/timeout safeguards; CI produces fresh evidence for the
+updated runner without rewriting the historical report.
 It also records the actual package versions. The run staged all 21 SDTM
 inputs; individual programs select the domains they need.
 

@@ -107,6 +107,19 @@ def same_dataset(left, right):
             all(a.metadata == b.metadata for a, b in zip(left.schema, right.schema)))
 
 
+def read_json_input(pointer, entry, args):
+    """Return bytes and a retrieval URL only when this call downloads them."""
+    stage = pointer.parent.name
+    domain = pointer.name.removesuffix('.json.dvc')
+    if stage == 'sdtm' and args.mirror_ref:
+        url = (f'{MIRROR_URL}/{args.mirror_ref}/pilot5-submission/'
+               f'pilot5-input/sdtmdata/datasetjson/{domain}.json')
+        with urlopen(url, timeout=60) as response:
+            return response.read(), url
+    directory = args.json_dir if stage == 'sdtm' and args.json_dir else pointer.parent
+    return (directory / entry['path']).read_bytes(), None
+
+
 def run(args):
     source = args.source.resolve()
     commit = subprocess.check_output(
@@ -137,16 +150,7 @@ def run(args):
             stage = pointer.parent.name
             if entry['path'] != f'{domain}.json' or entry['hash'] != 'md5':
                 raise ValueError(f'{domain}: unexpected DVC pointer')
-            if stage == 'sdtm' and args.mirror_ref:
-                url = (f'{MIRROR_URL}/{args.mirror_ref}/pilot5-submission/'
-                       f'pilot5-input/sdtmdata/datasetjson/{domain}.json')
-                with urlopen(url, timeout=60) as response:
-                    raw = response.read()
-            else:
-                directory = args.json_dir if stage == 'sdtm' and args.json_dir else pointer.parent
-                raw = (directory / entry['path']).read_bytes()
-                md5 = entry['md5']
-                url = f'https://s3.us-east-1.amazonaws.com/rconsortium-pilots/files/md5/{md5[:2]}/{md5[2:]}'
+            raw, url = read_json_input(pointer, entry, args)
             if len(raw) != entry['size'] or hashlib.md5(raw).hexdigest() != entry['md5']:
                 raise ValueError(f'{domain}: JSON does not match the Pilot 6 DVC size/MD5')
             table = dataset_table(raw, domain, source)
@@ -173,7 +177,7 @@ def run(args):
                 record['retrieved_from'] = url
             manifest['datasets'].append(record)
             print(f'{domain.upper()}: verified {table.num_rows:,} rows, {table.num_columns} columns', flush=True)
-        for filename, target in [('define.xml', 'define-adam.xml'),
+        for filename, target in [('define.xml', 'define/define-adam.xml'),
                                  ('pilot6-specs.xlsx', 'pilot6-specs.xlsx')]:
             original = source / 'data/adam_reference' / filename
             destination = STUDY / 'spec' / target
@@ -182,6 +186,7 @@ def run(args):
                 if args.verify_only:
                     raise ValueError(f'{target}: differs from upstream')
                 output = staged / target
+                output.parent.mkdir(parents=True, exist_ok=True)
                 output.write_bytes(raw)
                 replacements.append((output, destination))
             manifest['specifications'].append({

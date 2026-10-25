@@ -1,31 +1,5 @@
-## CDISC CORE validation (per study)
-##
-## For every study in the repo (auto-discovered), converts its parquet
-## datasets to XPT, validates SDTM + ADaM with the CDISC Open Rules Engine
-## (CORE), and delivers the results two ways:
-##
-##   1. Committed per study/domain, via an auto-PR into main:
-##        <study>/data/sdtm/core-report-SDTM.xlsx + dataset_comment.md
-##        <study>/data/adam/core-report-ADAM.xlsx + dataset_comment.md
-##      The full JSON reports can be huge (100k+ issues on large datasets),
-##      so they are NOT committed -- they are kept in the 90-day
-##      per-study core-reports-<study> artifacts only.
-##   2. As findings comments on open issues that name a dataset.
-##
-## Why convert: CORE v0.16.0 cannot read parquet (its valid_data_file accepts
-## only XPT / Dataset-JSON / NDJSON / XLSX / CSV), and the studies store
-## parquet, so a parquet -> XPT step is required.
-##
-## KNOWN LIMITATION (issue #66): CORE ships ZERO ADaM rules, so every ADaM
-## report is 0 rules / 0 findings -- conformance UNVERIFIED, not a clean pass.
-## The renderer flags this explicitly; use Pinnacle 21 for ADaM conformance.
-##
-## No stored secrets: everything runs on the built-in GITHUB_TOKEN.
-## Prerequisite for the auto-PR: repo setting "Allow GitHub Actions to create
-## and approve pull requests" must be enabled.
-##
-## To adjust engine version, standards, or CT packages, edit the env block
-## on the validate job.
+# CORE validates committed study datasets. yamaa build/reference evidence is
+# produced separately by yamaa-site.yml. Engine settings live in run_core.py.
 
 name: CORE Validate
 
@@ -40,8 +14,10 @@ on:
       - ".github/workflows/core-validate.yml"
       - ".github/scripts/parquet_to_xpt.py"
       - ".github/scripts/discover_core_studies.py"
+      - ".github/scripts/check_structure.py"
+      - ".github/repo-structure.json"
+      - ".github/scripts/run_core.py"
       - ".github/scripts/core_render_block.sh"
-      - ".github/scripts/core_issue_comments.sh"
       - ".github/scripts/core_block.jq"
   push:
     branches: [main]
@@ -53,8 +29,10 @@ on:
       - ".github/workflows/core-validate.yml"
       - ".github/scripts/parquet_to_xpt.py"
       - ".github/scripts/discover_core_studies.py"
+      - ".github/scripts/check_structure.py"
+      - ".github/repo-structure.json"
+      - ".github/scripts/run_core.py"
       - ".github/scripts/core_render_block.sh"
-      - ".github/scripts/core_issue_comments.sh"
       - ".github/scripts/core_block.jq"
   workflow_dispatch:
 
@@ -75,6 +53,8 @@ jobs:
       studies: ${{ steps.list.outputs.studies }}
     steps:
       - uses: actions/checkout@v5
+        with:
+          persist-credentials: false
       - id: list
         run: python3 .github/scripts/discover_core_studies.py
 
@@ -92,220 +72,39 @@ jobs:
       matrix:
         study: ${{ fromJSON(needs.discover.outputs.studies) }}
 
-    env:
-      # --- CORE release (update when CDISC publishes a new version) ---
-      CORE_VERSION: "v0.16.0"
-      CORE_ASSET: "core-ubuntu-latest.zip"
-      # --- Standards & versions (CORE uses hyphenated version strings) ---
-      SDTM_STANDARD: "sdtmig"
-      SDTM_VERSION: "3-3"
-      # CORE's ADaM standard id is "adam"; the version carries the product
-      # prefix ("adamig-1-3"). Supported: adam, sdtmig, sendig, tig, usdm.
-      ADAM_STANDARD: "adam"
-      ADAM_VERSION: "adamig-1-3"
-      # --- CDISC CT packages (must exist in CORE's bundled cache) ---
-      CT_SDTM: "sdtmct-2024-09-27"
-      CT_ADAM: "adamct-2024-09-27"
-
     steps:
       - uses: actions/checkout@v5
+        with:
+          persist-credentials: false
 
       - uses: actions/setup-python@v5
         with:
-          python-version: "3.11"
+          python-version: "3.12"
 
       - name: Install conversion deps
         # pandas is required by pyarrow.to_pandas() and pyreadstat.write_xport;
         # it is NOT a hard dep of either wheel, so name it explicitly.
         run: pip install --quiet pyarrow pandas pyreadstat
 
-      # --- Cache / download / locate CORE, resolve CT (standard-agnostic) ---
       - name: Cache CORE
-        id: core-cache
         uses: actions/cache@v5
         with:
-          path: core-bin
-          key: cdisc-core-${{ env.CORE_VERSION }}-${{ env.CORE_ASSET }}
+          path: .build/core-bin
+          key: cdisc-core-${{ runner.os }}-${{ hashFiles('.github/scripts/run_core.py') }}
 
-      - name: Download CORE
-        if: steps.core-cache.outputs.cache-hit != 'true'
-        shell: bash
-        run: |
-          set -euo pipefail
-          url="https://github.com/cdisc-org/cdisc-rules-engine/releases/download/${CORE_VERSION}/${CORE_ASSET}"
-          echo "Downloading CORE from $url"
-          curl -fsSL -o core.zip "$url"
-          mkdir -p core-bin
-          unzip -q core.zip -d core-bin
-          rm -f core.zip
-          exe=""
-          while IFS= read -r f; do
-            if file "$f" 2>/dev/null | grep -qi 'ELF'; then exe="$f"; break; fi
-          done < <(find core-bin -type f -name core)
-          if [ -z "$exe" ]; then
-            echo "::error::CORE executable not found after unzip"; find core-bin | head -50; exit 1
-          fi
-          chmod +x "$exe"
-          echo "CORE unpacked at $exe"
+      - name: Validate and stage study reports
+        env:
+          STUDY: ${{ matrix.study }}
+        run: python .github/scripts/run_core.py "$STUDY" --output staging
 
-      - name: Locate CORE
-        id: core
-        shell: bash
-        run: |
-          set -euo pipefail
-          exe=""
-          while IFS= read -r f; do
-            if file "$f" 2>/dev/null | grep -qi 'ELF'; then exe="$f"; break; fi
-          done < <(find core-bin -type f -name core)
-          if [ -z "$exe" ]; then
-            echo "::error::CORE executable missing"; find core-bin | head -50; exit 1
-          fi
-          chmod +x "$exe"
-          exe_abs="$(cd "$(dirname "$exe")" && pwd)/$(basename "$exe")"
-          core_dir="$(dirname "$exe_abs")"
-          echo "exe=$exe_abs" >> "$GITHUB_OUTPUT"
-          echo "dir=$core_dir" >> "$GITHUB_OUTPUT"
-          echo "CORE executable: $exe_abs"
-
-          resolve_ct() {  # $1=prefix (sdtmct|adamct)  $2=desired id
-            local prefix="$1" desired="$2" hit latest
-            hit=$(find "$core_dir" -type f -name "${desired}.pkl" | head -1)
-            if [ -n "$hit" ]; then echo "$desired"; return; fi
-            latest=$(find "$core_dir" -type f -name "${prefix}-*.pkl" -exec basename {} .pkl \; | sort | tail -1)
-            echo "::warning::CT package ${desired} not in cache; falling back to ${latest}" >&2
-            echo "$latest"
-          }
-          echo "ct_sdtm=$(resolve_ct sdtmct "$CT_SDTM")" >> "$GITHUB_OUTPUT"
-          echo "ct_adam=$(resolve_ct adamct "$CT_ADAM")" >> "$GITHUB_OUTPUT"
-
-      # --- Convert parquet -> XPT (or reuse committed xpt) per domain ---
-      - name: Convert datasets to XPT
-        shell: bash
-        run: |
-          set -euo pipefail
-          study="${{ matrix.study }}"
-          for dom in sdtm adam; do
-            src="$study/data/$dom"
-            out="xpt/$dom"
-            if ls "$src"/*.parquet >/dev/null 2>&1; then
-              python3 .github/scripts/parquet_to_xpt.py --in "$src" --out "$out"
-            elif ls "$src"/*.xpt >/dev/null 2>&1; then
-              mkdir -p "$out"; cp "$src"/*.xpt "$out"/
-              echo "Using committed XPT in $src"
-            else
-              echo "No datasets in $src -- skipping $dom."
-            fi
-          done
-
-      - name: Validate SDTM
-        continue-on-error: true
-        shell: bash
-        run: |
-          set +e
-          exe="${{ steps.core.outputs.exe }}"; core_dir="${{ steps.core.outputs.dir }}"
-          data="$PWD/xpt/sdtm"
-          # Compute the output path BEFORE the subshell cd's into core_dir --
-          # inside the subshell $PWD would be core_dir, not the repo root.
-          out="$PWD/core-report-SDTM"
-          if ! ls "$data"/*.xpt >/dev/null 2>&1; then echo "No SDTM XPT -- skipping."; exit 0; fi
-          ( cd "$core_dir" && "$exe" validate \
-              --standard "$SDTM_STANDARD" --version "$SDTM_VERSION" \
-              --controlled-terminology-package "${{ steps.core.outputs.ct_sdtm }}" \
-              --data "$data" --filetype xpt \
-              --output-format JSON --output-format XLSX \
-              --output "$out" )
-          echo "CORE SDTM exit code: $?"
-          ls -la "$PWD"/core-report-SDTM* 2>/dev/null || echo "::warning::No SDTM report produced"
-
-      - name: Validate ADaM
-        continue-on-error: true
-        shell: bash
-        run: |
-          set +e
-          exe="${{ steps.core.outputs.exe }}"; core_dir="${{ steps.core.outputs.dir }}"
-          data="$PWD/xpt/adam"
-          # Output path computed before the subshell cd (see Validate SDTM).
-          out="$PWD/core-report-ADAM"
-          if ! ls "$data"/*.xpt >/dev/null 2>&1; then echo "No ADaM XPT -- skipping."; exit 0; fi
-          ( cd "$core_dir" && "$exe" validate \
-              --standard "$ADAM_STANDARD" --version "$ADAM_VERSION" \
-              --controlled-terminology-package "${{ steps.core.outputs.ct_adam }}" \
-              --controlled-terminology-package "${{ steps.core.outputs.ct_sdtm }}" \
-              --data "$data" --filetype xpt \
-              --output-format JSON --output-format XLSX \
-              --output "$out" )
-          echo "CORE ADaM exit code: $?"
-          ls -la "$PWD"/core-report-ADAM* 2>/dev/null || echo "::warning::No ADaM report produced"
-
-      # --- Stage report files + render dataset_comment.md per domain ---
-      - name: Stage reports and comments
-        shell: bash
-        run: |
-          set -euo pipefail
-          study="${{ matrix.study }}"
-          mkdir -p "staging/$study/data/sdtm" "staging/$study/data/adam"
-
-          render_md() {  # $1=report.json  $2=label  $3=study
-            local rep="$1" label="$2" study="$3" domains d
-            echo "# CDISC CORE validation -- $study ($label)"
-            echo ""
-            echo "- Engine: CORE ${CORE_VERSION}"
-            echo "- Commit: ${GITHUB_SHA:0:7}"
-            echo "- Generated: $(date -u +%Y-%m-%dT%H:%MZ)"
-            echo ""
-            domains=$(jq -r '[ (.Dataset_Details[]?.filename // empty),
-                               (.Issue_Summary[]?.dataset   // empty) ]
-                             | map(ascii_upcase | sub("\\.XPT$"; ""))
-                             | map(select(length > 0)) | unique | .[]' "$rep")
-            if [ -z "$domains" ]; then echo "_No datasets found in report._"; return; fi
-            for d in $domains; do
-              bash .github/scripts/core_render_block.sh "$rep" "$d"
-              echo ""
-            done
-          }
-
-          for f in core-report-SDTM.json core-report-SDTM.xlsx; do
-            [ -f "$f" ] && cp "$f" "staging/$study/data/sdtm/"
-          done
-          for f in core-report-ADAM.json core-report-ADAM.xlsx; do
-            [ -f "$f" ] && cp "$f" "staging/$study/data/adam/"
-          done
-          [ -f core-report-SDTM.json ] && render_md core-report-SDTM.json SDTM "$study" > "staging/$study/data/sdtm/dataset_comment.md"
-          [ -f core-report-ADAM.json ] && render_md core-report-ADAM.json ADaM "$study" > "staging/$study/data/adam/dataset_comment.md"
-
-          echo "Staged files:"; find "staging/$study" -type f
-
-      - name: Upload study reports
-        # Not always(): a discovered study must produce at least one report,
-        # so an empty staging dir means something upstream failed silently.
-        # error (not warn) surfaces that instead of yielding no artifact.
+      - name: Upload study reports and execution coverage
+        if: always()
         uses: actions/upload-artifact@v5
         with:
           name: core-reports-${{ matrix.study }}
           path: staging/
           if-no-files-found: error
           retention-days: 90
-
-      - name: Job summary
-        if: always()
-        shell: bash
-        run: |
-          study="${{ matrix.study }}"
-          sdtm="not run"; adam="not run"
-          [ -f core-report-SDTM.json ] && sdtm="report generated"
-          [ -f core-report-ADAM.json ] && adam="0 ADaM rules -- UNVERIFIED (use P21)"
-          {
-            echo "## CORE Validation -- \`$study\`"
-            echo ""
-            echo "Engine: CORE ${CORE_VERSION}"
-            echo ""
-            echo "| Standard | Version | Status |"
-            echo "|---|---|---|"
-            echo "| SDTM | ${SDTM_VERSION//-/.} | $sdtm |"
-            echo "| ADaM | ${ADAM_VERSION} | $adam |"
-            echo ""
-            echo "Reports and \`dataset_comment.md\` are proposed to \`main\` via the **core/reports** auto-PR; findings are also posted to matching issues."
-          } >> "$GITHUB_STEP_SUMMARY"
 
   # ------------------------------------------------------------------
   # Deliver committed reports + comments into study folders via auto-PR.
@@ -327,18 +126,16 @@ jobs:
           path: _dl
           merge-multiple: true
 
-      - name: Overlay reports into study folders
+      - name: Copy publishable reports into study folders
         shell: bash
         run: |
           set -euo pipefail
-          if [ -d _dl ]; then
-            cp -R _dl/. .
-            rm -rf _dl
-          fi
-          # The full JSON reports are artifact-only; drop any that were overlaid
-          # so they can never be committed (they are also .gitignored).
-          find . -path '*/data/*/core-report-*.json' -delete
-          echo "Changed report files:"; git status --porcelain -- '*/data/*/core-report-*' '*/data/*/dataset_comment.md' || true
+          # JSON reports and execution records remain artifact-only.
+          while IFS= read -r -d '' file; do
+            target="${file#_dl/}"
+            mkdir -p "$(dirname "$target")"
+            cp "$file" "$target"
+          done < <(find _dl -type f \( -name 'core-report-*.xlsx' -o -name dataset_comment.md \) -print0)
 
       - name: Open or update reports PR
         uses: peter-evans/create-pull-request@v7
@@ -362,37 +159,10 @@ jobs:
             human-readable `dataset_comment.md` and the (truncated) `.xlsx`
             are committed here.
 
-            ADaM reports are 0 rules / 0 findings -- conformance **UNVERIFIED**
-            (CORE has no ADaM rulebook, issue #66); use Pinnacle 21 for ADaM.
+            Per-domain `core-execution.json` records retain conversion coverage
+            and engine exit status in the artifacts. Reports that list no rules
+            are conformance **UNVERIFIED**, including ADaM under this engine pin
+            (issue #66). A generated report is not a conformance pass.
 
             Generated by the `CORE Validate` workflow. Merging this PR does not
             re-trigger it (only `*.parquet`/`*.xpt` changes do).
-          # No add-paths: the action stages all changes with `git add -A`, which
-          # respects .gitignore -- so the artifact-only JSON is excluded while
-          # the xlsx + dataset_comment.md are committed. An explicit add-paths
-          # glob that matches zero files makes `git add` fail hard (fatal:
-          # pathspec did not match), which previously aborted the whole PR.
-
-  # ------------------------------------------------------------------
-  # Post findings on open issues that name a dataset. Push to main only.
-  # ------------------------------------------------------------------
-  issue-comments:
-    needs: validate
-    if: github.event_name != 'pull_request' && github.ref == 'refs/heads/main'
-    runs-on: ubuntu-latest
-    permissions:
-      issues: write
-      contents: read
-    env:
-      GH_TOKEN: ${{ github.token }}
-    steps:
-      - uses: actions/checkout@v5
-
-      - uses: actions/download-artifact@v5
-        with:
-          pattern: core-reports-*
-          path: _core_artifacts
-          merge-multiple: true
-
-      - name: Comment findings on matching issues
-        run: bash .github/scripts/core_issue_comments.sh _core_artifacts

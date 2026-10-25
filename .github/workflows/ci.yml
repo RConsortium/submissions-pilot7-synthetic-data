@@ -1,0 +1,76 @@
+name: CI
+
+on:
+  pull_request:
+    branches: [main]
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.head_ref || github.ref_name }}
+  cancel-in-progress: true
+
+jobs:
+  structure-check:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          persist-credentials: false
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - run: python -m pip install PyYAML==6.0.3
+      - run: python .github/scripts/check_structure.py
+      - run: python .github/scripts/check_ascii.py
+      - run: python -m unittest discover -s .github/scripts -p 'test_*.py' -v
+      - run: git diff --check
+
+  plan-repro:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          persist-credentials: false
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - run: python -m pip install polars==1.44.2
+      - name: Reproduce the pinned Pilot 3 plan with Python
+        run: |
+          python submission-pilot3/program/adam/python/make_plan.py --out "$RUNNER_TEMP/plan.regen.csv"
+          diff "$RUNNER_TEMP/plan.regen.csv" submission-pilot3/data/mapping/plan.csv
+      - uses: r-lib/actions/setup-r@v2
+        with:
+          r-version: '4.6.1'
+          use-public-rspm: true
+      - uses: r-lib/actions/setup-r-dependencies@v2
+        with:
+          packages: any::arrow
+          dependencies: '"hard"'
+      - name: Reproduce the pinned Pilot 3 plan with R
+        run: |
+          Rscript --vanilla submission-pilot3/program/adam/R/make_plan.R --out "$RUNNER_TEMP/plan.r.csv"
+          diff "$RUNNER_TEMP/plan.r.csv" submission-pilot3/data/mapping/plan.csv
+
+  self-check:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          persist-credentials: false
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - run: python -m pip install pyarrow==25.0.1
+      - name: Comparator self-check (reference versus itself)
+        run: >-
+          python .github/scripts/compare_adam.py
+          --official submission-pilot5/data/adam
+          --derived submission-pilot5/data/adam
+          --keys-file submission-pilot5/program/adam/adam-compare-keys.json
+          --null-empty-equal
