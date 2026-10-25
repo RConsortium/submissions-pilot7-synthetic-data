@@ -9,6 +9,8 @@ import sys
 
 import yaml
 
+from review_data import build_review
+
 
 ROOT = Path(__file__).resolve().parents[3]
 PROTOTYPE = Path(__file__).resolve().parent
@@ -22,13 +24,16 @@ STUDIES = (
 )
 
 
-def build(destination):
+def build(destination, reports):
     """Stage demo pages and use the repository's actual MkDocs configuration."""
     destination = destination.resolve()
     docs = destination / 'docs'
     (docs / 'assets').mkdir(parents=True, exist_ok=True)
     (docs / 'stylesheets').mkdir(parents=True, exist_ok=True)
     (docs / 'studies').mkdir(parents=True, exist_ok=True)
+
+    # Export only after the existing publication checks accept fresh evidence.
+    build_review(docs / 'assets/review-data', reports)
 
     # The existing stylesheet retains its attribution and licence in the copy.
     shutil.copytree(ROOT / 'docs/stylesheets', docs / 'stylesheets',
@@ -38,9 +43,9 @@ def build(destination):
     shutil.copyfile(PROTOTYPE / 'dashboard.js', docs / 'assets/dashboard.js')
     for name in ('index.md', 'verification.md'):
         source = (ROOT / 'docs' / name).read_text(encoding='utf-8')
-        note = ('!!! note "Design prototype"\n\n'
-                '    Dashboard metrics, documentation findings, and data rows '
-                'are illustrative.\n\n')
+        note = ('!!! note "Review workspace preview"\n\n'
+                '    Real staged study data and locally validated derivations. '
+                'Documentation interpretation still requires human review.\n\n')
         (docs / name).write_text(note + source, encoding='utf-8')
 
     for study, title in (('gallery', 'Study verification'), *STUDIES):
@@ -85,7 +90,7 @@ def main():
     parser.add_argument('--output-dir', type=Path,
                         default=ROOT / '.build/study-dashboard-preview')
     args = parser.parse_args()
-    build(args.output_dir)
+    build(args.output_dir, ROOT / '.build/validation')
 
 
 if __name__ == '__main__':

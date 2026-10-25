@@ -1,176 +1,130 @@
-# Study dashboard prototype and implementation handoff
+# Static study review workspace
 
-This draft preserves the current visual prototype for another agent to
-continue. It does not integrate the dashboard into the published website.
-All metrics, dataset dimensions, row previews, and documentation findings
-shown by the prototype are illustrative.
+This PR builds a static MkDocs review workspace from the repository's actual
+study data, complete yamaa specifications, source documents, and fresh
+validation records. It remains an isolated preview: the production study-page
+generator and its publication safeguards are unchanged.
 
-The source is self-contained in this folder and builds with the repository's
-existing MkDocs Material configuration, stylesheet, navigation conventions,
-search, and light/dark palettes. No Sites account or private hosting
-credentials are needed to reproduce the prototype.
+## Review experience
 
-## User requirements
+- CDISC Pilot 01 and Submission Pilots 3 and 5 have complete input datasets,
+  derived outputs, and independent official references. The study's pinned
+  yamaa engine and existing comparator must pass before export.
+- A searchable subject multi-select initially selects the first three sorted
+  study subject IDs. Select any number, including all subjects. Selection is
+  shared across input and output; subjects without records remain explicit.
+- All matching records are accessible, in original order, through 40-row page
+  controls. Selected CSV exports include every matching row, independent of
+  the visible page. Complete Parquet/CSV downloads are also available.
+- The complete line-numbered specification stays beside input and output
+  panes in a desktop viewport. Each pane scrolls independently. A divider
+  supports mouse dragging and keyboard arrows. Small screens stack the panes.
+- Selecting input/output columns or a YAML block highlights connected rules
+  and columns. The index follows declared expressions, intermediate lookups,
+  row templates, filters, joins, grouping keys, and ordering context. It is
+  conservative static column lineage, not proof of contributing rows.
+- The consistency report checks output presence and exact variable labels
+  against published Define-XML 1.0/2.0. It also exposes recorded document
+  version-alignment questions and source-cited guide review tasks. Narrative
+  interpretation is explicitly incomplete, not a passed document audit.
+- Findings open the corresponding specification and output column alongside
+  a source-evidence drawer. PDF page, workbook sheet/row, and Define-XML item
+  reading copies link back to retained originals and upstream provenance.
+- Filters, subjects, dataset, selected lineage node, reference choice, and
+  evidence drawer are retained in shareable view links.
+- Comments use the existing yamaa giscus/GitHub Discussions integration with
+  a separate `pilot7/studies/<study>/<dataset>` thread namespace. The page
+  labels that host explicitly. GitHub sign-in is required to post. A context
+  copier and Pilot 7 issue link remain available when the embed cannot load.
+  No comments are posted automatically. `comments.json` owns the destination;
+  Pilot 7's own repository currently has no Discussions tab.
 
-- Pilot studies cover **SDTM -> ADaM** at this stage. Do not display ODM or
-  TLF as pilot pipeline stages.
-- Use the description: "Agentic review SDTM to ADaM derivations against the
-  published submission package."
-- Follow the existing MkDocs layout and styling instead of a separate app
-  shell. Keep the white header, blue palette, system fonts, and study
-  navigation.
-- Place **Study source** and **View evidence** beside the study title to
-  save vertical space. They may wrap on narrow screens.
-- The first three top-level metrics are **Datasets**, **Columns**, and
-  **Cells**, using the home page's fully matched / reference total
-  (percentage) definition. `M` means one million.
-- The fourth metric counts **documentation consistency findings**, from
-  comparing yamaa specifications with source specifications, Define-XML,
-  ADRG, and other relevant submission documents. The prototype interprets
-  this as the number of open findings and links it to the review detail.
+## Build and explore
 
-## Reproduce the preview
-
-From the repository root, using Python 3.12 or a compatible environment:
+Python >=3.12 and a Rust toolchain are needed for the pinned yamaa package.
+From the repository root:
 
 ```bash
 python -m venv .venv
 .venv/bin/python -m pip install -r docs/requirements.txt
+.venv/bin/python -m pip install -r cdiscpilot01/program/adam/python/requirements.txt
+.venv/bin/python -m pip install -r .github/prototypes/study-dashboard/requirements.txt
+export GITHUB_SHA="$(git rev-parse HEAD)"
+for study in cdiscpilot01 submission-pilot3 submission-pilot5; do
+  .venv/bin/python .github/scripts/validate_yamaa.py "$study" || exit 1
+done
 .venv/bin/python .github/prototypes/study-dashboard/build_preview.py
 .venv/bin/python -m http.server 8765 --directory .build/study-dashboard-preview/site
 ```
 
-Open <http://localhost:8765/studies/cdiscpilot01/>.
-The preview-only pages and output are written under the ignored `.build/`
-directory. The script reads the real MkDocs configuration and styles, copies
-the project home and verification policy, and removes publication hooks in
-its staged configuration. It does not edit production Markdown, navigation,
-the study catalog, validation evidence, or reference datasets.
+Open <http://localhost:8765/studies/cdiscpilot01/>. The builder refuses missing,
+failed, mixed-revision, engine-mismatched, or stale validation evidence.
+Generated JSON, reading copies, data chunks, and downloadable artifacts stay
+under ignored `.build/`; no generated data is committed to this PR. Derived
+Parquet downloads larger than 20 MiB are compressed copies; original study
+files and independent references are preserved.
 
-The owner-private hosted review copy at
-<https://pilot7-study-dashboard-review.yamaa-2308.chatgpt.site/studies/cdiscpilot01/>
-preserves the earlier design. It is not updated by this PR. Use the local build
-and committed screenshots for the current exploration features.
+Try selecting `DM.ARM` in the input header: its YAML rules and connected
+output treatment columns highlight together. Select `TRT01P` in the output
+or its YAML block to follow the relationship in reverse. Use **Subjects ->
+Select all** to explore the complete study population. **Consistency report
+-> imputation -> Open evidence in workspace** opens the cited guide passage
+beside the ASTDT derivation and actual data.
 
-## What is implemented
+The new interactive hosted preview is recorded in the PR description. The
+older `pilot7-study-dashboard-review` hosted design is a previous snapshot.
 
-- Study overview with the four requested metrics and two-stage pilot scope.
-- Dataset search by name or description, sorting by name, row count, or open
-  documentation questions, and a filter for datasets with questions.
-- A dataset browser with linked subject highlighting, source/derived/reference
-  previews, column focus, sample-row search, and a collapsible specification
-  panel. Search finds matching subjects across source and output values;
-  source columns remain visible when focusing an ADaM variable.
-- Documentation review with searchable, dataset-filtered example questions,
-  expandable review guidance, source links, and direct navigation to the
-  relevant dataset variable and specification. Counts share one example list.
-- Shareable view links retaining dataset, filters, highlighted subject, column,
-  and specification visibility. Refresh and browser back/forward restore them.
-  A selectable text field is available if clipboard access is denied.
-- CSV download of the currently filtered illustrative output rows and columns.
-  The filename explicitly identifies the preview as illustrative.
-- Links to specifications, programs, source documents, and validation
-  workflows; sample evidence download.
-- Responsive layouts and support for Material's dark palette and instant
-  page navigation, including hosting under a project URL prefix.
-- Larger helper/table text, labeled scrollable tables, keyboard-accessible
-  controls, result announcements, and focus movement on section navigation.
+## Source and evidence boundaries
 
-The sample state is embedded in `dashboard.js`. The `3` open findings,
-`100%` agreement, and preview rows are examples, not measured results. Pending
-studies display "Not reviewed" rather than a false zero findings count.
-Pilot 6 appears only as a pending example in this isolated preview; the
-production catalog and current decision to hide it remain unchanged.
+`review_data.py` exports complete Arrow values in subject-group chunks with
+original row ordinals, schemas, and source paths. Subject-independent lookup
+relations stay visible. JSON represents non-finite numbers explicitly as
+strings, preserving null as a separate missing value; raw downloads retain
+original data types. `review_lineage.py` indexes YAML node source spans and
+known identifiers, excluding quoted and mapping-dictionary literals.
+`review_report.py` retains source citations and checks metadata. Original
+clinical data, published references, comparison policies, and source documents
+are never modified to obtain agreement.
 
-## Try the review flow
+Automated observations and unfinished review tasks have distinct kinds.
+They all require human review; a reference match cannot resolve a narrative
+question. A missing lineage relation must not be interpreted as independence.
+The report does not assert that every clinical or narrative rule was audited.
 
-1. Open CDISC Pilot 01. Search for a dataset or select **Has doc questions**.
-   Sort by **Most doc questions** to find the example review work.
-2. Open **2 open** beside ADSL. Search the questions for `SAFFL`, then expand
-   **How to review this question**.
-3. Select **Explore ADSL.SAFFL**. The workspace opens with the specification
-   visible and SAFFL in focus in both ADaM previews.
-4. Search sample rows for `72`. The source and both output previews retain
-   DEMO-002. Highlight the subject and download **Sample CSV**.
-5. Use **Copy view link** and open it in another tab. The same filters and
-   selections are restored. **Reset preview** restores all sample rows and
-   columns without changing dataset-browser filters.
+## Verification
 
-These actions explore fabricated examples. They do not perform document
-review, validate derivations, or change the study's actual evidence.
-
-## Continue implementation
-
-1. Keep the existing study page generator as the publication owner. Integrate
-   the layout through `.github/scripts/build_study_docs.py` rather than
-   committing generated `docs/studies/` pages. Extend the current templates
-   and owned assets instead of maintaining a second production generator.
-2. Replace the embedded sample catalog and dimensions with existing study
-   metadata, project specifications, and current-run validation reports.
-   Reuse the home page's metric definitions in
-   `.github/scripts/build_index_table.py`. In particular, reference
-   denominators come from independent official reference files, not derived
-   output sizes.
-3. Implement the documentation-consistency review and persist structured
-   findings. Record dataset/variable, document path and section, the yamaa
-   rule, the discrepancy, evidence, and review resolution. Agree on review
-   coverage and finding states; the current count means open findings.
-   Missing documents or unrun checks must remain visible as incomplete
-   coverage, not count as zero findings or a passed review.
-4. Populate the findings view and count from that evidence. Link to exact
-   document sections and specification locations where possible. The three
-   questions in this prototype do not identify verified defects in the
-   actual studies.
-5. Build bounded dataset previews from the validated artifacts; retain
-   independent official references and explicit row/column totals. Replace
-   the abbreviated YAML sample with the real specification.
-6. Preserve current publication checks against failed builds, missing
-   records, mixed source commits, and engine-pin mismatches. Keep build
-   success, official comparison, and documentation consistency distinct.
-7. Add focused tests at the existing evidence/generator boundaries and run
-   the website validation workflow required by `AGENTS.md` before enabling
-   production output. Keep this PR a draft until that integration is ready.
-
-No actual documentation review, new derivation run, or production dashboard
-integration has been completed by this prototype.
-
-## Preview verification
-
-Build the prototype first, then run the repeatable browser checks with the
-optional Playwright test dependency:
+Run the repository checks from `AGENTS.md`, plus focused export/lineage/report
+checks and the repeatable browser checks:
 
 ```bash
+.venv/bin/python -m unittest discover -s .github/prototypes/study-dashboard -p test_review_data.py -v
 .venv/bin/python -m pip install playwright
 .venv/bin/python -m playwright install chromium
 .venv/bin/python .github/prototypes/study-dashboard/test_browser.py
 ```
 
-An installed Chromium can be selected with `--browser-path /usr/bin/chromium`.
-Use `--screenshots .github/prototypes/study-dashboard/screenshots` to refresh
-the saved review images. The test starts and stops its own local server under
-a project URL prefix; no running preview server or hosted account is needed.
+Use `--browser-path /usr/bin/chromium` for an installed browser. Use
+`--screenshots .github/prototypes/study-dashboard/screenshots` to refresh
+review images. The test owns a temporary local server under a project URL
+prefix. It covers arbitrary/all subjects, complete CSV exports, all three
+lineage-selection directions, row controls, source evidence, restored views,
+clipboard fallback, comments configuration, instant navigation, CSV lookups,
+responsive layouts, dark mode, and retryable chunk failures. The test never
+posts a comment and does not exercise GitHub sign-in.
 
-The browser checks cover dataset/finding filters, no-result states, variable
-navigation, row/column filtering, subject highlighting, refresh/shared links,
-back/forward, clipboard denial, filtered CSV and sample JSON downloads, invalid
-route values, escaped search input, pending studies, native instant navigation,
-project-prefix routes, mobile/tablet/desktop widths, and dark mode. They also
-check legible helper text, focus movement, and browser JavaScript errors.
-
-The repository copy should also pass the shared ASCII, structure, unittest,
-and whitespace checks, the prototype's strict build, and the repository's
-`python .github/scripts/preview_site.py` layout check. Study engine execution
-is not needed to render this isolated design preview and does not follow from
-its sample success states. Production publication still requires the full
-validation workflow described in `AGENTS.md`.
+Production integration should extend `.github/scripts/build_study_docs.py`,
+reuse this artifact format and the existing metrics, and preserve every
+publication check. Do not commit generated `docs/studies/` pages. Keep this
+PR a draft until the canonical publication path incorporates the workspace.
 
 ## Screenshots
 
-![MkDocs study overview](screenshots/overview.png)
+![Connected specification, input and output](screenshots/dataset-workspace.png)
 
-![Documentation review](screenshots/documentation-findings.png)
+![Source-backed consistency report](screenshots/documentation-findings.png)
 
-![Dataset exploration workspace](screenshots/dataset-workspace.png)
+![Cited source evidence](screenshots/source-evidence.png)
 
+[Dataset overview](screenshots/overview.png) /
 [Mobile workspace](screenshots/mobile-workspace.png) /
 [Dark workspace](screenshots/dark-workspace.png)
