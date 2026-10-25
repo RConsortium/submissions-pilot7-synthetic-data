@@ -104,7 +104,7 @@ while read -r line; do
     done
     echo "---"
     echo ""
-    echo "_(posted by CDISC CORE validation — $RUN_TAG, commit $SHA7)_"
+    echo "_(posted by CDISC CORE validation -- $RUN_TAG, commit $SHA7)_"
   } > "$body_file"
 
   if ! grep -q '^### ' "$body_file"; then

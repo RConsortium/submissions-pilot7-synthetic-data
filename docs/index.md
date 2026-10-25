@@ -1,4 +1,4 @@
-# Pilot 7: Agentic workflows for clinical data standardization
+# Pilot 7: Agentic data standardization
 
 Pilot 7 uses publicly available pilot studies and synthetic clinical trial
 data to demonstrate and evaluate agentic workflows for clinical data

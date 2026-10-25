@@ -27,7 +27,7 @@ def joinvec:
   ["### \($domain)", "", "Report: `\($file)`", ""]
   + (
     if (($srows | length) == 0 and ($drows | length) == 0) then
-      ["No validation issues found for this domain. ✅", ""]
+      ["No validation issues found for this domain. [PASS]", ""]
     else
       ["- **Total issues**: \($total)", "- **Unique rules**: \($nrules)", ""]
       + (if ($srows | length) > 0 then

@@ -6,7 +6,7 @@ report(s) produced by the `CORE Validate` workflow and post validation
 findings as comments on open issues that mention specific dataset names
 (ADAE, ADQS, ADSL, etc.).
 
-Treat this file as the full job. Do not ask clarifying questions — make the
+Treat this file as the full job. Do not ask clarifying questions -- make the
 call yourself and document the reasoning in the comment.
 
 ---
@@ -15,7 +15,7 @@ call yourself and document the reasoning in the comment.
 
 - Git root: the parent of this `.automation/` folder. Work from there.
 - Tooling: `gh` is authenticated and `jq` is available. `git` is configured
-  and `origin` points at the repo. **No R is needed** — do *not* run
+  and `origin` points at the repo. **No R is needed** -- do *not* run
   `bootstrap_system.sh` or `bootstrap_r.R`. This routine is pure
   `gh` + `jq` + shell.
 - The `gh` token needs **`actions: read`** (to download workflow artifacts)
@@ -25,20 +25,20 @@ call yourself and document the reasoning in the comment.
   `.github/workflows/core-validate.yml` as the `core-validation-reports`
   artifact, and Step 1 below downloads them into the git root. There may be
   more than one (a separate SDTM report and ADaM report). Detect domain
-  coverage automatically — do not assume one file covers both. (The `.xlsx`
+  coverage automatically -- do not assume one file covers both. (The `.xlsx`
   twins are for humans; parse the `.json`.)
 - Bot identity: every comment ends with a footer naming the workflow run it
-  came from. That footer is also the idempotency key — see Step 5c.
+  came from. That footer is also the idempotency key -- see Step 5c.
 
 ---
 
-## Step 0 — Preconditions
+## Step 0 -- Preconditions
 
 No bootstrap. Just confirm the two tools exist and fail loudly if not.
 
 **Run every snippet in this file under `bash`**, not `sh` or `zsh`. They
 rely on `[[ ]]`, and on word-splitting of unquoted `$matched_datasets` in
-Step 5d — which zsh does not do, so under zsh the whole domain list is
+Step 5d -- which zsh does not do, so under zsh the whole domain list is
 treated as a single domain and every issue gets one bogus "No CORE report
 found covering domain ADSL DM QS" block.
 
@@ -57,7 +57,7 @@ Use `$WORK` for every temp file in this run.
 
 ---
 
-## Step 1 — Fetch the newest CORE reports
+## Step 1 -- Fetch the newest CORE reports
 
 The routine starts from a clean clone, so it must go and get its own inputs.
 Take the most recent **successful** run of the validation workflow and pull
@@ -98,7 +98,7 @@ Carry them through the whole run.
 
 ---
 
-## Step 2 — Catalogue the reports
+## Step 2 -- Catalogue the reports
 
 Read every JSON report and record which domains each one covers. Coverage
 comes from `Dataset_Details[].filename` and `Issue_Summary[].dataset`,
@@ -125,7 +125,7 @@ if [[ ! -s "$WORK/catalogue.tsv" ]]; then
 fi
 ```
 
-Helper used later — first report covering a given domain:
+Helper used later -- first report covering a given domain:
 
 ```bash
 report_for_domain() {  # $1 = domain
@@ -136,7 +136,7 @@ report_for_domain() {  # $1 = domain
 
 ---
 
-## Step 3 — Create label if missing
+## Step 3 -- Create label if missing
 
 ```bash
 gh label create core-commented --repo "$REPO" \
@@ -146,7 +146,7 @@ gh label create core-commented --repo "$REPO" \
 
 ---
 
-## Step 4 — Fetch all open issues
+## Step 4 -- Fetch all open issues
 
 ```bash
 gh issue list --repo "$REPO" --state open \
@@ -155,10 +155,10 @@ gh issue list --repo "$REPO" --state open \
 
 ---
 
-## Step 5 — Per-issue loop
+## Step 5 -- Per-issue loop
 
 Process issues **oldest-first** (lowest number first). Resolve one issue
-completely (match → generate → post → label) before moving to the next.
+completely (match -> generate -> post -> label) before moving to the next.
 
 Write the block-rendering jq program once, up front:
 
@@ -179,7 +179,7 @@ def joinvec: if (. == null or (length == 0)) then "-"
   ["### \($domain)", "", "Report: `\($file)`", ""]
   + (
     if (($srows | length) == 0 and ($drows | length) == 0) then
-      ["No validation issues found for this domain. ✅", ""]
+      ["No validation issues found for this domain. [PASS]", ""]
     else
       ["- **Total issues**: \($total)", "- **Unique rules**: \($nrules)", ""]
       + (if ($srows | length) > 0 then
@@ -231,16 +231,16 @@ Give every `gh` call inside the loop `</dev/null`. Otherwise a `gh`
 subcommand that reads standard input will swallow the rest of
 `issues.b64` and the loop will silently process only the first issue.
 
-### 5a — Check skip labels
+### 5a -- Check skip labels
 
 Skip the issue if it carries any of: `wontfix`, `duplicate`, `invalid`.
 
-**Do NOT skip** on `core-commented` — that label only records that *some*
+**Do NOT skip** on `core-commented` -- that label only records that *some*
 report was posted once; whether *this* run has already been posted is
-decided in Step 5c by run id. **Do NOT skip** `claude-needs-human` either —
+decided in Step 5c by run id. **Do NOT skip** `claude-needs-human` either --
 CORE findings should be posted regardless of triage state.
 
-### 5b — Match datasets using word-boundary search
+### 5b -- Match datasets using word-boundary search
 
 Use whole-word matching to avoid false positives from short domain names
 appearing inside common words (e.g. "CE" in "process", "DM" in "odm").
@@ -260,7 +260,7 @@ if [[ -z "$matched_datasets" ]]; then
 fi
 ```
 
-### 5c — Idempotency: has this run already been posted here?
+### 5c -- Idempotency: has this run already been posted here?
 
 Keyed on the **workflow run id**, not the report filename. Report filenames
 are constant (`core-report-SDTM.json` every time), so a filename check would
@@ -276,11 +276,11 @@ if gh issue view "$issue_num" --repo "$REPO" --json comments \
 fi
 ```
 
-Use `grep -qF` — a fixed-string, quiet match. (Do not use `grep -l` here: it
+Use `grep -qF` -- a fixed-string, quiet match. (Do not use `grep -l` here: it
 prints `(standard input)` rather than matching, so it reports a hit every
 time and silently suppresses all posting.)
 
-### 5d — Generate the comment
+### 5d -- Generate the comment
 
 ```bash
 body="$WORK/core_body_${issue_num}.md"
@@ -299,14 +299,14 @@ body="$WORK/core_body_${issue_num}.md"
   done
   echo "---"
   echo ""
-  echo "_(posted by CDISC CORE validation report — run #${CORE_RUN_NO} (${CORE_RUN_ID}), commit ${CORE_SHA7})_"
+  echo "_(posted by CDISC CORE validation report -- run #${CORE_RUN_NO} (${CORE_RUN_ID}), commit ${CORE_SHA7})_"
 } > "$body"
 ```
 
 If `$body` is missing, empty, or contains only the header and footer with no
 domain blocks, skip the issue rather than posting a hollow comment.
 
-### 5e — Post and label
+### 5e -- Post and label
 
 ```bash
 if [[ ! -s "$body" ]]; then
@@ -325,7 +325,7 @@ rm -f "$body"
 
 ---
 
-## Step 6 — Clean up
+## Step 6 -- Clean up
 
 The downloaded reports are build outputs, not source. Remove them so they
 can never be committed by a later routine sharing the workspace:
@@ -344,7 +344,7 @@ rm -rf "$WORK"
 - **Never** close issues, or modify assignees, milestones, or projects.
 - **Never** comment more than once per issue per workflow run (Step 5c).
 - **Never** post to issues with no word-boundary dataset match.
-- **Never** post an empty comment — if generation fails, skip the issue.
+- **Never** post an empty comment -- if generation fails, skip the issue.
 - Process one issue at a time. A failure on one issue must not stop the loop.
 - `claude-needs-human` does **not** block CORE comments.
 - If Step 1 finds no run, no artifact, or no parseable report, exit **0**

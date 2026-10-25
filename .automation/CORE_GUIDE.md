@@ -9,7 +9,7 @@ ADQS, ADSL, etc.).
 ## Why CORE (not Pinnacle 21)
 
 Pinnacle 21 Community only runs on Windows/macOS and needs an interactive IQ
-activation that cannot be satisfied in ephemeral CI — it fails with
+activation that cannot be satisfied in ephemeral CI -- it fails with
 `CLI.3.17` on fresh installs. **CORE** (the CDISC Open Rules Engine) is
 CDISC's official open-source validator: a self-contained Linux executable
 shipped with a bundled rules + controlled-terminology cache. It runs on
@@ -18,7 +18,7 @@ shipped with a bundled rules + controlled-terminology cache. It runs on
 
 ## The File
 
-**`.automation/core_dataset_comments.md`** — single automation prompt file
+**`.automation/core_dataset_comments.md`** -- single automation prompt file
 (same pattern as `triage_issues.md`).
 
 ## How to Use
@@ -51,7 +51,7 @@ The AI agent will:
    - **Cadence**: Daily at 10:00 AM (or after each validation run)
    - **Prompt**:
      ```
-     Read .automation/core_dataset_comments.md from the repo root and execute it exactly as written. The file is the complete job — do not add steps, skip steps, or ask for clarification. Start by running Step 0 (bootstrap); if that exits non-zero, stop. Otherwise proceed through the per-issue loop. End with the stdout summary table specified at the bottom of the file.
+     Read .automation/core_dataset_comments.md from the repo root and execute it exactly as written. The file is the complete job -- do not add steps, skip steps, or ask for clarification. Start by running Step 0 (bootstrap); if that exits non-zero, stop. Otherwise proceed through the per-issue loop. End with the stdout summary table specified at the bottom of the file.
      ```
 
 The `core-validate.yml` workflow already runs this prompt automatically via
@@ -60,9 +60,9 @@ needed if you want extra out-of-band runs.
 
 ## Prerequisites
 
-- ✅ R installed (handled by `bootstrap_system.sh`)
-- ✅ R packages `jsonlite`, `dplyr` (handled by the prompt's Step 0)
-- ⚠️ **GitHub CLI (`gh`) must be authenticated** (or a git credential present)
+- [PASS] R installed (handled by `bootstrap_system.sh`)
+- [PASS] R packages `jsonlite`, `dplyr` (handled by the prompt's Step 0)
+- [WARNING] **GitHub CLI (`gh`) must be authenticated** (or a git credential present)
 
 Check GitHub CLI:
 ```bash
@@ -118,31 +118,31 @@ _(posted by CDISC CORE validation report)_
 ## The CORE JSON report shape
 
 The prompt parses the machine-readable `core-report-*.json` (the `.xlsx`
-twin is only for humans). Top-level keys (spaces/hyphens → underscores):
+twin is only for humans). Top-level keys (spaces/hyphens -> underscores):
 
 | Key | Contents |
 |---|---|
 | `Conformance_Details` | Engine version, standard, version, CT package, timestamps |
-| `Dataset_Details` | One row per dataset: `filename`, `label`, `length`, … |
+| `Dataset_Details` | One row per dataset: `filename`, `label`, `length`, ... |
 | `Issue_Summary` | Per dataset + rule: `dataset`, `core_id`, `message`, `issues` (count) |
 | `Issue_Details` | Per finding: `core_id`, `message`, `dataset`, `USUBJID`, `row`, `SEQ`, `variables[]`, `values[]` |
 | `Rules_Report` | Per rule: `core_id`, `cdisc_rule_id`, `fda_rule_id`, `status` |
 
 ## Smart Features
 
-✅ **No duplicates**: won't re-comment if the report filename is already in the issue
-✅ **Multi-dataset**: handles issues mentioning multiple datasets
-✅ **No issues = positive comment**: if a dataset has 0 validation issues
-✅ **Labeled**: adds the `core-commented` label to processed issues
-✅ **Safe**: never closes issues, only adds comments
+[PASS] **No duplicates**: won't re-comment if the report filename is already in the issue
+[PASS] **Multi-dataset**: handles issues mentioning multiple datasets
+[PASS] **No issues = positive comment**: if a dataset has 0 validation issues
+[PASS] **Labeled**: adds the `core-commented` label to processed issues
+[PASS] **Safe**: never closes issues, only adds comments
 
 ## State Management
 
 Uses GitHub labels (same as `triage_issues.md`):
 
-- `core-commented` — issue has CORE findings posted
-- `claude-needs-human` — does **not** block CORE comments
-- `wontfix`, `duplicate`, `invalid` — skipped
+- `core-commented` -- issue has CORE findings posted
+- `claude-needs-human` -- does **not** block CORE comments
+- `wontfix`, `duplicate`, `invalid` -- skipped
 
 ## Troubleshooting
 
@@ -153,7 +153,7 @@ Uses GitHub labels (same as `triage_issues.md`):
   the `core-validation-reports` artifact by the `post-comments` job
 
 **"gh: command not found"**
-- GitHub CLI not installed — the prompt falls back to `curl` with a git
+- GitHub CLI not installed -- the prompt falls back to `curl` with a git
   credential; if neither is available it stops in Step 1
 
 **No issues get commented**
@@ -171,19 +171,19 @@ Uses GitHub labels (same as `triage_issues.md`):
 | Trigger | Any open issue | Issues mentioning dataset names |
 | Label | `claude-triaged` | `core-commented` |
 
-Both work together — they don't conflict.
+Both work together -- they don't conflict.
 
 ## Updating the engine / standards
 
 Everything tunable lives in the `env:` block of
 `.github/workflows/core-validate.yml`:
 
-- `CORE_VERSION` / `CORE_ASSET` — pin to a CORE GitHub release + Linux asset
-- `SDTM_VERSION` / `ADAM_VERSION` — CORE uses hyphenated versions. SDTM is
+- `CORE_VERSION` / `CORE_ASSET` -- pin to a CORE GitHub release + Linux asset
+- `SDTM_VERSION` / `ADAM_VERSION` -- CORE uses hyphenated versions. SDTM is
   plain (`3-3`). For ADaM the standard id is `adam` and the version must carry
   the product prefix (`adamig-1-3`), since the metadata key is
   `standards/adam/adamig-1-3`.
-- `CT_SDTM` / `CT_ADAM` — CT package ids that exist in CORE's bundled cache
+- `CT_SDTM` / `CT_ADAM` -- CT package ids that exist in CORE's bundled cache
   (e.g. `sdtmct-2024-06-28`)
 
 To validate against newer rules or CT than the bundled cache provides, add a

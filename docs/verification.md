@@ -16,7 +16,7 @@ The comparisons keep the repository's established policies:
 
 | Policy | CDISC Pilot 01 | Submission Pilots 3 and 5 |
 | --- | --- | --- |
-| Numeric tolerance | Absolute difference ≤ `1e-10` | Absolute difference ≤ `1e-10` |
+| Numeric tolerance | Absolute difference <= `1e-10` | Absolute difference <= `1e-10` |
 | Text | Exact | Exact after normalizing empty text and null |
 | Null and empty text | Distinct | Equivalent |
 | Rows | Original row order | Aligned using the comparator's dataset keys |
