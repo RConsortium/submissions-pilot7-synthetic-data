@@ -44,7 +44,7 @@ def main():
                     "!!! note \"Project not yet merged\"", "",
                     "    The Pilot 6 ADSL proposal is still under review. "
                     "No Pilot 6 dataset was built or compared in this website run.", "",
-                    f"[Study source]({entry['source']}) · "
+                    f"[Study source]({entry['source']}) - "
                     f"[ADSL proposal]({REPO}/pull/104)", "",
                     "## Remaining coverage", "",
                     "ADSL reference validation and the other seven derivations "
@@ -61,8 +61,8 @@ def main():
         status = f"{verified} passed" if verified else "Reference unavailable"
         index.append(f"| [{entry['title']}]({name}.md) | {len(datasets)} | {status} |")
         page = [f"# {entry['title']}", "", entry["description"], "",
-                f"[Study source]({entry['source']}) · "
-                f"[Repository folder]({REPO}/tree/{source_ref}/{name}) · "
+                f"[Study source]({entry['source']}) - "
+                f"[Repository folder]({REPO}/tree/{source_ref}/{name}) - "
                 f"[Project specification]({REPO}/blob/{source_ref}/{name}/spec/yamaa/project.yaml)", ""]
         if any(d["comparison"] == "unavailable" for d in datasets):
             page += ["!!! warning \"Built, awaiting reference comparison\"", "",
@@ -89,7 +89,7 @@ def main():
             page += ["", f"**{cells:,} cells matched** under the "
                      "[established comparison policy](../verification.md)."]
         page += ["", "## Run this study", "", "From the repository root, "
-                 "after [installing the pinned environment](../running.md):", "",
+                 "after installing the study's pinned requirements:", "",
                  "```bash", f"python .github/scripts/validate_yamaa.py {name}", "```", ""]
         if entry["pending"]:
             page += ["## Remaining coverage", "",

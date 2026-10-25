@@ -6,7 +6,7 @@ handled, and for each one either (1) answer it directly with evidence from
 the repo, or (2) make the code change it asks for and open a ready-for-review
 PR, leaving a comment on the issue while the PR is pending.
 
-Treat this file as the full job. Do not ask the user clarifying questions —
+Treat this file as the full job. Do not ask the user clarifying questions --
 make the call yourself and document the reasoning in the comment / PR.
 
 ---
@@ -23,7 +23,7 @@ make the call yourself and document the reasoning in the comment / PR.
   git user. Sign PR/issue comments with a trailing
   `_(posted by automated triage)_` line so humans can tell.
 
-## Step 0 — Bootstrap R + packages (always, every run)
+## Step 0 -- Bootstrap R + packages (always, every run)
 
 Before doing anything else, ensure R itself is present, then ensure
 every package in `cart-t/renv.lock` is installed. Both steps are
@@ -47,29 +47,29 @@ the routine's container image in that case).
 
 Algorithm (implemented in `.automation/bootstrap_r.R`):
 
-1. Read `cart-t/renv.lock` (JSON). Warn if its `R$Version` ≠ running R.
-2. Set `options(repos = …)` to the repos in the lockfile so `renv`
+1. Read `cart-t/renv.lock` (JSON). Warn if its `R$Version` != running R.
+2. Set `options(repos = ...)` to the repos in the lockfile so `renv`
    pulls from the same mirror the lockfile pinned.
 3. Ensure `{renv}` itself is installed (from the active repos).
 4. Diff `installed.packages()` against `lock$Packages`. Build a list of
    install specs only for packages that are **missing** or at the
    **wrong version**. Each spec preserves source:
-   - `Repository` / `CRAN` → `pkg@version`
-   - `GitHub` → `user/repo@sha` (or `@ref` if no sha)
-   - `Bioconductor` → `bioc::pkg`
-   - `git` → `git::url@sha`
+   - `Repository` / `CRAN` -> `pkg@version`
+   - `GitHub` -> `user/repo@sha` (or `@ref` if no sha)
+   - `Bioconductor` -> `bioc::pkg`
+   - `git` -> `git::url@sha`
 5. If the diff is empty, exit 0 silently. Otherwise call
    `renv::install(specs, prompt = FALSE)`. (Earlier versions used
    `{pak}`; switched to `{renv}` because pak's async-curl subprocess
    fails SSL validation in some environments where base R's downloader
-   — which renv uses — works fine.)
+   -- which renv uses -- works fine.)
 6. Re-read `installed.packages()` and verify every locked package now
-   matches. If any still don't match, exit non-zero — **do not proceed
+   matches. If any still don't match, exit non-zero -- **do not proceed
    to issue triage**.
 
 If Step 0 exits non-zero, stop the whole run. Print the captured
 stdout/stderr to the routine log and exit non-zero. Do not open a
-GitHub issue and do not touch any other issue this run — the routine
+GitHub issue and do not touch any other issue this run -- the routine
 log is the surface a human will see, so make sure the failure is loud
 there.
 
@@ -77,10 +77,10 @@ there.
 
 You do not have local state between runs. Use **GitHub labels** as state:
 
-- `claude-triaged` — you have already handled this issue. **Skip on next run.**
-- `claude-needs-human` — you decided this needs a human (ambiguous,
+- `claude-triaged` -- you have already handled this issue. **Skip on next run.**
+- `claude-needs-human` -- you decided this needs a human (ambiguous,
   out of scope, requires judgement you don't have). Skip on next run.
-- `wontfix`, `duplicate`, `invalid` — pre-existing repo labels; skip.
+- `wontfix`, `duplicate`, `invalid` -- pre-existing repo labels; skip.
 
 If `claude-triaged` does not exist yet, create it on first run:
 
@@ -105,7 +105,7 @@ Filter out any issue whose `labels[].name` includes `claude-triaged`,
 rest oldest-first.
 
 For each remaining issue, follow the loop below. **Do issues one at a
-time end-to-end** — fully resolve one (comment + label, or PR + comment
+time end-to-end** -- fully resolve one (comment + label, or PR + comment
 + label) before starting the next, so a mid-run failure leaves a
 consistent state.
 
@@ -113,7 +113,7 @@ consistent state.
 
 ## Per-issue loop
 
-### Step 1 — Read and classify
+### Step 1 -- Read and classify
 
 Read the title + body. Decide which bucket it falls into:
 
@@ -127,7 +127,7 @@ When in doubt between A and B: if a faithful, *complete* answer requires
 changing a file, it is B. If it can be answered by quoting current files,
 it is A.
 
-### Step 2A — Answer from the repo
+### Step 2A -- Answer from the repo
 
 1. Search the repo for the evidence (`rg`, `grep`, reading specific files).
    Concretely, look in: `cart-t/CLAUDE.md`, `cart-t/README.md`,
@@ -138,7 +138,7 @@ it is A.
    - Cites file paths and (where useful) line numbers in `path:line` form.
    - Quotes the relevant snippet if short (< ~10 lines). Otherwise link
      to it by path.
-   - Is concise — no filler, no apology, no "I hope this helps".
+   - Is concise -- no filler, no apology, no "I hope this helps".
 3. Post the comment and label the issue:
 
    ```bash
@@ -148,7 +148,7 @@ it is A.
 
 End the loop iteration.
 
-### Step 2B — Make the code change and open a PR
+### Step 2B -- Make the code change and open a PR
 
 1. Make sure you are on `main` and synced:
 
@@ -163,7 +163,7 @@ End the loop iteration.
    change inside `cart-t/`:
    - Spec YAML format (7 mandatory variable fields).
    - R code template (header comment, `dplyr`/`tidyr`, native pipe,
-     `data/raw/` → `data/sdtm/` → `data/adam/`, `<DOM>SEQ` derivation).
+     `data/raw/` -> `data/sdtm/` -> `data/adam/`, `<DOM>SEQ` derivation).
    - `ut_visits.R` helpers for VISITNUM / USUBJID / ARM / phenotype /
      date normalization.
    - Run the relevant `program/<area>/_run_all.R` to confirm the build
@@ -199,11 +199,11 @@ End the loop iteration.
    ```
 
    PR body must include:
-   - `## Summary` — 1–3 bullets on what changed and why.
-   - `## Issue` — `Closes #<N>`.
-   - `## Test plan` — checklist of what you ran (e.g. "ran
+   - `## Summary` -- 1-3 bullets on what changed and why.
+   - `## Issue` -- `Closes #<N>`.
+   - `## Test plan` -- checklist of what you ran (e.g. "ran
      `program/sdtm/_run_all.R`; logs under `logs/sdtm/` show 0 errors").
-   - Trailing `🤖 Generated with [Claude Code](https://claude.com/claude-code)`
+   - Trailing `AI Generated with [Claude Code](https://claude.com/claude-code)`
      line (per repo convention).
 
 7. Comment on the issue and label it:
@@ -217,7 +217,7 @@ End the loop iteration.
 
 End the loop iteration.
 
-### Step 2C — Defer to a human
+### Step 2C -- Defer to a human
 
 Post a comment explaining *why* you are deferring (one short paragraph,
 specific), then label and move on:
@@ -231,7 +231,7 @@ Examples of valid deferrals:
 - Request would change a study-specific decision documented in
   `cart-t/CLAUDE.md` (e.g. changing ARMCD semantics).
 - Request needs data that isn't in `car-t-openclinica.xml`
-  (e.g. "build ADVS" — CLAUDE.md already states VS is not buildable;
+  (e.g. "build ADVS" -- CLAUDE.md already states VS is not buildable;
   cite that and defer if the requester insists).
 - Request is about governance, licensing, release planning, or anything
   that needs a maintainer.
@@ -243,7 +243,7 @@ Examples of valid deferrals:
 
 - **Never** push to `main`. Always work on a `claude-bot/...` branch.
 - **Never** force-push. **Never** use `--no-verify` or `--amend`.
-- **Never** close an issue directly — let the PR close it via `Closes #N`.
+- **Never** close an issue directly -- let the PR close it via `Closes #N`.
 - **Never** modify or delete other people's branches.
 - **Never** comment more than once per issue per run.
 - **Never** open a PR without running the relevant batch runner first
@@ -251,7 +251,7 @@ Examples of valid deferrals:
 - If anything goes wrong (build fails, push rejected, merge conflict),
   do **not** improvise destructive recovery. Label the issue
   `claude-needs-human` with a comment describing the failure, and move on.
-- If there are zero issues to process, exit silently — do not comment
+- If there are zero issues to process, exit silently -- do not comment
   anywhere, do not open a "nothing to do" PR.
 
 ## End-of-run summary

@@ -16,7 +16,7 @@ The comparisons keep the repository's established policies:
 
 | Policy | CDISC Pilot 01 | Submission Pilots 3 and 5 |
 | --- | --- | --- |
-| Numeric tolerance | Absolute difference ≤ `1e-10` | Absolute difference ≤ `1e-10` |
+| Numeric tolerance | Absolute difference <= `1e-10` | Absolute difference <= `1e-10` |
 | Text | Exact | Exact after normalizing empty text and null |
 | Null and empty text | Distinct | Equivalent |
 | Rows | Original row order | Aligned using the comparator's dataset keys |
@@ -39,10 +39,11 @@ Pilot 6's initial ADSL specification is proposed in PR #104. It adapts shared de
 from Pilot 3 into a self-contained file, reads Pilot 6's staged SDTM, and
 adds COMPLFL from Pilot 6's workbook. Its eight production ADaM references
 are now staged from upstream DVC data, with checksummed import provenance.
-The import has been verified; no YAMAA reference comparison is claimed here.
+The import has been verified; no yamaa reference comparison is claimed here.
 ADADAS, ADAE, ADLBC, ADLBH, ADNPIX, ADTTE, and ADVS remain outside its active
 project. The upstream repository supports anonymous DVC downloads; see
-[data and provenance](data.md) for the snapshot and refresh workflow.
+[Pilot 6 study README](https://github.com/RConsortium/submissions-pilot7-synthetic-data/blob/main/submission-pilot6/README.md)
+for the snapshot and refresh workflow.
 
 The upstream R programs have a separate reproduction check using a committed
 renv environment. ADSL, ADAE, ADADAS, ADLBC and ADVS match their stored

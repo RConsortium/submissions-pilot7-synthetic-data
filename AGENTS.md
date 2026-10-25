@@ -1,0 +1,62 @@
+# Pilot 7 agent guide
+
+This repository evaluates agentic workflows for clinical data standardization.
+Write for statistical programmers and biostatisticians familiar with CDISC.
+Keep explanations short, concrete, and easy to follow.
+
+## Repository map
+
+- Each study has its own top-level folder with data, programs, specifications,
+  outputs, and logs. The template is in `.github/repo-structure.json`.
+- `docs/` contains the project website; `mkdocs.yml` defines its navigation.
+- `.github/scripts/` contains validation, comparison, and documentation tools.
+- `.github/workflows/` contains CI and website deployment workflows.
+- `.automation/` contains automation prompts and bootstrap scripts.
+- `.archieve/` contains historical studies retained for reference.
+
+## Working rules
+
+- Use ASCII only in maintained documentation, source code, specifications,
+  configuration, and automation prompts. Use `->`, `<=`, `-`, and straight
+  quotes instead of Unicode arrows, symbols, punctuation, or emoji.
+- Preserve original study data, published reference Define-XML, and archives.
+  The ASCII checker excludes these artifacts; do not rewrite clinical values
+  or reference metadata to satisfy an editorial rule. The exact policy is in
+  `.github/scripts/check_ascii.py`. Any new exception needs a documented reason.
+- Keep published ADaM references independent of derived outputs. Do not change
+  reference datasets or relax comparison policies to make a check pass.
+- Distinguish a successful build from a passed reference comparison. Report
+  coverage and remaining work explicitly; agreement with a reference is not
+  regulatory validation. See `docs/verification.md`.
+- Preserve user edits and keep changes focused on the requested task.
+- Write the framework name as lowercase `yamaa`.
+
+## Website changes
+
+- Edit `docs/index.md` for the landing page.
+- Edit `docs/studies/kn189.md` and `docs/studies/kn564.md` for synthetic studies.
+- Generate pilot study pages and JSON evidence with
+  `python3 .github/scripts/build_study_docs.py` after validating the studies.
+  Do not hand-edit or commit these generated files.
+- Keep Responsibilities and Tools as separate sections. Describe human review,
+  AI drafting, engine execution, and automated checks clearly.
+
+## Checks before a push
+
+Run the shared local and CI checks:
+
+```bash
+python3 .github/scripts/check_ascii.py
+python3 .github/scripts/check_structure.py
+python3 -m unittest discover -s .github/scripts -p 'test_*.py' -v
+git diff --check
+```
+
+For a derivation change, also run
+`python3 .github/scripts/validate_yamaa.py <study>` for the affected study.
+For website changes, validate all four studies, install `docs/requirements.txt`,
+generate study pages with `python3 .github/scripts/build_study_docs.py`, and run
+`python3 -m mkdocs build --strict`.
+
+CI runs the ASCII check on pull requests and pushes to `main`. The website
+build repeats it after generating study pages; a violation blocks deployment.

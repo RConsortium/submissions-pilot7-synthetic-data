@@ -1,5 +1,5 @@
 ## --------------------------------------------------------------------
-## bootstrap_r.R — ensure R + every package in cart-t/renv.lock is
+## bootstrap_r.R -- ensure R + every package in cart-t/renv.lock is
 ## installed. Idempotent: installs only what is missing or
 ## version-mismatched.
 ##
@@ -38,7 +38,7 @@ lock <- tryCatch(
 want_r <- lock$R$Version
 have_r <- paste(R.version$major, R.version$minor, sep = ".")
 if (!is.null(want_r) && want_r != have_r) {
-  log("WARNING: renv.lock wants R", want_r, "— running R", have_r,
+  log("WARNING: renv.lock wants R", want_r, "-- running R", have_r,
       "(continuing; minor mismatches are usually fine)")
 }
 
@@ -54,7 +54,7 @@ if (length(lock$R$Repositories)) {
 
 ## ---- 3. renv -------------------------------------------------------
 if (!requireNamespace("renv", quietly = TRUE)) {
-  log("Installing {renv}…")
+  log("Installing {renv}...")
   install.packages("renv", repos = getOption("repos"))
   if (!requireNamespace("renv", quietly = TRUE)) die("could not install {renv}")
 }
@@ -116,7 +116,7 @@ log(sprintf(
 ))
 
 if (!length(specs)) {
-  log("Environment ready — nothing to install.")
+  log("Environment ready -- nothing to install.")
   quit(status = 0L, save = "no")
 }
 
@@ -124,13 +124,13 @@ if (length(missing_pkgs)) log("  missing:    ", paste(missing_pkgs, collapse = "
 if (length(wrong_ver))    log("  mismatched: ", paste(wrong_ver,    collapse = ", "))
 
 ## ---- 5. Install via renv -------------------------------------------
-log(sprintf("Installing %d package(s) via {renv}…", length(specs)))
+log(sprintf("Installing %d package(s) via {renv}...", length(specs)))
 ok <- tryCatch({
   renv::install(specs, prompt = FALSE)
   TRUE
 }, error = function(e) { log("renv::install failed:", conditionMessage(e)); FALSE })
 
-if (!ok) die("package installation failed — see messages above")
+if (!ok) die("package installation failed -- see messages above")
 
 ## ---- 6. Re-verify ---------------------------------------------------
 inst2 <- as.data.frame(
@@ -154,5 +154,5 @@ if (length(still_missing)) {
   die("post-install check failed for: ", paste(still_missing, collapse = ", "))
 }
 
-log("Bootstrap complete — all", length(pkgs), "packages match the lockfile.")
+log("Bootstrap complete -- all", length(pkgs), "packages match the lockfile.")
 quit(status = 0L, save = "no")

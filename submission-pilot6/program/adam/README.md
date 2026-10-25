@@ -6,6 +6,11 @@ Pilot 6 commit `a4f85c95cfef1f6aa27795362630f8ae43210185`: 10 ADaM programs,
 each original path and SHA-256. The importer refreshes and verifies this
 code together with the data and specifications.
 
+The ASCII checker explicitly preserves the original `t_14_1_03.r` table
+program, whose comment includes a multiplication symbol. This is an
+immutable source snapshot; editing that comment would invalidate its
+upstream checksum. Maintained wrappers and documentation remain ASCII.
+
 Pilot 6 starts at SDTM: its repository carries 21 SDTM datasets, not ODM or
 CRF-to-SDTM generation programs. TS is not among its tracked inputs.
 
@@ -60,7 +65,7 @@ Results go to `log/upstream-verification.json`; complete per-program logs
 and generated files stay under ignored `.build/pilot6-upstream/`. GitHub
 Actions uploads the report and logs as `pilot6-upstream-evidence`. Any
 generation failure or reference mismatch exits nonzero. This R comparison
-is separate from validating Pilot 7's YAMAA specifications.
+is separate from validating Pilot 7's yamaa specifications.
 
 ## Recorded verification
 

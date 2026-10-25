@@ -1,54 +1,13 @@
+# Pilot 7: Agentic workflow evaluation
 
-# Project Scope
+Pilot 7 uses publicly available pilot studies and synthetic clinical trial
+data to demonstrate and evaluate agentic workflows for clinical development.
 
-[Project website](https://rconsortium.github.io/submissions-pilot7-synthetic-data/)
-| [Run the yamaa studies](docs/running.md)
+This repository demonstrates and evaluates agentic workflows for clinical data
+standardization. See the [project website](https://rconsortium.github.io/submissions-pilot7-synthetic-data/) for details.
 
-The four reference studies now use the pinned yamaa 1.0 interface. CDISC
-Pilot 01 and submission pilots 3 and 5 reproduce 18 active ADaM datasets
-under their existing comparison policies. Pilot 6's 21 SDTM inputs and 8
-production ADaM references are staged from its current DVC snapshot;
-its initial ADSL proposal and official comparisons remain pending.
-GitHub Actions checks, builds and compares the studies before generating
-the website from the same run's evidence.
-
-
-## Why this project matters
-The pharmaceutical ecosystem is seeing rapid growth of open-source R tools and AI-enabled applications across clinical development, analysis, and regulatory submissions.
-
-However, objective benchmarking and evaluation of these tools is currently constrained by the lack of high-quality, publicly available clinical trial datasets.
-
-Existing public datasets, such as **CDISC Pilot 1**, have important limitations:
-
-- They are outdated and not well aligned with current CDISC standards or current industry practice
-- They are limited in scale and complexity
-- They are insufficient for evaluating modern workflows, including AI-assisted analysis, automation, and end-to-end submissions
-
-As a result, there is a clear need for modern, realistic, and reusable synthetic clinical trial data that can support:
-
-- Tool demonstration
-- Method evaluation
-- Community development and education
-
-## Initial Scope
-The initial scope of this project was to build **benchmark datasets and evaluation test cases for open-source tools** relevant to clinical data science.
-
-The goal is to create a shared and practical foundation for assessing how well open-source tools perform on realistic pharma use cases, especially in settings where modern workflows require more representative and reusable benchmark data.
-
-## Expanded Scope
-The scope has now been expanded to include a second workstream: **benchmark test cases for pharma open-source skills**.
-
-These skills are more focused, task-oriented, and reusable capabilities that support specific workflows in clinical data science. The first skill in this effort is [**group sequential design (GSD)**](https://github.com/RConsortium/pharma_skills/tree/main).
-
-This expansion is being developed in collaboration with [**BBSW**](www.bbsw.org), which is supporting the work by sponsoring shared tokens for the automated evaluation pipeline.
-
-## Current Activities Overview
-The project now includes two complementary parts:
-
-- **Part A:** Benchmark datasets and test cases for evaluating open-source tools
-- **Part B:** Benchmark test cases for evaluating pharma open-source skills, starting with **GSD**
-
-Together, these efforts aim to build a stronger public foundation for rigorous, scalable, and transparent evaluation of open-source capabilities in clinical data science.
+We collaborate with [BBSW](https://www.bbsw.org), which sponsors shared
+tokens for the automated evaluation pipeline.
 
 ## Join Us
 
@@ -56,16 +15,16 @@ Pilot 7 holds weekly standups three times a month on Fridays from 8-9 AM PST. We
 
 [Pilot 7 Meeting minutes](https://github.com/RConsortium/submissions-pilot7-synthetic-data/wiki/Meeting-Minutes)
 
-Everyone is welcome to join. To access our calendar and join the Slack workspace, please see 
+Everyone is welcome to join. To access our calendar and join the Slack workspace, please see
 [here](https://rconsortium.github.io/submissions-wg/join.html)
-
 
 To learn more about the R consortium Submissions Working Group, visit [here](https://rconsortium.github.io/submissions-wg/)
 
-
 ## Synthetic Trial Data
 
-All data under `.archieve/CWMM-LAA1/` and `kn564/` was generated using the [clinical-trial-ipd-sim](https://github.com/RConsortium/pharma-skills/tree/main/clinical-trial-ipd-sim) skill, based on the original protocol.
+All data under `.archieve/CWMM-LAA1/`, `kn189/`, and `kn564/` was generated
+using the [clinical-trial-ipd-sim](https://github.com/RConsortium/pharma-skills/tree/main/clinical-trial-ipd-sim) skill,
+based on the original protocol.
 
 ## Folder Structure
 
@@ -91,19 +50,6 @@ analysis datasets, and the ADaM feed the tables, listings, and figures.
 +-- log/                      execution logs, one per program
 ```
 
-Stage folders that are not yet populated are tracked with an empty `.gitkeep`,
-without which git would not carry the folder at all.
-
-This layout is enforced in CI by the `Structure Check` workflow. The template
-it checks against lives in `.github/repo-structure.json`, so adding a stage
-folder to every study is a one-line edit there, and adding a new study needs
-no change at all -- any top-level folder is discovered and checked
-automatically. Run it locally with:
-
-```bash
-python3 .github/scripts/check_structure.py
-```
-
 ### Supporting folders
 
 | Folder                | Contents                                                       |
@@ -112,8 +58,7 @@ python3 .github/scripts/check_structure.py
 | `.automation/`        | Scheduled Claude Code routine prompts and bootstrap scripts     |
 | `.archieve/`          | Earlier studies, retained for reference                         |
 
-## Reference: CDISC Pilot 1 data
-- Original sdtm: [json version](https://github.com/RConsortium/submissions-pilot6-adams-tlfs/tree/main/data/sdtm)
-- Original xpt versions: see pilot 5 [repo](https://github.com/RConsortium/submissions-pilot5-datasetjson) 
-- CSR: [https://github.com/cdisc-org/sdtm-adam-pilot-project/blob/master/updated-pilot-submission-package/900172/m5/53-clin-stud-rep/535-rep-effic-safety-stud/5351-stud-rep-contr/cdiscpilot01/cdiscpilot01.pdf](https://github.com/cdisc-org/sdtm-adam-pilot-project/blob/master/updated-pilot-submission-package/900172/m5/53-clin-stud-rep/535-rep-effic-safety-stud/5351-stud-rep-contr/cdiscpilot01/cdiscpilot01.pdf)
+## Related repositories
 
+- [pharma-skills](https://github.com/RConsortium/pharma-skills)
+- [yamaa](https://github.com/elong0527/yamaa)

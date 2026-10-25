@@ -1,10 +1,10 @@
 #!/usr/bin/env bash
 ## --------------------------------------------------------------------
-## bootstrap_system.sh — make sure Rscript is available before
+## bootstrap_system.sh -- make sure Rscript is available before
 ## .automation/bootstrap_r.R runs.
 ##
 ## Idempotent: exits 0 immediately when Rscript is already on PATH
-## (does NOT try to "fix" or upgrade an existing R install — that is a
+## (does NOT try to "fix" or upgrade an existing R install -- that is a
 ## container-image concern, not a per-run concern).
 ##
 ## On a fresh Debian/Ubuntu container with no R, installs R 4.x from
@@ -27,11 +27,11 @@ die() { printf '[bootstrap_system] FATAL: %s\n' "$*" >&2; exit 1; }
 if command -v Rscript >/dev/null 2>&1; then
   log "Rscript already present at: $(command -v Rscript)"
   log "$(Rscript --version 2>&1 | head -1)"
-  log "Skipping install. (If you need a different R version, rebuild the container image — this script does not upgrade in place.)"
+  log "Skipping install. (If you need a different R version, rebuild the container image -- this script does not upgrade in place.)"
   exit 0
 fi
 
-log "Rscript not found — installing R 4.x from the CRAN apt repository."
+log "Rscript not found -- installing R 4.x from the CRAN apt repository."
 
 if ! command -v apt-get >/dev/null 2>&1; then
   die "apt-get not found. This bootstrap only handles Debian/Ubuntu containers. Bake R into the routine's container image (e.g. rocker/r-ver:4.6.0) instead."
@@ -47,7 +47,7 @@ if [ "$(id -u)" -ne 0 ]; then
 fi
 
 if [ ! -r /etc/os-release ]; then
-  die "/etc/os-release not readable — cannot detect distribution."
+  die "/etc/os-release not readable -- cannot detect distribution."
 fi
 # shellcheck disable=SC1091
 . /etc/os-release
@@ -65,12 +65,12 @@ CRAN_DIST="${VERSION_CODENAME}-cran40"
 
 export DEBIAN_FRONTEND=noninteractive
 
-log "Installing prerequisites (curl, gnupg, ca-certificates)…"
+log "Installing prerequisites (curl, gnupg, ca-certificates)..."
 $SUDO apt-get update -qq
 $SUDO apt-get install -y --no-install-recommends \
   curl gnupg ca-certificates
 
-log "Adding the CRAN signing key to /usr/share/keyrings…"
+log "Adding the CRAN signing key to /usr/share/keyrings..."
 curl -fsSL "${CRAN_URL}/marutter_pubkey.asc" \
   | $SUDO gpg --dearmor --yes -o /usr/share/keyrings/cran-archive-keyring.gpg
 
@@ -80,7 +80,7 @@ echo "deb [signed-by=/usr/share/keyrings/cran-archive-keyring.gpg] ${CRAN_URL} $
 
 $SUDO apt-get update -qq
 
-log "Installing r-base, r-base-dev, and the system libs {renv} needs to compile from source…"
+log "Installing r-base, r-base-dev, and the system libs {renv} needs to compile from source..."
 $SUDO apt-get install -y --no-install-recommends \
   r-base r-base-dev \
   libxml2-dev \
