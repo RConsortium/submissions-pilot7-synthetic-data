@@ -1,0 +1,72 @@
+name: Define-XML 2.0 reproduction
+
+on:
+  pull_request:
+    paths:
+      - submission-pilot3/spec/yamaa/**
+      - submission-pilot5/spec/yamaa/**
+      - submission-pilot3/program/adam/python/**
+      - submission-pilot5/program/adam/python/**
+      - .github/scripts/generate_define.py
+      - .github/scripts/define_metadata.py
+      - .github/workflows/define-reproduction.yml
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  reproduce:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    strategy:
+      fail-fast: false
+      matrix:
+        study: [submission-pilot3, submission-pilot5]
+    env:
+      STUDY: ${{ matrix.study }}
+      CARGO_BUILD_JOBS: '2'
+      CARGO_PROFILE_DEV_DEBUG: '0'
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          persist-credentials: false
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+          cache: pip
+          cache-dependency-path: '**/program/adam/python/requirements*.txt'
+      - uses: dtolnay/rust-toolchain@1.99.1
+      - name: Read the study's exact engine revision
+        id: engine
+        shell: bash
+        run: |
+          python -m pip install PyYAML==6.0.3
+          python - <<'PY' >> "$GITHUB_OUTPUT"
+          import os
+          import sys
+          from pathlib import Path
+          sys.path.insert(0, '.github/scripts')
+          from study_evidence import engine_revision
+          print('revision=' + engine_revision(Path.cwd(), os.environ['STUDY']))
+          PY
+      - uses: actions/checkout@v5
+        with:
+          repository: elong0527/yamaa
+          ref: ${{ steps.engine.outputs.revision }}
+          path: .build/define-engine
+          sparse-checkout: rust/tests/schemas
+          persist-credentials: false
+      - name: Install the pinned engine and XML validator
+        run: python -m pip install --config-settings build-args=--profile=dev -r "$STUDY/program/adam/python/requirements-define.txt"
+      - name: Derive, reproduce, validate and compare
+        run: python .github/scripts/generate_define.py "$STUDY" --schemas .build/define-engine/rust/tests/schemas
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: define-xml-2-0-${{ matrix.study }}
+          path: |
+            .build/${{ matrix.study }}-define/report.json
+            ${{ matrix.study }}/data/adam/define-yamaa.xml
+          include-hidden-files: true
+          if-no-files-found: error

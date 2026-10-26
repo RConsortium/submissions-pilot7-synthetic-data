@@ -1,4 +1,4 @@
-yamaa: "1.0"
+yamaa: '1.0'
 type: spec
 model: ADaM
 domain: ADLBC
@@ -87,11 +87,11 @@ intermediates:
         str_pad:
           source: LB.LBSEQ
           width: 8
-    filter: "SUPPLB.QNAM = 'ENDPOINT'"
+    filter: SUPPLB.QNAM = 'ENDPOINT'
 
   - id: EOTFB
     dataset: LB
-    filter: "LB._RN = 1 AND LB._EOT_AWARE <> 99"
+    filter: LB._RN = 1 AND LB._EOT_AWARE <> 99
     columns:
       - STUDYID
       - USUBJID
@@ -114,26 +114,26 @@ intermediates:
             - SUP_EP.QVAL
       _EOT_AWARE:
         case:
-          - when: "_ENDPOINT = 'Y' OR LB.VISITNUM = 12"
+          - when: _ENDPOINT = 'Y' OR LB.VISITNUM = 12
             then: 99.0
-          - when: "LB.LBBLFL = 'Y'"
+          - when: LB.LBBLFL = 'Y'
             then: 0.0
-          - when: "LB.VISIT LIKE '%UNSCHEDULED%'"
+          - when: LB.VISIT LIKE '%UNSCHEDULED%'
             then:
           - otherwise:
               mapping:
                 source: LB.VISIT
                 unmapped:
                 dict:
-                  "WEEK 2": 2.0
-                  "WEEK 4": 4.0
-                  "WEEK 6": 6.0
-                  "WEEK 8": 8.0
-                  "WEEK 12": 12.0
-                  "WEEK 16": 16.0
-                  "WEEK 20": 20.0
-                  "WEEK 24": 24.0
-                  "WEEK 26": 26.0
+                  WEEK 2: 2.0
+                  WEEK 4: 4.0
+                  WEEK 6: 6.0
+                  WEEK 8: 8.0
+                  WEEK 12: 12.0
+                  WEEK 16: 16.0
+                  WEEK 20: 20.0
+                  WEEK 24: 24.0
+                  WEEK 26: 26.0
       _RN:
         row_number:
           window:
@@ -144,8 +144,7 @@ intermediates:
             order_by:
               - {variable: _EOT_AWARE, direction: desc, nulls: last}
               - {variable: LBSEQ, nulls: last}
-            filter: "LB.LBCAT = 'CHEMISTRY' AND (LB.VISIT LIKE '%WEEK%' OR LB.VISIT LIKE '%SCREENING%' OR LB.VISIT
-              LIKE '%UNSCHEDULED%') AND LB.VISITNUM <> 13 AND _EOT_AWARE IS NOT NULL AND _EOT_AWARE <> 0"
+            filter: LB.LBCAT = 'CHEMISTRY' AND (LB.VISIT LIKE '%WEEK%' OR LB.VISIT LIKE '%SCREENING%' OR LB.VISIT LIKE '%UNSCHEDULED%') AND LB.VISITNUM <> 13 AND _EOT_AWARE IS NOT NULL AND _EOT_AWARE <> 0
 
 columns:
   # --- Record aliases: every LB read goes through these so the grouped
@@ -228,50 +227,48 @@ columns:
     derivation: _r_STUDYID
 
     submission:
-      core: Cond
-      mandatory: true
-      origins:
-        - type: Derived
+      data_type: text
+      mandatory: false
       length: 12
-      method: Read LB.STUDYID from the current record for main rows or the selected end-of-treatment
-        donor record for generated rows.
+      origins:
+        - type: Predecessor
+          description: ADSL.STUDYID
   - name: USUBJID
     type: str
     label: Unique Subject Identifier
     derivation: _r_USUBJID
 
     submission:
-      core: Cond
-      mandatory: true
-      origins:
-        - type: Derived
+      data_type: text
+      mandatory: false
+      key_sequence: 1
       length: 11
-      method: Read LB.USUBJID from the current record for main rows or the selected end-of-treatment
-        donor record for generated rows.
+      origins:
+        - type: Predecessor
+          description: ADSL.USUBJID
   - name: SUBJID
     type: str
     label: Subject Identifier for the Study
     derivation: ADSL.SUBJID
     submission:
-      core: Cond
+      data_type: text
       mandatory: false
+      length: 4
       origins:
         - type: Predecessor
           description: ADSL.SUBJID
-      length: 4
-
   - name: TRTP
     type: str
     label: Planned Treatment
     derivation: ADSL.TRT01P
 
     submission:
-      core: Cond
+      data_type: text
       mandatory: false
-      origins:
-        - type: Derived
       length: 20
       codelist: ARM
+      origins:
+        - type: Derived
       method:
         name: Algorithm to derive ADLBC.TRTP
         type: Computation
@@ -282,29 +279,28 @@ columns:
     derivation: ADSL.TRT01PN
 
     submission:
-      core: Cond
+      data_type: integer
       mandatory: false
-      origins:
-        - type: Derived
       length: 8
       codelist: ARMN
+      origins:
+        - type: Derived
       method:
         name: Algorithm to derive ADLBC.TRTPN
         type: Computation
         description: ADSL.TRT01PN
-      significant_digits: 0
   - name: TRTA
     type: str
     label: Actual Treatment
     derivation: ADSL.TRT01A
 
     submission:
-      core: Cond
+      data_type: text
       mandatory: false
-      origins:
-        - type: Derived
       length: 20
       codelist: ARM
+      origins:
+        - type: Derived
       method:
         name: Algorithm to derive ADLBC.TRTA
         type: Computation
@@ -315,186 +311,179 @@ columns:
     derivation: ADSL.TRT01AN
 
     submission:
-      core: Cond
+      data_type: integer
       mandatory: false
-      origins:
-        - type: Derived
       length: 8
       codelist: ARMN
+      origins:
+        - type: Derived
       method:
         name: Algorithm to derive ADLBC.TRTAN
         type: Computation
         description: ADSL.TRT01AN
-      significant_digits: 0
   - name: TRTSDT
     type: date
     label: Date of First Exposure to Treatment
     derivation: ADSL.TRTSDT
     submission:
-      core: Cond
+      data_type: integer
       mandatory: false
+      length: 8
+      display_format: DATE9.
       origins:
         - type: Predecessor
           description: ADSL.TRTSDT
-      display_format: DATE9.
   - name: TRTEDT
     type: date
     label: Date of Last Exposure to Treatment
     derivation: ADSL.TRTEDT
     submission:
-      core: Cond
+      data_type: integer
       mandatory: false
+      length: 8
+      display_format: DATE9.
       origins:
         - type: Predecessor
           description: ADSL.TRTEDT
-      display_format: DATE9.
   - name: AGE
     type: float
     label: Age
     derivation: ADSL.AGE
     submission:
-      core: Cond
+      data_type: integer
       mandatory: false
+      length: 8
       origins:
         - type: Predecessor
           description: ADSL.AGE
-      length: 8
-      significant_digits: 0
   - name: AGEGR1
     type: str
     label: Pooled Age Group 1
     derivation: ADSL.AGEGR1
     submission:
-      core: Cond
+      data_type: text
       mandatory: false
+      length: 5
+      codelist: AGEGR1
       origins:
         - type: Predecessor
           description: ADSL.AGEGR1
-      length: 5
-      codelist: AGEGR1
   - name: AGEGR1N
     type: float
     label: Pooled Age Group 1 (N)
     derivation: ADSL.AGEGR1N
     submission:
-      core: Cond
+      data_type: integer
       mandatory: false
+      length: 8
+      codelist: AGEGR1N
       origins:
         - type: Predecessor
           description: ADSL.AGEGR1N
-      length: 8
-      codelist: AGEGR1N
-      significant_digits: 0
   - name: RACE
     type: str
     label: Race
     derivation: ADSL.RACE
     submission:
-      core: Cond
+      data_type: text
       mandatory: false
+      length: 32
+      codelist: RACE
       origins:
         - type: Predecessor
           description: ADSL.RACE
-      length: 32
-      codelist: RACE
   - name: RACEN
     type: float
     label: Race (N)
     derivation: ADSL.RACEN
     submission:
-      core: Cond
+      data_type: integer
       mandatory: false
+      length: 8
+      codelist: RACEN
       origins:
         - type: Predecessor
           description: ADSL.RACEN
-      length: 8
-      codelist: RACEN
-      significant_digits: 0
   - name: SEX
     type: str
     label: Sex
     derivation: ADSL.SEX
     submission:
-      core: Cond
+      data_type: text
       mandatory: false
+      length: 1
+      codelist: SEX
       origins:
         - type: Predecessor
           description: ADSL.SEX
-      length: 1
-      codelist: SEX
   - name: COMP24FL
     type: str
     label: Completers of Week 24 Population Flag
     derivation: ADSL.COMP24FL
     submission:
-      core: Cond
+      data_type: text
       mandatory: false
-      origins:
-        - type: Predecessor
-          description: ADSL.COMP24FL
       length: 1
       codelist: YN
-
+      origins:
+        - type: Predecessor
+          description: ADSL.COM01P24FL
   - name: DSRAEFL
     type: str
-    label: "Discontinued due to AE?"
+    label: Discontinued due to AE?
     derivation:
       case:
-        - when: "ADSL.DSRAEFL IS NULL"
+        - when: ADSL.DSRAEFL IS NULL
           then: "''"
         - otherwise: ADSL.DSRAEFL
 
     submission:
-      core: Cond
+      data_type: text
       mandatory: false
-      origins:
-        - type: Derived
       length: 1
       codelist: YN
-      method: Copy ADSL.DSRAEFL; represent a missing value as an empty string.
+      origins:
+        - type: Predecessor
+          description: ADSL.DSR01AEFL
   - name: SAFFL
     type: str
     label: Safety Population Flag
     derivation: ADSL.SAFFL
     submission:
-      core: Cond
+      data_type: text
       mandatory: false
-      origins:
-        - type: Predecessor
-          description: ADSL.SAFFL
       length: 1
       codelist: YN
-
-  # --- Analysis visits (derived per row template) ---
+      origins:
+        - type: Predecessor
+          description: ADSL.SAF01FL
   - name: AVISIT
     type: str
     label: Analysis Visit
 
     submission:
-      core: Cond
-      mandatory: true
-      origins:
-        - type: Assigned
+      data_type: text
+      mandatory: false
+      key_sequence: 3
       length: 16
       codelist: AVISIT
+      origins:
+        - type: Derived
       method:
         name: Algorithm to derive ADLBC.AVISIT
         type: Computation
-        description: "Last observed value for this lab parameter during treatment phase: 'Y' if VISITNUM=12,
-          if subject discontinues prior to VISIT 12, then this variable is set to 'Y' if this is the last assessment
-          of this analyte for the subject"
+        description: "Last observed value for this lab parameter during treatment phase: 'Y' if VISITNUM=12, if subject discontinues prior to VISIT 12, then this variable is set to 'Y' if this is the last assessment of this analyte for the subject"
   - name: AVISITN
     type: float
     label: Analysis Visit (N)
 
     submission:
-      core: Cond
+      data_type: integer
       mandatory: false
-      origins:
-        - type: Assigned
       length: 8
       codelist: AVISITN
-      significant_digits: 0
+      origins:
+        - type: Assigned
   - name: _IS_EOT
     type: float
     label: EOT row marker (internal)
@@ -526,11 +515,12 @@ columns:
         source: _LBDTTM
 
     submission:
-      core: Cond
+      data_type: integer
       mandatory: false
+      length: 8
+      display_format: DATE9.
       origins:
         - type: Derived
-      display_format: DATE9.
       method:
         name: Algorithm to derive ADLBC.ADT
         type: Computation
@@ -544,30 +534,28 @@ columns:
         reference: TRTSDT
 
     submission:
-      core: Cond
+      data_type: integer
       mandatory: false
+      length: 8
       origins:
         - type: Derived
-      length: 8
       method:
         name: Algorithm to derive ADLBC.ADY
         type: Computation
         description: LB.LBDY
-      significant_digits: 0
   - name: VISIT
     type: str
     label: Visit Name
     derivation: _r_VISIT
 
     submission:
-      core: Cond
+      data_type: text
       mandatory: false
-      origins:
-        - type: Derived
       length: 19
       codelist: VISIT
-      method: Read LB.VISIT from the current record for main rows or the selected end-of-treatment donor
-        record for generated rows.
+      origins:
+        - type: Predecessor
+          description: LB.VISIT
   - name: VISITNUM
     type: float
     label: Visit Number
@@ -576,46 +564,45 @@ columns:
         source: _r_VISITNUM
         digits: 1
     submission:
-      core: Cond
+      data_type: float
       mandatory: false
-      origins:
-        - type: Derived
       length: 8
       significant_digits: 1
       codelist: VISITNUM
-      method: Round the visit number of the selected main or donor record to one decimal place, the
-        precision of the declared visit codes.
+      origins:
+        - type: Predecessor
+          description: LB.VISITNUM
   - name: PARAM
     type: str
     label: Parameter
     derivation:
-      str_template: "{_r_LBTEST} ({_r_LBSTRESU})"
+      str_template: '{_r_LBTEST} ({_r_LBSTRESU})'
 
     submission:
-      core: Cond
+      data_type: text
       mandatory: false
-      origins:
-        - type: Derived
       length: 100
       codelist: PARAM_ADLBC
+      origins:
+        - type: Derived
       method:
         name: Algorithm to derive ADLBC.PARAM
         type: Computation
-        description: Concatenated LB.LBTEST, '(',  LB.LBSTRESU and ')'
+        description: Concatenated LB.LBTEST, '(', LB.LBSTRESU and ')'
   - name: PARAMCD
     type: str
     label: Parameter Code
     derivation: _r_LBTESTCD
 
     submission:
-      core: Cond
-      mandatory: true
-      origins:
-        - type: Derived
+      data_type: text
+      mandatory: false
+      key_sequence: 2
       length: 8
       codelist: PARAMCD_ADLBC
-      method: Read LB.LBTESTCD from the current record for main rows or the selected end-of-treatment
-        donor record for generated rows.
+      origins:
+        - type: Predecessor
+          description: LB.TESTCD
   - name: PARAMN
     type: float
     label: Parameter (N)
@@ -623,37 +610,36 @@ columns:
       mapping:
         source: PARAM
         dict:
-          "Sodium (mmol/L)": 18
-          "Potassium (mmol/L)": 19
-          "Chloride (mmol/L)": 20
-          "Bilirubin (umol/L)": 21
-          "Alkaline Phosphatase (U/L)": 22
-          "Gamma Glutamyl Transferase (U/L)": 23
-          "Alanine Aminotransferase (U/L)": 24
-          "Aspartate Aminotransferase (U/L)": 25
-          "Blood Urea Nitrogen (mmol/L)": 26
-          "Creatinine (umol/L)": 27
-          "Urate (umol/L)": 28
-          "Phosphate (mmol/L)": 29
-          "Calcium (mmol/L)": 30
-          "Glucose (mmol/L)": 31
-          "Protein (g/L)": 32
-          "Albumin (g/L)": 33
-          "Cholesterol (mmol/L)": 34
-          "Creatine Kinase (U/L)": 35
+          Sodium (mmol/L): 18
+          Potassium (mmol/L): 19
+          Chloride (mmol/L): 20
+          Bilirubin (umol/L): 21
+          Alkaline Phosphatase (U/L): 22
+          Gamma Glutamyl Transferase (U/L): 23
+          Alanine Aminotransferase (U/L): 24
+          Aspartate Aminotransferase (U/L): 25
+          Blood Urea Nitrogen (mmol/L): 26
+          Creatinine (umol/L): 27
+          Urate (umol/L): 28
+          Phosphate (mmol/L): 29
+          Calcium (mmol/L): 30
+          Glucose (mmol/L): 31
+          Protein (g/L): 32
+          Albumin (g/L): 33
+          Cholesterol (mmol/L): 34
+          Creatine Kinase (U/L): 35
 
     submission:
-      core: Cond
+      data_type: integer
       mandatory: false
-      origins:
-        - type: Derived
       length: 8
       codelist: PARAMN_ADLBC
+      origins:
+        - type: Derived
       method:
         name: Algorithm to derive ADLBC.PARAMN
         type: Computation
         description: Numeric code for Parameter
-      significant_digits: 0
   - name: PARCAT1
     type: str
     label: Parameter Category 1
@@ -661,62 +647,60 @@ columns:
 
   # --- Values / baseline ---
     submission:
-      core: Cond
+      data_type: text
       mandatory: false
-      origins:
-        - type: Assigned
       length: 5
       codelist: ADLBCAT
+      origins:
+        - type: Assigned
   - name: AVAL
     type: float
     label: Analysis Value
     derivation: _r_LBSTRESN
 
     submission:
-      core: Cond
+      data_type: float
       mandatory: false
-      origins:
-        - type: Derived
       length: 8
       significant_digits: 5
-      method: Read LB.LBSTRESN from the current record for main rows or the selected end-of-treatment
-        donor record for generated rows.
+      origins:
+        - type: Predecessor
+          description: LB.LBSTRESN
   - name: ABLFL
     type: str
     label: Baseline Record Flag
     derivation:
       case:
-        - when: "_r_LBBLFL IS NULL"
+        - when: _r_LBBLFL IS NULL
           then: "''"
         - otherwise: _r_LBBLFL
 
     submission:
-      core: Cond
+      data_type: text
       mandatory: false
-      origins:
-        - type: Derived
       length: 1
-      method: Read LB.LBBLFL from the selected main or donor record; represent a missing value as an
-        empty string.
+      origins:
+        - type: Predecessor
+          description: LB.LBBLFL
   - name: BASE
     type: float
     label: Baseline Value
     derivation:
       aggregate:
-        filter: "ABLFL = 'Y'"
+        filter: ABLFL = 'Y'
         group_by:
           - STUDYID
           - USUBJID
           - PARAMCD
-        expr: "ONLY(AVAL)"
+        expr: ONLY(AVAL)
 
     submission:
-      core: Cond
+      data_type: float
       mandatory: false
-      origins:
-        - type: Derived
       length: 8
       significant_digits: 5
+      origins:
+        - type: Derived
       method:
         name: Algorithm to derive ADLBC.BASE
         type: Computation
@@ -726,17 +710,17 @@ columns:
     label: Change from Baseline
     derivation:
       case:
-        - when: "VISITNUM = 1"
+        - when: VISITNUM = 1
           then:
-        - otherwise: "AVAL - BASE"
+        - otherwise: AVAL - BASE
 
     submission:
-      core: Cond
+      data_type: float
       mandatory: false
-      origins:
-        - type: Derived
       length: 8
       significant_digits: 5
+      origins:
+        - type: Derived
       method:
         name: Algorithm to derive ADLBC.CHG
         type: Computation
@@ -747,12 +731,12 @@ columns:
     derivation: _r_LO
 
     submission:
-      core: Cond
+      data_type: float
       mandatory: false
-      origins:
-        - type: Derived
       length: 8
       significant_digits: 5
+      origins:
+        - type: Derived
       method:
         name: Algorithm to derive ADLBC.A1LO
         type: Computation
@@ -763,12 +747,12 @@ columns:
     derivation: _r_HI
 
     submission:
-      core: Cond
+      data_type: float
       mandatory: false
-      origins:
-        - type: Derived
       length: 8
       significant_digits: 5
+      origins:
+        - type: Derived
       method:
         name: Algorithm to derive ADLBC.A1HI
         type: Computation
@@ -776,15 +760,15 @@ columns:
   - name: R2A1LO
     type: float
     label: Ratio to Analysis Range 1 Lower Limit
-    derivation: "AVAL / A1LO"
+    derivation: AVAL / A1LO
 
     submission:
-      core: Cond
+      data_type: float
       mandatory: false
-      origins:
-        - type: Derived
       length: 8
       significant_digits: 1
+      origins:
+        - type: Derived
       method:
         name: Algorithm to derive ADLBC.R2A1LO
         type: Computation
@@ -792,47 +776,47 @@ columns:
   - name: R2A1HI
     type: float
     label: Ratio to Analysis Range 1 Upper Limit
-    derivation: "AVAL / A1HI"
+    derivation: AVAL / A1HI
 
     submission:
-      core: Cond
+      data_type: float
       mandatory: false
-      origins:
-        - type: Derived
       length: 8
       significant_digits: 1
+      origins:
+        - type: Derived
       method:
         name: Algorithm to derive ADLBC.R2A1HI
         type: Computation
         description: AVAL / A1HI
   - name: BR2A1LO
     type: float
-    label: "Base Ratio to Analysis Range 1 Lower Lim"
-    derivation: "BASE / A1LO"
+    label: Base Ratio to Analysis Range 1 Lower Lim
+    derivation: BASE / A1LO
 
     submission:
-      core: Cond
+      data_type: float
       mandatory: false
-      origins:
-        - type: Derived
       length: 8
       significant_digits: 1
+      origins:
+        - type: Derived
       method:
         name: Algorithm to derive ADLBC.BR2A1LO
         type: Computation
         description: AVAL / A1LO at baseline
   - name: BR2A1HI
     type: float
-    label: "Base Ratio to Analysis Range 1 Upper Lim"
-    derivation: "BASE / A1HI"
+    label: Base Ratio to Analysis Range 1 Upper Lim
+    derivation: BASE / A1HI
 
     submission:
-      core: Cond
+      data_type: float
       mandatory: false
-      origins:
-        - type: Derived
       length: 8
       significant_digits: 1
+      origins:
+        - type: Derived
       method:
         name: Algorithm to derive ADLBC.BR2A1HI
         type: Computation
@@ -849,7 +833,7 @@ columns:
 
   - name: ALBTRVAL
     type: float
-    label: "Amount Threshold Range"
+    label: Amount Threshold Range
     derivation:
       greatest:
         sources:
@@ -857,12 +841,12 @@ columns:
           - _LOWER_DISTANCE
 
     submission:
-      core: Cond
+      data_type: float
       mandatory: false
-      origins:
-        - type: Derived
       length: 8
       significant_digits: 3
+      origins:
+        - type: Derived
       method:
         name: Algorithm to derive ADLBC.ALBTRVAL
         type: Computation
@@ -870,12 +854,12 @@ columns:
   - name: _LO_HALF
     type: float
     label: half of A1LO (internal)
-    derivation: "0.5 * A1LO"
+    derivation: 0.5 * A1LO
 
   - name: _HI_15
     type: float
     label: 1.5x A1HI (internal)
-    derivation: "1.5 * A1HI"
+    derivation: 1.5 * A1HI
 
   - name: ANRIND
     type: str
@@ -884,25 +868,25 @@ columns:
       # Faithful to R's nested ifelse: NA propagates when limits are missing
       # but AVAL is present; only a missing AVAL forces "N".
       case:
-        - when: "AVAL IS NULL"
+        - when: AVAL IS NULL
           then: "'N'"
-        - when: "AVAL < _LO_HALF"
+        - when: AVAL < _LO_HALF
           then: "'L'"
-        - when: "_LO_HALF IS NULL"
+        - when: _LO_HALF IS NULL
           then:
-        - when: "AVAL > _HI_15"
+        - when: AVAL > _HI_15
           then: "'H'"
-        - when: "_HI_15 IS NULL"
+        - when: _HI_15 IS NULL
           then:
         - otherwise: "'N'"
 
     submission:
-      core: Cond
+      data_type: text
       mandatory: false
-      origins:
-        - type: Derived
       length: 1
       codelist: LNH
+      origins:
+        - type: Derived
       method:
         name: Algorithm to derive ADLBC.ANRIND
         type: Computation
@@ -912,30 +896,30 @@ columns:
     label: Baseline Reference Range Indicator (working)
     derivation:
       aggregate:
-        filter: "ABLFL = 'Y'"
+        filter: ABLFL = 'Y'
         group_by:
           - STUDYID
           - USUBJID
           - PARAMCD
-        expr: "ONLY(ANRIND)"
+        expr: ONLY(ANRIND)
 
   - name: BNRIND
     type: str
     label: Baseline Reference Range Indicator
     derivation:
       case:
-        - when: "_BNRIND_RAW IS NULL"
+        - when: _BNRIND_RAW IS NULL
           then: "''"
         - otherwise: _BNRIND_RAW
 
   # --- Last-observation flag ---
     submission:
-      core: Cond
+      data_type: text
       mandatory: false
-      origins:
-        - type: Derived
       length: 1
       codelist: LNH
+      origins:
+        - type: Derived
       method:
         name: Algorithm to derive ADLBC.BNRIND
         type: Computation
@@ -945,21 +929,21 @@ columns:
     label: Max eligible AVISITN per subject-param (internal)
     derivation:
       aggregate:
-        filter: "VISITNUM <= 12 AND AVISITN > 0 AND AVISITN < 99 AND NOT (VISIT LIKE '%UN%')"
+        filter: VISITNUM <= 12 AND AVISITN > 0 AND AVISITN < 99 AND NOT (VISIT LIKE '%UN%')
         group_by:
           - STUDYID
           - USUBJID
           - PARAMCD
-        expr: "MAX(AVISITN)"
+        expr: MAX(AVISITN)
 
   - name: AENTMTFL
     type: str
-    label: "Last value in treatment visit"
+    label: Last value in treatment visit
     derivation:
       flag:
-        condition: "_IS_EOT = 1 OR AVISITN = _AENT_MAX"
-        false_value: ""
-        missing: ""
+        condition: _IS_EOT = 1 OR AVISITN = _AENT_MAX
+        false_value: ''
+        missing: ''
 
   # --- Max-deviation flag ---
   # LBSEQ is declared here (not with the other LB carries below) because the
@@ -967,31 +951,28 @@ columns:
   # forward-reference check, but at runtime a column is only readable after
   # its own declaration, so the window would KeyError on a later LBSEQ.
     submission:
-      core: Cond
+      data_type: text
       mandatory: false
+      length: 1
       origins:
         - type: Derived
-      length: 1
       method:
         name: Algorithm to derive ADLBC.AENTMTFL
         type: Computation
-        description: "Last observed value for this lab parameter during treatment phase: 'Y' if VISITNUM=12,
-          if subject discontinues prior to VISIT 12, then this variable is set to 'Y' if this is the last assessment
-          of this analyte for the subject"
+        description: "Last observed value for this lab parameter during treatment phase: 'Y' if VISITNUM=12, if subject discontinues prior to VISIT 12, then this variable is set to 'Y' if this is the last assessment of this analyte for the subject"
   - name: LBSEQ
     type: float
     label: Sequence Number
     derivation: _r_LBSEQ
 
     submission:
-      core: Cond
-      mandatory: true
-      origins:
-        - type: Derived
+      data_type: integer
+      mandatory: false
+      key_sequence: 4
       length: 8
-      significant_digits: 0
-      method: Read LB.LBSEQ from the current record for main rows or the selected end-of-treatment donor
-        record for generated rows.
+      origins:
+        - type: Predecessor
+          description: LB.LBSEQ
   - name: _RN_ANL
     type: float
     label: rank by ALBTRVAL within subject-param (internal)
@@ -1008,119 +989,116 @@ columns:
               nulls: last
             - variable: LBSEQ
               nulls: last
-          filter: "VISITNUM >= 4 AND VISITNUM <= 12 AND NOT (VISIT LIKE '%UN%') AND ALBTRVAL IS NOT NULL"
+          filter: VISITNUM >= 4 AND VISITNUM <= 12 AND NOT (VISIT LIKE '%UN%') AND ALBTRVAL IS NOT NULL
 
   - name: _WINLB
     type: float
     label: winning LBSEQ per subject-param (internal)
     derivation:
       aggregate:
-        filter: "_RN_ANL = 1"
+        filter: _RN_ANL = 1
         group_by:
           - STUDYID
           - USUBJID
           - PARAMCD
-        expr: "ONLY(LBSEQ)"
+        expr: ONLY(LBSEQ)
 
   - name: ANL01FL
     type: str
-    label: "Analysis Flag 01"
+    label: Analysis Flag 01
     derivation:
       flag:
-        condition: "LBSEQ = _WINLB"
-        false_value: ""
-        missing: ""
+        condition: LBSEQ = _WINLB
+        false_value: ''
+        missing: ''
 
   # --- LB carries ---
     submission:
-      core: Cond
+      data_type: text
       mandatory: false
+      length: 1
       origins:
         - type: Assigned
-      length: 1
       method:
         name: Algorithm to derive ADLBC.ANL01FL
         type: Computation
-        description: If ALBTRVAL  = max(ALBTRVAL) then ANL01FL is 'Y'
+        description: If ALBTRVAL = max(ALBTRVAL) then ANL01FL is 'Y'
   - name: LBNRIND
     type: str
     label: Reference Range Indicator
     derivation:
       case:
-        - when: "_r_NRIND IS NULL"
+        - when: _r_NRIND IS NULL
           then: "''"
         - otherwise: _r_NRIND
 
     submission:
-      core: Cond
+      data_type: text
       mandatory: false
-      origins:
-        - type: Derived
       length: 8
       codelist: LBNRIND
-      method: Read LB.LBNRIND from the selected main or donor record; represent a missing value as an
-        empty string.
+      origins:
+        - type: Predecessor
+          description: LB.LBNRIND
   - name: LBSTRESN
     type: float
     label: Numeric Result/Finding in Standard Units
     derivation: _r_LBSTRESN
 
     submission:
-      core: Cond
+      data_type: float
       mandatory: false
-      origins:
-        - type: Derived
       length: 8
       significant_digits: 5
-      method: Read LB.LBSTRESN from the current record for main rows or the selected end-of-treatment
-        donor record for generated rows.
+      origins:
+        - type: Predecessor
+          description: LB.LBSTRESN
 rows:
   - id: main
     dataset: LB
-    filter: "LB.LBCAT = 'CHEMISTRY' AND (LB.VISIT LIKE '%WEEK%' OR LB.VISIT LIKE '%SCREENING%' OR LB.VISIT
-      LIKE '%UNSCHEDULED%')"
+    filter: LB.LBCAT = 'CHEMISTRY' AND (LB.VISIT LIKE '%WEEK%' OR LB.VISIT LIKE '%SCREENING%' OR LB.VISIT LIKE '%UNSCHEDULED%')
     derivations:
       _IS_EOT: 0.0
       ENDPOINT:
       AVISIT:
         case:
-          - when: "_r_LBBLFL = 'Y'"
+          - when: _r_LBBLFL = 'Y'
             then: "'Baseline'"
-          - when: "_r_VISIT LIKE '%UNSCHEDULED%'"
+          - when: _r_VISIT LIKE '%UNSCHEDULED%'
             then: "''"
           - otherwise:
               mapping:
                 source: _r_VISIT
                 unmapped:
                 dict:
-                  "WEEK 2": "Week 2"
-                  "WEEK 4": "Week 4"
-                  "WEEK 6": "Week 6"
-                  "WEEK 8": "Week 8"
-                  "WEEK 12": "Week 12"
-                  "WEEK 16": "Week 16"
-                  "WEEK 20": "Week 20"
-                  "WEEK 24": "Week 24"
-                  "WEEK 26": "Week 26"
+                  WEEK 2: Week 2
+                  WEEK 4: Week 4
+                  WEEK 6: Week 6
+                  WEEK 8: Week 8
+                  WEEK 12: Week 12
+                  WEEK 16: Week 16
+                  WEEK 20: Week 20
+                  WEEK 24: Week 24
+                  WEEK 26: Week 26
       AVISITN:
         mapping:
           source: AVISIT
           unmapped:
           dict:
-            "Baseline": 0.0
-            "Week 2": 2.0
-            "Week 4": 4.0
-            "Week 6": 6.0
-            "Week 8": 8.0
-            "Week 12": 12.0
-            "Week 16": 16.0
-            "Week 20": 20.0
-            "Week 24": 24.0
-            "Week 26": 26.0
+            Baseline: 0.0
+            Week 2: 2.0
+            Week 4: 4.0
+            Week 6: 6.0
+            Week 8: 8.0
+            Week 12: 12.0
+            Week 16: 16.0
+            Week 20: 20.0
+            Week 24: 24.0
+            Week 26: 26.0
 
   - id: eot
     dataset: LB
-    filter: "LB.LBCAT = 'CHEMISTRY' AND (LB.VISITNUM = 12 OR ENDPOINT = 'Y')"
+    filter: LB.LBCAT = 'CHEMISTRY' AND (LB.VISITNUM = 12 OR ENDPOINT = 'Y')
     derivations:
       ENDPOINT: SUP_EP.QVAL
       _IS_EOT: 1.0
@@ -1129,7 +1107,7 @@ rows:
 
   - id: eot2
     dataset: EOTFB
-    filter: "EOTFB.VISITNUM <> 12"
+    filter: EOTFB.VISITNUM <> 12
     derivations:
       _r_STUDYID: EOTFB.STUDYID
       _r_USUBJID: EOTFB.USUBJID
@@ -1156,6 +1134,8 @@ verifications:
       when: TRTSDT IS NOT NULL AND TRTEDT IS NOT NULL
       require: TRTEDT >= TRTSDT
 submission:
+  mode: historical
+  artifact: adlbc.json
   label: Analysis Dataset Lab Blood Chemistry
   class: BASIC DATA STRUCTURE
   structure: one record per subject per parameter per analysis visit

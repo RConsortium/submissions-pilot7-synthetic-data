@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Generate Define-XML from a pilot's derivation project and compare its metadata."""
+"""Reproduce historical Define-XML 2.0 from the pilot's combined specifications."""
 
 import argparse
 from collections import Counter
@@ -129,29 +129,49 @@ def generate(study_name, schema_root):
     if submission.status != "succeeded":
         raise ValueError(str(submission.issues.to_pylist()))
     submission.save()
+    first_xml = candidate.read_bytes()
+    repeated = project.submission("adam", created=CREATED[study_name])
+    if repeated.status != "succeeded":
+        raise ValueError(str(repeated.issues.to_pylist()))
+    repeated.save()
+    if candidate.read_bytes() != first_xml:
+        raise ValueError("Repeated native composition changed the XML bytes")
 
     # Use the authoritative, local schema bundle; never follow network imports.
     parser = etree.XMLParser(no_network=True, resolve_entities=False)
-    xsd = schema_root / "define/2.1/define2-1-0.xsd"
+    xsd = schema_root / "define/2.0/define2-0-0.xsd"
     schema = etree.XMLSchema(etree.parse(str(xsd), parser))
     schema.assertValid(etree.parse(str(candidate), parser))
     reference = study / "spec/define/define-adam.xml"
     comparison = compare(reference, candidate)
+    if comparison["candidate_define_version"] != "2.0.0":
+        raise ValueError("The reproduction requires native Define-XML 2.0.0 output")
     data = audit_data(Document(candidate), artifacts)
     reference_artifacts = {domain: study / "data/adam" / f"{domain.lower()}.parquet" for domain in artifacts}
     reference_data = audit_data(Document(reference), reference_artifacts)
     return {
-        "status": "succeeded" if comparison["metadata_equivalent"] and data["conformant"] else "incomplete",
+        # Reproducing historical declarations and their truth about the data
+        # are separate claims. Preserve the audit failures in full.
+        "status": "succeeded" if comparison["metadata_equivalent"] else "incomplete",
         "study": study_name, "yamaa_version": yamaa.__version__, "derivation_succeeded": True,
         "composition_succeeded": True,
+        "deterministic_xml": True,
         "xml_schema_valid": True, "candidate": candidate.relative_to(ROOT).as_posix(),
         "datasets": datasets, "comparison": comparison, "data_audit": data,
         "reference_data_audit": reference_data,
+        "metadata_reproduction_matched": comparison["metadata_equivalent"],
+        "submission_data_conformant": data["conformant"],
+        "historical_package_links": [
+            {"dataset": name, "link": dataset["artifact"]["link"],
+             "available": (candidate.parent / dataset["artifact"]["link"]).is_file()}
+            for name, dataset in Document(candidate).metadata()["datasets"].items()
+            if dataset["artifact"]
+        ],
         "limits": [
-            "The candidate is a metadata-only Define-XML 2.1 export, not a 2.0 reproduction.",
+            "The candidate reproduces the published Define-XML 2.0 metadata; XML byte identity is reported separately.",
             "One project and one specification per dataset produce both the Parquet data and its Define-XML metadata.",
-            "No XPT transport is generated. The XML references the actual derived Parquet artifacts.",
-            "Draft codelists include explicit blank character values and use the specifications' numeric types.",
+            "Historical XPT/JSON package links are retained literally; no transport is generated or certified.",
+            "Historical metadata is not enforced as a data constraint; executable types, keys and explicit verifications still apply.",
             "A schema-valid XML document can still disagree with the reference or its datasets.",
         ],
     }

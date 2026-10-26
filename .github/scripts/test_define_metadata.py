@@ -115,12 +115,15 @@ class UnifiedSpecificationsTests(unittest.TestCase):
                 project = yaml.safe_load((directory / "project.yaml").read_text())
                 self.assertFalse((directory / "submission").exists())
                 self.assertEqual(project["adam"]["define"], "../../data/adam/define-yamaa.xml")
+                self.assertEqual(project["adam"]["define_version"], "2.0.0")
+                self.assertEqual(project["adam"]["context"], "Other")
                 self.assertEqual(project["codelists"], ["codelists.yaml"])
                 count = 0
                 for filename in project["adam"]["specs"]:
                     self.assertEqual(Path(filename).parent, Path("."))
                     spec = yaml.safe_load((directory / filename).read_text())
                     self.assertIn("submission", spec)
+                    self.assertEqual(spec["submission"]["mode"], "historical")
                     columns = {c["name"]: c for c in spec["columns"]}
                     self.assertEqual({name for name, c in columns.items() if "submission" in c}, set(spec["output"]["columns"]))
                     for name in spec["output"]["columns"]:
