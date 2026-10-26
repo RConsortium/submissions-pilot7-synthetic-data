@@ -94,7 +94,7 @@ rows:
             },
             {
                 "spec.VALUE": ["DM.AGE", "row.collected"],
-                "spec.BASE": ["BASE_ROW.VALUE"],
+                "spec.BASE": ["BASE_ROW.VALUE", "row.collected"],
                 "BASE_ROW.VALUE": ["intermediate.BASE_ROW", "spec.VALUE"],
                 "row.collected": ["DM.AGE"],
             },
@@ -137,6 +137,49 @@ verifications:
                         "AGE": {"start": 13, "end": 13},
                         "SEX": {"start": 13, "end": 13},
                     },
+                },
+                "focus": {},
+            },
+        )
+
+    def test_focus_locations_keep_inline_output_metadata_and_individual_input_members(
+        self,
+    ):
+        text = """input: {QS: qs.parquet, DM: dm.parquet, EX: ex.parquet}
+output: {path: out.parquet, columns: [AGE, SEX]}
+base: DM
+intermediates:
+  - id: USED
+    dataset: DM
+    derivations:
+      AGE: DM.AGE
+      SEX: DM.SEX
+"""
+        self.assertEqual(
+            source_locations(text)["focus"],
+            {
+                "inputs": {
+                    "QS": {"start": 1, "end": 1, "start_column": 8, "end_column": 24},
+                    "DM": {"start": 1, "end": 1, "start_column": 24, "end_column": 40},
+                    "EX": {"start": 1, "end": 1, "start_column": 38, "end_column": 54},
+                },
+                "sections": {
+                    "input": {"start": 1, "end": 1, "whole_line": True},
+                    "intermediates": {"start": 4, "end": 9, "whole_line": True},
+                },
+                "base": "DM",
+                "output_columns": {
+                    "start": 2,
+                    "end": 2,
+                    "start_column": 26,
+                    "end_column": 47,
+                },
+                "intermediate_drivers": {"USED": "DM"},
+                "intermediate_derivations": {
+                    "USED": {
+                        "AGE": {"start": 8, "end": 8},
+                        "SEX": {"start": 9, "end": 9},
+                    }
                 },
             },
         )

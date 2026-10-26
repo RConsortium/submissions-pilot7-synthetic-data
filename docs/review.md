@@ -41,16 +41,29 @@ selected comparison datasets remain available. Input headers and YAML blocks
 also select declared connections. **Clear highlight** restores the manual input
 selection and removes the column focus.
 
-The YAML pane also focuses `columns:` and `rows:` on related entries. The
-selected column is highlighted in both its column definition and its row
-derivations. Selecting a row rule highlights that rule. Inputs, outputs,
-intermediates, verifications and other sections stay visible in full. Original
-source text and line numbers are retained. **All columns** or **Clear highlight**
-restores every specification entry.
+The YAML pane shows the upstream rules needed to derive the selected variable.
+It hides `output.columns`, keeps the relevant input declarations and intermediate
+definitions, and narrows column, row and intermediate derivations to related
+entries. Matching keys, filters, grouping and lookup selection order stay with
+their relevant rule. Row-driver declarations remain available even for literal
+values. The selected definition is highlighted, and the caption shows how many
+source lines are visible.
+
+Other study settings and verifications remain visible for context. Original
+line numbers are retained; inline input and output mappings show the relevant
+fields. **All columns** or **Clear highlight** restores the complete original
+specification.
 
 Connections include declared values, joins, filters, keys, and ordering. They
 describe column dependencies; they do not identify contributing input rows.
 Unresolved references are reported above the specification.
+
+Matching keys are included for the input or lookup a derivation actually reads.
+Unused inputs and sibling lookup fields do not become sources of every column.
+Row filters, grouping and lookup selection order remain part of the trace;
+final output sorting does not add value dependencies. For example, `TRT01AN`
+traces to DM, while an exposure-derived `TRTSDT` also opens EX. Manually selected
+comparison panes remain open independently of automatic lineage.
 
 Drag the specification separator to change its width, or the horizontal
 separator between input and output areas to change their heights. Dataset

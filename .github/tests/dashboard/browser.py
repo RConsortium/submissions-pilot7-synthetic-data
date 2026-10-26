@@ -47,6 +47,22 @@ def assert_page_fits(page, selector):
     }"""), selector + " clips the selected page of rows"
 
 
+def assert_yaml_context(page, specification, inputs, intermediates):
+    focus = specification["lineage"]["focus"]
+    for name, span in focus["inputs"].items():
+        line = page.locator(f'#spec-L{span["start"]}')
+        if name in inputs:
+            expect(line).not_to_have_attribute("hidden", "")
+        else:
+            expect(line).to_have_attribute("hidden", "")
+    span = focus["output_columns"]
+    expect(page.locator(f'#spec-L{span["start"]}')).to_have_attribute("hidden", "")
+    shown = page.locator('.spec-line[data-intermediate]:visible').evaluate_all(
+        "lines => [...new Set(lines.map(line => line.dataset.intermediate))]"
+    )
+    assert set(shown) == set(intermediates), (shown, intermediates)
+
+
 def check(browser, base, site_dir, screenshots):
     context = browser.new_context(viewport={"width": 1600, "height": 1000})
     context.route(
@@ -63,6 +79,24 @@ def check(browser, base, site_dir, screenshots):
     ex = next(i["table"] for i in adsl["inputs"] if i["alias"] == "EX")
     page = context.new_page()
     study = base + "/studies/cdiscpilot01/"
+    # Treatment codes use DM; exposure dates retain EX and its matching keys.
+    for name in ["cdiscpilot01", "submission-pilot3", "submission-pilot5"]:
+        url = base + f"/studies/{name}/#{name}/datasets/ADSL?focus=output."
+        study_model = json.loads((site_dir / f"evidence/dashboard/{name}/catalog.json").read_text())
+        dataset = next(d for d in study_model["datasets"] if d["name"] == "ADSL")
+        spec = json.loads((site_dir / f'evidence/dashboard/{name}/{dataset["spec"]}').read_text())
+        page.goto(url + "TRT01AN")
+        expect(page.locator('.input-group [data-panel]')).to_have_count(1)
+        expect(page.locator('.input-group [data-domain="DM"]')).to_be_visible()
+        expect(page.locator('.input-group [data-domain="EX"]')).to_have_count(0)
+        assert_yaml_context(page, spec, {"DM"}, set())
+        expect(page.locator('[data-line-node="spec.TRT01A"]').first).not_to_be_visible()
+        if name == "cdiscpilot01":
+            capture(page, screenshots, "focused-treatment-specification.png")
+        page.goto(url + "TRTSDT")
+        expect(page.locator('.input-group [data-domain="EX"]')).to_be_visible()
+        expect(page.locator('.input-group [data-domain="EX"] .key-badge')).not_to_have_count(0)
+        assert_yaml_context(page, spec, {"DM", "EX"}, {"EX_FIRST"} if name == "submission-pilot3" else set())
     page.goto(study)
     expect(page.locator("#output-table tbody tr")).to_have_count(3)
     expect(page.locator("#subject-summary")).to_contain_text("3 /")
@@ -198,12 +232,8 @@ def check(browser, base, site_dir, screenshots):
     assert not any("AGE" in name for name in visible)
     assert page.locator('[data-line-node="spec.TRTSDT"].node-selected').count() > 0
     assert page.locator('.spec-line[data-spec-kind="columns"][hidden]').count() > 0
-    assert (
-        page.locator(
-            '.spec-line[hidden]:not([data-spec-kind="columns"]):not([data-spec-kind="rows"])'
-        ).count()
-        == 0
-    )
+    adae_spec = json.loads((site_dir / f'evidence/dashboard/cdiscpilot01/{next(d for d in catalog["datasets"] if d["name"] == "ADAE")["spec"]}').read_text())
+    assert_yaml_context(page, adae_spec, {"AE", "ADSL"}, {"ADSL_SBJ"})
     expect(page.locator('#panel-o-ADAE th[data-node="output.TRTSDT"]')).to_have_class(
         "node-selected"
     )
