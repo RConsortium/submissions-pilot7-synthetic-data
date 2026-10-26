@@ -125,14 +125,23 @@ def _heads(studies, link=False):
     return "".join(cells)
 
 
-def _table(labels, studies, rows, link=False, keep=False):
+def _table(labels, studies, rows, link=False, keep=False, sections=None):
     """Leading label columns, then one column per study; `keep` prints it unbroken."""
     head = "".join(f'<th scope="col">{label}</th>' for label in labels)
     css = "report-table report-keep" if keep else "report-table"
+    body = f"<tbody>{''.join(rows)}</tbody>"
+    if sections is not None:
+        columns = len(labels) + len(studies)
+        body = "".join(
+            '<tbody><tr class="report-section">'
+            f'<th scope="rowgroup" colspan="{columns}">{title}</th></tr>'
+            f"{''.join(items)}</tbody>"
+            for title, items in sections if items
+        )
     return (
         f'<div class="{css}"><table class="report-matrix"><thead><tr>'
         f"{head}{_heads(studies, link)}</tr></thead>"
-        f"<tbody>{''.join(rows)}</tbody></table></div>"
+        f"{body}</table></div>"
     )
 
 
@@ -143,15 +152,26 @@ def _overview(studies):
         source = catalog["source"]
         label = source.removeprefix("https://github.com/")
         cells = {
-            "Scope": html.escape(catalog["description"]),
-            "Upstream": f'<a href="{html.escape(source)}">{html.escape(label)}</a>',
+            "Description": html.escape(catalog["description"]),
+            "Source": f'<a href="{html.escape(source)}">{html.escape(label)}</a>',
         }
         if report is None:
             reason = catalog.get("reason", "Study validation has not run.")
-            cells["Scope"] += f"<small>Validation pending. {html.escape(reason)}</small>"
+            cells["Description"] += f"<small>Validation pending. {html.escape(reason)}</small>"
         else:
             sdtm, staged = _inputs(catalog)
             matched, reference = catalog["metrics"]["matched"], catalog["metrics"]["reference"]
+            define = catalog["validation"].get("define_xml", {})
+            comparison = define.get("comparison", "not_compared")
+            status, tone = {
+                "matched": ("Matched", "good"),
+                "different": ("Different", "attention"),
+                "not_compared": ("Not compared", "neutral"),
+            }[comparison]
+            adam_version = html.escape(define.get("adam_version") or "-")
+            candidate_version = define.get("candidate_version")
+            if candidate_version and candidate_version != define.get("adam_version"):
+                adam_version += f"<small>Generated: {html.escape(candidate_version)}</small>"
             cells |= {
                 "Subjects": _metric(len(catalog["subjects"])),
                 "SDTM inputs": f"{len(sdtm)} of {staged} staged domains"
@@ -159,22 +179,37 @@ def _overview(studies):
                 "ADaM datasets matched": _share(matched[0], reference[0]),
                 "Columns matched": _share(matched[1], reference[1]),
                 "Cells matched": _share(matched[2], reference[2]),
+                "SDTM Define-XML version": html.escape(define.get("sdtm_version") or "-"),
+                "ADaM Define-XML version": adam_version,
+                "Define-XML match": _status(status, tone),
                 "Documents": html.escape(", ".join(d["name"] for d in report["documents"])),
             }
         facts[catalog["id"]] = cells
-    rows = []
-    for name in [
-        "Scope", "Upstream", "Subjects", "SDTM inputs",
-        "ADaM datasets matched", "Columns matched", "Cells matched", "Documents",
+    sections = []
+    for title, names in [
+        ("Study information", ["Description", "Source", "Documents", "Subjects"]),
+        ("SDTM", ["SDTM inputs", "SDTM Define-XML version"]),
+        ("ADaM", ["ADaM datasets matched", "Columns matched", "Cells matched",
+                  "ADaM Define-XML version", "Define-XML match"]),
     ]:
-        values = [facts[c["id"]].get(name, "") for c, _ in studies]
-        if any(values):
-            rows.append(
-                f'<tr><th scope="row">{name}</th>'
-                + "".join(f"<td>{value or '-'}</td>" for value in values)
-                + "</tr>"
-            )
-    return ['<h2 id="studies">Studies</h2>', _table(["Study"], studies, rows, link=True)]
+        rows = []
+        for name in names:
+            values = [facts[c["id"]].get(name, "") for c, _ in studies]
+            if any(values):
+                label = "Define-XML version" if name.endswith("Define-XML version") else name
+                rows.append(
+                    f'<tr><th scope="row">{label}</th>'
+                    + "".join(f"<td>{value or '-'}</td>" for value in values)
+                    + "</tr>"
+                )
+        sections.append((title, rows))
+    return [
+        '<h2 id="studies">Studies</h2>',
+        _table(["Study"], studies, [], link=True, sections=sections),
+        '<p class="report-foot">Versions refer to the published Define-XML. '
+        "ADaM matching compares generated metadata with the published source. "
+        "Not compared means the study has no Define-XML comparison result.</p>",
+    ]
 
 
 def _descriptions(variants):
@@ -221,7 +256,7 @@ def _matrix(studies):
     ]
     return [
         '<h2 id="dataset-results">Dataset results</h2>',
-        _table(["Dataset", "Description"], studies, body, keep=True),
+        _table(["Dataset", "Description"], studies, body, link=True, keep=True),
         '<p class="report-foot">Status with rows &#215; columns of the yamaa output. '
         "Matched: the study comparator found the output equal to the official ADaM "
         "dataset, labels included, under that study's comparison policy. "
