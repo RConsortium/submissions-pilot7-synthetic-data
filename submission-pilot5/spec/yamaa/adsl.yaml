@@ -1,4 +1,4 @@
-yamaa: "1.0"
+yamaa: '1.0'
 type: spec
 model: ADaM
 domain: ADSL
@@ -27,7 +27,7 @@ input:
       - STUDYID
       - USUBJID
 base: DM
-filter: "DM.ACTARM <> 'Screen Failure'"
+filter: DM.ACTARM <> 'Screen Failure'
 
 output:
   path: ../../data/adam/adsl-yamaa.parquet
@@ -88,7 +88,7 @@ intermediates:
     key:
       - STUDYID
       - USUBJID
-    filter: "VS.VSTESTCD = 'HEIGHT' AND VS.VISITNUM = 1"
+    filter: VS.VSTESTCD = 'HEIGHT' AND VS.VISITNUM = 1
     order_by:
       - variable: VS.VSDTC
         nulls: last
@@ -99,7 +99,7 @@ intermediates:
     key:
       - STUDYID
       - USUBJID
-    filter: "VS.VSTESTCD = 'WEIGHT' AND VS.VISITNUM = 3"
+    filter: VS.VSTESTCD = 'WEIGHT' AND VS.VISITNUM = 3
     order_by:
       - variable: VS.VSDTC
         nulls: last
@@ -110,7 +110,7 @@ intermediates:
     key:
       - STUDYID
       - USUBJID
-    filter: "DS.DSCAT = 'DISPOSITION EVENT'"
+    filter: DS.DSCAT = 'DISPOSITION EVENT'
     order_by:
       - variable: DS.DSSTDTC
         nulls: last
@@ -121,7 +121,7 @@ intermediates:
     key:
       - STUDYID
       - USUBJID
-    filter: "SC.SCTESTCD = 'EDLEVEL'"
+    filter: SC.SCTESTCD = 'EDLEVEL'
     order_by:
       - variable: SC.SCDTC
         nulls: last
@@ -132,7 +132,7 @@ intermediates:
     key:
       - STUDYID
       - USUBJID
-    filter: "MH.MHCAT = 'PRIMARY DIAGNOSIS'"
+    filter: MH.MHCAT = 'PRIMARY DIAGNOSIS'
     order_by:
       - variable: MH.MHSTDTC
         nulls: last
@@ -143,7 +143,7 @@ intermediates:
     key:
       - STUDYID
       - USUBJID
-    filter: "SV.VISITNUM = 1"
+    filter: SV.VISITNUM = 1
     order_by:
       - variable: SV.SVSTDTC
         nulls: last
@@ -154,8 +154,7 @@ intermediates:
     key:
       - STUDYID
       - USUBJID
-    filter: "DS.DSCAT = 'DISPOSITION EVENT' AND DS.DSDECOD <> 'SCREEN
-      FAILURE' AND DS.DSDECOD <> 'COMPLETED'"
+    filter: DS.DSCAT = 'DISPOSITION EVENT' AND DS.DSDECOD <> 'SCREEN FAILURE' AND DS.DSDECOD <> 'COMPLETED'
     order_by:
       - variable: DS.DSSEQ
         nulls: last
@@ -166,7 +165,7 @@ intermediates:
     key:
       - STUDYID
       - USUBJID
-    filter: "DS.DSCAT = 'DISPOSITION EVENT'"
+    filter: DS.DSCAT = 'DISPOSITION EVENT'
     order_by:
       - variable: DS.DSSTDTC
         nulls: last
@@ -177,7 +176,7 @@ intermediates:
     key:
       - STUDYID
       - USUBJID
-    filter: "EX.EXENDTC IS NULL"
+    filter: EX.EXENDTC IS NULL
 
 columns:
   - name: STUDYID
@@ -185,42 +184,108 @@ columns:
     label: Study Identifier
     derivation: DM.STUDYID
 
+    submission:
+      data_type: text
+      mandatory: false
+      length: 12
+      origins:
+        - type: Predecessor
+          description: DM.STUDYID
   - name: USUBJID
     type: str
     label: Unique Subject Identifier
     derivation: DM.USUBJID
 
+    submission:
+      data_type: text
+      mandatory: false
+      key_sequence: 1
+      length: 11
+      origins:
+        - type: Predecessor
+          description: DM.USUBJID
   - name: SUBJID
     type: str
     label: Subject Identifier for the Study
     derivation: DM.SUBJID
 
+    submission:
+      data_type: text
+      mandatory: false
+      length: 4
+      origins:
+        - type: Derived
+      method:
+        name: Algorithm to derive ADSL.SUBJID
+        type: Computation
+        description: DM.SUBJID
   - name: SITEID
     type: str
     label: Study Site Identifier
     derivation: DM.SITEID
 
+    submission:
+      data_type: text
+      mandatory: false
+      length: 3
+      origins:
+        - type: Derived
+      method:
+        name: Algorithm to derive ADSL.SITEID
+        type: Computation
+        description: DM.SITEID
   - name: SITEGR1
     type: str
     label: Pooled Site Group 1
     derivation:
       # Small sites pool to 900 in the official ADSL (observed mapping).
       case:
-        - when: "SITEID IN ('702', '706', '707', '711', '714', '715',
-            '717')"
+        - when: SITEID IN ('702', '706', '707', '711', '714', '715', '717')
           then: "'900'"
         - otherwise: SITEID
 
+    submission:
+      data_type: text
+      mandatory: false
+      length: 3
+      origins:
+        - type: Derived
+      method:
+        name: Algorithm to derive ADSL.SITEGR1
+        type: Computation
+        description: refer to SAP, Section 7.1 - if not pooled then SITEGR1=SITEID. If pooled, SITEGR1 will be 900
   - name: ARM
     type: str
     label: Description of Planned Arm
     derivation: DM.ARM
 
+    submission:
+      data_type: text
+      mandatory: false
+      length: 20
+      codelist: ARM
+      origins:
+        - type: Derived
+      method:
+        name: Algorithm to derive ADSL.ARM
+        type: Computation
+        description: DM.ARM
   - name: TRT01P
     type: str
     label: Planned Treatment for Period 01
     derivation: DM.ARM
 
+    submission:
+      data_type: text
+      mandatory: false
+      length: 20
+      codelist: ARM
+      origins:
+        - type: Derived
+      method:
+        name: Algorithm to derive ADSL.TRT01P
+        type: Computation
+        description: DM.ARM
   - name: TRT01PN
     type: float
     label: Planned Treatment for Period 01 (N)
@@ -232,21 +297,54 @@ columns:
           Xanomeline Low Dose: 54
           Xanomeline High Dose: 81
 
+    submission:
+      data_type: integer
+      mandatory: false
+      length: 8
+      codelist: ARMN
+      origins:
+        - type: Derived
+      method:
+        name: Algorithm to derive ADSL.TRT01PN
+        type: Computation
+        description: Numeric code for TRT01P which corresponds to the randomized dose
   - name: TRT01A
     type: str
     label: Actual Treatment for Period 01
     derivation: TRT01P
 
+    submission:
+      data_type: text
+      mandatory: false
+      length: 20
+      codelist: ARM
+      origins:
+        - type: Derived
+      method:
+        name: Algorithm to derive ADSL.TRT01A
+        type: Computation
+        description: TRT01A=TRT01P, i.e., no difference between actual and randomized treatment in this study.
   - name: TRT01AN
     type: float
     label: Actual Treatment for Period 01 (N)
     derivation: TRT01PN
 
+    submission:
+      data_type: integer
+      mandatory: false
+      length: 8
+      codelist: ARMN
+      origins:
+        - type: Derived
+      method:
+        name: Algorithm to derive ADSL.TRT01AN
+        type: Computation
+        description: Numeric code for TRT01A which corresponds to the randomized dose
   - name: EX_MINDTC
     type: str
     label: Earliest Exposure Start (character)
     derivation:
-      aggregate: "MIN(EX.EXSTDTC)"
+      aggregate: MIN(EX.EXSTDTC)
 
   - name: TRTSDT
     type: date
@@ -258,6 +356,17 @@ columns:
         month: 1
         day: 1
 
+    submission:
+      data_type: integer
+      mandatory: false
+      length: 8
+      display_format: DATE9.
+      origins:
+        - type: Derived
+      method:
+        name: Algorithm to derive ADSL.TRTSDT
+        type: Computation
+        description: SV.SVSTDTC when SV.VISITNUM=3, converted to SAS date
   - name: EOSDT
     type: date
     label: End of Study Date
@@ -270,8 +379,8 @@ columns:
     label: Latest exposure end (character, internal)
     derivation:
       aggregate:
-        filter: "EX.EXDOSE > 0 OR (EX.EXDOSE = 0 AND EX.EXTRT = 'PLACEBO')"
-        expr: "MAX(EX.EXENDTC)"
+        filter: EX.EXDOSE > 0 OR (EX.EXDOSE = 0 AND EX.EXTRT = 'PLACEBO')
+        expr: MAX(EX.EXENDTC)
 
   - name: EX_ENDHI
     type: date
@@ -287,21 +396,30 @@ columns:
     label: Exposure records with missing end date (internal)
     derivation:
       aggregate:
-        filter: "EX.EXENDTC IS NULL AND (EX.EXDOSE > 0 OR (EX.EXDOSE
-          = 0 AND EX.EXTRT = 'PLACEBO'))"
-        expr: "COUNT(EX.EXSEQ)"
+        filter: EX.EXENDTC IS NULL AND (EX.EXDOSE > 0 OR (EX.EXDOSE = 0 AND EX.EXTRT = 'PLACEBO'))
+        expr: COUNT(EX.EXSEQ)
 
   - name: TRTEDT
     type: date
     label: Date of Last Exposure to Treatment
     derivation:
       case:
-        - when: "EOSDT IS NOT NULL AND (EX_NMISSEND > 0 OR EX_ENDHI
-            > EOSDT)"
+        - when: EOSDT IS NOT NULL AND (EX_NMISSEND > 0 OR EX_ENDHI > EOSDT)
           then: EOSDT
-        - when: "EX_ENDHI IS NOT NULL"
+        - when: EX_ENDHI IS NOT NULL
           then: EX_ENDHI
 
+    submission:
+      data_type: integer
+      mandatory: false
+      length: 8
+      display_format: DATE9.
+      origins:
+        - type: Derived
+      method:
+        name: Algorithm to derive ADSL.TRTEDT
+        type: Computation
+        description: The date of final dose (from the CRF) is EX.EXENDTC on the subject's last EX record. If the date of final dose is missing for the subject and the subject discontinued after visit 3, use the date of discontinuation as the date of last dose. Convert the date to a SAS date.
   - name: TRTDUR
     type: float
     label: Duration of Treatment (days)
@@ -321,13 +439,23 @@ columns:
   # CUMDOSE sums per-record dose-days: EXDOSE x days on the record. Records
   # with a missing EXENDTC (ongoing exposure) run to TRTEDT, matching the
   # official derivation (verified: all 6 open records impute exactly).
+    submission:
+      data_type: integer
+      mandatory: false
+      length: 8
+      origins:
+        - type: Derived
+      method:
+        name: Algorithm to derive ADSL.TRTDUR
+        type: Computation
+        description: TRTEDT-TRTSDT+1
   - name: _CUM_CLOSED
     type: float
     label: Closed-record dose-days (internal)
     derivation:
       aggregate:
-        filter: "EX.EXENDTC IS NOT NULL"
-        expr: "SUM(EX.EXDOSE * (EX.EXENDY - EX.EXSTDY + 1))"
+        filter: EX.EXENDTC IS NOT NULL
+        expr: SUM(EX.EXDOSE * (EX.EXENDY - EX.EXSTDY + 1))
 
   - name: _OPEN_DOSE
     type: float
@@ -381,12 +509,23 @@ columns:
   - name: CUMDOSE
     type: float
     label: Cumulative Dose (as planned)
-    derivation: "_CUM0 + _OPEN0"
+    derivation: _CUM0 + _OPEN0
 
+    submission:
+      data_type: float
+      mandatory: false
+      length: 8
+      significant_digits: 1
+      origins:
+        - type: Derived
+      method:
+        name: Algorithm to derive ADSL.CUMDOSE
+        type: Computation
+        description: 'For ARMN=0 or 1: CUMDOSE=TRT01PN*TRTDUR. --- For ARMN=2: CUMDOSE will be based on 54mg per day for the # of days subj was in 1st dosing interval (i.e., visit4date-TRTSTDT+1 if 1st interval completed, TRTEDT-TRTSTDT+1 if subj discontinued <=visit 4 and > visit 3), 81mg per day for the # of days subj was in 2nd dosing interval (i.e., visit12date-visit4date if 2nd interval completed, TRTEDT-visit4date if subj discontinued <= visit 12 and > visit 4), and 54mg per day for the # of days subj was in 3rd dosing interval (i.e., TRTEDT - visit12date if subj continued after visit 12).'
   - name: _AVGDD_RAW
     type: float
     label: Unrounded avg daily dose (internal)
-    derivation: "CUMDOSE / NULLIF(TRTDUR, 0)"
+    derivation: CUMDOSE / NULLIF(TRTDUR, 0)
 
   - name: AVGDD
     type: float
@@ -396,16 +535,48 @@ columns:
         source: _AVGDD_RAW
         digits: 1
 
+    submission:
+      data_type: float
+      mandatory: false
+      length: 8
+      significant_digits: 1
+      origins:
+        - type: Derived
+      method:
+        name: Algorithm to derive ADSL.AVGDD
+        type: Computation
+        description: CUMDOSE/TRTDURD
   - name: AGE
     type: float
     label: Age
     derivation: DM.AGE
 
+    submission:
+      data_type: integer
+      mandatory: false
+      length: 8
+      origins:
+        - type: Derived
+      method:
+        name: Algorithm to derive ADSL.AGE
+        type: Computation
+        description: DM.AGE
   - name: AGEU
     type: str
     label: Age Units
     derivation: DM.AGEU
 
+    submission:
+      data_type: text
+      mandatory: false
+      length: 5
+      codelist: AGEU
+      origins:
+        - type: Derived
+      method:
+        name: Algorithm to derive ADSL.AGEU
+        type: Computation
+        description: DM.AGEU
   - name: AGEGR1
     type: str
     label: Pooled Age Group 1
@@ -413,12 +584,23 @@ columns:
       # R rule: <65 / 65-80 / >80 - age 65 falls in 65-80, so the boundary
       # is mixed and cannot be expressed with cut's single right flag.
       case:
-        - when: "DM.AGE < 65"
+        - when: DM.AGE < 65
           then: "'<65'"
-        - when: "DM.AGE <= 80"
+        - when: DM.AGE <= 80
           then: "'65-80'"
         - otherwise: "'>80'"
 
+    submission:
+      data_type: text
+      mandatory: false
+      length: 5
+      codelist: AGEGR1
+      origins:
+        - type: Derived
+      method:
+        name: Algorithm to derive ADSL.AGEGR1
+        type: Computation
+        description: Character variable derived from ADSL.AGEGR1N
   - name: AGEGR1N
     type: float
     label: Pooled Age Group 1 (N)
@@ -426,20 +608,53 @@ columns:
       mapping:
         source: AGEGR1
         dict:
-          "<65": 1
-          "65-80": 2
-          ">80": 3
+          <65: 1
+          65-80: 2
+          '>80': 3
 
+    submission:
+      data_type: integer
+      mandatory: false
+      length: 8
+      codelist: AGEGR1N
+      origins:
+        - type: Derived
+      method:
+        name: Algorithm to derive ADSL.AGEGR1N
+        type: Computation
+        description: AGEGR1 = 1 if AGE <65. AGEGR1 = 2 if AGE 65-80. AGEGR1 = 3 if AGE >80.
   - name: SEX
     type: str
     label: Sex
     derivation: DM.SEX
 
+    submission:
+      data_type: text
+      mandatory: false
+      length: 1
+      codelist: SEX
+      origins:
+        - type: Derived
+      method:
+        name: Algorithm to derive ADSL.SEX
+        type: Computation
+        description: DM.SEX
   - name: RACE
     type: str
     label: Race
     derivation: DM.RACE
 
+    submission:
+      data_type: text
+      mandatory: false
+      length: 32
+      codelist: RACE
+      origins:
+        - type: Derived
+      method:
+        name: Algorithm to derive ADSL.RACE
+        type: Computation
+        description: DM.RACE
   - name: RACEN
     type: float
     label: Race (N)
@@ -453,29 +668,72 @@ columns:
           ASIAN: 7
           NATIVE HAWAIIAN OR OTHER PACIFIC ISLANDER: 5
 
+    submission:
+      data_type: integer
+      mandatory: false
+      length: 8
+      codelist: RACEN
+      origins:
+        - type: Derived
+      method:
+        name: Algorithm to derive ADSL.RACEN
+        type: Computation
+        description: Numeric code for RACE
   - name: ETHNIC
     type: str
     label: Ethnicity
     derivation: DM.ETHNIC
 
+    submission:
+      data_type: text
+      mandatory: false
+      length: 22
+      codelist: ETHNIC
+      origins:
+        - type: Derived
+      method:
+        name: Algorithm to derive ADSL.ETHNIC
+        type: Computation
+        description: DM.ETHNIC
   - name: DTHFL
     type: str
     label: Subject Died?
     derivation:
       case:
-        - when: "DM.DTHFL IS NULL"
+        - when: DM.DTHFL IS NULL
           then: "''"
         - otherwise: DM.DTHFL
 
+    submission:
+      data_type: text
+      mandatory: false
+      length: 1
+      origins:
+        - type: Derived
+      method:
+        name: Algorithm to derive ADSL.DTHFL
+        type: Computation
+        description: DM.DTHFL
   - name: SAFFL
     type: str
     label: Safety Population Flag
     derivation:
       flag:
-        condition: "TRTSDT IS NOT NULL"
-        false_value: "N"
-        missing: "N"
+        condition: TRTSDT IS NOT NULL
+        false_value: N
+        missing: N
 
+    submission:
+      data_type: text
+      mandatory: false
+      length: 1
+      codelist: YN
+      origins:
+        - type: Derived
+      method:
+        name: Algorithm to derive ADSL.SAFFL
+        type: Computation
+        description: Y if ITTFL='Y' and TRTSDT ne missing. N otherwise
   - name: HEIGHTBL
     type: float
     label: Baseline Height (cm)
@@ -484,6 +742,17 @@ columns:
         source: BASE_HT.VSSTRESN
         digits: 1
 
+    submission:
+      data_type: float
+      mandatory: false
+      length: 8
+      significant_digits: 1
+      origins:
+        - type: Derived
+      method:
+        name: Algorithm to derive ADSL.HEIGHTBL
+        type: Computation
+        description: VSSTRESN when VS.VSTESTCD='HEIGHT' and VS.VISITNUM=1
   - name: WEIGHTBL
     type: float
     label: Baseline Weight (kg)
@@ -492,10 +761,21 @@ columns:
         source: BASE_WT.VSSTRESN
         digits: 1
 
+    submission:
+      data_type: float
+      mandatory: false
+      length: 8
+      significant_digits: 1
+      origins:
+        - type: Derived
+      method:
+        name: Algorithm to derive ADSL.WEIGHTBL
+        type: Computation
+        description: VSSTRESN when VS.VSTESTCD='WEIGHT' and VS.VISITNUM=3
   - name: _BMIBL_RAW
     type: float
     label: Unrounded baseline BMI (internal)
-    derivation: "WEIGHTBL / POWER(NULLIF(HEIGHTBL, 0) / 100, 2)"
+    derivation: WEIGHTBL / POWER(NULLIF(HEIGHTBL, 0) / 100, 2)
 
   - name: BMIBL
     type: float
@@ -505,6 +785,17 @@ columns:
         source: _BMIBL_RAW
         digits: 1
 
+    submission:
+      data_type: float
+      mandatory: false
+      length: 8
+      significant_digits: 1
+      origins:
+        - type: Derived
+      method:
+        name: Algorithm to derive ADSL.BMIBL
+        type: Computation
+        description: WEIGHTBL / ((HEIGHTBL/100)**2)
   - name: BMIBLGR1
     type: str
     label: Pooled Baseline BMI Group 1
@@ -515,157 +806,284 @@ columns:
           - 25
           - 30
         labels:
-          - "<25"
-          - "25-<30"
-          - ">=30"
+          - <25
+          - 25-<30
+          - '>=30'
         missing: ''
 
+    submission:
+      data_type: text
+      mandatory: false
+      length: 6
+      codelist: BMICAT
+      origins:
+        - type: Derived
+      method:
+        name: Algorithm to derive ADSL.BMIBLGR1
+        type: Computation
+        description: BMIBLGR1="<25" if . < BMIBL <25. BMIBLGR1="25-<30" if 25 <=BMIBL <30. BMIBLGR1=">=30"if BMIBL >=30.
   - name: ITTFL
     type: str
     label: Intent-To-Treat Population Flag
     derivation:
       flag:
-        condition: "DM.ARMCD <> ''"
-        false_value: "N"
-        missing: "N"
+        condition: DM.ARMCD <> ''
+        false_value: N
+        missing: N
 
+    submission:
+      data_type: text
+      mandatory: false
+      length: 1
+      codelist: YN
+      origins:
+        - type: Derived
+      method:
+        name: Algorithm to derive ADSL.ITTFL
+        type: Computation
+        description: Y if ARMCD ne ' '. N otherwise
   - name: N_ACTOT
     type: float
     label: Post-baseline ADAS-Cog records (helper)
     derivation:
       aggregate:
-        expr: "COUNT(QS.QSSEQ)"
-        filter: "QS.VISITNUM > 3 AND QS.QSTESTCD = 'ACTOT'"
+        expr: COUNT(QS.QSSEQ)
+        filter: QS.VISITNUM > 3 AND QS.QSTESTCD = 'ACTOT'
 
   - name: N_CIBIC
     type: float
     label: Post-baseline CIBIC+ records (helper)
     derivation:
       aggregate:
-        expr: "COUNT(QS.QSSEQ)"
-        filter: "QS.VISITNUM > 3 AND QS.QSTESTCD = 'CIBIC'"
+        expr: COUNT(QS.QSSEQ)
+        filter: QS.VISITNUM > 3 AND QS.QSTESTCD = 'CIBIC'
 
   - name: EFFFL
     type: str
     label: Efficacy Population Flag
     derivation:
       flag:
-        condition: "SAFFL = 'Y' AND N_ACTOT > 0 AND N_CIBIC > 0"
-        false_value: "N"
-        missing: "N"
+        condition: SAFFL = 'Y' AND N_ACTOT > 0 AND N_CIBIC > 0
+        false_value: N
+        missing: N
 
+    submission:
+      data_type: text
+      mandatory: false
+      length: 1
+      codelist: YN
+      origins:
+        - type: Derived
+      method:
+        name: Algorithm to derive ADSL.EFFFL
+        type: Computation
+        description: Y if SAFFL='Y AND subject has at least one record in QS for ADAS-Cog with VISITNUM>3 AND at least one record in QS for CIBIC+ with VISITNUM>3, N otherwise
   - name: N_WK8
     type: float
     label: Week 8 visit records (helper)
     derivation:
       aggregate:
-        expr: "COUNT(SV.USUBJID)"
-        filter: "SV.VISIT = 'WEEK 8'"
+        expr: COUNT(SV.USUBJID)
+        filter: SV.VISIT = 'WEEK 8'
 
   - name: N_WK16
     type: float
     label: Week 16 visit records (helper)
     derivation:
       aggregate:
-        expr: "COUNT(SV.USUBJID)"
-        filter: "SV.VISIT = 'WEEK 16'"
+        expr: COUNT(SV.USUBJID)
+        filter: SV.VISIT = 'WEEK 16'
 
   - name: N_WK24
     type: float
     label: Week 24 visit records (helper)
     derivation:
       aggregate:
-        expr: "COUNT(SV.USUBJID)"
-        filter: "SV.VISIT = 'WEEK 24'"
+        expr: COUNT(SV.USUBJID)
+        filter: SV.VISIT = 'WEEK 24'
 
   - name: COMP8FL
     type: str
     label: Completers of Week 8 Population Flag
     derivation:
       flag:
-        condition: "N_WK8 > 0"
-        false_value: "N"
-        missing: "N"
+        condition: N_WK8 > 0
+        false_value: N
+        missing: N
 
+    submission:
+      data_type: text
+      mandatory: false
+      length: 1
+      codelist: YN
+      origins:
+        - type: Derived
+      method:
+        name: Algorithm to derive ADSL.COMP8FL
+        type: Computation
+        description: Y if subject has a SV.VISITNUM=8 and ENDDT >= date of visit 8, N otherwise
   - name: COMP16FL
     type: str
     label: Completers of Week 16 Population Flag
     derivation:
       flag:
-        condition: "N_WK16 > 0"
-        false_value: "N"
-        missing: "N"
+        condition: N_WK16 > 0
+        false_value: N
+        missing: N
 
+    submission:
+      data_type: text
+      mandatory: false
+      length: 1
+      codelist: YN
+      origins:
+        - type: Derived
+      method:
+        name: Algorithm to derive ADSL.COMP16FL
+        type: Computation
+        description: Y if subject has a SV.VISITNUM=10 and ENDDT>=date of visit 10, N otherwise
   - name: COMP24FL
     type: str
     label: Completers of Week 24 Population Flag
     derivation:
       flag:
-        condition: "N_WK24 > 0"
-        false_value: "N"
-        missing: "N"
+        condition: N_WK24 > 0
+        false_value: N
+        missing: N
 
+    submission:
+      data_type: text
+      mandatory: false
+      length: 1
+      codelist: YN
+      origins:
+        - type: Derived
+      method:
+        name: Algorithm to derive ADSL.COMP24FL
+        type: Computation
+        description: Y if subject has a SV.VISITNUM=12 and ENDDT>= date of visit 12 , N otherwise
   - name: DCSREAS
     type: str
     label: Reason for Discontinuation from Study
     derivation:
       # Display values per the official ADSL codelist (observed mapping).
       case:
-        - when: "DS_DISP.DSDECOD <> 'COMPLETED' AND DS_DISP.DSTERM
-            = 'PROTOCOL ENTRY CRITERIA NOT MET'"
+        - when: DS_DISP.DSDECOD <> 'COMPLETED' AND DS_DISP.DSTERM = 'PROTOCOL ENTRY CRITERIA NOT MET'
           then: "'I/E Not Met'"
-        - when: "DS_DISP.DSDECOD = 'COMPLETED'"
+        - when: DS_DISP.DSDECOD = 'COMPLETED'
           then: "''"
         - otherwise:
             mapping:
               source: DS_DISP.DSDECOD
               dict:
-                "ADVERSE EVENT": "Adverse Event"
-                "DEATH": "Death"
-                "LACK OF EFFICACY": "Lack of Efficacy"
-                "LOST TO FOLLOW-UP": "Lost to Follow-up"
-                "PHYSICIAN DECISION": "Physician Decision"
-                "PROTOCOL VIOLATION": "Protocol Violation"
-                "STUDY TERMINATED BY SPONSOR": "Sponsor Decision"
-                "WITHDRAWAL BY SUBJECT": "Withdrew Consent"
+                ADVERSE EVENT: Adverse Event
+                DEATH: Death
+                LACK OF EFFICACY: Lack of Efficacy
+                LOST TO FOLLOW-UP: Lost to Follow-up
+                PHYSICIAN DECISION: Physician Decision
+                PROTOCOL VIOLATION: Protocol Violation
+                STUDY TERMINATED BY SPONSOR: Sponsor Decision
+                WITHDRAWAL BY SUBJECT: Withdrew Consent
 
+    submission:
+      data_type: text
+      mandatory: false
+      length: 18
+      codelist: DISCREAS
+      origins:
+        - type: Derived
+      method:
+        name: Algorithm to derive ADSL.DCREASCD
+        type: Computation
+        description: Grouping of DCDECOD values to support summarizing study completion status and reason for discontinuation
   - name: DCDECOD
     type: str
     label: Standardized Disposition Term
     derivation: DS_LAST.DSDECOD
 
+    submission:
+      data_type: text
+      mandatory: false
+      length: 27
+      codelist: DISCCD
+      origins:
+        - type: Derived
+      method:
+        name: Algorithm to derive ADSL.DCDECOD
+        type: Computation
+        description: DS.DSDECOD where DSCAT='DISPOSITION EVENT'
   - name: EOSSTT
     type: str
     label: End of Study Status
     derivation:
       case:
-        - when: "DCDECOD = 'COMPLETED'"
+        - when: DCDECOD = 'COMPLETED'
           then: "'COMPLETED'"
         - otherwise: "'DISCONTINUED'"
 
+    submission:
+      data_type: text
+      mandatory: false
+      length: 12
+      origins:
+        - type: Derived
+      method:
+        name: Algorithm to derive ADSL.EOSSTT
+        type: Computation
+        description: COMPLETED if ADSL.DCDECOD='COMPLETED'. DISCONTINUED if ADSL.DCDECOD not equal to COMPLETED.
   - name: DISCONFL
     type: str
     label: Did the Subject Discontinue the Study?
     derivation:
       case:
-        - when: "EOSSTT = 'DISCONTINUED'"
+        - when: EOSSTT = 'DISCONTINUED'
           then: "'Y'"
         - otherwise: "''"
 
+    submission:
+      data_type: text
+      mandatory: false
+      length: 1
+      origins:
+        - type: Derived
+      method:
+        name: Algorithm to derive ADSL.DISCONFL
+        type: Computation
+        description: Y if DCREASCD ^= 'Completed'. Null otherwise
   - name: DSRAEFL
     type: str
     label: Discontinued due to AE?
     derivation:
       flag:
-        condition: "DCDECOD = 'ADVERSE EVENT'"
-        false_value: ""
-        missing: ""
+        condition: DCDECOD = 'ADVERSE EVENT'
+        false_value: ''
+        missing: ''
 
+    submission:
+      data_type: text
+      mandatory: false
+      length: 1
+      origins:
+        - type: Derived
+      method:
+        name: Algorithm to derive ADSL.DSRAEFL
+        type: Computation
+        description: Y if DCREASCD='Adverse Event'. Null otherwise
   - name: EDUCLVL
     type: float
     label: Years of Education
     derivation: SC_EDU.SCSTRESN
 
+    submission:
+      data_type: integer
+      mandatory: false
+      length: 8
+      origins:
+        - type: Derived
+      method:
+        name: Algorithm to derive ADSL.EDUCLVL
+        type: Computation
+        description: SC.SCSTRESN where SC.SCTESTCD=EDLEVEL
   - name: DISONSDT
     type: date
     label: Date of Onset of Disease
@@ -676,6 +1094,17 @@ columns:
         month: 6
         day: 15
 
+    submission:
+      data_type: integer
+      mandatory: false
+      length: 8
+      display_format: DATE9.
+      origins:
+        - type: Derived
+      method:
+        name: Algorithm to derive ADSL.DISONSDT
+        type: Computation
+        description: MH.MHSTDTC where MHCAT='PRIMARY DIAGNOSIS' converted to SAS date
   - name: VISIT1DT
     type: date
     label: Date of Visit 1
@@ -686,6 +1115,17 @@ columns:
         month: 1
         day: 1
 
+    submission:
+      data_type: integer
+      mandatory: false
+      length: 8
+      display_format: DATE9.
+      origins:
+        - type: Derived
+      method:
+        name: Algorithm to derive ADSL.VISIT1DT
+        type: Computation
+        description: SV.SVSTDTC when SV.VISITNUM=1, converted to SAS date
   - name: _DURDIS_DAYS
     type: float
     label: Disease duration days (internal)
@@ -700,40 +1140,80 @@ columns:
   - name: _DURDIS_MONTHS
     type: float
     label: Disease duration months (internal)
-    derivation: "_DURDIS_DAYS * 12 / 365.25"
+    derivation: _DURDIS_DAYS * 12 / 365.25
 
   - name: DURDIS
     type: float
     label: Duration of Disease (Months)
     derivation:
-      round_half_away_from_zero: {source: _DURDIS_MONTHS, digits:
-          1}
-
+      round_half_away_from_zero: {source: _DURDIS_MONTHS, digits: 1}
+    submission:
+      data_type: float
+      mandatory: false
+      length: 8
+      significant_digits: 1
+      origins:
+        - type: Derived
+      method:
+        name: Algorithm to derive ADSL.DURDIS
+        type: Computation
+        description: number of months between VISIT1DT and DISONSET
   - name: DURDSGR1
     type: str
     label: Pooled Disease Duration Group 1
     derivation:
       case:
-        - when: "DURDIS < 12"
+        - when: DURDIS < 12
           then: "'<12'"
         - otherwise: "'>=12'"
 
+    submission:
+      data_type: text
+      mandatory: false
+      length: 4
+      codelist: DURDISC
+      origins:
+        - type: Derived
+      method:
+        name: Algorithm to derive ADSL.DURDSGR1
+        type: Computation
+        description: grouping DURDIS values as <12 and >=12
   - name: MMSETOT
     type: float
     label: MMSE Total
     derivation:
       aggregate:
-        expr: "SUM(QS.QSSTRESN)"
-        filter: "QS.VISITNUM = 1 AND QS.QSTESTCD LIKE 'MMITM%'"
+        expr: SUM(QS.QSSTRESN)
+        filter: QS.VISITNUM = 1 AND QS.QSTESTCD LIKE 'MMITM%'
 
+    submission:
+      data_type: integer
+      mandatory: false
+      length: 8
+      origins:
+        - type: Derived
+      method:
+        name: Algorithm to derive ADSL.MMSETOT
+        type: Computation
+        description: sum of QS.QSORRES values for the subject when QSCAT = MINI-MENTAL STATE
   - name: VISNUMEN
     type: float
     label: End of Trt Visit (Vis 12 or Early Term.)
     derivation:
       aggregate:
-        expr: "MAX(SV.VISITNUM)"
-        filter: "SV.VISITNUM <= 12 AND SV.VISIT NOT LIKE 'UNSCHEDULED%'"
+        expr: MAX(SV.VISITNUM)
+        filter: SV.VISITNUM <= 12 AND SV.VISIT NOT LIKE 'UNSCHEDULED%'
 
+    submission:
+      data_type: integer
+      mandatory: false
+      length: 8
+      origins:
+        - type: Derived
+      method:
+        name: Algorithm to derive ADSL.VISNUMEN
+        type: Computation
+        description: if DS.VISITNUM=13 where DSTERM='PROTCOL COMPLETED' then VISNUMEN=12, otherwise VISNUMEN=DS.VISITNUM where DSTERM='PROTCOL COMPLETED'
   - name: DS_ENDTC
     type: str
     label: Last disposition event date (character, internal)
@@ -746,26 +1226,65 @@ columns:
       # Scheduled protocol visits are VISITNUM 1-13; unscheduled (x.1),
       # AE follow-up (101) and retrieval (201) visits are excluded.
       aggregate:
-        filter: "SV.VISITNUM < 100 AND SV.VISIT NOT LIKE 'UNSCHEDULED%'"
-        expr: "MAX(SV.SVENDTC)"
+        filter: SV.VISITNUM < 100 AND SV.VISIT NOT LIKE 'UNSCHEDULED%'
+        expr: MAX(SV.SVENDTC)
 
   - name: RFENDTC
     type: str
     label: Subject Reference End Date/Time
     derivation:
       case:
-        - when: "SV_SCHED_ENDTC IS NOT NULL AND SV_SCHED_ENDTC > DS_ENDTC"
+        - when: SV_SCHED_ENDTC IS NOT NULL AND SV_SCHED_ENDTC > DS_ENDTC
           then: SV_SCHED_ENDTC
         - otherwise: DS_ENDTC
 
+    submission:
+      data_type: text
+      mandatory: false
+      length: 20
+      origins:
+        - type: Derived
+      method:
+        name: Algorithm to derive ADSL.RFENDTC
+        type: Computation
+        description: DM.RFENDTC
   - name: RFSTDTC
     type: str
     label: Subject Reference Start Date/Time
     derivation: DM.RFSTDTC
 
+    submission:
+      data_type: text
+      mandatory: false
+      length: 20
+      origins:
+        - type: Derived
+      method:
+        name: Algorithm to derive ADSL.RFSTDTC
+        type: Computation
+        description: DM.RFSTDTC
   - name: RFENDT
     type: date
-    label: "Date of Discontinuation/Completion"
+    label: Date of Discontinuation/Completion
     derivation:
       to_date:
         source: RFENDTC
+    submission:
+      data_type: integer
+      mandatory: false
+      length: 8
+      display_format: DATE9.
+      origins:
+        - type: Derived
+      method:
+        name: Algorithm to derive ADSL.RFENDT
+        type: Computation
+        description: RFENDTC converted to SAS date
+submission:
+  mode: historical
+  artifact: adsl.json
+  label: Subject-Level Analysis Dataset
+  class: SUBJECT LEVEL ANALYSIS DATASET
+  structure: one record per subject. Screen Failures are excluded.
+  repeating: false
+  reference_data: false

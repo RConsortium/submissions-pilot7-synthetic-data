@@ -53,3 +53,10 @@ Compare the outputs with the official references:
 ```bash
 python submission-pilot3/program/adam/python/compare.py
 ```
+
+## Define-XML
+
+[DEFINE.md](DEFINE.md) documents Define-XML 2.1 generation from this same
+project and these same dataset specs. The shared generator validates XML
+and reports all differences from the published Define-XML 2.0. Generation
+and data checks can pass while the strict reproduction check is `incomplete`.
