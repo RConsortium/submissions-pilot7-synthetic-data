@@ -97,6 +97,14 @@ def check(browser, base, site_dir, screenshots):
         expect(page.locator('.input-group [data-domain="EX"]')).to_be_visible()
         expect(page.locator('.input-group [data-domain="EX"] .key-badge')).not_to_have_count(0)
         assert_yaml_context(page, spec, {"DM", "EX"}, {"EX_FIRST"} if name == "submission-pilot3" else set())
+        # The merged findings UI applies to every published pilot study.
+        study_report = json.loads((site_dir / f"evidence/dashboard/{name}/report.json").read_text())
+        findings = [f for f in [*study_report.get("logic_checks", []), *study_report["findings"]] if f["kind"] != "executed"]
+        expect(page.locator(".metric-strip")).to_contain_text(f"Consistency: {len(findings)} findings")
+        page.get_by_role("button", name="Consistency findings", exact=True).click()
+        expect(page.locator(".result-count")).to_have_text(f"{len(findings)} of {len(findings)} findings")
+        expect(page.locator(".consistency-table tbody tr[data-finding-id]")).to_have_count(len(findings))
+        expect(page.get_by_role("button", name="Copy review context", exact=True)).to_have_count(0)
     page.goto(study)
     expect(page.locator("#output-table tbody tr")).to_have_count(3)
     expect(page.locator("#subject-summary")).to_contain_text("3 /")
@@ -397,7 +405,7 @@ def check(browser, base, site_dir, screenshots):
     evidence.click()
     expect(page.locator(".evidence-drawer")).to_be_visible()
     expect(page.locator("#subject-summary")).to_contain_text(f"{count} /")
-    # The pilot study report is static; synthetic data keeps a separate gallery.
+    # Pilot and synthetic reports share summary metrics and study tables.
     page.get_by_role("link", name="All pilot studies", exact=True).click()
     report = page.locator(".study-report")
     expect(report.locator("#studies + .report-table thead a")).to_have_count(
@@ -408,6 +416,8 @@ def check(browser, base, site_dir, screenshots):
         )
     )
     expect(report.locator("details")).to_have_count(0)
+    expect(report.locator(".report-provenance, #reading, #review-items")).to_have_count(0)
+    expect(report).to_contain_text("Subject-Level Analysis Dataset")
     assert page.evaluate("document.documentElement.scrollWidth<=innerWidth")
     nav = page.locator(".md-nav--primary")
     expect(nav).to_contain_text("Pilot studies")
@@ -476,21 +486,31 @@ def check(browser, base, site_dir, screenshots):
     synthetic_index = json.loads(
         (site_dir / "evidence/dashboard/synthetic/index.json").read_text()
     )
-    expect(page.locator("#synthetic-dashboard .study-card")).to_have_count(
-        len(synthetic_index["studies"])
-    )
-    page.locator('.study-card[href*="kn189"]').click()
-    expect(page.locator(".synthetic-stage-grid article")).to_have_count(4)
+    synthetic = page.locator("#synthetic-dashboard.study-report")
+    expect(synthetic.locator(".report-kpis > div")).to_have_count(5)
+    expect(synthetic.get_by_role("table", name="Synthetic study overview").locator("thead th")).to_have_count(1 + len(synthetic_index["studies"]))
+    expect(synthetic.get_by_role("table", name="Workflow readiness").locator("tbody tr")).to_have_count(4)
+    expect(synthetic.locator(".report-provenance, #reading, .study-card")).to_have_count(0)
+    capture(page, screenshots, "synthetic-report.png")
+    synthetic.get_by_role("link", name="KN189", exact=True).click()
+    expect(page.get_by_role("heading", name="KN189 study report", exact=True)).to_be_visible()
+    expect(page.get_by_role("table", name="Workflow readiness").locator("tbody tr")).to_have_count(4)
     expect(page.locator("#synthetic-dashboard")).to_contain_text("ODM source inventory")
     expect(page.locator(".review-workbench")).to_have_count(0)
     expect(page.locator("#synthetic-dashboard")).to_contain_text("Not staged")
     expect(page.locator(".md-sidebar--primary")).to_be_visible()
     assert (
-        page.get_by_role("link", name="Study source", exact=True)
+        page.locator("#synthetic-dashboard").get_by_role("link", name="kn189", exact=True)
         .get_attribute("href")
         .endswith("/kn189")
     )
     capture(page, screenshots, "synthetic-workspace.png")
+    page.get_by_role("link", name="All synthetic studies", exact=True).click()
+    page.locator("#synthetic-dashboard").get_by_role("link", name="KN564", exact=True).click()
+    expect(page.get_by_role("heading", name="KN564 study report", exact=True)).to_be_visible()
+    expect(page.get_by_role("table", name="Workflow readiness").locator("tbody tr")).to_have_count(4)
+    expect(page.get_by_role("table", name="ODM source archives")).to_contain_text("kn564/data/odm/kn564_odm.tar.gz")
+    capture(page, screenshots, "kn564-report.png")
     for width in [375, 768, 1600, 2560]:
         page.set_viewport_size({"width": width, "height": 1000})
         for view in ["datasets", "findings", "materials"]:
@@ -515,12 +535,11 @@ def check(browser, base, site_dir, screenshots):
                 assert box["x"] >= 0 and box["x"] + box["width"] <= width
                 page.locator("#record-search").click()
                 capture(page, screenshots, "mobile-workspace.png")
-        page.goto(base + "/studies/kn189/")
-        expect(page.locator(".synthetic-stage-grid article")).to_have_count(4)
-        assert page.evaluate("document.documentElement.scrollWidth<=innerWidth"), (
-            width,
-            "synthetic",
-        )
+        for path, title in [("synthetic", "Synthetic data report"), ("studies/kn189", "KN189 study report"), ("studies/kn564", "KN564 study report")]:
+            page.goto(base + "/" + path + "/")
+            expect(page.get_by_role("heading", name=title, exact=True)).to_be_visible()
+            expect(page.get_by_role("table", name="Workflow readiness").locator("tbody tr")).to_have_count(4)
+            assert page.evaluate("document.documentElement.scrollWidth<=innerWidth"), (width, path)
     page.goto(study + "#cdiscpilot01/datasets/ADAE?focus=output.TRTSDT")
     expect(page.locator("#panel-o-ADAE th.node-selected")).to_have_count(1)
     page.evaluate('document.body.dataset.mdColorScheme="slate"')

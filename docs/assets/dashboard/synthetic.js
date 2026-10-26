@@ -1,24 +1,115 @@
-/** Synthetic source-development dashboards never claim pilot verification results. */
+/** Synthetic reports share the pilot report layout, with file availability only. */
 import { esc, link } from "./ui.js";
+
 const REPO = "https://github.com/RConsortium/submissions-pilot7-synthetic-data";
+const number = (n) => n.toLocaleString("en-US");
 const bytes = (n) =>
   n >= 1024 ** 2
     ? (n / 1024 ** 2).toFixed(1) + " MiB"
-    : n.toLocaleString() + " bytes";
+    : number(n) + " bytes";
+const available = (model) => model.archives.filter((a) => a.available);
+const count = (model, stage) =>
+  model.stages.find((s) => s.id === stage)?.count ?? 0;
+const members = (model) => available(model).flatMap((a) => a.files);
+const studyUrl = (model, site) => new URL(`studies/${model.id}/`, site).href;
+const sourceUrl = (model) => `${REPO}/tree/${model.revision}/${model.id}`;
+const status = (staged) =>
+  `<span class="report-status ${staged ? "neutral" : "attention"}">${staged ? "Available" : "Not staged"}</span>`;
+const stageFiles = (model, id) => {
+  const n = count(model, id);
+  const unit = id === "odm" ? "archive" : "file";
+  return `${number(n)} ${unit}${n === 1 ? "" : "s"}`;
+};
+
+function table(label, headings, rows) {
+  return `<div class="report-table"><table class="report-matrix" aria-label="${esc(label)}"><thead><tr>${headings.map((h) => `<th scope="col">${h}</th>`).join("")}</tr></thead><tbody>${rows.join("")}</tbody></table></div>`;
+}
+
+function metrics(models, gallery) {
+  const total = (stage) => models.reduce((n, m) => n + count(m, stage), 0);
+  const tiles = [
+    gallery
+      ? ["Studies", models.length, "synthetic workspaces"]
+      : ["Source members", members(models[0]).length, "files in available archives"],
+    ["ODM archives", total("odm"), "available sources"],
+    ["SDTM files", total("sdtm"), "staged files"],
+    ["ADaM files", total("adam"), "staged files"],
+    ["Metadata files", total("define"), "staged Define-XML"],
+  ];
+  return `<dl class="report-kpis">${tiles.map(([name, value, note]) => `<div><dt>${name}</dt><dd>${number(value)}<span>${note}</span></dd></div>`).join("")}</dl>`;
+}
+
+function overview(models, site, gallery) {
+  const headings = ["Study", ...models.map((m) =>
+    `<a href="${esc(studyUrl(m, site))}">${esc(m.title)}</a>`)];
+  const facts = [
+    ["Scope", (m) => esc(m.description)],
+    ["Study source", (m) => link(sourceUrl(m), m.id)],
+    ["ODM archives", (m) => `${available(m).length} / ${m.archives.length} available`],
+    ["Source members", (m) => number(members(m).length)],
+    ["Compressed size", (m) => bytes(available(m).reduce((n, a) => n + a.bytes, 0))],
+  ];
+  return `<h2 id="studies">${gallery ? "Studies" : "Study overview"}</h2>${table("Synthetic study overview", headings, facts.map(([name, value]) =>
+    `<tr><th scope="row">${name}</th>${models.map((m) => `<td>${value(m)}</td>`).join("")}</tr>`))}`;
+}
+
+function readiness(models) {
+  const stages = [
+    ["odm", "EDC / ODM sources"],
+    ["sdtm", "SDTM mapping"],
+    ["adam", "ADaM derivation"],
+    ["define", "Submission metadata"],
+  ];
+  return `<h2 id="workflow-readiness">Workflow readiness</h2>${table("Workflow readiness", ["Stage", ...models.map((m) => esc(m.title))], stages.map(([id, title]) =>
+    `<tr><th scope="row">${title}</th>${models.map((m) => `<td class="report-cell">${status(count(m, id))}<span class="report-dims">${stageFiles(m, id)}</span></td>`).join("")}</tr>`))}<p class="report-foot">Availability counts staged files. It does not establish a successful derivation, reference agreement, or regulatory validation.</p>`;
+}
+
+function inventory(models, gallery) {
+  const rows = models.flatMap((m) => m.archives.map((a) =>
+    `<tr>${gallery ? `<th scope="row">${esc(m.title)}</th><td>` : '<th scope="row">'}${a.available ? link(`${REPO}/blob/${m.revision}/${a.path}`, a.path) : esc(a.path)}${gallery ? "</td>" : "</th>"}<td>${status(a.available)}</td><td>${a.available ? bytes(a.bytes) : "-"}</td><td>${a.available ? number(a.files.length) : "-"}</td></tr>`));
+  let body = rows.length
+    ? table("ODM source archives", [...(gallery ? ["Study"] : []), "Archive", "Status", "Compressed size", "Source members"], rows)
+    : "<p>No source archives are declared.</p>";
+  if (!gallery) {
+    for (const archive of available(models[0])) {
+      body += `<h3>${esc(archive.path.split("/").pop())}</h3>`;
+      body += archive.files.length
+        ? table("Source members in " + archive.path, ["Source member", "Uncompressed size"], archive.files.map((f) =>
+          `<tr><th scope="row"><code>${esc(f.name)}</code></th><td>${bytes(f.bytes)}</td></tr>`))
+        : "<p>No source files were found in this archive.</p>";
+    }
+  }
+  return `<h2 id="source-inventory">ODM source inventory</h2>${body}<p class="report-foot">The inventory reads archive headers without extracting or loading clinical XML. Original archives remain in the repository at the report revision.</p>`;
+}
+
+function workflow() {
+  return `<h2 id="development-workflow">Development workflow</h2>${table("Development workflow", ["Stage", "Next work"], [
+    ["EDC / ODM sources", "Inspect the ODM source and document its collection structure."],
+    ["SDTM mapping", "Author and review mappings into staged SDTM domains."],
+    ["ADaM derivation", "Add yamaa specifications and independent ADaM references when available."],
+    ["Submission metadata", "Produce submission metadata and review conformance and derivation evidence."],
+  ].map(([stage, task]) => `<tr><th scope="row">${stage}</th><td>${task}</td></tr>`))}`;
+}
+
+export function syntheticReport(models, site, gallery) {
+  const title = gallery ? "Synthetic data report" : `${models[0].title} study report`;
+  return `<h1>${esc(title)}</h1>
+    <p class="report-lede">Synthetic clinical trial sources support development of the EDC-to-submission workflow. This report summarizes source archives and staged files${gallery ? " across the synthetic studies" : ` for ${esc(models[0].title)}`}.</p>
+    ${!gallery ? `<p class="report-screen"><a href="${esc(new URL("synthetic/", site).href)}">All synthetic studies</a></p>` : ""}
+    ${models.length ? `${metrics(models, gallery)}${overview(models, site, gallery)}${readiness(models)}${inventory(models, gallery)}${workflow()}` : "<p>No synthetic studies are configured.</p>"}
+    <p class="report-foot">Source members are files inside the available archives, not counts of subjects or clinical records. Reference comparisons are reported separately in the <a href="${esc(new URL("studies/", site).href)}">pilot study report</a>.</p>`;
+}
+
 export async function mountSynthetic(main, get, dataRoot, site) {
   const index = await get(new URL("synthetic/index.json", dataRoot));
   if (!main.isConnected) return;
-  if (main.dataset.study === "gallery") {
-    main.innerHTML = `<h1>Synthetic data dashboards</h1><p>Develop the EDC-to-submission workflow using synthetic trial sources. These workspaces track available material and staging readiness.</p><div class="material-grid">${index.studies.map((s) => `<a class="study-card" href="${new URL("studies/" + s.id + "/", site)}"><h2>${esc(s.title)}</h2><p>${s.archives} source ${s.archives === 1 ? "archive" : "archives"} available</p><span>Explore sources and workflow readiness &#8594;</span></a>`).join("")}</div>`;
+  const gallery = main.dataset.study === "gallery";
+  const studies = gallery ? index.studies : index.studies.filter((s) => s.id === main.dataset.study);
+  if (!gallery && !studies.length) {
+    main.innerHTML = "<h1>Synthetic study unavailable</h1><p>This study has no source inventory.</p>";
     return;
   }
-  const study = index.studies.find((s) => s.id === main.dataset.study);
-  if (!study) {
-    main.innerHTML = "<h1>Synthetic workspace unavailable</h1>";
-    return;
-  }
-  const model = await get(new URL(study.url, dataRoot));
+  const models = await Promise.all(studies.map((s) => get(new URL(s.url, dataRoot))));
   if (!main.isConnected) return;
-  const source = `${REPO}/tree/${model.revision}/${model.id}`;
-  main.innerHTML = `<header class="review-hero"><p class="eyebrow">SYNTHETIC DATA / WORKFLOW DEVELOPMENT</p><div class="study-title-row"><h1>${esc(model.title)}</h1><div class="hero-actions"><a class="button" href="${new URL("synthetic/", site)}">All synthetic studies</a>${link(source, "Study source", "button")}</div></div><p>${esc(model.description)}</p></header><div class="synthetic-stage-grid">${model.stages.map((s) => `<article class="material-card"><h2>${esc(s.title)}</h2><span class="status ${s.count ? "neutral" : "attention"}">${s.count ? "Available" : "Not staged"}</span><p>${s.count} ${esc(s.count === 1 ? s.unit.slice(0, -1) : s.unit)}</p></article>`).join("")}</div><div class="coverage-note">This workspace supports source exploration and workflow development. Availability shows which files are staged; it does not assert a successful derivation or reference comparison. Use the pilot dashboards for verification against published submission packages.</div><h2>ODM source inventory</h2>${model.archives.map((a) => `<article class="material-card"><h3>${esc(a.path)}</h3>${a.available ? `<p>${bytes(a.bytes)} compressed / ${a.files.length} source files</p><div class="overview-table"><table class="review-table"><thead><tr><th>Source member</th><th>Uncompressed size</th></tr></thead><tbody>${a.files.map((f) => `<tr><td>${esc(f.name)}</td><td>${bytes(f.bytes)}</td></tr>`).join("")}</tbody></table></div>${link(`${REPO}/blob/${model.revision}/${a.path}`, "Archive in repository", "button")}` : "<p>Source archive is not staged.</p>"}</article>`).join("")}<h2>Development workflow</h2><ol><li>Inspect the ODM source and document its collection structure.</li><li>Author and review mappings into staged SDTM domains.</li><li>Add yamaa specifications and independent ADaM references when available.</li><li>Produce submission metadata and review conformance and derivation evidence.</li></ol>`;
+  main.innerHTML = syntheticReport(models, site, gallery);
 }
