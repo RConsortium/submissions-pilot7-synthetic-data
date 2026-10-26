@@ -52,12 +52,15 @@ order. Review the engine's resolved model when composing specifications.
 
 The three pilots use the repository's
 [shared contracts](https://github.com/RConsortium/submissions-pilot7-synthetic-data/tree/main/spec/yamaa).
-The ADSL parent shares demographics, while study-local fragments define
-exposure, baseline, and populations. Analysis datasets inherit the generated
-ADSL contract. CDISC Pilot 01 additionally shares its laboratory construction
-within that study. Output columns, clinical differences, and original missing
-values remain explicit in the study entries. Shared paths use `relative_to:
-entry`; use `clear` before restating an inherited ordered mapping in full.
+The ADSL parent remains `spec/yamaa/templates/adsl.yaml`. Each study keeps its
+exposure, baseline, and population rules together in `spec/yamaa/adsl.yaml`,
+using the same dataset filename. Small BDS metadata declarations and flag
+checks stay in their dataset files; the pilots need no separate fragments.
+Analysis datasets inherit the generated ADSL contract. CDISC Pilot 01 shares
+its laboratory construction within that study. Output columns, clinical
+differences, and original missing values remain explicit in the study entries.
+Shared paths use `relative_to: entry`; use `clear` before restating an
+inherited ordered mapping in full.
 
 ## State clinical invariants
 

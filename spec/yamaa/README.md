@@ -9,15 +9,17 @@ the Python and R runners only execute the project and save its outputs.
 | --- | --- |
 | `templates/adsl.yaml` | Demographic rules identical across all three studies |
 | `templates/subject-analysis.yaml` | Generated ADSL input contract and `copy` of common subject columns |
-| `fragments/bds-record.yaml` | Shared BDS record metadata |
-| `fragments/analysis-flags.yaml` | Baseline flag vocabulary |
-| `<study>/spec/yamaa/fragments/adsl-*.yaml` | Study-specific exposure, baseline, and population rules |
+| `<study>/spec/yamaa/adsl.yaml` | Study-specific exposure, baseline, and population rules in the usual dataset file |
 | `cdiscpilot01/spec/yamaa/templates/laboratory.yaml` | Shared chemistry/hematology structure within that study |
 
 ## Composition rules
 
-- Use one `parent` for a shared dataset contract, and `include` for cohesive
-  fragments. A fragment carries rules, not an independently executable dataset.
+- Use one `parent` for a shared dataset contract. Keep the same dataset filename
+  in the template and study, such as `templates/adsl.yaml` and
+  `<study>/spec/yamaa/adsl.yaml`.
+- Keep local rules, small BDS metadata declarations and flag checks in the
+  dataset file. The pilots do not need separate fragment files or `include`
+  declarations.
 - Use `copy` for unchanged producer columns. Write a local derivation for a
   renamed column or a study-specific value. Producer metadata stays authoritative.
 - Anchor shared input paths with `relative_to: entry`; study entries use their

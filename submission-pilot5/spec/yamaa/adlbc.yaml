@@ -2,9 +2,6 @@ yamaa: "1.0"
 type: spec
 model: ADaM
 parent: ../../../spec/yamaa/templates/subject-analysis.yaml
-include:
-  - ../../../spec/yamaa/fragments/bds-record.yaml
-  - ../../../spec/yamaa/fragments/analysis-flags.yaml
 clear:
   - columns.DSRAEFL.submission
 domain: ADLBC
@@ -180,6 +177,38 @@ columns:
   # --- Record aliases: every LB read goes through these so the grouped
   # --- eot2 template (one row per subject-param) can supply them via
   # --- aggregates while main/eot read the record directly.
+  - name: VISIT
+    type: str
+    label: Visit Name
+
+    derivation: _r_VISIT
+
+  - name: VISITNUM
+    type: float
+    label: Visit Number
+
+    derivation: _r_VISITNUM
+
+  - name: PARAMCD
+    type: str
+    label: Parameter Code
+    derivation: _r_LBTESTCD
+
+  - name: ABLFL
+    type: str
+    label: Baseline Record Flag
+    derivation:
+      case:
+        - when: "_r_LBBLFL IS NULL"
+          then: "''"
+        - otherwise: _r_LBBLFL
+    verifications:
+      - allowed_values:
+          values:
+            - Y
+            - N
+            - ''
+
   - name: _r_STUDYID
     type: str
     label: record STUDYID (internal)
@@ -301,27 +330,11 @@ columns:
         source: ADT
         reference: TRTSDT
 
-  - name: VISIT
-    type: str
-    label: Visit Name
-    derivation: _r_VISIT
-
-  - name: VISITNUM
-    type: float
-    label: Visit Number
-    derivation: _r_VISITNUM
-
-  # --- Parameter ---
   - name: PARAM
     type: str
     label: Parameter
     derivation:
       str_template: "{_r_LBTEST} ({_r_LBSTRESU})"
-
-  - name: PARAMCD
-    type: str
-    label: Parameter Code
-    derivation: _r_LBTESTCD
 
   - name: PARAMN
     type: float
@@ -359,15 +372,6 @@ columns:
     type: float
     label: Analysis Value
     derivation: _r_LBSTRESN
-
-  - name: ABLFL
-    type: str
-    label: Baseline Record Flag
-    derivation:
-      case:
-        - when: "_r_LBBLFL IS NULL"
-          then: "''"
-        - otherwise: _r_LBBLFL
 
   - name: BASE
     type: float

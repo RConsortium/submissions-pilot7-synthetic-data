@@ -94,7 +94,7 @@ def check(browser, base, site_dir, screenshots):
         expect(page.locator('.input-group [data-domain="DM"]')).to_be_visible()
         expect(page.locator('.input-group [data-domain="EX"]')).to_have_count(0)
         expect(page.get_by_role("link", name="Open source", exact=True)).to_have_attribute(
-            "href", re.compile("fragments/adsl-population.yaml"))
+            "href", re.compile(re.escape(name + "/spec/yamaa/adsl.yaml")))
         expect(page.locator('[data-line-node="spec.TRT01AN"]').first).to_be_visible()
         assert_yaml_context(page, spec, {"DM"}, set())
         expect(page.locator('[data-line-node="spec.TRT01A"]').first).not_to_be_visible()

@@ -22,7 +22,7 @@ in that same job.
 | Site prose, general CSS, or MkDocs config | Strict layout/link preview in the shared job. | 1 |
 | A study's yamaa specs | Build and compare that study through Python and R. | 2 |
 | A study's Python runner/comparator | Build and compare that study. | 2 |
-| Shared `spec/yamaa/` templates or fragments | Build and compare every active study through Python and R; verify publication. | Catalog + 2 |
+| Shared `spec/yamaa/` templates | Build and compare every active study through Python and R; verify publication. | Catalog + 2 |
 | A study's SDTM/ADaM binary data | yamaa comparison and CORE in one study job. | 2 |
 | A study's R program | Run R with the pinned engine and compare outputs. | 2 |
 | Generic comparison tool or its keys | Comparator self-check in the shared job. | 1 |

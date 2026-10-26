@@ -8,7 +8,7 @@ Keep explanations short, concrete, and easy to follow.
 
 - Each study has its own top-level folder with data, programs, specifications,
   outputs, and logs. The template is in `.github/repo-structure.json`.
-- `spec/yamaa/` holds shared subject contracts and BDS fragments. Study-specific
+- `spec/yamaa/` holds shared dataset templates. Study-specific
   clinical rules remain under each study's `spec/yamaa/`.
 - `docs/` contains the project website; `mkdocs.yml` defines its navigation.
 - `.github/scripts/` contains validation, comparison, and documentation tools.
