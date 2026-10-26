@@ -184,7 +184,7 @@ def build_bundle(root, destination, entries, reports, revision, verifications=No
                 "matched": matched_totals(validation),
                 "reference": reference_totals(root, study),
             },
-            findings=len(report["findings"]),
+            findings=report["review"]["counts"]["issues"],
             report="report.json",
         )
         write_json(target / "catalog.json", record)

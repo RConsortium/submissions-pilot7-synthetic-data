@@ -8,6 +8,7 @@ from .config import SCHEMA_VERSION
 from .documents import define_metadata, define_section_text, materials
 from .rule_review import rule_findings, verification_summary
 from .datasets import clean
+from .issues import build_review
 
 
 def build_report(
@@ -234,6 +235,7 @@ def build_report(
         "revision": revision,
         "findings": findings,
         "logic_checks": logic_checks,
+        "review": build_review(root, study, revision, findings + logic_checks),
         "checks": checks,
         "documents": [
             {k: v for k, v in d.items() if k != "sections"} for d in documents

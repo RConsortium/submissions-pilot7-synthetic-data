@@ -8,6 +8,7 @@ const fields = [
   "kind",
   "evidence",
   "comparison",
+  "reviewStatus",
   "document",
   "compareDocument",
   "documentSection",

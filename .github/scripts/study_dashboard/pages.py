@@ -91,7 +91,7 @@ def _header(studies, validated):
 def _kpis(studies, validated):
     matched = [sum(c["metrics"]["matched"][i] for c, _ in validated) for i in range(3)]
     reference = [sum(c["metrics"]["reference"][i] for c, _ in validated) for i in range(3)]
-    items = sum(len(r["findings"]) for _, r in validated)
+    items = sum(r["review"]["counts"]["issues"] for _, r in validated)
     tiles = [("Studies", f"{len(validated)} / {len(studies)}", "validated")]
     for i, name in enumerate(["ADaM datasets", "Columns", "Cells"]):
         tiles.append(

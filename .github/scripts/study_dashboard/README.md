@@ -27,7 +27,8 @@ The reviewer guide is `docs/review.md`.
     documents.py                         retained originals and searchable reading copies
     document_views.py                    workbook tables and original XML HTML
     consistency.py                       metadata checks and source-backed review questions
-    rule_review.py                       documented-rule findings from the verification report
+    rule_review.py                       documented-rule checks from the verification report
+    issues.py                            validated issue grouping and normalized evidence
     artifacts.py                         versioned study and gallery manifests
     pages.py                             study page shells and the static two-page study report
 docs/assets/dashboard/
@@ -41,7 +42,7 @@ docs/assets/dashboard/
   shell.js, workspace.js                 study layout and linked review panels
   source-documents.js                    independent file tabs and two original viewers
   report.js, comments.js, ui.js           evidence, discussions, and shared primitives
-  rule-findings.js                       documented-rule findings with rule, quotes and adjudication
+  issues.js                              concise issues, progressive traces and check aliases
 docs/stylesheets/dashboard.css           responsive layout and light/dark themes
 .github/tests/dashboard/                 artifact, extension, module, and browser checks
 <study>/spec/review/questions.json        optional authored review questions
@@ -189,15 +190,27 @@ uploads `report.json` and `report.md` as the `verification-<study>` artifact.
 `build_study_docs.py` reads them from `.build/verification/<study>/`, and
 `validate_verifications` refuses a report from another commit or engine, or one
 that does not cover exactly the reviewed datasets. A study with reviewed
-datasets cannot publish without one. `rule_review.py` reshapes each finding for
-the Consistency findings table, and `docs/assets/dashboard/rule-findings.js`
-renders it: the rule and its statement, both quoted sides with links into the
-retained documents and the specification, the data evidence and the
-adjudication. Opening a finding in the workspace selects its differing subjects.
-Datasets without claims, and studies without any, are unchanged. The table lists
-findings only, excluding successful execution rows, with nested source quotes,
-specification lines, dataset evidence and adjudication under Trace evidence.
-The plain-text Consistency metric counts the same findings.
+datasets cannot publish without one. `rule_review.py` preserves the underlying
+checks and adds document links. `issues.py` groups them using the versioned
+[issue schema](issue-schema.md); the JSON Schemas live in `.github/schemas/`.
+`docs/assets/dashboard/issues.js` renders concise issue rows and progressively
+expanded trace evidence from that contract. Both the metric and the static study
+report count issues. The table separately counts unique supporting checks.
+
+Author `<study>/spec/review/<dataset>-issues.json` to group related checks.
+Inventory every check and its basis hash, then write short issue titles,
+expected/observed behavior and actions. Explicit data and citation selectors
+keep a shared check's unrelated evidence out of the primary trace. Counts come
+from complete measured data, never editorial text or truncated samples. Missing
+checks, stale bases, unresolved selectors and invalid schema relations block
+publication. The previous published bundle remains intact.
+
+The generated `report.json` retains raw `findings` and `logic_checks` for audit
+and adds `review` with its own `schema_version: 1`, normalized issues, checks,
+evidence and counts. The browser rejects unsupported review versions. Old URLs
+with a check ID resolve to its first related issue. Dataset workspaces select
+only the issue's measured subjects. Agent agreement remains separate from issue
+resolution. Standalone verifier `report.md` remains the complete check audit.
 
 `.automation/consistency_review/workflow.md` is the agentic workflow around it.
 Agents propose and the script decides. The extraction agent writes

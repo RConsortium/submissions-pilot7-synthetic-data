@@ -12,6 +12,7 @@ import {
 import { createShell } from "./shell.js";
 import { createWorkspace } from "./workspace.js";
 import { createReport } from "./report.js";
+import { findIssue } from "./issues.js";
 import { createSourceDocuments } from "./source-documents.js";
 import { createComments } from "./comments.js";
 import { createResizing } from "./resize.js";
@@ -102,7 +103,7 @@ import { mountSynthetic } from "./synthetic.js";
   const { frame } = createShell(ctx),
     { workspace, applyHighlight, paintTables, fitWorkbench } =
       createWorkspace(ctx);
-  const { allFindings, findingRows, findingsView, drawer } = createReport(ctx),
+  const { findingRows, findingsView, drawer } = createReport(ctx),
     { commentsView, loadComments } = createComments(ctx);
   const sourceDocuments = createSourceDocuments(ctx),
     { materialsView } = sourceDocuments;
@@ -352,12 +353,13 @@ import { mountSynthetic } from "./synthetic.js";
       return;
     }
     if (target.dataset.finding) {
-      const f = allFindings().find((x) => x.id === target.dataset.finding);
+      const f = findIssue(report, target.dataset.finding);
+      if (!f) return;
       state.dataset = f.dataset;
       state.focus = f.variable ? "spec." + f.variable : "";
       state.evidence = f.id;
-      // A documented-rule finding opens on the records its data evidence names.
-      const subjects = (f.subjects || []).filter((s) =>
+      // Context comparisons never select subjects as an issue's measured impact.
+      const subjects = f.impact.subjects.filter((s) =>
         model.subjects.includes(s),
       );
       if (subjects.length) {
@@ -415,10 +417,12 @@ import { mountSynthetic } from "./synthetic.js";
       state.findingSearch = "";
       state.kind = "";
       state.comparison = "";
+      state.reviewStatus = "";
       save();
       byId("finding-search").value = "";
       byId("finding-kind").value = "";
       byId("finding-comparison").value = "";
+      byId("issue-review").value = "";
       byId("finding-results").innerHTML = findingRows();
       return;
     }
@@ -499,8 +503,16 @@ import { mountSynthetic } from "./synthetic.js";
       paintTables();
       return;
     }
-    if (["finding-kind", "finding-comparison"].includes(el.id)) {
-      state[el.id === "finding-kind" ? "kind" : "comparison"] = el.value;
+    if (
+      ["finding-kind", "finding-comparison", "issue-review"].includes(el.id)
+    ) {
+      state[
+        {
+          "finding-kind": "kind",
+          "finding-comparison": "comparison",
+          "issue-review": "reviewStatus",
+        }[el.id]
+      ] = el.value;
       save();
       byId("finding-results").innerHTML = findingRows();
     }

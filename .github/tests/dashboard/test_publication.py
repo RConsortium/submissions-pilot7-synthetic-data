@@ -155,7 +155,7 @@ columns:
             '<span class="report-dims">3 &#215; 2</span></td><td class="report-cell">-</td>',
             "No reference: no official reference is staged.",
             "<td>New study</td><td>Unstarted<small>Validation pending. No project yet.</small></td>",
-            "<tr><th scope=\"row\">ADaM datasets matched</th><td>No official reference</td><td>-</td></tr>",
+            '<tr><th scope="row">ADaM datasets matched</th><td>No official reference</td><td>-</td></tr>',
         ]:
             with self.subTest(expected=expected):
                 self.assertIn(expected, page)
@@ -215,6 +215,20 @@ columns:
         with patch.object(artifacts, "export_table", side_effect=tampered):
             with self.assertRaisesRegex(ValueError, "artifacts changed"):
                 self.generate()
+        self.assertEqual((current / "index.json").read_bytes(), before)
+
+    def test_invalid_issue_schema_leaves_previous_bundle_intact(self):
+        current = self.generate()
+        before = (current / "index.json").read_bytes()
+        self.write(
+            "future-study/spec/review/custom-issues.json",
+            json.dumps(
+                {"schema_version": 99, "dataset": "CUSTOM", "checks": {}, "issues": []}
+            ),
+        )
+        self.refresh()
+        with self.assertRaisesRegex(ValueError, "review issues"):
+            self.generate()
         self.assertEqual((current / "index.json").read_bytes(), before)
 
     def test_custom_reference_file_is_configured_without_loading_comparator_code(self):

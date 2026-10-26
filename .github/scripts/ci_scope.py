@@ -26,9 +26,9 @@ PUBLICATION_CODE = {'.github/scripts/build_study_docs.py', '.github/scripts/buil
                     '.github/workflows/yamaa-site.yml', '.github/workflows/study-check.yml',
                     # Validation jobs verify reviewed derivations; the bundle shows the report.
                     '.github/scripts/verify_derivations.py', '.github/scripts/consistency_report.py',
-                    '.automation/consistency_review/rules.yaml'}
+                    '.automation/consistency_review/rules.yaml', 'docs/requirements.txt'}
 PUBLICATION_PREFIXES = ('.github/scripts/study_dashboard/', '.github/tests/dashboard/',
-                        'docs/assets/dashboard/', 'docs/stylesheets/dashboard.css')
+                        '.github/schemas/', 'docs/assets/dashboard/', 'docs/stylesheets/dashboard.css')
 WORKER = '.github/workflows/study-check.yml'
 PLAN = 'submission-pilot3/data/mapping/plan.csv'
 PLAN_INPUTS = {PLAN,
