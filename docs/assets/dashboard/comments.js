@@ -3,7 +3,7 @@ export function createComments(ctx) {
   function commentsView() {
     const { model, index, state, esc, dataset, link } = ctx;
     const c = index.comments;
-    return `<div class="section-heading"><div><h2 id="comments-heading">Review comments</h2><p>Discuss ${esc(model.title)} / ${state.dataset}. Attach the current view link so reviewers can reproduce your context.</p></div><button class="button" id="copy-comment-context">Copy review context</button></div><div class="coverage-note">Comments are saved in <strong>${esc(c.repo)} GitHub Discussions</strong>, using a separate Pilot 7 thread for each dataset. GitHub sign-in is required to post. The static dashboard does not store comments locally.</div><div id="share-fallback" hidden><label>Copy review context<textarea id="share-url" readonly rows="6"></textarea></label></div><div id="comments-host"></div><p class="comment-fallback">If the embedded discussion is unavailable, ${link(c.discussion_url, "open GitHub Discussions")} or ${link(issueUrl(), "open a Pilot 7 review issue")}.</p>`;
+    return `<div class="section-heading"><div><h2 id="comments-heading">Review comments</h2><p>Discuss ${esc(model.title)} / ${state.dataset}. Attach the current view link so reviewers can reproduce your context.</p></div><button class="button" id="copy-comment-context">Copy review context</button></div><div id="share-fallback" hidden><label>Copy review context<textarea id="share-url" readonly rows="6"></textarea></label></div><div id="comments-host"></div><p class="comment-fallback">If the embedded discussion is unavailable, ${link(c.discussion_url, "open GitHub Discussions")} or ${link(issueUrl(), "open a Pilot 7 review issue")}.</p>`;
   }
   function issueUrl() {
     const { model, index, state, dataset } = ctx;
