@@ -267,6 +267,26 @@ class IssueSchemaTests(unittest.TestCase):
         result = build_review(self.root, "study", "revision", [executed])
         self.assertEqual(result["counts"], {"issues": 0, "checks": 0, "evidence": 0})
 
+    def test_generated_spec_summaries_are_not_quoted_as_literal_source(self):
+        for literal in (False, True):
+            with self.subTest(literal=literal):
+                finding = check("metadata", [])
+                finding["rule"] = None
+                finding["evidence"] = {}
+                finding["spec"] = {
+                    "path": "study/spec.yaml",
+                    "line": 10,
+                    "literal": literal,
+                    "excerpt": "- name: V\n  derivation: DM.V",
+                }
+                result = build_review(self.root, "study", "revision", [finding])
+                spans = [
+                    e["context_lines"]
+                    for e in result["evidence"]
+                    if e["type"] == "specification"
+                ]
+                self.assertEqual(spans, [[10, 11]] if literal else [])
+
 
 if __name__ == "__main__":
     unittest.main()

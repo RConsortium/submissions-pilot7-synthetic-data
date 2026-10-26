@@ -199,6 +199,8 @@ def build_report(
                 if span
                 else f'Inputs: {", ".join(spec["input"])} -> {domain}\nOutput columns: {", ".join(spec["output"]["columns"])}'
             )
+            finding["spec"]["literal"] = bool(span)
+            finding["spec"]["end_line"] = span["end"] if span else None
             summary = f"{pq.read_metadata(output_path).num_rows:,} rows; {len(schema)} columns."
             if name and name in schema.names:
                 column = pq.read_table(output_path, columns=[name]).column(name)

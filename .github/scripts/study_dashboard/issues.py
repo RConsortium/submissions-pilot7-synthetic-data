@@ -171,11 +171,18 @@ def check_record(f, pool):
             )
         )
         spec = f.get("spec", {})
-        add(
-            pool.citation(
-                {**spec, "element_lines": [spec.get("line", 1)] * 2}, "specification"
+        if spec.get("literal", True):
+            first = spec.get("line", 1)
+            last = (
+                spec.get("end_line")
+                or first + len(spec.get("excerpt", "").splitlines()) - 1
             )
-        )
+            add(
+                pool.citation(
+                    {**spec, "element_lines": [first, max(first, last)]},
+                    "specification",
+                )
+            )
     e = f.get("evidence") or {}
     for p in e.get("probes", []):
         add(pool.citation(p.get("definition"), "specification"))
@@ -375,7 +382,11 @@ def build_review(root, study, revision, findings):
             "id": "check-" + digest(check["id"])[:16],
             "variable": check["variable"],
             "title": CHECK_TITLES.get((f.get("rule") or {}).get("id"), f["title"]),
-            "summary": f["observation"][:237] + "..." if len(f["observation"]) > 240 else f["observation"],
+            "summary": (
+                f["observation"][:237] + "..."
+                if len(f["observation"]) > 240
+                else f["observation"]
+            ),
             "expected": "",
             "observed": "",
             "action": f.get("recommendation", ""),
