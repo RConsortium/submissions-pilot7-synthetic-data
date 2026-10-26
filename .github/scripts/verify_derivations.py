@@ -226,8 +226,14 @@ def spec_side(spec_file, element, quote=None):
 # Data checks.
 
 
-def compare(reference, observed, keys, column, observed_column, subject_key):
-    """Row-aligned agreement of one observed column with a reference column."""
+def compare(reference, observed, keys, column, observed_column, subject_key, extra_rows=True):
+    """Row-aligned agreement of one observed column with a reference column.
+
+    A reference record the observed table lacks is a difference. With
+    extra_rows, so is an observed record the reference lacks: a probe must
+    reproduce the reference population, not only its values. A copy source
+    such as DM rightly holds more records, so copy checks pass False.
+    """
     import polars as pl
 
     left = reference.select([*keys, pl.col(column).alias("_reference")])
@@ -235,6 +241,7 @@ def compare(reference, observed, keys, column, observed_column, subject_key):
         [*keys, pl.col(observed_column).alias("_observed"), pl.lit(True).alias("_present")]
     )
     joined = left.join(right, on=keys, how="left")
+    extra = right.join(left.select(keys).unique(), on=keys, how="anti") if extra_rows else right.clear()
     a, b = joined["_reference"], joined["_observed"]
     numeric = a.dtype.is_numeric() and b.dtype.is_numeric()
     if numeric:
@@ -249,22 +256,25 @@ def compare(reference, observed, keys, column, observed_column, subject_key):
         _reference=a, _observed=b, _same=same
     ).filter(~pl.col("_same"))
     patterns = {}
+    subject = lambda row: row[subject_key] if subject_key in keys else "/".join(str(row[k]) for k in keys)
     for row in differing.iter_rows(named=True):
-        pair = (jsonable(row["_reference"]), jsonable(row["_observed"]), bool(row["_present"]))
-        subject = row[subject_key] if subject_key in keys else "/".join(str(row[k]) for k in keys)
-        patterns.setdefault(pair, []).append(subject)
+        present = bool(row["_present"])
+        pair = (jsonable(row["_reference"]), jsonable(row["_observed"]) if present else None, "matched" if present else "absent")
+        patterns.setdefault(pair, []).append(subject(row))
+    for row in extra.iter_rows(named=True):
+        patterns.setdefault((None, jsonable(row["_observed"]), "extra"), []).append(subject(row))
     return {
-        "compared": joined.height,
-        "differ": differing.height,
+        "compared": joined.height + extra.height,
+        "differ": differing.height + extra.height,
         "patterns": [
             {
                 "reference": reference_value,
-                "observed": observed_value if present else None,
-                "row_absent": not present,
+                "observed": observed_value,
+                "row": row,
                 "count": len(subjects),
                 "subjects": subjects,
             }
-            for (reference_value, observed_value, present), subjects in sorted(
+            for (reference_value, observed_value, row), subjects in sorted(
                 patterns.items(), key=lambda item: -len(item[1])
             )
         ],
@@ -339,7 +349,7 @@ def copy_check(base, spec, tables, variable, comment, subject_key):
     result.update(status="checked", source_file=path.relative_to(base).as_posix(), join=join)
     for name, table in tables.items():
         if variable in table.columns:
-            result[name] = compare(table, source, join, variable, source_variable, subject_key)
+            result[name] = compare(table, source, join, variable, source_variable, subject_key, extra_rows=False)
     return result
 
 
@@ -533,11 +543,29 @@ def short(quote, limit=90):
     return quote if len(quote) <= limit else quote[: limit - 3].rstrip() + "..."
 
 
-def basis(rule, documents, spec, extra=""):
-    """What a finding asserts, in its own words; an adjudication judged this text."""
+def stable(value):
+    """Evidence without links, which name the revision and change with every commit."""
+    if isinstance(value, dict):
+        return {k: stable(v) for k, v in value.items() if k not in {"url", "links"}}
+    if isinstance(value, list):
+        return [stable(v) for v in value]
+    return value
+
+
+def basis(rule, documents, spec, evidence=None, extra=""):
+    """Everything a finding asserts; an adjudication judged exactly this text.
+
+    The quotes, the specification element the finding shows, and its evidence,
+    such as a probe's definition and its comparison results: a change to any of
+    them makes an earlier decision stale.
+    """
     parts = [rule] + [f'{d["role"]} {d["document"]}#{d["section"]}: "{normalize(d["quote"])}"' for d in documents]
     if spec and spec.get("quote"):
         parts.append(f'spec {spec["element"]}: "{normalize(spec["quote"])}"')
+    if spec and spec.get("excerpt"):
+        parts.append(f'spec {spec["element"]} text: "{normalize(spec["excerpt"])}"')
+    if evidence:
+        parts.append("evidence " + json.dumps(stable(evidence), sort_keys=True, ensure_ascii=True))
     return " | ".join(parts + ([extra] if extra else []))
 
 
@@ -567,7 +595,7 @@ def variable_findings(record, rules, spec_file, define_citation):
                 "interpretations": record.get("interpretations", []),
                 "assessment": record.get("assessment", ""),
                 "question": record.get("question", ""),
-                "basis": basis(rule, documents, spec, extra),
+                "basis": basis(rule, documents, spec, evidence, extra),
             }
         )
 
@@ -679,6 +707,13 @@ def dataset_report(context, domain, spec_path, derived, reference):
     probe = None
     if probe_path.is_file():
         probe_spec, probe_output, probe = run_probe(probe_path)
+        probe_text = probe_path.read_text()
+        probe_file = {
+            "path": probe_path.relative_to(root).as_posix(),
+            "lines": probe_text.splitlines(),
+            "spans": source_locations(probe_text)["spans"],
+            "revision": revision,
+        }
     claims, declaration = {}, None
     if claims_path.is_file():
         declaration, claims = load_claims(claims_path, set(probe.columns) if probe is not None else set())
@@ -733,6 +768,7 @@ def dataset_report(context, domain, spec_path, derived, reference):
             record["probes"] = [
                 {
                     **p,
+                    "definition": spec_side(probe_file, p["column"]),
                     "reference": compare(reference, probe, probe_spec["keys"], name, p["column"], subject_key),
                     "derived": compare(derived, probe, probe_spec["keys"], name, p["column"], subject_key)
                     if name in derived.columns
@@ -763,6 +799,10 @@ def dataset_report(context, domain, spec_path, derived, reference):
         index,
         lambda statement: document_links(root, study, revision, statement, metadata),
     )
+    rows = {row["id"] for row in spec.get("rows", [])}
+    for statement in missed:
+        # Record selection has no rule yet, so no claim can cite it.
+        statement["scope"] = "records" if statement["variable"] in rows else "variable"
     judged = [r for r in records if "verdict" in r]
     order = {s: i for i, s in enumerate(["conflict", "divergence", "gap", "evidence"])}
     findings.sort(key=lambda f: order[f["severity"]])

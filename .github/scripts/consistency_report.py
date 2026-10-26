@@ -124,8 +124,9 @@ def variable_block(spec):
 def pattern_table(patterns, observed_label):
     out = [f"| Reference | {observed_label} | Records | Subjects |", "| --- | --- | ---: | --- |"]
     for p in patterns:
-        observed = "(no record)" if p.get("row_absent") else value(p["observed"])
-        out.append(f"| {value(p['reference'])} | {observed} | {p['count']} | {subjects(p['subjects'])} |")
+        reference = "(no record)" if p["row"] == "extra" else value(p["reference"])
+        observed = "(no record)" if p["row"] == "absent" else value(p["observed"])
+        out.append(f"| {reference} | {observed} | {p['count']} | {subjects(p['subjects'])} |")
     return out + [""]
 
 
@@ -139,6 +140,11 @@ def evidence_block(evidence):
             out += pattern_table(result["patterns"], "Documented rule")
         else:
             out += [f"**Data:** probe {code(probe['column'])} ({reading}) reproduces the reference on all {result['compared']} records.", ""]
+        definition = probe.get("definition") or {}
+        if definition.get("excerpt"):
+            where = link(span(definition["element_lines"]), definition.get("url"))
+            out += ["<details>", f"<summary>How probe {code(probe['column'])} states the rule</summary>", ""]
+            out += [f"{code(definition['path'])}, {where}", ""] + excerpt(definition) + ["", "</details>", ""]
     copy = evidence.get("copy")
     if copy:
         result = copy.get("reference")
@@ -216,9 +222,15 @@ def dataset_block(dataset):
             out += [f"### {HEADINGS[severity]} ({len(group)})", ""]
             for finding in group:
                 out += finding_block(finding)
-    if dataset.get("missed"):
-        out += ["### Statements the adjudicator found uncited", "", "Each is for the next extraction round to cite.", ""]
-        for m in dataset["missed"]:
+    groups = [
+        ("variable", "Statements the adjudicator found uncited", "Each is for the next extraction round to cite."),
+        ("records", "Statements about which records the dataset holds", "No rule covers record selection yet, so no claim cites these; the specification's row rule is their counterpart."),
+    ]
+    for scope, heading, lead in groups:
+        statements = [m for m in dataset.get("missed", []) if m.get("scope", "variable") == scope]
+        if statements:
+            out += [f"### {heading}", "", lead, ""]
+        for m in statements:
             found = "" if m["verified"] else f" Not found: {text(m['not_found'])}."
             out += [f"**{m['variable']}** ({location(m)})", "", f"> {text(m['quote'])}", "", f"{text(m['reason'])}{found}", ""]
     if dataset.get("orphaned_decisions"):

@@ -123,9 +123,27 @@ class FindingTests(unittest.TestCase):
                 "ADSL.TRTSDT.CR-5",
                 "conflict",
                 "The documented rule, run as written, differs from the reference on 2 of 3 records; reading TRTSDT__VISIT_4 reproduces the reference.",
-                'CR-5 | states spec/define/define-adam.xml#ADSL.TRTSDT: "SV.SVSTDTC when SV.VISITNUM=3, converted to SAS date" | probes TRTSDT, TRTSDT__VISIT_4',
+                'CR-5 | states spec/define/define-adam.xml#ADSL.TRTSDT: "SV.SVSTDTC when SV.VISITNUM=3, converted to SAS date"'
+                ' | spec TRTSDT text: "- name: TRTSDT derivation: impute: type: date source: EX_MINDTC month: 1 day: 1"'
+                ' | evidence {"probes": [{"column": "TRTSDT", "reading": "literal", "reference": {"compared": 3, "differ": 2, "patterns": []}},'
+                ' {"column": "TRTSDT__VISIT_4", "reading": "Visit 4.", "reference": {"compared": 3, "differ": 0, "patterns": []}}]}'
+                " | probes TRTSDT, TRTSDT__VISIT_4",
             ),
-            "CR-5 cites every quote of the rule and both probes",
+            "CR-5 cites every quote of the rule, the variable's definition and both probes with their results",
+        )
+
+    def test_the_basis_changes_with_the_evidence_but_not_with_a_link(self):
+        side = {"role": "states", "document": DEFINE, "section": "ADSL.TRTSDT", "quote": "VISITNUM=3"}
+        spec = vd.spec_side(spec_file(), "TRTSDT", "month: 1")
+        evidence = {"probes": [{"column": "TRTSDT", "definition": {"excerpt": "SV3.SVSTDTC", "url": "u1"}, "reference": {"differ": 2}}]}
+        moved = {"probes": [{"column": "TRTSDT", "definition": {"excerpt": "SV3.SVSTDTC", "url": "u2"}, "reference": {"differ": 2}}]}
+        rewritten = {"probes": [{"column": "TRTSDT", "definition": {"excerpt": "SV4.SVSTDTC", "url": "u1"}, "reference": {"differ": 2}}]}
+        result = {"probes": [{"column": "TRTSDT", "definition": {"excerpt": "SV3.SVSTDTC", "url": "u1"}, "reference": {"differ": 5}}]}
+        original = vd.basis("CR-5", [side], spec, evidence)
+        self.assertEqual(
+            [vd.basis("CR-5", [side], spec, e) == original for e in (moved, rewritten, result)],
+            [True, False, False],
+            "a new revision in a link keeps the decision; a changed probe or result makes it stale",
         )
 
     def test_a_decision_applies_only_to_the_finding_it_judged(self):
@@ -294,20 +312,19 @@ class CompareTests(unittest.TestCase):
 
         keys = ["USUBJID"]
         reference = pl.DataFrame({"USUBJID": ["1", "2", "3", "4", "5"], "V": [1.0, None, 2.0, 3.0, 3.0]})
-        observed = pl.DataFrame({"USUBJID": ["1", "2", "3", "4"], "P": [1.0 + 1e-12, None, 2.5, 4.0]})
-        self.assertEqual(
-            vd.compare(reference, observed, keys, "V", "P", "USUBJID"),
-            {
-                "compared": 5,
-                "differ": 3,
-                "patterns": [
-                    {"reference": 2.0, "observed": 2.5, "row_absent": False, "count": 1, "subjects": ["3"]},
-                    {"reference": 3.0, "observed": 4.0, "row_absent": False, "count": 1, "subjects": ["4"]},
-                    {"reference": 3.0, "observed": None, "row_absent": True, "count": 1, "subjects": ["5"]},
-                ],
-            },
-            "tolerance, matching nulls, a changed value and an absent row",
-        )
+        observed = pl.DataFrame({"USUBJID": ["1", "2", "3", "4", "6"], "P": [1.0 + 1e-12, None, 2.5, 4.0, 9.0]})
+        values = [
+            {"reference": 2.0, "observed": 2.5, "row": "matched", "count": 1, "subjects": ["3"]},
+            {"reference": 3.0, "observed": 4.0, "row": "matched", "count": 1, "subjects": ["4"]},
+            {"reference": 3.0, "observed": None, "row": "absent", "count": 1, "subjects": ["5"]},
+        ]
+        cases = [
+            ("a probe's extra record differs", True, {"compared": 6, "differ": 4, "patterns": values + [{"reference": None, "observed": 9.0, "row": "extra", "count": 1, "subjects": ["6"]}]}),
+            ("a copy source may hold more records", False, {"compared": 5, "differ": 3, "patterns": values}),
+        ]
+        for label, extra_rows, expected in cases:
+            with self.subTest(case=label):
+                self.assertEqual(vd.compare(reference, observed, keys, "V", "P", "USUBJID", extra_rows), expected, label)
 
     def test_null_and_empty_text_stay_distinct(self):
         import polars as pl
