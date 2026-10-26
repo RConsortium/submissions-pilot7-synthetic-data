@@ -253,13 +253,15 @@ Synthetic studies are declared separately in `.github/synthetic-studies.json`.
 `synthetic.py` inspects source archive headers and staged-file availability,
 without extracting the archive or loading its clinical XML. It writes small
 source/readiness manifests under `synthetic/` in the evidence bundle.
-`synthetic.js` provides the distinct development dashboard. Availability is
-separate from derivation and comparison success. Original archives stay in the
-repository and are linked at the publication revision.
+`synthetic.js` renders the overview and individual studies with the shared
+report metrics, study tables, workflow readiness, and archive inventories.
+Availability is separate from derivation and comparison success. Original
+archives stay in the repository and are linked at the publication revision.
 
 To add a synthetic workspace, add its title, description, and study-relative
 archive paths to that catalog and create a maintained page like
-`docs/studies/kn189.md` with a `synthetic-dashboard` container and `data-study`
-matching the catalog key. Navigation and source inventory follow the catalog.
+`docs/studies/kn189.md` with a `synthetic-dashboard` container, the
+`study-report synthetic-report` classes, and `data-study` matching the catalog
+key. Navigation and source inventory follow the catalog.
 Keep a study in the catalog for its intended purpose; pilot verification and
 synthetic source development use different dashboard contracts.

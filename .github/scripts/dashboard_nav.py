@@ -20,7 +20,7 @@ def study_navigation(root, manual):
 
 def synthetic_navigation(root):
     return [
-        {"Synthetic dashboards": "synthetic/index.md"},
+        {"Synthetic report": "synthetic/index.md"},
         *(
             {entry["title"]: f"studies/{name}.md"}
             for name, entry in synthetic_catalog(root).items()
