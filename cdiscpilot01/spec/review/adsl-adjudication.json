@@ -1,0 +1,321 @@
+{
+  "schema_version": 1,
+  "dataset": "ADSL",
+  "author": {
+    "kind": "agent",
+    "model": "claude-opus-5-5",
+    "instructions": ".automation/consistency_review/adjudicate.md",
+    "date": "2026-10-25"
+  },
+  "decisions": [
+    {
+      "finding": "ADSL.COMP24FL.CR-8.2",
+      "basis": "CR-8 | states spec/define/define-adam.xml#ADSL.COMP24FL: \"Y if subject has a SV.VISITNUM=12 and ENDDT>= date of visit 12\" | against spec/source/SAP.pdf#page-9: \"All patients in the efficacy population who completed their Week 24 visit (Visit 12).\" | contradicts",
+      "decision": "agree",
+      "reason": "Define-XML ADSL.COMP24FL flags any subject with a visit 12 date on or before ENDDT, while SAP page-9 defines completers as efficacy-population patients who completed Visit 12. The efficacy-population restriction is a real difference, not a paraphrase."
+    },
+    {
+      "finding": "ADSL.BMIBL.CR-5",
+      "basis": "CR-5 | states spec/define/define-adam.xml#ADSL.BMIBL: \"WEIGHTBL / ((HEIGHTBL*100)**2)\" | states spec/define/define-adam.xml#ADSL.BMIBL: \"Significant digits: 1\" | states spec/source/SAP.pdf#page-13: \"Weight, height, BMI at Baseline (Visit 3 for weight and BMI, Visit 1 for height)\" | probes BMIBL, BMIBL__HEIGHT_IN_METRES",
+      "decision": "agree",
+      "reason": "Probe BMIBL states Define-XML ADSL.BMIBL exactly (HEIGHTBL*100 squared, one decimal), which rounds to 0.0 for every subject with a BMI. The height-in-metres reading agrees with the label kg/m^2 and HEIGHTBL in cm, and it reproduces the reference."
+    },
+    {
+      "finding": "ADSL.BMIBLGR1.CR-8.3",
+      "basis": "CR-8 | states spec/define/define-adam.xml#ADSL.BMIBLGR1: \">30 = Obese\" | against spec/source/SAP.pdf#page-13: \"BMI>=30\" | contradicts",
+      "decision": "agree",
+      "reason": "Define-XML ADSL.BMIBLGR1 codes the obese group as '>30' in codelist BMICAT, while SAP page-13 (and the page-22 template) write BMI>=30, as the Define-XML comment itself does. The codelist states the boundary differently."
+    },
+    {
+      "finding": "ADSL.BMIBLGR1.CR-8.4",
+      "basis": "CR-8 | states spec/define/define-adam.xml#ADSL.BMIBLGR1: \">30 = Obese\" | against spec/source/SAP.pdf#page-22: \"obese(>=30)\" | contradicts",
+      "decision": "agree",
+      "reason": "Codelist BMICAT in Define-XML ADSL.BMIBLGR1 codes the obese group as '>30', while the SAP page-22 Template 3 note writes obese(>=30), as SAP page-13 and the Define-XML comment write >=30. It is the boundary difference of BMIBLGR1.CR-8.3, stated in a second SAP section."
+    },
+    {
+      "finding": "ADSL.BMIBLGR1.CR-5",
+      "basis": "CR-5 | states spec/define/define-adam.xml#ADSL.BMIBLGR1: \"BMIBLGR1=Normal if . < BMIBL <25. BMIBLGR1=Overweight if 25 <=BMIBL <30. BMIBLGR1=Obese if BMIBL >=30\" | states spec/define/define-adam.xml#ADSL.BMIBLGR1: \"Codelist BMICAT: <25 = Normal; 25-<30 = Overweight; >30 = Obese\" | states spec/source/SAP.pdf#page-13: \"BMI category (BMI<25, BMI 25-<30, BMI>=30)\" | states spec/source/SAP.pdf#page-22: \"Baseline BMI (cont. and as normal(<25), overweight(25-<30), obese(>=30))\" | probes BMIBLGR1, BMIBLGR1__CODED_GE30",
+      "decision": "agree",
+      "reason": "Probe BMIBLGR1 states the Define-XML comment with SAS '. < BMIBL' and the BMICAT coded values, so the 28 obese records read '>30' and 01-702-1082, which has no baseline BMI, gets no group. Reading BMIBLGR1__CODED_GE30, justified by '>=30' on SAP page-13 and page-22, leaves only that subject, and no section places a missing BMI in '<25' as the reference does (SAP page-10 says missing baseline values will not be imputed)."
+    },
+    {
+      "finding": "ADSL.BMIBLGR1.CR-9",
+      "basis": "CR-9 | states spec/define/define-adam.xml#ADSL.BMIBLGR1: \"Codelist BMICAT: <25 = Normal; 25-<30 = Overweight; >30 = Obese\"",
+      "decision": "agree",
+      "reason": "Codelist BMICAT in Define-XML ADSL.BMIBLGR1 lists '<25', '25-<30' and '>30'. The reference and the yamaa output both hold '>=30', which is not a coded value."
+    },
+    {
+      "finding": "ADSL.EDUCLVL.CR-5",
+      "basis": "CR-5 | states spec/define/define-adam.xml#ADSL.EDUCLVL: \"SC.SCSTRESN where SC.SCTESTCD=YEARSEDU\" | probes EDUCLVL, EDUCLVL__EDLEVEL",
+      "decision": "agree",
+      "reason": "Probe EDUCLVL reads SCSTRESN for SCTESTCD 'YEARSEDU' exactly as Define-XML ADSL.EDUCLVL writes it, and it is missing for every subject. The EDLEVEL reading, the test code that SC_EDU uses (adsl.yaml line 187), reproduces the reference."
+    },
+    {
+      "finding": "ADSL.DURDIS.CR-8.3",
+      "basis": "CR-8 | states spec/source/SAP.pdf#page-13: \"computed as months between date of Week -2 (Visit 1) and date of onset\" | against spec/source/SAP.pdf#page-22: \"computed as months between date of enrollment and date of onset\" | contradicts",
+      "decision": "agree",
+      "reason": "SAP page-13 ends the interval at Week -2 (Visit 1), while the page-22 template note ends it at enrollment. Page-9 defines enrollment as assignment to treatment, at Week 0 (Visit 3), so the two SAP statements name different dates."
+    },
+    {
+      "finding": "ADSL.DURDIS.CR-5",
+      "basis": "CR-5 | states spec/define/define-adam.xml#ADSL.DURDIS: \"number of months between VISIT1DT and DISONSET\" | states spec/define/define-adam.xml#ADSL.DURDIS: \"Significant digits: 1\" | states spec/source/SAP.pdf#page-13: \"Duration of disease [computed as months between date of Week -2 (Visit 1) and date of onset of the first definite symptoms of Alzheimer's Disease]\" | states spec/source/SAP.pdf#page-22: \"NOTE: Duration of disease is computed as months between date of enrollment and date of onset of the first definite symptoms of Alzheimer's disease.\" | states spec/source/SAP.pdf#page-9: \"Patients who are enrolled in the study are those who have been assigned to a treatment group.\" | probes DURDIS, DURDIS__AVERAGE_MONTH, DURDIS__ENROLLMENT",
+      "decision": "agree",
+      "reason": "Define-XML ADSL.DURDIS does not define a month, so the literal whole-calendar-month probe is a fair reading, and it differs as shown. The 30.4375-day reading that reproduces the reference is stated in no document (DURDIS.CR-7.2)."
+    },
+    {
+      "finding": "ADSL.VISNUMEN.CR-8.3",
+      "basis": "CR-8 | states spec/define/define-adam.xml#ADSL.VISNUMEN: \"otherwise VISNUMEN=DS.VISITNUM where DSTERM='PROTCOL COMPLETED'\" | against spec/define/define-adam.xml#ADSL.VISNUMEN: \"Vis 12 or Early Term.\" | contradicts",
+      "decision": "agree",
+      "reason": "The Define-XML ADSL.VISNUMEN comment assigns a value only from the 'PROTCOL COMPLETED' record, while its label (and SAP page-10 on end of treatment) covers early termination. For subjects who terminated early, the two statements disagree."
+    },
+    {
+      "finding": "ADSL.VISNUMEN.CR-8.4",
+      "basis": "CR-8 | states spec/define/define-adam.xml#ADSL.VISNUMEN: \"otherwise VISNUMEN=DS.VISITNUM where DSTERM='PROTCOL COMPLETED'\" | against spec/source/SAP.pdf#page-10: \"Week 24 visit or early termination visit\" | contradicts",
+      "decision": "agree",
+      "reason": "The Define-XML ADSL.VISNUMEN comment takes VISITNUM only from the 'PROTCOL COMPLETED' record, while SAP page-10 makes end of treatment the early termination visit for a subject who did not complete. For early terminators the comment gives no visit where the SAP gives one, the same gap VISNUMEN.CR-8.3 finds against the label."
+    },
+    {
+      "finding": "ADSL.VISNUMEN.CR-5",
+      "basis": "CR-5 | states spec/define/define-adam.xml#ADSL.VISNUMEN: \"if DS.VISITNUM=13 where DSTERM='PROTCOL COMPLETED' then VISNUMEN=12, otherwise VISNUMEN=DS.VISITNUM where DSTERM='PROTCOL COMPLETED'\" | states spec/define/define-adam.xml#ADSL.VISNUMEN: \"Label: End of Trt Visit (Vis 12 or Early Term.)\" | states spec/source/SAP.pdf#page-10: \"\u201cEnd of treatment\u201d will refer to the subject\u2019s Week 24 visit or early termination visit.\" | probes VISNUMEN, VISNUMEN__PROTOCOL_SPELLING, VISNUMEN__END_OF_TREATMENT",
+      "decision": "agree",
+      "reason": "Probe VISNUMEN states the comment as written, misspelled DSTERM included, and finds no record; with the PROTOCOL spelling every remaining difference is a subject with no completion record, and VISNUMEN__END_OF_TREATMENT, justified by SAP page-10 and the label, leaves only 01-703-1258, whose disposition is at visit 13. SAP page-17 and page-40, uncited, end treatment on or before the Week 24 visit, consistent with the reference's 12 for that subject."
+    },
+    {
+      "finding": "ADSL.MMSETOT.CR-5",
+      "basis": "CR-5 | states spec/define/define-adam.xml#ADSL.MMSETOT: \"sum of QS.QSORRES values for the subject\" | states spec/define/define-adam.xml#ADSL.MMSETOT: \"Label: MMSE Total\" | probes MMSETOT, MMSETOT__MMSE_ONLY",
+      "decision": "agree",
+      "reason": "Probe MMSETOT sums every QS record of the subject, as the Define-XML ADSL.MMSETOT comment reads, and so totals all questionnaires. The MINI-MENTAL STATE reading, supported by the label 'MMSE Total', reproduces the reference."
+    },
+    {
+      "finding": "ADSL.SITEGR1.CR-6.1",
+      "basis": "CR-6 | states spec/source/SAP.pdf#page-10: \"Sites that enroll fewer than 3 patients in any one treatment group will be grouped together\" | spec SITEGR1: \"DM.SITEID IN ('702','706','707','711','714','715','717')\" | differs",
+      "decision": "agree",
+      "reason": "SAP page-10 states a pooling condition on enrollment per treatment group, while adsl.yaml line 261 hard-codes seven site IDs. The list is the rule's result on this data, not the condition itself."
+    },
+    {
+      "finding": "ADSL.SITEGR1.CR-6.4",
+      "basis": "CR-6 | states spec/source/SAP.pdf#page-10: \"then this group of patients will be combined with the next fewest enrolling site\" | absent_in_spec",
+      "decision": "agree",
+      "reason": "The SITEGR1 element (adsl.yaml lines 256-264) holds only the fixed site list. It has no step that combines a still-short pooled group with the next fewest-enrolling site, as SAP page-10 requires."
+    },
+    {
+      "finding": "ADSL.SITEGR1.CR-6.5",
+      "basis": "CR-6 | states spec/source/SAP.pdf#page-10: \"In the event that there is a tie for fewest-enrolling site, one of these will be chosen at random by a random-number generator.\" | absent_in_spec",
+      "decision": "agree",
+      "reason": "SAP page-10 breaks a tie for fewest-enrolling site by a random choice, and the SITEGR1 element (adsl.yaml lines 256-264) holds only a fixed list of seven sites with no tie-break step. As in SITEGR1.CR-6.4, the list is the pooling's result on this data, not its rule."
+    },
+    {
+      "finding": "ADSL.TRTSDT.CR-6.1",
+      "basis": "CR-6 | states spec/define/define-adam.xml#ADSL.TRTSDT: \"SV.SVSTDTC when SV.VISITNUM=3\" | spec EX_MINDTC: \"MIN(EX.EXSTDTC)\" | differs",
+      "decision": "agree",
+      "reason": "Define-XML ADSL.TRTSDT takes SV.SVSTDTC at visit 3, while EX_MINDTC (adsl.yaml line 306) takes the earliest EX.EXSTDTC. These are different sources, even where the dates coincide."
+    },
+    {
+      "finding": "ADSL.TRTSDT.CR-6.4",
+      "basis": "CR-6 | states spec/source/SAP.pdf#page-16: \"the date of first dose [Week 0 (Visit 3) unless indicated otherwise]\" | spec EX_MINDTC: \"MIN(EX.EXSTDTC)\" | differs",
+      "decision": "agree",
+      "reason": "SAP page-16 places the date of first dose, against which Define-XML ADAE.TRTEMFL compares TRTSDT, at Week 0 (Visit 3), as Define-XML ADSL.TRTSDT does, while EX_MINDTC (adsl.yaml line 306) takes the earliest EX.EXSTDTC. No section indicates another first-dose date, so the source differs as in TRTSDT.CR-6.1."
+    },
+    {
+      "finding": "ADSL.TRTEDT.CR-6.3",
+      "basis": "CR-6 | states spec/define/define-adam.xml#ADSL.TRTEDT: \"and the subject discontinued after visit 3\" | absent_in_spec",
+      "decision": "agree",
+      "reason": "TRTEDT (adsl.yaml lines 328-336) falls back to DS_DISP.DSSTDTC whenever LAST_EXENDTC is missing. It has no condition that the subject discontinued after visit 3, which Define-XML ADSL.TRTEDT requires."
+    },
+    {
+      "finding": "ADSL.CUMDOSE.CR-6.1",
+      "basis": "CR-6 | states spec/define/define-adam.xml#ADSL.CUMDOSE: \"CUMDOSE=TRT01PN*TRTDUR\" | spec CUMDOSE_BASE: \"SUM(EX.EXDOSE * (EX.EXENDY - EX.EXSTDY + 1))\" | differs",
+      "decision": "agree",
+      "reason": "Define-XML ADSL.CUMDOSE computes placebo and low dose as TRT01PN*TRTDUR, while CUMDOSE_BASE (adsl.yaml line 360) and CUMDOSE (line 428) sum EX dose-days. The computation and the source both differ."
+    },
+    {
+      "finding": "ADSL.CUMDOSE.CR-6.2",
+      "basis": "CR-6 | states spec/define/define-adam.xml#ADSL.CUMDOSE: \"54mg per day for the # of days subj was in 1st dosing interval\" | spec CUMDOSE_BASE: \"SUM(EX.EXDOSE * (EX.EXENDY - EX.EXSTDY + 1))\" | differs",
+      "decision": "agree",
+      "reason": "Define-XML ADSL.CUMDOSE derives the high-dose total from the visit 4 and visit 12 dosing intervals at 54, 81 and 54 mg. The specification sums EX records (adsl.yaml line 360) and reads no visit dates for CUMDOSE."
+    },
+    {
+      "finding": "ADSL.AGEGR1.CR-6.1",
+      "basis": "CR-6 | states spec/define/define-adam.xml#ADSL.AGEGR1: \"derived from ADSL.AGEGR1N\" | spec AGEGR1: \"DM.AGE < 65\" | differs",
+      "decision": "dispute",
+      "reason": "Define-XML ADSL.AGEGR1 decodes AGEGR1N, whose comment and codelist give <65, 65-80 and >80 from AGE. The specification's AGEGR1 (adsl.yaml lines 449-454) tests the same AGE thresholds and AGEGR1N maps them one-to-one, so only the order of derivation differs, not the logic."
+    },
+    {
+      "finding": "ADSL.AGEGR1N.CR-6.1",
+      "basis": "CR-6 | states spec/define/define-adam.xml#ADSL.AGEGR1N: \"AGEGR1 = 1 if AGE <65. AGEGR1 = 2 if AGE 65-80. AGEGR1 = 3 if AGE >80.\" | spec AGEGR1N: \"source: AGEGR1\" | differs",
+      "decision": "dispute",
+      "reason": "These AGE thresholds have their counterpart in the AGEGR1 case at adsl.yaml lines 450-454, which AGEGR1N maps one-to-one to 1, 2 and 3 (lines 461-465): the same rule through an intermediate. Only a missing AGE, which falls to 'otherwise', could differ, and the finding does not raise that."
+    },
+    {
+      "finding": "ADSL.RACEN.CR-6.2",
+      "basis": "CR-6 | states spec/define/define-adam.xml#ADSL.RACEN: \"7 = ASIAN\" | absent_in_spec",
+      "decision": "agree",
+      "reason": "Codelist RACEN in Define-XML ADSL.RACEN codes ASIAN as 7, but the RACEN mapping (adsl.yaml lines 483-486) has no ASIAN entry. An ASIAN subject would get a missing RACEN."
+    },
+    {
+      "finding": "ADSL.BMIBL.CR-6.1",
+      "basis": "CR-6 | states spec/define/define-adam.xml#ADSL.BMIBL: \"WEIGHTBL / ((HEIGHTBL*100)**2)\" | spec BMIBL_RAW: \"WEIGHTBL / POWER(NULLIF(HEIGHTBL, 0) / 100, 2)\" | differs",
+      "decision": "agree",
+      "reason": "Define-XML ADSL.BMIBL multiplies HEIGHTBL by 100, while BMIBL_RAW (adsl.yaml line 694) divides it by 100. The computation differs, and BMIBL.CR-5 shows the document is the one in error."
+    },
+    {
+      "finding": "ADSL.BMIBLGR1.CR-6.1",
+      "basis": "CR-6 | states spec/define/define-adam.xml#ADSL.BMIBLGR1: \"BMIBLGR1=Normal if . < BMIBL <25\" | spec BMIBLGR1: \"BMIBL IS NULL\" | differs",
+      "decision": "agree",
+      "reason": "In SAS, Define-XML '. < BMIBL <25' leaves a missing BMIBL out of every group, while adsl.yaml line 706 puts a missing BMIBL in '<25'. Subject 01-702-1082 in BMIBLGR1.CR-5 shows the difference."
+    },
+    {
+      "finding": "ADSL.HEIGHTBL.CR-6.1",
+      "basis": "CR-6 | states spec/define/define-adam.xml#ADSL.HEIGHTBL: \"VS.VSTESTCD='HEIGHT' and VS.VISITNUM=1\" | spec BASE_HT: \"VS.VSTESTCD = 'HEIGHT'\" | differs",
+      "decision": "agree",
+      "reason": "Define-XML ADSL.HEIGHTBL and SAP page-13 name Visit 1, but BASE_HT (adsl.yaml lines 95-104) filters only on VSTESTCD and keeps the lowest VISITNUM. The visit condition is missing."
+    },
+    {
+      "finding": "ADSL.WEIGHTBL.CR-6.1",
+      "basis": "CR-6 | states spec/define/define-adam.xml#ADSL.WEIGHTBL: \"VS.VSTESTCD='WEIGHT' and VS.VISITNUM=3\" | spec BASE_WT: \"VS.VSTESTCD = 'WEIGHT' AND VS.VSBLFL = 'Y'\" | differs",
+      "decision": "agree",
+      "reason": "Define-XML ADSL.WEIGHTBL and SAP page-13 name Visit 3, but BASE_WT (adsl.yaml line 111) selects the weight flagged VSBLFL = 'Y'. The baseline flag is a different condition from the visit number."
+    },
+    {
+      "finding": "ADSL.EDUCLVL.CR-6.1",
+      "basis": "CR-6 | states spec/define/define-adam.xml#ADSL.EDUCLVL: \"SC.SCTESTCD=YEARSEDU\" | spec SC_EDU: \"SC.SCTESTCD = 'EDLEVEL'\" | differs",
+      "decision": "agree",
+      "reason": "Define-XML ADSL.EDUCLVL names SCTESTCD YEARSEDU, while SC_EDU (adsl.yaml line 187) filters EDLEVEL. The test codes differ, and EDUCLVL.CR-5 shows YEARSEDU is absent from the data."
+    },
+    {
+      "finding": "ADSL.VISNUMEN.CR-6.2",
+      "basis": "CR-6 | states spec/define/define-adam.xml#ADSL.VISNUMEN: \"otherwise VISNUMEN=DS.VISITNUM where DSTERM='PROTCOL COMPLETED'\" | spec DS_DISP: \"DS.DSCAT = 'DISPOSITION EVENT'\" | differs",
+      "decision": "agree",
+      "reason": "The Define-XML comment reads VISITNUM from the record with DSTERM 'PROTCOL COMPLETED', while DS_DISP (adsl.yaml line 176) takes the DSCAT 'DISPOSITION EVENT' record for every subject. The record selection differs."
+    },
+    {
+      "finding": "ADSL.MMSETOT.CR-6.1",
+      "basis": "CR-6 | states spec/define/define-adam.xml#ADSL.MMSETOT: \"sum of QS.QSORRES values\" | spec MMSETOT: \"SUM(QS.QSSTRESN)\" | differs",
+      "decision": "dispute",
+      "reason": "QSORRES is text, so summing its values means summing their numeric form, which SDTM holds in QSSTRESN; on the MMSE records the two carry the same scores. The literal probe MMSETOT itself sums QS.QSSTRESN for this clause, so the source is the same, and the real gap is the missing MMSE filter (MMSETOT.CR-5)."
+    },
+    {
+      "finding": "ADSL.TRTSDT.CR-7.3",
+      "basis": "CR-7 | spec TRTSDT: \"month: 1 day: 1\" | absent_in_document",
+      "decision": "agree",
+      "reason": "Define-XML ADSL.TRTSDT says only 'converted to SAS date'. The only imputation rules in any section are for adverse event start dates (SAP page-16, dataguide page-5, Define-XML ADAE.ASTDT)."
+    },
+    {
+      "finding": "ADSL.TRTEDT.CR-7.5",
+      "basis": "CR-7 | spec TRTEDT: \"month: 1 day: 1\" | absent_in_document",
+      "decision": "agree",
+      "reason": "Define-XML ADSL.TRTEDT says only 'Convert the date to a SAS date'. The imputation statements in SAP page-16, dataguide page-5 and Define-XML ADAE.ASTDT cover adverse event start dates only."
+    },
+    {
+      "finding": "ADSL.AVGDD.CR-7.3",
+      "basis": "CR-7 | spec AVGDD_RAW: \"NULLIF(TRTDUR, 0)\" | absent_in_document",
+      "decision": "agree",
+      "reason": "Define-XML ADSL.AVGDD states only CUMDOSE/TRTDUR, and no SAP or data guide page addresses a zero treatment duration. The NULLIF guard at adsl.yaml line 433 is undocumented."
+    },
+    {
+      "finding": "ADSL.CUMDOSE.CR-7.3",
+      "basis": "CR-7 | spec CUMDOSE: \"_CUM0 + _DOSE0 * _DAYS0\" | absent_in_document",
+      "decision": "agree",
+      "reason": "No section extends the last open EX record to TRTEDT (_CUM0 + _DOSE0 * _DAYS0, adsl.yaml lines 383-428). Define-XML ADSL.CUMDOSE describes a visit-interval computation, and SAP page-15 says only that cumulative dose is computed at end of study."
+    },
+    {
+      "finding": "ADSL.DISONSDT.CR-7.2",
+      "basis": "CR-7 | spec DISONSDT: \"month: 1 day: 1\" | absent_in_document",
+      "decision": "agree",
+      "reason": "Define-XML ADSL.DISONSDT says MHSTDTC is 'converted to SAS date' and states no imputation. The only imputation rules (SAP page-16, dataguide page-5, ADAE.ASTDT) concern adverse event dates."
+    },
+    {
+      "finding": "ADSL.DURDIS.CR-7.2",
+      "basis": "CR-7 | spec DURDIS: \"DURDIS_DAYS / 30.4375\" | absent_in_document",
+      "decision": "agree",
+      "reason": "No section defines a month: Define-XML ADSL.DURDIS says 'number of months', and SAP page-13 and page-22 say 'months between'. The 30.4375-day constant appears nowhere."
+    },
+    {
+      "finding": "ADSL.VISIT1DT.CR-7.2",
+      "basis": "CR-7 | spec VISIT1DT: \"month: 1 day: 1\" | absent_in_document",
+      "decision": "agree",
+      "reason": "Define-XML ADSL.VISIT1DT says only 'converted to SAS date'. The imputation rules found (SAP page-16, dataguide page-5, ADAE.ASTDT) apply to adverse event start dates."
+    },
+    {
+      "finding": "ADSL.RFENDT.CR-7.2",
+      "basis": "CR-7 | spec RFENDT: \"month: 1 day: 1\" | absent_in_document",
+      "decision": "agree",
+      "reason": "Define-XML ADSL.RFENDT says only 'RFENDTC converted to SAS date'. No section states an imputation for it; the only imputation rules are for adverse event start dates."
+    },
+    {
+      "finding": "ADSL.DCREASCD.CR-7.1",
+      "basis": "CR-7 | spec DC_REAS_MAP: \"ADVERSE EVENT: Adverse Event\" | absent_in_document",
+      "decision": "agree",
+      "reason": "Define-XML gives the DCDECOD values (codelist DISCCD) and the groups (codelist DISCREAS) but no mapping between them, and the SAP page-21 template lists only display reasons. Mappings such as STUDY TERMINATED BY SPONSOR to Sponsor Decision are undocumented."
+    },
+    {
+      "finding": "ADSL.DCREASCD.CR-7.2",
+      "basis": "CR-7 | spec DCREASCD: \"DS_DSTERM = 'PROTOCOL ENTRY CRITERIA NOT MET'\" | absent_in_document",
+      "decision": "agree",
+      "reason": "No section mentions DSTERM 'PROTOCOL ENTRY CRITERIA NOT MET'. Define-XML ADSL.DCREASCD only lists 'I/E Not Met' as a group, and SAP page-21 shows 'Protocol criteria not met' as a display row with no source."
+    },
+    {
+      "finding": "ADSL.DCREASCD.CR-10",
+      "basis": "CR-10 | states spec/define/define-adam.xml#ADSL.DCREASCD: \"Grouping of DCDECOD values to support summarizing study completion status and reason for discontinuation\" | states spec/define/define-adam.xml#ADSL.DCREASCD: \"I/E Not Met = I/E Not Met\"",
+      "decision": "agree",
+      "reason": "Define-XML ADSL.DCREASCD says 'Grouping of DCDECOD values' and lists the groups, but no Define-XML, SAP or data guide section says which DCDECOD value goes to which group or how 'I/E Not Met' arises. The rule cannot be stated as a probe."
+    },
+    {
+      "finding": "ADSL.MMSETOT.CR-7.2",
+      "basis": "CR-7 | spec MMSETOT: \"QS.QSCAT = 'MINI-MENTAL STATE'\" | absent_in_document",
+      "decision": "dispute",
+      "reason": "Define-XML ADSL.MMSETOT states 'Label: MMSE Total', which this variable's own claim cites, and SAP page-13 lists 'Mini-Mental State' among the baseline characteristics. The MINI-MENTAL STATE filter is their counterpart, and the comment's omission of the questionnaire is already MMSETOT.CR-5."
+    }
+  ],
+  "missed": [
+    {
+      "variable": "USUBJID",
+      "document": "spec/source/dataguide.pdf",
+      "section": "page-3",
+      "quote": "The datasets include only subjects who were enrolled in the study. Subjects who failed screening criteria were not included in analysis datasets.",
+      "reason": "States which subjects ADSL holds, the rule the specification writes as its rows filter DM.ACTARM <> 'Screen Failure' (adsl.yaml line 804); it governs the dataset's records rather than one variable, and no claim cites it."
+    },
+    {
+      "variable": "USUBJID",
+      "document": "spec/source/SAP.pdf",
+      "section": "page-9",
+      "quote": "Demographic data for screen failures will be included in the data tabulation datasets, but not in the analysis datasets or in the analyses.",
+      "reason": "The SAP statement of the same exclusion of screen failures from the analysis datasets; no claim cites it."
+    },
+    {
+      "variable": "CUMDOSE",
+      "document": "spec/source/SAP.pdf",
+      "section": "page-31",
+      "quote": "End of Study refers to Week 26/Early Termination.",
+      "reason": "The Template 12 footnote on cumulative dose at end of study, restating the end point that SAP page-15 gives; no claim cites it."
+    },
+    {
+      "variable": "BMIBLGR1",
+      "document": "spec/source/SAP.pdf",
+      "section": "page-10",
+      "quote": "Missing baseline values and missing safety data will not be imputed.",
+      "reason": "Bears on the subject without baseline BMI in BMIBLGR1.CR-5: it supports leaving a missing BMIBL ungrouped, as the Define-XML comment does, against the '<25' of the reference and the specification; no claim cites it."
+    },
+    {
+      "variable": "VISNUMEN",
+      "document": "spec/source/SAP.pdf",
+      "section": "page-17",
+      "quote": "end of treatment (last visit on or before Week 24 visit)",
+      "reason": "Section 11.6 defines end of treatment as the last visit on or before the Week 24 visit, so a disposition at visit 13 does not move it past visit 12; this bears on 01-703-1258 in VISNUMEN.CR-5, and no claim cites it."
+    },
+    {
+      "variable": "VISNUMEN",
+      "document": "spec/source/SAP.pdf",
+      "section": "page-40",
+      "quote": "End of treatment is the last on-treatment visit (on or before the Week 24 visit).",
+      "reason": "The vital signs template note states the same definition, repeated on pages 41 and 42; no claim cites it."
+    },
+    {
+      "variable": "MMSETOT",
+      "document": "spec/source/SAP.pdf",
+      "section": "page-13",
+      "quote": "Baseline comparisons across treatment groups for the Mini-Mental State Examination (MMSE) will be made using analysis of variance with treatment and site as main effects.",
+      "reason": "Expands MMSE, as in the label 'MMSE Total', to the Mini-Mental State Examination, the questionnaire the specification's QSCAT filter selects, and names it a baseline measure; MMSETOT.CR-5 and MMSETOT.CR-7.2 bear on it and no claim cites it."
+    }
+  ]
+}
