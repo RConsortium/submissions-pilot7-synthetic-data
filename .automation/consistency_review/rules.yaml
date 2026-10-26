@@ -1,0 +1,121 @@
+# Consistency review rules.
+#
+# Every finding in a consistency report cites exactly one rule below by its ID
+# and quotes its statement. .github/scripts/verify_derivations.py decides which
+# rule a finding violates from verified quotes, probe results and checks; an
+# agent never assigns a rule. Rule IDs are stable: add a new rule rather than
+# renumbering, and retire a rule by marking it retired.
+#
+# Severity:
+#   conflict    documents disagree with the data, or with one another
+#   divergence  the specification states a documented rule differently; the
+#               values agree on this data
+#   gap         a rule, clause or value is undocumented or incomplete
+#   evidence    a quote a finding relies on was not found where it is cited
+schema_version: 1
+severities: [conflict, divergence, gap, evidence]
+rules:
+  - id: CR-1
+    title: Quotes are verbatim
+    severity: evidence
+    statement: >-
+      Every document and specification text a finding relies on is quoted
+      exactly, whitespace aside, from the location it cites.
+    decided_by: >-
+      Each citation, clause and specification quote is searched in its cited
+      Define-XML section, PDF page or specification element.
+    shows: The quote and the location where it was not found.
+
+  - id: CR-2
+    title: A documented copy source exists
+    severity: conflict
+    statement: >-
+      A variable that Define-XML documents as a copy of DATASET.VARIABLE names
+      a dataset and variable present in the submission.
+    decided_by: The named variable is looked up in the staged SDTM and reference ADaM data.
+    shows: The Define-XML text and the variables the source dataset holds.
+
+  - id: CR-3
+    title: A documented copy reproduces the reference
+    severity: conflict
+    statement: >-
+      The reference values of a documented copy equal its source variable on
+      every record matched by the dataset keys.
+    decided_by: The reference is joined to the source on the dataset keys and compared value by value.
+    shows: The Define-XML text, the specification, and the differing values with their records.
+
+  - id: CR-4
+    title: The specification reads the documented copy source
+    severity: divergence
+    statement: >-
+      The yamaa specification copies a documented copy from the dataset and
+      variable Define-XML names, directly or through an intermediate.
+    decided_by: The specification derivation is resolved through intermediates to its input file.
+    shows: The Define-XML text and the specification derivation it differs from.
+
+  - id: CR-5
+    title: A documented rule reproduces the reference
+    severity: conflict
+    statement: >-
+      A derivation rule, stated as written in a yamaa probe and run on the
+      staged inputs, gives the published reference value for every record.
+    decided_by: >-
+      The literal probe column is compared with the reference. Each stated
+      reading is compared too; a reading that agrees is reported as the
+      likely resolution, for a person to accept or reject.
+    shows: The documented rule, the specification, and the differing values with their records.
+
+  - id: CR-6
+    title: The specification states every documented clause
+    severity: divergence
+    statement: >-
+      Each clause of a documented rule has a counterpart in the yamaa
+      specification that expresses the same condition, source or computation.
+    decided_by: A clause whose relation is differs or absent_in_spec.
+    shows: The documented clause beside the specification text it differs from, or its absence.
+
+  - id: CR-7
+    title: The documents state every clause of the specification
+    severity: gap
+    statement: >-
+      Each condition, source or computation the yamaa specification uses for a
+      variable is stated in a retained document.
+    decided_by: A clause whose relation is absent_in_document.
+    shows: The specification text and the documents that were searched.
+
+  - id: CR-8
+    title: The documents agree with one another
+    severity: conflict
+    statement: >-
+      Retained documents that state the same rule, including two places in one
+      document, state it the same way.
+    decided_by: A clause whose relation is contradicts, quoting both statements.
+    shows: The two document statements side by side.
+
+  - id: CR-9
+    title: Values conform to the documented codelist
+    severity: conflict
+    statement: >-
+      Every nonmissing value of a variable with an enumerated Define-XML
+      codelist, in the reference and in the yamaa output, is one of the
+      codelist's coded values.
+    decided_by: Distinct values are compared with the coded values, trimmed.
+    shows: The codelist text and the values outside it with their records.
+
+  - id: CR-10
+    title: A documented rule is complete
+    severity: gap
+    statement: >-
+      A documented rule names its sources, conditions and computation
+      completely enough to be stated as a yamaa probe.
+    decided_by: A claim that cites the rule but records why it cannot be probed.
+    shows: The documented rule and what it leaves unstated.
+
+  - id: CR-11
+    title: Every derivation is documented
+    severity: gap
+    statement: >-
+      Every variable of a published dataset has its derivation stated in a
+      retained document.
+    decided_by: A variable with no Define-XML method or comment and no claim citing another document.
+    shows: The specification derivation that has no documented counterpart.

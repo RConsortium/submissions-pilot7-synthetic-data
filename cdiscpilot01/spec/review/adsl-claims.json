@@ -1,0 +1,642 @@
+{
+  "schema_version": 2,
+  "dataset": "ADSL",
+  "author": {
+    "kind": "agent",
+    "model": "claude-opus-5-5",
+    "instructions": ".automation/consistency_review/extract.md",
+    "date": "2026-10-25"
+  },
+  "claims": [
+    {
+      "variable": "SITEGR1",
+      "rule": "Sites with fewer than 3 subjects in any treatment group are pooled as site 900; other subjects keep their site.",
+      "citations": [
+        {"document": "spec/define/define-adam.xml", "section": "ADSL.SITEGR1", "quote": "refer to SAP, Section 7.1 - if not pooled then SITEGR1=SITEID. If pooled, SITEGR1 will be 900"},
+        {"document": "spec/source/SAP.pdf", "section": "page-10", "quote": "Sites that enroll fewer than 3 patients in any one treatment group will be grouped together, with a new pooled site identifier assigned for the purpose of analysis."},
+        {"document": "spec/source/SAP.pdf", "section": "page-10", "quote": "If this combination still results in a treatment group having fewer than 3 patients in any one treatment group, then this group of patients will be combined with the next fewest enrolling site."},
+        {"document": "spec/source/SAP.pdf", "section": "page-10", "quote": "In the event that there is a tie for fewest-enrolling site, one of these will be chosen at random by a random-number generator."}
+      ],
+      "clauses": [
+        {"relation": "differs", "document": {"citation": 2, "quote": "Sites that enroll fewer than 3 patients in any one treatment group will be grouped together"}, "spec": {"element": "SITEGR1", "quote": "DM.SITEID IN ('702','706','707','711','714','715','717')"}, "note": "The specification lists the result of the rule for this data, not the rule."},
+        {"relation": "same", "document": {"citation": 1, "quote": "If pooled, SITEGR1 will be 900"}, "spec": {"element": "SITEGR1", "quote": "'900'"}},
+        {"relation": "same", "document": {"citation": 1, "quote": "if not pooled then SITEGR1=SITEID"}, "spec": {"element": "SITEGR1", "quote": "otherwise: DM.SITEID"}},
+        {"relation": "absent_in_spec", "document": {"citation": 3, "quote": "then this group of patients will be combined with the next fewest enrolling site"}, "note": "The second pooling step is not stated; it applies only when the pooled group is itself short."},
+        {"relation": "absent_in_spec", "document": {"citation": 4, "quote": "In the event that there is a tie for fewest-enrolling site, one of these will be chosen at random by a random-number generator."}, "note": "The specification lists the pooled sites and states no tie-break; the SAP applies it when the second pooling step must choose between sites that enroll equally few."}
+      ],
+      "probes": [{"column": "SITEGR1", "reading": "literal"}],
+      "interpretations": [
+        "Subjects are counted in the analysis population (DM records that are not screen failures) by planned arm.",
+        "A site with no subject in an arm has fewer than 3 in that arm.",
+        "The random tie-break is not probed: a random choice cannot be stated as a probe, and it applies only within the second pooling step, which the literal probe does not state either."
+      ],
+      "assessment": "The SAP pooling rule, applied to the staged DM data, gives the sites the specification hard-codes.",
+      "question": "Should the specification state the pooling rule instead of the site list, so that changed data cannot leave the list stale?"
+    },
+    {
+      "variable": "TRT01PN",
+      "rule": "The numeric code of the planned treatment, which is its dose: 0, 54 or 81.",
+      "citations": [
+        {"document": "spec/define/define-adam.xml", "section": "ADSL.TRT01PN", "quote": "Numeric code for TRT01P which corresponds to the randomized dose"},
+        {"document": "spec/define/define-adam.xml", "section": "ADSL.TRT01PN", "quote": "Codelist ARMN: 0 = Placebo; 54 = Xanomeline Low Dose; 81 = Xanomeline High Dose"},
+        {"document": "spec/source/dataguide.pdf", "section": "page-4", "quote": "Treatment variable values are based on the numeric dose level (i.e., 0, 54, 81)"},
+        {"document": "spec/source/SAP.pdf", "section": "page-6", "quote": "The total doses being compared are therefore 0 (both patches placebo), 54mg (large patch active drug, small patch placebo), and 81mg (both patches active drug)."}
+      ],
+      "clauses": [
+        {"relation": "same", "document": {"citation": 2, "quote": "0 = Placebo; 54 = Xanomeline Low Dose; 81 = Xanomeline High Dose"}, "spec": {"element": "TRT01PN", "quote": "Placebo: 0 Xanomeline Low Dose: 54 Xanomeline High Dose: 81"}},
+        {"relation": "same", "document": {"citation": 4, "quote": "0 (both patches placebo), 54mg (large patch active drug, small patch placebo), and 81mg (both patches active drug)"}, "spec": {"element": "TRT01PN", "quote": "Placebo: 0 Xanomeline Low Dose: 54 Xanomeline High Dose: 81"}, "note": "The SAP gives the total dose of each group in mg; the specification codes the same doses for placebo, low dose and high dose."}
+      ],
+      "probes": [{"column": "TRT01PN", "reading": "literal"}],
+      "interpretations": ["The SAP's 54mg and 81mg groups are read as xanomeline low dose and xanomeline high dose, the lower and the higher active dose; the SAP names the groups but does not pair each name with its dose."],
+      "assessment": "The specification maps the codelist as published.",
+      "question": ""
+    },
+    {
+      "variable": "TRT01A",
+      "rule": "The actual treatment equals the planned treatment.",
+      "citations": [
+        {"document": "spec/define/define-adam.xml", "section": "ADSL.TRT01A", "quote": "TRT01A=TRT01P, i.e., no difference between actual and randomized treatment in this study."}
+      ],
+      "clauses": [
+        {"relation": "same", "document": {"citation": 1, "quote": "TRT01A=TRT01P"}, "spec": {"element": "TRT01A", "quote": "derivation: DM.ARM"}, "note": "TRT01P is DM.ARM."}
+      ],
+      "probes": [{"column": "TRT01A", "reading": "literal"}],
+      "interpretations": [],
+      "assessment": "The specification copies the planned arm, as documented.",
+      "question": ""
+    },
+    {
+      "variable": "TRT01AN",
+      "rule": "The numeric code of the actual treatment, which is its dose.",
+      "citations": [
+        {"document": "spec/define/define-adam.xml", "section": "ADSL.TRT01AN", "quote": "Numeric code for TRT01A which corresponds to the randomized dose"},
+        {"document": "spec/define/define-adam.xml", "section": "ADSL.TRT01AN", "quote": "Codelist ARMN: 0 = Placebo; 54 = Xanomeline Low Dose; 81 = Xanomeline High Dose"}
+      ],
+      "clauses": [
+        {"relation": "same", "document": {"citation": 2, "quote": "0 = Placebo; 54 = Xanomeline Low Dose; 81 = Xanomeline High Dose"}, "spec": {"element": "TRT01AN", "quote": "Placebo: 0 Xanomeline Low Dose: 54 Xanomeline High Dose: 81"}}
+      ],
+      "probes": [{"column": "TRT01AN", "reading": "literal"}],
+      "interpretations": [],
+      "assessment": "The specification maps the codelist as published.",
+      "question": ""
+    },
+    {
+      "variable": "TRTSDT",
+      "rule": "The first treatment date is the visit 3 (randomization) date from SV.",
+      "citations": [
+        {"document": "spec/define/define-adam.xml", "section": "ADSL.TRTSDT", "quote": "SV.SVSTDTC when SV.VISITNUM=3, converted to SAS date"},
+        {"document": "spec/source/SAP.pdf", "section": "page-9", "quote": "Patients are randomly assigned to treatment groups at Week 0 (Visit 3)."},
+        {"document": "spec/source/SAP.pdf", "section": "page-16", "quote": "Treatment emergent adverse events are defined relative to the date of first dose [Week 0 (Visit 3) unless indicated otherwise]"}
+      ],
+      "clauses": [
+        {"relation": "differs", "document": {"citation": 1, "quote": "SV.SVSTDTC when SV.VISITNUM=3"}, "spec": {"element": "EX_MINDTC", "quote": "MIN(EX.EXSTDTC)"}, "note": "The specification reads the earliest exposure start date, not the visit 3 date."},
+        {"relation": "same", "document": {"citation": 1, "quote": "converted to SAS date"}, "spec": {"element": "TRTSDT", "quote": "type: date"}},
+        {"relation": "absent_in_document", "spec": {"element": "TRTSDT", "quote": "month: 1 day: 1"}, "note": "Partial dates are completed to the first month and day; no document states an imputation."},
+        {"relation": "differs", "document": {"citation": 3, "quote": "the date of first dose [Week 0 (Visit 3) unless indicated otherwise]"}, "spec": {"element": "EX_MINDTC", "quote": "MIN(EX.EXSTDTC)"}, "note": "The SAP places the first dose at Week 0 (Visit 3), as Define-XML does; the specification reads the earliest exposure start date."}
+      ],
+      "probes": [{"column": "TRTSDT", "reading": "literal"}],
+      "interpretations": [
+        "A partial SVSTDTC converts to a missing date.",
+        "The SAP's \"unless indicated otherwise\" is read as not applying to TRTSDT: no retained document indicates another first-dose date for ADSL."
+      ],
+      "assessment": "The specification reads the first exposure date where the document reads the visit 3 date.",
+      "question": "Which source should the specification follow: the documented visit 3 date or the first exposure record?"
+    },
+    {
+      "variable": "TRTEDT",
+      "rule": "The last treatment date is the end date of the last EX record; when it is missing and the subject discontinued after visit 3, the discontinuation date.",
+      "citations": [
+        {"document": "spec/define/define-adam.xml", "section": "ADSL.TRTEDT", "quote": "The date of final dose (from the CRF) is EX.EXENDTC on the subject's last EX record. If the date of final dose is missing for the subject and the subject discontinued after visit 3, use the date of discontinuation as the date of last dose. Convert the date to a SAS date."}
+      ],
+      "clauses": [
+        {"relation": "same", "document": {"citation": 1, "quote": "EX.EXENDTC on the subject's last EX record"}, "spec": {"element": "LAST_EX", "quote": "variable: EX.EXSEQ nulls: last keep: last"}},
+        {"relation": "same", "document": {"citation": 1, "quote": "use the date of discontinuation as the date of last dose"}, "spec": {"element": "TRTEDT", "quote": "source: DS_DISP.DSSTDTC"}},
+        {"relation": "absent_in_spec", "document": {"citation": 1, "quote": "and the subject discontinued after visit 3"}, "note": "The fallback is applied whenever the final dose date is missing."},
+        {"relation": "same", "document": {"citation": 1, "quote": "Convert the date to a SAS date."}, "spec": {"element": "TRTEDT", "quote": "type: date"}},
+        {"relation": "absent_in_document", "spec": {"element": "TRTEDT", "quote": "month: 1 day: 1"}, "note": "Partial dates are completed to the first month and day; no document states an imputation."}
+      ],
+      "probes": [{"column": "TRTEDT", "reading": "literal"}],
+      "interpretations": [
+        "The last EX record has the highest EXSEQ.",
+        "The date of discontinuation is DSSTDTC of the disposition event; discontinued after visit 3 means DSDECOD is not COMPLETED and the disposition VISITNUM is greater than 3."
+      ],
+      "assessment": "The specification omits the visit 3 condition on the fallback.",
+      "question": "Should the specification add the visit 3 condition, or a warning verification that the fallback is used only after visit 3?"
+    },
+    {
+      "variable": "TRTDUR",
+      "rule": "Treatment duration in days, counting both the first and last dose dates.",
+      "citations": [
+        {"document": "spec/define/define-adam.xml", "section": "ADSL.TRTDUR", "quote": "TRTEDT-TRTSDT+1"}
+      ],
+      "clauses": [
+        {"relation": "same", "document": {"citation": 1, "quote": "TRTEDT-TRTSDT+1"}, "spec": {"element": "TRTDUR", "quote": "start: TRTSDT end: TRTEDT unit: day closed: both"}}
+      ],
+      "probes": [{"column": "TRTDUR", "reading": "literal"}],
+      "interpretations": [],
+      "assessment": "The specification states the documented formula.",
+      "question": ""
+    },
+    {
+      "variable": "AVGDD",
+      "rule": "Average daily dose is cumulative dose divided by treatment duration, to one decimal.",
+      "citations": [
+        {"document": "spec/define/define-adam.xml", "section": "ADSL.AVGDD", "quote": "CUMDOSE/TRTDUR"},
+        {"document": "spec/define/define-adam.xml", "section": "ADSL.AVGDD", "quote": "Significant digits: 1"}
+      ],
+      "clauses": [
+        {"relation": "same", "document": {"citation": 1, "quote": "CUMDOSE/TRTDUR"}, "spec": {"element": "AVGDD_RAW", "quote": "CUMDOSE / NULLIF(TRTDUR, 0)"}},
+        {"relation": "same", "document": {"citation": 2, "quote": "Significant digits: 1"}, "spec": {"element": "AVGDD", "quote": "FLOOR(AVGDD_RAW * 10 + 0.5) / 10"}},
+        {"relation": "absent_in_document", "spec": {"element": "AVGDD_RAW", "quote": "NULLIF(TRTDUR, 0)"}, "note": "A zero duration gives a missing average; no document states this."}
+      ],
+      "probes": [{"column": "AVGDD", "reading": "literal"}],
+      "interpretations": ["Significant digits 1 is read as rounding to one decimal, half away from zero."],
+      "assessment": "The specification states the documented division and precision, and guards a zero duration.",
+      "question": ""
+    },
+    {
+      "variable": "CUMDOSE",
+      "rule": "Placebo and low dose: dose times duration. High dose: 54 mg per day to visit 4, 81 mg per day to visit 12, then 54 mg per day.",
+      "citations": [
+        {"document": "spec/define/define-adam.xml", "section": "ADSL.CUMDOSE", "quote": "For ARMN=0 or 1: CUMDOSE=TRT01PN*TRTDUR."},
+        {"document": "spec/define/define-adam.xml", "section": "ADSL.CUMDOSE", "quote": "For ARMN=2: CUMDOSE will be based on 54mg per day for the # of days subj was in 1st dosing interval (i.e., visit4date-TRTSTDT+1 if 1st interval completed, TRTEDT-TRTSTDT+1 if subj discontinued <=visit 4 and > visit 3), 81mg per day for the # of days subj was in 2nd dosing interval (i.e., visit12date-visit4date if 2nd interval completed, TRTEDT-visit4date if subj discontinued <= visit 12 and > visit 4), and 54mg per day for the # of days subj was in 3rd dosing interval (i.e., TRTEDT - visit12date if subj continued after visit 12)."},
+        {"document": "spec/source/SAP.pdf", "section": "page-15", "quote": "Average daily dose and cumulative dose at end of study (Week 26 or early termination) will be computed for each subject."},
+        {"document": "spec/source/SAP.pdf", "section": "page-31", "quote": "End of Study refers to Week 26/Early Termination."}
+      ],
+      "clauses": [
+        {"relation": "differs", "document": {"citation": 1, "quote": "CUMDOSE=TRT01PN*TRTDUR"}, "spec": {"element": "CUMDOSE_BASE", "quote": "SUM(EX.EXDOSE * (EX.EXENDY - EX.EXSTDY + 1))"}, "note": "The document multiplies the planned dose by the duration; the specification sums the EX dosing records."},
+        {"relation": "differs", "document": {"citation": 2, "quote": "54mg per day for the # of days subj was in 1st dosing interval"}, "spec": {"element": "CUMDOSE_BASE", "quote": "SUM(EX.EXDOSE * (EX.EXENDY - EX.EXSTDY + 1))"}, "note": "The document computes the high-dose titration from visit 4 and visit 12 intervals; the specification sums the EX dosing records."},
+        {"relation": "absent_in_document", "spec": {"element": "CUMDOSE", "quote": "_CUM0 + _DOSE0 * _DAYS0"}, "note": "A last EX record without an end date is extended to TRTEDT; no document states this."},
+        {"relation": "same", "document": {"citation": 3, "quote": "cumulative dose at end of study (Week 26 or early termination) will be computed for each subject"}, "spec": {"element": "CUMDOSE_BASE", "quote": "SUM(EX.EXDOSE * (EX.EXENDY - EX.EXSTDY + 1))"}, "note": "Both total the dose over the subject's whole time on study: the SAP states the time point, not how the dose is computed, and the specification sums every dosing record of the subject."},
+        {"relation": "same", "document": {"citation": 4, "quote": "End of Study refers to Week 26/Early Termination"}, "spec": {"element": "CUMDOSE_BASE", "quote": "SUM(EX.EXDOSE * (EX.EXENDY - EX.EXSTDY + 1))"}, "note": "Template 12 footnotes its 'Cumulative dose at end of study' row with the end point SAP page 15 gives; as there, the SAP states the time point, not the computation, and the specification sums every dosing record of the subject."}
+      ],
+      "probes": [{"column": "CUMDOSE", "reading": "literal"}],
+      "interpretations": [
+        "ARMN 0, 1 and 2 are read as Placebo, Xanomeline Low Dose and Xanomeline High Dose; codelist ARMN codes them 0, 54 and 81, and ADSL has no ARMN.",
+        "TRTSTDT is read as TRTSDT.",
+        "An interval is completed when the visit that ends it is on or before TRTEDT.",
+        "\"Cumulative dose at end of study\" is read as the dose taken up to the end of study, so dosing days end at the last dose; it is not read as the planned dose for every day up to the end-of-study visit.",
+        "Footnote [2] of Template 12 is read as defining the end of study of its 'Cumulative dose at end of study' row, the same end point as SAP page 15."
+      ],
+      "assessment": "The specification sums EX dosing records where the document computes doses from visit intervals.",
+      "question": "Should the specification cite the interval rule, or should Define-XML describe the EX-based computation?"
+    },
+    {
+      "variable": "AGEGR1",
+      "rule": "The character age group is the decode of AGEGR1N.",
+      "citations": [
+        {"document": "spec/define/define-adam.xml", "section": "ADSL.AGEGR1", "quote": "Character variable derived from ADSL.AGEGR1N"},
+        {"document": "spec/define/define-adam.xml", "section": "ADSL.AGEGR1N", "quote": "Codelist AGEGR1N: 1 = <65; 2 = 65-80; 3 = >80"}
+      ],
+      "clauses": [
+        {"relation": "differs", "document": {"citation": 1, "quote": "derived from ADSL.AGEGR1N"}, "spec": {"element": "AGEGR1", "quote": "DM.AGE < 65"}, "note": "The specification derives AGEGR1 from AGE, and AGEGR1N from AGEGR1: the reverse order."}
+      ],
+      "probes": [{"column": "AGEGR1", "reading": "literal"}],
+      "interpretations": [],
+      "assessment": "The two variables are derived in the opposite order to the document.",
+      "question": ""
+    },
+    {
+      "variable": "AGEGR1N",
+      "rule": "1 if age is under 65, 2 if 65 to 80, 3 if over 80.",
+      "citations": [
+        {"document": "spec/define/define-adam.xml", "section": "ADSL.AGEGR1N", "quote": "AGEGR1 = 1 if AGE <65. AGEGR1 = 2 if AGE 65-80. AGEGR1 = 3 if AGE >80."},
+        {"document": "spec/source/SAP.pdf", "section": "page-13", "quote": "Age category (<65, 65-80, >80)"}
+      ],
+      "clauses": [
+        {"relation": "differs", "document": {"citation": 1, "quote": "AGEGR1 = 1 if AGE <65. AGEGR1 = 2 if AGE 65-80. AGEGR1 = 3 if AGE >80."}, "spec": {"element": "AGEGR1N", "quote": "source: AGEGR1"}, "note": "The specification maps the character group instead of testing AGE."}
+      ],
+      "probes": [{"column": "AGEGR1N", "reading": "literal"}],
+      "interpretations": [
+        "The comment names AGEGR1 but states the numeric codes of AGEGR1N.",
+        "65-80 includes both 65 and 80."
+      ],
+      "assessment": "The comment names the wrong variable for its codes.",
+      "question": ""
+    },
+    {
+      "variable": "RACEN",
+      "rule": "The numeric code of RACE from codelist RACEN.",
+      "citations": [
+        {"document": "spec/define/define-adam.xml", "section": "ADSL.RACEN", "quote": "Numeric code for RACE"},
+        {"document": "spec/define/define-adam.xml", "section": "ADSL.RACEN", "quote": "Codelist RACEN: 1 = WHITE; 2 = BLACK OR AFRICAN AMERICAN; 6 = AMERICAN INDIAN OR ALASKA NATIVE; 7 = ASIAN"}
+      ],
+      "clauses": [
+        {"relation": "same", "document": {"citation": 2, "quote": "1 = WHITE; 2 = BLACK OR AFRICAN AMERICAN; 6 = AMERICAN INDIAN OR ALASKA NATIVE"}, "spec": {"element": "RACEN", "quote": "WHITE: 1 BLACK OR AFRICAN AMERICAN: 2 AMERICAN INDIAN OR ALASKA NATIVE: 6"}},
+        {"relation": "absent_in_spec", "document": {"citation": 2, "quote": "7 = ASIAN"}, "note": "An ASIAN subject would get a missing RACEN from the specification."}
+      ],
+      "probes": [{"column": "RACEN", "reading": "literal"}],
+      "interpretations": [],
+      "assessment": "The specification maps only the races present in the staged data.",
+      "question": "Should the specification map ASIAN to 7, as the codelist does?"
+    },
+    {
+      "variable": "SAFFL",
+      "rule": "Y when the subject is in the ITT population and has a first treatment date.",
+      "citations": [
+        {"document": "spec/define/define-adam.xml", "section": "ADSL.SAFFL", "quote": "Y if ITTFL='Y' and TRTSDT ne missing. N otherwise"},
+        {"document": "spec/source/SAP.pdf", "section": "page-9", "quote": "Safety population All patients randomized and known to have taken at least one dose of randomized drug"},
+        {"document": "spec/source/SAP.pdf", "section": "page-20", "quote": "The Safety population includes all randomized subjects known to have taken at least one dose of randomized study drug."}
+      ],
+      "clauses": [
+        {"relation": "same", "document": {"citation": 1, "quote": "Y if ITTFL='Y' and TRTSDT ne missing"}, "spec": {"element": "SAFFL", "quote": "ITTFL = 'Y' AND TRTSDT IS NOT NULL"}},
+        {"relation": "same", "document": {"citation": 3, "quote": "all randomized subjects known to have taken at least one dose of randomized study drug"}, "spec": {"element": "SAFFL", "quote": "ITTFL = 'Y' AND TRTSDT IS NOT NULL"}, "note": "The ITT population is all randomized subjects, and the specification's TRTSDT is the earliest exposure start, so a nonmissing TRTSDT records a dose taken."}
+      ],
+      "probes": [{"column": "SAFFL", "reading": "literal"}],
+      "interpretations": ["\"Known to have taken at least one dose\" is read as having a first exposure date (TRTSDT)."],
+      "assessment": "The specification states the documented rule.",
+      "question": ""
+    },
+    {
+      "variable": "ITTFL",
+      "rule": "Y when the subject has a planned arm code.",
+      "citations": [
+        {"document": "spec/define/define-adam.xml", "section": "ADSL.ITTFL", "quote": "Y if ARMCD ne ' '. N otherwise"},
+        {"document": "spec/source/SAP.pdf", "section": "page-9", "quote": "ITT Population All patients randomized"},
+        {"document": "spec/source/SAP.pdf", "section": "page-20", "quote": "The ITT population includes all subjects randomized."}
+      ],
+      "clauses": [
+        {"relation": "same", "document": {"citation": 1, "quote": "Y if ARMCD ne ' '"}, "spec": {"element": "ITTFL", "quote": "DM.ARMCD <> ''"}},
+        {"relation": "same", "document": {"citation": 3, "quote": "includes all subjects randomized"}, "spec": {"element": "ITTFL", "quote": "DM.ARMCD <> ''"}, "note": "Randomized is read as having a planned arm code, as Define-XML ADSL.ITTFL writes the flag; the specification's rows exclude screen failures."}
+      ],
+      "probes": [{"column": "ITTFL", "reading": "literal"}],
+      "interpretations": [
+        "SAS compares character values padded with blanks, so ' ' is read as empty text.",
+        "The SAP's randomized subjects are read as the subjects with a planned arm code among the dataset's rows."
+      ],
+      "assessment": "The specification states the documented rule.",
+      "question": ""
+    },
+    {
+      "variable": "EFFFL",
+      "rule": "Y for safety subjects with an ADAS-Cog and a CIBIC+ record after visit 3.",
+      "citations": [
+        {"document": "spec/define/define-adam.xml", "section": "ADSL.EFFFL", "quote": "Y if SAFFL='Y AND subject has at least one record in QS for ADAS-Cog with VISITNUM>3 AND at least one record in QS for CIBIC+ with VISITNUM>3, N otherwise"},
+        {"document": "spec/source/SAP.pdf", "section": "page-9", "quote": "Efficacy population All patients who were randomized and took drug, and have at least 1 post-baseline measure for both ADAS-Cog and CIBIC+"},
+        {"document": "spec/source/SAP.pdf", "section": "page-20", "quote": "The Efficacy population includes all subjects in the safety population who also have at least one post-baseline ADAS-Cog and CIBIC+ assessment."}
+      ],
+      "clauses": [
+        {"relation": "same", "document": {"citation": 1, "quote": "Y if SAFFL='Y"}, "spec": {"element": "EFFFL", "quote": "SAFFL = 'Y'"}},
+        {"relation": "same", "document": {"citation": 1, "quote": "at least one record in QS for ADAS-Cog with VISITNUM>3"}, "spec": {"element": "QS_ADAS", "quote": "QS.QSCAT = 'ALZHEIMER''S DISEASE ASSESSMENT SCALE' AND QS.VISITNUM > 3"}},
+        {"relation": "same", "document": {"citation": 1, "quote": "at least one record in QS for CIBIC+ with VISITNUM>3"}, "spec": {"element": "QS_CIBIC", "quote": "CHANGE (CIBIC+)' AND QS.VISITNUM > 3"}},
+        {"relation": "same", "document": {"citation": 3, "quote": "all subjects in the safety population who also have at least one post-baseline ADAS-Cog and CIBIC+ assessment"}, "spec": {"element": "EFFFL", "quote": "SAFFL = 'Y' AND QS_ADAS.QSSEQ IS NOT NULL AND QS_CIBIC.QSSEQ IS NOT NULL"}, "note": "Post-baseline is read as after visit 3, the baseline visit, which is where QS_ADAS and QS_CIBIC start and where Define-XML writes VISITNUM>3."}
+      ],
+      "probes": [{"column": "EFFFL", "reading": "literal"}],
+      "interpretations": [
+        "ADAS-Cog and CIBIC+ are read as the QSCAT values that name them.",
+        "Post-baseline in the SAP is read as after visit 3, as Define-XML writes VISITNUM>3; the SAP's assessment windows by study day are not applied.",
+        "At least one post-baseline ADAS-Cog and CIBIC+ assessment is read as at least one of each, as SAP Section 6 writes for both."
+      ],
+      "assessment": "The specification states the documented rule.",
+      "question": ""
+    },
+    {
+      "variable": "COMP8FL",
+      "rule": "Y when the subject has visit 8 and the end date is on or after it.",
+      "citations": [
+        {"document": "spec/define/define-adam.xml", "section": "ADSL.COMP8FL", "quote": "Y if subject has a SV.VISITNUM=8 and ENDDT >= date of visit 8, N otherwise"}
+      ],
+      "clauses": [
+        {"relation": "same", "document": {"citation": 1, "quote": "has a SV.VISITNUM=8 and ENDDT >= date of visit 8"}, "spec": {"element": "COMP8FL", "quote": "SV8DT IS NOT NULL AND RFENDT >= SV8DT"}}
+      ],
+      "probes": [{"column": "COMP8FL", "reading": "literal"}],
+      "interpretations": ["ENDDT is not defined in the package; it is read as RFENDT."],
+      "assessment": "The rule matches once ENDDT is read as RFENDT.",
+      "question": "Which variable does ENDDT name?"
+    },
+    {
+      "variable": "COMP16FL",
+      "rule": "Y when the subject has visit 10 and the end date is on or after it.",
+      "citations": [
+        {"document": "spec/define/define-adam.xml", "section": "ADSL.COMP16FL", "quote": "Y if subject has a SV.VISITNUM=10 and ENDDT>=date of visit 10, N otherwise"}
+      ],
+      "clauses": [
+        {"relation": "same", "document": {"citation": 1, "quote": "has a SV.VISITNUM=10 and ENDDT>=date of visit 10"}, "spec": {"element": "COMP16FL", "quote": "SV10DT IS NOT NULL AND RFENDT >= SV10DT"}}
+      ],
+      "probes": [{"column": "COMP16FL", "reading": "literal"}],
+      "interpretations": ["ENDDT is not defined in the package; it is read as RFENDT."],
+      "assessment": "The rule matches once ENDDT is read as RFENDT.",
+      "question": "Which variable does ENDDT name?"
+    },
+    {
+      "variable": "COMP24FL",
+      "rule": "Y when the subject has visit 12 and the end date is on or after it; the SAP also requires the efficacy population.",
+      "citations": [
+        {"document": "spec/define/define-adam.xml", "section": "ADSL.COMP24FL", "quote": "Y if subject has a SV.VISITNUM=12 and ENDDT>= date of visit 12 , N otherwise"},
+        {"document": "spec/source/SAP.pdf", "section": "page-9", "quote": "Completers All patients in the efficacy population who completed their Week 24 visit (Visit 12)."}
+      ],
+      "clauses": [
+        {"relation": "same", "document": {"citation": 1, "quote": "has a SV.VISITNUM=12 and ENDDT>= date of visit 12"}, "spec": {"element": "COMP24FL", "quote": "SV12DT IS NOT NULL AND RFENDT >= SV12DT"}},
+        {"relation": "contradicts", "document": {"citation": 1, "quote": "Y if subject has a SV.VISITNUM=12 and ENDDT>= date of visit 12"}, "against": {"citation": 2, "quote": "All patients in the efficacy population who completed their Week 24 visit (Visit 12)."}, "note": "Define-XML does not restrict completers to the efficacy population; the SAP does."}
+      ],
+      "probes": [
+        {"column": "COMP24FL", "reading": "literal"},
+        {"column": "COMP24FL__EFFICACY_POPULATION", "reading": "The SAP definition: completers are drawn from the efficacy population."}
+      ],
+      "interpretations": ["ENDDT is not defined in the package; it is read as RFENDT."],
+      "assessment": "Define-XML and the SAP define completers differently; the specification follows Define-XML.",
+      "question": "Should COMP24FL require EFFFL = 'Y', as the SAP defines completers?"
+    },
+    {
+      "variable": "DISCONFL",
+      "rule": "Y unless the subject completed; otherwise null.",
+      "citations": [
+        {"document": "spec/define/define-adam.xml", "section": "ADSL.DISCONFL", "quote": "Y if DCREASCD ^= 'Completed'. Null otherwise"}
+      ],
+      "clauses": [
+        {"relation": "same", "document": {"citation": 1, "quote": "Y if DCREASCD ^= 'Completed'"}, "spec": {"element": "DISCONFL", "quote": "DCREASCD <> 'Completed'"}}
+      ],
+      "probes": [{"column": "DISCONFL", "reading": "literal"}],
+      "interpretations": ["Null is a SAS blank, stored as empty text in the reference."],
+      "assessment": "The specification states the documented rule.",
+      "question": ""
+    },
+    {
+      "variable": "DSRAEFL",
+      "rule": "Y when the discontinuation reason is Adverse Event; otherwise null.",
+      "citations": [
+        {"document": "spec/define/define-adam.xml", "section": "ADSL.DSRAEFL", "quote": "Y if DCREASCD='Adverse Event'. Null otherwise"}
+      ],
+      "clauses": [
+        {"relation": "same", "document": {"citation": 1, "quote": "Y if DCREASCD='Adverse Event'"}, "spec": {"element": "DSRAEFL", "quote": "DCREASCD = 'Adverse Event'"}}
+      ],
+      "probes": [{"column": "DSRAEFL", "reading": "literal"}],
+      "interpretations": ["Null is a SAS blank, stored as empty text in the reference."],
+      "assessment": "The specification states the documented rule.",
+      "question": ""
+    },
+    {
+      "variable": "BMIBL",
+      "rule": "Baseline BMI from baseline weight and height, to one decimal.",
+      "citations": [
+        {"document": "spec/define/define-adam.xml", "section": "ADSL.BMIBL", "quote": "WEIGHTBL / ((HEIGHTBL*100)**2)"},
+        {"document": "spec/define/define-adam.xml", "section": "ADSL.BMIBL", "quote": "Significant digits: 1"},
+        {"document": "spec/source/SAP.pdf", "section": "page-13", "quote": "Weight, height, BMI at Baseline (Visit 3 for weight and BMI, Visit 1 for height)"}
+      ],
+      "clauses": [
+        {"relation": "differs", "document": {"citation": 1, "quote": "WEIGHTBL / ((HEIGHTBL*100)**2)"}, "spec": {"element": "BMIBL_RAW", "quote": "WEIGHTBL / POWER(NULLIF(HEIGHTBL, 0) / 100, 2)"}, "note": "The document multiplies height by 100; the specification divides, converting cm to m."},
+        {"relation": "same", "document": {"citation": 2, "quote": "Significant digits: 1"}, "spec": {"element": "BMIBL", "quote": "FLOOR(BMIBL_RAW * 10 + 0.5) / 10"}}
+      ],
+      "probes": [
+        {"column": "BMIBL", "reading": "literal"},
+        {"column": "BMIBL__HEIGHT_IN_METRES", "reading": "Height divided by 100, converting cm to m as kg/m^2 requires; the published formula multiplies."}
+      ],
+      "interpretations": ["Significant digits 1 is read as rounding to one decimal, half away from zero."],
+      "assessment": "The published formula is likely a typo for dividing height by 100.",
+      "question": "Should Define-XML be corrected to WEIGHTBL / ((HEIGHTBL/100)**2)?"
+    },
+    {
+      "variable": "BMIBLGR1",
+      "rule": "Normal below 25, overweight from 25 to below 30, obese from 30; a missing BMI has no group.",
+      "citations": [
+        {"document": "spec/define/define-adam.xml", "section": "ADSL.BMIBLGR1", "quote": "BMIBLGR1=Normal if . < BMIBL <25. BMIBLGR1=Overweight if 25 <=BMIBL <30. BMIBLGR1=Obese if BMIBL >=30"},
+        {"document": "spec/define/define-adam.xml", "section": "ADSL.BMIBLGR1", "quote": "Codelist BMICAT: <25 = Normal; 25-<30 = Overweight; >30 = Obese"},
+        {"document": "spec/source/SAP.pdf", "section": "page-13", "quote": "BMI category (BMI<25, BMI 25-<30, BMI>=30)"},
+        {"document": "spec/source/SAP.pdf", "section": "page-22", "quote": "Baseline BMI (cont. and as normal(<25), overweight(25-<30), obese(>=30))"},
+        {"document": "spec/source/SAP.pdf", "section": "page-10", "quote": "Missing baseline values and missing safety data will not be imputed."}
+      ],
+      "clauses": [
+        {"relation": "differs", "document": {"citation": 1, "quote": "BMIBLGR1=Normal if . < BMIBL <25"}, "spec": {"element": "BMIBLGR1", "quote": "BMIBL IS NULL"}, "note": "SAS . < BMIBL excludes a missing BMI from every group; the specification puts it in <25."},
+        {"relation": "same", "document": {"citation": 1, "quote": "BMIBLGR1=Overweight if 25 <=BMIBL <30"}, "spec": {"element": "BMIBLGR1", "quote": "BMIBL < 30"}},
+        {"relation": "contradicts", "document": {"citation": 2, "quote": ">30 = Obese"}, "against": {"citation": 3, "quote": "BMI>=30"}, "note": "The codelist codes the obese group as >30; the SAP and the specification write >=30."},
+        {"relation": "contradicts", "document": {"citation": 2, "quote": ">30 = Obese"}, "against": {"citation": 4, "quote": "obese(>=30)"}, "note": "The Template 3 note writes the obese group as >=30, as SAP page 13 and the specification do; the codelist codes it as >30."},
+        {"relation": "differs", "document": {"citation": 5, "quote": "Missing baseline values and missing safety data will not be imputed"}, "spec": {"element": "BMIBLGR1", "quote": "BMIBL IS NULL"}, "note": "SAP section 8.1 leaves a missing baseline value unimputed, as the Define-XML comment leaves a missing BMIBL ungrouped; the specification puts a subject without baseline BMI in <25."}
+      ],
+      "probes": [
+        {"column": "BMIBLGR1", "reading": "literal"},
+        {"column": "BMIBLGR1__CODED_GE30", "reading": "Obese coded as >=30, as the SAP writes it; a missing BMI still has no group."}
+      ],
+      "interpretations": [
+        "SAS . < BMIBL is true only for a nonmissing BMIBL.",
+        "Assigning a group to a missing BMIBL is read as imputing a missing baseline value, which SAP section 8.1 says will not be done."
+      ],
+      "assessment": "Two separate issues: the codelist spelling of the obese group, and the group of a subject without baseline BMI, which Define-XML and the SAP's rule against imputing missing baseline values both leave ungrouped.",
+      "question": "Should a subject without baseline BMI be in <25, as the reference and specification have it, or have no group, as Define-XML states?"
+    },
+    {
+      "variable": "HEIGHTBL",
+      "rule": "Height at visit 1, to one decimal.",
+      "citations": [
+        {"document": "spec/define/define-adam.xml", "section": "ADSL.HEIGHTBL", "quote": "VSSTRESN when VS.VSTESTCD='HEIGHT' and VS.VISITNUM=1"},
+        {"document": "spec/define/define-adam.xml", "section": "ADSL.HEIGHTBL", "quote": "Significant digits: 1"},
+        {"document": "spec/source/SAP.pdf", "section": "page-13", "quote": "Weight, height, BMI at Baseline (Visit 3 for weight and BMI, Visit 1 for height)"}
+      ],
+      "clauses": [
+        {"relation": "differs", "document": {"citation": 1, "quote": "VS.VSTESTCD='HEIGHT' and VS.VISITNUM=1"}, "spec": {"element": "BASE_HT", "quote": "VS.VSTESTCD = 'HEIGHT'"}, "note": "The specification takes the first height record by VISITNUM, with no visit filter."},
+        {"relation": "same", "document": {"citation": 2, "quote": "Significant digits: 1"}, "spec": {"element": "HEIGHTBL", "quote": "FLOOR(BASE_HT.VSSTRESN * 10 + 0.5) / 10"}}
+      ],
+      "probes": [{"column": "HEIGHTBL", "reading": "literal"}],
+      "interpretations": ["Significant digits 1 is read as rounding to one decimal, half away from zero."],
+      "assessment": "The specification takes the earliest height record where the documents name visit 1.",
+      "question": ""
+    },
+    {
+      "variable": "WEIGHTBL",
+      "rule": "Weight at visit 3, to one decimal.",
+      "citations": [
+        {"document": "spec/define/define-adam.xml", "section": "ADSL.WEIGHTBL", "quote": "VSSTRESN when VS.VSTESTCD='WEIGHT' and VS.VISITNUM=3"},
+        {"document": "spec/define/define-adam.xml", "section": "ADSL.WEIGHTBL", "quote": "Significant digits: 1"},
+        {"document": "spec/source/SAP.pdf", "section": "page-13", "quote": "Weight, height, BMI at Baseline (Visit 3 for weight and BMI, Visit 1 for height)"}
+      ],
+      "clauses": [
+        {"relation": "differs", "document": {"citation": 1, "quote": "VS.VSTESTCD='WEIGHT' and VS.VISITNUM=3"}, "spec": {"element": "BASE_WT", "quote": "VS.VSTESTCD = 'WEIGHT' AND VS.VSBLFL = 'Y'"}, "note": "The specification selects the baseline-flagged weight, not visit 3."},
+        {"relation": "same", "document": {"citation": 2, "quote": "Significant digits: 1"}, "spec": {"element": "WEIGHTBL", "quote": "FLOOR(BASE_WT.VSSTRESN * 10 + 0.5) / 10"}}
+      ],
+      "probes": [{"column": "WEIGHTBL", "reading": "literal"}],
+      "interpretations": ["Significant digits 1 is read as rounding to one decimal, half away from zero."],
+      "assessment": "The specification selects the baseline-flagged weight where the documents name visit 3.",
+      "question": ""
+    },
+    {
+      "variable": "EDUCLVL",
+      "rule": "Years of education from SC.",
+      "citations": [
+        {"document": "spec/define/define-adam.xml", "section": "ADSL.EDUCLVL", "quote": "SC.SCSTRESN where SC.SCTESTCD=YEARSEDU"}
+      ],
+      "clauses": [
+        {"relation": "differs", "document": {"citation": 1, "quote": "SC.SCTESTCD=YEARSEDU"}, "spec": {"element": "SC_EDU", "quote": "SC.SCTESTCD = 'EDLEVEL'"}}
+      ],
+      "probes": [
+        {"column": "EDUCLVL", "reading": "literal"},
+        {"column": "EDUCLVL__EDLEVEL", "reading": "Test code EDLEVEL, the code under which the staged SC data hold years of education."}
+      ],
+      "interpretations": [],
+      "assessment": "Define-XML names a test code the SDTM data do not use.",
+      "question": "Should Define-XML name SCTESTCD = EDLEVEL?"
+    },
+    {
+      "variable": "DISONSDT",
+      "rule": "The start date of the primary diagnosis record, as a date.",
+      "citations": [
+        {"document": "spec/define/define-adam.xml", "section": "ADSL.DISONSDT", "quote": "MH.MHSTDTC where MHCAT='PRIMARY DIAGNOSIS' converted to SAS date"}
+      ],
+      "clauses": [
+        {"relation": "same", "document": {"citation": 1, "quote": "MH.MHSTDTC where MHCAT='PRIMARY DIAGNOSIS'"}, "spec": {"element": "MH_DX", "quote": "MH.MHCAT = 'PRIMARY DIAGNOSIS'"}},
+        {"relation": "absent_in_document", "spec": {"element": "DISONSDT", "quote": "month: 1 day: 1"}, "note": "Partial dates are completed to the first month and day; no document states an imputation."}
+      ],
+      "probes": [{"column": "DISONSDT", "reading": "literal"}],
+      "interpretations": ["A partial MHSTDTC converts to a missing date."],
+      "assessment": "The specification adds partial-date imputation the document does not state.",
+      "question": ""
+    },
+    {
+      "variable": "DURDIS",
+      "rule": "Months from the onset of disease to visit 1, to one decimal.",
+      "citations": [
+        {"document": "spec/define/define-adam.xml", "section": "ADSL.DURDIS", "quote": "number of months between VISIT1DT and DISONSET"},
+        {"document": "spec/define/define-adam.xml", "section": "ADSL.DURDIS", "quote": "Significant digits: 1"},
+        {"document": "spec/source/SAP.pdf", "section": "page-13", "quote": "Duration of disease [computed as months between date of Week -2 (Visit 1) and date of onset of the first definite symptoms of Alzheimer's Disease]"},
+        {"document": "spec/source/SAP.pdf", "section": "page-22", "quote": "NOTE: Duration of disease is computed as months between date of enrollment and date of onset of the first definite symptoms of Alzheimer's disease."},
+        {"document": "spec/source/SAP.pdf", "section": "page-9", "quote": "Patients who are enrolled in the study are those who have been assigned to a treatment group."}
+      ],
+      "clauses": [
+        {"relation": "same", "document": {"citation": 1, "quote": "between VISIT1DT and DISONSET"}, "spec": {"element": "DURDIS_DAYS", "quote": "start: DISONSDT end: VISIT1DT"}},
+        {"relation": "absent_in_document", "spec": {"element": "DURDIS", "quote": "DURDIS_DAYS / 30.4375"}, "note": "Neither document defines a month; the specification divides days by an average month of 30.4375 days."},
+        {"relation": "contradicts", "document": {"citation": 3, "quote": "computed as months between date of Week -2 (Visit 1) and date of onset"}, "against": {"citation": 4, "quote": "computed as months between date of enrollment and date of onset"}, "note": "Enrollment is assignment to treatment at visit 3, not visit 1."}
+      ],
+      "probes": [
+        {"column": "DURDIS", "reading": "literal"},
+        {"column": "DURDIS__AVERAGE_MONTH", "reading": "Days from onset to visit 1, counting both, divided by an average month of 30.4375 days, to one decimal."},
+        {"column": "DURDIS__ENROLLMENT", "reading": "The SAP table-shell note: average months from onset to enrollment, the visit 3 date."}
+      ],
+      "interpretations": [
+        "The literal reading counts whole calendar months.",
+        "DISONSET is read as DISONSDT."
+      ],
+      "assessment": "The documents leave the month undefined, and the SAP names two different end dates.",
+      "question": "Which month definition and which end date did the submission intend?"
+    },
+    {
+      "variable": "DURDSGR1",
+      "rule": "Disease duration grouped as under 12 and 12 or more months.",
+      "citations": [
+        {"document": "spec/define/define-adam.xml", "section": "ADSL.DURDSGR1", "quote": "grouping DURDIS values as <12 and >=12"},
+        {"document": "spec/source/SAP.pdf", "section": "page-22", "quote": "Duration of disease (cont. and as <12 months, >=12 months)"}
+      ],
+      "clauses": [
+        {"relation": "same", "document": {"citation": 1, "quote": "grouping DURDIS values as <12 and >=12"}, "spec": {"element": "DURDSGR1", "quote": "DURDIS < 12"}},
+        {"relation": "same", "document": {"citation": 2, "quote": "as <12 months, >=12 months"}, "spec": {"element": "DURDSGR1", "quote": "DURDIS < 12"}, "note": "DURDIS is in months, so the SAP grouping is the Define-XML grouping."}
+      ],
+      "probes": [{"column": "DURDSGR1", "reading": "literal"}],
+      "interpretations": [],
+      "assessment": "The specification states the documented grouping.",
+      "question": ""
+    },
+    {
+      "variable": "VISIT1DT",
+      "rule": "The visit 1 date from SV, as a date.",
+      "citations": [
+        {"document": "spec/define/define-adam.xml", "section": "ADSL.VISIT1DT", "quote": "SV.SVSTDTC when SV.VISITNUM=1, converted to SAS date"}
+      ],
+      "clauses": [
+        {"relation": "same", "document": {"citation": 1, "quote": "SV.SVSTDTC when SV.VISITNUM=1"}, "spec": {"element": "SV1", "quote": "SV.VISITNUM = 1"}},
+        {"relation": "absent_in_document", "spec": {"element": "VISIT1DT", "quote": "month: 1 day: 1"}, "note": "Partial dates are completed to the first month and day; no document states an imputation."}
+      ],
+      "probes": [{"column": "VISIT1DT", "reading": "literal"}],
+      "interpretations": ["A partial SVSTDTC converts to a missing date."],
+      "assessment": "The specification adds partial-date imputation the document does not state.",
+      "question": ""
+    },
+    {
+      "variable": "VISNUMEN",
+      "rule": "The visit number of study completion, with visit 13 reported as 12.",
+      "citations": [
+        {"document": "spec/define/define-adam.xml", "section": "ADSL.VISNUMEN", "quote": "if DS.VISITNUM=13 where DSTERM='PROTCOL COMPLETED' then VISNUMEN=12, otherwise VISNUMEN=DS.VISITNUM where DSTERM='PROTCOL COMPLETED'"},
+        {"document": "spec/define/define-adam.xml", "section": "ADSL.VISNUMEN", "quote": "Label: End of Trt Visit (Vis 12 or Early Term.)"},
+        {"document": "spec/source/SAP.pdf", "section": "page-10", "quote": "\u201cEnd of treatment\u201d will refer to the subject\u2019s Week 24 visit or early termination visit."},
+        {"document": "spec/source/SAP.pdf", "section": "page-17", "quote": "end of treatment (last visit on or before Week 24 visit)"},
+        {"document": "spec/source/SAP.pdf", "section": "page-40", "quote": "End of treatment is the last on-treatment visit (on or before the Week 24 visit)."}
+      ],
+      "clauses": [
+        {"relation": "same", "document": {"citation": 1, "quote": "if DS.VISITNUM=13 where DSTERM='PROTCOL COMPLETED' then VISNUMEN=12"}, "spec": {"element": "VISNUMEN", "quote": "DS_VISITNUM = 13"}},
+        {"relation": "differs", "document": {"citation": 1, "quote": "otherwise VISNUMEN=DS.VISITNUM where DSTERM='PROTCOL COMPLETED'"}, "spec": {"element": "DS_DISP", "quote": "DS.DSCAT = 'DISPOSITION EVENT'"}, "note": "The document reads the completion record only; the specification reads every disposition event."},
+        {"relation": "contradicts", "document": {"citation": 1, "quote": "otherwise VISNUMEN=DS.VISITNUM where DSTERM='PROTCOL COMPLETED'"}, "against": {"citation": 2, "quote": "Vis 12 or Early Term."}, "note": "The comment covers completers only; the label also covers early termination."},
+        {"relation": "contradicts", "document": {"citation": 1, "quote": "otherwise VISNUMEN=DS.VISITNUM where DSTERM='PROTCOL COMPLETED'"}, "against": {"citation": 3, "quote": "Week 24 visit or early termination visit"}, "note": "The SAP defines end of treatment to include the early termination visit; the comment gives a value from the completion record only."},
+        {"relation": "same", "document": {"citation": 4, "quote": "last visit on or before Week 24 visit"}, "spec": {"element": "VISNUMEN", "quote": "DS_VISITNUM = 13"}, "note": "Both end treatment at Vis 12 for a subject whose disposition falls after the Week 24 visit, whatever the disposition: the SAP as the last visit on or before Week 24, the specification by mapping visit 13 (Week 26), the only scheduled visit after Week 24, to 12."},
+        {"relation": "same", "document": {"citation": 5, "quote": "the last on-treatment visit (on or before the Week 24 visit)"}, "spec": {"element": "VISNUMEN", "quote": "DS_VISITNUM = 13"}, "note": "The vital signs template note, repeated on pages 41 and 42, gives the definition of SAP page 17."}
+      ],
+      "probes": [
+        {"column": "VISNUMEN", "reading": "literal"},
+        {"column": "VISNUMEN__PROTOCOL_SPELLING", "reading": "DSTERM spelled PROTOCOL COMPLETED, as the SDTM data spell it."},
+        {"column": "VISNUMEN__END_OF_TREATMENT", "reading": "End of treatment as the SAP defines it, the Week 24 visit or early termination visit: Vis 12, as the label writes it, for a subject whose disposition is PROTOCOL COMPLETED, otherwise the visit of the disposition event."},
+        {"column": "VISNUMEN__ON_OR_BEFORE_WEEK24", "reading": "End of treatment as SAP pages 17 and 40 define it, the last visit on or before the Week 24 visit: the visit of the disposition event, or Vis 12 when that visit is after Vis 12."}
+      ],
+      "interpretations": [
+        "The SAP's Week 24 visit is read as visit 12, as the Define-XML label writes Vis 12.",
+        "The SAP's early termination visit is read as the visit of the disposition event of a subject who did not complete; SAP page 10 alone leaves open whether a disposition after the Week 24 visit still ends treatment at Week 24, which SAP pages 17 and 40 settle.",
+        "The last visit on or before the Week 24 visit (SAP pages 17 and 40) is read as the disposition visit, capped at Vis 12; the SAP does not define an on-treatment visit or say whether unscheduled visits count."
+      ],
+      "assessment": "The term is misspelled, and the comment covers completers only while the label and the SAP's end of treatment also cover early termination. SAP pages 17 and 40 end treatment on or before the Week 24 visit, as the specification's mapping of visit 13 to 12 does for every subject.",
+      "question": "Should the Define-XML comment state VISNUMEN for subjects who terminated early?"
+    },
+    {
+      "variable": "RFENDT",
+      "rule": "The reference end date, as a date.",
+      "citations": [
+        {"document": "spec/define/define-adam.xml", "section": "ADSL.RFENDT", "quote": "RFENDTC converted to SAS date"}
+      ],
+      "clauses": [
+        {"relation": "same", "document": {"citation": 1, "quote": "RFENDTC converted to SAS date"}, "spec": {"element": "RFENDT", "quote": "source: RFENDTC"}},
+        {"relation": "absent_in_document", "spec": {"element": "RFENDT", "quote": "month: 1 day: 1"}, "note": "Partial dates are completed to the first month and day; no document states an imputation."}
+      ],
+      "probes": [{"column": "RFENDT", "reading": "literal"}],
+      "interpretations": ["A partial RFENDTC converts to a missing date."],
+      "assessment": "The specification adds partial-date imputation the document does not state.",
+      "question": ""
+    },
+    {
+      "variable": "DCDECOD",
+      "rule": "The standardized term of the disposition event.",
+      "citations": [
+        {"document": "spec/define/define-adam.xml", "section": "ADSL.DCDECOD", "quote": "DS.DSDECOD where DSCAT='DISPOSITION EVENT'"}
+      ],
+      "clauses": [
+        {"relation": "same", "document": {"citation": 1, "quote": "DS.DSDECOD where DSCAT='DISPOSITION EVENT'"}, "spec": {"element": "DS_DISP", "quote": "DS.DSCAT = 'DISPOSITION EVENT'"}}
+      ],
+      "probes": [{"column": "DCDECOD", "reading": "literal"}],
+      "interpretations": ["Each subject has one disposition event; the first by DSSEQ is taken."],
+      "assessment": "The specification states the documented rule.",
+      "question": ""
+    },
+    {
+      "variable": "DCREASCD",
+      "rule": "A grouping of the disposition term into completion and discontinuation reasons.",
+      "citations": [
+        {"document": "spec/define/define-adam.xml", "section": "ADSL.DCREASCD", "quote": "Grouping of DCDECOD values to support summarizing study completion status and reason for discontinuation"},
+        {"document": "spec/define/define-adam.xml", "section": "ADSL.DCREASCD", "quote": "I/E Not Met = I/E Not Met"}
+      ],
+      "clauses": [
+        {"relation": "absent_in_document", "spec": {"element": "DC_REAS_MAP", "quote": "ADVERSE EVENT: Adverse Event"}, "note": "The documents give the groups but not which DCDECOD value maps to which."},
+        {"relation": "absent_in_document", "spec": {"element": "DCREASCD", "quote": "DS_DSTERM = 'PROTOCOL ENTRY CRITERIA NOT MET'"}, "note": "The I/E Not Met group is taken from DSTERM, which no document mentions."}
+      ],
+      "probes": [],
+      "not_probed_reason": "The documents list the groups but not which DCDECOD value belongs to which group.",
+      "interpretations": [],
+      "assessment": "The mapping, including the DSTERM rule for I/E Not Met, is undocumented.",
+      "question": "Where is the DCDECOD-to-DCREASCD mapping documented?"
+    },
+    {
+      "variable": "MMSETOT",
+      "rule": "The sum of the subject's MMSE item results.",
+      "citations": [
+        {"document": "spec/define/define-adam.xml", "section": "ADSL.MMSETOT", "quote": "sum of QS.QSORRES values for the subject"},
+        {"document": "spec/define/define-adam.xml", "section": "ADSL.MMSETOT", "quote": "Label: MMSE Total"},
+        {"document": "spec/source/SAP.pdf", "section": "page-13", "quote": "Baseline comparisons across treatment groups for the Mini-Mental State Examination (MMSE) will be made using analysis of variance with treatment and site as main effects."}
+      ],
+      "clauses": [
+        {"relation": "differs", "document": {"citation": 1, "quote": "sum of QS.QSORRES values"}, "spec": {"element": "MMSETOT", "quote": "SUM(QS.QSSTRESN)"}, "note": "QSORRES is text; the specification sums its numeric standardized form."},
+        {"relation": "same", "document": {"citation": 3, "quote": "Mini-Mental State Examination (MMSE)"}, "spec": {"element": "MMSETOT", "quote": "QS.QSCAT = 'MINI-MENTAL STATE'"}, "note": "The SAP expands MMSE, as in the label 'MMSE Total', to the Mini-Mental State Examination, the questionnaire whose records the specification's filter selects."}
+      ],
+      "probes": [
+        {"column": "MMSETOT", "reading": "literal"},
+        {"column": "MMSETOT__MMSE_ONLY", "reading": "MINI-MENTAL STATE records only, as the label MMSE Total implies."}
+      ],
+      "interpretations": [
+        "QSORRES is summed as QSSTRESN, its numeric form.",
+        "The SAP's Mini-Mental State Examination is read as the QS category MINI-MENTAL STATE. The SAP treats the MMSE as a baseline measure; no document names the visit it is taken at, and the specification sums the subject's MMSE records without a visit condition."
+      ],
+      "assessment": "The comment omits the questionnaire the total is taken from; the label and the SAP name it the Mini-Mental State Examination.",
+      "question": ""
+    }
+  ]
+}

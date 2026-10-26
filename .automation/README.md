@@ -8,6 +8,7 @@ Repository conventions and checks live in `AGENTS.md`.
 | --- | --- | --- |
 | `triage_issues.md` | Answer open issues or open a reviewed change as a PR. | GitHub issue comments and labels, branch pushes, and PR creation. State: `claude-triaged` and `claude-needs-human` labels. |
 | `weekly_update.md` | Send one weekly activity digest to the team Slack channel. | Read-only GitHub; Slack channel read and post access. State: the previous digest in channel history. |
+| `consistency_review/workflow.md` | Review one dataset's derivations against the submission documents and open a PR whose report cites a rule and quotes the sources for every finding. Uses the `extract.md` and `adjudicate.md` subagent prompts and the rules in `rules.yaml`. | Repository read/edit, the study's pinned engine, branch pushes and PR creation. State: `<study>/spec/review/<dataset>-claims.json`, `-probe.yaml` and `-adjudication.json`. |
 
 ## Configure a routine
 

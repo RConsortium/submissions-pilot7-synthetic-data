@@ -31,14 +31,40 @@ def description(element):
     )
 
 
+def attributes(element):
+    return {k.rsplit("}", 1)[-1]: v for k, v in element.attrib.items()}
+
+
 def define_metadata(path):
+    """Variable metadata by dataset for Define-XML 1.0 and 2.x.
+
+    Define 2.x states derivations in MethodDef and notes in CommentDef. Define
+    1.0 has neither: its derivation text is the ItemDef Comment attribute.
+    """
     tree = ET.parse(path)
     items = {x.attrib["OID"]: x for x in tree.iter() if local_name(x) == "ItemDef"}
-    methods = {
-        x.attrib["OID"]: description(x)
-        for x in tree.iter()
-        if local_name(x) == "MethodDef"
-    }
+    methods, comments, codelists = {}, {}, {}
+    for x in tree.iter():
+        if local_name(x) == "MethodDef":
+            methods[x.attrib["OID"]] = description(x)
+        elif local_name(x) == "CommentDef":
+            comments[x.attrib["OID"]] = description(x)
+        elif local_name(x) == "CodeList":
+            external = next(
+                (attributes(i) for i in x if local_name(i) == "ExternalCodeList"), None
+            )
+            codelists[x.attrib["OID"]] = {
+                "items": [
+                    {
+                        # Published coded values can carry non-breaking spaces.
+                        "value": (i.attrib.get("CodedValue") or "").strip(),
+                        "decode": " ".join("".join(i.itertext()).split()),
+                    }
+                    for i in x
+                    if local_name(i) in {"CodeListItem", "EnumeratedItem"}
+                ],
+                "external": external,
+            }
     groups = {}
     for group in tree.iter():
         if local_name(group) != "ItemGroupDef":
@@ -50,14 +76,80 @@ def define_metadata(path):
             item = items.get(reference.attrib.get("ItemOID"))
             if item is None:
                 continue
+            attrs = attributes(item)
+            codelist = next(
+                (
+                    c.attrib.get("CodeListOID")
+                    for c in item
+                    if local_name(c) == "CodeListRef"
+                ),
+                None,
+            )
             fields[item.attrib["Name"]] = {
                 "label": description(item),
                 "type": item.attrib.get("DataType"),
                 "oid": item.attrib["OID"],
                 "method": methods.get(reference.attrib.get("MethodOID"), ""),
+                "comment": (
+                    attrs.get("Comment", "").strip()
+                    or comments.get(attrs.get("CommentOID"), "")
+                ),
+                "origin": attrs.get("Origin", ""),
+                "significant_digits": attrs.get("SignificantDigits", ""),
+                "codelist": (
+                    {
+                        "oid": codelist,
+                        **codelists.get(codelist, {"items": [], "external": None}),
+                    }
+                    if codelist
+                    else None
+                ),
             }
         groups[group.attrib.get("Name", "")] = fields
     return groups
+
+
+def define_section_text(item):
+    """The reading-copy text of one Define variable; citations quote this text."""
+    lines = [f'Label: {item["label"]}', f'Data type: {item["type"]}']
+    for name, key in [
+        ("Origin", "origin"),
+        ("Significant digits", "significant_digits"),
+        ("Method", "method"),
+        ("Comment", "comment"),
+    ]:
+        if item.get(key):
+            lines.append(f"{name}: {item[key]}")
+    if item.get("codelist"):
+        codelist = item["codelist"]
+        values = "; ".join(f'{c["value"]} = {c["decode"]}' for c in codelist["items"])
+        if codelist.get("external"):
+            external = codelist["external"]
+            values = " ".join(
+                filter(None, [external.get("Dictionary"), external.get("Version")])
+            ) + " (external dictionary)"
+        lines.append(f'Codelist {codelist["oid"]}: {values}')
+    return "\n".join(lines)
+
+
+def document_sections(path, metadata):
+    """Stable, citable sections: PDF pages and Define-XML variables."""
+    if path.suffix.lower() == ".pdf":
+        return [
+            {"id": f"page-{number}", "title": f"Page {number}", "text": page.extract_text() or ""}
+            for number, page in enumerate(PdfReader(path).pages, 1)
+        ]
+    if path.name == "define-adam.xml":
+        return [
+            {
+                "id": f"{domain}.{name}",
+                "title": f'{domain}.{name} / {item["oid"]}',
+                "text": define_section_text(item),
+            }
+            for domain, columns in metadata.items()
+            for name, item in columns.items()
+        ]
+    return []
 
 
 def document_html(title, body):
@@ -141,25 +233,7 @@ def materials(root, study, target, metadata):
                 ),
                 view_label="Original XML HTML" if view else "XML source",
             )
-        if path.suffix.lower() == ".pdf":
-            for number, page in enumerate(PdfReader(path).pages, 1):
-                record["sections"].append(
-                    {
-                        "id": f"page-{number}",
-                        "title": f"Page {number}",
-                        "text": page.extract_text() or "",
-                    }
-                )
-        elif path.name == "define-adam.xml":
-            for domain, columns in metadata.items():
-                for name, item in columns.items():
-                    record["sections"].append(
-                        {
-                            "id": f"{domain}.{name}",
-                            "title": f'{domain}.{name} / {item["oid"]}',
-                            "text": f'Label: {item["label"]}\nData type: {item["type"]}\nMethod: {item["method"]}',
-                        }
-                    )
+        record["sections"].extend(document_sections(path, metadata))
         if record["sections"]:
             body = "<p>Extracted reading copy. Verify against the linked original submission document.</p>"
             body += f'<p><a href="{html.escape(path.name)}">Open original {html.escape(path.name)}</a></p>'

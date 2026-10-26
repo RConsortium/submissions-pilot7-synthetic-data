@@ -5,7 +5,7 @@ import json
 import pyarrow.parquet as pq
 
 from .config import SCHEMA_VERSION
-from .documents import define_metadata, materials
+from .documents import define_metadata, define_section_text, materials
 from .datasets import clean
 
 
@@ -113,7 +113,7 @@ def build_report(root, study, specifications, target, revision, validation=None)
                     {
                         "path": str(define_path.relative_to(root)),
                         "section": f'{domain}.{name} / {item["oid"]}',
-                        "excerpt": f'Label: {item["label"]}\nMethod: {item["method"]}',
+                        "excerpt": define_section_text(item),
                         "url": f"{define_reading}#{domain}.{name}",
                     },
                     spec_path,
