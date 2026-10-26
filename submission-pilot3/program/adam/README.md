@@ -53,3 +53,11 @@ Compare the outputs with the official references:
 ```bash
 python submission-pilot3/program/adam/python/compare.py
 ```
+
+## Define-XML
+
+[DEFINE.md](DEFINE.md) documents the yamaa Define-XML 2.1 generation workflow,
+its independent metadata comparison, and unresolved reference/data conflicts.
+The generated document covers all five datasets, but the current strict
+reproduction check returns `incomplete`; it must not be reported as full
+equivalence with the published Define-XML 2.0 file.
