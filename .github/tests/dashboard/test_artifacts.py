@@ -22,6 +22,16 @@ from study_dashboard.rule_review import rule_findings
 
 
 class ReviewDataTests(unittest.TestCase):
+    def test_declared_input_ordinal_is_a_source_field_and_unknown_names_stay_unresolved(self):
+        spec = {'input': {'QS': {'path': 'qs.parquet', 'ordinal': '_ORDER'}},
+                'output': {'columns': ['SOURCE_ORDER', 'TYPO']},
+                'base': 'QS', 'columns': [
+                    {'name': 'SOURCE_ORDER', 'derivation': 'QS._ORDER'},
+                    {'name': 'TYPO', 'derivation': 'QS._TYPO'}]}
+        lineage = build_lineage(yaml.safe_dump(spec), spec, {'QS': {'QSSEQ'}})
+        self.assertEqual(lineage['edges']['spec.SOURCE_ORDER'], ['QS._ORDER'])
+        self.assertEqual(lineage['unresolved'], ['QS._TYPO'])
+
     def test_static_lineage_excludes_mapping_literals_and_includes_context(self):
         text = """domain: ADSL
 input:

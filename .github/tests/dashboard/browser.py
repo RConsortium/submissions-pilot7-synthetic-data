@@ -48,8 +48,10 @@ def assert_page_fits(page, selector):
 
 
 def assert_yaml_context(page, specification, inputs, intermediates):
-    page.locator("#spec-view").select_option("source:0")
-    focus = specification["lineage"]["focus"]
+    # A composed entry can contain no column rules. Inspect complete input and
+    # lookup context in the engine-resolved model, and test source files apart.
+    page.locator("#spec-view").select_option("resolved")
+    focus = specification["resolved"]["lineage"]["focus"]
     for name, span in focus["inputs"].items():
         line = page.locator(f'#spec-L{span["start"]}')
         if name in inputs:

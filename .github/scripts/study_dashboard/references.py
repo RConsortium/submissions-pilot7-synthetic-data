@@ -40,6 +40,13 @@ class References:
             next(iter(schemas)) if len(schemas) == 1 else None
         )
         self.aliases = {name: set(columns) for name, columns in schemas.items()}
+        self.ordinals = {
+            (alias, declaration['ordinal'])
+            for alias, declaration in spec.get('input', {}).items()
+            if isinstance(declaration, dict) and declaration.get('ordinal')
+        }
+        for alias, ordinal in self.ordinals:
+            self.aliases.setdefault(alias, set()).add(ordinal)
         self.aliases["SELF"] = self.local | self.aliases.get(self.base, set())
         intermediates = spec.get("intermediates", [])
         for _ in range(len(intermediates) + 1):
@@ -60,7 +67,8 @@ class References:
             return set()
         if alias == "SELF":
             return {f"spec.{name}" if name in self.local else f"{self.base}.{name}"}
-        if alias == self.base and name not in self.schemas.get(alias, set()):
+        if (alias == self.base and name not in self.schemas.get(alias, set())
+                and (alias, name) not in self.ordinals):
             return {f"spec.{name}"}
         return {f"{alias}.{name}"}
 
