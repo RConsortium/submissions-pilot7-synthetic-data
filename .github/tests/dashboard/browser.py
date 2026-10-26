@@ -393,7 +393,7 @@ def check(browser, base, site_dir, screenshots):
     # The pilot study report is static; synthetic data keeps a separate gallery.
     page.get_by_role("link", name="All pilot studies", exact=True).click()
     report = page.locator(".study-report")
-    expect(report.get_by_role("link", name="Open review workspace")).to_have_count(
+    expect(report.locator("#studies + .report-table thead a")).to_have_count(
         len(
             json.loads((site_dir / "evidence/dashboard/index.json").read_text())[
                 "studies"
@@ -407,12 +407,12 @@ def check(browser, base, site_dir, screenshots):
     expect(nav).to_contain_text("Synthetic data")
     capture(page, screenshots, "study-report.png")
     # Instant navigation makes the report's relative links absolute.
-    report.locator('a[href$="/cdiscpilot01/#cdiscpilot01/overview"]').first.click()
-    expect(page.locator('.review-tabs [data-view="overview"]')).to_have_attribute(
+    report.get_by_role("link", name="CDISC Pilot 01", exact=True).click()
+    expect(page.locator('.review-tabs [data-view="datasets"]')).to_have_attribute(
         "aria-current", "page"
     )
     page.go_back()
-    report.get_by_role("link", name="Open review workspace").nth(1).click()
+    report.get_by_role("link", name="Submission Pilot 3", exact=True).click()
     expect(page.locator("#output-table tbody tr")).to_have_count(3)
     page.locator('.review-tabs [data-view="materials"]').click()
     page.get_by_role("tablist", name="Document 1 files", exact=True).get_by_role("tab", name="adam-pilot-3.xlsx", exact=True).click()

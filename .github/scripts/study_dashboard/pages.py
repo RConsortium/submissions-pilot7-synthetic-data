@@ -3,9 +3,6 @@
 import html
 import json
 
-REPO = "https://github.com/RConsortium/submissions-pilot7-synthetic-data"
-ENGINE = "https://github.com/elong0527/yamaa"
-REVIEW = {"Needs review": "attention", "Not reviewed": "neutral"}
 UNMATCHED = {
     "Not compared": "a reference is staged but the comparator did not check it",
     "No reference": "no official reference is staged",
@@ -66,48 +63,28 @@ def _load(bundle):
 
 
 def _inputs(catalog):
-    """SDTM domains the specifications read, staged SDTM domains, and other lookups."""
+    """SDTM domains the specifications read and the number of staged SDTM domains."""
     tables = catalog["tables"]
     used = [tables[i["table"]] for d in catalog["datasets"] for i in d["inputs"]]
     used = list({t["path"]: t for t in used}.values())
     sdtm = [t["domain"] for t in used if "/sdtm/" in t["path"]]
     staged = sum("/sdtm/" in t["path"] for t in tables.values())
-    lookups = [
-        t["name"] for t in used if "/sdtm/" not in t["path"] and "/adam/" not in t["path"]
-    ]
-    return sdtm, staged, lookups
+    return sdtm, staged
 
 
-def _header(index, studies, validated):
-    """The method, then only what this run's evidence shows was compared."""
-    datasets = [d for c, _ in validated for d in c["datasets"]]
-    matched = sum(d["comparison"] == "passed" for d in datasets)
+def _header(studies, validated):
+    """Summarize the agents' work and identify any pending studies."""
     pending = len(studies) - len(validated)
-    result = (
-        f" In this run, the study comparators found {matched} of {len(datasets)} "
-        "derived datasets equal to their official ADaM datasets."
-        if datasets
-        else ""
-    )
+    result = ""
     if pending:
         result += f" {pending} {'study is' if pending == 1 else 'studies are'} pending validation."
     lines = [
         "<h1>Pilot study report</h1>",
-        '<p class="report-lede">AI agents draft yamaa specifications from published '
-        "submission packages, and the yamaa engine executes them to derive ADaM datasets "
-        f"from staged SDTM data.{html.escape(result)}</p>",
+        '<p class="report-lede">AI agents create yamaa specifications and derive ADaM '
+        "datasets from SDTM data in pilot submission packages. AI agents also check "
+        "consistency between the datasets and documents in those packages. "
+        f"This report summarizes the findings.{html.escape(result)}</p>",
     ]
-    if validated:
-        runs = [c["validation"] for c, _ in validated]
-        day = max(r["created_utc"] for r in runs)[:10]
-        engine = runs[0]["yamaa_revision"]
-        revision = index["revision"]
-        lines.append(
-            f'<p class="report-provenance">Validated {html.escape(day)} (UTC) at commit '
-            f'<a href="{REPO}/tree/{revision}"><code>{revision[:7]}</code></a> with yamaa '
-            f'{html.escape(runs[0]["yamaa_version"])} (engine '
-            f'<a href="{ENGINE}/tree/{engine}"><code>{engine[:7]}</code></a>).</p>'
-        )
     return lines
 
 
@@ -168,19 +145,17 @@ def _overview(studies):
         cells = {
             "Scope": html.escape(catalog["description"]),
             "Upstream": f'<a href="{html.escape(source)}">{html.escape(label)}</a>',
-            "Review": f'<a href="{catalog["id"]}/">Open review workspace &#8594;</a>',
         }
         if report is None:
             reason = catalog.get("reason", "Study validation has not run.")
             cells["Scope"] += f"<small>Validation pending. {html.escape(reason)}</small>"
         else:
-            sdtm, staged, lookups = _inputs(catalog)
+            sdtm, staged = _inputs(catalog)
             matched, reference = catalog["metrics"]["matched"], catalog["metrics"]["reference"]
             cells |= {
                 "Subjects": _metric(len(catalog["subjects"])),
                 "SDTM inputs": f"{len(sdtm)} of {staged} staged domains"
                 f"<small>{html.escape(', '.join(sdtm))}</small>",
-                "Lookup tables": html.escape(", ".join(lookups)),
                 "ADaM datasets matched": _share(matched[0], reference[0]),
                 "Columns matched": _share(matched[1], reference[1]),
                 "Cells matched": _share(matched[2], reference[2]),
@@ -189,14 +164,13 @@ def _overview(studies):
         facts[catalog["id"]] = cells
     rows = []
     for name in [
-        "Scope", "Upstream", "Subjects", "SDTM inputs", "Lookup tables",
-        "ADaM datasets matched", "Columns matched", "Cells matched", "Documents", "Review",
+        "Scope", "Upstream", "Subjects", "SDTM inputs",
+        "ADaM datasets matched", "Columns matched", "Cells matched", "Documents",
     ]:
         values = [facts[c["id"]].get(name, "") for c, _ in studies]
         if any(values):
-            css = ' class="report-screen"' if name == "Review" else ""
             rows.append(
-                f'<tr{css}><th scope="row">{name}</th>'
+                f'<tr><th scope="row">{name}</th>'
                 + "".join(f"<td>{value or '-'}</td>" for value in values)
                 + "</tr>"
             )
@@ -223,6 +197,8 @@ def _matrix(studies):
         for dataset in catalog["datasets"]:
             row = found.setdefault(dataset["name"], {"descriptions": {}, "cells": {}})
             label = catalog["tables"][dataset["output"]].get("description", "")
+            if dataset["name"] == "ADSL":
+                label = "Subject-Level Analysis Dataset"
             if label:
                 row["descriptions"].setdefault(label, []).append(catalog["title"])
             size = dimensions[dataset["name"]]
@@ -254,78 +230,15 @@ def _matrix(studies):
     ]
 
 
-def _review(studies, validated):
-    items = {}
-    for catalog, report in validated:
-        for finding in report["findings"]:
-            key = (finding["title"], finding["dataset"], finding["variable"])
-            items.setdefault(key, {}).setdefault(catalog["id"], []).append(
-                finding["status"]
-            )
-    lines = []
-    if items:
-        rows = []
-        for (title, dataset, variable), statuses in items.items():
-            cells = []
-            for catalog, _ in studies:
-                found = statuses.get(catalog["id"])
-                if not found:
-                    cells.append("<td>-</td>")
-                    continue
-                text = found[0] if len(found) == 1 else f"{len(found)} items"
-                link = f'{catalog["id"]}/#{catalog["id"]}/overview'
-                cells.append(
-                    f'<td class="report-cell"><a href="{link}">'
-                    f"{_status(text, REVIEW.get(found[0], 'neutral'))}</a></td>"
-                )
-            target = ".".join(part for part in (dataset, variable) if part)
-            rows.append(
-                f'<tr><th scope="row">{html.escape(title)}</th>'
-                f'<td>{html.escape(target)}</td>{"".join(cells)}</tr>'
-            )
-        lines.append(_table(["Item", "Target"], studies, rows))
-    else:
-        lines.append("<p>No open review items.</p>")
-    columns = sum(r["checks"]["output_columns"] for _, r in validated)
-    labels = sum(r["checks"]["labels"] for _, r in validated)
-    differences = sum(
-        f["kind"] == "inconsistent" for _, r in validated for f in r["findings"]
-    )
-    lines.append(
-        f'<p class="report-foot">Metadata checks: {columns:,} declared output columns and '
-        f"{labels:,} Define-XML labels compared, {differences:,} "
-        f'{"inconsistency" if differences == 1 else "inconsistencies"}. Review items are '
-        "open questions for a reviewer, not confirmed defects.</p>"
-    )
-    # The table and its footnote print on one page.
-    return [
-        '<h2 id="review-items">Open review items</h2>',
-        f'<div class="report-keep">{"".join(lines)}</div>',
-    ]
-
-
 def report_page(bundle):
     """A two-page printable summary of every pilot study, from the staged bundle."""
-    index, studies = _load(bundle)
+    _, studies = _load(bundle)
     validated = [(c, r) for c, r in studies if r is not None]
     body = [
-        *_header(index, studies, validated),
+        *_header(studies, validated),
         *(_kpis(studies, validated) if validated else []),
         *_overview(studies),
-        *_review(studies, validated),
         *_matrix(studies),
-    ]
-    evidence = ", ".join(
-        f'[{c["title"]}](../evidence/{c["id"]}.json)' for c, _ in studies
-    )
-    notes = [
-        "- **Matched** is regression evidence against the staged official references,",
-        "  not regulatory validation. Build success and reference agreement are",
-        "  separate results; see the [verification policy](../verification.md).",
-        "- Narrative coverage of the submission documents is partial. Open a study's",
-        "  review workspace to inspect specifications, records and source documents,",
-        "  and see the [review guide](../review.md).",
-        f"- Every figure comes from the published evidence records: {evidence}.",
     ]
     return "\n".join(
         [
@@ -333,10 +246,6 @@ def report_page(bundle):
             '<div class="study-report" markdown="1">',
             "",
             "\n\n".join(body),
-            "",
-            '<h2 id="reading">Reading this report</h2>',
-            "",
-            *notes,
             "",
             "</div>",
             "",

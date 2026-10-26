@@ -147,8 +147,7 @@ columns:
         self.generate()
         page = (self.root / "docs/studies/index.md").read_text()
         for expected in [
-            "In this run, the study comparators found 0 of 1 derived datasets equal to "
-            "their official ADaM datasets. 1 study is pending validation.</p>",
+            "This report summarizes the findings. 1 study is pending validation.</p>",
             "<div><dt>Studies</dt><dd>1 / 2<span>validated</span></dd></div>",
             "<div><dt>ADaM datasets</dt><dd>0 / 0<span>no official reference</span></dd></div>",
             '<a href="pending-study/">Pending study</a><small>Pending</small></th>',

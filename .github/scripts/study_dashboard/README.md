@@ -63,7 +63,7 @@ Heading-based URL tracking is disabled because dashboard fragments own review st
    (`official` or `optional`) to `.github/yamaa-studies.json`. Navigation, the
    study report, study pages, and the CI publication matrix discover it automatically.
    The report reads the staged bundle, so it adds a column for the study and rows
-   for its datasets and review items. Keep it within two printed pages.
+   for its datasets. Keep it within two printed pages.
 3. Optional `dashboard` settings in that catalog entry override shared defaults:
 
    ```json
