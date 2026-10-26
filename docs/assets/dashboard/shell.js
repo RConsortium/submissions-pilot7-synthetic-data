@@ -6,7 +6,7 @@ export function createShell(ctx) {
   function metrics() {
     const { model, report } = ctx;
     const m = model.metrics;
-    return `<div class="metric-strip">${["Datasets", "Columns", "Cells"].map((n, i) => `<span><strong>${n}</strong> ${metric(m.matched[i])} / ${metric(m.reference[i])} <small>${m.reference[i] ? Math.round((100 * m.matched[i]) / m.reference[i]) + "%" : "n/a"}</small></span>`).join("")}<span><strong>Consistency:</strong> ${consistencyFindings(report).length} findings</span></div>`;
+    return `<div class="metric-strip">${["Datasets", "Columns", "Cells"].map((n, i) => `<span><strong>${n}</strong> ${metric(m.matched[i])} / ${metric(m.reference[i])} <small>${m.reference[i] ? Math.round((100 * m.matched[i]) / m.reference[i]) + "%" : "n/a"}</small></span>`).join("")}<span><strong>Consistency:</strong> ${consistencyFindings(report).length} issue${consistencyFindings(report).length === 1 ? "" : "s"}</span></div>`;
   }
   function frame() {
     const { model, state, site, REPO, esc, link } = ctx;

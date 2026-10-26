@@ -1,0 +1,175 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "review-issues.schema.json",
+  "title": "review-issues",
+  "type": "object",
+  "additionalProperties": false,
+  "properties": {
+    "schema_version": {
+      "const": 1
+    },
+    "dataset": {
+      "type": "string",
+      "minLength": 1
+    },
+    "checks": {
+      "type": "object",
+      "minProperties": 1,
+      "additionalProperties": {
+        "type": "string",
+        "pattern": "^[a-f0-9]{64}$"
+      }
+    },
+    "issues": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/issue"
+      },
+      "minItems": 1
+    }
+  },
+  "required": ["schema_version", "dataset", "checks", "issues"],
+  "$defs": {
+    "selector": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "check": {
+          "type": "string",
+          "minLength": 1
+        },
+        "kind": {
+          "enum": ["probe", "copy", "codelist"]
+        },
+        "column": {
+          "type": "string",
+          "minLength": 1
+        },
+        "target": {
+          "enum": ["reference", "derived"]
+        },
+        "role": {
+          "enum": ["impact", "context"]
+        }
+      },
+      "required": ["check", "kind", "target", "role"],
+      "allOf": [
+        {
+          "if": {
+            "properties": {
+              "kind": {
+                "const": "probe"
+              }
+            }
+          },
+          "then": {
+            "required": ["column"]
+          },
+          "else": {
+            "not": {
+              "required": ["column"]
+            }
+          }
+        }
+      ]
+    },
+    "issue": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "id": {
+          "type": "string",
+          "pattern": "^[a-z][a-z0-9-]*$"
+        },
+        "variable": {
+          "type": "string",
+          "minLength": 1
+        },
+        "title": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 96
+        },
+        "summary": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 240
+        },
+        "expected": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 240
+        },
+        "observed": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 240
+        },
+        "action": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 240
+        },
+        "checks": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "minLength": 1
+          },
+          "minItems": 1,
+          "uniqueItems": true
+        },
+        "data": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/selector"
+          },
+          "minItems": 0,
+          "uniqueItems": true
+        },
+        "citations": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/citation"
+          },
+          "uniqueItems": true
+        }
+      },
+      "required": [
+        "id",
+        "variable",
+        "title",
+        "summary",
+        "expected",
+        "observed",
+        "action",
+        "checks",
+        "data"
+      ]
+    },
+    "citation": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["check", "type", "section"],
+      "properties": {
+        "check": {
+          "type": "string",
+          "minLength": 1
+        },
+        "type": {
+          "enum": ["document", "specification"]
+        },
+        "section": {
+          "type": "string"
+        },
+        "quote": {
+          "type": "string"
+        },
+        "path": {
+          "type": "string",
+          "minLength": 1
+        }
+      }
+    }
+  }
+}

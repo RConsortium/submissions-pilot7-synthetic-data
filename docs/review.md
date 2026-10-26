@@ -76,51 +76,57 @@ stack vertically.
 
 ## Verify documentation observations
 
-The **Consistency findings** tab follows **SDTM -> ADaM**. Its full table lists
-findings across the study, with the affected dataset or variable, comparison,
-difference and review status. Search a variable, dataset, document or phrase,
-or filter the comparison and status. Successful executions are recorded in the
-study metrics and do not add rows to the findings table. The **Consistency**
-metric counts the same findings as the unfiltered table.
+The **Consistency findings** tab lists actionable issues. Each row names the
+problem, summarizes the difference, and shows measured impact and agent review.
+The **Consistency** metric counts issues; the listing separately counts the
+supporting automated checks. Successful execution stays in the study metrics.
 
-Expand **Trace evidence** within a row to inspect the yamaa specification,
-source-document quotations, dataset evidence and review assessment. All of this
-evidence stays within the listing. Available record comparisons include values,
-counts and subject identifiers.
+Search a variable, issue, document, quote or rule ID. **Issue type** filters
+conflicts, divergences and gaps. **Agent review** separately filters agreed,
+disputed, mixed, stale and pending assessments. Agreement is not resolution.
+Several checks can support one issue; independent problems in one variable stay
+separate. A shared check can support more than one issue without duplicating it
+in the supporting-check count.
 
-**Open evidence in workspace** opens the affected dataset and variable with its
-evidence panel and derived output. **View source** opens the cited document
-inside the website. Old Dataset overview and findings links lead to this table.
+Expand **Trace evidence** to see:
 
-Label differences and missing columns require review. **Not reviewed** identifies
-an authored question with a verified source excerpt. **Missing evidence** means
-the expected source or excerpt could not be verified. Narrative coverage is
-partial. Reference agreement is separate from this report and is not regulatory
-validation. See the [verification policy](verification.md).
+- expected and observed behavior;
+- the relevant source quotations and specification clauses, each shown once;
+- selected data comparisons, with record counts and representative value pairs;
+- the proposed action.
+
+**Full context** reveals the complete quotation or specification with original
+line numbers. **Supporting checks and agent review** retains the rule statements,
+complete check evidence and the adjudicator's reasons. Source quotations stay
+literal. **View source** opens the retained document at the cited location.
+
+Impact counts distinct subjects across issue-specific comparisons. Shared and
+alternative comparisons are labelled as context and excluded from impact.
+**Impact not measured** is different from **No differences in tested data**.
+Reference differences do not by themselves identify an error in the derived data.
+
+**Open evidence in workspace** selects the variable and the subjects named by
+its measured impact. Without a measured subject set, the current subject selection
+is retained. Old links naming an individual check open its first related issue.
+
+Label differences and missing columns remain review issues. **Not reviewed**
+identifies an authored question with a verified source excerpt. **Missing
+evidence** means the expected source or excerpt could not be verified.
+Narrative coverage is partial. See the [verification policy](verification.md).
 
 ## Review documented rules
 
-Datasets that have been through the consistency review workflow add
-**Documented rules** findings. Their nested evidence:
+Reviewed datasets add **Documented rules** issues. Study-specific grouping is
+explicit: each issue has a short title, expected and observed behavior, a proposed
+action, and links to its supporting checks. Changes to check evidence require
+the grouping to be reviewed before publication. Datasets without a grouping
+file retain one issue per check.
 
-- names the rule it violates, such as **CR-5**, and quotes the rule;
-- quotes the document statement, with the relevant clause highlighted inside the
-  full citation; **View source** opens the cited page or Define-XML variable, and
-  the XML lines link to the original file;
-- quotes the yamaa specification, with line numbers and the quoted lines
-  highlighted;
-- shows the data evidence: for a documented rule run as a probe, the records
-  that differ from the reference and how the probe states the rule;
-- records the adjudicator's decision. **Disputed** findings are the first to
-  settle.
-
-**Open evidence in workspace** also selects the subjects whose records differ,
-so the workspace shows exactly those records. Severity is
-**conflict** (documents disagree with the data or with each other),
-**divergence** (the specification states a documented rule differently, with the
-same values on this data), **gap** (a rule or clause is undocumented) or
-**evidence** (a quote was not found). The rules and the workflow are in the
-repository's `.automation/consistency_review/` folder.
+Issue types are **conflict** (documents disagree with data or one another),
+**divergence** (a documented rule is expressed differently), **gap** (a rule or
+clause is undocumented), and **evidence** (a quote was not found). A divergence
+can matter even when the current data do not distinguish the rules. Agent
+review and human resolution are separate from these types.
 
 ## View source documents
 

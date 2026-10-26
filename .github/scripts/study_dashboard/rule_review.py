@@ -8,13 +8,12 @@ evidence drawer and source links work unchanged, and gains the dashboard's own
 links into the retained documents.
 """
 
+import hashlib
 from pathlib import PurePosixPath
 
 COMPARISON = "documented_rules"
-# The table shows the most frequent value pairs and their first records; the
-# verification artifact keeps every pair and record.
-PATTERNS_SHOWN = 10
-SUBJECTS_SHOWN = 20
+# Keep full comparisons for issue impact and workspace selection. The browser
+# limits the initial display, without discarding records from the artifact.
 
 
 def document_side(study, side, documents):
@@ -53,15 +52,15 @@ def comparison(result):
         "patterns": [
             {
                 **{k: p[k] for k in ("reference", "observed", "row", "count")},
-                "subjects": p["subjects"][:SUBJECTS_SHOWN],
+                "subjects": p["subjects"],
             }
-            for p in result["patterns"][:PATTERNS_SHOWN]
+            for p in result["patterns"]
         ],
     }
 
 
 def evidence(raw):
-    """The finding's data evidence, with long record lists shortened for the page."""
+    """Complete data evidence; only the browser's initial display is shortened."""
     raw = raw or {}
     result = {}
     if raw.get("probes"):
@@ -71,9 +70,10 @@ def evidence(raw):
                 "reading": p["reading"],
                 "definition": {
                     k: (p.get("definition") or {}).get(k)
-                    for k in ("path", "element_lines", "excerpt", "url")
+                    for k in ("path", "element", "lines", "quote", "verified", "reason", "element_lines", "excerpt", "url")
                 },
                 "reference": comparison(p["reference"]),
+                "derived": comparison(p.get("derived")),
             }
             for p in raw["probes"]
         ]
@@ -90,10 +90,7 @@ def evidence(raw):
         codelist = raw["codelist"]
         result["codelist"] = {
             "oid": codelist["oid"],
-            "reference": [
-                {**v, "subjects": v.get("subjects", [])[:SUBJECTS_SHOWN]}
-                for v in codelist.get("reference", [])
-            ],
+            **{target: codelist[target] for target in ("reference", "derived") if target in codelist},
         }
     if raw.get("not_probed_reason"):
         result["not_probed_reason"] = raw["not_probed_reason"]
@@ -181,6 +178,7 @@ def rule_findings(study, verification, documents):
                     "interpretations": finding.get("interpretations", []),
                     "question": finding.get("question", ""),
                     "adjudication": finding["adjudication"],
+                    "basis_hash": hashlib.sha256(finding.get("basis", "").encode()).hexdigest(),
                 }
             )
     return result

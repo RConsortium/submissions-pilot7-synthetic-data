@@ -114,6 +114,8 @@ class ScopeTests(unittest.TestCase):
                      'submission-pilot3/spec/source/adrg.pdf',
                      '.github/scripts/verify_derivations.py', '.github/scripts/consistency_report.py',
                      '.automation/consistency_review/rules.yaml',
+                     '.github/schemas/review-issues.schema.json', 'docs/requirements.txt',
+                     'cdiscpilot01/spec/review/adsl-issues.json',
                      'cdiscpilot01/spec/review/adsl-claims.json'):
             scope = self.scope(path)
             self.assertTrue(scope['publication'])
