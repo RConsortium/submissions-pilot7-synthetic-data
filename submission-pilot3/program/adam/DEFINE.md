@@ -20,7 +20,7 @@ From the repository root:
 python -m pip install -r submission-pilot3/program/adam/python/requirements-define.txt
 
 git clone https://github.com/elong0527/yamaa.git .build/define-schema-source
-git -C .build/define-schema-source checkout --detach bfe94ebc3a966b8b70977d45e731bd6bdd2c7c2a
+git -C .build/define-schema-source checkout --detach 1d78496c0cbd4fe89462596a738db3adbd72c8ad
 
 python .github/scripts/generate_define.py submission-pilot3 \
   --schemas .build/define-schema-source/rust/tests/schemas
