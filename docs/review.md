@@ -94,6 +94,33 @@ the expected source or excerpt could not be verified. Narrative coverage is
 partial. Reference agreement is separate from this report and is not regulatory
 validation. See the [verification policy](verification.md).
 
+## Review documented rules
+
+Datasets that have been through the consistency review workflow add
+**Documented rules** findings. The counts above the table give, per reviewed
+dataset, the findings by severity, the adjudication and the verified citations.
+Each finding:
+
+- names the rule it violates, such as **CR-5**, and quotes the rule;
+- quotes the document statement, with the relevant clause highlighted inside the
+  full citation; **View source** opens the cited page or Define-XML variable, and
+  the XML lines link to the original file;
+- quotes the yamaa specification, with line numbers and the quoted lines
+  highlighted;
+- shows the data evidence: for a documented rule run as a probe, the records
+  that differ from the reference and how the probe states the rule;
+- records the adjudicator's decision. **Disputed** findings are the first to
+  settle.
+
+**Open evidence in workspace** also selects the subjects whose records differ,
+so the workspace shows exactly those records. Statements the adjudicator found
+uncited are listed under the counts, with their sources. Severity is
+**conflict** (documents disagree with the data or with each other),
+**divergence** (the specification states a documented rule differently, with the
+same values on this data), **gap** (a rule or clause is undocumented) or
+**evidence** (a quote was not found). The rules and the workflow are in the
+repository's `.automation/consistency_review/` folder.
+
 ## View source documents
 
 Each retained file has its own tab in **Source documents**. Choose a file and use

@@ -62,7 +62,9 @@ git diff --check
 For a derivation change, also run
 `python3 .github/scripts/validate_yamaa.py <study>` for the affected study.
 For website changes, validate every study in `.github/yamaa-studies.json`,
-install `docs/requirements.txt`,
+install `docs/requirements.txt`, run
+`python3 .github/scripts/verify_derivations.py <study> --reviewed` for each study
+with review claims under `<study>/spec/review/`,
 generate study pages with `python3 .github/scripts/build_study_docs.py`, and run
 `python3 -m mkdocs build --strict`.
 
