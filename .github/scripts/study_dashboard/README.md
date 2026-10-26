@@ -154,6 +154,8 @@ Projects without that output say Not compared. This metadata agreement is
 separate from dataset agreement, XML byte identity, schema validation, and data
 conformance. The study report groups source information, SDTM, and ADaM rows;
 both study and dataset table headers link to each study workspace.
+Dataset result badges count `report.review.issues` for that dataset, separately
+from their supporting checks, and nonzero badges link to its filtered issue list.
 
 CI transfers validated generated Parquet bytes as `derived-<study>` artifacts,
 preserving repository-relative paths; the publication job verifies them again.

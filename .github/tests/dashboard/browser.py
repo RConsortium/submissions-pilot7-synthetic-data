@@ -463,6 +463,18 @@ def check(browser, base, site_dir, screenshots):
     expect(report.locator("#dataset-results + .report-table thead a")).to_have_count(
         len(json.loads((site_dir / "evidence/dashboard/index.json").read_text())["studies"])
     )
+    matrix = report.locator("#dataset-results + .report-table")
+    for entry in json.loads((site_dir / "evidence/dashboard/index.json").read_text())["studies"]:
+        model = json.loads((site_dir / f"evidence/dashboard/{entry['id']}/catalog.json").read_text())
+        if model["status"] == "pending":
+            continue
+        review = json.loads((site_dir / f"evidence/dashboard/{entry['id']}/report.json").read_text())["review"]
+        for dataset in model["datasets"]:
+            count = sum(i["dataset"] == dataset["name"] for i in review["issues"])
+            label = f"{count} issue{'s' if count != 1 else ''}"
+            badge = matrix.get_by_label(f"{label} for {model['title']} / {dataset['name']}", exact=True)
+            expect(badge).to_have_text(label)
+    expect(report.locator("#dataset-issues-note")).to_contain_text("Each issue counts once")
     expect(report.locator("details")).to_have_count(0)
     expect(report.locator(".report-provenance, #reading, #review-items")).to_have_count(0)
     expect(report).to_contain_text("Subject-Level Analysis Dataset")
@@ -471,6 +483,14 @@ def check(browser, base, site_dir, screenshots):
     expect(nav).to_contain_text("Pilot studies")
     expect(nav).to_contain_text("Synthetic data")
     capture(page, screenshots, "study-report.png")
+    first_badge = matrix.locator("a.report-issues").first
+    issue_count = int(first_badge.inner_text().split()[0])
+    first_badge.click()
+    expect(page.locator("#finding-search")).to_have_value("ADSL")
+    expect(page.locator(".consistency-table tbody tr[data-finding-id]")).to_have_count(
+        issue_count
+    )
+    page.go_back()
     # Instant navigation makes the report's relative links absolute.
     report.locator("#studies + .report-table").get_by_role("link", name="CDISC Pilot 01", exact=True).click()
     expect(page.locator('.review-tabs [data-view="datasets"]')).to_have_attribute(

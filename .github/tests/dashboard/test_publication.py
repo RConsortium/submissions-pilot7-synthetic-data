@@ -152,7 +152,10 @@ columns:
             "<div><dt>ADaM datasets</dt><dd>0 / 0<span>no official reference</span></dd></div>",
             '<a href="pending-study/">Pending study</a><small>Pending</small></th>',
             '<td class="report-cell"><span class="report-status neutral">No reference</span>'
-            '<span class="report-dims">3 &#215; 2</span></td><td class="report-cell">-</td>',
+            '<span class="report-dims">3 &#215; 2</span>'
+            '<span class="report-status report-issues neutral" '
+            'aria-label="0 issues for Future study / CUSTOM" '
+            'aria-describedby="dataset-issues-note">0 issues</span></td><td class="report-cell">-</td>',
             "No reference: no official reference is staged.",
             "<td>New study</td><td>Unstarted<small>Validation pending. No project yet.</small></td>",
             '<tr><th scope="row">ADaM datasets matched</th><td>No official reference</td><td>-</td></tr>',
@@ -181,6 +184,21 @@ columns:
             with self.subTest(expected=expected):
                 self.assertIn(expected, page)
         self.assertNotIn("No reference", page)
+
+    def test_dataset_badges_count_grouped_issues_within_the_dataset(self):
+        target = self.generate()
+        catalog = json.loads((target / "future-study/catalog.json").read_text())
+        report = json.loads((target / "future-study/report.json").read_text())
+        report["review"]["issues"] = [
+            {"id": "a", "dataset": "CUSTOM", "check_ids": ["one", "two", "three"]},
+            {"id": "b", "dataset": "CUSTOM", "check_ids": ["four"]},
+            {"id": "c", "dataset": "OTHER", "check_ids": ["five"]},
+        ]
+        page = "".join(pages._matrix([(catalog, report)]))
+        self.assertIn('aria-label="2 issues for Future study / CUSTOM"', page)
+        self.assertIn('href="future-study/#future-study/overview/CUSTOM?findingSearch=CUSTOM">2 issues</a>', page)
+        self.assertNotIn(">3 issues<", page)
+        self.assertIn('id="dataset-issues-note"', page)
 
     def test_study_report_keeps_each_studys_dataset_description(self):
         # Studies may publish different Define-XML labels for one dataset name.

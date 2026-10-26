@@ -2,6 +2,8 @@
 
 import html
 import json
+from collections import Counter
+from urllib.parse import quote
 
 UNMATCHED = {
     "Not compared": "a reference is staged but the comparator did not check it",
@@ -222,12 +224,28 @@ def _descriptions(variants):
     )
 
 
+def _issue_badge(catalog, domain, count):
+    text = f"{count} issue{'s' if count != 1 else ''}"
+    label = html.escape(f"{text} for {catalog['title']} / {domain}")
+    tone = "attention" if count else "neutral"
+    attributes = (
+        f'class="report-status report-issues {tone}" '
+        f'aria-label="{label}" aria-describedby="dataset-issues-note"'
+    )
+    if count:
+        study, dataset = quote(catalog["id"], safe=""), quote(domain, safe="")
+        url = f"{study}/#{study}/overview/{dataset}?findingSearch={dataset}"
+        return f'<a {attributes} href="{html.escape(url)}">{text}</a>'
+    return f"<span {attributes}>{text}</span>"
+
+
 def _matrix(studies):
     """One row per ADaM dataset; datasets shared by more studies come first."""
     found, labels = {}, set()
     for catalog, report in studies:
         if report is None:
             continue
+        issues = Counter(item["dataset"] for item in report["review"]["issues"])
         dimensions = {d["domain"]: d for d in catalog["validation"]["datasets"]}
         for dataset in catalog["datasets"]:
             row = found.setdefault(dataset["name"], {"descriptions": {}, "cells": {}})
@@ -242,6 +260,7 @@ def _matrix(studies):
             row["cells"][catalog["id"]] = (
                 _status(text, tone)
                 + f'<span class="report-dims">{size["rows"]:,} &#215; {size["columns"]}</span>'
+                + _issue_badge(catalog, dataset["name"], issues[dataset["name"]])
             )
     order = sorted(found, key=lambda n: -len(found[n]["cells"]))
     body = [
@@ -262,6 +281,11 @@ def _matrix(studies):
         "dataset, labels included, under that study's comparison policy. "
         + "".join(f"{k}: {v}. " for k, v in UNMATCHED.items() if k in labels)
         + "A dash means the dataset is not part of that study.</p>",
+        '<p id="dataset-issues-note" class="report-foot">Issue badges count distinct '
+        "consistency review items for each study and dataset, including documentation "
+        "gaps and questions awaiting human review. Each issue counts once even "
+        "when it has multiple supporting checks. Issue counts are separate from ADaM reference agreement. "
+        "Select a nonzero badge to view the issues.</p>",
     ]
 
 
