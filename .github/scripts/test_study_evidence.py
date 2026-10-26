@@ -7,7 +7,7 @@ import tempfile
 import unittest
 from unittest.mock import patch
 
-from study_evidence import validate_reports
+from study_evidence import validate_reports, validate_verifications
 import validate_yamaa
 
 PIN = 'a' * 40
@@ -42,6 +42,33 @@ class EvidenceTests(unittest.TestCase):
 
     def test_optional_project_can_be_pending(self):
         self.check()
+
+    def test_documented_rule_findings_must_match_this_commit_engine_and_reviewed_datasets(self):
+        review = self.root / 'official/spec/review'
+        review.mkdir(parents=True)
+        report = {'schema_version': 2, 'study': 'official', 'revision': 'commit',
+                  'yamaa_revision': PIN, 'datasets': [{'dataset': 'ADSL'}]}
+        cases = [
+            ('current report', report, None),
+            ('no report', None, 'have no verification report'),
+            ('another commit', {**report, 'revision': 'earlier-commit'}, 'not from this source commit'),
+            ('another engine', {**report, 'yamaa_revision': 'b' * 40}, 'different engine pin'),
+            ('another dataset', {**report, 'datasets': [{'dataset': 'ADAE'}]}, 'does not cover exactly'),
+            ('older schema', {**report, 'schema_version': 1}, 'unsupported or misnamed'),
+        ]
+        for label, verification, message in [('claims removed', report, 'without review claims')]:
+            with self.subTest(case=label):
+                with self.assertRaisesRegex(ValueError, message, msg=label):
+                    validate_verifications(self.root, self.entries, self.reports, {'official': verification}, 'commit')
+        (review / 'adsl-claims.json').write_text('{}')
+        for label, verification, message in cases:
+            with self.subTest(case=label):
+                verifications = {} if verification is None else {'official': verification}
+                if message is None:
+                    validate_verifications(self.root, self.entries, self.reports, verifications, 'commit')
+                else:
+                    with self.assertRaisesRegex(ValueError, message, msg=label):
+                        validate_verifications(self.root, self.entries, self.reports, verifications, 'commit')
 
     def test_official_project_cannot_be_pending(self):
         self.reports['official'].update(status='pending', datasets=[])

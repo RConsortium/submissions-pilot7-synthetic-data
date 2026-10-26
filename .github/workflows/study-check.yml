@@ -72,6 +72,24 @@ jobs:
           path: .build/validation/${{ inputs.study }}.json
           include-hidden-files: true
           if-no-files-found: error
+      # Datasets with committed review claims are verified here, where the pinned
+      # engine runs their probes; publication only checks and shows the report.
+      - name: Install document readers for derivation verification
+        if: inputs.yamaa && hashFiles(format('{0}/spec/review/*-claims.json', inputs.study)) != ''
+        run: python -m pip install -r docs/requirements.txt
+      - name: Verify reviewed derivations against the submission documents
+        if: inputs.yamaa && hashFiles(format('{0}/spec/review/*-claims.json', inputs.study)) != ''
+        run: |
+          python .github/scripts/verify_derivations.py "$STUDY" --reviewed
+          mkdir -p ".build/verification-artifact/$STUDY"
+          cp ".build/verification/$STUDY/report.json" ".build/verification/$STUDY/report.md" ".build/verification-artifact/$STUDY/"
+      - uses: actions/upload-artifact@v4
+        if: inputs.yamaa && hashFiles(format('{0}/spec/review/*-claims.json', inputs.study)) != ''
+        with:
+          name: verification-${{ inputs.study }}
+          path: .build/verification-artifact/
+          include-hidden-files: true
+          if-no-files-found: error
       - name: Stage verified generated datasets for publication
         if: inputs.yamaa
         run: python .github/scripts/stage_study_artifacts.py "$STUDY"

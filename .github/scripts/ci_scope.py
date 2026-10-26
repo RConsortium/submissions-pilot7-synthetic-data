@@ -23,7 +23,10 @@ PUBLICATION_CODE = {'.github/scripts/build_study_docs.py', '.github/scripts/buil
                     '.github/scripts/study_metrics.py', '.github/scripts/dashboard_nav.py',
                     '.github/scripts/stage_study_artifacts.py', '.github/scripts/check_dashboard.sh',
                     '.github/dashboard.json', '.github/yamaa-studies.json', '.github/synthetic-studies.json',
-                    '.github/workflows/yamaa-site.yml', '.github/workflows/study-check.yml'}
+                    '.github/workflows/yamaa-site.yml', '.github/workflows/study-check.yml',
+                    # Validation jobs verify reviewed derivations; the bundle shows the report.
+                    '.github/scripts/verify_derivations.py', '.github/scripts/consistency_report.py',
+                    '.automation/consistency_review/rules.yaml'}
 PUBLICATION_PREFIXES = ('.github/scripts/study_dashboard/', '.github/tests/dashboard/',
                         'docs/assets/dashboard/', 'docs/stylesheets/dashboard.css')
 WORKER = '.github/workflows/study-check.yml'
