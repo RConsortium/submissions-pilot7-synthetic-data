@@ -13,6 +13,7 @@ The reviewer guide is `docs/review.md`.
 .github/scripts/
   validate_yamaa.py                       execute and compare; record artifact hashes
   study_artifacts.py                     verify full input/output/source inventories
+    study_define.py                        native ADaM Define-XML metadata comparison
   stage_study_artifacts.py                transfer exact derived files between CI jobs
   build_study_docs.py                     stage, verify, and promote the complete bundle
   dashboard_nav.py                        discover native navigation from the catalog
@@ -144,6 +145,17 @@ source commit, engine pin, complete dataset records, build/comparison statuses,
 and the exact artifact inventory before and after export. Changes, additions,
 and deletions require fresh validation, including ignored generated files.
 The previous bundle stays intact when generation or verification fails.
+
+Validation also records the retained SDTM and ADaM Define-XML versions. When a
+project declares an ADaM `define` output, validation composes it with the pinned
+engine and compares its metadata using `define_metadata.py`. The `define_xml`
+record retains the comparison, both XML hashes, and the generated version.
+Projects without that output say Not compared. This metadata agreement is
+separate from dataset agreement, XML byte identity, schema validation, and data
+conformance. The study report groups source information, SDTM, and ADaM rows;
+both study and dataset table headers link to each study workspace.
+Dataset result badges count `report.review.issues` for that dataset, separately
+from their supporting checks, and nonzero badges link to its filtered issue list.
 
 CI transfers validated generated Parquet bytes as `derived-<study>` artifacts,
 preserving repository-relative paths; the publication job verifies them again.

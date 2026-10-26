@@ -20,6 +20,7 @@ YAMAA_CODE = {'.github/scripts/validate_yamaa.py', '.github/scripts/study_eviden
               '.github/yamaa-studies.json',
               '.github/workflows/yamaa-site.yml', 'requirements.txt'}
 PUBLICATION_CODE = {'.github/scripts/build_study_docs.py', '.github/scripts/build_index_table.py',
+                    '.github/scripts/study_define.py', '.github/scripts/define_metadata.py',
                     '.github/scripts/study_evidence.py', '.github/scripts/study_artifacts.py',
                     '.github/scripts/study_metrics.py', '.github/scripts/dashboard_nav.py',
                     '.github/scripts/stage_study_artifacts.py', '.github/scripts/check_dashboard.sh',

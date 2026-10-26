@@ -10,6 +10,7 @@ from pathlib import Path
 
 from study_evidence import catalog, engine_revision, project_specs
 from study_artifacts import artifact_snapshot
+from study_define import check_define
 from study_dashboard.specifications import capture_specification
 
 ROOT = Path(__file__).resolve().parents[2]
@@ -72,6 +73,7 @@ def validate(study_name, entry, report):
     report['status'] = ('failed' if any(d['comparison'] == 'failed'
                                       for d in report['datasets']) else 'succeeded')
     if report['status'] == 'succeeded':
+        report['define_xml'] = check_define(ROOT, study_name, project)
         report['artifacts'] = artifact_snapshot(ROOT, study_name)
 
 
