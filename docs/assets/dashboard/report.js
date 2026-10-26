@@ -1,5 +1,12 @@
 /** Consistency comparisons and retained document viewers. */
-import { reviewSummary, ruleRow, ruleSearchText } from "./rule-findings.js";
+import { ruleRow, ruleSearchText } from "./rule-findings.js";
+
+/** Successful execution is a metric, not an inconsistency finding. */
+export function consistencyFindings(report) {
+  return [...(report.logic_checks || []), ...report.findings].filter(
+    (finding) => finding.kind !== "executed",
+  );
+}
 
 const KINDS = [
   "conflict",
@@ -10,7 +17,6 @@ const KINDS = [
   "unclear",
   "missing_evidence",
   "not_reviewed",
-  "executed",
 ];
 export function createReport(ctx) {
   const comparisons = {
@@ -19,7 +25,7 @@ export function createReport(ctx) {
     documented_rules: "Documented rules",
   };
   function allFindings() {
-    return [...(ctx.report.logic_checks || []), ...ctx.report.findings];
+    return consistencyFindings(ctx.report);
   }
   function findingItems() {
     const { state } = ctx;
@@ -65,15 +71,15 @@ export function createReport(ctx) {
   }
   function findingRow(f) {
     const { esc, link } = ctx;
-    return `<tr><th scope="row"><button class="text-link" data-finding="${esc(f.id)}">${esc(f.dataset + (f.variable ? "." + f.variable : ""))}</button></th><td>${esc(comparisons[f.comparison] || "Source documents")}</td><td><pre>${esc(f.spec.excerpt || "See specification lines.")}</pre>${link(f.spec.url, "Specification lines")}</td><td><p>${esc(f.data?.summary || "Inspect records in the workspace.")}</p><small>${esc(f.data?.path || "")}</small><button class="text-link" data-finding="${esc(f.id)}">Open evidence in workspace</button></td><td>${f.source.path ? `<p>${esc(f.source.path)} / ${esc(f.source.section)}</p><blockquote>${esc(f.source.excerpt)}</blockquote>${sourceButton(f)}` : esc(f.source.excerpt)}</td><td><span class="status ${f.kind === "inconsistent" ? "attention" : "neutral"}">${esc(f.status)}</span><h3>${esc(f.title)}</h3><p>${esc(f.observation)}</p><p>${esc(f.recommendation)}</p></td></tr>`;
+    return `<tr data-finding-id="${esc(f.id)}"><th scope="row"><button class="text-link" data-finding="${esc(f.id)}">${esc(f.dataset + (f.variable ? "." + f.variable : ""))}</button></th><td>${esc(comparisons[f.comparison] || "Source documents")}</td><td><span class="status ${f.kind === "inconsistent" ? "attention" : "neutral"}">${esc(f.status)}</span><h3>${esc(f.title)}</h3><p>${esc(f.observation)}</p></td><td><details class="finding-trace"><summary>Trace evidence</summary><div class="finding-evidence"><section><h4>yamaa specification</h4><pre>${esc(f.spec.excerpt || "See specification lines.")}</pre>${f.spec.url ? link(f.spec.url, "Specification lines") : ""}</section><section><h4>Source documents</h4>${f.source.path ? `<p>${esc(f.source.path)} / ${esc(f.source.section)}</p><blockquote>${esc(f.source.excerpt)}</blockquote>${sourceButton(f)}` : `<p>${esc(f.source.excerpt)}</p>`}</section><section><h4>Dataset evidence</h4><p>${esc(f.data?.summary || "Inspect records in the workspace.")}</p><small>${esc(f.data?.path || "")}</small><button class="text-link" data-finding="${esc(f.id)}">Open evidence in workspace</button></section>${f.recommendation ? `<section><h4>Review assessment</h4><p>${esc(f.recommendation)}</p></section>` : ""}</div></details></td></tr>`;
   }
   function findingRows() {
     const items = findingItems();
-    return `<p class="result-count" role="status">${items.length} of ${allFindings().length} comparisons and review tasks</p><div class="overview-table consistency-table" role="region" aria-label="Consistency comparisons" tabindex="0"><table class="review-table"><thead><tr><th scope="col">Dataset / variable</th><th scope="col">Comparison</th><th scope="col">yamaa specification</th><th scope="col">Observed dataset</th><th scope="col">Source-document information</th><th scope="col">Difference / review status</th></tr></thead><tbody>${items.length ? items.map((f) => (f.rule ? ruleRow(f) : findingRow(f))).join("") : '<tr><td colspan="6">No comparisons match. Clear the filters to see all comparisons and review tasks.</td></tr>'}</tbody></table></div>`;
+    return `<p class="result-count" role="status">${items.length} of ${allFindings().length} findings</p><div class="overview-table consistency-table" role="region" aria-label="Consistency findings" tabindex="0"><table class="review-table"><thead><tr><th scope="col">Dataset / variable</th><th scope="col">Comparison</th><th scope="col">Finding / status</th><th scope="col">Evidence</th></tr></thead><tbody>${items.length ? items.map((f) => (f.rule ? ruleRow(f) : findingRow(f))).join("") : '<tr><td colspan="4">No findings match. Clear the filters to see all findings.</td></tr>'}</tbody></table></div>`;
   }
   function findingsView() {
-    const { report, state, esc } = ctx;
-    return `<div class="section-heading"><div><h2>Consistency review</h2><p>Compare yamaa input -> output rules and source-document information with the derived datasets. Each documented-rule finding cites one consistency rule and quotes the document and the specification.</p></div></div><p class="result-count">Execution and reference agreement are recorded separately. ${esc(report.coverage.narrative)}</p>${reviewSummary(report.verification)}<div class="report-filters"><label class="search-field"><span class="field-label">Find a variable, dataset, document or phrase</span><input id="finding-search" type="search" value="${esc(state.findingSearch)}" placeholder="For example: ASTDT, imputation, Define-XML..."></label><label class="select-field">Comparison<select id="finding-comparison"><option value="">All comparisons</option>${Object.entries(
+    const { state, esc } = ctx;
+    return `<div class="report-filters"><label class="search-field"><span class="field-label">Search findings</span><input id="finding-search" type="search" value="${esc(state.findingSearch)}" placeholder="Variable, dataset, document or phrase..."></label><label class="select-field">Comparison<select id="finding-comparison"><option value="">All comparisons</option>${Object.entries(
       comparisons,
     )
       .map(

@@ -76,13 +76,17 @@ stack vertically.
 
 ## Verify documentation observations
 
-The **Consistency review** tab follows **Review workspace**. Its table compares
-**Input -> output logic** and **Source documents** with the derived datasets.
-Search a variable, dataset, document, or phrase, or filter the comparison and
-review status. Each row shows the yamaa rule, observed dataset values, source
-information and the difference or remaining review task. **Executed** records a
-yamaa build and its separate independent-reference result; it does not establish
-that the original rule was interpreted correctly.
+The **Consistency findings** tab follows **SDTM -> ADaM**. Its full table lists
+findings across the study, with the affected dataset or variable, comparison,
+difference and review status. Search a variable, dataset, document or phrase,
+or filter the comparison and status. Successful executions are recorded in the
+study metrics and do not add rows to the findings table. The **Consistency**
+metric counts the same findings as the unfiltered table.
+
+Expand **Trace evidence** within a row to inspect the yamaa specification,
+source-document quotations, dataset evidence and review assessment. All of this
+evidence stays within the listing. Available record comparisons include values,
+counts and subject identifiers.
 
 **Open evidence in workspace** opens the affected dataset and variable with its
 evidence panel and derived output. **View source** opens the cited document
@@ -97,9 +101,7 @@ validation. See the [verification policy](verification.md).
 ## Review documented rules
 
 Datasets that have been through the consistency review workflow add
-**Documented rules** findings. The counts above the table give, per reviewed
-dataset, the findings by severity, the adjudication and the verified citations.
-Each finding:
+**Documented rules** findings. Their nested evidence:
 
 - names the rule it violates, such as **CR-5**, and quotes the rule;
 - quotes the document statement, with the relevant clause highlighted inside the
@@ -113,8 +115,7 @@ Each finding:
   settle.
 
 **Open evidence in workspace** also selects the subjects whose records differ,
-so the workspace shows exactly those records. Statements the adjudicator found
-uncited are listed under the counts, with their sources. Severity is
+so the workspace shows exactly those records. Severity is
 **conflict** (documents disagree with the data or with each other),
 **divergence** (the specification states a documented rule differently, with the
 same values on this data), **gap** (a rule or clause is undocumented) or
@@ -130,7 +131,7 @@ viewers stack vertically. Use arrow keys, Home, or End to move between file tabs
 
 PDF pages retain their original layout. Excel sheet tables retain coordinates,
 merged cells and formulas. XML uses the publisher's retained stylesheet. Each
-file title has a **Source** link to that file in the repository at the displayed
+viewer has a **Source** link to that file in the repository at the displayed
 study revision. Extracted reading copies and repository paths are omitted from
 this interface. Selected files and the primary cited location are preserved in
 the review URL. Missing documents remain explicitly unavailable.
@@ -148,6 +149,5 @@ successful derivations or passed reference comparisons.
 Copy the browser URL to preserve the specification, subjects, compared datasets,
 row-count choices, column focus, searches, and open evidence. **Review comments**
 appears below pilot dashboard content with a separate GitHub Discussion for the
-focused dataset. GitHub sign-in is required to post. **Copy review context**
-includes compared outputs, source revision, and the view link. A review-issue
-link remains available if the embedded discussion cannot load.
+focused dataset. GitHub sign-in is required to post. A review-issue link remains
+available if the embedded discussion cannot load.
