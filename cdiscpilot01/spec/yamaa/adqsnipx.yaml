@@ -98,9 +98,25 @@ output:
       nulls: last
     - variable: AVISITN
       nulls: last
-    - {variable: ANL01FL, direction: desc, nulls: last}
+    - variable: ANL01FL
+      direction: desc
+      nulls: last
     - variable: QSSEQ
       nulls: last
+
+windows:
+  ANALYSIS_RECORD_ORDER:
+    group_by:
+      - USUBJID
+      - QSTESTCD
+      - _WINDOW
+    order_by:
+      - variable: _DIFF
+        nulls: last
+      - variable: QS.QSDY
+        nulls: last
+      - variable: QSSEQ
+        nulls: last
 
 intermediates:
   - id: ADSL_LKP
@@ -137,7 +153,8 @@ intermediates:
     dataset: SELF
     key:
       - USUBJID
-    filter: "QSTESTCD = 'NPTOT' AND _IS_SEL = 'Y' AND _WINDOW = 3"
+    filter: "QSTESTCD = 'NPTOT' AND _IS_SEL = 'Y' AND _WINDOW
+      = 3"
     order_by:
       - variable: QSSEQ
         nulls: last
@@ -147,7 +164,8 @@ intermediates:
     dataset: SELF
     key:
       - USUBJID
-    filter: "QSTESTCD = 'NPTOT' AND _IS_SEL = 'Y' AND _WINDOW = 4"
+    filter: "QSTESTCD = 'NPTOT' AND _IS_SEL = 'Y' AND _WINDOW
+      = 4"
     order_by:
       - variable: QSSEQ
         nulls: last
@@ -157,7 +175,8 @@ intermediates:
     dataset: SELF
     key:
       - USUBJID
-    filter: "QSTESTCD = 'NPTOT' AND _IS_SEL = 'Y' AND _WINDOW = 5"
+    filter: "QSTESTCD = 'NPTOT' AND _IS_SEL = 'Y' AND _WINDOW
+      = 5"
     order_by:
       - variable: QSSEQ
         nulls: last
@@ -167,7 +186,8 @@ intermediates:
     dataset: SELF
     key:
       - USUBJID
-    filter: "QSTESTCD = 'NPTOT' AND _IS_SEL = 'Y' AND _WINDOW = 6"
+    filter: "QSTESTCD = 'NPTOT' AND _IS_SEL = 'Y' AND _WINDOW
+      = 6"
     order_by:
       - variable: QSSEQ
         nulls: last
@@ -422,8 +442,9 @@ columns:
     label: Change from Baseline
     derivation:
       case:
-        - when: "_AVISITN <> 98.0 AND _AVAL IS NOT NULL AND BASE_PARAM._AVAL
-            IS NOT NULL"
+        - when: >-
+            _AVISITN <> 98.0 AND _AVAL IS NOT NULL AND BASE_PARAM._AVAL
+            IS NOT NULL
           then: "_AVAL - BASE_PARAM._AVAL"
 
   - name: PCHG
@@ -431,18 +452,34 @@ columns:
     label: Percent Change from Baseline
     derivation:
       case:
-        - when: "_AVISITN <> 98.0 AND _AVAL IS NOT NULL AND BASE_PARAM._AVAL
-            IS NOT NULL AND BASE_PARAM._AVAL <> 0"
-          then: "(_AVAL - BASE_PARAM._AVAL) / BASE_PARAM._AVAL * 100"
+        - when: >-
+            _AVISITN <> 98.0 AND _AVAL IS NOT NULL AND BASE_PARAM._AVAL
+            IS NOT NULL AND BASE_PARAM._AVAL <> 0
+          then: "(_AVAL - BASE_PARAM._AVAL) / BASE_PARAM._AVAL
+            * 100"
 
   - name: ABLFL
     type: str
     label: Analysis Baseline Flag
     derivation: _ABLFL
 
+    verifications:
+      - allowed_values:
+          values:
+            - Y
+            - N
+            - ''
+
   - name: ANL01FL
     type: str
     label: Analysis Record Flag 01
+
+    verifications:
+      - allowed_values:
+          values:
+            - Y
+            - N
+            - ''
 
   - name: DTYPE
     type: str
@@ -490,7 +527,10 @@ rows:
   # ------------------------------------------------------------------
   - id: natural
     dataset: QS
-    filter: "QS.QSTESTCD IN ('NPITM01S','NPITM02S','NPITM03S','NPITM04S','NPITM05S','NPITM06S','NPITM07S','NPITM08S','NPITM09S','NPITM10S','NPITM11S','NPITM12S','NPTOT')"
+    filter: >-
+      QS.QSTESTCD IN ('NPITM01S', 'NPITM02S', 'NPITM03S', 'NPITM04S',
+      'NPITM05S', 'NPITM06S', 'NPITM07S', 'NPITM08S', 'NPITM09S',
+      'NPITM10S', 'NPITM11S', 'NPITM12S', 'NPTOT')
     derivations:
       STUDYID: QS.STUDYID
       USUBJID: QS.USUBJID
@@ -558,15 +598,7 @@ rows:
       _RANK:
         rank:
           method: dense
-          window:
-            group_by:
-              - USUBJID
-              - QSTESTCD
-              - _WINDOW
-            order_by:
-              - {variable: _DIFF, nulls: last}
-              - {variable: QS.QSDY, nulls: last}
-              - {variable: QSSEQ, nulls: last}
+          window: ANALYSIS_RECORD_ORDER
       _IS_SEL:
         case:
           - when: "_RANK = 1"

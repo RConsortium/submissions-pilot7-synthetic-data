@@ -50,6 +50,15 @@ Give helper columns names describing their purpose. Keep them in dependency
 order; `output.columns` selects the delivered fields and their presentation
 order. Review the engine's resolved model when composing specifications.
 
+The three pilots use the repository's
+[shared contracts](https://github.com/RConsortium/submissions-pilot7-synthetic-data/tree/main/spec/yamaa).
+The ADSL parent shares demographics, while study-local fragments define
+exposure, baseline, and populations. Analysis datasets inherit the generated
+ADSL contract. CDISC Pilot 01 additionally shares its laboratory construction
+within that study. Output columns, clinical differences, and original missing
+values remain explicit in the study entries. Shared paths use `relative_to:
+entry`; use `clear` before restating an inherited ordered mapping in full.
+
 ## State clinical invariants
 
 Use existing verifications for meaningful requirements, for example:
@@ -77,6 +86,8 @@ Run the existing `lint()` and `check()` tools with the pinned engine; generated
 JSON Schemas provide editor field completion, while engine checks establish
 binding and expression validity. Expression fields read bare names as variables
 and quoted expression text as literals, for example `derivation: "'Y'"`.
+Study validation now requires both the study YAML and shared library to pass
+the pinned engine's authoring checks.
 
 For a refactor, compare the derived tables before and after the change,
 including types, labels, column order, row order and missing values, and run

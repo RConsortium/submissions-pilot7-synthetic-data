@@ -1,0 +1,144 @@
+# Reproduce the submitted exposure rules, including package-specific
+# conventions.
+yamaa: "1.0"
+type: spec
+model: ADaM
+
+columns:
+  - name: EX_MINDTC
+    type: str
+    label: Earliest Exposure Start (character)
+    derivation:
+      aggregate: "MIN(EX.EXSTDTC)"
+
+  - name: TRTSDT
+    type: date
+    label: Date of First Exposure to Treatment
+    derivation:
+      impute:
+        type: date
+        source: EX_MINDTC
+        month: 1
+        day: 1
+        invalid:
+
+  - name: LAST_EXENDTC
+    type: str
+    label: Last Exposure End (character)
+    derivation: LAST_EX.EXENDTC
+
+  - name: TRTEDT
+    type: date
+    label: Date of Last Exposure to Treatment
+    derivation:
+      case:
+        - when: "LAST_EXENDTC IS NULL OR LAST_EXENDTC = ''"
+          then:
+            impute:
+              type: date
+              source: DS_DISP.DSSTDTC
+              month: 1
+              day: 1
+              invalid:
+        - otherwise:
+            impute:
+              type: date
+              source: LAST_EXENDTC
+              month: 1
+              day: 1
+              invalid:
+
+  - name: TRTDUR
+    type: float
+    label: Duration of Treatment (days)
+    derivation:
+      diff:
+        type: date
+        start: TRTSDT
+        end: TRTEDT
+        unit: day
+        closed: both
+
+  - name: CUMDOSE_BASE
+    type: float
+    label: Cumulative dose from complete EX records
+    derivation:
+      aggregate: "SUM(EX.EXDOSE * (EX.EXENDY - EX.EXSTDY + 1))"
+
+  - name: LAST_EXSTDTC
+    type: str
+    label: Last Exposure Start (character)
+    derivation: LAST_EX.EXSTDTC
+
+  - name: LAST_EXSTDTC_DT
+    type: date
+    label: Last Exposure Start (date)
+    derivation:
+      impute:
+        type: date
+        source: LAST_EXSTDTC
+        month: 1
+        day: 1
+        invalid:
+
+  - name: LAST_EX_DOSE
+    type: float
+    label: Last EX record dose
+    derivation: LAST_EX.EXDOSE
+
+  - name: LAST_EX_DAYS
+    type: float
+    label: Days on last EX record if end blank
+    derivation:
+      case:
+        - when: "LAST_EXENDTC IS NULL OR LAST_EXENDTC = ''"
+          then:
+            diff:
+              type: date
+              start: LAST_EXSTDTC_DT
+              end: TRTEDT
+              unit: day
+              closed: both
+        - otherwise: 0
+
+  - name: _CUM0
+    type: float
+    label: _CUM0 (helper)
+    derivation:
+      case:
+        - when: CUMDOSE_BASE IS NULL
+          then: 0
+        - otherwise: CUMDOSE_BASE
+
+  - name: _DOSE0
+    type: float
+    label: _DOSE0 (helper)
+    derivation:
+      case:
+        - when: LAST_EX_DOSE IS NULL
+          then: 0
+        - otherwise: LAST_EX_DOSE
+
+  - name: _DAYS0
+    type: float
+    label: _DAYS0 (helper)
+    derivation:
+      case:
+        - when: LAST_EX_DAYS IS NULL
+          then: 0
+        - otherwise: LAST_EX_DAYS
+
+  - name: CUMDOSE
+    type: float
+    label: Cumulative Dose (as planned)
+    derivation: "_CUM0 + _DOSE0 * _DAYS0"
+
+  - name: AVGDD_RAW
+    type: float
+    label: Avg Daily Dose unrounded
+    derivation: "CUMDOSE / NULLIF(TRTDUR, 0)"
+
+  - name: AVGDD
+    type: float
+    label: Avg Daily Dose (as planned)
+    derivation: "FLOOR(AVGDD_RAW * 10 + 0.5) / 10"

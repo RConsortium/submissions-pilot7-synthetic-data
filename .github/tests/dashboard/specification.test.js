@@ -14,6 +14,14 @@ test("source views retain exact text and resolved model selection never becomes 
   assert.equal(spec.text, "entry");
 });
 
+test("automatic source selection follows inherited value origins and explicit file selection wins", () => {
+  const spec = {text: "entry", path: "entry.yaml", definition_sources: {AGE: "base.yaml"},
+    documents: [{text: "entry", path: "entry.yaml", lineage: {spans: {AGE: {}}}},
+                {text: "parent", path: "base.yaml", lineage: {spans: {AGE: {}}}}]};
+  assert.equal(specificationView(spec, "", "AGE").path, "base.yaml");
+  assert.equal(specificationView(spec, "source:0", "AGE").path, "entry.yaml");
+});
+
 test("focused views mark leading, internal and trailing omissions", () => {
   const lines = [false, true, false, false, true, false].map((visible, i) => ({number: i + 1, visible}));
   assert.deepEqual([...specificationGaps(lines)], [[2, 1], [5, 2], [7, 1]]);

@@ -15,7 +15,8 @@ class ArtifactTests(unittest.TestCase):
         self.root = Path(temporary.name)
         self.files = ['study/spec/yamaa/adsl.yaml', 'study/spec/source/guide.pdf',
                       'study/data/sdtm/dm.parquet', 'study/data/adam/adsl.parquet',
-                      'study/data/adam/adsl-yamaa.parquet', '.github/dashboard.json']
+                      'study/data/adam/adsl-yamaa.parquet', '.github/dashboard.json',
+                      'spec/yamaa/templates/adsl.yaml']
         for name in self.files:
             path = self.root / name
             path.parent.mkdir(parents=True, exist_ok=True)

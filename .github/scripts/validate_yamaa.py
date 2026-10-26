@@ -8,7 +8,7 @@ import json
 import os
 from pathlib import Path
 
-from study_evidence import catalog, engine_revision, project_specs
+from study_evidence import catalog, engine_revision, project_specs, validate_derivation_inputs
 from study_artifacts import artifact_snapshot
 from study_dashboard.specifications import capture_specification
 
@@ -28,11 +28,23 @@ def validate(study_name, entry, report):
 
     report.update(yamaa_revision=engine_revision(ROOT, study_name),
                   yamaa_version=yamaa.__version__)
+    for directory in [project_file.parent, ROOT / 'spec/yamaa']:
+        if not directory.is_dir():
+            continue
+        findings = yamaa.lint(directory).to_pylist()
+        print(f'yamaa lint of {directory}: {len(findings)} findings', flush=True)
+        if findings:
+            raise ValueError(f'Authoring checks failed: {findings}')
     project = yamaa.project(project_file)
     check = project.check()
     print(check, flush=True)
     if check.status != 'succeeded':
         raise ValueError(str(check.issues.to_pylist()))
+    resolved = {
+        domain: capture_specification(ROOT, path, project.spec(domain).resolve())
+        for domain, path in project_specs(ROOT, study_name)
+    }
+    validate_derivation_inputs(ROOT, study_name, resolved)
     runs = project.run('adam')
     print(runs, flush=True)
     if runs.status != 'succeeded':
@@ -62,8 +74,7 @@ def validate(study_name, entry, report):
                 matched = comparator.compare(path.stem)
         report['datasets'].append({
             'domain': domain, 'spec': path.relative_to(ROOT).as_posix(),
-            'resolved_specification': capture_specification(
-                ROOT, path, project.spec(domain).resolve()),
+            'resolved_specification': resolved[domain],
             'rows': output.num_rows, 'columns': len(output.column_names),
             'build': 'succeeded',
             'comparison': ('unavailable' if matched is None else

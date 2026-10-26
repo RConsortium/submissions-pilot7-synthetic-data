@@ -71,6 +71,20 @@ def engine_revision(root, study):
     return matches[0]
 
 
+def validate_derivation_inputs(root, study, specifications):
+    """Reference ADaM files are comparator inputs, never derivation inputs/outputs."""
+    references = {
+        path.relative_to(root).as_posix()
+        for path in root.glob('*/data/adam/*.parquet')
+        if not path.name.endswith('-yamaa.parquet')
+    }
+    for domain, packet in specifications.items():
+        for key, path in packet['resources'].items():
+            dataset = key == 'output.path' or key.startswith('input.') and key.endswith('.path')
+            if dataset and path in references:
+                raise ValueError(f'{study}/{domain}: {key} uses independent reference {path}')
+
+
 def validate_reports(root, entries, reports, expected_commit=None):
     """Refuse incomplete, failed, stale or overstated publication evidence."""
     revisions, commits = set(), set()

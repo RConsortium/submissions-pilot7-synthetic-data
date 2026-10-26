@@ -1,6 +1,7 @@
 yamaa: "1.0"
 type: spec
 model: ADaM
+parent: ../../../spec/yamaa/templates/subject-analysis.yaml
 domain: ADTTE
 keys:
   - STUDYID
@@ -8,8 +9,10 @@ keys:
   - PARAMCD
 input:
   ADSL:
-    path: ../../data/adam/adsl-yamaa.parquet
-    schema: adsl.yaml
+    empty_string: missing
+    key:
+      - STUDYID
+      - USUBJID
   ADAE:
     path: ../../data/adam/adae-yamaa.parquet
     schema: adae.yaml
@@ -55,8 +58,9 @@ intermediates:
     key:
       - STUDYID
       - USUBJID
-    filter: "ADAE.AOCC01FL = 'Y' AND ADAE.CQ01NAM = 'DERMATOLOGIC
-      EVENTS' AND ADAE.SAFFL = 'Y'"
+    filter: >-
+      ADAE.AOCC01FL = 'Y' AND ADAE.CQ01NAM = 'DERMATOLOGIC EVENTS'
+      AND ADAE.SAFFL = 'Y'
     order_by:
       - variable: ADAE.ASTDT
         nulls: last
@@ -67,8 +71,9 @@ intermediates:
     key:
       - STUDYID
       - USUBJID
-    filter: "DS.DSCAT = 'DISPOSITION EVENT' AND DS.DSDECOD <> 'SCREEN
-      FAILURE' AND DS.DSDECOD <> 'FINAL LAB VISIT'"
+    filter: >-
+      DS.DSCAT = 'DISPOSITION EVENT' AND DS.DSDECOD <> 'SCREEN
+      FAILURE' AND DS.DSDECOD <> 'FINAL LAB VISIT'
     order_by:
       - variable: DS.DSSTDTC
         nulls: last
@@ -80,42 +85,13 @@ columns:
       dataset: ADSL
       columns:
         - STUDYID
-        - SITEID
         - USUBJID
-        - AGE
-        - AGEGR1
-        - AGEGR1N
-        - RACE
-        - RACEN
-        - SEX
-        - TRTSDT
-        - TRTEDT
 
   - name: TRTDUR
     type: float
     label: Duration of treatment (days)
     derivation: ADSL.TRTDURD
 
-  - name: TRTP
-    type: str
-    label: Planned Treatment
-    derivation: ADSL.TRT01P
-
-  - name: TRTA
-    type: str
-    label: Actual Treatment
-    derivation: ADSL.TRT01A
-
-  - name: TRTAN
-    type: float
-    label: Actual Treatment (N)
-    derivation: ADSL.TRT01AN
-
-  - copy:
-      dataset: ADSL
-      columns: [SAFFL]
-
-  # --- Event / censor machinery (internal) ---
   - name: _EVDT
     type: date
     label: First dermatologic event date (internal)
@@ -142,8 +118,8 @@ columns:
 
   - name: _IS_EVENT
     type: float
-    label: Event won over censoring - earlier date, ties go to
-      the event (internal)
+    label: Event won over censoring - earlier date, ties go
+      to the event (internal)
     derivation:
       case:
         - when: "_EVDT IS NOT NULL AND _EVDT <= _EOSDT"
@@ -168,6 +144,12 @@ columns:
         - when: "_IS_EVENT = 1"
           then: 0
         - otherwise: 1
+
+    verifications:
+      - allowed_values:
+          values:
+            - 0
+            - 1
 
   - name: STARTDT
     type: date
@@ -230,3 +212,9 @@ columns:
       case:
         - when: "_IS_EVENT = 1"
           then: DERM_EV.AESEQ
+
+verifications:
+  - assert:
+      id: treatment_date_order
+      when: "TRTSDT IS NOT NULL AND TRTEDT IS NOT NULL"
+      require: "TRTEDT >= TRTSDT"

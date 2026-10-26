@@ -205,6 +205,16 @@ def locate_quote(lines, span, quote):
 
 def spec_side(spec_file, element, quote=None):
     """A specification element, and the lines of a quote inside it when given."""
+    if spec_file.get('documents'):
+        candidates = [d for d in spec_file['documents'] if element in d['spans']]
+        preferred = spec_file.get('definition_sources', {}).get(element)
+        candidates.sort(key=lambda d: d['path'] != preferred)
+        for document in candidates:
+            side = spec_side(document, element, quote)
+            if side['verified']:
+                return side
+        if candidates:
+            return spec_side(candidates[0], element, quote)
     path, lines, spans, revision = spec_file["path"], spec_file["lines"], spec_file["spans"], spec_file["revision"]
     span = spans.get(element) if element else None
     side = {"path": path, "element": element, "quote": quote, "element_lines": None, "lines": None, "excerpt": None, "verified": True, "reason": None}
@@ -696,10 +706,13 @@ def dataset_report(context, domain, spec_path, derived, reference):
     base = root / study
     text = spec_path.read_text()
     spec = yaml.safe_load(text)
+    packet = None
     if spec.get("parent") or spec.get("include") or any("copy" in c for c in spec["columns"]):
         import yamaa
         resolved = yamaa.spec(spec_path).resolve()
         spec = next(e["specification"] for e in resolved["entries"] if e["entry"] == resolved["entry"])
+        from study_dashboard.specifications import capture_specification
+        packet = capture_specification(root, spec_path, resolved)
     spans = source_locations(text)["spans"]
     spec_file = {
         "path": spec_path.relative_to(root).as_posix(),
@@ -708,6 +721,16 @@ def dataset_report(context, domain, spec_path, derived, reference):
         "keys": spec["keys"],
         "revision": revision,
     }
+    if packet:
+        from study_dashboard.specifications import definition_sources
+        spec_file['documents'] = [
+            {'path': source['path'], 'lines': source['text'].splitlines(),
+             'spans': source_locations(source['text'])['spans'], 'revision': revision}
+            for source in packet['sources']
+        ]
+        spec_file['definition_sources'] = definition_sources(packet)
+        spec_file['spans'] = {name: span for document in spec_file['documents']
+                              for name, span in document['spans'].items()}
     columns = {c["name"]: c for c in spec["columns"]}
     tables = {"reference": reference, "derived": derived}
     review = base / "spec/review"

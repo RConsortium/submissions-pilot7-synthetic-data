@@ -1,20 +1,17 @@
-# ADADAS for CDISC Pilot 3 - yamaa schema-complexity review.
-#
-# The reference derivation (adadas.r) builds one row per selected QS record,
-# then appends 222 LOCF records for ACTOT at planned visits with no collected
-# record (admiral::derive_locf_records over a 4-row expected-observations
-# tribble). The schema cannot generate those planned rows itself (REQ-0040/
-# REQ-0041), so they arrive as a checked-in planning relation,
-# data/mapping/plan.csv (222 slots, verified against the reference LOCF slots),
-# alongside the 4-row analysis-window lookup the R program spells as a tribble.
-#
-# Row templates: `collected` (one row per selected QS record) and `planned`
-# (one row per missing ACTOT visit slot). Everything shared across the two
-# templates is derived once at column level.
-
+# ADADAS reproduces the submitted observations and LOCF records.
+# Missing ACTOT visit slots are constructed by yamaa from QS and generated
+# ADSL.
+# No subject-level planning table or output repair is used.
 yamaa: "1.0"
 type: spec
 model: ADaM
+
+parent: ../../../spec/yamaa/templates/subject-analysis.yaml
+
+include:
+  - ../../../spec/yamaa/fragments/bds-record.yaml
+  - ../../../spec/yamaa/fragments/analysis-flags.yaml
+
 domain: ADADAS
 
 keys:
@@ -27,15 +24,21 @@ keys:
 input:
   QS:
     path: ../../data/sdtm/qs.parquet
+    ordinal: _QS_INPUT_ORDER
     key:
       - STUDYID
       - USUBJID
   ADSL:
-    path: ../../data/adam/adsl-yamaa.parquet
-    schema: adsl.yaml
-  PLAN: {path: ../../data/mapping/plan.csv, types: {AVISITN: int}}
-  AW: {path: ../../data/mapping/analysis_window.csv, types: {AWTARGET:
-        int, AWLO: int, AWHI: int}}
+    empty_string: missing
+    key:
+      - USUBJID
+
+  AW:
+    path: ../../data/mapping/analysis_window.csv
+    types:
+      AWTARGET: int
+      AWLO: int
+      AWHI: int
 
 output:
   path: ../../data/adam/adadas-yamaa.parquet
@@ -81,16 +84,125 @@ output:
     - AWU
     - QSSEQ
 
+  order_by:
+    - ROWSRC
+    - _OBSERVED_ORDER
+    - USUBJID
+    - AVISITN
+
+windows:
+  ANL01_RN_ORDER:
+    group_by:
+      - USUBJID
+      - PARAMCD
+      - AVISIT
+    order_by:
+      - variable: AWTDIFF_RAW
+        nulls: last
+      - variable: DIFF_RAW
+        nulls: last
+    filter: "ROWSRC = 0"
+
+  ADT_ORDER:
+    group_by:
+      - STUDYID
+      - USUBJID
+      - PARAMCD
+    order_by:
+      - variable: AVISITN
+        nulls: last
+
 intermediates:
-  - id: ADSL_LOOKUP
+  - id: SUBJECT_FOR_VISIT
     dataset: ADSL
     key:
+      - STUDYID
       - USUBJID
 
   - id: AW_LOOKUP
     dataset: AW
     key:
       - AVISIT
+
+  - id: COLLECTED_WEEK_8
+    dataset: QS
+    key:
+      - USUBJID
+    filter: "QS.QSTESTCD = 'ACTOT' AND QS._PLAN_ADY > 1 AND QS._PLAN_ADY
+      <= 84"
+    order_by:
+      - QS.QSSEQ
+    keep: first
+    columns:
+      - QSSEQ
+    derivations:
+      _PLAN_DATE:
+        type: date
+        derivation:
+          to_date:
+            source: QS.QSDTC
+      _PLAN_ADY:
+        type: int
+        derivation:
+          diff:
+            type: date
+            start: SUBJECT_FOR_VISIT.TRTSDT
+            end: QS._PLAN_DATE
+            unit: day
+            closed: both
+
+  - id: COLLECTED_WEEK_16
+    dataset: QS
+    key:
+      - USUBJID
+    filter: "QS.QSTESTCD = 'ACTOT' AND QS._PLAN_ADY > 84 AND QS._PLAN_ADY
+      <= 140"
+    order_by:
+      - QS.QSSEQ
+    keep: first
+    columns:
+      - QSSEQ
+    derivations:
+      _PLAN_DATE:
+        type: date
+        derivation:
+          to_date:
+            source: QS.QSDTC
+      _PLAN_ADY:
+        type: int
+        derivation:
+          diff:
+            type: date
+            start: SUBJECT_FOR_VISIT.TRTSDT
+            end: QS._PLAN_DATE
+            unit: day
+            closed: both
+
+  - id: COLLECTED_WEEK_24
+    dataset: QS
+    key:
+      - USUBJID
+    filter: "QS.QSTESTCD = 'ACTOT' AND QS._PLAN_ADY > 140"
+    order_by:
+      - QS.QSSEQ
+    keep: first
+    columns:
+      - QSSEQ
+    derivations:
+      _PLAN_DATE:
+        type: date
+        derivation:
+          to_date:
+            source: QS.QSDTC
+      _PLAN_ADY:
+        type: int
+        derivation:
+          diff:
+            type: date
+            start: SUBJECT_FOR_VISIT.TRTSDT
+            end: QS._PLAN_DATE
+            unit: day
+            closed: both
 
 columns:
   # ---- row-phase working columns (values differ by template) ----
@@ -135,16 +247,13 @@ columns:
     label: Aval Raw (helper)
 
   # ---- shared derivations (including missing values on planned rows) ----
-  - name: TRTSDT
-    type: date
-    label: Date of First Exposure to Treatment
-    derivation: ADSL_LOOKUP.TRTSDT
-
   - name: ADY_RAW
     type: float
     label: Ady Raw (helper)
     derivation:
-      study_day: {source: ADT_RAW, reference: TRTSDT}
+      study_day:
+        source: ADT_RAW
+        reference: TRTSDT
 
   - name: AVISIT
     type: str
@@ -170,79 +279,8 @@ columns:
   - name: STUDYID
     type: str
     label: Study Identifier
-    derivation: ADSL_LOOKUP.STUDYID
+    derivation: ADSL.STUDYID
 
-  - name: SITEID
-    type: str
-    label: Study Site Identifier
-    derivation: ADSL_LOOKUP.SITEID
-
-  - name: SITEGR1
-    type: str
-    label: Pooled Site Group 1
-    derivation: ADSL_LOOKUP.SITEGR1
-
-  - name: TRTEDT
-    type: date
-    label: Date of Last Exposure to Treatment
-    derivation: ADSL_LOOKUP.TRTEDT
-
-  - name: TRTP
-    type: str
-    label: Planned Treatment
-    derivation: ADSL_LOOKUP.TRT01P
-
-  - name: TRTPN
-    type: float
-    label: Planned Treatment (N)
-    derivation: ADSL_LOOKUP.TRT01PN
-
-  - name: AGE
-    type: float
-    label: Age
-    derivation: ADSL_LOOKUP.AGE
-
-  - name: AGEGR1
-    type: str
-    label: Pooled Age Group 1
-    derivation: ADSL_LOOKUP.AGEGR1
-
-  - name: AGEGR1N
-    type: float
-    label: Pooled Age Group 1 (N)
-    derivation: ADSL_LOOKUP.AGEGR1N
-
-  - name: RACE
-    type: str
-    label: Race
-    derivation: ADSL_LOOKUP.RACE
-
-  - name: RACEN
-    type: float
-    label: Race (N)
-    derivation: ADSL_LOOKUP.RACEN
-
-  - name: SEX
-    type: str
-    label: Sex
-    derivation: ADSL_LOOKUP.SEX
-
-  - name: ITTFL
-    type: str
-    label: Intent-To-Treat Population Flag
-    derivation: ADSL_LOOKUP.ITTFL
-
-  - name: EFFFL
-    type: str
-    label: Efficacy Population Flag
-    derivation: ADSL_LOOKUP.EFFFL
-
-  - name: COMP24FL
-    type: str
-    label: Completers of Week 24 Population Flag
-    derivation: ADSL_LOOKUP.COMP24FL
-
-  # ---- parameter / visit metadata ----
   - name: PARAM
     type: str
     label: Parameter
@@ -343,17 +381,7 @@ columns:
     label: Anl01 Rn (helper)
     derivation:
       row_number:
-        window:
-          group_by:
-            - USUBJID
-            - PARAMCD
-            - AVISIT
-          order_by:
-            - variable: AWTDIFF_RAW
-              nulls: last
-            - variable: DIFF_RAW
-              nulls: last
-          filter: "ROWSRC = 0"
+        window: ANL01_RN_ORDER
 
   - name: ANL01FL
     type: str
@@ -364,7 +392,7 @@ columns:
           then: "'Y'"
         - when: "ANL01_RN = 1"
           then: "'Y'"
-        - otherwise:
+        - otherwise: "''"
 
   - name: ADT_Y
     type: date
@@ -429,14 +457,7 @@ columns:
           then:
             locf:
               source: ADT_Y
-              window:
-                group_by:
-                  - STUDYID
-                  - USUBJID
-                  - PARAMCD
-                order_by:
-                  - variable: AVISITN
-                    nulls: last
+              window: ADT_ORDER
         - otherwise: ADT_RAW
 
   - name: ADY
@@ -448,14 +469,7 @@ columns:
           then:
             locf:
               source: ADY_Y
-              window:
-                group_by:
-                  - STUDYID
-                  - USUBJID
-                  - PARAMCD
-                order_by:
-                  - variable: AVISITN
-                    nulls: last
+              window: ADT_ORDER
         - otherwise: ADY_RAW
 
   - name: VISIT
@@ -467,14 +481,7 @@ columns:
           then:
             locf:
               source: VISIT_Y
-              window:
-                group_by:
-                  - STUDYID
-                  - USUBJID
-                  - PARAMCD
-                order_by:
-                  - variable: AVISITN
-                    nulls: last
+              window: ADT_ORDER
         - otherwise: VISIT_RAW
 
   - name: VISITNUM
@@ -486,14 +493,7 @@ columns:
           then:
             locf:
               source: VISITNUM_Y
-              window:
-                group_by:
-                  - STUDYID
-                  - USUBJID
-                  - PARAMCD
-                order_by:
-                  - variable: AVISITN
-                    nulls: last
+              window: ADT_ORDER
         - otherwise: VISITNUM_RAW
 
   - name: QSSEQ
@@ -505,14 +505,7 @@ columns:
           then:
             locf:
               source: QSSEQ_Y
-              window:
-                group_by:
-                  - STUDYID
-                  - USUBJID
-                  - PARAMCD
-                order_by:
-                  - variable: AVISITN
-                    nulls: last
+              window: ADT_ORDER
         - otherwise: QSSEQ_RAW
 
   - name: AVAL
@@ -524,14 +517,7 @@ columns:
           then:
             locf:
               source: AVAL_Y
-              window:
-                group_by:
-                  - STUDYID
-                  - USUBJID
-                  - PARAMCD
-                order_by:
-                  - variable: AVISITN
-                    nulls: last
+              window: ADT_ORDER
         - otherwise: AVAL_RAW
 
   # ---- window distance on the final (possibly carried) study day ----
@@ -558,7 +544,7 @@ columns:
     label: Change from Baseline
     derivation:
       case:
-        - when: "ABLFL IS NULL"
+        - when: "ABLFL = ''"
           then: "AVAL - BASE"
         - otherwise:
 
@@ -567,7 +553,7 @@ columns:
     label: Percent Change from Baseline
     derivation:
       case:
-        - when: "ABLFL IS NULL"
+        - when: "ABLFL = ''"
           then: "(AVAL - BASE) / NULLIF(BASE, 0) * 100"
         - otherwise:
 
@@ -578,14 +564,23 @@ columns:
       case:
         - when: "ROWSRC = 1"
           then: "'LOCF'"
-        - otherwise:
+        - otherwise: "''"
+
+  - name: _OBSERVED_ORDER
+    type: int
+    label: Collected source record order
+
+  - name: _COLLECTED_QSSEQ
+    type: float
+    label: Existing ACTOT record at planned visit
 
 rows:
   - id: collected
     dataset: QS
-    filter: "QS.QSTESTCD IN ('ACITM01', 'ACITM02', 'ACITM03', 'ACITM04',
+    filter: >-
+      QS.QSTESTCD IN ('ACITM01', 'ACITM02', 'ACITM03', 'ACITM04',
       'ACITM05', 'ACITM06', 'ACITM07', 'ACITM08', 'ACITM09', 'ACITM10',
-      'ACITM11', 'ACITM12', 'ACITM13', 'ACITM14', 'ACTOT')"
+      'ACITM11', 'ACITM12', 'ACITM13', 'ACITM14', 'ACTOT')
     derivations:
       ROWSRC: 0
       USUBJID: QS.USUBJID
@@ -594,25 +589,75 @@ rows:
         to_date:
           source: QS.QSDTC
       PLAN_AVISIT:
-      ABLFL: QS.QSBLFL
+      ABLFL:
+        first_available:
+          sources:
+            - QS.QSBLFL
+          missing: ''
       VISIT_RAW: QS.VISIT
       VISITNUM_RAW: QS.VISITNUM
       QSSEQ_RAW: QS.QSSEQ
       AVAL_RAW: QS.QSSTRESN
 
-  - id: planned
-    dataset: PLAN
+      _OBSERVED_ORDER: QS._QS_INPUT_ORDER
+      _COLLECTED_QSSEQ:
+
+  - id: planned-week-8
+    dataset: ADSL
+    filter: "_COLLECTED_QSSEQ IS NULL"
     derivations:
       ROWSRC: 1
-      USUBJID: PLAN.USUBJID
-      PARAMCD: PLAN.PARAMCD
+      USUBJID: ADSL.USUBJID
+      PARAMCD: "'ACTOT'"
       ADT_RAW:
-      PLAN_AVISIT: PLAN.AVISIT
-      ABLFL:
+      PLAN_AVISIT: "'Week 8'"
+      ABLFL: "''"
       VISIT_RAW:
       VISITNUM_RAW:
       QSSEQ_RAW:
       AVAL_RAW:
+      _OBSERVED_ORDER: 0
+      _COLLECTED_QSSEQ: COLLECTED_WEEK_8.QSSEQ
+
+  - id: planned-week-16
+    dataset: ADSL
+    filter: "_COLLECTED_QSSEQ IS NULL"
+    derivations:
+      ROWSRC: 1
+      USUBJID: ADSL.USUBJID
+      PARAMCD: "'ACTOT'"
+      ADT_RAW:
+      PLAN_AVISIT: "'Week 16'"
+      ABLFL: "''"
+      VISIT_RAW:
+      VISITNUM_RAW:
+      QSSEQ_RAW:
+      AVAL_RAW:
+      _OBSERVED_ORDER: 0
+      _COLLECTED_QSSEQ: COLLECTED_WEEK_16.QSSEQ
+
+  - id: planned-week-24
+    dataset: ADSL
+    filter: "_COLLECTED_QSSEQ IS NULL"
+    derivations:
+      ROWSRC: 1
+      USUBJID: ADSL.USUBJID
+      PARAMCD: "'ACTOT'"
+      ADT_RAW:
+      PLAN_AVISIT: "'Week 24'"
+      ABLFL: "''"
+      VISIT_RAW:
+      VISITNUM_RAW:
+      QSSEQ_RAW:
+      AVAL_RAW:
+      _OBSERVED_ORDER: 0
+      _COLLECTED_QSSEQ: COLLECTED_WEEK_24.QSSEQ
 
 verifications:
-  - row_count: {min: 12463, max: 12463}
+  - row_count:
+      min: 12463
+      max: 12463
+  - assert:
+      id: treatment_date_order
+      when: "TRTSDT IS NOT NULL AND TRTEDT IS NOT NULL"
+      require: "TRTEDT >= TRTSDT"

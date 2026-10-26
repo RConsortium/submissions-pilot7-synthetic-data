@@ -1,6 +1,9 @@
 yamaa: "1.0"
 type: spec
 model: ADaM
+include:
+  - ../../../spec/yamaa/fragments/bds-record.yaml
+  - ../../../spec/yamaa/fragments/analysis-flags.yaml
 domain: ADLBHY
 keys:
   - STUDYID
@@ -12,9 +15,6 @@ input:
     path: ../../data/adam/adlbc-yamaa.parquet
     schema: adlbc.yaml
     empty_string: present
-    key:
-      - STUDYID
-      - USUBJID
 base: ADLBC
 
 output:
@@ -78,8 +78,8 @@ intermediates:
       - USUBJID
       - AVISIT
       - AVISITN
-    filter: "ADLBC.AVISITN IN (0.0, 2.0, 4.0, 6.0, 8.0, 12.0, 16.0,
-      20.0, 24.0)"
+    filter: "ADLBC.AVISITN IN (0.0, 2.0, 4.0, 6.0, 8.0, 12.0,
+      16.0, 20.0, 24.0)"
     order_by:
       - variable: ADLBC.PARAMCD
         nulls: last
@@ -121,6 +121,8 @@ columns:
   - name: AVISIT
     type: str
     label: Analysis Visit
+
+    derivation: ADLBC.AVISIT
 
   - name: AVISITN
     type: float
@@ -221,7 +223,6 @@ columns:
   - name: STUDYID
     type: str
     label: Study Identifier
-    derivation: VINFO.STUDYID
 
   - name: SUBJID
     type: str
@@ -398,11 +399,12 @@ columns:
 rows:
   - id: base
     dataset: ADLBC
-    filter: "ADLBC.PARAMCD IN ('ALT', 'AST', 'BILI') AND ADLBC.AVISITN
-      IN (0.0, 2.0, 4.0, 6.0, 8.0, 12.0, 16.0, 20.0, 24.0)"
+    filter: >-
+      ADLBC.PARAMCD IN ('ALT', 'AST', 'BILI') AND ADLBC.AVISITN
+      IN (0.0, 2.0, 4.0, 6.0, 8.0, 12.0, 16.0, 20.0, 24.0)
     derivations:
+      # yamaa-lint: allow repeated_row_derivation -- Bind before grouping.
       USUBJID: ADLBC.USUBJID
-      AVISIT: ADLBC.AVISIT
       AVISITN: ADLBC.AVISITN
       ADY: ADLBC.ADY
       ADT: ADLBC.ADT
@@ -455,6 +457,7 @@ rows:
       _AST_R:
       _MAX_R:
       _AVAL:
+      # yamaa-lint: allow repeated_row_derivation -- Bind before grouping.
       _BASE_R:
       _BASE_ALT_R:
       _BASE_AST_R:
@@ -469,6 +472,7 @@ rows:
       _BASE:
       _SHIFT1:
       _SHIFT1N:
+      STUDYID: ADLBC.STUDYID
 
   - id: bilihy
     dataset: ADLBC
@@ -476,16 +480,17 @@ rows:
       - ADLBC.USUBJID
       - ADLBC.AVISIT
       - ADLBC.AVISITN
-    filter: "AVISITN IS NOT NULL AND AVISITN IN (0.0, 2.0, 4.0, 6.0,
-      8.0, 12.0, 16.0, 20.0, 24.0) AND _HAS_P > 0"
+    filter: >-
+      AVISITN IS NOT NULL AND AVISITN IN (0.0, 2.0, 4.0, 6.0,
+      8.0, 12.0, 16.0, 20.0, 24.0) AND _HAS_P > 0
     derivations:
       _HAS_P:
         aggregate:
           expr: "COUNT(ADLBC.*)"
-          filter: "ADLBC.PARAMCD IN ('ALT', 'AST', 'BILI') AND ADLBC.AVISITN
-            IS NOT NULL"
+          filter: >-
+            ADLBC.PARAMCD IN ('ALT', 'AST', 'BILI') AND ADLBC.AVISITN
+            IS NOT NULL
       USUBJID: ADLBC.USUBJID
-      AVISIT: ADLBC.AVISIT
       AVISITN: ADLBC.AVISITN
       ADY:
       ADT:
@@ -520,8 +525,8 @@ rows:
       _BILI_R:
         aggregate:
           expr: "ONLY(ADLBC.R2A1HI)"
-          filter: "ADLBC.PARAMCD = 'BILI' AND ADLBC.AVISITN IS NOT
-            NULL"
+          filter: "ADLBC.PARAMCD = 'BILI' AND ADLBC.AVISITN IS
+            NOT NULL"
       _ALT_R:
       _AST_R:
       _MAX_R:
@@ -577,22 +582,26 @@ rows:
             then: 0.0
           - otherwise:
 
+      STUDYID:
+        aggregate: MIN(ADLBC.STUDYID)
+
   - id: transhy
     dataset: ADLBC
     group_by:
       - ADLBC.USUBJID
       - ADLBC.AVISIT
       - ADLBC.AVISITN
-    filter: "AVISITN IS NOT NULL AND AVISITN IN (0.0, 2.0, 4.0, 6.0,
-      8.0, 12.0, 16.0, 20.0, 24.0) AND _HAS_P > 0"
+    filter: >-
+      AVISITN IS NOT NULL AND AVISITN IN (0.0, 2.0, 4.0, 6.0,
+      8.0, 12.0, 16.0, 20.0, 24.0) AND _HAS_P > 0
     derivations:
       _HAS_P:
         aggregate:
           expr: "COUNT(ADLBC.*)"
-          filter: "ADLBC.PARAMCD IN ('ALT', 'AST', 'BILI') AND ADLBC.AVISITN
-            IS NOT NULL"
+          filter: >-
+            ADLBC.PARAMCD IN ('ALT', 'AST', 'BILI') AND ADLBC.AVISITN
+            IS NOT NULL
       USUBJID: ADLBC.USUBJID
-      AVISIT: ADLBC.AVISIT
       AVISITN: ADLBC.AVISITN
       ADY:
       ADT:
@@ -628,13 +637,13 @@ rows:
       _ALT_R:
         aggregate:
           expr: "ONLY(ADLBC.R2A1HI)"
-          filter: "ADLBC.PARAMCD = 'ALT' AND ADLBC.AVISITN IS NOT
-            NULL"
+          filter: "ADLBC.PARAMCD = 'ALT' AND ADLBC.AVISITN IS
+            NOT NULL"
       _AST_R:
         aggregate:
           expr: "ONLY(ADLBC.R2A1HI)"
-          filter: "ADLBC.PARAMCD = 'AST' AND ADLBC.AVISITN IS NOT
-            NULL"
+          filter: "ADLBC.PARAMCD = 'AST' AND ADLBC.AVISITN IS
+            NOT NULL"
       _MAX_R:
         case:
           - when: "_ALT_R IS NULL"
@@ -704,22 +713,26 @@ rows:
             then: 0.0
           - otherwise:
 
+      STUDYID:
+        aggregate: MIN(ADLBC.STUDYID)
+
   - id: hylaw
     dataset: ADLBC
     group_by:
       - ADLBC.USUBJID
       - ADLBC.AVISIT
       - ADLBC.AVISITN
-    filter: "AVISITN IS NOT NULL AND AVISITN IN (0.0, 2.0, 4.0, 6.0,
-      8.0, 12.0, 16.0, 20.0, 24.0) AND _HAS_P > 0"
+    filter: >-
+      AVISITN IS NOT NULL AND AVISITN IN (0.0, 2.0, 4.0, 6.0,
+      8.0, 12.0, 16.0, 20.0, 24.0) AND _HAS_P > 0
     derivations:
       _HAS_P:
         aggregate:
           expr: "COUNT(ADLBC.*)"
-          filter: "ADLBC.PARAMCD IN ('ALT', 'AST', 'BILI') AND ADLBC.AVISITN
-            IS NOT NULL"
+          filter: >-
+            ADLBC.PARAMCD IN ('ALT', 'AST', 'BILI') AND ADLBC.AVISITN
+            IS NOT NULL
       USUBJID: ADLBC.USUBJID
-      AVISIT: ADLBC.AVISIT
       AVISITN: ADLBC.AVISITN
       ADY:
       ADT:
@@ -754,18 +767,18 @@ rows:
       _BILI_R:
         aggregate:
           expr: "ONLY(ADLBC.R2A1HI)"
-          filter: "ADLBC.PARAMCD = 'BILI' AND ADLBC.AVISITN IS NOT
-            NULL"
+          filter: "ADLBC.PARAMCD = 'BILI' AND ADLBC.AVISITN IS
+            NOT NULL"
       _ALT_R:
         aggregate:
           expr: "ONLY(ADLBC.R2A1HI)"
-          filter: "ADLBC.PARAMCD = 'ALT' AND ADLBC.AVISITN IS NOT
-            NULL"
+          filter: "ADLBC.PARAMCD = 'ALT' AND ADLBC.AVISITN IS
+            NOT NULL"
       _AST_R:
         aggregate:
           expr: "ONLY(ADLBC.R2A1HI)"
-          filter: "ADLBC.PARAMCD = 'AST' AND ADLBC.AVISITN IS NOT
-            NULL"
+          filter: "ADLBC.PARAMCD = 'AST' AND ADLBC.AVISITN IS
+            NOT NULL"
       _MAX_R:
         case:
           - when: "_ALT_R IS NULL"
@@ -852,3 +865,11 @@ rows:
           - when: "_BASE = 1 AND _AVAL = 0"
             then: 0.0
           - otherwise:
+      STUDYID:
+        aggregate: MIN(ADLBC.STUDYID)
+
+verifications:
+  - assert:
+      id: treatment_date_order
+      when: "TRTSDT IS NOT NULL AND TRTEDT IS NOT NULL"
+      require: "TRTEDT >= TRTSDT"

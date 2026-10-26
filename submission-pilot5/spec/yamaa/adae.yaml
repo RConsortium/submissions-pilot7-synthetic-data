@@ -1,6 +1,7 @@
 yamaa: "1.0"
 type: spec
 model: ADaM
+parent: ../../../spec/yamaa/templates/subject-analysis.yaml
 domain: ADAE
 keys:
   - STUDYID
@@ -9,8 +10,7 @@ keys:
 input:
   AE: ../../data/sdtm/ae.parquet
   ADSL:
-    path: ../../data/adam/adsl-yamaa.parquet
-    schema: adsl.yaml
+    empty_string: missing
     key:
       - STUDYID
       - USUBJID
@@ -75,6 +75,90 @@ output:
     - CQ01NAM
     - AOCC01FL
 
+windows:
+  AOCCSEQ_ORDER:
+    group_by:
+      - STUDYID
+      - USUBJID
+    order_by:
+      - variable: ASTDT
+        nulls: last
+      - variable: AESEQ
+        nulls: last
+    filter: "TRTEMFL = 'Y'"
+
+  AOCCSSEQ_ORDER:
+    group_by:
+      - STUDYID
+      - USUBJID
+      - AEBODSYS
+    order_by:
+      - variable: ASTDT
+        nulls: last
+      - variable: AESEQ
+        nulls: last
+    filter: "TRTEMFL = 'Y'"
+
+  AOCCPSEQ_ORDER:
+    group_by:
+      - STUDYID
+      - USUBJID
+      - AEBODSYS
+      - AEDECOD
+    order_by:
+      - variable: ASTDT
+        nulls: last
+      - variable: AESEQ
+        nulls: last
+    filter: "TRTEMFL = 'Y'"
+
+  AOCC02SEQ_ORDER:
+    group_by:
+      - STUDYID
+      - USUBJID
+    order_by:
+      - variable: ASTDT
+        nulls: last
+      - variable: AESEQ
+        nulls: last
+    filter: "TRTEMFL = 'Y' AND AESER = 'Y'"
+
+  AOCC03SEQ_ORDER:
+    group_by:
+      - STUDYID
+      - USUBJID
+      - AEBODSYS
+    order_by:
+      - variable: ASTDT
+        nulls: last
+      - variable: AESEQ
+        nulls: last
+    filter: "TRTEMFL = 'Y' AND AESER = 'Y'"
+
+  AOCC04SEQ_ORDER:
+    group_by:
+      - STUDYID
+      - USUBJID
+      - AEBODSYS
+      - AEDECOD
+    order_by:
+      - variable: ASTDT
+        nulls: last
+      - variable: AESEQ
+        nulls: last
+    filter: "TRTEMFL = 'Y' AND AESER = 'Y'"
+
+  AOCC01SEQ_ORDER:
+    group_by:
+      - STUDYID
+      - USUBJID
+    order_by:
+      - variable: ASTDT
+        nulls: last
+      - variable: AESEQ
+        nulls: last
+    filter: "TRTEMFL = 'Y' AND CQ01NAM = 'DERMATOLOGIC EVENTS'"
+
 columns:
   # --- ADSL carry block (#729: bulk-carry rejected; specs stay
   # self-contained) ---
@@ -83,30 +167,11 @@ columns:
     label: Study Identifier
     derivation: AE.STUDYID
 
-  - copy:
-      dataset: ADSL
-      columns: [SITEID]
-
   - name: USUBJID
     type: str
     label: Unique Subject Identifier
     derivation: AE.USUBJID
 
-  - name: TRTA
-    type: str
-    label: Actual Treatment
-    derivation: ADSL.TRT01A
-
-  - name: TRTAN
-    type: float
-    label: Actual Treatment (N)
-    derivation: ADSL.TRT01AN
-
-  - copy:
-      dataset: ADSL
-      columns: [AGE, AGEGR1, AGEGR1N, RACE, RACEN, SEX, SAFFL, TRTSDT, TRTEDT]
-
-  # --- MedDRA / AE verbatim copies ---
   - name: AETERM
     type: str
     label: Reported Term for the Adverse Event
@@ -347,8 +412,9 @@ columns:
     label: Customized Query 01 Name
     derivation:
       flag:
-        condition: "_DERM_MATCH IS NOT NULL OR (AEBODSYS = 'SKIN AND
-          SUBCUTANEOUS TISSUE DISORDERS' AND _DERM_EXCL IS NULL)"
+        condition: >-
+          _DERM_MATCH IS NOT NULL OR (AEBODSYS = 'SKIN AND SUBCUTANEOUS
+          TISSUE DISORDERS' AND _DERM_EXCL IS NULL)
         true_value: "DERMATOLOGIC EVENTS"
         false_value: ""
         missing: ""
@@ -360,16 +426,7 @@ columns:
     label: Subject occurrence sequence (internal)
     derivation:
       row_number:
-        window:
-          group_by:
-            - STUDYID
-            - USUBJID
-          order_by:
-            - variable: ASTDT
-              nulls: last
-            - variable: AESEQ
-              nulls: last
-          filter: "TRTEMFL = 'Y'"
+        window: AOCCSEQ_ORDER
 
   - name: AOCCFL
     type: str
@@ -385,17 +442,7 @@ columns:
     label: SOC occurrence sequence (internal)
     derivation:
       row_number:
-        window:
-          group_by:
-            - STUDYID
-            - USUBJID
-            - AEBODSYS
-          order_by:
-            - variable: ASTDT
-              nulls: last
-            - variable: AESEQ
-              nulls: last
-          filter: "TRTEMFL = 'Y'"
+        window: AOCCSSEQ_ORDER
 
   - name: AOCCSFL
     type: str
@@ -411,18 +458,7 @@ columns:
     label: PT occurrence sequence (internal)
     derivation:
       row_number:
-        window:
-          group_by:
-            - STUDYID
-            - USUBJID
-            - AEBODSYS
-            - AEDECOD
-          order_by:
-            - variable: ASTDT
-              nulls: last
-            - variable: AESEQ
-              nulls: last
-          filter: "TRTEMFL = 'Y'"
+        window: AOCCPSEQ_ORDER
 
   - name: AOCCPFL
     type: str
@@ -438,16 +474,7 @@ columns:
     label: Serious subject occurrence sequence (internal)
     derivation:
       row_number:
-        window:
-          group_by:
-            - STUDYID
-            - USUBJID
-          order_by:
-            - variable: ASTDT
-              nulls: last
-            - variable: AESEQ
-              nulls: last
-          filter: "TRTEMFL = 'Y' AND AESER = 'Y'"
+        window: AOCC02SEQ_ORDER
 
   - name: AOCC02FL
     type: str
@@ -463,17 +490,7 @@ columns:
     label: Serious SOC occurrence sequence (internal)
     derivation:
       row_number:
-        window:
-          group_by:
-            - STUDYID
-            - USUBJID
-            - AEBODSYS
-          order_by:
-            - variable: ASTDT
-              nulls: last
-            - variable: AESEQ
-              nulls: last
-          filter: "TRTEMFL = 'Y' AND AESER = 'Y'"
+        window: AOCC03SEQ_ORDER
 
   - name: AOCC03FL
     type: str
@@ -489,18 +506,7 @@ columns:
     label: Serious PT occurrence sequence (internal)
     derivation:
       row_number:
-        window:
-          group_by:
-            - STUDYID
-            - USUBJID
-            - AEBODSYS
-            - AEDECOD
-          order_by:
-            - variable: ASTDT
-              nulls: last
-            - variable: AESEQ
-              nulls: last
-          filter: "TRTEMFL = 'Y' AND AESER = 'Y'"
+        window: AOCC04SEQ_ORDER
 
   - name: AOCC04FL
     type: str
@@ -516,16 +522,7 @@ columns:
     label: Dermatologic occurrence sequence (internal)
     derivation:
       row_number:
-        window:
-          group_by:
-            - STUDYID
-            - USUBJID
-          order_by:
-            - variable: ASTDT
-              nulls: last
-            - variable: AESEQ
-              nulls: last
-          filter: "TRTEMFL = 'Y' AND CQ01NAM = 'DERMATOLOGIC EVENTS'"
+        window: AOCC01SEQ_ORDER
 
   - name: AOCC01FL
     type: str
@@ -535,3 +532,9 @@ columns:
         condition: "_AOCC01SEQ = 1"
         false_value: ""
         missing: ""
+
+verifications:
+  - assert:
+      id: treatment_date_order
+      when: "TRTSDT IS NOT NULL AND TRTEDT IS NOT NULL"
+      require: "TRTEDT >= TRTSDT"

@@ -12,11 +12,36 @@ import yaml
 sys.path.insert(0, str(Path(__file__).resolve().parents[2] / "scripts"))
 from study_dashboard.lineage import build_lineage, source_locations
 from study_dashboard.specifications import (
-    capture_specification, inspection_specification, resource_path,
+    capture_specification, inspection_specification, resource_path, definition_sources,
 )
 
 
 class SpecificationEvidenceTests(unittest.TestCase):
+    def test_value_origins_identify_the_rule_file_instead_of_a_metadata_override(self):
+        packet = {'model': {'columns': [{'name': 'AGE'}, {'name': 'SEX'}]},
+                  'sources': [{'path': 'entry.yaml'}, {'path': 'parent.yaml'}],
+                  'origins': {
+                      '/columns/0/name': {'declaring_source': 'entry.yaml'},
+                      '/columns/0/derivation/value': {'declaring_source': 'parent.yaml'},
+                      '/columns/1/name': {'declaring_source': 'entry.yaml'},
+                  }}
+        self.assertEqual(definition_sources(packet), {'AGE': 'parent.yaml', 'SEX': 'entry.yaml'})
+
+    def test_verification_quotes_follow_the_defining_fragment(self):
+        from verify_derivations import spec_side
+        def document(path, text):
+            return {'path': path, 'lines': text.splitlines(),
+                    'spans': source_locations(text)['spans'], 'revision': 'commit'}
+        entry = document('entry.yaml', 'columns:\n  - name: AGE\n    label: Age\n')
+        parent = document('parent.yaml', 'columns:\n  - name: AGE\n    derivation: DM.AGE\n')
+        entry['documents'] = [dict(entry), parent]
+        entry['definition_sources'] = {'AGE': 'parent.yaml'}
+        side = spec_side(entry, 'AGE', 'derivation: DM.AGE')
+        self.assertTrue(side['verified'])
+        self.assertEqual(side['path'], 'parent.yaml')
+        self.assertEqual(side['lines'], [3, 3])
+        self.assertFalse(spec_side(entry, 'AGE', 'derivation: DM.SEX')['verified'])
+
     def test_legacy_reusable_specs_require_fresh_engine_resolution(self):
         for declaration in ["parent: base.yaml", "include: [part.yaml]",
                             "columns: [{copy: {dataset: ADSL, columns: [AGE]}}]",

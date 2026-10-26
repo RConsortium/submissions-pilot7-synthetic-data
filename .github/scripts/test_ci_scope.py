@@ -6,7 +6,7 @@ import subprocess
 import tempfile
 import unittest
 
-from ci_scope import PLAN, PY_PLAN, R_PLAN, WORKER, changed_paths, select_checks
+from ci_scope import WORKER, changed_paths, select_checks
 from run_core import ROOT
 from preview_site import prepare_preview
 
@@ -46,7 +46,7 @@ class ScopeTests(unittest.TestCase):
             with self.subTest(path=path):
                 scope = self.scope(path)
                 self.assertEqual(scope['studies'], [])
-                self.assertFalse(any(scope[key] for key in ('website', 'plan_python', 'plan_r', 'compare')))
+                self.assertFalse(any(scope[key] for key in ('website', 'compare')))
 
     def test_website_only_needs_layout_preview(self):
         scope = self.scope('docs/index.md', 'mkdocs.yml')
@@ -58,29 +58,20 @@ class ScopeTests(unittest.TestCase):
         for path in ('submission-pilot3/spec/yamaa/adsl.yaml',
                      'submission-pilot3/program/adam/python/compare.py'):
             self.assertEqual(self.scope(path)['studies'], [
-                {'study': 'submission-pilot3', 'yamaa': True, 'core': False, 'r': False}])
+                {'study': 'submission-pilot3', 'yamaa': True, 'core': False, 'r': path.endswith('.yaml')}])
 
     def test_data_change_combines_yamaa_and_core_in_one_job(self):
         self.assertEqual(self.scope('submission-pilot5/data/sdtm/ae.parquet')['studies'], [
             {'study': 'submission-pilot5', 'yamaa': True, 'core': True, 'r': False}])
 
-    def test_generators_and_mapping_select_their_actual_dependencies(self):
-        self.assertEqual(self.scope(PY_PLAN)['studies'], [])
-        self.assertTrue(self.scope(PY_PLAN)['plan_python'])
-        self.assertFalse(self.scope(PY_PLAN)['plan_r'])
-        self.assertTrue(self.scope(R_PLAN)['plan_r'])
-        self.assertFalse(self.scope(R_PLAN)['plan_python'])
-        scope = self.scope(PLAN)
-        self.assertTrue(scope['plan_python'] and scope['plan_r'])
-        self.assertEqual(scope['studies'], [
-            {'study': 'submission-pilot3', 'yamaa': True, 'core': False, 'r': False}])
-        scope = self.scope('submission-pilot3/data/sdtm/qs.parquet')
-        self.assertTrue(scope['plan_python'] and scope['plan_r'])
+    def test_shared_templates_revalidate_all_three_hosts_and_publication(self):
+        scope = self.scope('spec/yamaa/templates/subject-analysis.yaml')
+        self.assertTrue(scope['publication'])
+        self.assertEqual(sum(row['yamaa'] for row in scope['studies']), 3)
+        self.assertTrue(next(row['r'] for row in scope['studies'] if row['study'] == 'submission-pilot3'))
 
-    def test_analysis_window_lookup_is_separate_from_planning_relation(self):
-        scope = self.scope('submission-pilot3/data/mapping/analysis_window.csv')
-        self.assertFalse(scope['plan_python'] or scope['plan_r'])
-        self.assertEqual(scope['studies'], [
+    def test_analysis_window_lookup_selects_its_study(self):
+        self.assertEqual(self.scope('submission-pilot3/data/mapping/analysis_window.csv')['studies'], [
             {'study': 'submission-pilot3', 'yamaa': True, 'core': False, 'r': False}])
 
     def test_r_program_change_checks_r_without_unrelated_python_execution(self):
@@ -141,7 +132,7 @@ class ScopeTests(unittest.TestCase):
 
     def test_ci_workflow_changes_exercise_conditional_steps_in_one_job(self):
         scope = self.scope('.github/workflows/ci.yml')
-        self.assertTrue(scope['plan_python'] and scope['plan_r'] and scope['compare'])
+        self.assertTrue(scope['compare'])
         self.assertEqual(scope['studies'], [])
 
     def test_git_rename_covers_source_and_destination_studies(self):

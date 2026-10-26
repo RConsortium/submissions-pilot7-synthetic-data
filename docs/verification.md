@@ -12,19 +12,23 @@ official reference are different results. The study pages show both.
 3. **Reference comparison:** the existing study comparator checks the
    derived output against the official ADaM, including column labels.
 
-The comparisons keep the repository's established policies:
+The comparisons preserve the values stored in the submitted references:
 
 | Policy | CDISC Pilot 01 | Submission Pilots 3 and 5 |
 | --- | --- | --- |
 | Numeric tolerance | Absolute difference <= `1e-10` | Absolute difference <= `1e-10` |
-| Text | Exact | Exact after normalizing empty text and null |
-| Null and empty text | Distinct | Equivalent |
+| Text | Exact | Exact |
+| Null and empty text | Distinct | Distinct |
 | Rows | Original row order | Aligned using the comparator's dataset keys |
-| Columns | Shape, names, order, Arrow types | Existing comparator's column and value checks |
+| Columns | Shape, names, order, Arrow types | Exact column set and existing value checks |
 | Labels | Specification labels against official Parquet metadata | Specification labels against official Parquet metadata |
 
-The migration does not relax these comparisons or regenerate the reference
-files. The scripts remain available in each study's `program/adam/python/`
+Pilots 3 and 5 previously treated null and empty text as equivalent. Their
+comparators now distinguish them, and the YAML emits submitted blanks directly.
+NaN and null also remain distinct. The numeric tolerance is unchanged.
+Derivation inputs and outputs cannot use the independent reference ADaM files.
+No reference file is regenerated, and no output is repaired after execution.
+The scripts remain available in each study's `program/adam/python/`
 folder. This is regression evidence against the staged references; it is
 not regulatory validation or a claim that every possible input is covered.
 

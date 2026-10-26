@@ -1,6 +1,16 @@
 yamaa: "1.0"
 type: spec
 model: ADaM
+
+parent: ../../../spec/yamaa/templates/subject-analysis.yaml
+
+include:
+  - ../../../spec/yamaa/fragments/bds-record.yaml
+  - ../../../spec/yamaa/fragments/analysis-flags.yaml
+
+clear:
+  - columns.DSRAEFL.submission
+
 domain: ADLBC
 
 keys:
@@ -15,8 +25,7 @@ input:
     empty_string: present
   SUPPLB: ../../data/sdtm/supplb.parquet
   ADSL:
-    path: ../../data/adam/adsl-yamaa.parquet
-    schema: adsl.yaml
+    empty_string: missing
     key:
       - STUDYID
       - USUBJID
@@ -71,16 +80,66 @@ output:
     - LBNRIND
     - LBSTRESN
 
+windows:
+  RK_ANL_ORDER:
+    group_by:
+      - STUDYID
+      - USUBJID
+      - PARAMCD
+    order_by:
+      - variable: ALBTRVAL
+        direction: desc
+        nulls: last
+      - variable: LBSEQ
+        nulls: last
+    filter: >-
+      VISITNUM >= 4 AND VISITNUM <= 12 AND IS_UNSCHED IS NULL
+      AND ALBTRVAL IS NOT NULL
+
+  RK_ENT_ORDER:
+    group_by:
+      - STUDYID
+      - USUBJID
+      - PARAMCD
+    order_by:
+      - variable: AVISITN
+        direction: desc
+        nulls: last
+    filter: "AVISITN > 0 AND AVISITN < 99 AND IS_UNSCHED IS NULL
+      AND VISITNUM <= 12"
+
+  EOT2_ORDER:
+    group_by:
+      - LB.STUDYID
+      - LB.USUBJID
+      - LB.LBTESTCD
+    order_by:
+      - variable: EOT_IND
+        direction: desc
+        nulls: last
+      - variable: SRC_AVISITN
+        direction: desc
+        nulls: last
+      - variable: E2_SEQ
+        nulls: last
+    filter: "VIS_OK IS NOT NULL AND E2_VN <> 13 AND EOT_LBCAT
+      = 'CHEMISTRY'"
+
 intermediates:
   - id: SUP_EP
     dataset: SUPPLB
-    key: {STUDYID: LB.STUDYID, USUBJID: LB.USUBJID, IDVARVAL:
-        LBSEQ_K}
+    key:
+      STUDYID: LB.STUDYID
+      USUBJID: LB.USUBJID
+      IDVARVAL: LBSEQ_K
     filter: "SUPPLB.QNAM = 'ENDPOINT'"
 
   - id: BL
     dataset: LB
-    key: {STUDYID: STUDYID, USUBJID: USUBJID, LBTESTCD: PARAMCD}
+    key:
+      STUDYID: STUDYID
+      USUBJID: USUBJID
+      LBTESTCD: PARAMCD
     filter: "LB.LBBLFL = 'Y'"
 
 columns:
@@ -90,38 +149,10 @@ columns:
     label: Study Identifier
     derivation: LB.STUDYID
 
-  - copy:
-      dataset: ADSL
-      columns: [SUBJID]
-
   - name: USUBJID
     type: str
     label: Unique Subject Identifier
     derivation: LB.USUBJID
-
-  - name: TRTP
-    type: str
-    label: Planned Treatment
-    derivation: ADSL.TRT01P
-
-  - name: TRTPN
-    type: float
-    label: Planned Treatment (N)
-    derivation: ADSL.TRT01PN
-
-  - name: TRTA
-    type: str
-    label: Actual Treatment
-    derivation: ADSL.TRT01A
-
-  - name: TRTAN
-    type: float
-    label: Actual Treatment (N)
-    derivation: ADSL.TRT01AN
-
-  - copy:
-      dataset: ADSL
-      columns: [TRTSDT, TRTEDT, AGE, AGEGR1, AGEGR1N, RACE, RACEN, SEX, COMP24FL]
 
   - name: DSRAEFL
     type: str
@@ -132,11 +163,6 @@ columns:
           - ADSL.DSRAEFL
         missing: ""
 
-  - copy:
-      dataset: ADSL
-      columns: [SAFFL]
-
-  # Visit (row-template derived)
   - name: AVISIT
     type: str
     label: Analysis Visit
@@ -350,25 +376,19 @@ columns:
     type: str
     label: Unscheduled visit (helper)
 
+    derivation:
+      str_extract:
+        source: LB.VISIT
+        pattern: "UNSCHEDULED"
+        no_match:
+
   - name: RK_ANL
     type: int
     label: Rk Anl (helper)
     derivation:
       rank:
         method: dense
-        window:
-          group_by:
-            - STUDYID
-            - USUBJID
-            - PARAMCD
-          order_by:
-            - variable: ALBTRVAL
-              direction: desc
-              nulls: last
-            - variable: LBSEQ
-              nulls: last
-          filter: "VISITNUM >= 4 AND VISITNUM <= 12 AND IS_UNSCHED
-            IS NULL AND ALBTRVAL IS NOT NULL"
+        window: RK_ANL_ORDER
 
   - name: ANL01FL
     type: str
@@ -386,17 +406,7 @@ columns:
     derivation:
       rank:
         method: dense
-        window:
-          group_by:
-            - STUDYID
-            - USUBJID
-            - PARAMCD
-          order_by:
-            - variable: AVISITN
-              direction: desc
-              nulls: last
-          filter: "AVISITN > 0 AND AVISITN < 99 AND IS_UNSCHED IS
-            NULL AND VISITNUM <= 12"
+        window: RK_ENT_ORDER
 
   - name: AENTMTFL
     type: str
@@ -477,8 +487,9 @@ columns:
 rows:
   - id: main
     dataset: LB
-    filter: "LB.LBCAT = 'CHEMISTRY' AND (LB.VISIT LIKE '%WEEK%' OR
-      LB.VISIT LIKE '%UNSCHEDULED%' OR LB.VISIT LIKE '%SCREENING%')"
+    filter: >-
+      LB.LBCAT = 'CHEMISTRY' AND (LB.VISIT LIKE '%WEEK%' OR LB.VISIT
+      LIKE '%UNSCHEDULED%' OR LB.VISIT LIKE '%SCREENING%')
     derivations:
       AVISIT:
         case:
@@ -490,10 +501,16 @@ rows:
             then:
               mapping:
                 source: LB.VISIT
-                dict: {"WEEK 2": "Week 2", "WEEK 4": "Week 4", "WEEK 6": "Week
-                    6", "WEEK 8": "Week 8", "WEEK 12": "Week 12",
-                  "WEEK 16": "Week 16", "WEEK 20": "Week 20", "WEEK 24": "Week
-                    24", "WEEK 26": "Week 26"}
+                dict:
+                  "WEEK 2": "Week 2"
+                  "WEEK 4": "Week 4"
+                  "WEEK 6": "Week 6"
+                  "WEEK 8": "Week 8"
+                  "WEEK 12": "Week 12"
+                  "WEEK 16": "Week 16"
+                  "WEEK 20": "Week 20"
+                  "WEEK 24": "Week 24"
+                  "WEEK 26": "Week 26"
                 unmapped:
       AVISITN:
         case:
@@ -507,11 +524,6 @@ rows:
                 source: LB.VISIT
                 pattern: "[0-9]+"
                 no_match:
-      IS_UNSCHED:
-        str_extract:
-          source: LB.VISIT
-          pattern: "UNSCHEDULED"
-          no_match:
       LBSEQ_S:
       LBSEQ_PAD:
       LBSEQ_K:
@@ -557,11 +569,6 @@ rows:
           source: LBSEQ_PAD
           pattern: ".{8}$"
       ENDPOINT: SUP_EP.QVAL
-      IS_UNSCHED:
-        str_extract:
-          source: LB.VISIT
-          pattern: "UNSCHEDULED"
-          no_match:
       SRC_AVISITN:
       EOT_IND:
       VIS_OK:
@@ -586,8 +593,9 @@ rows:
       - LB.LBSTNRLO
       - LB.LBSTNRHI
       - LB.LBNRIND
-    filter: "RN2 = 1 AND EOT_IND = 0 AND SRC_AVISITN IS NOT NULL AND
-      SRC_AVISITN <> 0 AND EOT_LBCAT = 'CHEMISTRY'"
+    filter: >-
+      RN2 = 1 AND EOT_IND = 0 AND SRC_AVISITN IS NOT NULL AND
+      SRC_AVISITN <> 0 AND EOT_LBCAT = 'CHEMISTRY'
     derivations:
       AVISIT: "'End of Treatment'"
       AVISITN: 99
@@ -606,11 +614,6 @@ rows:
             then: 1
           - when: "TRUE"
             then: 0
-      IS_UNSCHED:
-        str_extract:
-          source: LB.VISIT
-          pattern: "UNSCHEDULED"
-          no_match:
       SRC_AVISITN:
         case:
           - when: "LB.LBBLFL = 'Y'"
@@ -632,19 +635,10 @@ rows:
       E2_SEQ: LB.LBSEQ
       RN2:
         row_number:
-          window:
-            group_by:
-              - LB.STUDYID
-              - LB.USUBJID
-              - LB.LBTESTCD
-            order_by:
-              - variable: EOT_IND
-                direction: desc
-                nulls: last
-              - variable: SRC_AVISITN
-                direction: desc
-                nulls: last
-              - variable: E2_SEQ
-                nulls: last
-            filter: "VIS_OK IS NOT NULL AND E2_VN <> 13 AND EOT_LBCAT
-              = 'CHEMISTRY'"
+          window: EOT2_ORDER
+
+verifications:
+  - assert:
+      id: treatment_date_order
+      when: "TRTSDT IS NOT NULL AND TRTEDT IS NOT NULL"
+      require: "TRTEDT >= TRTSDT"

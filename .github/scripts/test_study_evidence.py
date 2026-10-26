@@ -7,13 +7,30 @@ import tempfile
 import unittest
 from unittest.mock import patch
 
-from study_evidence import validate_reports, validate_verifications
+from study_evidence import validate_reports, validate_verifications, validate_derivation_inputs
 import validate_yamaa
 
 PIN = 'a' * 40
 
 
 class EvidenceTests(unittest.TestCase):
+    def test_independent_references_cannot_be_used_as_derivation_data(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            data = root / 'original/data/adam'
+            data.mkdir(parents=True)
+            (data / 'adsl.parquet').touch()
+            (data / 'adsl-yamaa.parquet').touch()
+            reference = 'original/data/adam/adsl.parquet'
+            generated = 'original/data/adam/adsl-yamaa.parquet'
+            for resource in ['input.ADSL.path', 'output.path']:
+                with self.subTest(resource=resource):
+                    packet = {'ADAE': {'resources': {resource: reference}}}
+                    with self.assertRaisesRegex(ValueError, 'independent reference'):
+                        validate_derivation_inputs(root, 'consumer', packet)
+                    packet['ADAE']['resources'][resource] = generated
+                    validate_derivation_inputs(root, 'consumer', packet)
+
     def setUp(self):
         self.temp = tempfile.TemporaryDirectory()
         self.addCleanup(self.temp.cleanup)

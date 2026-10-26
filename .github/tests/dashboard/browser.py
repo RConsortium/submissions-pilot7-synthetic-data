@@ -48,6 +48,7 @@ def assert_page_fits(page, selector):
 
 
 def assert_yaml_context(page, specification, inputs, intermediates):
+    page.locator("#spec-view").select_option("source:0")
     focus = specification["lineage"]["focus"]
     for name, span in focus["inputs"].items():
         line = page.locator(f'#spec-L{span["start"]}')
@@ -90,14 +91,28 @@ def check(browser, base, site_dir, screenshots):
         expect(page.locator('.input-group [data-panel]')).to_have_count(1)
         expect(page.locator('.input-group [data-domain="DM"]')).to_be_visible()
         expect(page.locator('.input-group [data-domain="EX"]')).to_have_count(0)
+        expect(page.get_by_role("link", name="Open source", exact=True)).to_have_attribute(
+            "href", re.compile("fragments/adsl-population.yaml"))
+        expect(page.locator('[data-line-node="spec.TRT01AN"]').first).to_be_visible()
         assert_yaml_context(page, spec, {"DM"}, set())
         expect(page.locator('[data-line-node="spec.TRT01A"]').first).not_to_be_visible()
         if name == "cdiscpilot01":
+            page.locator("#spec-view").select_option("")
             capture(page, screenshots, "focused-treatment-specification.png")
         page.goto(url + "TRTSDT")
         expect(page.locator('.input-group [data-domain="EX"]')).to_be_visible()
         expect(page.locator('.input-group [data-domain="EX"] .key-badge')).not_to_have_count(0)
         assert_yaml_context(page, spec, {"DM", "EX"}, {"EX_FIRST"} if name == "submission-pilot3" else set())
+        # Changing focus while automatic source selection is active rebuilds the
+        # source lines, line numbers and link for the newly selected rule file.
+        page.locator("#spec-view").select_option("")
+        page.get_by_role("button", name="Clear highlight", exact=True).click()
+        page.locator('.output-group th[data-node="output.AGE"]').click()
+        expect(page.get_by_role("link", name="Open source", exact=True)).to_have_attribute(
+            "href", re.compile("spec/yamaa/templates/adsl.yaml"))
+        expect(page.locator('[data-line-node="spec.AGE"]').first).to_be_visible()
+        selected = page.locator('.spec-line.node-selected code').all_text_contents()
+        assert "derivation: DM.AGE" in "\n".join(selected)
         # The merged findings UI applies to every published pilot study.
         study_report = json.loads((site_dir / f"evidence/dashboard/{name}/report.json").read_text())
         issues = study_report["review"]["issues"]
@@ -113,6 +128,7 @@ def check(browser, base, site_dir, screenshots):
     expect(page.locator("#spec-caption")).to_contain_text("Focused view")
     assert "copy:" in "\n".join(page.locator(".spec-line.node-selected code").all_text_contents())
     assert page.locator(".spec-omission:visible").count() > 0
+    page.locator("#spec-view").select_option("source:0")
     page.get_by_role("button", name="Copy source file", exact=True).click()
     expect(page.get_by_role("button", name="Copied", exact=True)).to_be_visible()
     assert page.evaluate("navigator.clipboard.readText()") == copied["text"]
@@ -262,7 +278,7 @@ def check(browser, base, site_dir, screenshots):
     assert page.locator('[data-line-node="spec.TRTSDT"].node-selected').count() > 0
     assert page.locator('.spec-line[data-spec-kind="columns"][hidden]').count() > 0
     adae_spec = json.loads((site_dir / f'evidence/dashboard/cdiscpilot01/{next(d for d in catalog["datasets"] if d["name"] == "ADAE")["spec"]}').read_text())
-    assert_yaml_context(page, adae_spec, {"AE", "ADSL"}, {"ADSL_SBJ"})
+    assert_yaml_context(page, adae_spec, {"AE", "ADSL"}, set())
     expect(page.locator('#panel-o-ADAE th[data-node="output.TRTSDT"]')).to_have_class(
         "node-selected"
     )

@@ -20,10 +20,11 @@ in that same job.
 | --- | --- | ---: |
 | Prompts, READMEs, agent guides, generated CORE reports | None. | 1 |
 | Site prose, general CSS, or MkDocs config | Strict layout/link preview in the shared job. | 1 |
-| A study's yamaa specs or Python runner/comparator | Build and compare that study. | 2 |
+| A study's yamaa specs | Build and compare that study through Python and R. | 2 |
+| A study's Python runner/comparator | Build and compare that study. | 2 |
+| Shared `spec/yamaa/` templates or fragments | Build and compare every active study through Python and R; verify publication. | Catalog + 2 |
 | A study's SDTM/ADaM binary data | yamaa comparison and CORE in one study job. | 2 |
 | A study's R program | Run R with the pinned engine and compare outputs. | 2 |
-| Pilot 3 planning generator or its QS/EX/plan.csv inputs | Relevant Python/R plan reproduction steps in the shared job. Input data changes also select the study job. | 1 or 2 |
 | Generic comparison tool or its keys | Comparator self-check in the shared job. | 1 |
 | Dashboard code, tests, configuration, synthetic source archives, or study source documents | Full catalog validation, strict production build, module and browser tests. | Catalog + 2 |
 | Shared execution code or the reusable worker | Every affected study; each study still uses one runner. | Depends on scope |
@@ -39,8 +40,8 @@ get explicit pending records without installing an engine.
 MkDocs renders the landing-page metrics from those same validated reports and
 the staged reference Parquet dimensions. The source Markdown retains a link to
 the live website, without a numeric snapshot. Layout previews omit metrics.
-Planning checks compare against `data/mapping/plan.csv`; the separate
-`analysis_window.csv` lookup selects study validation, not plan regeneration.
+Pilot 3 constructs missing ACTOT visits in YAML. Its `analysis_window.csv`
+contains static visit definitions; no subject-level planning file is staged.
 
 The folder template is `repo-structure.json`. `check_structure.py` owns directory
 discovery, reused by CORE discovery; empty study scaffolds remain structure-only.
@@ -58,9 +59,10 @@ python3 -m unittest discover -s .github/scripts -p 'test_*.py' -v
 git diff --check
 ```
 
-CI also installs Polars for the Pilot 3 plan reproduction and PyArrow for the
-generic comparator's reference-versus-itself self-check, only when those
-checks are in scope. These checks do not establish agreement between derived data and official references.
+CI installs PyArrow for the generic comparator's reference-versus-itself
+self-check when it is in scope. Each study job also checks that the comparator
+distinguishes original blanks, nulls, and NaNs. Comparator self-checks do not
+establish agreement between derived data and official references.
 
 For study validation and website checks, follow root `AGENTS.md`. Keep each
 study's pinned requirements and existing comparison policy. The publication

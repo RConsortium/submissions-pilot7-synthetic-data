@@ -1,15 +1,17 @@
 yamaa: "1.0"
 type: spec
 model: ADaM
+parent: ../../../spec/yamaa/templates/subject-analysis.yaml
 domain: ADTTE
 keys:
   - STUDYID
   - USUBJID
 input:
   ADSL:
-    path: ../../data/adam/adsl-yamaa.parquet
-    schema: adsl.yaml
     empty_string: present
+    key:
+      - STUDYID
+      - USUBJID
   ADAE:
     path: ../../data/adam/adae-yamaa.parquet
     schema: adae.yaml
@@ -70,36 +72,12 @@ columns:
       dataset: ADSL
       columns:
         - STUDYID
-        - SITEID
         - USUBJID
-        - AGE
-        - AGEGR1
-        - AGEGR1N
-        - RACE
-        - RACEN
-        - SEX
-        - TRTSDT
-        - TRTEDT
 
   - name: TRTDUR
     type: float
     label: Duration of treatment (days)
     derivation: ADSL.TRTDUR
-
-  - name: TRTP
-    type: str
-    label: Planned Treatment
-    derivation: ADSL.TRT01P
-
-  - name: TRTA
-    type: str
-    label: Actual Treatment
-    derivation: ADSL.TRT01A
-
-  - name: TRTAN
-    type: float
-    label: Actual Treatment (N)
-    derivation: ADSL.TRT01AN
 
   - name: PARAM
     type: str
@@ -154,6 +132,12 @@ columns:
           then: 0
         - otherwise: 1
 
+    verifications:
+      - allowed_values:
+          values:
+            - 0
+            - 1
+
   - name: EVNTDESC
     type: str
     label: Event or Censoring Description
@@ -186,11 +170,13 @@ columns:
     label: Source Sequence Number
     derivation: FIRST_DERM.AESEQ
 
-  - copy:
-      dataset: ADSL
-      columns: [SAFFL]
-
 rows:
   - id: all-subjects
     dataset: ADSL
     derivations: {}
+
+verifications:
+  - assert:
+      id: treatment_date_order
+      when: "TRTSDT IS NOT NULL AND TRTEDT IS NOT NULL"
+      require: "TRTEDT >= TRTSDT"

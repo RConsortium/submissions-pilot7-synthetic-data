@@ -12,7 +12,7 @@ from study_metrics import matched_totals, reference_totals
 from .config import SCHEMA_VERSION, comments, reference_path, settings, study_path
 from .datasets import export_table, write_json
 from .lineage import build_lineage, source_locations
-from .specifications import inspection_specification, resource_path
+from .specifications import inspection_specification, resource_path, definition_sources
 from .consistency import build_report
 from .domains import domain_labels, domain_keys
 from .synthetic import build_synthetic
@@ -147,6 +147,8 @@ def build_bundle(root, destination, entries, reports, revision, verifications=No
                     "keys": spec.get("keys", []),
                     "lineage": lineage,
                     "documents": documents,
+                    "definition_sources": definition_sources(results[domain]['resolved_specification'])
+                    if 'resolved_specification' in results[domain] else {},
                     "resolved": {
                         "text": resolved_text,
                         "lineage": {**lineage, **source_locations(resolved_text)},

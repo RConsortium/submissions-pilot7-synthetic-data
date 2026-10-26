@@ -27,15 +27,9 @@ PUBLICATION_CODE = {'.github/scripts/build_study_docs.py', '.github/scripts/buil
                     # Validation jobs verify reviewed derivations; the bundle shows the report.
                     '.github/scripts/verify_derivations.py', '.github/scripts/consistency_report.py',
                     '.automation/consistency_review/rules.yaml', 'docs/requirements.txt'}
-PUBLICATION_PREFIXES = ('.github/scripts/study_dashboard/', '.github/tests/dashboard/',
+PUBLICATION_PREFIXES = ('spec/yamaa/', '.github/scripts/study_dashboard/', '.github/tests/dashboard/',
                         '.github/schemas/', 'docs/assets/dashboard/', 'docs/stylesheets/dashboard.css')
 WORKER = '.github/workflows/study-check.yml'
-PLAN = 'submission-pilot3/data/mapping/plan.csv'
-PLAN_INPUTS = {PLAN,
-               'submission-pilot3/data/sdtm/qs.parquet',
-               'submission-pilot3/data/sdtm/ex.parquet'}
-PY_PLAN = 'submission-pilot3/program/adam/python/make_plan.py'
-R_PLAN = 'submission-pilot3/program/adam/R/make_plan.R'
 COMPARE_INPUTS = {'.github/scripts/compare_adam.py',
                   'submission-pilot5/program/adam/adam-compare-keys.json'}
 
@@ -66,21 +60,20 @@ def select_checks(root, changed):
                      and Path(path).suffix.lower() in {'.parquet', '.xpt'} for path in local)
         python = any(path.startswith('program/adam/python/')
                      and (path.endswith('.py') or path.endswith('/requirements.txt'))
-                     and path != 'program/adam/python/make_plan.py' for path in local)
+                     for path in local)
         spec = any(path.startswith('spec/yamaa/') and path.endswith(('.yaml', '.yml')) for path in local)
         r_changed = any(path.startswith('program/adam/R/') and path.lower().endswith('.r')
-                        and path != 'program/adam/R/make_plan.R' for path in local)
+                        for path in local)
         pending = entries.get(study, {}).get('allow_pending') and not (root / study / 'spec/yamaa/project.yaml').exists()
         yamaa = study in entries and (inputs or python or spec or (all_yamaa and not pending))
         core = has_validatable_data(str(root), study) and (binary or all_core)
         r = (root / study / 'program/adam/R/run.R').exists() and (
-            r_changed or WORKER in changed or f'{study}/program/adam/python/requirements.txt' in changed)
+            r_changed or spec or any(p.startswith('spec/yamaa/') for p in changed)
+            or WORKER in changed or f'{study}/program/adam/python/requirements.txt' in changed)
         if yamaa or core or r:
             selected.append({'study': study, 'yamaa': bool(yamaa), 'core': core, 'r': r})
     return {
         'studies': selected,
-        'plan_python': bool(changed & (PLAN_INPUTS | {PY_PLAN, '.github/workflows/ci.yml'})),
-        'plan_r': bool(changed & (PLAN_INPUTS | {R_PLAN, '.github/workflows/ci.yml'})),
         'compare': bool(changed & (COMPARE_INPUTS | {'.github/workflows/ci.yml'}))
                    or any(path.startswith('submission-pilot5/data/adam/') and path.endswith('.parquet') for path in changed),
         'publication': publication,

@@ -10,7 +10,6 @@ Run the commands below from the repository root.
 
 Source installation requires Python 3.12+, Rust/Cargo 1.82+, Git, and a C
 compiler. The R runner also requires R 4.2+.
-The R planning generator requires `arrow` (`install.packages("arrow")`).
 
 Install the Python engine and comparison tools:
 
@@ -39,15 +38,16 @@ Choose either runner:
 
 ```bash
 # R
-Rscript --vanilla submission-pilot3/program/adam/R/make_plan.R
 R_LIBS="$PWD/.build/pilot3-r/library" Rscript --vanilla submission-pilot3/program/adam/R/run.R
 
 # Python
-python submission-pilot3/program/adam/python/make_plan.py
 python submission-pilot3/program/adam/python/run.py
 ```
 
 Both write `submission-pilot3/data/adam/<dataset>-yamaa.parquet`.
+ADADAS creates missing ACTOT visits inside the specification from QS and the
+generated ADSL. No planning file, preprocessing program, or output repair is
+needed. Shared templates are documented in [the authoring guide](../../../spec/yamaa/README.md).
 Compare the outputs with the official references:
 
 ```bash

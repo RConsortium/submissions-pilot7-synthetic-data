@@ -34,7 +34,7 @@ def artifact_snapshot(root, study):
         path = root / relative
         if path.is_file():
             files.add(path)
-    for directory in (base / "spec", base / "data", base / "program/adam/python"):
+    for directory in (root / "spec/yamaa", base / "spec", base / "data", base / "program/adam/python"):
         for path in directory.rglob("*"):
             if not path.is_file() or any(
                 p.startswith(".") or p == "__pycache__"

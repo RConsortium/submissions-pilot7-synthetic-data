@@ -1,6 +1,10 @@
 yamaa: "1.0"
 type: spec
 model: ADaM
+parent: ../../../spec/yamaa/templates/subject-analysis.yaml
+include:
+  - ../../../spec/yamaa/fragments/bds-record.yaml
+  - ../../../spec/yamaa/fragments/analysis-flags.yaml
 domain: ADADAS
 keys:
   - STUDYID
@@ -11,8 +15,7 @@ keys:
 input:
   QS: ../../data/sdtm/qs.parquet
   ADSL:
-    path: ../../data/adam/adsl-yamaa.parquet
-    schema: adsl.yaml
+    empty_string: missing
     key:
       - STUDYID
       - USUBJID
@@ -62,22 +65,42 @@ output:
     - AWU
     - QSSEQ
 
-# LOCF donors read this spec's own observed rows (SELF): the latest
-# observed ACTOT analysis record at or before each visit. ANL01FL is a
-# row-phase flag (exactly one 'Y' per subject/visit), so the filter plus
-# AVISITN desc selects that visit's analysis record directly. A locf row
-# emitted by an earlier template may enter the pool, but it only ever
-# carries the observed donor's values forward, and an observed record at
-# the visit itself always outranks it, so _HIT stays exact.
+windows:
+  OBS_ORDER:
+    group_by:
+      - STUDYID
+      - USUBJID
+      - PARAMCD
+      - AVISIT
+    order_by:
+      - variable: AWTDIFF
+        nulls: last
+      - variable: _DIFF
+        nulls: last
+
+# LOCF donors select observed ACTOT records directly from QS, using the same
+# analysis-window ranking as the observed row template. SUBJECT_FOR_VISIT
+# supplies treatment dates from generated ADSL. Each visit selects its latest
+# eligible analysis record; generated LOCF rows do not become donors.
 intermediates:
+  - id: SUBJECT_FOR_VISIT
+    dataset: ADSL
+    key:
+      - USUBJID
+
   - id: DONOR8
-    dataset: SELF
+    dataset: QS
     key:
       - STUDYID
       - USUBJID
-    filter: "PARAMCD = 'ACTOT' AND ANL01FL = 'Y' AND AVISITN <= 8"
+    filter: >-
+      (QS.QSTESTCD IN ('ACITM01', 'ACITM02', 'ACITM03', 'ACITM04',
+      'ACITM05', 'ACITM06', 'ACITM07', 'ACITM08', 'ACITM09', 'ACITM10',
+      'ACITM11', 'ACITM12', 'ACITM13', 'ACITM14', 'ACTOT')) AND
+      (QS.PARAMCD = 'ACTOT' AND QS.ANL01FL = 'Y' AND QS.AVISITN
+      <= 8)
     order_by:
-      - variable: AVISITN
+      - variable: QS.AVISITN
         direction: desc
         nulls: last
     keep: first
@@ -89,15 +112,103 @@ intermediates:
       - VISIT
       - VISITNUM
       - AVISITN
+
+    derivations:
+      AVAL:
+        type: float
+        derivation: QS.QSSTRESN
+      ADT:
+        type: date
+        derivation:
+          impute:
+            type: date
+            source: QS.QSDTC
+            day: 1
+      TRTSDT:
+        type: date
+        derivation: SUBJECT_FOR_VISIT.TRTSDT
+      ADY:
+        type: float
+        derivation:
+          study_day:
+            source: QS.ADT
+            reference: QS.TRTSDT
+      AVISIT:
+        type: str
+        derivation:
+          case:
+            - when: QS.ADY <= 1
+              then: "'Baseline'"
+            - when: QS.ADY >= 2 AND QS.ADY <= 84
+              then: "'Week 8'"
+            - when: QS.ADY >= 85 AND QS.ADY <= 140
+              then: "'Week 16'"
+            - otherwise: "'Week 24'"
+      AVISITN:
+        type: float
+        derivation:
+          mapping:
+            source: QS.AVISIT
+            dict:
+              "Baseline": 0.0
+              "Week 8": 8.0
+              "Week 16": 16.0
+              "Week 24": 24.0
+      PARAMCD:
+        type: str
+        derivation: QS.QSTESTCD
+      AWTARGET:
+        type: float
+        derivation:
+          mapping:
+            source: QS.AVISIT
+            dict:
+              "Baseline": 1.0
+              "Week 8": 56.0
+              "Week 16": 112.0
+              "Week 24": 168.0
+      AWTDIFF:
+        type: float
+        derivation: ABS(QS.AWTARGET - QS.ADY)
+      _DIFF:
+        type: float
+        derivation: QS.AWTARGET - QS.ADY
+      _RN_ANL:
+        type: float
+        derivation:
+          row_number:
+            window:
+              group_by:
+                - QS.STUDYID
+                - QS.USUBJID
+                - QS.PARAMCD
+                - QS.AVISIT
+              order_by:
+                - variable: QS.AWTDIFF
+                  nulls: last
+                - variable: QS._DIFF
+                  nulls: last
+      ANL01FL:
+        type: str
+        derivation:
+          flag:
+            condition: QS._RN_ANL = 1
+            false_value: ""
+            missing: ""
 
   - id: DONOR16
-    dataset: SELF
+    dataset: QS
     key:
       - STUDYID
       - USUBJID
-    filter: "PARAMCD = 'ACTOT' AND ANL01FL = 'Y' AND AVISITN <= 16"
+    filter: >-
+      (QS.QSTESTCD IN ('ACITM01', 'ACITM02', 'ACITM03', 'ACITM04',
+      'ACITM05', 'ACITM06', 'ACITM07', 'ACITM08', 'ACITM09', 'ACITM10',
+      'ACITM11', 'ACITM12', 'ACITM13', 'ACITM14', 'ACTOT')) AND
+      (QS.PARAMCD = 'ACTOT' AND QS.ANL01FL = 'Y' AND QS.AVISITN
+      <= 16)
     order_by:
-      - variable: AVISITN
+      - variable: QS.AVISITN
         direction: desc
         nulls: last
     keep: first
@@ -110,14 +221,102 @@ intermediates:
       - VISITNUM
       - AVISITN
 
+    derivations:
+      AVAL:
+        type: float
+        derivation: QS.QSSTRESN
+      ADT:
+        type: date
+        derivation:
+          impute:
+            type: date
+            source: QS.QSDTC
+            day: 1
+      TRTSDT:
+        type: date
+        derivation: SUBJECT_FOR_VISIT.TRTSDT
+      ADY:
+        type: float
+        derivation:
+          study_day:
+            source: QS.ADT
+            reference: QS.TRTSDT
+      AVISIT:
+        type: str
+        derivation:
+          case:
+            - when: QS.ADY <= 1
+              then: "'Baseline'"
+            - when: QS.ADY >= 2 AND QS.ADY <= 84
+              then: "'Week 8'"
+            - when: QS.ADY >= 85 AND QS.ADY <= 140
+              then: "'Week 16'"
+            - otherwise: "'Week 24'"
+      AVISITN:
+        type: float
+        derivation:
+          mapping:
+            source: QS.AVISIT
+            dict:
+              "Baseline": 0.0
+              "Week 8": 8.0
+              "Week 16": 16.0
+              "Week 24": 24.0
+      PARAMCD:
+        type: str
+        derivation: QS.QSTESTCD
+      AWTARGET:
+        type: float
+        derivation:
+          mapping:
+            source: QS.AVISIT
+            dict:
+              "Baseline": 1.0
+              "Week 8": 56.0
+              "Week 16": 112.0
+              "Week 24": 168.0
+      AWTDIFF:
+        type: float
+        derivation: ABS(QS.AWTARGET - QS.ADY)
+      _DIFF:
+        type: float
+        derivation: QS.AWTARGET - QS.ADY
+      _RN_ANL:
+        type: float
+        derivation:
+          row_number:
+            window:
+              group_by:
+                - QS.STUDYID
+                - QS.USUBJID
+                - QS.PARAMCD
+                - QS.AVISIT
+              order_by:
+                - variable: QS.AWTDIFF
+                  nulls: last
+                - variable: QS._DIFF
+                  nulls: last
+      ANL01FL:
+        type: str
+        derivation:
+          flag:
+            condition: QS._RN_ANL = 1
+            false_value: ""
+            missing: ""
+
   - id: DONOR24
-    dataset: SELF
+    dataset: QS
     key:
       - STUDYID
       - USUBJID
-    filter: "PARAMCD = 'ACTOT' AND ANL01FL = 'Y' AND AVISITN <= 24"
+    filter: >-
+      (QS.QSTESTCD IN ('ACITM01', 'ACITM02', 'ACITM03', 'ACITM04',
+      'ACITM05', 'ACITM06', 'ACITM07', 'ACITM08', 'ACITM09', 'ACITM10',
+      'ACITM11', 'ACITM12', 'ACITM13', 'ACITM14', 'ACTOT')) AND
+      (QS.PARAMCD = 'ACTOT' AND QS.ANL01FL = 'Y' AND QS.AVISITN
+      <= 24)
     order_by:
-      - variable: AVISITN
+      - variable: QS.AVISITN
         direction: desc
         nulls: last
     keep: first
@@ -129,44 +328,103 @@ intermediates:
       - VISIT
       - VISITNUM
       - AVISITN
+
+    derivations:
+      AVAL:
+        type: float
+        derivation: QS.QSSTRESN
+      ADT:
+        type: date
+        derivation:
+          impute:
+            type: date
+            source: QS.QSDTC
+            day: 1
+      TRTSDT:
+        type: date
+        derivation: SUBJECT_FOR_VISIT.TRTSDT
+      ADY:
+        type: float
+        derivation:
+          study_day:
+            source: QS.ADT
+            reference: QS.TRTSDT
+      AVISIT:
+        type: str
+        derivation:
+          case:
+            - when: QS.ADY <= 1
+              then: "'Baseline'"
+            - when: QS.ADY >= 2 AND QS.ADY <= 84
+              then: "'Week 8'"
+            - when: QS.ADY >= 85 AND QS.ADY <= 140
+              then: "'Week 16'"
+            - otherwise: "'Week 24'"
+      AVISITN:
+        type: float
+        derivation:
+          mapping:
+            source: QS.AVISIT
+            dict:
+              "Baseline": 0.0
+              "Week 8": 8.0
+              "Week 16": 16.0
+              "Week 24": 24.0
+      PARAMCD:
+        type: str
+        derivation: QS.QSTESTCD
+      AWTARGET:
+        type: float
+        derivation:
+          mapping:
+            source: QS.AVISIT
+            dict:
+              "Baseline": 1.0
+              "Week 8": 56.0
+              "Week 16": 112.0
+              "Week 24": 168.0
+      AWTDIFF:
+        type: float
+        derivation: ABS(QS.AWTARGET - QS.ADY)
+      _DIFF:
+        type: float
+        derivation: QS.AWTARGET - QS.ADY
+      _RN_ANL:
+        type: float
+        derivation:
+          row_number:
+            window:
+              group_by:
+                - QS.STUDYID
+                - QS.USUBJID
+                - QS.PARAMCD
+                - QS.AVISIT
+              order_by:
+                - variable: QS.AWTDIFF
+                  nulls: last
+                - variable: QS._DIFF
+                  nulls: last
+      ANL01FL:
+        type: str
+        derivation:
+          flag:
+            condition: QS._RN_ANL = 1
+            false_value: ""
+            missing: ""
 
 columns:
   # --- Subject / record fields: uniform across all four templates, so they
   # are column-level derivations now (QS.* / ADSL.* read the row's own
-  # datasets). Only the fields that genuinely differ per template stay
-  # template-level. The SELF donors above read AVISITN etc. from completed
-  # observed rows, which column-level derivations are part of.
+  # datasets). Fields that differ per template remain template-level.
   - name: STUDYID
     type: str
     label: Study Identifier
     derivation: QS.STUDYID
 
-  - copy:
-      dataset: ADSL
-      columns: [SITEID, SITEGR1]
-
   - name: USUBJID
     type: str
     label: Unique Subject Identifier
     derivation: QS.USUBJID
-
-  - copy:
-      dataset: ADSL
-      columns: [TRTSDT, TRTEDT]
-
-  - name: TRTP
-    type: str
-    label: Planned Treatment
-    derivation: ADSL.TRT01P
-
-  - name: TRTPN
-    type: float
-    label: Planned Treatment (N)
-    derivation: ADSL.TRT01PN
-
-  - copy:
-      dataset: ADSL
-      columns: [AGE, AGEGR1, AGEGR1N, RACE, RACEN, SEX, ITTFL, EFFFL, COMP24FL]
 
   - name: AVISIT
     type: str
@@ -268,14 +526,18 @@ columns:
     type: float
     label: "Analysis Window Diff from Target"
 
+    derivation: "ABS(AWTARGET - ADY)"
+
   - name: _DIFF
     type: float
     label: signed AWTARGET-ADY (internal)
 
+    derivation: "AWTARGET - ADY"
+
   - name: _RN_ANL
     type: float
-    label: rank by window closeness within subject-param-visit
-      (internal)
+    label: rank by window closeness within
+      subject-param-visit (internal)
     # Column-level default: the three locf templates inherit _RN_ANL = 1;
     # the obs template overrides it with its ranking window (REQ-0199).
     derivation: 1.0
@@ -389,7 +651,10 @@ columns:
 rows:
   - id: obs
     dataset: QS
-    filter: "QS.QSTESTCD IN ('ACITM01','ACITM02','ACITM03','ACITM04','ACITM05','ACITM06','ACITM07','ACITM08','ACITM09','ACITM10','ACITM11','ACITM12','ACITM13','ACITM14','ACTOT')"
+    filter: >-
+      QS.QSTESTCD IN ('ACITM01', 'ACITM02', 'ACITM03', 'ACITM04',
+      'ACITM05', 'ACITM06', 'ACITM07', 'ACITM08', 'ACITM09', 'ACITM10',
+      'ACITM11', 'ACITM12', 'ACITM13', 'ACITM14', 'ACTOT')
     derivations:
       QSSEQ: QS.QSSEQ
       PARAMCD: QS.QSTESTCD
@@ -430,21 +695,9 @@ rows:
             "Week 8": 56.0
             "Week 16": 112.0
             "Week 24": 168.0
-      AWTDIFF: "ABS(AWTARGET - ADY)"
-      _DIFF: "AWTARGET - ADY"
       _RN_ANL:
         row_number:
-          window:
-            group_by:
-              - STUDYID
-              - USUBJID
-              - PARAMCD
-              - AVISIT
-            order_by:
-              - variable: AWTDIFF
-                nulls: last
-              - variable: _DIFF
-                nulls: last
+          window: OBS_ORDER
       ABLFL:
         flag:
           condition: "QS.QSBLFL = 'Y'"
@@ -484,8 +737,6 @@ rows:
       AVISIT: "'Week 8'"
       AVISITN: 8.0
       AWTARGET: 56.0
-      AWTDIFF: "ABS(AWTARGET - ADY)"
-      _DIFF: "AWTARGET - ADY"
       VISIT: _SRC_VISIT
       VISITNUM: _SRC_VISITNUM
       ADY: _SRC_ADY
@@ -517,8 +768,6 @@ rows:
       AVISIT: "'Week 16'"
       AVISITN: 16.0
       AWTARGET: 112.0
-      AWTDIFF: "ABS(AWTARGET - ADY)"
-      _DIFF: "AWTARGET - ADY"
       VISIT: _SRC_VISIT
       VISITNUM: _SRC_VISITNUM
       ADY: _SRC_ADY
@@ -550,8 +799,6 @@ rows:
       AVISIT: "'Week 24'"
       AVISITN: 24.0
       AWTARGET: 168.0
-      AWTDIFF: "ABS(AWTARGET - ADY)"
-      _DIFF: "AWTARGET - ADY"
       VISIT: _SRC_VISIT
       VISITNUM: _SRC_VISITNUM
       ADY: _SRC_ADY
@@ -562,3 +809,9 @@ rows:
       ANL01FL: "'Y'"
       DTYPE: "'LOCF'"
       QSSEQ: _SRC_QSSEQ
+
+verifications:
+  - assert:
+      id: treatment_date_order
+      when: "TRTSDT IS NOT NULL AND TRTEDT IS NOT NULL"
+      require: "TRTEDT >= TRTSDT"

@@ -13,12 +13,20 @@ import {
 
 /** Shared specification and independently paged, resizable dataset panels. */
 export function createWorkspace(ctx) {
-  const displayedSpec = () => specificationView(ctx.specification, ctx.state.specView);
+  let renderedSource = "";
+  const sourceIdentity = (source) => `${source.inspection ? "model" : "source"}:${source.path}`;
+  const displayedSpec = () => {
+    const focus = ctx.plan.focus, output = "out:" + ctx.state.dataset + ".",
+      prefix = ctx.state.dataset + "/";
+    const selected = focus.startsWith(output) ? focus.slice(output.length) :
+      focus.startsWith(prefix) ? focus.slice(prefix.length).replace(/^(spec|row|intermediate)\./, "") : "";
+    return specificationView(ctx.specification, ctx.state.specView, selected);
+  };
   function specificationPicker() {
     const { specification, state, esc, sourceUrl, link } = ctx;
     const shown = displayedSpec();
     const sources = specification.documents || [{ path: specification.path }];
-    return `<div class="spec-controls"><label>View<select id="spec-view">${sources.map((source, i) => `<option value="${i ? "source:" + i : ""}" ${state.specView === "source:" + i || (!i && !state.specView) ? "selected" : ""}>Source: ${esc(source.path.split("/").slice(-2).join("/"))}</option>`).join("")}${specification.resolved ? `<option value="resolved" ${state.specView === "resolved" ? "selected" : ""}>Resolved model (inspection)</option>` : ""}</select></label><button id="copy-specification">${shown.inspection ? "Copy model" : "Copy source file"}</button>${link(sourceUrl(shown.path), "Open source")}</div>`;
+    return `<div class="spec-controls"><label>View<select id="spec-view"><option value="" ${!state.specView ? "selected" : ""}>Rule source: ${esc(shown.path.split("/").slice(-2).join("/"))}</option>${sources.map((source, i) => `<option value="${"source:" + i}" ${state.specView === "source:" + i ? "selected" : ""}>Source: ${esc(source.path.split("/").slice(-2).join("/"))}</option>`).join("")}${specification.resolved ? `<option value="resolved" ${state.specView === "resolved" ? "selected" : ""}>Resolved model (inspection)</option>` : ""}</select></label><button id="copy-specification">${shown.inspection ? "Copy model" : "Copy source file"}</button>${link(sourceUrl(shown.path), "Open source")}</div>`;
   }
   async function copySpecification() {
     try {
@@ -106,6 +114,7 @@ export function createWorkspace(ctx) {
   }
   function renderSpec() {
     const { esc } = ctx;
+    renderedSource = sourceIdentity(displayedSpec());
     const lines = specLines(), gaps = specificationGaps(lines);
     const gap = (number) => `<div class="spec-omission" data-gap-before="${number}" ${gaps.has(number) ? "" : "hidden"}>${gaps.get(number) || 0} lines omitted</div>`;
     return lines.map(({ displayText, number, node, kind, row, lookup, start, visible, selected, related }) =>
@@ -114,6 +123,13 @@ export function createWorkspace(ctx) {
   }
   function applyHighlight(scroll = false) {
     const { model, state, plan, root, byId } = ctx;
+    const source = displayedSpec();
+    if (sourceIdentity(source) !== renderedSource) {
+      byId("spec-scroll").innerHTML = renderSpec();
+      root().querySelector(".spec-controls").outerHTML = specificationPicker();
+      root().querySelector(".spec-pane .pane-footer").textContent =
+        `${source.inspection ? "Engine-resolved model for inspection. " : ""}Declared column dependencies; contributing rows are not traced.`;
+    }
     for (const el of root().querySelectorAll("[data-node],[data-line-node]")) {
       if (el.closest(".spec-line")) continue;
       const node =

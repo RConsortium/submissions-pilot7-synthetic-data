@@ -13,8 +13,7 @@ mismatch when run as a script.
 
 Semantics (standing tolerance): numeric cells match when
 |derived - official| <= 1e-10 (absolute); non-numeric cells match exactly
-with null/"" normalized (the official ADaM was produced by R, where a
-missing character value is ""). Key columns align with zero unmatched
+with null and empty strings kept distinct, as stored in the original package. Key columns align with zero unmatched
 rows on either side and count as matched. Spec labels must agree with the
 official `yamaa:label` field metadata.
 
@@ -113,13 +112,15 @@ def compare(output, reference, name, spec=None):
     for col in common:
         a, b = joined[col], joined[col + "_ref"]
         if a.dtype.is_numeric() and b.dtype.is_numeric():
-            a = a.fill_nan(None).cast(pl.Float64)
-            b = b.fill_nan(None).cast(pl.Float64)
+            a = a.cast(pl.Float64)
+            b = b.cast(pl.Float64)
             ok = (
-                (a.is_null() & b.is_null()) | ((a - b).abs() <= TOLERANCE)
-            ).fill_null(False)  # exactly-one-null is a mismatch
+                (a.is_null() & b.is_null()) | (a.is_nan() & b.is_nan())
+                | (a == b) | ((a - b).abs() <= TOLERANCE)
+            ).fill_null(False)
         else:
-            ok = a.cast(pl.String).fill_null("") == b.cast(pl.String).fill_null("")
+            a, b = a.cast(pl.String), b.cast(pl.String)
+            ok = ((a.is_null() & b.is_null()) | (a == b)).fill_null(False)
         bad = (~ok).sum()
         if bad:
             mismatches.append((col, bad))
@@ -143,7 +144,7 @@ def compare(output, reference, name, spec=None):
         if unlabeled:
             mismatches.append(("unlabeled", unlabeled))
 
-    ok = not mismatches and not uncovered
+    ok = not mismatches and not uncovered and not derived_only
     status = "PASS" if ok else (
         f"MISMATCH {mismatches}" if mismatches else f"UNCOVERED {uncovered}"
     )

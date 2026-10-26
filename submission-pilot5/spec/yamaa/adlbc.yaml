@@ -1,6 +1,12 @@
 yamaa: "1.0"
 type: spec
 model: ADaM
+parent: ../../../spec/yamaa/templates/subject-analysis.yaml
+include:
+  - ../../../spec/yamaa/fragments/bds-record.yaml
+  - ../../../spec/yamaa/fragments/analysis-flags.yaml
+clear:
+  - columns.DSRAEFL.submission
 domain: ADLBC
 keys:
   - STUDYID
@@ -16,8 +22,7 @@ input:
       - USUBJID
   SUPPLB: ../../data/sdtm/supplb.parquet
   ADSL:
-    path: ../../data/adam/adsl-yamaa.parquet
-    schema: adsl.yaml
+    empty_string: missing
     key:
       - STUDYID
       - USUBJID
@@ -72,6 +77,39 @@ output:
     - LBSEQ
     - LBNRIND
     - LBSTRESN
+
+windows:
+  EOTFB_ORDER:
+    group_by:
+      - STUDYID
+      - USUBJID
+      - LBTESTCD
+    order_by:
+      - variable: _EOT_AWARE
+        direction: desc
+        nulls: last
+      - variable: LBSEQ
+        nulls: last
+    filter: >-
+      LB.LBCAT = 'CHEMISTRY' AND (LB.VISIT LIKE '%WEEK%' OR LB.VISIT
+      LIKE '%SCREENING%' OR LB.VISIT LIKE '%UNSCHEDULED%') AND
+      LB.VISITNUM <> 13 AND _EOT_AWARE IS NOT NULL AND _EOT_AWARE
+      <> 0
+
+  RN_ANL_ORDER:
+    group_by:
+      - STUDYID
+      - USUBJID
+      - PARAMCD
+    order_by:
+      - variable: ALBTRVAL
+        direction: desc
+        nulls: last
+      - variable: LBSEQ
+        nulls: last
+    filter: >-
+      VISITNUM >= 4 AND VISITNUM <= 12 AND NOT (VISIT LIKE '%UN%')
+      AND ALBTRVAL IS NOT NULL
 
 intermediates:
   # SUPPLB ENDPOINT joined in-spec (no staging script): IDVARVAL is
@@ -136,19 +174,7 @@ intermediates:
                   "WEEK 26": 26.0
       _RN:
         row_number:
-          window:
-            group_by:
-              - STUDYID
-              - USUBJID
-              - LBTESTCD
-            order_by:
-              - {variable: _EOT_AWARE, direction: desc, nulls:
-                  last}
-              - {variable: LBSEQ, nulls: last}
-            filter: "LB.LBCAT = 'CHEMISTRY' AND (LB.VISIT LIKE '%WEEK%'
-              OR LB.VISIT LIKE '%SCREENING%' OR LB.VISIT LIKE '%UNSCHEDULED%')
-              AND LB.VISITNUM <> 13 AND _EOT_AWARE IS NOT NULL AND
-              _EOT_AWARE <> 0"
+          window: EOTFB_ORDER
 
 columns:
   # --- Record aliases: every LB read goes through these so the grouped
@@ -157,74 +183,59 @@ columns:
   - name: _r_STUDYID
     type: str
     label: record STUDYID (internal)
-    derivation: LB.STUDYID
 
   - name: _r_USUBJID
     type: str
     label: record USUBJID (internal)
-    derivation: LB.USUBJID
 
   - name: _r_LBSEQ
     type: float
     label: record LBSEQ (internal)
-    derivation: LB.LBSEQ
 
   - name: _r_LBDTC
     type: str
     label: record LBDTC (internal)
-    derivation: LB.LBDTC
 
   - name: _r_VISIT
     type: str
     label: record VISIT (internal)
-    derivation: LB.VISIT
 
   - name: _r_VISITNUM
     type: float
     label: record VISITNUM (internal)
-    derivation: LB.VISITNUM
 
   - name: _r_LBTEST
     type: str
     label: record LBTEST (internal)
-    derivation: LB.LBTEST
 
   - name: _r_LBTESTCD
     type: str
     label: record LBTESTCD (internal)
-    derivation: LB.LBTESTCD
 
   - name: _r_LBSTRESU
     type: str
     label: record LBSTRESU (internal)
-    derivation: LB.LBSTRESU
 
   - name: _r_LBSTRESN
     type: float
     label: record LBSTRESN (internal)
-    derivation: LB.LBSTRESN
 
   - name: _r_LBBLFL
     type: str
     label: record LBBLFL (internal)
-    derivation: LB.LBBLFL
 
   - name: _r_LO
     type: float
     label: record LBSTNRLO (internal)
-    derivation: LB.LBSTNRLO
 
   - name: _r_HI
     type: float
     label: record LBSTNRHI (internal)
-    derivation: LB.LBSTNRHI
 
   - name: _r_NRIND
     type: str
     label: record LBNRIND (internal)
-    derivation: LB.LBNRIND
 
-  # Subject-level columns keep ADSL's types and labels through its schema link.
   - name: STUDYID
     type: str
     label: Study Identifier
@@ -235,34 +246,6 @@ columns:
     label: Unique Subject Identifier
     derivation: _r_USUBJID
 
-  - copy:
-      dataset: ADSL
-      columns: [SUBJID]
-
-  - name: TRTP
-    type: str
-    label: Planned Treatment
-    derivation: ADSL.TRT01P
-
-  - name: TRTPN
-    type: float
-    label: Planned Treatment (N)
-    derivation: ADSL.TRT01PN
-
-  - name: TRTA
-    type: str
-    label: Actual Treatment
-    derivation: ADSL.TRT01A
-
-  - name: TRTAN
-    type: float
-    label: Actual Treatment (N)
-    derivation: ADSL.TRT01AN
-
-  - copy:
-      dataset: ADSL
-      columns: [TRTSDT, TRTEDT, AGE, AGEGR1, AGEGR1N, RACE, RACEN, SEX, COMP24FL]
-
   - name: DSRAEFL
     type: str
     label: "Discontinued due to AE?"
@@ -272,11 +255,6 @@ columns:
           then: "''"
         - otherwise: ADSL.DSRAEFL
 
-  - copy:
-      dataset: ADSL
-      columns: [SAFFL]
-
-  # --- Analysis visits (derived per row template) ---
   - name: AVISIT
     type: str
     label: Analysis Visit
@@ -517,8 +495,9 @@ columns:
     label: Max eligible AVISITN per subject-param (internal)
     derivation:
       aggregate:
-        filter: "VISITNUM <= 12 AND AVISITN > 0 AND AVISITN < 99 AND
-          NOT (VISIT LIKE '%UN%')"
+        filter: >-
+          VISITNUM <= 12 AND AVISITN > 0 AND AVISITN < 99 AND
+          NOT (VISIT LIKE '%UN%')
         group_by:
           - STUDYID
           - USUBJID
@@ -549,19 +528,7 @@ columns:
     label: rank by ALBTRVAL within subject-param (internal)
     derivation:
       row_number:
-        window:
-          group_by:
-            - STUDYID
-            - USUBJID
-            - PARAMCD
-          order_by:
-            - variable: ALBTRVAL
-              direction: desc
-              nulls: last
-            - variable: LBSEQ
-              nulls: last
-          filter: "VISITNUM >= 4 AND VISITNUM <= 12 AND NOT (VISIT
-            LIKE '%UN%') AND ALBTRVAL IS NOT NULL"
+        window: RN_ANL_ORDER
 
   - name: _WINLB
     type: float
@@ -602,8 +569,9 @@ columns:
 rows:
   - id: main
     dataset: LB
-    filter: "LB.LBCAT = 'CHEMISTRY' AND (LB.VISIT LIKE '%WEEK%' OR
-      LB.VISIT LIKE '%SCREENING%' OR LB.VISIT LIKE '%UNSCHEDULED%')"
+    filter: >-
+      LB.LBCAT = 'CHEMISTRY' AND (LB.VISIT LIKE '%WEEK%' OR LB.VISIT
+      LIKE '%SCREENING%' OR LB.VISIT LIKE '%UNSCHEDULED%')
     derivations:
       _IS_EOT: 0.0
       ENDPOINT:
@@ -643,6 +611,21 @@ rows:
             "Week 24": 24.0
             "Week 26": 26.0
 
+      _r_STUDYID: LB.STUDYID
+      _r_USUBJID: LB.USUBJID
+      _r_LBSEQ: LB.LBSEQ
+      _r_LBDTC: LB.LBDTC
+      _r_VISIT: LB.VISIT
+      _r_VISITNUM: LB.VISITNUM
+      _r_LBTEST: LB.LBTEST
+      _r_LBTESTCD: LB.LBTESTCD
+      _r_LBSTRESU: LB.LBSTRESU
+      _r_LBSTRESN: LB.LBSTRESN
+      _r_LBBLFL: LB.LBBLFL
+      _r_LO: LB.LBSTNRLO
+      _r_HI: LB.LBSTNRHI
+      _r_NRIND: LB.LBNRIND
+
   - id: eot
     dataset: LB
     filter: "LB.LBCAT = 'CHEMISTRY' AND (LB.VISITNUM = 12 OR ENDPOINT
@@ -652,6 +635,21 @@ rows:
       _IS_EOT: 1.0
       AVISIT: "'End of Treatment'"
       AVISITN: 99.0
+
+      _r_STUDYID: LB.STUDYID
+      _r_USUBJID: LB.USUBJID
+      _r_LBSEQ: LB.LBSEQ
+      _r_LBDTC: LB.LBDTC
+      _r_VISIT: LB.VISIT
+      _r_VISITNUM: LB.VISITNUM
+      _r_LBTEST: LB.LBTEST
+      _r_LBTESTCD: LB.LBTESTCD
+      _r_LBSTRESU: LB.LBSTRESU
+      _r_LBSTRESN: LB.LBSTRESN
+      _r_LBBLFL: LB.LBBLFL
+      _r_LO: LB.LBSTNRLO
+      _r_HI: LB.LBSTNRHI
+      _r_NRIND: LB.LBNRIND
 
   - id: eot2
     dataset: EOTFB

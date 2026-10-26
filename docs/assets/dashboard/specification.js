@@ -1,7 +1,14 @@
 /** Project parsed YAML locations onto original lines without changing source text. */
-export function specificationView(specification, view = "") {
+export function specificationView(specification, view = "", selected = "") {
   if (view === "resolved" && specification.resolved)
     return { ...specification, ...specification.resolved, inspection: true };
+  const documents = specification.documents || [];
+  if (!view && selected) {
+    const preferred = specification.definition_sources?.[selected];
+    const source = documents.find(d => d.path === preferred && d.lineage?.spans?.[selected]) ||
+      documents.find(d => d.lineage?.spans?.[selected]);
+    if (source) return { ...specification, ...source };
+  }
   const index = /^source:\d+$/.test(view) ? Number(view.slice(7)) : 0;
   return { ...specification, ...(specification.documents?.[index] || specification.documents?.[0]) };
 }

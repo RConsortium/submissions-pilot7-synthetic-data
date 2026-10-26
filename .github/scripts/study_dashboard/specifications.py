@@ -86,3 +86,17 @@ def inspection_specification(root, path, record, inventory):
 def resource_path(root, path, resources, key, written):
     """Use the engine's location, retaining standalone legacy evidence support."""
     return (root / resources[key]).resolve() if key in resources else (path.parent / written).resolve()
+
+
+def definition_sources(packet):
+    """Locate a column's authored value rule in the engine's origin ledger."""
+    sources = {source['path'] for source in packet['sources']}
+    result = {}
+    for index, column in enumerate(packet['model']['columns']):
+        prefix = f'/columns/{index}'
+        for suffix in ['/derivation/value', '/derivation', '/name']:
+            source = packet['origins'].get(prefix + suffix, {}).get('declaring_source')
+            if source in sources:
+                result[column['name']] = source
+                break
+    return result
