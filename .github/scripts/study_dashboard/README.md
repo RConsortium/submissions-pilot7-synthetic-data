@@ -27,6 +27,7 @@ The reviewer guide is `docs/review.md`.
     documents.py                         retained originals and searchable reading copies
     document_views.py                    workbook tables and original XML HTML
     consistency.py                       metadata checks and source-backed review questions
+    rule_review.py                       documented-rule findings from the verification report
     artifacts.py                         versioned study and gallery manifests
     pages.py                             study page shells and the static two-page study report
 docs/assets/dashboard/
@@ -40,6 +41,7 @@ docs/assets/dashboard/
   shell.js, workspace.js                 study layout and linked review panels
   source-documents.js                    independent file tabs and two original viewers
   report.js, comments.js, ui.js           evidence, discussions, and shared primitives
+  rule-findings.js                       documented-rule findings with rule, quotes and adjudication
 docs/stylesheets/dashboard.css           responsive layout and light/dark themes
 .github/tests/dashboard/                 artifact, extension, module, and browser checks
 <study>/spec/review/questions.json        optional authored review questions
@@ -114,6 +116,7 @@ export GITHUB_SHA=$(git rev-parse HEAD)
 python .github/scripts/validate_yamaa.py cdiscpilot01
 python .github/scripts/validate_yamaa.py submission-pilot3
 python .github/scripts/validate_yamaa.py submission-pilot5
+python .github/scripts/verify_derivations.py cdiscpilot01 --reviewed
 python .github/scripts/build_study_docs.py
 python .github/scripts/check_ascii.py
 python -m mkdocs build --strict
@@ -167,17 +170,31 @@ New consistency checks belong in `consistency.py`, document adapters in
 `documents.py`, dataset adapters in `datasets.py`, and UI components alongside
 `workspace.js`. Add meaningful boundary coverage with each new capability.
 
-## Derivation verification (prototype)
+## Derivation verification
 
 `.github/scripts/verify_derivations.py` compares each derivation with the
 document text that states it and writes `report.json`, `report.md` and the
-citable `sections/` text under `.build/verification/<study>/`. It is not yet
-part of the bundle. Run it with the study's pinned engine requirements and the
-documentation requirements:
+citable `sections/` text under `.build/verification/<study>/`. Run it with the
+study's pinned engine requirements and the documentation requirements:
 
 ```bash
 python .github/scripts/verify_derivations.py cdiscpilot01 --dataset ADSL
+python .github/scripts/verify_derivations.py cdiscpilot01 --reviewed
 ```
+
+`--reviewed` verifies the datasets with a committed
+`<study>/spec/review/<dataset>-claims.json`, as publication does. The study
+validation job runs it there, where the pinned engine runs the probes, and
+uploads `report.json` and `report.md` as the `verification-<study>` artifact.
+`build_study_docs.py` reads them from `.build/verification/<study>/`, and
+`validate_verifications` refuses a report from another commit or engine, or one
+that does not cover exactly the reviewed datasets. A study with reviewed
+datasets cannot publish without one. `rule_review.py` reshapes each finding for
+the Consistency review table, and `docs/assets/dashboard/rule-findings.js`
+renders it: the rule and its statement, both quoted sides with links into the
+retained documents and the specification, the data evidence and the
+adjudication. Opening a finding in the workspace selects its differing subjects.
+Datasets without claims, and studies without any, are unchanged.
 
 `.automation/consistency_review/workflow.md` is the agentic workflow around it.
 Agents propose and the script decides. The extraction agent writes

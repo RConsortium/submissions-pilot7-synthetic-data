@@ -20,6 +20,7 @@ Writes .build/verification/<study>/report.json, report.md and sections/.
 import argparse
 import json
 import math
+import os
 import re
 import subprocess
 from pathlib import Path
@@ -29,7 +30,7 @@ import yaml
 from consistency_report import render
 from study_dashboard.config import reference_path, settings
 from study_dashboard.lineage import source_locations
-from study_evidence import catalog, engine_revision, project_specs
+from study_evidence import catalog, engine_revision, project_specs, reviewed_datasets
 
 # polars, yamaa, lxml and the document readers are imported where they are
 # used, so the citation, finding and verdict logic stays testable with PyYAML.
@@ -842,7 +843,9 @@ def dataset_report(context, domain, spec_path, derived, reference):
 def main():
     parser = argparse.ArgumentParser(description=__doc__.splitlines()[0])
     parser.add_argument("study")
-    parser.add_argument("--dataset", action="append", help="Dataset to verify; repeat for several. Default: every project dataset.")
+    scope = parser.add_mutually_exclusive_group()
+    scope.add_argument("--dataset", action="append", help="Dataset to verify; repeat for several. Default: every project dataset.")
+    scope.add_argument("--reviewed", action="store_true", help="Verify the datasets with committed review claims, as publication does.")
     parser.add_argument("--output", type=Path, help="Report directory. Default: .build/verification/<study>")
     args = parser.parse_args()
     import polars as pl
@@ -854,12 +857,15 @@ def main():
     options = settings(ROOT, entry)
     base = ROOT / args.study
     specs = dict(project_specs(ROOT, args.study))
-    domains = args.dataset or list(specs)
+    domains = reviewed_datasets(ROOT, args.study) if args.reviewed else args.dataset or list(specs)
+    if not domains:
+        raise SystemExit(f"{args.study}: no dataset has review claims")
     unknown = sorted(set(domains) - set(specs))
     if unknown:
         raise SystemExit(f"{args.study}: unknown datasets {unknown}")
     git = lambda *a: subprocess.run(["git", *a], cwd=ROOT, capture_output=True, text=True, check=True).stdout.strip()
-    revision = git("rev-parse", "HEAD")
+    # The same source commit the dashboard bundle records, so publication can match them.
+    revision = os.environ.get("GITHUB_SHA") or git("rev-parse", "HEAD")
     # Repository links point at this revision; local edits are not there yet.
     uncommitted = bool(git("status", "--porcelain", "--", args.study, ".github/scripts", ".automation"))
     define = base / DEFINE

@@ -37,7 +37,8 @@ class ScopeTests(unittest.TestCase):
         return select_checks(self.root, paths)
 
     def test_prompts_guides_and_generated_reports_need_no_study_jobs(self):
-        for path in ('.automation/triage_issues.md', 'AGENTS.md', 'README.md',
+        for path in ('.automation/triage_issues.md', '.automation/consistency_review/workflow.md',
+                     'AGENTS.md', 'README.md',
                      '.github/AUTOMATION.md', 'submission-pilot3/program/adam/README.md',
                      'submission-pilot3/spec/yamaa/README.md',
                      'submission-pilot3/data/adam/dataset_comment.md',
@@ -110,7 +111,10 @@ class ScopeTests(unittest.TestCase):
                      '.github/dashboard.json', '.github/synthetic-studies.json', 'docs/assets/dashboard/app.js',
                      'docs/stylesheets/dashboard.css', '.github/tests/dashboard/modules.test.js',
                      'submission-pilot3/spec/review/questions.json',
-                     'submission-pilot3/spec/source/adrg.pdf'):
+                     'submission-pilot3/spec/source/adrg.pdf',
+                     '.github/scripts/verify_derivations.py', '.github/scripts/consistency_report.py',
+                     '.automation/consistency_review/rules.yaml',
+                     'cdiscpilot01/spec/review/adsl-claims.json'):
             scope = self.scope(path)
             self.assertTrue(scope['publication'])
             self.assertEqual(sum(row['yamaa'] for row in scope['studies']), 3)

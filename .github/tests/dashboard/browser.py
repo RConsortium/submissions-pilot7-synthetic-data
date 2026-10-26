@@ -361,6 +361,35 @@ def check(browser, base, site_dir, screenshots):
     expect(page.locator(".consistency-table tbody")).to_contain_text(
         "No comparisons match"
     )
+    # Documented rules cite a rule, quote both sides, open the cited source and
+    # select the records that differ.
+    page.get_by_role("button", name="Clear filters", exact=True).click()
+    expect(page.locator(".study-dashboard")).to_contain_text("Documented rules for ADSL")
+    page.locator("#finding-comparison").select_option("documented_rules")
+    page.locator("#finding-search").fill("HEIGHTBL*100")
+    rule = page.locator(".consistency-table tbody tr.rule-finding")
+    page.locator("#finding-kind").select_option("divergence")
+    expect(rule).to_have_count(1)
+    expect(rule.locator(".rule-id")).to_have_text("CR-6")
+    expect(rule.locator("pre.spec-lines mark").first).to_be_visible()
+    page.locator("#finding-kind").select_option("conflict")
+    expect(rule).to_have_count(1)
+    expect(rule.locator(".rule-id")).to_have_text("CR-5")
+    expect(rule.locator("blockquote").first).to_contain_text("WEIGHTBL / ((HEIGHTBL*100)**2)")
+    expect(rule).to_contain_text("Adjudication:")
+    capture(page, screenshots, "documented-rules.png")
+    rule.get_by_role("button", name="View source", exact=True).first.click()
+    expect(page.locator("#source-panel-0 iframe")).to_have_attribute(
+        "src", re.compile(r"define-adam\.xml.*#ADSL\.BMIBL$")
+    )
+    page.locator('.review-tabs [data-view="overview"]').click()
+    evidence = page.locator(".consistency-table tbody tr.rule-finding").get_by_role(
+        "button", name=re.compile(r"^Open evidence in workspace \(\d+ subjects?\)$")
+    )
+    count = re.search(r"\((\d+) subject", evidence.inner_text()).group(1)
+    evidence.click()
+    expect(page.locator(".evidence-drawer")).to_be_visible()
+    expect(page.locator("#subject-summary")).to_contain_text(f"{count} /")
     # The pilot study report is static; synthetic data keeps a separate gallery.
     page.get_by_role("link", name="All pilot studies", exact=True).click()
     report = page.locator(".study-report")

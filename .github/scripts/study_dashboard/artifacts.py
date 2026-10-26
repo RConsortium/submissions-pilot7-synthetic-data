@@ -17,7 +17,7 @@ from .domains import domain_labels, domain_keys
 from .synthetic import build_synthetic
 
 
-def build_bundle(root, destination, entries, reports, revision):
+def build_bundle(root, destination, entries, reports, revision, verifications=None):
     """Write only into a caller-owned staging directory; publication owns promotion."""
     root, destination = Path(root), Path(destination)
     validate_reports(root, entries, reports, revision)
@@ -165,7 +165,15 @@ def build_bundle(root, destination, entries, reports, revision):
                     "key_source",
                     f"{study}/spec/define/define-{'sdtm' if sdtm else 'adam'}.xml",
                 )
-        report = build_report(root, study, specifications, target, revision, validation)
+        report = build_report(
+            root,
+            study,
+            specifications,
+            target,
+            revision,
+            validation,
+            (verifications or {}).get(study),
+        )
         write_json(target / "report.json", report)
         record.update(
             tables=exported,

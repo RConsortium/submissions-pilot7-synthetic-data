@@ -28,6 +28,41 @@ def project_specs(root, study):
     return result
 
 
+def reviewed_datasets(root, study):
+    """Project datasets with committed consistency-review claims, in project order."""
+    if not (root / study / 'spec/yamaa/project.yaml').exists():
+        return []
+    review = root / study / 'spec/review'
+    return [domain for domain, _ in project_specs(root, study)
+            if (review / f'{domain.lower()}-claims.json').is_file()]
+
+
+def validate_verifications(root, entries, reports, verifications, revision):
+    """Refuse documented-rule findings from another commit, engine or dataset set.
+
+    Every study with reviewed datasets needs a verification report from this
+    revision, with the validation's engine, covering exactly those datasets.
+    """
+    for name in entries:
+        reviewed = reviewed_datasets(root, name) if reports[name]['status'] != 'pending' else []
+        report = verifications.get(name)
+        if not reviewed:
+            if report is not None:
+                raise ValueError(f'{name}: verification report for a study without review claims')
+            continue
+        if report is None:
+            raise ValueError(f'{name}: reviewed datasets {reviewed} have no verification report; '
+                             'run verify_derivations.py --reviewed')
+        if report.get('schema_version') != 2 or report.get('study') != name:
+            raise ValueError(f'{name}: unsupported or misnamed verification report')
+        if report.get('revision') != revision:
+            raise ValueError(f'{name}: verification report is not from this source commit')
+        if report.get('yamaa_revision') != reports[name]['yamaa_revision']:
+            raise ValueError(f'{name}: verification report uses a different engine pin')
+        if [d['dataset'] for d in report.get('datasets', [])] != reviewed:
+            raise ValueError(f'{name}: verification report does not cover exactly {reviewed}')
+
+
 def engine_revision(root, study):
     path = root / study / 'program/adam/python/requirements.txt'
     matches = re.findall(r'yamaa\.git@([0-9a-f]{40})', path.read_text())

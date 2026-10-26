@@ -18,6 +18,7 @@ from study_dashboard.datasets import export_table, read_table
 from study_dashboard.lineage import build_lineage, source_locations
 from study_dashboard.consistency import build_report
 from study_dashboard.documents import define_metadata, document_sections
+from study_dashboard.rule_review import rule_findings
 
 
 class ReviewDataTests(unittest.TestCase):
@@ -227,6 +228,71 @@ intermediates:
                 read_table(path, {"VISIT": "int"}).to_pylist(),
                 [{"USUBJID": "001", "VISIT": 3}, {"USUBJID": "002", "VISIT": None}],
             )
+
+    def test_documented_rule_findings_keep_their_evidence_and_link_into_retained_documents(self):
+        # The verification report is decided in the validation job; the table
+        # entry keeps its rule, quotes and adjudication and gains dashboard links.
+        side = {
+            "role": "states",
+            "document": "spec/source/SAP.pdf",
+            "section": "page-13",
+            "section_title": "Page 13",
+            "quote": "BMI>=30",
+            "context": "BMI category (BMI<25, BMI 25-<30, BMI>=30)",
+            "verified": True,
+            "links": {"repository": "https://example/blob/r/study/spec/source/SAP.pdf"},
+        }
+        pattern = {"reference": "<25", "observed": None, "row": "matched", "count": 1, "subjects": ["01-702-1082"]}
+        finding = {
+            "id": "ADSL.BMIBLGR1.CR-5",
+            "dataset": "ADSL",
+            "variable": "BMIBLGR1",
+            "rule": {"id": "CR-5", "title": "A documented rule reproduces the reference", "severity": "conflict", "statement": "Rule text."},
+            "severity": "conflict",
+            "relation": None,
+            "summary": "The documented rule differs on 1 of 2 records.",
+            "note": "",
+            "documents": [side],
+            "spec": {"path": "study/spec/yamaa/adsl.yaml", "element": "BMIBLGR1", "quote": None, "lines": None, "element_lines": [7, 9], "excerpt": "- name: BMIBLGR1", "url": "https://example/adsl.yaml#L7-L9"},
+            "variable_spec": None,
+            "evidence": {"probes": [{"column": "BMIBLGR1", "reading": "literal", "definition": {}, "reference": {"compared": 2, "differ": 1, "patterns": [pattern]}}]},
+            "interpretations": [],
+            "question": "Which group?",
+            "assessment": "",
+            "adjudication": {"decision": "agree", "reason": "Right."},
+        }
+        verification = {"datasets": [{"dataset": "ADSL", "findings": [finding]}]}
+        documents = [{"path": "study/spec/source/SAP.pdf", "reading": "documents/study/spec/source/SAP.pdf.html", "original": "documents/study/spec/source/SAP.pdf"}]
+        [entry] = rule_findings("study", verification, documents)
+        self.assertEqual(
+            {k: entry[k] for k in ("id", "comparison", "kind", "status", "title", "source", "spec", "data", "recommendation", "subjects", "adjudication")},
+            {
+                "id": "study:ADSL.BMIBLGR1.CR-5",
+                "comparison": "documented_rules",
+                "kind": "conflict",
+                "status": "Conflict: CR-5",
+                "title": "CR-5 A documented rule reproduces the reference",
+                "source": {"path": "study/spec/source/SAP.pdf", "section": "Page 13", "excerpt": side["context"], "url": "documents/study/spec/source/SAP.pdf.html#page-13"},
+                "spec": {"path": "study/spec/yamaa/adsl.yaml", "line": 7, "url": "https://example/adsl.yaml#L7-L9", "excerpt": "- name: BMIBLGR1"},
+                "data": {"path": "", "summary": "Probe BMIBLGR1 (literal rule): 1 of 2 records differ from the reference."},
+                "recommendation": "Which group?",
+                "subjects": ["01-702-1082"],
+                "adjudication": {"decision": "agree", "reason": "Right."},
+            },
+            "the table's common fields, for search, the drawer and source links",
+        )
+        self.assertEqual(
+            {k: entry["documents"][0][k] for k in ("path", "name", "section", "reading", "original", "repository")},
+            {
+                "path": "study/spec/source/SAP.pdf",
+                "name": "SAP.pdf",
+                "section": "page-13",
+                "reading": "documents/study/spec/source/SAP.pdf.html#page-13",
+                "original": "documents/study/spec/source/SAP.pdf#page=13",
+                "repository": "https://example/blob/r/study/spec/source/SAP.pdf",
+            },
+            "a quoted page opens in the dashboard copy at that page",
+        )
 
     def test_define_versions_state_derivations_where_each_version_keeps_them(self):
         # Define 1.0 has no MethodDef: its derivation is the ItemDef Comment.
