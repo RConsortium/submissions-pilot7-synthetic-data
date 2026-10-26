@@ -6,10 +6,13 @@ import pyarrow.parquet as pq
 
 from .config import SCHEMA_VERSION
 from .documents import define_metadata, define_section_text, materials
+from .rule_review import rule_findings, verification_summary
 from .datasets import clean
 
 
-def build_report(root, study, specifications, target, revision, validation=None):
+def build_report(
+    root, study, specifications, target, revision, validation=None, verification=None
+):
     define_path = root / study / "spec/define/define-adam.xml"
     metadata = define_metadata(define_path) if define_path.exists() else {}
     manifest, documents = materials(root, study, target, metadata)
@@ -216,6 +219,15 @@ def build_report(root, study, specifications, target, revision, validation=None)
                 "path": output_path.relative_to(root).as_posix(),
                 "summary": summary,
             }
+    # Documented-rule findings were decided in the validation job; they keep their own data.
+    findings += rule_findings(study, verification, documents)
+    reviewed = [d["dataset"] for d in (verification or {}).get("datasets", [])]
+    narrative = "Not comprehensively reviewed; guide review tasks are explicitly marked Not reviewed."
+    if reviewed:
+        narrative = (
+            f"Documented rules reviewed for {', '.join(reviewed)} by the consistency review "
+            "workflow; other datasets have guide review tasks only."
+        )
     return {
         "schema_version": SCHEMA_VERSION,
         "study": study,
@@ -229,9 +241,10 @@ def build_report(root, study, specifications, target, revision, validation=None)
         "coverage": {
             "metadata": "Output presence checked; Define-XML labels checked where published metadata is available.",
             "define_xml": "available" if metadata else "not_available",
-            "narrative": "Not comprehensively reviewed; guide review tasks are explicitly marked Not reviewed.",
+            "narrative": narrative,
             "clinical_judgement": "Requires human review.",
         },
+        "verification": verification_summary(study, verification, documents),
         "note": "Automated observations and pending review tasks are not confirmed clinical defects.",
     }
 

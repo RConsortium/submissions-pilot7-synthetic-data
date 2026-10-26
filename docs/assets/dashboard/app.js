@@ -386,6 +386,14 @@ import { mountSynthetic } from "./synthetic.js";
       state.dataset = f.dataset;
       state.focus = f.variable ? "spec." + f.variable : "";
       state.evidence = f.id;
+      // A documented-rule finding opens on the records its data evidence names.
+      const subjects = (f.subjects || []).filter((s) =>
+        model.subjects.includes(s),
+      );
+      if (subjects.length) {
+        state.subjects = subjects;
+        state.pages = {};
+      }
       state.inputs = null;
       state.outputs = [];
       state.output = "derived";
