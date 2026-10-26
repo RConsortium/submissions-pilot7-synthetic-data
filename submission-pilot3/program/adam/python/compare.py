@@ -18,7 +18,7 @@ missing character value is ""). Key columns align with zero unmatched
 rows on either side and count as matched. Spec labels must agree with the
 official `yamaa:label` field metadata.
 
-Requires: polars, pyarrow, PyYAML.
+Requires: polars, pyarrow, yamaa.
 
 Usage:
     python3 compare.py                        # all five datasets
@@ -75,11 +75,13 @@ def _labels(source):
 
 
 def _spec_labels(spec):
-    """Declared labels from a yamaa YAML specification."""
-    import yaml
+    """Declared labels after the pinned engine expands copies and inheritance."""
+    import yamaa
 
-    columns = yaml.safe_load(Path(spec).read_text(encoding="utf-8"))["columns"]
-    return {column["name"]: column.get("label") for column in columns}
+    resolved = yamaa.spec(spec).resolve()
+    entry = next(e for e in resolved["entries"] if e["entry"] == resolved["entry"])
+    return {column["name"]: column.get("label")
+            for column in entry["specification"]["columns"]}
 
 
 def compare(output, reference, name, spec=None):

@@ -64,7 +64,8 @@ def assert_yaml_context(page, specification, inputs, intermediates):
 
 
 def check(browser, base, site_dir, screenshots):
-    context = browser.new_context(viewport={"width": 1600, "height": 1000})
+    context = browser.new_context(viewport={"width": 1600, "height": 1000},
+                                  permissions=["clipboard-read", "clipboard-write"])
     context.route(
         "https://giscus.app/client.js",
         lambda r: r.fulfill(body="", content_type="application/javascript"),
@@ -106,6 +107,25 @@ def check(browser, base, site_dir, screenshots):
         expect(page.locator(".result-count")).to_have_text(f"{len(issues)} of {len(issues)} issues \u00b7 {checks} supporting checks")
         expect(page.locator(".consistency-table tbody tr[data-finding-id]")).to_have_count(len(issues))
         expect(page.get_by_role("button", name="Copy review context", exact=True)).to_have_count(0)
+    # A copied column retains its source block and opens its resolved derivation.
+    copied = json.loads((site_dir / "evidence/dashboard/submission-pilot5/specs/adlbc.json").read_text())
+    page.goto(base + "/studies/submission-pilot5/#submission-pilot5/datasets/ADLBC?focus=output.AGE")
+    expect(page.locator("#spec-caption")).to_contain_text("Focused view")
+    assert "copy:" in "\n".join(page.locator(".spec-line.node-selected code").all_text_contents())
+    assert page.locator(".spec-omission:visible").count() > 0
+    page.get_by_role("button", name="Copy source file", exact=True).click()
+    expect(page.get_by_role("button", name="Copied", exact=True)).to_be_visible()
+    assert page.evaluate("navigator.clipboard.readText()") == copied["text"]
+    page.locator("#spec-view").select_option("resolved")
+    expect(page.locator("#spec-caption")).to_contain_text("model lines")
+    expect(page.locator(".spec-pane .pane-footer")).to_contain_text("Engine-resolved model for inspection")
+    assert "ADSL.AGE" in "\n".join(page.locator(".spec-line.node-selected code").all_text_contents())
+    capture(page, screenshots, "resolved-copy-specification.png")
+    page.reload()
+    expect(page.locator("#spec-view")).to_have_value("resolved")
+    page.locator("#spec-view").select_option("source:1")
+    expect(page.get_by_role("link", name="Open source", exact=True)).to_have_attribute(
+        "href", re.compile(re.escape(copied["documents"][1]["path"])))
     page.goto(study)
     expect(page.locator("#output-table tbody tr")).to_have_count(3)
     expect(page.locator("#subject-summary")).to_contain_text("3 /")

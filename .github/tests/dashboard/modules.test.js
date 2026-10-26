@@ -20,6 +20,14 @@ const model = {
   tables: {},
   settings: { default_subject_count: 2 },
 };
+test("authored and resolved model views survive shared URLs with invalid views discarded", () => {
+  for (const value of ["resolved", "source:1"]) {
+    const state = readRoute("#new-study/datasets/CUSTOM?specView=" + value, model);
+    assert.equal(state.specView, value);
+    assert.deepEqual(readRoute(formatRoute(state, model), model), state);
+  }
+  assert.equal(readRoute("#new-study/datasets/CUSTOM?specView=unknown", model).specView, "");
+});
 test("new study defaults and shared routes validate unknown and duplicate selections", () => {
   const state = readRoute("", model);
   assert.equal(state.dataset, "CUSTOM");

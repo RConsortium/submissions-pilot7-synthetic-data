@@ -22,6 +22,7 @@ The reviewer guide is `docs/review.md`.
     datasets.py                          CSV/Parquet adapters and subject chunks
     lineage.py                           conservative YAML dependencies and source spans
     references.py                        scoped lookup keys and expression-local bindings
+    specifications.py                    portable engine-resolved models and original sources
     domains.py                           dataset descriptions from retained Define-XML
     synthetic.py                         separate source/readiness manifests
     documents.py                         retained originals and searchable reading copies
@@ -257,6 +258,16 @@ from output columns and unused local expressions do not add sources. Final
 output sort references are recorded as `output_order`, separately from column
 value dependencies. This remains a conservative static index across declared
 branches, not contributing-row provenance.
+
+Validation records `resolved_specification` inspection packets with the pinned
+engine's normalized model, mapping order, original sources, origins and resolved
+resource locations. Publication checks source text against the artifact inventory
+and uses those facts without installing the engine. Copies, includes, inheritance
+and named windows require fresh resolved evidence; they are never approximated
+from authored YAML. Resolved dataset resources must be in the study's artifact
+inventory. Schema-default origins name engine schema modules, not study files.
+The browser can select each original file or a rendered inspection model.
+Focused views mark omitted lines, and clipboard actions retain the complete text.
 
 `domains.py` reads dataset descriptions from retained Define-XML, with browser
 fallbacks for common domains and lookup tables. Adding a domain does not require

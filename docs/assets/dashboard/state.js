@@ -12,6 +12,7 @@ const fields = [
   "document",
   "compareDocument",
   "documentSection",
+  "specView",
 ];
 const unique = (values) => [...new Set(values)];
 export function readRoute(hash, model) {
@@ -62,6 +63,8 @@ export function readRoute(hash, model) {
   }
   for (const field of fields)
     state[field] = (params.get(field) || "").slice(0, 500);
+  if (state.specView !== "resolved" && !/^source:\d{1,3}$/.test(state.specView))
+    state.specView = "";
   const keys = new Set([
     ...options.map((t) => `i-${t.id}`),
     ...model.datasets.map((d) => `o-${d.name}`),

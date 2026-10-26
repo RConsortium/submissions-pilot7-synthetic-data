@@ -9,6 +9,7 @@ from .documents import define_metadata, define_section_text, materials
 from .rule_review import rule_findings, verification_summary
 from .datasets import clean
 from .issues import build_review
+from .specifications import resource_path
 
 
 def build_report(
@@ -58,7 +59,7 @@ def build_report(
 
     for spec_path, spec, lineage in specifications:
         domain = spec["domain"]
-        output_path = (spec_path.parent / spec["output"]["path"]).resolve()
+        output_path = resource_path(root, spec_path, lineage.get("resources", {}), "output.path", spec["output"]["path"])
         output_columns = set(pq.read_schema(output_path).names)
         declared = {item["name"]: item for item in spec["columns"]}
         published = metadata.get(domain, {})
@@ -148,7 +149,7 @@ def build_report(
     results = {d["domain"]: d for d in (validation or {}).get("datasets", [])}
     for spec_path, spec, lineage in specifications:
         domain = spec["domain"]
-        output_path = (spec_path.parent / spec["output"]["path"]).resolve()
+        output_path = resource_path(root, spec_path, lineage.get("resources", {}), "output.path", spec["output"]["path"])
         schema = pq.read_schema(output_path)
         result = results.get(domain)
         if result:

@@ -10,7 +10,7 @@ Non-numeric cells must be exact. Null vs "" are distinct
 
 Exit code nonzero on any mismatch.
 
-Requires: pyarrow, PyYAML.
+Requires: pyarrow, yamaa.
 """
 import sys
 from pathlib import Path
@@ -30,11 +30,13 @@ ABS_TOL = 1e-10
 
 
 def _spec_labels(spec):
-    """Declared labels from a yamaa YAML specification."""
-    import yaml
+    """Declared labels after the pinned engine expands copies and inheritance."""
+    import yamaa
 
-    columns = yaml.safe_load(Path(spec).read_text(encoding="utf-8"))["columns"]
-    return {column["name"]: column.get("label") for column in columns}
+    resolved = yamaa.spec(spec).resolve()
+    entry = next(e for e in resolved["entries"] if e["entry"] == resolved["entry"])
+    return {column["name"]: column.get("label")
+            for column in entry["specification"]["columns"]}
 
 
 def compare(ds: str) -> bool:

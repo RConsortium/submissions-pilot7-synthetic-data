@@ -101,7 +101,7 @@ import { mountSynthetic } from "./synthetic.js";
     },
   };
   const { frame } = createShell(ctx),
-    { workspace, applyHighlight, paintTables, fitWorkbench } =
+    { workspace, applyHighlight, paintTables, fitWorkbench, copySpecification } =
       createWorkspace(ctx);
   const { findingRows, findingsView, drawer } = createReport(ctx),
     { commentsView, loadComments } = createComments(ctx);
@@ -305,6 +305,10 @@ import { mountSynthetic } from "./synthetic.js";
     const target = event.target.closest("button,[data-line-node]");
     if (!target || !root()?.contains(target)) return;
     if (sourceDocuments.click(target)) return;
+    if (target.id === "copy-specification") {
+      await copySpecification();
+      return;
+    }
     if (target.dataset.view) {
       navigate(target.dataset.view);
       return;
@@ -456,6 +460,12 @@ import { mountSynthetic } from "./synthetic.js";
       state.evidence = "";
       save();
       await renderView();
+      return;
+    }
+    if (el.id === "spec-view") {
+      state.specView = el.value;
+      save();
+      await redrawWorkspace(true, false);
       return;
     }
     if (el.hasAttribute("data-input-dataset")) {
