@@ -1,5 +1,6 @@
 """Independent regressions for the pilot metadata comparison and unified specs."""
 
+import copy
 import importlib.util
 from pathlib import Path
 from tempfile import TemporaryDirectory
@@ -105,6 +106,75 @@ class DefineComparisonTests(unittest.TestCase):
                 result = self.modified(edit)
                 self.assertFalse(result["metadata_equivalent"])
                 self.assertTrue(result["differences"])
+
+    def test_dataset_archive_links_must_select_their_own_leaf(self):
+        def swap(root):
+            groups = root.findall(".//o:ItemGroupDef", NS)[:2]
+            key = "{" + NS["d"] + "}ArchiveLocationID"
+            first, second = (group.get(key) for group in groups)
+            self.assertIsNotNone(first)
+            self.assertIsNotNone(second)
+            groups[0].set(key, second)
+            groups[1].set(key, first)
+        with self.assertRaisesRegex(ValueError, "ArchiveLocationID"):
+            self.modified(swap)
+
+    def test_removing_an_archive_binding_changes_the_dataset_artifact(self):
+        def remove(root):
+            root.find(".//o:ItemGroupDef", NS).attrib.pop("{" + NS["d"] + "}ArchiveLocationID")
+        result = self.modified(remove)
+        self.assertFalse(result["metadata_equivalent"])
+        self.assertTrue(any(d["path"].endswith("/artifact") for d in result["differences"]))
+
+    def test_codelist_standard_bindings_compare_resolved_metadata_and_target_types(self):
+        # An independently authored 2.1 document isolates a binding change
+        # while preserving the entire standard inventory on both sides.
+        document = '''<?xml version="1.0"?>
+<ODM xmlns="http://www.cdisc.org/ns/odm/v1.3" xmlns:def="http://www.cdisc.org/ns/def/v2.1" ODMVersion="1.3.2" FileType="Snapshot" FileOID="S01" CreationDateTime="2026-01-01T00:00:00">
+  <Study OID="STDY.S01">
+    <GlobalVariables><StudyName>S01</StudyName><StudyDescription>Binding witness</StudyDescription><ProtocolName>P01</ProtocolName></GlobalVariables>
+    <MetaDataVersion OID="MDV.S01" Name="Metadata" def:DefineVersion="2.1.11">
+      <def:Standards>
+        <def:Standard OID="STD.IG" Name="ADaMIG" Type="IG" Version="1.1" Status="Final"/>
+        <def:Standard OID="STD.CT1" Name="CDISC/NCI" Type="CT" Version="2025-03-28" Status="Final"/>
+        <def:Standard OID="STD.CT2" Name="CDISC/NCI" Type="CT" Version="2024-12-20" Status="Final"/>
+      </def:Standards>
+      <ItemGroupDef OID="IG.D0" Name="D0" Repeating="No" IsReferenceData="No" Purpose="Analysis" def:Structure="One row" def:StandardOID="STD.IG">
+        <Description><TranslatedText xml:lang="en">Dataset</TranslatedText></Description>
+        <ItemRef ItemOID="IT.D0.CODE" OrderNumber="1" Mandatory="Yes"/>
+        <def:Class Name="SUBJECT LEVEL ANALYSIS DATASET"/>
+      </ItemGroupDef>
+      <ItemDef OID="IT.D0.CODE" Name="CODE" DataType="text" Length="1">
+        <Description><TranslatedText xml:lang="en">Code</TranslatedText></Description>
+        <CodeListRef CodeListOID="CL.Codes"/>
+      </ItemDef>
+      <CodeList OID="CL.Codes" Name="Codes" DataType="text" def:StandardOID="STD.CT1"><EnumeratedItem CodedValue="A"/></CodeList>
+    </MetaDataVersion>
+  </Study>
+</ODM>
+'''
+        ns = {"o": comparison.ODM, "d": "http://www.cdisc.org/ns/def/v2.1"}
+        key = "{" + ns["d"] + "}StandardOID"
+        for before, after in (("STD.CT1", None), (None, "STD.CT1"), ("STD.CT1", "STD.CT2"), ("STD.CT1", "IT.D0.CODE")):
+            with self.subTest(before=before, after=after), TemporaryDirectory() as directory:
+                baseline = ET.fromstring(document)
+                baseline.find(".//o:CodeList", ns).attrib.pop(key)
+                if before:
+                    baseline.find(".//o:CodeList", ns).set(key, before)
+                changed = copy.deepcopy(baseline)
+                changed.find(".//o:CodeList", ns).attrib.pop(key, None)
+                if after:
+                    changed.find(".//o:CodeList", ns).set(key, after)
+                reference, candidate = (Path(directory) / name for name in ("reference.xml", "candidate.xml"))
+                ET.ElementTree(baseline).write(reference, encoding="utf-8")
+                ET.ElementTree(changed).write(candidate, encoding="utf-8")
+                if after == "IT.D0.CODE":
+                    with self.assertRaisesRegex(ValueError, "Standard"):
+                        comparison.compare(reference, candidate)
+                else:
+                    result = comparison.compare(reference, candidate)
+                    self.assertFalse(result["metadata_equivalent"])
+                    self.assertTrue(any(d["path"].startswith("/codelists/Codes/standard") for d in result["differences"]))
 
 
 class UnifiedSpecificationsTests(unittest.TestCase):

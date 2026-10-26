@@ -38,6 +38,11 @@ ATTRIBUTES = {
         "CheckValue", "title",
     )},
 }
+REFERENCES = {
+    "ItemOID": "ItemDef", "MethodOID": "MethodDef", "CommentOID": "CommentDef",
+    "CodeListOID": "CodeList", "ValueListOID": "ValueListDef", "WhereClauseOID": "WhereClauseDef",
+    "leafID": "leaf", "ArchiveLocationID": "leaf", "StandardOID": "Standard",
+}
 
 
 def local(name):
@@ -84,23 +89,32 @@ class Document:
         references = set()
         for element in self.root.iter():
             for key, value in element.attrib.items():
-                if local(key) in {"ItemOID", "MethodOID", "CommentOID", "CodeListOID", "ValueListOID", "WhereClauseOID", "leafID", "ArchiveLocationID", "StandardOID"}:
-                    self.object(value)
+                if local(key) in REFERENCES:
+                    self.object(value, REFERENCES[local(key)])
                     references.add(value)
         self.unreferenced = [ET.tostring(e, encoding="unicode") for identity, e in self.objects.items()
                              if local(e.tag) in {"ItemDef", "MethodDef", "CommentDef", "ValueListDef", "WhereClauseDef", "leaf"}
                              and identity not in references]
 
-    def object(self, identity):
+    def object(self, identity, expected=None):
         if identity not in self.objects:
             raise ValueError(f"Dangling XML reference: {identity}")
-        return self.objects[identity]
+        element = self.objects[identity]
+        if expected is not None and local(element.tag) != expected:
+            raise ValueError(f"XML reference {identity} requires {expected}, found {local(element.tag)}")
+        return element
 
     def attr(self, element, name):
         return element.get(name, element.get(f"{{{self.defns}}}{name}"))
 
     def text(self, element, path="o:Description/o:TranslatedText"):
         return prose(element.findtext(path, namespaces=self.n))
+
+    def standard(self, element):
+        identity = self.attr(element, "StandardOID")
+        if identity is None:
+            return None
+        return {local(k): v for k, v in self.object(identity).attrib.items() if k != "OID"}
 
     def documents(self, element):
         documents = []
@@ -190,6 +204,7 @@ class Document:
             lists[element.get("Name")] = {
                 "type": element.get("DataType"), "format": element.get("SASFormatName"), "items": entries,
                 "is_non_standard": self.attr(element, "IsNonStandard"),
+                "standard": self.standard(element),
                 "aliases": [dict(e.attrib) for e in element.findall("o:Alias", self.n)],
                 "external": [dict(e.attrib) for e in element.findall("o:ExternalCodeList", self.n)],
             }
@@ -206,11 +221,16 @@ class Document:
                     raise ValueError("Duplicate dataset variable name")
                 variables[item.get("Name")] = {**self.variable(item, ref), "value_level": self.value_list(item)}
             cls = group.find("d:Class", self.n)
-            leaf = group.find("d:leaf", self.n)
+            archive = self.attr(group, "ArchiveLocationID")
+            leaf = self.object(archive) if archive else None
+            if leaf is not None and leaf not in group.findall("d:leaf", self.n):
+                raise ValueError(f"ArchiveLocationID {archive} does not select a leaf in dataset {group.get('Name')}")
             if group.get("Name") in datasets:
                 raise ValueError("Duplicate dataset name")
-            standard = self.attr(group, "StandardOID")
-            guide = self.object(standard) if standard else self.md
+            standard = self.standard(group)
+            if standard is None:
+                standard = {"Name": self.attr(self.md, "StandardName").replace("ADaM-IG", "ADaMIG"),
+                            "Version": self.attr(self.md, "StandardVersion"), "Type": "IG", "Status": "Final"}
             datasets[group.get("Name")] = {
                 "label": self.text(group), "class": cls.get("Name") if cls is not None else self.attr(group, "Class"),
                 "subclass": [e.get("Name") for e in group.findall("d:Class/d:Subclass", self.n)],
@@ -218,8 +238,7 @@ class Document:
                 "domain": group.get("Domain"), "repeating": group.get("Repeating"),
                 "reference_data": group.get("IsReferenceData"), "sas_name": group.get("SASDatasetName"),
                 "has_no_data": self.attr(group, "HasNoData") or "No", "comment": self.comment(group),
-                "standard": {"name": (guide.get("Name") if standard else self.attr(guide, "StandardName")).replace("ADaM-IG", "ADaMIG"),
-                             "version": guide.get("Version") if standard else self.attr(guide, "StandardVersion")},
+                "standard": standard,
                 "artifact": {"link": leaf.get(f"{{{XLINK}}}href"), "title": self.text(leaf, "d:title")} if leaf is not None else None,
                 "column_order": list(variables), "variables": variables,
             }
