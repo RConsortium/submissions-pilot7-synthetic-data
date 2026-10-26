@@ -107,7 +107,11 @@ When the orchestrator sends uncited statements from the adjudicator, or a
 variable's claim in `<dataset>-claims.json` and keep everything that is still
 right, in its order: finding IDs number clauses by position, so a reordered
 claim renames findings and voids their decisions. Append each new citation and
-clause at the end. Cite each uncited statement and give it the clause its
+clause at the end. When a new statement shows an existing clause is wrong, for
+example a clause marked `absent_in_document` that the statement documents,
+correct that clause in place, keeping its position, and list its number under
+`corrected`; do not append a second clause for the same logic. Never remove or
+reorder a citation. Cite each uncited statement and give it the clause its
 content calls for: `same` when it restates the specification's logic,
 `differs` or `absent_in_spec` when the specification departs from it, and
 `contradicts` when it disagrees with another document statement already cited.
@@ -119,5 +123,6 @@ states the rule differently from every existing probe.
 
 Return your claims as a JSON array and your probe columns as YAML, plus the
 output column names to add. In a follow-up round, return the complete amended
-claim for each variable and list what you appended. List any variable you
+claim for each variable, list what you appended, and list under `corrected`
+the number of each clause you corrected in place. List any variable you
 could not finish and why.

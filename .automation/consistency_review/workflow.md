@@ -87,7 +87,13 @@ It must not be an extraction subagent, and give it no extraction reasoning
 beyond the files. It writes `<dataset>-adjudication.json`. Do not edit its
 decisions.
 
-When it lists `missed` statements, run one follow-up round, then stop:
+While it lists `missed` statements about a variable's derivation, run a
+follow-up round; stop after three rounds in all. A statement about which
+records the dataset holds, such as the exclusion of screen failures, names the
+specification's row rule instead of a variable: report it, but do not extract
+it, because no rule yet covers record selection. Statements still listed after
+the last round stay in the report as uncited, and the PR names them. Each
+round:
 
 1. Group the statements by variable, in batches of at most eight variables,
    and send each batch to an extraction subagent with the statements' quotes

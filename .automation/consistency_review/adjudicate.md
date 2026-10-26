@@ -68,7 +68,9 @@ marks a decision stale when the finding it judged has changed. Start the file
 from the report with a short script that writes each finding's `id` and
 `basis`, then fill in each decision and reason by hand. Use `missed`
 for any statement of a rule that no claim cites; quote it verbatim from the
-section files. Keep the file ASCII.
+section files. A statement about which records the dataset holds, not how a
+variable is derived, names the specification's row rule id (the `id` under
+`rows:`, such as `treated-subjects`) as its `variable`. Keep the file ASCII.
 
 ## Re-adjudication
 
