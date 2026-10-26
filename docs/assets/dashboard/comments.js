@@ -1,21 +1,21 @@
 /** Components read the live application context at render time. */
 export function createComments(ctx) {
   function commentsView() {
-    const { model, index, state, esc, dataset, link } = ctx;
+    const { model, index, state, esc, link } = ctx;
     const c = index.comments;
-    return `<div class="section-heading"><div><h2 id="comments-heading">Review comments</h2><p>Discuss ${esc(model.title)} / ${state.dataset}. Attach the current view link so reviewers can reproduce your context.</p></div><button class="button" id="copy-comment-context">Copy review context</button></div><div class="coverage-note">Comments are saved in <strong>${esc(c.repo)} GitHub Discussions</strong>, using a separate Pilot 7 thread for each dataset. GitHub sign-in is required to post. The static dashboard does not store comments locally.</div><div id="share-fallback" hidden><label>Copy review context<textarea id="share-url" readonly rows="6"></textarea></label></div><div id="comments-host"></div><p class="comment-fallback">If the embedded discussion is unavailable, ${link(c.discussion_url, "open GitHub Discussions")} or ${link(issueUrl(), "open a Pilot 7 review issue")}.</p>`;
+    return `<div class="section-heading"><div><h2 id="comments-heading">Review comments</h2><p>Discuss ${esc(model.title)} / ${state.dataset}. Attach the current view link so reviewers can reproduce your context.</p></div></div><div id="comments-host"></div><p class="comment-fallback">If the embedded discussion is unavailable, ${link(c.discussion_url, "open GitHub Discussions")} or ${link(issueUrl(), "open a Pilot 7 review issue")}.</p>`;
   }
   function issueUrl() {
-    const { model, index, state, dataset } = ctx;
+    const { model, index, state } = ctx;
     const title = `[Dashboard review] ${model.id} ${state.dataset}${state.focus ? " / " + state.focus : ""}`;
     return `${index.comments.issue_url}?title=${encodeURIComponent(title)}&body=${encodeURIComponent(commentContext())}`;
   }
   function commentContext() {
-    const { model, state, dataset, link } = ctx;
+    const { model, state } = ctx;
     return `Study: ${model.id}\nDataset: ${state.dataset}\nSelection: ${state.focus || "none"}\nSubjects: ${state.subjects.length === model.subjects.length ? "all" : state.subjects.join(", ")}\nCompared outputs: ${[state.dataset, ...state.outputs].join(", ")}\nSource revision: ${model.revision}\nReview link: ${location.href}\n\nObservation:\n\nSupporting evidence:\n`;
   }
   function loadComments() {
-    const { model, index, state, byId, dataset, link } = ctx;
+    const { model, index, state, byId } = ctx;
     const c = index.comments,
       host = byId("comments-host");
     if (!host) return;
@@ -47,5 +47,5 @@ export function createComments(ctx) {
     host.append(script);
   }
 
-  return { commentsView, issueUrl, commentContext, loadComments };
+  return { commentsView, issueUrl, loadComments };
 }

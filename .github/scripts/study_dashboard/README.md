@@ -190,11 +190,14 @@ uploads `report.json` and `report.md` as the `verification-<study>` artifact.
 `validate_verifications` refuses a report from another commit or engine, or one
 that does not cover exactly the reviewed datasets. A study with reviewed
 datasets cannot publish without one. `rule_review.py` reshapes each finding for
-the Consistency review table, and `docs/assets/dashboard/rule-findings.js`
+the Consistency findings table, and `docs/assets/dashboard/rule-findings.js`
 renders it: the rule and its statement, both quoted sides with links into the
 retained documents and the specification, the data evidence and the
 adjudication. Opening a finding in the workspace selects its differing subjects.
-Datasets without claims, and studies without any, are unchanged.
+Datasets without claims, and studies without any, are unchanged. The table lists
+findings only, excluding successful execution rows, with nested source quotes,
+specification lines, dataset evidence and adjudication under Trace evidence.
+The plain-text Consistency metric counts the same findings.
 
 `.automation/consistency_review/workflow.md` is the agentic workflow around it.
 Agents propose and the script decides. The extraction agent writes

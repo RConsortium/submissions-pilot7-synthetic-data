@@ -6,7 +6,11 @@ const normalize = (text) =>
     .replace(/\s+/g, " ")
     .trim();
 const value = (v) =>
-  v === null || v === undefined ? "(missing)" : v === "" ? "(empty)" : String(v);
+  v === null || v === undefined
+    ? "(missing)"
+    : v === ""
+      ? "(empty)"
+      : String(v);
 const span = ([first, last]) =>
   first === last ? `line ${first}` : `lines ${first}-${last}`;
 const where = (section) =>
@@ -57,12 +61,18 @@ function patternList(result, observed) {
   const items = result.patterns.map((p) => {
     const reference = p.row === "extra" ? "(no record)" : value(p.reference),
       other = p.row === "absent" ? "(no record)" : value(p.observed),
-      more = p.count > p.subjects.length ? ` and ${p.count - p.subjects.length} more` : "";
+      more =
+        p.count > p.subjects.length
+          ? ` and ${p.count - p.subjects.length} more`
+          : "";
     return `<li>Reference <code>${esc(reference)}</code>, ${esc(observed)} <code>${esc(other)}</code>: ${p.count} record${p.count === 1 ? "" : "s"} (${esc(p.subjects.join(", "))}${more})</li>`;
   });
-  const hidden = (result.pattern_count ?? result.patterns.length) - result.patterns.length;
+  const hidden =
+    (result.pattern_count ?? result.patterns.length) - result.patterns.length;
   if (hidden > 0)
-    items.push(`<li>${hidden} more value pairs; the verification report lists every pair.</li>`);
+    items.push(
+      `<li>${hidden} more value pairs; the verification report lists every pair.</li>`,
+    );
   return `<ul class="pattern-list">${items.join("")}</ul>`;
 }
 
@@ -71,7 +81,8 @@ function evidenceCell(f) {
   let out = "";
   for (const p of e.probes || []) {
     const r = p.reference,
-      reading = p.reading === "literal" ? "literal rule" : `reading: ${p.reading}`;
+      reading =
+        p.reading === "literal" ? "literal rule" : `reading: ${p.reading}`;
     out += `<p>Probe <code>${esc(p.column)}</code> (${esc(reading)}): ${r.differ ? `${r.differ} of ${r.compared} records differ from the reference.` : `reproduces the reference on all ${r.compared} records.`}</p>`;
     if (r.differ) out += patternList(r, "documented rule");
     if (p.definition?.excerpt)
@@ -86,7 +97,8 @@ function evidenceCell(f) {
     out += `<p>The specification derives it as <code>${esc(typeof copy.spec_derivation === "string" ? copy.spec_derivation : JSON.stringify(copy.spec_derivation))}</code>.</p>`;
   if (e.codelist?.reference?.length)
     out += `<p>Reference values outside codelist <code>${esc(e.codelist.oid)}</code>:</p><ul>${e.codelist.reference.map((v) => `<li><code>${esc(value(v.value))}</code>: ${v.count} records (${esc(v.subjects.join(", "))})</li>`).join("")}</ul>`;
-  if (e.not_probed_reason) out += `<p>Not probed: ${esc(e.not_probed_reason)}</p>`;
+  if (e.not_probed_reason)
+    out += `<p>Not probed: ${esc(e.not_probed_reason)}</p>`;
   if (!out) out = `<p>${esc(f.data.summary)}</p>`;
   const n = f.subjects?.length || 0;
   return `${out}<button class="text-link" data-finding="${esc(f.id)}">Open evidence in workspace${n ? ` (${n} subject${n === 1 ? "" : "s"})` : ""}</button>`;
@@ -96,8 +108,12 @@ function documentCell(f) {
   if (!f.documents.length) return "<p>No retained document states this.</p>";
   return f.documents
     .map((d) => {
-      const lines = d.lines ? `XML lines ${d.lines[0]}-${d.lines[1]}` : "Repository file";
-      const missing = d.verified ? "" : `<p>Quote not found: ${esc(d.reason)}.</p>`;
+      const lines = d.lines
+        ? `XML lines ${d.lines[0]}-${d.lines[1]}`
+        : "Repository file";
+      const missing = d.verified
+        ? ""
+        : `<p>Quote not found: ${esc(d.reason)}.</p>`;
       return `<p class="quote-source">${d.role === "against" ? "Another statement" : "Document"}: ${esc(d.name)}, ${esc(where(d.section))}</p><blockquote>${highlight(d.context, d.quote)}</blockquote>${missing}<p class="finding-links"><button class="text-link" data-document="${esc(d.path)}" data-document-section="${esc(d.section)}">View source</button>${d.repository ? " &middot; " + link(d.repository, lines) : ""}</p>`;
     })
     .join("");
@@ -112,17 +128,23 @@ function adjudication(a = { decision: "pending" }) {
 
 function statusCell(f) {
   const attention = f.kind === "conflict" || f.kind === "evidence";
+  return `<span class="status ${attention ? "attention" : "neutral"}">${esc(f.status)}</span><h3>${esc(f.title)}</h3><p>${esc(f.observation)}</p>`;
+}
+
+function assessment(f) {
   const interpretations = f.interpretations?.length
     ? `<ul class="interpretations">${f.interpretations.map((i) => `<li>${esc(i)}</li>`).join("")}</ul>`
     : "";
-  const question = f.question ? `<p><strong>Question:</strong> ${esc(f.question)}</p>` : "";
-  return `<span class="status ${attention ? "attention" : "neutral"}">${esc(f.status)}</span><h3>${esc(f.title)}</h3><blockquote class="rule-statement">${esc(f.rule.statement)}</blockquote><p>${esc(f.observation)}</p>${interpretations}${question}<p class="adjudication adjudication-${esc(f.adjudication?.decision || "pending")}"><strong>Adjudication:</strong> ${esc(adjudication(f.adjudication))}</p>`;
+  const question = f.question
+    ? `<p><strong>Question:</strong> ${esc(f.question)}</p>`
+    : "";
+  return `${interpretations}${question}<p class="adjudication adjudication-${esc(f.adjudication?.decision || "pending")}"><strong>Adjudication:</strong> ${esc(adjudication(f.adjudication))}</p>`;
 }
 
-/** One table row; the six cells follow the Consistency review columns. */
+/** A compact finding with its complete trace available within the table. */
 export function ruleRow(f) {
   const name = f.dataset + (f.variable ? "." + f.variable : "");
-  return `<tr class="rule-finding"><th scope="row"><button class="text-link" data-finding="${esc(f.id)}">${esc(name)}</button><span class="rule-id">${esc(f.rule.id)}</span></th><td>Documented rules</td><td>${specCell(f)}</td><td>${evidenceCell(f)}</td><td>${documentCell(f)}</td><td>${statusCell(f)}</td></tr>`;
+  return `<tr class="rule-finding" data-finding-id="${esc(f.id)}"><th scope="row"><button class="text-link" data-finding="${esc(f.id)}">${esc(name)}</button><span class="rule-id">${esc(f.rule.id)}</span></th><td>Documented rules</td><td>${statusCell(f)}</td><td><details class="finding-trace"><summary>Trace evidence</summary><div class="finding-evidence"><section><h4>Consistency rule</h4><blockquote class="rule-statement">${esc(f.rule.statement)}</blockquote></section><section><h4>yamaa specification</h4>${specCell(f)}</section><section><h4>Source documents</h4>${documentCell(f)}</section><section><h4>Dataset evidence</h4>${evidenceCell(f)}</section><section><h4>Review assessment</h4>${assessment(f)}</section></div></details></td></tr>`;
 }
 
 /** Text a reviewer may search for: rule, quotes and adjudication. */
@@ -136,23 +158,4 @@ export function ruleSearchText(f) {
     f.adjudication?.reason,
     ...f.documents.map((d) => d.context),
   ].join(" ");
-}
-
-/** Counts per reviewed dataset and the statements no finding cites yet. */
-export function reviewSummary(verification) {
-  if (!verification) return "";
-  return verification.datasets
-    .map(({ dataset, summary, missed }) => {
-      const s = summary.findings,
-        a = summary.adjudication,
-        c = summary.citations;
-      const counts = `<p class="result-count">Documented rules for ${esc(dataset)}: ${s.conflict} conflict, ${s.divergence} divergence, ${s.gap} gap and ${s.evidence} unverified findings. Adjudication: ${a.agree} agreed, ${a.dispute} disputed, ${a.stale} stale, ${a.pending} pending. ${c.verified} of ${c.total} citations verified.</p>`;
-      if (!missed.length) return counts;
-      const items = missed.map(
-        (m) =>
-          `<li><strong>${esc(m.variable)}</strong>${m.scope === "records" ? " (which records the dataset holds; no rule covers this yet)" : ""}: ${esc(m.name)}, ${esc(where(m.section))}: <q>${esc(normalize(m.quote))}</q> <button class="text-link" data-document="${esc(m.path)}" data-document-section="${esc(m.section)}">View source</button></li>`,
-      );
-      return `${counts}<details class="uncited"><summary>${missed.length} statements in ${esc(dataset)} that no finding cites yet</summary><ul>${items.join("")}</ul></details>`;
-    })
-    .join("");
 }

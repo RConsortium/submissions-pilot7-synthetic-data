@@ -29,12 +29,12 @@ export function createSourceDocuments(ctx) {
         : "#" + encodeURIComponent(section)
       : "";
     const frame = slot === 0 ? "source-frame" : "source-frame-compare";
-    return `<article class="source-pane" data-source-path="${esc(doc.path)}">${tabs(slot, chosen)}<section class="source-viewer" id="source-panel-${slot}" role="tabpanel" aria-labelledby="source-tab-${slot}-${chosen[slot]}"><header class="source-viewer-heading"><h3>${esc(doc.name)}</h3>${doc.available ? link(sourceUrl(doc.path), "Source", "button") : ""}</header>${doc.available && (doc.view || doc.original) ? `<iframe id="${frame}" title="${esc((doc.view_label || "Original file") + ": " + doc.name)}" src="${esc(resource(doc.view || doc.original) + fragment)}" ${doc.name.toLowerCase().endsWith(".pdf") ? "" : 'sandbox="allow-scripts"'}></iframe>` : '<p class="empty-state">Source unavailable. This file is not retained in the package.</p>'}</section></article>`;
+    return `<article class="source-pane" data-source-path="${esc(doc.path)}">${tabs(slot, chosen)}<section class="source-viewer" id="source-panel-${slot}" role="tabpanel" aria-labelledby="source-tab-${slot}-${chosen[slot]}">${doc.available ? `<div class="source-viewer-heading">${link(sourceUrl(doc.path), "Source", "button")}</div>` : ""}${doc.available && (doc.view || doc.original) ? `<iframe id="${frame}" title="${esc((doc.view_label || "Original file") + ": " + doc.name)}" src="${esc(resource(doc.view || doc.original) + fragment)}" ${doc.name.toLowerCase().endsWith(".pdf") ? "" : 'sandbox="allow-scripts"'}></iframe>` : '<p class="empty-state">Source unavailable. This file is not retained in the package.</p>'}</section></article>`;
   }
   function materialsView() {
     const { report } = ctx;
     const chosen = selection();
-    return `<div class="section-heading"><h2>Source documents</h2>${report.documents.length > 1 ? `<button class="button" id="compare-documents" aria-pressed="${chosen.length === 2}">${chosen.length === 2 ? "Close comparison" : "Compare side by side"}</button>` : ""}</div><div id="source-panes" class="source-panes" data-count="${chosen.length}">${chosen.length ? chosen.map((_, slot) => pane(slot, chosen)).join("") : '<p class="empty-state">No source documents have been declared for this study.</p>'}</div>`;
+    return `${report.documents.length > 1 ? `<div class="source-controls"><button class="button" id="compare-documents" aria-pressed="${chosen.length === 2}">${chosen.length === 2 ? "Close comparison" : "Compare side by side"}</button></div>` : ""}<div id="source-panes" class="source-panes" data-count="${chosen.length}">${chosen.length ? chosen.map((_, slot) => pane(slot, chosen)).join("") : '<p class="empty-state">No source documents have been declared for this study.</p>'}</div>`;
   }
   function refresh(slot) {
     const host = ctx.byId("source-panes");

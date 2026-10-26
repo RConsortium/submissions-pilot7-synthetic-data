@@ -49,20 +49,6 @@ import { mountSynthetic } from "./synthetic.js";
     state.view = view;
     location.hash = formatRoute(state, model);
   }
-  function notice(message) {
-    let el = byId("review-toast");
-    if (!el) {
-      el = document.createElement("div");
-      el.id = "review-toast";
-      el.className = "review-toast";
-      el.setAttribute("role", "status");
-      document.body.append(el);
-    }
-    el.textContent = message;
-    clearTimeout(notice.timer);
-    el.classList.add("visible");
-    notice.timer = setTimeout(() => el.classList.remove("visible"), 3000);
-  }
   const ctx = {
     REPO,
     site,
@@ -75,7 +61,6 @@ import { mountSynthetic } from "./synthetic.js";
     sourceUrl,
     dataset,
     save,
-    notice,
     get model() {
       return model;
     },
@@ -118,7 +103,7 @@ import { mountSynthetic } from "./synthetic.js";
     { workspace, applyHighlight, paintTables, fitWorkbench } =
       createWorkspace(ctx);
   const { allFindings, findingRows, findingsView, drawer } = createReport(ctx),
-    { commentsView, commentContext, loadComments } = createComments(ctx);
+    { commentsView, loadComments } = createComments(ctx);
   const sourceDocuments = createSourceDocuments(ctx),
     { materialsView } = sourceDocuments;
   const resizing = createResizing(ctx, fitWorkbench);
@@ -199,8 +184,6 @@ import { mountSynthetic } from "./synthetic.js";
     const token = ++mount.token;
     ++ticket;
     ++refreshRows.token;
-    clearTimeout(notice.timer);
-    byId("review-toast")?.classList.remove("visible");
     const main = root(),
       synthetic = byId("synthetic-dashboard");
     document.body.classList.remove("study-review-page");
@@ -234,7 +217,7 @@ import { mountSynthetic } from "./synthetic.js";
       const id = main.dataset.study;
       if (!index.studies.some((s) => s.id === id)) {
         main.innerHTML =
-          "<h1>Review workspace pending</h1><p>This study has no validated artifact bundle.</p>";
+          "<h1>SDTM -&gt; ADaM pending</h1><p>This study has no validated artifact bundle.</p>";
         return;
       }
       const loadedModel = await get(new URL(id + "/catalog.json", dataRoot));
@@ -312,19 +295,6 @@ import { mountSynthetic } from "./synthetic.js";
     for (const el of root().querySelectorAll("input[data-subject]"))
       el.checked = state.subjects.includes(el.dataset.subject);
     await refreshRows();
-  }
-  async function copy(text) {
-    try {
-      await navigator.clipboard.writeText(text);
-      notice("Review context copied");
-    } catch {
-      byId("share-fallback").hidden = false;
-      const input = byId("share-url");
-      input.value = text;
-      input.focus();
-      input.select();
-      notice("Copy the selected review text");
-    }
   }
   document.addEventListener("click", async (event) => {
     if (event.target.closest("#reload-synthetic")) {
@@ -422,10 +392,6 @@ import { mountSynthetic } from "./synthetic.js";
         behavior: "smooth",
         block: "start",
       });
-      return;
-    }
-    if (target.id === "copy-comment-context") {
-      await copy(commentContext());
       return;
     }
     if (target.id === "reset-layout") {

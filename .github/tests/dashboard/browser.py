@@ -273,16 +273,25 @@ def check(browser, base, site_dir, screenshots):
     shared.close()
     # Evidence and bottom-of-page comments retain the selected dataset context.
     page.locator("#dataset-select").select_option("ADAE")
-    page.locator('.metric-strip [data-view="overview"]').click()
+    expect(page.locator('.review-tabs [data-view="datasets"]')).to_have_text("SDTM -> ADaM")
+    expect(page.locator('.review-tabs [data-view="overview"]')).to_have_text("Consistency findings")
+    expect(page.locator('.metric-strip > span').last).to_have_text("Consistency: 45 findings")
+    expect(page.locator('.metric-strip button, .metric-strip a')).to_have_count(0)
+    page.locator('.review-tabs [data-view="overview"]').click()
     expect(page.locator(".consistency-table")).to_be_visible()
+    expect(page.locator(".consistency-table tbody tr[data-finding-id]")).to_have_count(45)
+    expect(page.locator("#view-content h2, #view-content .uncited")).to_have_count(0)
     page.locator("#finding-comparison").select_option("input_output")
-    expect(page.locator(".consistency-table tbody tr")).to_have_count(10)
-    expect(page.locator(".consistency-table tbody")).to_contain_text("Executed")
+    expect(page.locator(".consistency-table tbody")).to_contain_text("No findings match")
+    expect(page.locator(".consistency-table tbody")).not_to_contain_text("Executed")
     page.locator("#finding-comparison").select_option("source_documents")
     page.locator("#finding-search").fill("imputation")
     expect(page.locator(".consistency-table tbody tr")).to_have_count(1)
     expect(page.locator(".consistency-table tbody")).to_contain_text("ADAE.ASTDT")
+    page.locator(".finding-trace > summary").click()
+    expect(page.locator(".finding-evidence")).to_be_visible()
     expect(page.locator(".consistency-table tbody")).to_contain_text("Example values")
+    expect(page.locator('.finding-evidence a').first).to_have_attribute("href", re.compile(r"adae\.yaml#L\d+$"))
     capture(page, screenshots, "consistency-review.png")
     page.get_by_role("button", name="Open evidence in workspace", exact=True).click()
     expect(page.locator(".evidence-drawer")).to_be_visible()
@@ -298,17 +307,10 @@ def check(browser, base, site_dir, screenshots):
     expect(page.locator("#comments-host script")).to_have_attribute(
         "data-term", "pilot7/studies/cdiscpilot01/ADAE"
     )
-    context.grant_permissions(["clipboard-read", "clipboard-write"])
-    page.get_by_role("button", name="Copy review context", exact=True).click()
-    expect(page.locator("#review-toast")).to_contain_text("copied")
-    copied = page.evaluate("navigator.clipboard.readText()")
-    assert "Dataset: ADAE\n" in copied and page.url in copied
-    page.evaluate(
-        'Object.defineProperty(navigator,"clipboard",{value:{writeText:async()=>{throw Error("Denied")}}})'
-    )
-    page.get_by_role("button", name="Copy review context", exact=True).click()
-    expect(page.locator("#share-url")).to_have_value(copied)
+    expect(page.get_by_role("button", name="Copy review context", exact=True)).to_have_count(0)
+    expect(page.locator("#share-fallback, #share-url")).to_have_count(0)
     page.locator('.review-tabs [data-view="materials"]').click()
+    expect(page.locator("#view-content h2, #view-content h3")).to_have_count(0)
     primary_tabs = page.get_by_role("tablist", name="Document 1 files", exact=True)
     primary_tabs.get_by_role("tab", name="define-adam.xml", exact=True).click()
     expect(page.locator("#source-frame")).to_have_attribute("title", "Original XML HTML: define-adam.xml")
@@ -351,6 +353,7 @@ def check(browser, base, site_dir, screenshots):
     expect(primary_tabs.get_by_role("tab", name="dataguide.pdf", exact=True)).to_have_attribute("aria-selected", "true")
     page.keyboard.press("Home")
     expect(primary_tabs.get_by_role("tab", name="define-adam.xml", exact=True)).to_have_attribute("aria-selected", "true")
+    expect(page.frame_locator("#source-frame").locator("table").first).to_be_visible()
     capture(page, screenshots, "original-xml.png")
     page.locator('.review-tabs [data-view="overview"]').click()
     page.get_by_role("button", name="Clear filters", exact=True).click()
@@ -359,23 +362,26 @@ def check(browser, base, site_dir, screenshots):
     expect(page.locator(".consistency-table tbody")).not_to_contain_text("Executed")
     page.locator("#finding-search").fill("no such source rule")
     expect(page.locator(".consistency-table tbody")).to_contain_text(
-        "No comparisons match"
+        "No findings match"
     )
     # Documented rules cite a rule, quote both sides, open the cited source and
     # select the records that differ.
     page.get_by_role("button", name="Clear filters", exact=True).click()
-    expect(page.locator(".study-dashboard")).to_contain_text("Documented rules for ADSL")
     page.locator("#finding-comparison").select_option("documented_rules")
     page.locator("#finding-search").fill("HEIGHTBL*100")
     rule = page.locator(".consistency-table tbody tr.rule-finding")
     page.locator("#finding-kind").select_option("divergence")
     expect(rule).to_have_count(1)
     expect(rule.locator(".rule-id")).to_have_text("CR-6")
+    rule.locator(".finding-trace > summary").focus()
+    page.keyboard.press("Enter")
     expect(rule.locator("pre.spec-lines mark").first).to_be_visible()
     page.locator("#finding-kind").select_option("conflict")
     expect(rule).to_have_count(1)
     expect(rule.locator(".rule-id")).to_have_text("CR-5")
-    expect(rule.locator("blockquote").first).to_contain_text("WEIGHTBL / ((HEIGHTBL*100)**2)")
+    rule.locator(".finding-trace > summary").click()
+    expect(rule.locator(".quote-source + blockquote").first).to_contain_text("WEIGHTBL / ((HEIGHTBL*100)**2)")
+    expect(rule.locator(".pattern-list").first).to_be_visible()
     expect(rule).to_contain_text("Adjudication:")
     capture(page, screenshots, "documented-rules.png")
     rule.get_by_role("button", name="View source", exact=True).first.click()
@@ -383,6 +389,7 @@ def check(browser, base, site_dir, screenshots):
         "src", re.compile(r"define-adam\.xml.*#ADSL\.BMIBL$")
     )
     page.locator('.review-tabs [data-view="overview"]').click()
+    page.locator(".consistency-table tbody tr.rule-finding .finding-trace > summary").click()
     evidence = page.locator(".consistency-table tbody tr.rule-finding").get_by_role(
         "button", name=re.compile(r"^Open evidence in workspace \(\d+ subjects?\)$")
     )
@@ -493,9 +500,9 @@ def check(browser, base, site_dir, screenshots):
                 expect(page.locator("#output-table tbody tr")).not_to_have_count(0)
                 assert_page_fits(page, "#output-table")
             elif view == "findings":
-                expect(
-                    page.get_by_role("heading", name="Consistency review", exact=True)
-                ).to_be_visible()
+                expect(page.get_by_role("region", name="Consistency findings", exact=True)).to_be_visible()
+                page.locator(".finding-trace > summary").first.click()
+                expect(page.locator(".finding-evidence").first).to_be_visible()
             else:
                 expect(page.locator("#source-frame")).to_be_visible()
             assert page.evaluate("document.documentElement.scrollWidth<=innerWidth"), (
