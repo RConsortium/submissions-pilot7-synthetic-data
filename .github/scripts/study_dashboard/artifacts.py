@@ -11,7 +11,8 @@ from study_metrics import matched_totals, reference_totals
 
 from .config import SCHEMA_VERSION, comments, reference_path, settings, study_path
 from .datasets import export_table, write_json
-from .lineage import build_lineage
+from .lineage import build_lineage, source_locations
+from .specifications import inspection_specification, resource_path
 from .consistency import build_report
 from .domains import domain_labels, domain_keys
 from .synthetic import build_synthetic
@@ -43,7 +44,16 @@ def build_bundle(root, destination, entries, reports, revision, verifications=No
             "source": entry["source"],
             "revision": revision,
             "status": validation["status"],
-            "validation": validation,
+            # Inspection packets live in each spec document, not in the small
+            # catalog every review loads. Keep the full record in CI evidence.
+            "validation": {
+                **validation,
+                "datasets": [
+                    {key: value for key, value in dataset.items()
+                     if key != "resolved_specification"}
+                    for dataset in validation.get("datasets", [])
+                ],
+            },
             "settings": options,
             "subjects": [],
             "datasets": [],
@@ -92,17 +102,19 @@ def build_bundle(root, destination, entries, reports, revision, verifications=No
         results = {d["domain"]: d for d in validation["datasets"]}
         for domain, spec_path in project_specs(root, study):
             text = spec_path.read_text()
-            spec = yaml.safe_load(text)
+            spec, sources, resources = inspection_specification(
+                root, spec_path, results[domain], validation["artifacts"]["files"]
+            )
             inputs, schemas = [], {}
             for alias, item in spec["input"].items():
                 relative = item["path"] if isinstance(item, dict) else item
-                path = (spec_path.parent / relative).resolve()
+                path = resource_path(root, spec_path, resources, f"input.{alias}.path", relative)
                 identifier = table(
                     path, item.get("types") if isinstance(item, dict) else None
                 )
                 inputs.append({"alias": alias, "table": identifier})
                 schemas[alias] = {c["name"] for c in exported[identifier]["columns"]}
-            output = table((spec_path.parent / spec["output"]["path"]).resolve())
+            output = table(resource_path(root, spec_path, resources, "output.path", spec["output"]["path"]))
             labels = {c["name"]: c.get("label", "") for c in spec["columns"]}
             for column in exported[output]["columns"]:
                 column["declared_label"] = labels.get(column["name"], "")
@@ -117,6 +129,12 @@ def build_bundle(root, destination, entries, reports, revision, verifications=No
                     f"{study}/{domain}: passed comparison has no independent reference"
                 )
             lineage = build_lineage(text, spec, schemas)
+            lineage["resources"] = resources
+            resolved_text = yaml.safe_dump(spec, sort_keys=False, allow_unicode=False)
+            documents = [
+                {**source, "lineage": {**lineage, **source_locations(source["text"])}}
+                for source in sources
+            ]
             relative = f"specs/{domain.lower()}.json"
             write_json(
                 target / relative,
@@ -128,6 +146,11 @@ def build_bundle(root, destination, entries, reports, revision, verifications=No
                     "columns": spec["columns"],
                     "keys": spec.get("keys", []),
                     "lineage": lineage,
+                    "documents": documents,
+                    "resolved": {
+                        "text": resolved_text,
+                        "lineage": {**lineage, **source_locations(resolved_text)},
+                    },
                 },
             )
             record["datasets"].append(

@@ -1,6 +1,24 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { specificationLines } from "../../../docs/assets/dashboard/specification.js";
+import { specificationLines, specificationView, specificationGaps } from "../../../docs/assets/dashboard/specification.js";
+
+test("source views retain exact text and resolved model selection never becomes executable source", () => {
+  const spec = {text: "entry", path: "entry.yaml", documents: [
+    {text: "entry", path: "entry.yaml"}, {text: "parent", path: "base.yaml"},
+  ], resolved: {text: "normalized", lineage: {spans: {}}}};
+  assert.equal(specificationView(spec).text, "entry");
+  assert.equal(specificationView(spec, "source:1").path, "base.yaml");
+  assert.equal(specificationView(spec, "source:999").text, "entry");
+  assert.equal(specificationView(spec, "resolved").inspection, true);
+  assert.equal(specificationView(spec, "resolved").text, "normalized");
+  assert.equal(spec.text, "entry");
+});
+
+test("focused views mark leading, internal and trailing omissions", () => {
+  const lines = [false, true, false, false, true, false].map((visible, i) => ({number: i + 1, visible}));
+  assert.deepEqual([...specificationGaps(lines)], [[2, 1], [5, 2], [7, 1]]);
+  assert.deepEqual([...specificationGaps(lines.map(l => ({...l, visible: true})))], []);
+});
 
 const specification = {
   text: [

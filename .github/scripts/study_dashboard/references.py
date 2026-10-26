@@ -21,6 +21,11 @@ LITERALS = {
     "ties",
     "missing",
     "unmapped",
+    "true_value",
+    "false_value",
+    "unconvertible",
+    "invalid",
+    "absent",
 }
 
 

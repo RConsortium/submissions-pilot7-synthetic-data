@@ -55,6 +55,19 @@ line numbers are retained; inline input and output mappings show the relevant
 fields. **All columns** or **Clear highlight** restores the complete original
 specification.
 
+The specification's **View** control switches between the original source files
+and the engine's **Resolved model (inspection)**. The resolved model expands
+inherited declarations, copied producer columns and named windows. Source files
+retain their original text and line numbers; the resolved model is an inspection
+artifact with its own line numbers. Its normalized representation is not an
+authoring template. **Open source** opens the selected original file.
+
+Focused views mark omitted line ranges. **Copy source file** copies the complete
+selected file, including hidden lines. **Copy model** copies the complete
+inspection model. The selected view is retained in the shared review URL.
+For authoring conventions and verification examples, see
+[Writing specifications](yaml-authoring.md).
+
 Connections include declared values, joins, filters, keys, and ordering. They
 describe column dependencies; they do not identify contributing input rows.
 Unresolved references are reported above the specification.

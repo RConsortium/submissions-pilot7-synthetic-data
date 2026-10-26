@@ -289,6 +289,8 @@ def resolve_source(spec, derivation):
     file is adsl-yamaa.parquet, resolves to ADSL.AGE. Anything other than a
     plain qualified name resolves to None.
     """
+    if isinstance(derivation, dict) and set(derivation) == {"value"}:
+        derivation = derivation["value"]
     if not isinstance(derivation, str) or not QUALIFIED.fullmatch(normalize(derivation)):
         return None
     name, variable = normalize(derivation).split(".")
@@ -308,6 +310,8 @@ def copy_check(base, spec, tables, variable, comment, subject_key):
     domain, source_variable = COPY.fullmatch(comment).groups()
     column = next((c for c in spec["columns"] if c["name"] == variable), {})
     derivation = column.get("derivation")
+    if isinstance(derivation, dict) and set(derivation) == {"value"}:
+        derivation = derivation["value"]
     if derivation is None:
         # Row templates supply the value; one plain source across them is a copy.
         found = {
@@ -605,7 +609,8 @@ def variable_findings(record, rules, spec_file, define_citation):
         copy = record["copy"]
         documents = [quote_side(define_citation(record["define"]["comment"]), record["define"]["comment"], "states")]
         derivation = copy["spec_derivation"] if isinstance(copy["spec_derivation"], str) else None
-        spec = spec_side(spec_file, own["element"], derivation if own["element"] and derivation else None)
+        quoted = derivation if derivation and normalize(derivation) in normalize(own.get("excerpt", "")) else None
+        spec = spec_side(spec_file, own["element"], quoted if own["element"] else None)
         if copy["status"] == "source_variable_missing":
             add("CR-2", 0, documents, spec, f'Define-XML names {copy["source"]} as the source; {copy["reason"]}.', {"copy": copy})
         if copy["status"] == "checked" and copy["reference"]["differ"]:
@@ -691,6 +696,10 @@ def dataset_report(context, domain, spec_path, derived, reference):
     base = root / study
     text = spec_path.read_text()
     spec = yaml.safe_load(text)
+    if spec.get("parent") or spec.get("include") or any("copy" in c for c in spec["columns"]):
+        import yamaa
+        resolved = yamaa.spec(spec_path).resolve()
+        spec = next(e["specification"] for e in resolved["entries"] if e["entry"] == resolved["entry"])
     spans = source_locations(text)["spans"]
     spec_file = {
         "path": spec_path.relative_to(root).as_posix(),

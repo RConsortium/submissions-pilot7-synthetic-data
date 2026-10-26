@@ -1,5 +1,5 @@
 import { filterRows } from "./data.js";
-import { specificationLines } from "./specification.js";
+import { specificationLines, specificationView, specificationGaps } from "./specification.js";
 import {
   PAGE_SIZES,
   inputOptions,
@@ -13,6 +13,21 @@ import {
 
 /** Shared specification and independently paged, resizable dataset panels. */
 export function createWorkspace(ctx) {
+  const displayedSpec = () => specificationView(ctx.specification, ctx.state.specView);
+  function specificationPicker() {
+    const { specification, state, esc, sourceUrl, link } = ctx;
+    const shown = displayedSpec();
+    const sources = specification.documents || [{ path: specification.path }];
+    return `<div class="spec-controls"><label>View<select id="spec-view">${sources.map((source, i) => `<option value="${i ? "source:" + i : ""}" ${state.specView === "source:" + i || (!i && !state.specView) ? "selected" : ""}>Source: ${esc(source.path.split("/").slice(-2).join("/"))}</option>`).join("")}${specification.resolved ? `<option value="resolved" ${state.specView === "resolved" ? "selected" : ""}>Resolved model (inspection)</option>` : ""}</select></label><button id="copy-specification">${shown.inspection ? "Copy model" : "Copy source file"}</button>${link(sourceUrl(shown.path), "Open source")}</div>`;
+  }
+  async function copySpecification() {
+    try {
+      await navigator.clipboard.writeText(displayedSpec().text);
+      ctx.byId("copy-specification").textContent = "Copied";
+    } catch {
+      ctx.byId("spec-caption").textContent = "Copy unavailable. Open source to read the complete file.";
+    }
+  }
   const observedSizes = new WeakMap();
   const sizes = new ResizeObserver((entries) => {
     let changed = false;
@@ -70,7 +85,7 @@ export function createWorkspace(ctx) {
   }
   function workspace() {
     const { model, specification, state, layout, esc, sourceUrl, link } = ctx;
-    return `<div class="workspace-toolbar"><label class="select-field">Specification<select id="dataset-select">${model.datasets.map((d) => `<option value="${d.name}" ${state.dataset === d.name ? "selected" : ""}>${d.name}</option>`).join("")}</select></label>${subjectPicker()}<label class="search-field"><span class="field-label">Search records</span><input id="record-search" type="search" placeholder="Subject or value across displayed datasets..." value="${esc(state.rowSearch)}"></label><label class="select-field">Columns<select id="column-mode"><option value="related" ${state.relatedOnly ? "selected" : ""}>Related columns</option><option value="all" ${!state.relatedOnly ? "selected" : ""}>All columns</option></select></label><button class="button" id="clear-selection">Clear highlight</button><button class="button" id="reset-layout">Reset layout</button></div><div class="lineage-toolbar"><div id="lineage-summary" role="status"></div><span class="lineage-legend"><i class="swatch key"></i>Key / ID <i class="swatch selected"></i>Selected <i class="swatch related"></i>Related</span></div><div class="review-workbench" style="--spec-width:${layout.spec}%;--input-height:${layout.inputs ?? 50}%"><section class="spec-pane pane" aria-labelledby="spec-heading"><header class="pane-header"><div><h2 id="spec-heading">yamaa specification</h2><span id="spec-caption">${state.dataset} / ${specification.text.split("\n").length} lines${specification.lineage.unresolved.length ? " / " + specification.lineage.unresolved.length + " unresolved references" : ""}</span></div>${link(sourceUrl(specification.path), "Open source")}</header><div class="spec-scroll" id="spec-scroll" tabindex="0" aria-label="YAML specification">${renderSpec()}</div><footer class="pane-footer">Declared column dependencies; contributing rows are not traced.</footer></section><div class="spec-resizer" id="spec-resizer" role="separator" aria-label="Resize specification panel" aria-orientation="vertical" aria-valuemin="25" aria-valuemax="60" aria-valuenow="${Math.round(layout.spec)}" tabindex="0"></div><div class="data-panes">${group("input")}<div id="data-resizer" class="data-resizer" role="separator" aria-label="Resize input and output areas" aria-orientation="horizontal" aria-valuemin="25" aria-valuemax="75" aria-valuenow="${Math.round(layout.inputs ?? 50)}" tabindex="0"></div>${group("output")}</div></div><div id="data-status" role="status" class="data-status"></div><div id="evidence-drawer"></div>`;
+    return `<div class="workspace-toolbar"><label class="select-field">Specification<select id="dataset-select">${model.datasets.map((d) => `<option value="${d.name}" ${state.dataset === d.name ? "selected" : ""}>${d.name}</option>`).join("")}</select></label>${subjectPicker()}<label class="search-field"><span class="field-label">Search records</span><input id="record-search" type="search" placeholder="Subject or value across displayed datasets..." value="${esc(state.rowSearch)}"></label><label class="select-field">Columns<select id="column-mode"><option value="related" ${state.relatedOnly ? "selected" : ""}>Related columns</option><option value="all" ${!state.relatedOnly ? "selected" : ""}>All columns</option></select></label><button class="button" id="clear-selection">Clear highlight</button><button class="button" id="reset-layout">Reset layout</button></div><div class="lineage-toolbar"><div id="lineage-summary" role="status"></div><span class="lineage-legend"><i class="swatch key"></i>Key / ID <i class="swatch selected"></i>Selected <i class="swatch related"></i>Related</span></div><div class="review-workbench" style="--spec-width:${layout.spec}%;--input-height:${layout.inputs ?? 50}%"><section class="spec-pane pane" aria-labelledby="spec-heading"><header class="pane-header"><div><h2 id="spec-heading">yamaa specification</h2><span id="spec-caption">${state.dataset} / ${specification.text.split("\n").length} lines${specification.lineage.unresolved.length ? " / " + specification.lineage.unresolved.length + " unresolved references" : ""}</span></div>${specificationPicker()}</header><div class="spec-scroll" id="spec-scroll" tabindex="0" aria-label="YAML specification">${renderSpec()}</div><footer class="pane-footer">${displayedSpec().inspection ? "Engine-resolved model for inspection. " : ""}Declared column dependencies; contributing rows are not traced.</footer></section><div class="spec-resizer" id="spec-resizer" role="separator" aria-label="Resize specification panel" aria-orientation="vertical" aria-valuemin="25" aria-valuemax="60" aria-valuenow="${Math.round(layout.spec)}" tabindex="0"></div><div class="data-panes">${group("input")}<div id="data-resizer" class="data-resizer" role="separator" aria-label="Resize input and output areas" aria-orientation="horizontal" aria-valuemin="25" aria-valuemax="75" aria-valuenow="${Math.round(layout.inputs ?? 50)}" tabindex="0"></div>${group("output")}</div></div><div id="data-status" role="status" class="data-status"></div><div id="evidence-drawer"></div>`;
   }
   function specLines() {
     const { state, specification, plan, model, graph } = ctx;
@@ -87,13 +102,15 @@ export function createWorkspace(ctx) {
     const related = new Set([...nodes].filter((n) => n.startsWith(prefix)).map((n) => n.slice(prefix.length)));
     const dataset = model.datasets.find((d) => d.name === state.dataset);
     const inputs = new Set(dataset.inputs.filter((i) => model.tables[i.table].columns.some((c) => nodes.has(tableNode(model, i.table, c.name)))).map((i) => i.alias));
-    return specificationLines(specification, selected, related, Boolean(state.focus) && state.relatedOnly, inputs);
+    return specificationLines(displayedSpec(), selected, related, Boolean(state.focus) && state.relatedOnly, inputs);
   }
   function renderSpec() {
     const { esc } = ctx;
-    return specLines().map(({ displayText, number, node, kind, row, lookup, start, visible, selected, related }) =>
-      `<div class="spec-line${selected ? " node-selected" : related ? " node-related" : ""}" id="spec-L${number}" ${visible ? "" : "hidden"} data-spec-kind="${kind}" ${lookup ? `data-intermediate="${esc(lookup)}"` : ""} ${row ? `data-row-node="${esc(row)}"` : ""} ${node ? `data-line-node="${esc(node)}"` : ""}><button class="line-number" ${node ? `data-node="${esc(node)}"` : "disabled"} tabindex="${node && start ? 0 : -1}" aria-pressed="${selected}" aria-label="${node ? "Select " + esc(node) + " at " : ""}line ${number}">${number}</button><code>${esc(displayText) || " "}</code></div>`
-    ).join("");
+    const lines = specLines(), gaps = specificationGaps(lines);
+    const gap = (number) => `<div class="spec-omission" data-gap-before="${number}" ${gaps.has(number) ? "" : "hidden"}>${gaps.get(number) || 0} lines omitted</div>`;
+    return lines.map(({ displayText, number, node, kind, row, lookup, start, visible, selected, related }) =>
+      gap(number) + `<div class="spec-line${selected ? " node-selected" : related ? " node-related" : ""}" id="spec-L${number}" ${visible ? "" : "hidden"} data-spec-kind="${kind}" ${lookup ? `data-intermediate="${esc(lookup)}"` : ""} ${row ? `data-row-node="${esc(row)}"` : ""} ${node ? `data-line-node="${esc(node)}"` : ""}><button class="line-number" ${node ? `data-node="${esc(node)}"` : "disabled"} tabindex="${node && start ? 0 : -1}" aria-pressed="${selected}" aria-label="${node ? "Select " + esc(node) + " at " : ""}line ${number}">${number}</button><code>${esc(displayText) || " "}</code></div>`
+    ).join("") + gap(lines.length + 1);
   }
   function applyHighlight(scroll = false) {
     const { model, state, plan, root, byId } = ctx;
@@ -125,8 +142,14 @@ export function createWorkspace(ctx) {
       el.querySelector(".line-number").setAttribute("aria-pressed", String(line.selected));
     }
     const shown = sourceLines.filter((line) => line.visible).length;
+    const gaps = specificationGaps(sourceLines);
+    for (const el of root().querySelectorAll("[data-gap-before]")) {
+      const count = gaps.get(Number(el.dataset.gapBefore));
+      el.hidden = !count;
+      el.textContent = `${count || 0} lines omitted`;
+    }
     const unresolved = ctx.specification.lineage.unresolved.length;
-    byId("spec-caption").textContent = `${state.dataset} / ${shown === sourceLines.length ? shown : shown + " of " + sourceLines.length} source lines${unresolved ? " / " + unresolved + " unresolved references" : ""}`;
+    byId("spec-caption").textContent = `${state.dataset} / ${shown === sourceLines.length ? shown : "Focused view: " + shown + " of " + sourceLines.length} ${displayedSpec().inspection ? "model" : "source"} lines${unresolved ? " / " + unresolved + " unresolved references" : ""}`;
     byId("lineage-summary").textContent = state.focus
       ? `${state.focus.replace(/^output\./, "Output ").replace(/^spec\./, "YAML ")} selected. ${state.relatedOnly ? "Related source datasets and columns are shown." : "Linked columns are highlighted across displayed datasets."}`
       : "Select an output column to reveal connected input datasets and columns. Drag pane edges or column separators to resize.";
@@ -295,5 +318,5 @@ export function createWorkspace(ctx) {
       el.style.height = "";
     }
   }
-  return { workspace, applyHighlight, paintTables, fitWorkbench };
+  return { workspace, applyHighlight, paintTables, fitWorkbench, copySpecification };
 }

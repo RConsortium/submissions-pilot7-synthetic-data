@@ -66,6 +66,13 @@ def source_locations(text):
             for item in value.value:
                 fields = {k.value: v for k, v in item.value}
                 identifier = fields.get("name" if key.value == "columns" else "id")
+                if key.value == "columns" and "copy" in fields:
+                    copy_fields = {k.value: v for k, v in fields["copy"].value}
+                    for name in copy_fields["columns"].value:
+                        sections[name.value] = {
+                            **line_span(item.start_mark, item.end_mark),
+                            "kind": "columns",
+                        }
                 if identifier:
                     sections[identifier.value] = {
                         **line_span(item.start_mark, item.end_mark),
@@ -101,6 +108,7 @@ def source_locations(text):
 
 
 def build_lineage(text, spec, input_columns):
+    """Index the engine-resolved model, retaining the authored source positions."""
     references = References(spec, input_columns)
     edges = {}
     for item in spec.get("intermediates", []):

@@ -1,4 +1,25 @@
 /** Project parsed YAML locations onto original lines without changing source text. */
+export function specificationView(specification, view = "") {
+  if (view === "resolved" && specification.resolved)
+    return { ...specification, ...specification.resolved, inspection: true };
+  const index = /^source:\d+$/.test(view) ? Number(view.slice(7)) : 0;
+  return { ...specification, ...(specification.documents?.[index] || specification.documents?.[0]) };
+}
+
+export function specificationGaps(lines) {
+  const gaps = new Map();
+  let count = 0;
+  for (const line of lines) {
+    if (!line.visible) count++;
+    else if (count) {
+      gaps.set(line.number, count);
+      count = 0;
+    }
+  }
+  if (count) gaps.set(lines.length + 1, count);
+  return gaps;
+}
+
 export function specificationLines(
   specification,
   selected,

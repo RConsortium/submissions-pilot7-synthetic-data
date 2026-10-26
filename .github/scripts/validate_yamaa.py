@@ -10,6 +10,7 @@ from pathlib import Path
 
 from study_evidence import catalog, engine_revision, project_specs
 from study_artifacts import artifact_snapshot
+from study_dashboard.specifications import capture_specification
 
 ROOT = Path(__file__).resolve().parents[2]
 
@@ -61,6 +62,8 @@ def validate(study_name, entry, report):
                 matched = comparator.compare(path.stem)
         report['datasets'].append({
             'domain': domain, 'spec': path.relative_to(ROOT).as_posix(),
+            'resolved_specification': capture_specification(
+                ROOT, path, project.spec(domain).resolve()),
             'rows': output.num_rows, 'columns': len(output.column_names),
             'build': 'succeeded',
             'comparison': ('unavailable' if matched is None else

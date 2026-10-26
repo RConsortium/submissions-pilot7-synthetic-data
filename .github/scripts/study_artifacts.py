@@ -28,6 +28,7 @@ def artifact_snapshot(root, study):
         ".github/scripts/validate_yamaa.py",
         ".github/scripts/study_artifacts.py",
         ".github/scripts/study_evidence.py",
+        ".github/scripts/study_dashboard/specifications.py",
         ".github/scripts/compare_adam.py",
     ):
         path = root / relative
