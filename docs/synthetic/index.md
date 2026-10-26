@@ -12,4 +12,4 @@ hide:
 
 [KN189](../studies/kn189.md) and [KN564](../studies/kn564.md) provide synthetic
 ODM source archives. These development workspaces are separate from the
-[pilot verification dashboards](../studies/index.md).
+[pilot study report](../studies/index.md).

@@ -1,12 +1,13 @@
 # Dashboard review guide
 
-**Pilot studies** and **Synthetic data** have separate navigation sections and
-[dashboard galleries](studies/index.md). Pilots support review against published
-submission packages. [Synthetic workspaces](synthetic/index.md) support source
+**Pilot studies** and **Synthetic data** have separate navigation sections.
+Pilots support review against published submission packages; the
+[study report](studies/index.md) summarizes their results and opens each
+review workspace. [Synthetic workspaces](synthetic/index.md) support source
 exploration and development of the EDC-to-submission workflow.
 
-The links beside each study name return to its gallery and open that study's
-source folder in this repository.
+The links beside each study name return to the study report and open that
+study's source folder in this repository.
 
 ## Compare pilot datasets
 

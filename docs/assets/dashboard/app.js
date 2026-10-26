@@ -232,10 +232,6 @@ import { mountSynthetic } from "./synthetic.js";
       if (token !== mount.token) return;
       index = loadedIndex;
       const id = main.dataset.study;
-      if (id === "gallery") {
-        main.innerHTML = `<h1>Pilot study dashboards</h1><p>Review SDTM-to-ADaM derivations and verification evidence from published submission packages.</p><div class="material-grid">${index.studies.map((s) => `<a class="study-card" href="${new URL("studies/" + s.id + "/", site)}"><h2>${esc(s.title)}</h2><p>${s.status === "pending" ? "Validation pending" : s.datasets + " datasets / " + s.subjects + " subjects"}</p><span>${s.findings === null ? "Not reviewed" : s.findings + " documentation observations and tasks"} &#8594;</span></a>`).join("")}</div>`;
-        return;
-      }
       if (!index.studies.some((s) => s.id === id)) {
         main.innerHTML =
           "<h1>Review workspace pending</h1><p>This study has no validated artifact bundle.</p>";

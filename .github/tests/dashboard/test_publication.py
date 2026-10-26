@@ -136,12 +136,28 @@ columns:
         self.assertEqual(
             study_navigation(self.root, [{"Manual": "studies/manual.md"}]),
             [
-                {"Pilot dashboards": "studies/index.md"},
+                {"Study report": "studies/index.md"},
                 {"Future study": "studies/future-study.md"},
                 {"Pending study": "studies/pending-study.md"},
                 {"Manual": "studies/manual.md"},
             ],
         )
+
+    def test_study_report_states_unavailable_comparisons_and_pending_studies(self):
+        self.generate()
+        page = (self.root / "docs/studies/index.md").read_text()
+        for expected in [
+            "<div><dt>Studies</dt><dd>1 / 2<span>validated</span></dd></div>",
+            "<div><dt>ADaM datasets</dt><dd>0 / 0<span>no official reference</span></dd></div>",
+            '<a href="pending-study/">Pending study</a><small>Pending</small></th>',
+            '<td class="report-cell"><span class="report-status neutral">No reference</span>'
+            '<span class="report-dims">3 &#215; 2</span></td><td class="report-cell">-</td>',
+            "<td>New study</td><td>Unstarted<small>Validation pending. No project yet.</small></td>",
+            "<tr><th scope=\"row\">ADaM datasets matched</th><td>No official reference</td><td>-</td></tr>",
+        ]:
+            with self.subTest(expected=expected):
+                self.assertIn(expected, page)
+        self.assertNotIn("Study validation records", page)
 
     def test_changed_artifacts_during_export_leave_previous_bundle_intact(self):
         current = self.generate()

@@ -361,19 +361,29 @@ def check(browser, base, site_dir, screenshots):
     expect(page.locator(".consistency-table tbody")).to_contain_text(
         "No comparisons match"
     )
-    # Pilot and synthetic sections have separate galleries and dashboard purposes.
+    # The pilot study report is static; synthetic data keeps a separate gallery.
     page.get_by_role("link", name="All pilot studies", exact=True).click()
-    expect(page.locator(".study-card")).to_have_count(
+    report = page.locator(".study-report")
+    expect(report.get_by_role("link", name="Open review workspace")).to_have_count(
         len(
             json.loads((site_dir / "evidence/dashboard/index.json").read_text())[
                 "studies"
             ]
         )
     )
+    expect(report.locator("details")).to_have_count(0)
+    assert page.evaluate("document.documentElement.scrollWidth<=innerWidth")
     nav = page.locator(".md-nav--primary")
     expect(nav).to_contain_text("Pilot studies")
     expect(nav).to_contain_text("Synthetic data")
-    page.locator('.study-card[href*="submission-pilot3"]').click()
+    capture(page, screenshots, "study-report.png")
+    # Instant navigation makes the report's relative links absolute.
+    report.locator('a[href$="/cdiscpilot01/#cdiscpilot01/overview"]').first.click()
+    expect(page.locator('.review-tabs [data-view="overview"]')).to_have_attribute(
+        "aria-current", "page"
+    )
+    page.go_back()
+    report.get_by_role("link", name="Open review workspace").nth(1).click()
     expect(page.locator("#output-table tbody tr")).to_have_count(3)
     page.locator('.review-tabs [data-view="materials"]').click()
     page.get_by_role("tablist", name="Document 1 files", exact=True).get_by_role("tab", name="adam-pilot-3.xlsx", exact=True).click()

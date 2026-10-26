@@ -28,7 +28,7 @@ The reviewer guide is `docs/review.md`.
     document_views.py                    workbook tables and original XML HTML
     consistency.py                       metadata checks and source-backed review questions
     artifacts.py                         versioned study and gallery manifests
-    pages.py                             accessible page shells and static fallback evidence
+    pages.py                             study page shells and the static two-page study report
 docs/assets/dashboard/
   app.js                                 lifecycle, events, and navigation
   state.js                               validated, shareable review URLs
@@ -58,8 +58,10 @@ Heading-based URL tracking is disabled because dashboard fragments own review st
    the `-yamaa.parquet` suffix, separate from published reference files. Preserve
    existing comparison policies.
 2. Add the study's title, description, upstream source, and comparison policy
-   (`official` or `optional`) to `.github/yamaa-studies.json`. Navigation, gallery,
-   study pages, and the CI publication matrix discover it automatically.
+   (`official` or `optional`) to `.github/yamaa-studies.json`. Navigation, the
+   study report, study pages, and the CI publication matrix discover it automatically.
+   The report reads the staged bundle, so it adds a column for the study and rows
+   for its datasets and review items. Keep it within two printed pages.
 3. Optional `dashboard` settings in that catalog entry override shared defaults:
 
    ```json
