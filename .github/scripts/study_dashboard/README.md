@@ -165,6 +165,36 @@ New consistency checks belong in `consistency.py`, document adapters in
 `documents.py`, dataset adapters in `datasets.py`, and UI components alongside
 `workspace.js`. Add meaningful boundary coverage with each new capability.
 
+## Derivation verification (prototype)
+
+`.github/scripts/verify_derivations.py` compares each derivation with the
+document text that states it and writes `report.json`, `report.md` and the
+citable `sections/` text under `.build/verification/<study>/`. It is not yet
+part of the bundle. Run it with the study's pinned engine requirements and the
+documentation requirements:
+
+```bash
+python .github/scripts/verify_derivations.py cdiscpilot01 --dataset ADSL
+```
+
+`.automation/consistency_review/workflow.md` is the agentic workflow around it.
+Agents propose and the script decides. The extraction agent writes
+`<study>/spec/review/<dataset>-claims.json` (verbatim citations, and clauses
+that quote both the document and a specification element) and
+`<dataset>-probe.yaml`, a yamaa specification that states each documented rule
+literally. An independent adjudicator writes `<dataset>-adjudication.json`. The
+script accepts a quote only when it is found where it is cited: a section that
+`documents.py` extracts, the text the dashboard's reading copy shows, or a
+specification element that `lineage.py` locates. It runs the probes, compares
+them with the reference and the yamaa output, and turns each inconsistency into
+a finding citing one rule of `.automation/consistency_review/rules.yaml`.
+Define-XML copies such as `DM.AGE` and codelist values are checked without an
+agent. `consistency_report.py` renders `report.md` from `report.json` alone:
+each finding quotes its rule, shows the document and specification quotes with
+links to the reading copy, the original page or XML lines and the
+specification lines, and lists the differing records. Findings are not
+regulatory validation; each awaits a person's decision.
+
 ## Dataset comparisons and synthetic workspaces
 
 `review-model.js` scopes each specification's nodes before joining lineage
