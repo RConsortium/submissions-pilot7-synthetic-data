@@ -1,110 +1,91 @@
 # Pilot 3 Define-XML generation
 
-The workflow generates a schema-valid Define-XML 2.1 candidate with yamaa.
-It covers all five datasets, 216 dataset variables, 15 ADADAS.AVAL value-level
-definitions, and 36 codelists in the published ADaM Define-XML.
-It does not yet reproduce that Define-XML's metadata in full.
-
-The reference under `spec/define/define-adam.xml` remains unchanged. The
-submission layers under `spec/yamaa/submission/` inherit the executable
-specifications and declare the export metadata separately. Metadata was
-transcribed from the preserved reference, including methods, comments,
-terminology aliases, dictionary versions, and the reviewer guide link. The
-runtime generator never reads the reference to construct its output; the
-independent comparator reads it only after generation.
-
-The draft layers use `core: Cond`, a field required by yamaa but absent from
-both the published Define-XML and its Excel source. Core is not written to
-Define-XML. These declarations require ADaMIG review and are not a claim of
-approved standard core designations.
+One [project](../../spec/yamaa/project.yaml) runs the ADaM derivations and
+generates Define-XML. Each dataset YAML contains its executable derivations,
+labels, and dataset/column `submission` metadata. The same project supplies
+study identity, ADaMIG 1.1, supporting documents, and shared
+[codelists](../../spec/yamaa/codelists.yaml). There is no separate submission
+project or second set of dataset specifications.
 
 ## Run
 
-Use the engine revision already pinned for Pilot 3:
-`3e8d5f6b5d2af223fba6aa29fa7209699123f706` (`1.0.0rc1`).
-From the repository root:
+From the repository root, install the existing engine pin and XML validator:
 
 ```bash
 python -m pip install -r submission-pilot3/program/adam/python/requirements-define.txt
 
 # The authoritative CDISC XSDs are retained in the tested yamaa source.
-git clone https://github.com/elong0527/yamaa.git .build/pilot3-define-schema-source
-git -C .build/pilot3-define-schema-source checkout --detach 3e8d5f6b5d2af223fba6aa29fa7209699123f706
+git clone https://github.com/elong0527/yamaa.git .build/define-schema-source
+git -C .build/define-schema-source checkout --detach 3e8d5f6b5d2af223fba6aa29fa7209699123f706
 
-python submission-pilot3/program/adam/python/generate_define.py \
-  --schemas .build/pilot3-define-schema-source/rust/tests/schemas
+python .github/scripts/generate_define.py submission-pilot3 \
+  --schemas .build/define-schema-source/rust/tests/schemas
 ```
 
-The generator:
+The shared generator checks and runs this project's five specs, saves the
+ADaM outputs, and invokes the existing reference comparator. It then calls
+`submission("adam")` on the same project, validates the XML against the local
+Define-XML 2.1 XSDs with network imports disabled, compares all metadata, and
+audits the actual derived files against both XML documents.
 
-1. Runs the original ADaM project and its existing reference comparator.
-2. Copies the derived Parquet artifacts and unchanged ADRG into
-   `.build/pilot3-define/data/`.
-3. Checks the submission layers and composes `data/define.xml` with
-   `project.submission("adam")`. The creation time is fixed for reproducible XML.
-4. Validates against the local CDISC Define-XML 2.1 XSD bundle with network
-   imports disabled.
-5. Resolves XML references and compares study and dataset metadata, ordered
-   variables, keys, types, lengths, precision, formats, labels, origins,
-   methods, comments, codelists, value-level definitions, and document links.
-6. Audits the candidate metadata and the reference metadata against the
-   derived artifacts. Writes `.build/pilot3-define/report.json`.
+Outputs:
 
-The current exit code is **1**, with status `incomplete`. Generation and XSD
-validation succeed, but equivalence and data conformance do not. No option
-ignores these differences. A failed attempt replaces the previous report;
-the generator removes the previous XML before starting.
+- `data/adam/<dataset>-yamaa.parquet`: the derived datasets.
+- `data/adam/define-yamaa.xml`: generated Define-XML, referencing those files.
+- `data/adam/adrg.pdf`: unchanged copy of the source reviewer guide.
+- `.build/submission-pilot3-define/report.json`: generation, schema, dataset,
+  metadata-comparison, and data-audit results.
 
-This is a metadata-only export. It references the copied Parquet files;
-it does not create XPT files. A successful composition does not establish that
-running the submission layers passes yamaa's data checks. The original
-ADaM derivations and comparison policy remain separate and unchanged.
+The creation time is fixed to the reference instant for reproducible XML.
+Dataset entry order follows the reference Define; yamaa schedules execution
+by dependencies. The published XML and reference datasets remain unchanged.
 
-## Remaining differences
+## Metadata enforced during derivation
 
-The first complete comparison found 133 unequal metadata fields. The JSON
-report records every reference and candidate value, with no allowlist.
+All 216 output variables carry submission metadata in their derivation spec.
+The project also declares 15 ADADAS.AVAL value-level entries and 36 codelists.
+The normal R/Python project run now checks these metadata constraints.
 
-| Area | What remains |
-| --- | --- |
-| Format | The reference is Define-XML 2.0 from Pinnacle 21; yamaa emits 2.1. Root representation differences are retained in the report. |
-| Terminology classification | 2.1 marks the 35 item codelists as non-standard because the source supplies no CT publishing-set/version declaration. NCI aliases and all coded values/decodes are retained; aliases alone do not establish a terminology release. |
-| Files | The five dataset leaves name generated Parquet files instead of the reference XPT files. The ADRG link resolves to an unchanged copy. |
-| Keys | yamaa's executable keys differ from the published descriptive keys and require non-missing values. The reference marks every variable optional, including its keys; ADAE.ASTDT is a declared reference key but is missing on 11 records. |
-| Numeric types | Reference ADADAS.BASE, CHG and PCHG are declared integer, but have fractional values on 17, 36 and 2,084 records respectively. The candidate retains float values and declares 13 decimal places; it does not truncate the values. |
-| Origins and methods | The faithful transcription initially produced 35 origin-refutation issues. The candidate describes the executable sources, recodes, planned rows, LOCF and assigned constants. Every resulting difference from the published origins and methods remains in the report. |
+The declarations account for the executable representation:
 
-For ADADAS's subject variables, the submission layer reads ADSL directly
-through its declared USUBJID key rather than through the parent specification's
-ADSL_LOOKUP alias. It retains the analysis-window lookup. This permits
-Predecessor metadata for the direct copy; it does not change the original
-project or the artifacts the metadata-only export copies.
+- Numeric columns and bound numeric codelists retain the derivation's `float`
+  type. Integer-valued floats declare zero decimal places; fractional
+  ADADAS.BASE, CHG and PCHG retain 13. Dates keep ADaM date representation.
+- Draft character codelists explicitly list the empty string with decode
+  `Blank` where the existing outputs use it. These local additions have no NCI
+  alias and remain visible in the comparison; blank and null remain distinct.
+- ADLBC.VISITNUM is rounded to the codelist's one-decimal precision, removing
+  binary transport noise such as `1.2000000000000002`. The original absolute
+  comparison tolerance of `1e-10` remains unchanged.
+- ADAE.ADURU declares length 4 to accommodate `DAYS`.
+- Origins and methods describe the actual sources, recodes, LOCF/planned rows,
+  and constants. ADADAS reads subject variables directly from the unique
+  ADSL.USUBJID join instead of a lookup alias.
 
-The comparison resolves generated OIDs by their bindings, collapses prose
-whitespace, and maps the documented 2.0/2.1 representations of classes,
-implementation guides, English text, and Sponsor origins. It compares a shared
-method at every variable/value-level binding. Unknown XML content, dangling
-references, duplicate identities, missing definitions, and extra definitions
-cannot produce an equivalence pass. Coded values and expression code retain
-their content. These normalizations do not waive the remaining differences.
+The source XML/XLSX does not state core designations. The draft `core: Cond`
+annotations required by yamaa still need ADaMIG review; Core is not emitted
+in Define-XML. No CT release is invented from NCI aliases alone.
 
-## Data conformance findings
+## Reproduction status
 
-The candidate's data audit reports seven conflicts:
+Derivation, data comparisons, composition, XSD validation, and the candidate
+data audit must be assessed separately from reference metadata equivalence.
+The shared command exits **1** with `incomplete` while any metadata differs,
+even when generation and the data checks pass. There is no difference allowlist.
 
-- Empty strings outside the bound codelist in ADSL.DCSREAS and ADLBC.DSRAEFL,
-  AVISIT, BNRIND and LBNRIND. The audit preserves the distinction between empty
-  strings and nulls rather than expanding the published terminology.
-- 120 ADLBC.VISITNUM values differ from their decimal codelist values at binary
-  floating-point precision, for example `1.2000000000000002` versus `1.2`.
-  The audit does not round clinical values or add near-duplicate codes.
-- ADAE.ADURU has declared length 3, but contains `DAYS` on 718 records.
+The reference uses Define-XML 2.0 and XPT leaves; yamaa emits 2.1 and references
+the derived Parquet files. Remaining differences include executable keys and
+mandatory flags, numeric types, actual provenance, explicit blank terms,
+ADURU's corrected length, and the 2.1 codelist classification. Every differing
+field retains its reference and candidate values in the JSON report.
 
-The separate audit of the published reference metadata additionally records
-the three integer/fraction conflicts and the missing ADAE key described above.
-All 2,291,147 cells still pass the original five-dataset comparison under its
-existing numeric tolerance and missing-character policy.
+The independent audit also keeps the reference's data conflicts visible:
+fractional values declared integer, ADAE.ASTDT key values missing on 11
+records, blank strings absent from its lists, and `DAYS` exceeding length 3.
 
-Full reproduction requires resolving these metadata decisions and the target
-format. Schema validity and complete inventory coverage are established;
-metadata equivalence and a conformant submission package are not.
+The comparator resolves OID references, compares every bound method/comment
+including shared VLM methods, and checks ordered codelist values/decodes and
+all VLM conditions. It accounts for unknown and unused content and refuses
+dangling references or duplicate identities. Its documented version/format
+normalizations do not waive the remaining differences. The XML is not claimed
+to reproduce the original 2.0 file in full, and no XPT transport is generated.

@@ -1,4 +1,4 @@
-"""Compare Pilot 3 Define-XML metadata after resolving its object references.
+"""Compare pilot Define-XML metadata after resolving its object references.
 
 Object identifiers, whitespace in prose, and the 2.0/2.1 representation of
 classes and implementation guides do not define clinical metadata equality.
@@ -52,7 +52,7 @@ class Document:
     def __init__(self, path):
         self.root = ET.parse(path).getroot()
         if self.root.tag != f"{{{ODM}}}ODM":
-            raise ValueError("Pilot 3 requires ODM 1.3 XML")
+            raise ValueError("The pilot metadata comparison requires ODM 1.3 XML")
         self.study = self.root.find(f"{{{ODM}}}Study")
         self.md = self.study.find(f"{{{ODM}}}MetaDataVersion")
         self.defns = next(k[1:].split("}")[0] for k in self.md.attrib if local(k) == "DefineVersion")

@@ -78,7 +78,11 @@ def _spec_labels(spec):
     """Declared labels after the pinned engine expands copies and inheritance."""
     import yamaa
 
-    resolved = yamaa.spec(spec).resolve()
+    path = Path(spec).resolve()
+    project = STUDY / "spec/yamaa/project.yaml"
+    handle = (yamaa.project(project).spec(path.stem.upper())
+              if path.parent == project.parent.resolve() else yamaa.spec(path))
+    resolved = handle.resolve()
     entry = next(e for e in resolved["entries"] if e["entry"] == resolved["entry"])
     return {column["name"]: column.get("label")
             for column in entry["specification"]["columns"]}

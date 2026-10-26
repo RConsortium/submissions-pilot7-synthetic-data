@@ -15,6 +15,7 @@ from study_dashboard.synthetic import synthetic_catalog
 CORE_CODE = {'.github/scripts/run_core.py', '.github/scripts/parquet_to_xpt.py',
              '.github/scripts/core_render_block.sh', '.github/scripts/core_block.jq'}
 YAMAA_CODE = {'.github/scripts/validate_yamaa.py', '.github/scripts/study_evidence.py',
+              '.github/scripts/generate_define.py', '.github/scripts/define_metadata.py',
               '.github/scripts/build_study_docs.py', '.github/scripts/build_index_table.py',
               '.github/yamaa-studies.json',
               '.github/workflows/yamaa-site.yml', 'requirements.txt'}

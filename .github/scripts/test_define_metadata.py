@@ -1,14 +1,15 @@
-"""Independent regressions for the Pilot 3 metadata equivalence check."""
+"""Independent regressions for the pilot metadata comparison and unified specs."""
 
 import importlib.util
 from pathlib import Path
 from tempfile import TemporaryDirectory
 import unittest
 import xml.etree.ElementTree as ET
+import yaml
 
 ROOT = Path(__file__).resolve().parents[2]
 REFERENCE = ROOT / "submission-pilot3/spec/define/define-adam.xml"
-SOURCE = ROOT / "submission-pilot3/program/adam/python/define_compare.py"
+SOURCE = ROOT / ".github/scripts/define_metadata.py"
 spec = importlib.util.spec_from_file_location("pilot3_define_compare", SOURCE)
 comparison = importlib.util.module_from_spec(spec)
 spec.loader.exec_module(comparison)
@@ -25,9 +26,12 @@ class DefineComparisonTests(unittest.TestCase):
             return comparison.compare(REFERENCE, candidate)
 
     def test_reference_is_equal_to_itself_with_complete_inventory(self):
-        result = comparison.compare(REFERENCE, REFERENCE)
-        self.assertEqual((result["metadata_equivalent"], result["byte_identical"], result["coverage"], result["differences"]),
-                         (True, True, {"datasets": 5, "variables": 216, "value_level_entries": 15, "codelists": 36}, []))
+        for study in ("submission-pilot3", "submission-pilot5"):
+            with self.subTest(study=study):
+                reference = ROOT / study / "spec/define/define-adam.xml"
+                result = comparison.compare(reference, reference)
+                self.assertEqual((result["metadata_equivalent"], result["byte_identical"], result["coverage"], result["differences"]),
+                                 (True, True, {"datasets": 5, "variables": 216, "value_level_entries": 15, "codelists": 36}, []))
 
     def test_changes_to_each_metadata_family_are_detected(self):
         cases = [
@@ -101,6 +105,67 @@ class DefineComparisonTests(unittest.TestCase):
                 result = self.modified(edit)
                 self.assertFalse(result["metadata_equivalent"])
                 self.assertTrue(result["differences"])
+
+
+class UnifiedSpecificationsTests(unittest.TestCase):
+    def test_each_pilot_uses_one_dataset_spec_for_derivations_and_submission(self):
+        for study in ("submission-pilot3", "submission-pilot5"):
+            with self.subTest(study=study):
+                directory = ROOT / study / "spec/yamaa"
+                project = yaml.safe_load((directory / "project.yaml").read_text())
+                self.assertFalse((directory / "submission").exists())
+                self.assertEqual(project["adam"]["define"], "../../data/adam/define-yamaa.xml")
+                self.assertEqual(project["codelists"], ["codelists.yaml"])
+                count = 0
+                for filename in project["adam"]["specs"]:
+                    self.assertEqual(Path(filename).parent, Path("."))
+                    spec = yaml.safe_load((directory / filename).read_text())
+                    self.assertIn("submission", spec)
+                    columns = {c["name"]: c for c in spec["columns"]}
+                    self.assertEqual({name for name, c in columns.items() if "submission" in c}, set(spec["output"]["columns"]))
+                    for name in spec["output"]["columns"]:
+                        self.assertIn("origins", columns[name]["submission"])
+                        self.assertIn("label", columns[name])
+                    count += len(spec["output"]["columns"])
+                self.assertEqual(count, 216)
+
+    def test_explicit_blank_terms_still_reject_unlisted_values(self):
+        try:
+            import yamaa
+        except ImportError:
+            self.skipTest("The pinned engine is installed in study environments, not the shared PyYAML-only job")
+        for value, expected in [("", "succeeded"), ("X", "failed")]:
+            with self.subTest(value=value), TemporaryDirectory() as directory:
+                root = Path(directory)
+                (root / "raw.csv").write_text("ID\nP1\n")
+                columns = []
+                for name in ("ID", "STATUS"):
+                    metadata = {"core": "Cond", "mandatory": name == "ID", "length": 8 if name == "ID" else 1,
+                                "origins": [{"type": "Predecessor", "description": "RAW." + name}]}
+                    if name == "STATUS":
+                        metadata["codelist"] = "YN"
+                        metadata["origins"] = [{"type": "Assigned"}]
+                    columns.append({"name": name, "type": "str", "label": name,
+                                    "derivation": "RAW.ID" if name == "ID" else "'" + value + "'",
+                                    "submission": metadata})
+                declaration = {
+                    "yamaa": "1.0", "type": "spec", "model": "ADaM", "domain": "ADSL", "keys": ["ID"],
+                    "input": {"RAW": "raw.csv"}, "base": "RAW",
+                    "output": {"path": "adsl.csv", "columns": ["ID", "STATUS"]}, "columns": columns,
+                    "submission": {"label": "Subject analysis", "class": "SUBJECT LEVEL ANALYSIS DATASET",
+                                   "structure": "One record per subject", "repeating": False},
+                }
+                project = {"yamaa": "1.0", "type": "project", "adam": {"specs": ["adsl.yaml"]},
+                           "codelists": [{"codelists": [{"id": "YN", "name": "Local flags", "items": [
+                               {"value": "Y", "decode": "Yes"}, {"value": "", "decode": "Blank"}]}]}]}
+                (root / "adsl.yaml").write_text(yaml.safe_dump(declaration))
+                (root / "project.yaml").write_text(yaml.safe_dump(project))
+                result = yamaa.project(root / "project.yaml").run("adam")
+                self.assertEqual(result.status, expected)
+                if expected == "succeeded":
+                    self.assertEqual(result["ADSL"].output.to_pylist(), [{"ID": "P1", "STATUS": ""}])
+                else:
+                    self.assertEqual([i["condition"] for i in result.issues.to_pylist()], ["allowed_values_failed"])
 
 
 if __name__ == "__main__":

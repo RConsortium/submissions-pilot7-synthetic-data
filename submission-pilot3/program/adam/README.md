@@ -56,8 +56,7 @@ python submission-pilot3/program/adam/python/compare.py
 
 ## Define-XML
 
-[DEFINE.md](DEFINE.md) documents the yamaa Define-XML 2.1 generation workflow,
-its independent metadata comparison, and unresolved reference/data conflicts.
-The generated document covers all five datasets, but the current strict
-reproduction check returns `incomplete`; it must not be reported as full
-equivalence with the published Define-XML 2.0 file.
+[DEFINE.md](DEFINE.md) documents Define-XML 2.1 generation from this same
+project and these same dataset specs. The shared generator validates XML
+and reports all differences from the published Define-XML 2.0. Generation
+and data checks can pass while the strict reproduction check is `incomplete`.
