@@ -5,8 +5,11 @@ import json
 
 REPO = "https://github.com/RConsortium/submissions-pilot7-synthetic-data"
 ENGINE = "https://github.com/elong0527/yamaa"
-COMPARISON = {"passed": ("Matched", "good"), "unavailable": ("No reference", "neutral")}
 REVIEW = {"Needs review": "attention", "Not reviewed": "neutral"}
+UNMATCHED = {
+    "Not compared": "a reference is staged but the comparator did not check it",
+    "No reference": "no official reference is staged",
+}
 
 
 def study_page(name, entry, report):
@@ -38,6 +41,15 @@ def _share(matched, total):
 
 def _status(label, tone):
     return f'<span class="report-status {tone}">{html.escape(label)}</span>'
+
+
+def _comparison(dataset):
+    """Validation compares only the default reference path; a configured one may stay unchecked."""
+    if dataset["comparison"] == "passed":
+        return "Matched", "good"
+    if dataset["reference"]:
+        return "Not compared", "attention"
+    return "No reference", "neutral"
 
 
 def _load(bundle):
@@ -182,7 +194,7 @@ def _overview(studies):
 
 def _matrix(studies):
     """One row per ADaM dataset; datasets shared by more studies come first."""
-    found = {}
+    found, labels = {}, set()
     for catalog, report in studies:
         if report is None:
             continue
@@ -192,7 +204,8 @@ def _matrix(studies):
             label = catalog["tables"][dataset["output"]].get("description", "")
             row["description"] = row["description"] or label
             size = dimensions[dataset["name"]]
-            text, tone = COMPARISON[dataset["comparison"]]
+            text, tone = _comparison(dataset)
+            labels.add(text)
             row["cells"][catalog["id"]] = (
                 _status(text, tone)
                 + f'<span class="report-dims">{size["rows"]:,} &#215; {size["columns"]}</span>'
@@ -214,7 +227,8 @@ def _matrix(studies):
         '<p class="report-foot">Status with rows &#215; columns of the yamaa output. '
         "Matched: the study comparator found the output equal to the official ADaM "
         "dataset, labels included, under that study's comparison policy. "
-        "A dash means the dataset is not part of that study.</p>",
+        + "".join(f"{k}: {v}. " for k, v in UNMATCHED.items() if k in labels)
+        + "A dash means the dataset is not part of that study.</p>",
     ]
 
 

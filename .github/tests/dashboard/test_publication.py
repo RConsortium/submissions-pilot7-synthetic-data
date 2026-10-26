@@ -152,12 +152,34 @@ columns:
             '<a href="pending-study/">Pending study</a><small>Pending</small></th>',
             '<td class="report-cell"><span class="report-status neutral">No reference</span>'
             '<span class="report-dims">3 &#215; 2</span></td><td class="report-cell">-</td>',
+            "No reference: no official reference is staged.",
             "<td>New study</td><td>Unstarted<small>Validation pending. No project yet.</small></td>",
             "<tr><th scope=\"row\">ADaM datasets matched</th><td>No official reference</td><td>-</td></tr>",
         ]:
             with self.subTest(expected=expected):
                 self.assertIn(expected, page)
         self.assertNotIn("Study validation records", page)
+
+    def test_study_report_does_not_deny_an_uncompared_configured_reference(self):
+        # Validation compares only the default reference path, so a configured
+        # reference can be published with an unavailable comparison.
+        source = self.root / "future-study/data/adam/custom-yamaa.parquet"
+        source.with_name("published-name.parquet").write_bytes(source.read_bytes())
+        self.entries["future-study"]["dashboard"]["references"] = {
+            "CUSTOM": "data/adam/published-name.parquet"
+        }
+        self.write(".github/yamaa-studies.json", json.dumps(self.entries))
+        self.refresh()
+        self.generate()
+        page = (self.root / "docs/studies/index.md").read_text()
+        for expected in [
+            '<span class="report-status attention">Not compared</span>',
+            "Not compared: a reference is staged but the comparator did not check it.",
+            "<div><dt>ADaM datasets</dt><dd>0 / 1<span>0% matched</span></dd></div>",
+        ]:
+            with self.subTest(expected=expected):
+                self.assertIn(expected, page)
+        self.assertNotIn("No reference", page)
 
     def test_changed_artifacts_during_export_leave_previous_bundle_intact(self):
         current = self.generate()
