@@ -35,7 +35,7 @@ docs/assets/dashboard/
   data.js                                versioned transport, subject selection, and search
   lineage.js                             dependency graph traversal
   review-model.js                        cross-specification identity and panel planning
-  specification.js                       focused column/row entries with original source lines
+  specification.js                       focused derivation context with original source lines
   resize.js, synthetic.js                 sizing and synthetic-development views
   shell.js, workspace.js                 study layout and linked review panels
   source-documents.js                    independent file tabs and two original viewers
@@ -174,6 +174,14 @@ in different datasets remain distinct. `resize.js` owns pane and column sizing;
 `workspace.js` renders independent table pages with 10/25/50/100 row choices.
 The shared URL records compared datasets and per-panel row counts. Layout sizes
 are local view state. Changing the focused specification preserves comparisons.
+
+The YAML view uses upstream dependencies for a selected variable. Source-location
+metadata identifies input members, `output.columns`, row drivers and intermediate
+derivations, so the browser can hide unrelated declarations and field expressions
+without altering the source file. Inline mappings retain their visible members
+and original line anchors. Clearing focus or choosing All columns restores the
+complete specification. Manually pinned data panes do not add unrelated YAML
+input declarations to a variable's derivation view.
 
 Column lineage attaches an input's matching keys only when that input is read.
 Named lookups retain their own key pairs, filters and record-selection order;

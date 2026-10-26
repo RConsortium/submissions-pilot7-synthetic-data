@@ -42,10 +42,19 @@ const specification = {
       observed: { AGE: { start: 16, end: 16 }, SEX: { start: 17, end: 19 } },
       unrelated: { OTHER: { start: 23, end: 23 } },
     },
+    focus: {
+      inputs: { DM: { start: 2, end: 2, whole_line: true } },
+      sections: {
+        input: { start: 2, end: 2, whole_line: true },
+        intermediates: { start: 4, end: 6, whole_line: true },
+      },
+      output_columns: { start: 3, end: 3, whole_line: true },
+      row_drivers: { observed: "DM", unrelated: "OTHER" },
+    },
   },
 };
 
-test("focused YAML keeps only related column and row entries and preserves every other section", () => {
+test("focused YAML keeps related entries and drivers while hiding the output column list and unused lookups", () => {
   const lines = specificationLines(
     specification,
     "spec.AGE",
@@ -54,7 +63,7 @@ test("focused YAML keeps only related column and row entries and preserves every
   );
   assert.deepEqual(
     lines.filter((l) => l.visible).map((l) => l.number),
-    [1, 2, 3, 4, 5, 6, 7, 8, 9, 12, 13, 14, 15, 16, 24, 25],
+    [1, 2, 7, 8, 9, 12, 13, 14, 15, 16, 24, 25],
   );
   assert.deepEqual(
     lines.filter((l) => l.selected).map((l) => l.number),
@@ -62,6 +71,85 @@ test("focused YAML keeps only related column and row entries and preserves every
   );
   assert.equal(lines.map((l) => l.text).join("\n"), specification.text);
   assert.equal(lines[15].node, "spec.AGE");
+});
+
+test("focused inline inputs and output retain their used fields and relevant lookup derivations", () => {
+  const text = [
+    "input: {QS: qs.parquet, DM: dm.parquet, EX: ex.parquet}",
+    "output: {path: out.parquet, columns: [AGE, SEX]}",
+    "base: DM",
+    "intermediates:",
+    "  - id: USED",
+    "    dataset: DM",
+    "    derivations:",
+    "      AGE: DM.AGE",
+    "      SEX: DM.SEX",
+    "  - id: UNUSED",
+    "    dataset: EX",
+    "columns:",
+    "  - name: AGE",
+    "    derivation: USED.AGE",
+    "  - name: SEX",
+    "    derivation: UNUSED.SEX",
+    "verifications:",
+    "  - row_count: {min: 1}",
+  ].join("\n");
+  const inline = {
+    text,
+    lineage: {
+      spans: {
+        USED: { start: 5, end: 9, kind: "intermediates" },
+        UNUSED: { start: 10, end: 11, kind: "intermediates" },
+        AGE: { start: 13, end: 14, kind: "columns" },
+        SEX: { start: 15, end: 16, kind: "columns" },
+      },
+      focus: {
+        inputs: {
+          QS: { start: 1, end: 1, start_column: 8, end_column: 24 },
+          DM: { start: 1, end: 1, start_column: 24, end_column: 40 },
+          EX: { start: 1, end: 1, start_column: 38, end_column: 54 },
+        },
+        sections: {
+          input: { start: 1, end: 1, whole_line: true },
+          intermediates: { start: 4, end: 11, whole_line: true },
+        },
+        base: "DM",
+        output_columns: { start: 2, end: 2, start_column: 26, end_column: 47 },
+        intermediate_drivers: { USED: "DM", UNUSED: "EX" },
+        intermediate_derivations: {
+          USED: { AGE: { start: 8, end: 8 }, SEX: { start: 9, end: 9 } },
+        },
+      },
+    },
+  };
+  const related = new Set(["spec.AGE", "USED.AGE", "intermediate.USED"]);
+  const lines = specificationLines(
+    inline,
+    "spec.AGE",
+    related,
+    true,
+    new Set(["DM"]),
+  );
+  assert.deepEqual(
+    lines.filter((l) => l.visible).map((l) => l.number),
+    [1, 2, 3, 4, 5, 6, 7, 8, 12, 13, 14, 17, 18],
+  );
+  assert.equal(lines[0].displayText, "input: {DM: dm.parquet}");
+  assert.equal(lines[1].displayText, "output: {path: out.parquet}");
+  assert.equal(lines[7].node, "USED.AGE");
+  assert.equal(lines.map((l) => l.text).join("\n"), text);
+  const full = specificationLines(
+    inline,
+    "spec.AGE",
+    related,
+    false,
+    new Set(["DM"]),
+  );
+  assert.equal(
+    full.every((l) => l.visible),
+    true,
+  );
+  assert.equal(full.map((l) => l.displayText).join("\n"), text);
 });
 
 test("selecting a row highlights its full rule and full/cleared views restore all entries", () => {
