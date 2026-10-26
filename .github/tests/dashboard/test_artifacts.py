@@ -17,7 +17,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[2] / "scripts"))
 from study_dashboard.datasets import export_table, read_table
 from study_dashboard.lineage import build_lineage, source_locations
 from study_dashboard.consistency import build_report
-from study_dashboard.documents import define_metadata
+from study_dashboard.documents import define_metadata, document_sections
 
 
 class ReviewDataTests(unittest.TestCase):
@@ -227,6 +227,47 @@ intermediates:
                 read_table(path, {"VISIT": "int"}).to_pylist(),
                 [{"USUBJID": "001", "VISIT": 3}, {"USUBJID": "002", "VISIT": None}],
             )
+
+    def test_define_versions_state_derivations_where_each_version_keeps_them(self):
+        # Define 1.0 has no MethodDef: its derivation is the ItemDef Comment.
+        codelist = '<CodeList OID="CL.GR"><CodeListItem CodedValue="&lt;25&#160;"><Decode><TranslatedText>Normal</TranslatedText></Decode></CodeListItem></CodeList>'
+        cases = [
+            (
+                "1.0",
+                '<ItemDef OID="ADSL.BMIGR" Name="BMIGR" DataType="text" Origin="Derived" Comment="Normal if BMIBL &lt;25" def:Label="BMI group"><CodeListRef CodeListOID="CL.GR"/></ItemDef>'
+                + codelist
+                + '<ItemGroupDef OID="IG.ADSL" Name="ADSL"><ItemRef ItemOID="ADSL.BMIGR"/></ItemGroupDef>',
+                {"method": "", "comment": "Normal if BMIBL <25"},
+                "Label: BMI group\nData type: text\nOrigin: Derived\nComment: Normal if BMIBL <25\nCodelist CL.GR: <25 = Normal",
+            ),
+            (
+                "2.0",
+                '<ItemDef OID="IT.BMIGR" Name="BMIGR" DataType="text" def:CommentOID="COM.GR"><Description><TranslatedText>BMI group</TranslatedText></Description><CodeListRef CodeListOID="CL.GR"/></ItemDef>'
+                + codelist
+                + '<MethodDef OID="MT.GR" Name="Group"><Description><TranslatedText>Normal if BMIBL &lt;25</TranslatedText></Description></MethodDef>'
+                + '<def:CommentDef OID="COM.GR"><Description><TranslatedText>See SAP 9.2</TranslatedText></Description></def:CommentDef>'
+                + '<ItemGroupDef OID="IG.ADSL" Name="ADSL"><ItemRef ItemOID="IT.BMIGR" MethodOID="MT.GR"/></ItemGroupDef>',
+                {"method": "Normal if BMIBL <25", "comment": "See SAP 9.2"},
+                "Label: BMI group\nData type: text\nMethod: Normal if BMIBL <25\nComment: See SAP 9.2\nCodelist CL.GR: <25 = Normal",
+            ),
+        ]
+        for version, body, expected, text in cases:
+            with self.subTest(version=version), tempfile.TemporaryDirectory() as tmp:
+                define = Path(tmp) / "define-adam.xml"
+                define.write_text(
+                    '<ODM xmlns="http://www.cdisc.org/ns/odm/v1.3" xmlns:def="http://www.cdisc.org/ns/def/v1.0">'
+                    + body
+                    + "</ODM>"
+                )
+                item = define_metadata(define)["ADSL"]["BMIGR"]
+                self.assertEqual(
+                    {k: item[k] for k in expected}, expected, f"Define {version} derivation text"
+                )
+                self.assertEqual(
+                    {s["id"]: s["text"] for s in document_sections(define, define_metadata(define))},
+                    {"ADSL.BMIGR": text},
+                    f"Define {version} reading-copy section",
+                )
 
     def test_define_versions_and_report_anchor_actual_source_differences(self):
         for version, definition in [
