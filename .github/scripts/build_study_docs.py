@@ -12,7 +12,7 @@ import tempfile
 from study_evidence import catalog, validate_reports
 from study_artifacts import verify_report_artifacts
 from study_dashboard.artifacts import build_bundle
-from study_dashboard.pages import gallery_page, study_page
+from study_dashboard.pages import report_page, study_page
 
 ROOT = Path(__file__).resolve().parents[2]
 
@@ -45,7 +45,7 @@ def generate(root, reports_dir, expected_commit=None):
             name: study_page(name, entry, reports[name])
             for name, entry in entries.items()
         }
-        index = gallery_page(entries, reports)
+        index = report_page(stage / "dashboard")
         # Verify again after reading and rendering: mutable outputs cannot acquire
         # an old successful label, including when a file changes during export.
         verify_report_artifacts(root, entries, reports)

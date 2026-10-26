@@ -12,7 +12,7 @@ def study_navigation(root, manual):
     owned = {"studies/index.md", *(f"studies/{name}.md" for name in entries)}
     tail = [item for item in manual if not any(path in owned for path in item.values())]
     return [
-        {"Pilot dashboards": "studies/index.md"},
+        {"Study report": "studies/index.md"},
         *({entry["title"]: f"studies/{name}.md"} for name, entry in entries.items()),
         *tail,
     ]
