@@ -78,13 +78,24 @@ def _inputs(catalog):
     return sdtm, staged, lookups
 
 
-def _header(index, validated):
+def _header(index, studies, validated):
+    """The method, then only what this run's evidence shows was compared."""
+    datasets = [d for c, _ in validated for d in c["datasets"]]
+    matched = sum(d["comparison"] == "passed" for d in datasets)
+    pending = len(studies) - len(validated)
+    result = (
+        f" In this run, the study comparators found {matched} of {len(datasets)} "
+        "derived datasets equal to their official ADaM datasets."
+        if datasets
+        else ""
+    )
+    if pending:
+        result += f" {pending} {'study is' if pending == 1 else 'studies are'} pending validation."
     lines = [
         "<h1>Pilot study report</h1>",
-        '<p class="report-lede">AI agents drafted yamaa specifications from each '
-        "published submission package. The yamaa engine executed them to derive ADaM "
-        "datasets from the staged SDTM data, and each study's comparator checked the "
-        "outputs against the official ADaM datasets.</p>",
+        '<p class="report-lede">AI agents draft yamaa specifications from published '
+        "submission packages, and the yamaa engine executes them to derive ADaM datasets "
+        f"from staged SDTM data.{html.escape(result)}</p>",
     ]
     if validated:
         runs = [c["validation"] for c, _ in validated]
@@ -192,6 +203,16 @@ def _overview(studies):
     return ['<h2 id="studies">Studies</h2>', _table(["Study"], studies, rows, link=True)]
 
 
+def _descriptions(variants):
+    """One Define-XML description, or each variant with the studies that publish it."""
+    if len(variants) <= 1:
+        return html.escape(next(iter(variants), ""))
+    return "".join(
+        f"{html.escape(text)}<small>{html.escape(', '.join(titles))}</small>"
+        for text, titles in variants.items()
+    )
+
+
 def _matrix(studies):
     """One row per ADaM dataset; datasets shared by more studies come first."""
     found, labels = {}, set()
@@ -200,9 +221,10 @@ def _matrix(studies):
             continue
         dimensions = {d["domain"]: d for d in catalog["validation"]["datasets"]}
         for dataset in catalog["datasets"]:
-            row = found.setdefault(dataset["name"], {"description": "", "cells": {}})
+            row = found.setdefault(dataset["name"], {"descriptions": {}, "cells": {}})
             label = catalog["tables"][dataset["output"]].get("description", "")
-            row["description"] = row["description"] or label
+            if label:
+                row["descriptions"].setdefault(label, []).append(catalog["title"])
             size = dimensions[dataset["name"]]
             text, tone = _comparison(dataset)
             labels.add(text)
@@ -213,7 +235,7 @@ def _matrix(studies):
     order = sorted(found, key=lambda n: -len(found[n]["cells"]))
     body = [
         f'<tr><th scope="row">{html.escape(name)}</th>'
-        f'<td>{html.escape(found[name]["description"])}</td>'
+        f'<td>{_descriptions(found[name]["descriptions"])}</td>'
         + "".join(
             f'<td class="report-cell">{found[name]["cells"].get(c["id"], "-")}</td>'
             for c, _ in studies
@@ -240,7 +262,7 @@ def _review(studies, validated):
             items.setdefault(key, {}).setdefault(catalog["id"], []).append(
                 finding["status"]
             )
-    lines = ['<h2 id="review-items">Open review items</h2>']
+    lines = []
     if items:
         rows = []
         for (title, dataset, variable), statuses in items.items():
@@ -270,13 +292,16 @@ def _review(studies, validated):
         f["kind"] == "inconsistent" for _, r in validated for f in r["findings"]
     )
     lines.append(
-        f'<p class="report-foot">Automated metadata checks compared {columns:,} declared '
-        f"output columns with the derived datasets and {labels:,} variable labels with the "
-        f"published Define-XML: {differences:,} "
+        f'<p class="report-foot">Metadata checks: {columns:,} declared output columns and '
+        f"{labels:,} Define-XML labels compared, {differences:,} "
         f'{"inconsistency" if differences == 1 else "inconsistencies"}. Review items are '
-        "source-backed questions and open tasks for a reviewer, not confirmed defects.</p>"
+        "open questions for a reviewer, not confirmed defects.</p>"
     )
-    return lines
+    # The table and its footnote print on one page.
+    return [
+        '<h2 id="review-items">Open review items</h2>',
+        f'<div class="report-keep">{"".join(lines)}</div>',
+    ]
 
 
 def report_page(bundle):
@@ -284,11 +309,11 @@ def report_page(bundle):
     index, studies = _load(bundle)
     validated = [(c, r) for c, r in studies if r is not None]
     body = [
-        *_header(index, validated),
+        *_header(index, studies, validated),
         *(_kpis(studies, validated) if validated else []),
         *_overview(studies),
-        *_matrix(studies),
         *_review(studies, validated),
+        *_matrix(studies),
     ]
     evidence = ", ".join(
         f'[{c["title"]}](../evidence/{c["id"]}.json)' for c, _ in studies

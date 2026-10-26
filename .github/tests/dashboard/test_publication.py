@@ -13,7 +13,7 @@ import pyarrow.parquet as pq
 from build_study_docs import generate
 from dashboard_nav import study_navigation
 from study_artifacts import artifact_snapshot
-from study_dashboard import artifacts
+from study_dashboard import artifacts, pages
 from study_dashboard.datasets import read_table
 
 PIN = "a" * 40
@@ -147,6 +147,8 @@ columns:
         self.generate()
         page = (self.root / "docs/studies/index.md").read_text()
         for expected in [
+            "In this run, the study comparators found 0 of 1 derived datasets equal to "
+            "their official ADaM datasets. 1 study is pending validation.</p>",
             "<div><dt>Studies</dt><dd>1 / 2<span>validated</span></dd></div>",
             "<div><dt>ADaM datasets</dt><dd>0 / 0<span>no official reference</span></dd></div>",
             '<a href="pending-study/">Pending study</a><small>Pending</small></th>',
@@ -180,6 +182,24 @@ columns:
             with self.subTest(expected=expected):
                 self.assertIn(expected, page)
         self.assertNotIn("No reference", page)
+
+    def test_study_report_keeps_each_studys_dataset_description(self):
+        # Studies may publish different Define-XML labels for one dataset name.
+        self.assertEqual(
+            pages._descriptions(
+                {
+                    "Subject-Level Analysis": ["Pilot A"],
+                    "Subject-Level Analysis Dataset": ["Pilot B", "Pilot C"],
+                }
+            ),
+            "Subject-Level Analysis<small>Pilot A</small>"
+            "Subject-Level Analysis Dataset<small>Pilot B, Pilot C</small>",
+        )
+        self.assertEqual(
+            pages._descriptions({"Adverse Events": ["Pilot A", "Pilot B"]}),
+            "Adverse Events",
+        )
+        self.assertEqual(pages._descriptions({}), "")
 
     def test_changed_artifacts_during_export_leave_previous_bundle_intact(self):
         current = self.generate()
