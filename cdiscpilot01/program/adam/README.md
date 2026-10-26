@@ -55,3 +55,17 @@ python cdiscpilot01/program/adam/python/compare.py
 The ADQSNPIX specification is named `adqsnipx.yaml`; its reference is
 `adqsnpix.parquet`. ADQSADAS and ADQSCIBC read SDTM QS and derived ADSL,
 with window selection and LOCF implemented in their yamaa specifications.
+
+## Define-XML generation assessment
+
+[DEFINE.md](DEFINE.md) records the generation blockers and the difference
+between the published Define-XML 1.0 file and yamaa's Define-XML 2.1 output.
+To repeat the assessment with the pinned Python environment:
+
+```bash
+python cdiscpilot01/program/adam/python/assess_define.py
+```
+
+The current project returns exit code 1 and writes its diagnostic report to
+`.build/define/cdiscpilot01-assessment.json`. The assessment does not save XML
+or derive datasets. It does not compare generated XML with the reference.
