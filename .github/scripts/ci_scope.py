@@ -52,6 +52,8 @@ def select_checks(root, changed):
     manifest = json.loads((root / '.github/repo-structure.json').read_text())
     studies = sorted(set(entries) | set(discover_studies(str(root), manifest.get('non_study_dirs', []))))
     publication = bool(changed & PUBLICATION_CODE) or any(
+        f'{study}/program/adam/python/requirements.txt' in changed for study in entries
+    ) or any(
         path.startswith(PUBLICATION_PREFIXES) or
         any(path.startswith((f'{study}/data/', f'{study}/spec/')) and Path(path).suffix != '.md'
             for study in synthetic) or
