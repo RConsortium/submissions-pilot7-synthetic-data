@@ -14,6 +14,8 @@ Usage from the repository root:
 The CLI prints the table for inspection. The MkDocs hook replaces the
 pilot-metrics placeholder only in the rendered page. Both use validated
 reports from .build/validation and Parquet metadata for reference totals.
+Consistency counts come from the same commit's generated review model and
+remain separate from reference agreement.
 """
 
 import argparse
@@ -24,15 +26,15 @@ from pathlib import Path
 from study_evidence import catalog, validate_reports
 from study_artifacts import verify_report_artifacts
 from study_metrics import matched_totals, reference_totals
+from study_dashboard.summaries import review_breakdown
 
 ROOT = Path(__file__).resolve().parents[2]
 REPORTS = ROOT / ".build" / "validation"
 
 BEGIN = "<!-- pilot-metrics:begin -->"
 END = "<!-- pilot-metrics:end -->"
-HEADER = ["| Study | Status | Datasets | Columns | Cells |",
-          "| --- | --- | --- | --- | --- |"]
-PENDING_DATASETS = "n/a"
+HEADER = ["| Study | Published ADaM reference agreement | Consistency review |",
+          "| --- | --- | --- |"]
 
 
 def _percent(matched, total):
@@ -45,6 +47,17 @@ def _millions(value):
     return f"{value / 1e6:.1f}M"
 
 
+def reference_cell(matched, reference):
+    if not reference[0]:
+        return "No official reference"
+    return (
+        f"Datasets matching reference: **{matched[0]} / {reference[0]} "
+        f"({_percent(matched[0], reference[0])})**<br>"
+        f"Columns in matching datasets: {matched[1]} / {reference[1]}<br>"
+        f"Cells in matching datasets: {_millions(matched[2])} / {_millions(reference[2])}"
+    )
+
+
 def build_table(root, reports_dir):
     entries = catalog(root)
     reports = {name: json.loads((reports_dir / f"{name}.json").read_text())
@@ -54,34 +67,43 @@ def build_table(root, reports_dir):
     rows = []
     total_matched = [0, 0, 0]
     total_reference = [0, 0, 0]
+    all_issues = []
     for name, entry in entries.items():
         if entry.get('category') == 'synthetic':
             continue
         report = reports[name]
         title = entry["title"]
-        status = f"[Under Review](studies/{name}.md#{name}/overview)"
+        if report["status"] == "pending":
+            status = "Review pending"
+        else:
+            evidence_path = root / f"docs/evidence/dashboard/{name}/report.json"
+            evidence = json.loads(evidence_path.read_text())
+            review = evidence["review"]
+            if (evidence["study"] != name or review["study"] != name
+                    or evidence.get("schema_version") != 1 or review.get("schema_version") != 1
+                    or evidence["revision"] != report["repository_commit"]
+                    or review["revision"] != report["repository_commit"]
+                    or review["counts"]["issues"] != len(review["issues"])):
+                raise ValueError(f"{name}: consistency summary is not from this publication")
+            issues = review["issues"]
+            all_issues.extend(issues)
+            finding = "finding" if len(issues) == 1 else "findings"
+            status = (f"[{len(issues)} {finding}](studies/{name}.md#{name}/overview)"
+                      f"<br>{review_breakdown(issues)}")
         reference = reference_totals(root, name)
         if not reference[0]:
             if entry["comparison"] == "official":
                 raise ValueError(f"{name}: official reference datasets are missing")
-            rows.append(f"| [{title}](studies/{name}.md) | {status} | "
-                        f"{PENDING_DATASETS} | n/a | n/a |")
+            rows.append(f"| [{title}](studies/{name}.md) | "
+                        f"No official reference | {status} |")
             continue
         matched = matched_totals(report)
         for i in range(3):
             total_matched[i] += matched[i]
             total_reference[i] += reference[i]
-        rows.append(f"| [{title}](studies/{name}.md) | {status} | "
-                    f"{matched[0]} / {reference[0]} ({_percent(matched[0], reference[0])}) | "
-                    f"{matched[1]} / {reference[1]} ({_percent(matched[1], reference[1])}) | "
-                    f"{_millions(matched[2])} / {_millions(reference[2])} "
-                    f"({_percent(matched[2], reference[2])}) |")
-    overall = (f"| Overall | - | {total_matched[0]} / {total_reference[0]} "
-               f"({_percent(total_matched[0], total_reference[0])}) | "
-               f"{total_matched[1]} / {total_reference[1]} "
-               f"({_percent(total_matched[1], total_reference[1])}) | "
-               f"{_millions(total_matched[2])} / {_millions(total_reference[2])} "
-               f"({_percent(total_matched[2], total_reference[2])}) |")
+        rows.append(f"| [{title}](studies/{name}.md) | {reference_cell(matched, reference)} | {status} |")
+    overall = (f"| Overall | {reference_cell(total_matched, total_reference)} | "
+               f"{len(all_issues)} findings<br>{review_breakdown(all_issues)} |")
     return HEADER + [overall] + rows
 
 

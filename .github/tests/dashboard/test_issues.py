@@ -122,6 +122,76 @@ class IssueSchemaTests(unittest.TestCase):
         self.path.write_text(json.dumps(declaration or self.declaration))
         return build_review(self.root, "study", "revision", self.checks)
 
+    def test_full_ungrouped_observation_is_preserved(self):
+        finding = check("long", ["A"])
+        finding["observation"] = "Complete observation. " * 40 + "Final detail."
+        result = build_review(self.root, "study", "revision", [finding])
+        self.assertEqual(result["issues"][0]["summary"], finding["observation"])
+
+    def test_precision_only_is_noncritical_but_wrong_bmi_logic_is_critical(self):
+        precision = check("precision", list("ABCDEFG"))
+        precision["rule"]["id"] = "CR-6"
+        precision["documents"][0].update(
+            quote="Significant digits: 1",
+            context="Significant digits: 1. Method: WRONG BMI FORMULA.",
+        )
+        bmi = check("bmi", ["A"])
+        bmi["variable"] = "BMIBL"
+        bmi["rule"]["id"] = "CR-6"
+        bmi["documents"][0].update(quote="WEIGHTBL / ((HEIGHTBL*100)**2)")
+        combined = deepcopy(bmi)
+        combined["id"] = "study:ADSL.BMIBL.combined"
+        combined["documents"].append(precision["documents"][0])
+        gap = check("gap", [])
+        gap["kind"] = "gap"
+        gap["rule"]["id"] = "CR-7"
+        result = build_review(self.root, "study", "revision", [precision, bmi, combined, gap])
+        assessments = {i["check_ids"][0]: i["critical"]["status"] for i in result["issues"]}
+        self.assertEqual(assessments, {
+            precision["id"]: "no", bmi["id"]: "yes", combined["id"]: "yes", gap["id"]: "needs_review"
+        })
+
+    def test_authored_criticality_overrides_policy_and_requires_a_reason(self):
+        declaration = deepcopy(self.declaration)
+        declaration["issues"][0]["critical"] = {
+            "status": "no", "reason": "Reviewed as a precision-only discrepancy."
+        }
+        result = self.build(declaration)
+        self.assertEqual(result["issues"][0]["critical"], declaration["issues"][0]["critical"])
+        del declaration["issues"][0]["critical"]["reason"]
+        with self.assertRaisesRegex(ValueError, "reason"):
+            self.build(declaration)
+
+    def test_absent_documented_sources_are_critical_without_measured_impact(self):
+        findings = []
+        for domain, variable in (
+            ("ADQSADAS", "EFFFL"), ("ADQSNPIX", "EFFFL"),
+            ("ADQSCIBC", "EFFFL"), ("ADTTE", "TRTDUR"),
+        ):
+            finding = check("CR-2", [])
+            finding.update(
+                id=f"study:{domain}.{variable}.CR-2", dataset=domain,
+                variable=variable, title="A documented copy source exists",
+                observation="Define-XML names a source variable that is absent.",
+                evidence={"copy": {"source": f"ADSL.{variable}",
+                                   "reason": "Source variable is absent.", "reference": None}},
+            )
+            finding["rule"]["id"] = "CR-2"
+            findings.append(finding)
+        citation = check("CR-1", [])
+        citation["kind"] = "evidence"
+        citation["rule"]["id"] = "CR-1"
+        citation["documents"][0]["verified"] = False
+        citation["evidence"] = {}
+        result = build_review(self.root, "study", "revision", findings + [citation])
+        by_check = {i["check_ids"][0]: i for i in result["issues"]}
+        for finding in findings:
+            with self.subTest(check=finding["id"]):
+                issue = by_check[finding["id"]]
+                self.assertEqual(issue["critical"]["status"], "yes")
+                self.assertEqual(issue["impact"]["status"], "not_measured")
+        self.assertEqual(by_check[citation["id"]]["critical"]["status"], "needs_review")
+
     def test_grouping_is_many_to_many_without_double_counting_subjects_or_sources(self):
         result = self.build()
         first, second = result["issues"]

@@ -60,6 +60,19 @@ field: agreed, disputed, mixed, stale, pending, or not reviewed. Agreement is
 not resolution. Proposed actions are text; this schema does not manufacture a
 human approval or resolved state. Raw findings remain available for audit.
 
+`critical` contains `status` (yes, no, needs_review) and a short `reason`.
+Authored issues can explicitly set it; otherwise the generator prioritizes
+source, derivation, category and output discrepancies as critical.
+An absent source named by Define-XML (CR-2) is a critical source discrepancy,
+including when its data impact cannot be measured. CR-6 clauses
+quoting only `Significant digits: N` and variable-label differences are
+non-critical. The full variable context is not used for that exception because
+it can contain a different formula alongside precision metadata. Documentation
+gaps and incomplete evidence need review. Criticality does not depend on subject
+counts or agent agreement and does not resolve the issue. Ungrouped summaries
+retain the full observation; only authored summaries have an editorial length
+limit.
+
 Impact is derived from explicitly selected measurements:
 
 - `observed`: at least one selected measurement differs;

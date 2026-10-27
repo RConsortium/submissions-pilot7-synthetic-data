@@ -89,14 +89,25 @@ stack vertically.
 
 ## Verify documentation observations
 
+The summary separates **Published ADaM reference agreement** from
+**Consistency review**. Reference agreement measures reproduction of the
+published datasets under the study's comparison rules. Consistency review
+checks agreement among documents, derivation rules, and data. Findings can
+remain open even when reference agreement is 100%.
+
 The **Consistency findings** tab lists actionable issues. Each row names the
 problem, summarizes the difference, and shows measured impact and agent review.
 The **Consistency** metric counts issues; the listing separately counts the
 supporting automated checks. Successful execution stays in the study metrics.
 
 Search a variable, issue, document, quote or rule ID. **Issue type** filters
-conflicts, divergences and gaps. **Agent review** separately filters agreed,
-disputed, mixed, stale and pending assessments. Agreement is not resolution.
+conflicts, divergences and gaps. **Impact / review** is the second column.
+**Critical finding** filters Yes, No and Needs review, with a reason in each row.
+Incorrect source, derivation, category and output rules are critical; differences
+limited to significant digits or variable labels are not. Incomplete evidence
+and documentation gaps need review. Criticality is independent of the number
+of affected subjects. Agent assessments remain visible in the impact column;
+agreement is not resolution.
 Several checks can support one issue; independent problems in one variable stay
 separate. A shared check can support more than one issue without duplicating it
 in the supporting-check count.
@@ -107,6 +118,10 @@ Expand **Trace evidence** to see:
 - the relevant source quotations and specification clauses, each shown once;
 - selected data comparisons, with record counts and representative value pairs;
 - the proposed action.
+
+Measured impact names both sides, such as **Documented rule vs published
+reference** or **Documented codelist vs yamaa output**. Each comparison counts
+its own subjects; context-only comparisons are excluded from issue impact.
 
 **Full context** reveals the complete quotation or specification with original
 line numbers. **Supporting checks and agent review** retains the rule statements,

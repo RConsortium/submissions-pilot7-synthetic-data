@@ -16,6 +16,8 @@ from study_artifacts import artifact_snapshot
 from synthetic_evidence import artifact_inventory
 from study_dashboard import artifacts, pages, workspace
 from study_dashboard.datasets import read_table
+from study_dashboard.summaries import review_counts, summary_cards
+from build_index_table import build_table
 
 PIN = "a" * 40
 
@@ -149,8 +151,8 @@ columns:
         page = (self.root / "docs/studies/index.md").read_text()
         for expected in [
             "This report summarizes the findings. 1 study is pending validation.</p>",
-            "<div><dt>Studies</dt><dd>1 / 2<span>validated</span></dd></div>",
-            "<div><dt>ADaM datasets</dt><dd>0 / 0<span>no official reference</span></dd></div>",
+            "1 / 2 studies validated",
+            "No official reference",
             '<a href="pending-study/">Pending study</a><small>Pending</small></th>',
             '<td class="report-cell"><span class="report-status neutral">No reference</span>'
             '<span class="report-dims">3 &#215; 2</span>'
@@ -164,6 +166,31 @@ columns:
             with self.subTest(expected=expected):
                 self.assertIn(expected, page)
         self.assertNotIn("Study validation records", page)
+
+    def test_complete_reference_agreement_retains_open_review_and_criticality(self):
+        issues = [{"critical": {"status": "yes"}}, {"critical": {"status": "no"}}, {}]
+        page = summary_cards([5, 100, 2300000], [5, 100, 2300000], issues)
+        self.assertIn("<strong>100%</strong> of reference datasets matched", page)
+        self.assertIn("<strong>3</strong> findings awaiting review", page)
+        self.assertIn("1 critical; 1 non-critical; 1 needing assessment", page)
+        self.assertIn("Cells in matching datasets</dt><dd>2.3M / 2.3M", page)
+        self.assertIn("Findings can remain open even when reference agreement is 100%", page)
+        self.assertEqual(review_counts(issues), {"yes": 1, "no": 1, "needs_review": 1})
+
+    def test_home_page_shows_review_counts_separately_and_rejects_stale_summary(self):
+        target = self.generate()
+        table = "\n".join(build_table(self.root, self.root / ".build/validation"))
+        self.assertIn("Published ADaM reference agreement", table)
+        self.assertIn("No official reference", table)
+        self.assertIn("[0 findings](studies/future-study.md#future-study/overview)", table)
+        self.assertIn("0 critical; 0 non-critical; 0 needing assessment", table)
+        self.assertIn("Review pending", table)
+        path = target / "future-study/report.json"
+        report = json.loads(path.read_text())
+        report["revision"] = "old-commit"
+        path.write_text(json.dumps(report))
+        with self.assertRaisesRegex(ValueError, "not from this publication"):
+            build_table(self.root, self.root / ".build/validation")
 
     def test_study_report_does_not_deny_an_uncompared_configured_reference(self):
         # Validation compares only the default reference path, so a configured
@@ -180,7 +207,7 @@ columns:
         for expected in [
             '<span class="report-status attention">Not compared</span>',
             "Not compared: a reference is staged but the comparator did not check it.",
-            "<div><dt>ADaM datasets</dt><dd>0 / 1<span>0% matched</span></dd></div>",
+            "<strong>0%</strong> of reference datasets matched",
         ]:
             with self.subTest(expected=expected):
                 self.assertIn(expected, page)

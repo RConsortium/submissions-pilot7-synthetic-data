@@ -443,12 +443,12 @@ import { developmentReport, mountDevelopment } from "./synthetic-development.js"
       state.findingSearch = "";
       state.kind = "";
       state.comparison = "";
-      state.reviewStatus = "";
+      state.critical = "";
       save();
       byId("finding-search").value = "";
       byId("finding-kind").value = "";
       byId("finding-comparison").value = "";
-      byId("issue-review").value = "";
+      byId("finding-critical").value = "";
       byId("finding-results").innerHTML = findingRows();
       return;
     }
@@ -536,13 +536,13 @@ import { developmentReport, mountDevelopment } from "./synthetic-development.js"
       return;
     }
     if (
-      ["finding-kind", "finding-comparison", "issue-review"].includes(el.id)
+      ["finding-kind", "finding-comparison", "finding-critical"].includes(el.id)
     ) {
       state[
         {
           "finding-kind": "kind",
           "finding-comparison": "comparison",
-          "issue-review": "reviewStatus",
+          "finding-critical": "critical",
         }[el.id]
       ] = el.value;
       save();
