@@ -260,6 +260,12 @@ links to the reading copy, the original page or XML lines and the
 specification lines, and lists the differing records. Findings are not
 regulatory validation; each awaits a person's decision.
 
+Adjudication state can store the finding's `basis_fingerprint` in its `basis`
+field instead of duplicating the complete evidence string. The verifier
+recomputes this SHA-256 fingerprint from the full current basis; legacy full-text
+decisions remain valid, and changed evidence still makes either format stale.
+The generated report retains the full basis, quotations and record comparisons.
+
 ## Dataset comparisons and synthetic workspaces
 
 `review-model.js` scopes each specification's nodes before joining lineage

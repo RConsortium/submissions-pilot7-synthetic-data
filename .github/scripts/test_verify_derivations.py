@@ -167,6 +167,33 @@ class FindingTests(unittest.TestCase):
             "agreed, stale after a change, pending, and a decision for a removed finding",
         )
 
+    def test_compact_decisions_bind_the_full_basis_and_do_not_trust_a_reported_fingerprint(self):
+        # SHA-256 of the UTF-8 text "a", independent of the production helper.
+        digest = "sha256:ca978112ca1bbdcafac231b39a23dc4da786eff8147c4e72b9807785afee48bb"
+        findings = [
+            {"id": "legacy", "basis": "a"},
+            {"id": "compact", "basis": "a"},
+            {"id": "changed", "basis": "b", "basis_fingerprint": digest},
+            {"id": "malformed", "basis": "a"},
+        ]
+        decisions = {
+            name: {"finding": name, "basis": value, "decision": "agree", "reason": "Checked the sources."}
+            for name, value in (
+                ("legacy", "a"), ("compact", digest),
+                ("changed", digest), ("malformed", digest[:-1]),
+            )
+        }
+        self.assertEqual(vd.fingerprint_basis("a"), digest)
+        self.assertEqual(vd.adjudicate(findings, {"decisions": decisions}), [])
+        self.assertEqual(
+            [finding["adjudication"]["decision"] for finding in findings],
+            ["agree", "agree", "stale", "stale"],
+        )
+        self.assertEqual(
+            [finding["adjudication"]["reason"] for finding in findings],
+            ["Checked the sources."] * 4,
+        )
+
 
     def test_an_uncited_statement_keeps_the_adjudicators_reason_beside_its_quote_check(self):
         statements = [
