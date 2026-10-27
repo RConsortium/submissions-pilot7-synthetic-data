@@ -108,6 +108,31 @@ def check(browser, base, site_dir, screenshots):
         expect(page.locator(".consistency-table tbody tr[data-finding-id]")).to_have_count(len(issues))
         expect(page.locator(".consistency-table .finding-evidence")).to_have_count(0)
         expect(page.get_by_role("button", name="Copy review context", exact=True)).to_have_count(0)
+        page.get_by_role("button", name="Define-XML comparison", exact=True).click()
+        expect(page.locator('.define-comparison iframe')).to_have_count(2)
+        expect(page.locator('.define-status')).to_contain_text(
+            'Metadata matched' if study_model['validation']['define_xml']['comparison'] == 'matched' else 'Metadata differs')
+        expect(page.locator('.define-differences tbody tr')).to_have_count(
+            len(study_model['validation']['define_xml']['metadata']['differences']))
+        expect(page.get_by_role('link', name='Download XML', exact=True)).to_have_count(2)
+        for side, label in [('reference', 'Original'), ('candidate', 'yamaa-generated')]:
+            frame = page.frame_locator(f'iframe[title="{label} XML source"]')
+            expect(frame.locator('#L1')).to_be_visible()
+            expect(page.locator(f'iframe[title="{label} XML source"]')).to_have_attribute(
+                'src', base + f'/evidence/dashboard/{name}/define/{side}.html')
+        assert '/define/ADSL' in page.url
+        page.reload()
+        expect(page.locator('.define-comparison iframe')).to_have_count(2)
+        if name == 'cdiscpilot01':
+            if screenshots:
+                screenshots.mkdir(parents=True, exist_ok=True)
+                page.screenshot(path=str(screenshots / 'define-xml-comparison.png'))
+            page.set_viewport_size({'width': 600, 'height': 900})
+            panes = page.locator('.define-pane').all()
+            first, second = [pane.bounding_box() for pane in panes]
+            assert second['y'] >= first['y'] + first['height']
+            assert page.evaluate('document.documentElement.scrollWidth <= innerWidth')
+            page.set_viewport_size({'width': 1600, 'height': 1000})
     # An explicit predecessor column retains its complete authored block,
     # including historical metadata, and opens its resolved derivation.
     copied = json.loads((site_dir / "evidence/dashboard/cdiscpilot01/specs/adtte.json").read_text())
@@ -591,7 +616,7 @@ def check(browser, base, site_dir, screenshots):
         expect(page.locator("#synthetic-dashboard h1")).to_have_text("Synthetic data report")
     for width in [375, 768, 1600, 2560]:
         page.set_viewport_size({"width": width, "height": 1000})
-        for view in ["datasets", "findings", "materials"]:
+        for view in ["datasets", "findings", "materials", "define"]:
             page.goto(study + f"#cdiscpilot01/{view}/ADAE?focus=output.TRTSDT")
             if view == "datasets":
                 expect(page.locator("#dataset-select")).to_be_visible()
@@ -601,8 +626,10 @@ def check(browser, base, site_dir, screenshots):
                 expect(page.get_by_role("region", name="Consistency findings", exact=True)).to_be_visible()
                 page.locator(".finding-trace > summary").first.click()
                 expect(page.locator(".finding-evidence").first).to_be_visible()
-            else:
+            elif view == "materials":
                 expect(page.locator("#source-frame")).to_be_visible()
+            else:
+                expect(page.locator('.define-comparison iframe')).to_have_count(2)
             assert page.evaluate("document.documentElement.scrollWidth<=innerWidth"), (
                 width,
                 view,

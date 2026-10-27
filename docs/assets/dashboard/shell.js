@@ -18,6 +18,7 @@ export function createShell(ctx) {
       ...(model.development ? [["development", "Analysis development"]] : []),
       ["overview", "Consistency findings"],
       ["materials", "Source documents"],
+      ...(model.define_comparison ? [["define", "Define-XML comparison"]] : []),
     ]
       .map(
         ([id, label]) =>

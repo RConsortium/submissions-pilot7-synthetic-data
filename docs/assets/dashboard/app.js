@@ -14,6 +14,7 @@ import { createWorkspace } from "./workspace.js";
 import { createReport } from "./report.js";
 import { findIssue } from "./issues.js";
 import { createSourceDocuments } from "./source-documents.js";
+import { defineComparisonView } from "./define-comparison.js";
 import { createComments } from "./comments.js";
 import { createResizing } from "./resize.js";
 import { mountSynthetic } from "./synthetic.js";
@@ -174,7 +175,9 @@ import { developmentReport, mountDevelopment } from "./synthetic-development.js"
           ? developmentReport(development, dataRoot)
           : state.view === "overview"
             ? findingsView()
-            : materialsView();
+            : state.view === "define"
+              ? defineComparisonView(model, resource)
+              : materialsView();
     if (state.view === "development" && development)
       mountDevelopment(byId("view-content"), development);
     byId("review-comments").innerHTML = commentsView();

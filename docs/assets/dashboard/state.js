@@ -1,6 +1,6 @@
 /** Validated shareable review state, including compared datasets and table sizes. */
 import { inputOptions, PAGE_SIZES } from "./review-model.js";
-export const sections = ["datasets", "overview", "findings", "materials", "development"];
+export const sections = ["datasets", "overview", "findings", "materials", "development", "define"];
 const fields = [
   "focus",
   "rowSearch",
