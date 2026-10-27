@@ -62,7 +62,7 @@ retain their original text and line numbers; the resolved model is an inspection
 artifact with its own line numbers. Its normalized representation is not an
 authoring template. **Open source** opens the selected original file.
 Until you choose a view, a layered specification shows the source file that
-writes the selected variable's rule, such as a shared study layer under
+writes the selected variable's rule, such as a pilot program template under
 `spec/yamaa/`. Selecting another variable returns to that source unless the
 resolved model is shown.
 

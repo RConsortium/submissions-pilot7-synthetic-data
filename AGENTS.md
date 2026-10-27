@@ -8,8 +8,8 @@ Keep explanations short, concrete, and easy to follow.
 
 - Each study has its own top-level folder with data, programs, specifications,
   outputs, and logs. The template is in `.github/repo-structure.json`.
-- `spec/yamaa/` contains yamaa layers that several studies' specifications
-  inherit; its README states where each fact goes.
+- `spec/yamaa/` contains the yamaa templates that several studies'
+  specifications inherit; its README states where each fact goes.
 - `docs/` contains the project website; `mkdocs.yml` defines its navigation.
 - `.github/scripts/` contains validation, comparison, and documentation tools.
 - `.github/workflows/` contains CI and website deployment workflows.
