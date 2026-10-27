@@ -1,16 +1,13 @@
-"""Source reconciliation, study-data queries and a standalone review workbook."""
+"""Independent source reconciliation, dataset lineage and data-quality queries."""
 
 from collections import Counter, defaultdict
 import csv
-from datetime import date
 import json
 import math
-from pathlib import Path
 import xml.etree.ElementTree as ET
 
 import pyarrow.parquet as pq
 import pyreadstat
-import yaml
 
 from engine import STUDY, specifications
 
@@ -276,30 +273,3 @@ def audit():
             c["check"] for c in checks if not c["passed"]))
     return {"status": summary["status"], "checks": len(checks), "queries": len(issues),
             "blocking_queries": summary["blocking_queries"]}
-
-
-def render(manifest):
-    raw_columns = ["SUBJECTKEY", "SUBJECTID", "ROWID", "ITEMROW", "EVENTOID",
-                   "EVENTREPEAT", "FORMNAME", "IGROUP", "ITEMNAME", "VALUE",
-                   "STARTDATE", "GROUPREPEAT"]
-    payload = {"manifest": manifest, "audit": json.loads((STUDY / "log/audit.json").read_text()),
-               "datasets": {}, "raw_columns": raw_columns,
-               "raw": [[r[k] for k in raw_columns]
-                       for r in read_csv(STUDY / "data/odm/clinical_items.csv")]}
-    for domain, data in tables().items():
-        payload["datasets"][domain] = {
-            "section": data["section"], "rows": data["rows"],
-            "columns": data["spec"]["output"]["columns"],
-            "spec": data["spec"], "yaml": data["spec_path"].read_text(),
-            "csv": "../" + str(data["artifact"].with_suffix(".csv").relative_to(STUDY)),
-            "xpt": "../data/" + data["section"] + "/" + domain.lower() + ".xpt",
-        }
-    def default(value):
-        if isinstance(value, date):
-            return value.isoformat()
-        raise TypeError(type(value))
-    content = json.dumps(payload, default=default, ensure_ascii=True, separators=(",", ":"))
-    # Clinical text is data, never markup or script.
-    content = content.replace("<", "\\u003c").replace(">", "\\u003e").replace("&", "\\u0026")
-    template = (STUDY / "program/review.html").read_text()
-    (STUDY / "tlf/review.html").write_text(template.replace("__PAYLOAD__", content))

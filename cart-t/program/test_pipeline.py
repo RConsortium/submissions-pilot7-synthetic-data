@@ -115,17 +115,13 @@ class PublicationTests(unittest.TestCase):
         (self.base / "log").mkdir()
         record = self.base / "log/run.json"
         record.write_text('{"status":"succeeded"}')
-        (self.base / "tlf").mkdir()
-        workbook = self.base / "tlf/review.html"
-        workbook.write_text("Previous successful build")
         with patch.object(run, "STUDY", self.base), \
                 patch.object(run, "extract", side_effect=ValueError("invalid source")), \
-                patch("sys.argv", ["run.py", "--build-only"]):
+                patch("sys.argv", ["run.py"]):
             with self.assertRaisesRegex(ValueError, "invalid source"):
                 run.main()
         evidence = json.loads(record.read_text())
         self.assertEqual((evidence["status"], evidence["reason"]), ("failed", "invalid source"))
-        self.assertFalse(workbook.exists())
 
 
 if __name__ == "__main__":

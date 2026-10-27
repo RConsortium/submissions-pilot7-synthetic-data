@@ -1,34 +1,35 @@
 # CAR-T for ALL: ODM to SDTM and ADaM with yamaa
 
-This study rebuilds the archived CART2020 OpenClinica test export from its
+This study standardizes the archived CART2020 OpenClinica test export from its
 original ODM XML. It produces ten SDTM datasets, nine exploratory ADaM datasets,
-SAS XPT review exports, and separate SDTM and ADaM Define-XML 2.0 files.
-The original `.archieve/cart-t/` is unchanged.
+SAS XPT exports, separate SDTM and ADaM Define-XML 2.0 files, and dataset QC
+logs. The original `.archieve/cart-t/` is unchanged.
 
-The package is a **review draft**, not a submission-ready study. The source
+Scope is data standardization, metadata and dataset quality checks. Tables,
+listings, figures, analysis displays and TLF programs are outside this package.
+
+The datasets are a **review draft**, not submission-ready data. The source
 does not provide exposure records, treatment allocation, a full protocol/SAP,
-country codes, or MedDRA preferred terms. The workflow exposes those gaps
-instead of manufacturing values to pass a conformance check.
+country codes, or MedDRA preferred terms. The workflow exposes these gaps.
 
-## Start a statistical review
+## Review the standardized data
 
 On the pull request, open the `Validate cart-t` Actions job and download its
-`cart-t-review` artifact. Extract the whole artifact, then open
-`cart-t/tlf/review.html` in a browser. Keep the extracted folders together so
-CSV, XPT, Define-XML and documentation links work. No web server is required.
+`cart-t-standardization` artifact. Extract the whole artifact to retain the
+relative links from Define-XML to its XPT datasets.
 
-The workbook provides searchable records, subject IDs, variable derivations,
-SDTM-to-ADaM links, original CRF item values, review queries and archived row
-counts. Human review starts as `not_reviewed`; automated checks do not approve
-statistical decisions. Review [decisions.md](spec/review/decisions.md) before
-interpreting population flags or analysis timing.
+Start with [decisions.md](spec/review/decisions.md), executable specifications
+under `spec/yamaa/`, and `log/audit.json`. The audit contains source and lineage
+checks, unresolved clinical-data queries, and archived row-count differences.
+Human review starts as `not_reviewed`; automated checks do not approve
+statistical decisions. [The issue #98 assessment](spec/review/issue-98.md)
+separates corrected standardization defects from unresolved source gaps.
 
-For local work, run the command below and open [the workbook](tlf/review.html).
-Data are also available as CSV and typed Parquet. For example, in R:
+Data are available as CSV, typed Parquet and XPT. For example, in R:
 
 ```r
 adsl <- read.csv("cart-t/data/adam/adsl-yamaa.csv", na.strings = "")
-# Or, retaining analysis-date types:
+# Retain analysis-date types:
 adsl <- arrow::read_parquet("cart-t/data/adam/adsl-yamaa.parquet")
 ```
 
@@ -36,9 +37,9 @@ adsl <- arrow::read_parquet("cart-t/data/adam/adsl-yamaa.parquet")
 
 Run from the repository root. Python 3.12+ and a C compiler are required.
 Install Rust 1.99.1 with `rustup toolchain install 1.99.1 --profile minimal`
-before the source installation. All studies use the same exact yamaa source
-pin; the Python requirements are under `program/adam/python/` for consistency
-with the other pilot studies.
+before the source installation. All pilot studies use the same exact yamaa
+source pin; requirements are under `program/adam/python/` for consistency
+with the other pilots.
 
 ```bash
 python3 -m venv .venv
@@ -51,11 +52,12 @@ RUSTUP_TOOLCHAIN=1.99.1 .venv/bin/python -m pip install \
 ```
 
 No archived RDS, XPT or derived dataset is an input to a clinical derivation.
-The audit reads archived XPT files only to report previous row counts.
-The full build fails on extraction ambiguity, an unsuccessful yamaa run,
-changed XPT values/labels/widths, invalid Define-XML, missing artifact links,
-or failed source reconciliation. Clinical data queries remain visible even
-when these execution and integrity checks pass.
+The audit reads archived XPT only for previous row counts; the issue verifier
+reads them only to reproduce the reported data-quality findings.
+The build fails on extraction ambiguity, an unsuccessful yamaa run, changed
+XPT values/labels/widths, invalid Define-XML, missing artifact links, or failed
+source reconciliation. Clinical queries remain unresolved when these
+execution and integrity checks pass.
 
 Individual stages can be rerun in dependency order:
 
@@ -65,16 +67,11 @@ Individual stages can be rerun in dependency order:
 .venv/bin/python cart-t/program/adam/run.py
 ```
 
-Use the full runner after an edit to refresh XPT, Define-XML, the audit and
-the workbook. `--build-only` omits HTML; `--review-only` renders the current
-successful build for the CI review artifact.
-
-The optional browser regression check uses Playwright and an installed
-Chromium/Chrome (or Playwright's Chromium):
+Use the full runner after an edit to refresh XPT, Define-XML and all QC evidence.
+To repeat the issue assessment against an existing build:
 
 ```bash
-.venv/bin/python -m pip install -r .github/tests/dashboard/requirements.txt
-.venv/bin/python cart-t/program/check_workbook.py
+.venv/bin/python cart-t/program/verify_issue_98.py
 ```
 
 ## Layout and traceability
@@ -89,44 +86,44 @@ cart-t/
     odm/       native yamaa ODM reader and lossless OpenClinica reshaping
     sdtm/      SDTM stage entry point
     adam/      ADaM stage entry point and pinned Python requirements
-    run.py     complete build, export, audit and review rendering
+    run.py     complete standardization, export and audit
+    audit.py   independent source/lineage checks and data-quality queries
+    verify_issue_98.py  reproducible assessment of the reported findings
   spec/
     yamaa/     project, terminology, and one executable YAML per dataset
     define/    schema sources and pointers to generated Define-XML packages
     source/    source provenance and form coverage
-    review/    statistical decisions and human review checklist
-  tlf/         generated standalone review workbook; no inferential TLFs
-  log/         per-dataset logs/reports, source inventory, audit and run manifest
+    review/    standardization decisions and issue assessment
+  log/         execution logs, source inventory, audit and issue evidence
 ```
 
 Each SDTM `--SPID` points to an original item `SourceOrdinal` (LB/QS), or to
 the first ordinal of a complete item-group instance (other observation
 domains). The group key retains study, metadata version, subject, event and
-event repeat, form and form repeat/layout, and item group/repeat. ADaM carries
-`SRCDOM`, `SRCSEQ` and `SRCVAR` for direct trace-back. ADSL obtains the phenotype
-from `SUPPDM.RANDPROF`, so its inputs are SDTM rather than a separate raw-data
-shortcut. `USUBJID` uses the unique ODM SubjectKey; `DM.SUBJID` retains the
-human-readable study subject ID.
+event repeat, form and form repeat/layout, and item group/repeat. Find an
+observation's original values in `data/odm/items.csv` or the per-form CSVs.
+ADaM carries `SRCDOM`, `SRCSEQ` and `SRCVAR` for direct trace-back. ADSL obtains
+the phenotype from `SUPPDM.RANDPROF`; its inputs are SDTM. `USUBJID` uses the
+unique ODM SubjectKey; `DM.SUBJID` retains the study subject ID.
 
-All clinical mappings are executable yamaa YAML. The extraction adapter only
-reads metadata, preserves values and pivots complete source instances. The
-Python orchestration/export layer does not calculate analysis variables.
-The same YAML can be executed with the matching yamaa R host after extraction.
+Clinical mappings are executable yamaa YAML. The extraction adapter reads
+metadata, preserves values and pivots complete source instances. Python
+orchestration/export does not calculate analysis variables. The same YAML
+can execute with the matching yamaa R host after extraction.
 
-Generated data, XML definitions, HTML and logs are deliberately ignored by Git.
-They are rebuilt in CI and included together in the review artifact. ADaM
-Parquet files use `-yamaa.parquet`; no generated file is presented as an
-independent reference.
+Generated data, XML and logs are ignored by Git. CI rebuilds and packages
+them with the source and specifications. ADaM Parquet files use
+`-yamaa.parquet`; generated files are not independent references.
 
 ## Define-XML and transport
 
 Canonical definitions are [data/sdtm/define.xml](data/sdtm/define.xml) and
 [data/adam/define.xml](data/adam/define.xml), beside their XPT datasets so
-relative dataset links work. They are composed by yamaa from the executable
-specifications, with target SDTMIG 3.3 and ADaMIG 1.3 metadata. See
+relative links work. yamaa composes them from the executable specifications,
+with target SDTMIG 3.3 and ADaMIG 1.3 metadata. See
 [spec/define/README.md](spec/define/README.md) for the metadata mode and checks.
 
-Reproducibility is assessed on values, types, labels and widths. yamaa uses
+Reproducibility checks cover values, types, labels and widths. yamaa uses
 the snapshot creation time for the direct runner's Define-XML export;
 ReadStat timestamps XPT headers when exporting. SAS fixed-width padding makes
 trailing blanks indistinguishable; exact source strings remain in XML,
@@ -136,10 +133,10 @@ Parquet and CSV. Leading blanks and all other characters are checked.
 
 Biostatisticians approve populations, baseline, visits, endpoints and analysis
 rules. Data stewards resolve source contradictions, coding and missing timing.
-AI drafted the specifications and review materials. yamaa executes clinical
+AI drafted the specifications and review documentation. yamaa executes clinical
 derivations and composes Define-XML. Independent Python/XML and ReadStat checks
 test preservation, lineage, schema validity and transport round-trips.
 
-There is no official reference comparison, independent CORE validation, or
-human sign-off claim. The retained archive is historical implementation
-evidence; count agreement is not data agreement or regulatory validation.
+There is no official CAR-T reference comparison, external CDISC conformance
+validation, or human statistical sign-off. See the decisions and audit for
+remaining work.

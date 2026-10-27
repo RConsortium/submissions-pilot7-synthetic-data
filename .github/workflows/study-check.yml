@@ -71,26 +71,18 @@ jobs:
       - name: Run study pipeline regression checks
         if: inputs.yamaa && hashFiles(format('{0}/program/test_pipeline.py', inputs.study)) != ''
         run: python -m unittest discover -s "$STUDY/program" -p 'test_*.py' -v
-      - name: Render CAR-T statistical review workbook
-        if: inputs.yamaa && inputs.study == 'cart-t'
-        run: python "$STUDY/program/run.py" --review-only
-      - name: Check CAR-T workbook in a browser
+      - name: Stage CAR-T standardization package
         if: inputs.yamaa && inputs.study == 'cart-t'
         run: |
-          python -m pip install -r .github/tests/dashboard/requirements.txt
-          python "$STUDY/program/check_workbook.py"
-      - name: Stage CAR-T review folder
-        if: inputs.yamaa && inputs.study == 'cart-t'
-        run: |
-          mkdir -p .build/cart-t-review
-          cp -a "$STUDY" .build/cart-t-review/
+          mkdir -p ".build/cart-t-standardization/$STUDY"
+          cp -a "$STUDY"/{README.md,data,program,spec,log} ".build/cart-t-standardization/$STUDY/"
       - uses: actions/upload-artifact@v4
         if: inputs.yamaa && inputs.study == 'cart-t'
         with:
-          name: cart-t-review
+          name: cart-t-standardization
           path: |
-            .build/cart-t-review/
-            !.build/cart-t-review/**/__pycache__/**
+            .build/cart-t-standardization/
+            !.build/cart-t-standardization/**/__pycache__/**
           include-hidden-files: true
           if-no-files-found: error
           retention-days: 30

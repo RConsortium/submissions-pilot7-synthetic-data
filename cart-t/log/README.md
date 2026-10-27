@@ -9,4 +9,9 @@ engine information, dataset dimensions, Define-XML checks and audit status.
 clinical-data queries. A passed audit does not resolve those queries or
 establish submission readiness. All human review statuses start not reviewed.
 
-Logs are included in the CI `cart-t-review` artifact and are not committed.
+`issue-98.json` records a reproducible assessment of every finding in
+[issue #98](https://github.com/RConsortium/submissions-pilot7-synthetic-data/issues/98).
+It distinguishes corrected standardization defects from source-data blockers.
+See `spec/review/issue-98.md` for interpretation and remaining work.
+
+Logs are included in the CI `cart-t-standardization` artifact and are not committed.

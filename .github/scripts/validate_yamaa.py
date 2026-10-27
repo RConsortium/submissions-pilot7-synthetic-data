@@ -35,7 +35,7 @@ def validate(study_name, entry, report):
         # must fail before a successful validation record can be produced.
         runner = (study / entry['prepare']).resolve()
         runner.relative_to(study.resolve())
-        subprocess.run([sys.executable, str(runner), '--build-only'], cwd=ROOT, check=True)
+        subprocess.run([sys.executable, str(runner)], cwd=ROOT, check=True)
         report['source_pipeline'] = True
     report.update(yamaa_revision=engine_revision(ROOT, study_name),
                   yamaa_version=yamaa.__version__)

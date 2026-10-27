@@ -56,12 +56,12 @@ was supplied for CAR-T and no metadata-equivalence claim is made.
 1. Confirm source scope, subject/site identity and data provenance.
 2. Resolve COUNTRY, MedDRA coding and exposure/allocation gaps.
 3. Confirm consent, randomization and collection timing; inspect retained
-   contradictions using the source ordinals in the workbook.
+   contradictions using source ordinals and the original-item CSV extracts.
 4. Approve populations, baseline, nominal visit windows and endpoints in a SAP.
 5. Update executable YAML and metadata, rerun the full pipeline, and review
    record-level differences. Requalify transport and Define-XML.
 6. Run independent CDISC conformance validation and obtain human sign-off.
 
-Archived row counts and explanations are generated in `log/audit.json` and
-the workbook. The archive is left unchanged. Matching row counts, including
+Archived row counts and explanations are generated in `log/audit.json`.
+The archive is left unchanged. Matching row counts, including
 DM/ADSL, do not imply value agreement.

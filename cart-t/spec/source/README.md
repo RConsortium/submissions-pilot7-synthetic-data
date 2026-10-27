@@ -15,7 +15,9 @@ against the native item table during the full build.
 
 The archive's R programs and YAML are historical mapping evidence. The new
 clinical derivations use the XML and new executable specifications, not archived
-RDS or XPT values. Archived XPT files are read only for row-count comparisons.
+RDS or XPT values. The audit reads archived XPT for row-count comparisons;
+the issue #98 verifier reads them to reproduce the reported quality findings.
+Neither uses archived values as clinical derivation inputs.
 OpenClinica CodeList definitions in the XML resolve CM codes and terminology
 spellings. Laboratory fixed units follow the archived LB form specification
 and are flagged for confirmation.

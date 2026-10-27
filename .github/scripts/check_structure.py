@@ -5,7 +5,7 @@ Every study folder is expected to expose the same stage-based layout:
 
     <study>/data/{odm,sdtm,adam}      datasets, by stage
     <study>/program/{odm,sdtm,adam}   derivation code, by stage
-    <study>/tlf                       reporting outputs
+    <study>/tlf                       optional reporting outputs
 
 Studies are discovered, not listed: any top-level directory that does not
 start with "." and is not named in `non_study_dirs` is treated as a study.
