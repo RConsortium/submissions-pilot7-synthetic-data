@@ -31,11 +31,37 @@ export function findIssue(report, id) {
   );
 }
 
-export function impactText(issue) {
-  const impact = issue.impact;
-  if (impact.status === "not_measured") return "Impact not measured";
-  if (impact.status === "not_observed") return "No differences in tested data";
-  return `${plural(impact.subject_count, "subject")} with observed differences`;
+function comparisonSources(e) {
+  return {
+    source: e.type === "codelist" ? "Documented codelist"
+      : e.method === "copy" ? "Documented source"
+      : e.reading === "literal" ? "Documented rule"
+      : `Alternative rule (${e.column})`,
+    target: e.target === "derived" ? "yamaa output" : "published reference",
+  };
+}
+
+export function comparisonLabel(e) {
+  const { source, target } = comparisonSources(e);
+  return `${source} vs ${target}`;
+}
+
+export function impactText(issue, report) {
+  if (issue.impact.status === "not_measured") return "No issue-specific data comparison";
+  const selected = new Set(issue.trace.filter((t) => t.role === "impact").map((t) => t.evidence_id));
+  const pairs = new Map();
+  for (const e of readReview(report).evidence) {
+    if (!selected.has(e.id) || !["comparison", "codelist"].includes(e.type)) continue;
+    const label = comparisonLabel(e);
+    if (!pairs.has(label)) pairs.set(label, { subjects: new Set(), differs: false });
+    const pair = pairs.get(label);
+    for (const subject of e.subjects) pair.subjects.add(subject);
+    pair.differs ||= e.type === "codelist" ? e.values.length > 0 : e.differ > 0;
+  }
+  return [...pairs].map(([label, pair]) => `${label}: ${!pair.differs
+    ? "no differences in tested data"
+    : pair.subjects.size ? `${plural(pair.subjects.size, "subject")} differ${pair.subjects.size === 1 ? "s" : ""}`
+    : "differences observed; subject impact unavailable"}`).join("; ");
 }
 
 export function criticalFinding(issue) {
@@ -89,11 +115,12 @@ function citation(e, report) {
 }
 
 function patterns(e) {
+  const { source, target } = comparisonSources(e);
   const pairs = e.patterns.map((p) => {
     const a = p.row === "extra" ? "(no record)" : value(p.reference);
     const b = p.row === "absent" ? "(no record)" : value(p.observed);
     const subjects = p.subjects.slice(0, 3).join(", ");
-    return `<li>${esc(e.target)} <code>${esc(a)}</code>; rule <code>${esc(b)}</code>: ${plural(p.count, "record")}${subjects ? ` (${esc(subjects)}${p.subjects.length > 3 ? ", ..." : ""})` : ""}</li>`;
+    return `<li>${esc(target)} <code>${esc(a)}</code>; ${esc(source.toLowerCase())} <code>${esc(b)}</code>: ${plural(p.count, "record")}${subjects ? ` (${esc(subjects)}${p.subjects.length > 3 ? ", ..." : ""})` : ""}</li>`;
   });
   return `<ul class="pattern-list">${pairs.slice(0, 2).join("")}</ul>${pairs.length > 2 ? `<details><summary>${pairs.length - 2} more value pairs</summary><ul class="pattern-list">${pairs.slice(2).join("")}</ul></details>` : ""}`;
 }
@@ -104,12 +131,10 @@ function measurement(e, role) {
       ? " <small>Context comparison; excluded from issue impact.</small>"
       : "";
   if (e.type === "comparison") {
-    const name =
-      e.reading === "literal" ? "Documented rule" : e.reading || e.column;
-    return `<div class="issue-measurement"><p><strong>${esc(shorten(normalize(name), 100))}</strong> vs ${esc(e.target === "derived" ? "derived output" : "reference")}: ${e.differ} / ${e.compared} records differ.${context}</p>${e.differ ? patterns(e) : ""}<details><summary>Calculation</summary><p>${esc(e.reading)}</p><code>${esc(e.column)}</code></details></div>`;
+    return `<div class="issue-measurement"><p><strong>${esc(comparisonLabel(e))}</strong>: ${e.differ} / ${e.compared} records differ.${context}</p>${e.differ ? patterns(e) : ""}<details><summary>Calculation</summary><p>${esc(e.reading)}</p><code>${esc(e.column)}</code></details></div>`;
   }
   if (e.type === "codelist")
-    return `<div class="issue-measurement"><p>Codelist <code>${esc(e.codelist)}</code>, ${esc(e.target)}:${context}</p><ul class="pattern-list">${e.values.map((v) => `<li><code>${esc(value(v.value))}</code> outside the codelist: ${plural(v.count, "record")}</li>`).join("") || "<li>No values outside the codelist.</li>"}</ul></div>`;
+    return `<div class="issue-measurement"><p><strong>${esc(comparisonLabel(e))}</strong>, codelist <code>${esc(e.codelist)}</code>:${context}</p><ul class="pattern-list">${e.values.map((v) => `<li><code>${esc(value(v.value))}</code> outside the codelist: ${plural(v.count, "record")}</li>`).join("") || "<li>No values outside the codelist.</li>"}</ul></div>`;
   return `<p>${esc(e.text || "")}</p>`;
 }
 
@@ -175,5 +200,5 @@ export function issueRow(issue, report) {
   );
   const rules = [...new Set(checks.map((c) => c.rule?.id).filter(Boolean))];
   const critical = criticalFinding(issue);
-  return `<tr class="review-issue" data-finding-id="${esc(issue.id)}"><th scope="row"><button class="text-link" data-finding="${esc(issue.id)}">${esc(issue.dataset + (issue.variable ? "." + issue.variable : ""))}</button><span class="rule-id">${esc(rules.join(", "))}</span></th><td class="issue-impact"><span class="status ${["conflict", "evidence", "inconsistent"].includes(issue.kind) ? "attention" : "neutral"}">${esc(issue.kind.replaceAll("_", " "))}</span><p>${esc(impactText(issue))}</p><small>Agent review: ${esc(issue.review.replaceAll("_", " "))}</small><small>${plural(checks.length, "supporting check")}</small></td><td class="issue-summary"><h3>${esc(issue.title)}</h3><p>${esc(issue.summary)}</p></td><td class="issue-critical"><span class="sr-only">Critical finding: </span><span class="status ${critical.status === "yes" ? "attention" : "neutral"}">${esc(CRITICAL_LABELS[critical.status])}</span><p>${esc(critical.reason)}</p></td><td class="issue-status"><span class="sr-only">Status: </span><span class="status attention">Under Review</span></td><td><details class="finding-trace"><summary>Trace evidence</summary><div data-issue-trace></div></details></td></tr>`;
+  return `<tr class="review-issue" data-finding-id="${esc(issue.id)}"><th scope="row"><button class="text-link" data-finding="${esc(issue.id)}">${esc(issue.dataset + (issue.variable ? "." + issue.variable : ""))}</button><span class="rule-id">${esc(rules.join(", "))}</span></th><td class="issue-impact"><span class="status ${["conflict", "evidence", "inconsistent"].includes(issue.kind) ? "attention" : "neutral"}">${esc(issue.kind.replaceAll("_", " "))}</span><p>${esc(impactText(issue, report))}</p><small>Agent review: ${esc(issue.review.replaceAll("_", " "))}</small><small>${plural(checks.length, "supporting check")}</small></td><td class="issue-summary"><h3>${esc(issue.title)}</h3><p>${esc(issue.summary)}</p></td><td class="issue-critical"><span class="sr-only">Critical finding: </span><span class="status ${critical.status === "yes" ? "attention" : "neutral"}">${esc(CRITICAL_LABELS[critical.status])}</span><p>${esc(critical.reason)}</p></td><td class="issue-status"><span class="sr-only">Status: </span><span class="status attention">Under Review</span></td><td><details class="finding-trace"><summary>Trace evidence</summary><div data-issue-trace></div></details></td></tr>`;
 }

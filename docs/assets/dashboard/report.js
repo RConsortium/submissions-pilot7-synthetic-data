@@ -83,7 +83,7 @@ export function createReport(ctx) {
       host.innerHTML = "";
       return;
     }
-    host.innerHTML = `<aside class="evidence-drawer" aria-label="Source evidence"><header><div><span class="eyebrow">CONSISTENCY ISSUE</span><h2>${esc(issue.dataset + (issue.variable ? "." + issue.variable : ""))}</h2></div><button class="button" id="close-evidence" aria-label="Close source evidence">Close</button></header><h3>${esc(issue.title)}</h3><p>${esc(issue.summary)}</p><p>${esc(impactText(issue))}</p>${issueTrace(issue, report)}<button class="button" data-comment>Comment on this issue</button></aside>`;
+    host.innerHTML = `<aside class="evidence-drawer" aria-label="Source evidence"><header><div><span class="eyebrow">CONSISTENCY ISSUE</span><h2>${esc(issue.dataset + (issue.variable ? "." + issue.variable : ""))}</h2></div><button class="button" id="close-evidence" aria-label="Close source evidence">Close</button></header><h3>${esc(issue.title)}</h3><p>${esc(issue.summary)}</p><p>${esc(impactText(issue, report))}</p>${issueTrace(issue, report)}<button class="button" data-comment>Comment on this issue</button></aside>`;
   }
   return {
     allFindings,

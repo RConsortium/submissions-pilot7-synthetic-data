@@ -12,6 +12,7 @@ import {
   issueTrace,
   readReview,
   criticalFinding,
+  comparisonLabel,
 } from "../../../docs/assets/dashboard/issues.js";
 import { createShell } from "../../../docs/assets/dashboard/shell.js";
 import { esc, link } from "../../../docs/assets/dashboard/ui.js";
@@ -131,8 +132,11 @@ test("the metric and listing count issues separately from supporting checks", ()
     report,
     model: { metrics: { matched: [1, 2, 3], reference: [1, 2, 3] } },
   }).metrics();
-  assert.match(html, /Consistency:<\/strong> 1 issue/);
-  assert.match(html, /class="status attention">Under Review<\/span>/);
+  assert.match(html, /Published ADaM reference agreement/);
+  assert.match(html, /<strong>100%<\/strong> of reference datasets matched/);
+  assert.match(html, /<strong>1<\/strong> finding awaiting review/);
+  assert.match(html, /1 critical; 0 non-critical; 0 needing assessment/);
+  assert.match(html, /Findings can remain open even when reference agreement is 100%/);
   const listing = createReport({ report, state: state(), esc }).findingsView();
   assert.match(listing, /1 of 1 issue &middot; 2 supporting checks/);
   assert.equal((listing.match(/<tr class="review-issue"/g) || []).length, 1);
@@ -156,7 +160,7 @@ test("trace shows selected quotes and comparisons once, with full context and ch
     "Full context",
     "3</span>  day: 1</mark>",
     "2 / 3 records differ",
-    "reference <code>&lt;value&gt;</code>; rule <code>(missing)</code>",
+    "published reference <code>&lt;value&gt;</code>; documented rule <code>(missing)</code>",
     "2 supporting checks and agent review",
     "Proposed action",
     "Complete check evidence",
@@ -266,7 +270,7 @@ test("workspace drawer resolves old check links to the issue and uses the same e
   }).drawer();
   assert.match(host.innerHTML, /Partial-date rule differs/);
   assert.match(host.innerHTML, /Use &lt;first&gt; day/);
-  assert.match(host.innerHTML, /2 subjects with observed differences/);
+  assert.match(host.innerHTML, /Documented rule vs published reference: 2 subjects differ/);
 });
 
 test("an exact variable search excludes mentions in another variable's source context", () => {
@@ -288,14 +292,14 @@ test("unmeasured impact stays distinct from zero observed differences and contex
       ...issue,
       impact: { ...issue.impact, status: "not_measured" },
     }),
-    "Impact not measured",
+    "No issue-specific data comparison",
   );
   assert.equal(
     impactText({
       ...issue,
       impact: { ...issue.impact, status: "not_observed" },
-    }),
-    "No differences in tested data",
+    }, { ...report, review: { ...report.review, evidence: [{ ...comparison, differ: 0, subjects: [], patterns: [] }] } }),
+    "Documented rule vs published reference: no differences in tested data",
   );
   const contextual = {
     ...issue,
@@ -305,6 +309,33 @@ test("unmeasured impact stays distinct from zero observed differences and contex
     issueTrace(contextual, report),
     /Context comparison; excluded from issue impact/,
   );
+});
+
+test("impact names each compared pair, deduplicates subjects and excludes context", () => {
+  const evidence = [
+    comparison,
+    { ...comparison, id: "repeat", subjects: ["B", "C"] },
+    { ...comparison, id: "derived", target: "derived", subjects: ["D"] },
+    { ...comparison, id: "context", subjects: ["Z"] },
+  ];
+  const item = { ...issue, trace: evidence.map((e) => ({ evidence_id: e.id, role: e.id === "context" ? "context" : "impact" })) };
+  const data = { ...report, review: { ...report.review, evidence } };
+  assert.equal(impactText(item, data), "Documented rule vs published reference: 3 subjects differ; Documented rule vs yamaa output: 1 subject differs");
+  assert.equal(comparisonLabel({ ...comparison, method: "copy" }), "Documented source vs published reference");
+  assert.equal(comparisonLabel({ ...comparison, type: "codelist", target: "derived" }), "Documented codelist vs yamaa output");
+  assert.match(comparisonLabel({ ...comparison, reading: "corrected" }), /Alternative rule \(DATE_LITERAL\) vs published reference/);
+});
+
+test("summary retains unassessed findings, zero findings and unavailable references", () => {
+  const data = { ...report, review: { ...report.review, issues: [{ ...issue, critical: undefined }] } };
+  const model = { metrics: { matched: [0, 0, 0], reference: [0, 0, 0] } };
+  const html = createShell({ report: data, model }).metrics();
+  assert.match(html, /No official reference/);
+  assert.match(html, /0 critical; 0 non-critical; 1 needing assessment/);
+  assert.doesNotMatch(html, /NaN|100%<\/strong>|non-critical; 0 needing assessment/);
+  const zero = createShell({ model, report: { ...report, review: { ...report.review, issues: [] } } }).metrics();
+  assert.match(zero, /<strong>0<\/strong> findings reported/);
+  assert.doesNotMatch(zero, /awaiting review/);
 });
 
 test("unsupported or missing review versions fail visibly", () => {

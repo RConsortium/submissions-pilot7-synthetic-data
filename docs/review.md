@@ -89,6 +89,12 @@ stack vertically.
 
 ## Verify documentation observations
 
+The summary separates **Published ADaM reference agreement** from
+**Consistency review**. Reference agreement measures reproduction of the
+published datasets under the study's comparison rules. Consistency review
+checks agreement among documents, derivation rules, and data. Findings can
+remain open even when reference agreement is 100%.
+
 The **Consistency findings** tab lists actionable issues. Each row names the
 problem, summarizes the difference, and shows measured impact and agent review.
 The **Consistency** metric counts issues; the listing separately counts the
@@ -112,6 +118,10 @@ Expand **Trace evidence** to see:
 - the relevant source quotations and specification clauses, each shown once;
 - selected data comparisons, with record counts and representative value pairs;
 - the proposed action.
+
+Measured impact names both sides, such as **Documented rule vs published
+reference** or **Documented codelist vs yamaa output**. Each comparison counts
+its own subjects; context-only comparisons are excluded from issue impact.
 
 **Full context** reveals the complete quotation or specification with original
 line numbers. **Supporting checks and agent review** retains the rule statements,
