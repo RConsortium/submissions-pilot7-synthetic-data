@@ -5,6 +5,11 @@
 yamaa: "1.0"
 type: spec
 parent: adlbc_v1.yaml
+# Version 1 also writes these rules as `case`; clearing them first replaces
+# them whole instead of merging, so version 2 is recorded as their writer.
+clear:
+  - columns.CHG.derivation
+  - columns.BNRIND.derivation
 
 intermediates:
   - id: PREV
@@ -31,6 +36,13 @@ intermediates:
             filter: "LB.VISIT NOT LIKE 'UNSCHEDULED%'"
 
 columns:
+  # The working values of the shift parameters, then the column rules that
+  # CDISC Pilot 01 writes with a branch for them (_IS_UNDER = 'Y'). Each
+  # replaces version 1's rule whole: PARAM names a shift parameter after its
+  # chemistry parameter, PARAMN numbers it 100 after it, AVAL is its change
+  # from the previous visit divided by half the normal range, ANRIND is high
+  # or low when that exceeds 1, _RANK_VAL ranks its absolute value for
+  # ANL01FL, and CHG, BR2A1LO, BR2A1HI and BNRIND are missing or blank.
   - name: _IS_UNDER
     type: str
     label: "Working value: _IS_UNDER"
@@ -81,16 +93,18 @@ columns:
     label: "Working value: _ABS_U_AVAL"
     derivation: "abs(_U_AVAL)"
 
-  # A shift parameter ranks its absolute change.
   - name: _RANK_VAL
+    type: float
+    label: "Working value: _RANK_VAL"
     derivation:
       case:
         - when: "_IS_UNDER = 'Y'"
           then: _ABS_U_AVAL
         - otherwise: ALBTRVAL
 
-  # A shift parameter is named for its chemistry parameter.
   - name: PARAM
+    type: str
+    label: Parameter
     derivation:
       case:
         - when: "_IS_UNDER = 'Y'"
@@ -99,24 +113,27 @@ columns:
               relative to normal range"
         - otherwise: _PARAM_BASE
 
-  # A shift parameter is numbered 100 after its chemistry parameter.
   - name: PARAMN
+    type: float
+    label: Parameter (N)
     derivation:
       case:
         - when: "_IS_UNDER = 'Y'"
           then: "_PARAMN_BASE + 100"
         - otherwise: _PARAMN_BASE
 
-  # A shift parameter's value is its scaled change from the previous visit.
   - name: AVAL
+    type: float
+    label: Analysis Value
     derivation:
       case:
         - when: "_IS_UNDER = 'Y'"
           then: _U_AVAL
         - otherwise: _AVAL_BASE
 
-  # A shift parameter has no change from baseline.
   - name: CHG
+    type: float
+    label: Change from Baseline
     derivation:
       case:
         - when: "_IS_UNDER = 'Y'"
@@ -125,25 +142,27 @@ columns:
           then:
         - otherwise: "_AVAL_BASE - _BASE"
 
-  # A shift parameter has no baseline ratio.
   - name: BR2A1LO
+    type: float
+    label: Base Ratio to Analysis Range 1 Lower Lim
     derivation:
       case:
         - when: "_IS_UNDER = 'Y'"
           then:
         - otherwise: "_BASE / A1LO"
 
-  # A shift parameter has no baseline ratio.
   - name: BR2A1HI
+    type: float
+    label: Base Ratio to Analysis Range 1 Upper Lim
     derivation:
       case:
         - when: "_IS_UNDER = 'Y'"
           then:
         - otherwise: "_BASE / A1HI"
 
-  # A shift parameter is high or low when it changed by more than half the
-  # normal range.
   - name: ANRIND
+    type: str
+    label: Analysis Reference Range Indicator
     derivation:
       case:
         - when: "_IS_UNDER = 'Y' AND _U_AVAL IS NULL"
@@ -156,8 +175,9 @@ columns:
           then: "'N'"
         - otherwise: _ANRIND_BASE
 
-  # A shift parameter has no baseline indicator.
   - name: BNRIND
+    type: str
+    label: Baseline Reference Range Indicator
     derivation:
       case:
         - when: "_IS_UNDER = 'Y'"
@@ -195,15 +215,26 @@ rows:
       'AMBUL ECG REMOVAL')"
     derivations:
       STUDYID: LB.STUDYID
+      USUBJID: LB.USUBJID
       _IS_UNDER: "'Y'"
       _IS_EOT: "''"
       VISIT: LB.VISIT
       VISITNUM: LB.VISITNUM
+      LBSEQ: LB.LBSEQ
       LBNRIND: LB.LBNRIND
       LBSTRESN: LB.LBSTRESN
       A1LO:
       A1HI:
       _LBDTM_TXT: LB.LBDTC
+      _LBDTM:
+        impute:
+          type: datetime
+          source: _LBDTM_TXT
+          time: first
+          invalid:
+      _ADT_DATE:
+        to_date:
+          source: _LBDTM
       PARAMCD:
         str_template: "_{LB.LBTESTCD}"
       AVISIT:
@@ -300,9 +331,15 @@ rows:
             CHOL: 34.0
             CK: 35.0
       _AVAL_BASE: LB.LBSTRESN
+      _BASE:
+        first_available:
+          sources:
+            - _BASELINE_AVAL
+            - _PNM_BASE
       _BASELINE_AVAL:
       _PNM_BASE:
       _PARAMCD_BASE: LB.LBTESTCD
+      LBTESTCD: LB.LBTESTCD
       _SCHED:
         case:
           - when: "AVISIT = '               .' OR AVISIT = 'End of Treatment'"
@@ -326,6 +363,11 @@ rows:
       _B_A1LO: LB.LBSTNRLO
       _T1: "1.5 * _B_A1HI - _AVAL_BASE"
       _T2: "_AVAL_BASE - 0.5 * _B_A1LO"
+      ALBTRVAL:
+        greatest:
+          sources:
+            - _T1
+            - _T2
       _R2A1HI_R:
       _R2A1LO_R:
       _BASELINE_ANRIND:
@@ -347,6 +389,8 @@ rows:
     derivations:
       STUDYID:
         aggregate: "ONLY(LB.STUDYID)"
+      USUBJID: LB.USUBJID
+      LBSEQ: LB.LBSEQ
       _IS_UNDER: "'Y'"
       _IS_EOT: "'Y'"
       _LBCAT:
@@ -365,6 +409,15 @@ rows:
       A1HI:
       _LBDTM_TXT:
         aggregate: "ONLY(LB.LBDTC)"
+      _LBDTM:
+        impute:
+          type: datetime
+          source: _LBDTM_TXT
+          time: first
+          invalid:
+      _ADT_DATE:
+        to_date:
+          source: _LBDTM
       _LBTESTCD:
         aggregate: "ONLY(LB.LBTESTCD)"
       _LBBLFL:
@@ -510,6 +563,11 @@ rows:
         aggregate: "ONLY(LB.LBSTNRLO)"
       _T1: "1.5 * _B_A1HI - _AVAL_BASE"
       _T2: "_AVAL_BASE - 0.5 * _B_A1LO"
+      ALBTRVAL:
+        greatest:
+          sources:
+            - _T1
+            - _T2
       _R2A1HI_R:
       _R2A1LO_R:
       _BASELINE_ANRIND:

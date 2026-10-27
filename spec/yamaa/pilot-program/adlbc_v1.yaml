@@ -96,7 +96,7 @@ intermediates:
       - USUBJID
 
 columns:
-  # Subject-level values from ADSL.
+  # ADSL lookups (via ADSL_SBJ intermediate)
   - name: STUDYID
     type: str
     label: Study Identifier
@@ -109,7 +109,6 @@ columns:
   - name: USUBJID
     type: str
     label: Unique Subject Identifier
-    derivation: LB.USUBJID
 
   - name: TRTP
     type: str
@@ -186,7 +185,7 @@ columns:
     label: Safety Population Flag
     derivation: ADSL_SBJ.SAFFL
 
-  # Working values, not in the output.
+  # Helpers (not in output)
   - name: _IS_EOT
     type: str
     label: "Working value: _IS_EOT"
@@ -194,7 +193,6 @@ columns:
   - name: LBTESTCD
     type: str
     label: "Working value: LBTESTCD"
-    derivation: LB.LBTESTCD
 
   - name: _LBDTM_TXT
     type: str
@@ -203,19 +201,10 @@ columns:
   - name: _LBDTM
     type: datetime
     label: "Working value: _LBDTM"
-    derivation:
-      impute:
-        type: datetime
-        source: _LBDTM_TXT
-        time: first
-        invalid:
 
   - name: _ADT_DATE
     type: date
     label: "Working value: _ADT_DATE"
-    derivation:
-      to_date:
-        source: _LBDTM
 
   - name: _PARAM_BASE
     type: str
@@ -232,11 +221,6 @@ columns:
   - name: _BASE
     type: float
     label: "Working value: _BASE"
-    derivation:
-      first_available:
-        sources:
-          - _BASELINE_AVAL
-          - _PNM_BASE
 
   - name: _BASELINE_AVAL
     type: float
@@ -257,37 +241,22 @@ columns:
   - name: _T1
     type: float
     label: "Working value: _T1"
-    derivation: "1.5 * A1HI - _AVAL_BASE"
 
   - name: _T2
     type: float
     label: "Working value: _T2"
-    derivation: "_AVAL_BASE - 0.5 * A1LO"
 
   - name: _R2A1HI_R
     type: float
     label: "Working value: _R2A1HI_R"
-    derivation: "_AVAL_BASE / A1HI"
 
   - name: _R2A1LO_R
     type: float
     label: "Working value: _R2A1LO_R"
-    derivation:
-      case:
-        - when: "A1LO IS NULL OR A1LO = 0"
-          then:
-        - otherwise: "_AVAL_BASE / A1LO"
 
   - name: _ANRIND_BASE
     type: str
     label: "Working value: _ANRIND_BASE"
-    derivation:
-      case:
-        - when: "_R2A1HI_R > 1.5"
-          then: "'H'"
-        - when: "_R2A1LO_R < 0.5"
-          then: "'L'"
-        - otherwise: "'N'"
 
   - name: _BASELINE_ANRIND
     type: str
@@ -300,11 +269,6 @@ columns:
   - name: _BNRIND_VAL
     type: str
     label: "Working value: _BNRIND_VAL"
-    derivation:
-      first_available:
-        sources:
-          - _BASELINE_ANRIND
-          - _PNM_BNRIND
 
   - name: _LBCAT
     type: str
@@ -322,7 +286,6 @@ columns:
     type: str
     label: "Working value: _LBTESTCD"
 
-  # Analysis values.
   - name: ABLFL
     type: str
     label: Baseline Record Flag
@@ -330,11 +293,6 @@ columns:
   - name: ALBTRVAL
     type: float
     label: Amount Threshold Range
-    derivation:
-      greatest:
-        sources:
-          - _T1
-          - _T2
 
   - name: _RANK_VAL
     type: float
@@ -357,6 +315,7 @@ columns:
             - {variable: LBSEQ, nulls: last}
           filter: "_RANK_AVISITN >= 2 AND _RANK_AVISITN <= 24"
 
+  # Row-level
   - name: AVISIT
     type: str
     label: Analysis Visit
@@ -394,7 +353,6 @@ columns:
   - name: PARAMCD
     type: str
     label: Parameter Code
-    derivation: LB.LBTESTCD
 
   - name: PARAMN
     type: float
@@ -490,7 +448,6 @@ columns:
   - name: LBSEQ
     type: float
     label: Sequence Number
-    derivation: LB.LBSEQ
 
   - name: LBNRIND
     type: str
@@ -501,22 +458,35 @@ columns:
     label: Numeric Result/Finding in Standard Units
 
 rows:
-  # One row per chemistry record, and an End of Treatment row that repeats the
-  # last scheduled on-treatment record of each subject and parameter.
+  # ------------------------------------------------------------------
+  # base-ord: ordinary base rows (one per chemistry LB record)
+  # ------------------------------------------------------------------
   - id: base-ord
     dataset: LB
     filter: "LB.LBCAT = 'CHEMISTRY' AND LB.VISIT NOT IN ('RETRIEVAL',
       'AMBUL ECG REMOVAL')"
     derivations:
       STUDYID: LB.STUDYID
+      USUBJID: LB.USUBJID
+      PARAMCD: LB.LBTESTCD
       _IS_EOT: "''"
       VISIT: LB.VISIT
       VISITNUM: LB.VISITNUM
+      LBSEQ: LB.LBSEQ
       LBNRIND: LB.LBNRIND
       LBSTRESN: LB.LBSTRESN
       A1LO: LB.LBSTNRLO
       A1HI: LB.LBSTNRHI
       _LBDTM_TXT: LB.LBDTC
+      _LBDTM:
+        impute:
+          type: datetime
+          source: _LBDTM_TXT
+          time: first
+          invalid:
+      _ADT_DATE:
+        to_date:
+          source: _LBDTM
       AVISIT:
         case:
           - when: "LB.VISIT = 'SCREENING 1'"
@@ -629,6 +599,11 @@ rows:
               - PARAMCD
             order_by:
               - {variable: LBSEQ, nulls: last}
+      _BASE:
+        first_available:
+          sources:
+            - _BASELINE_AVAL
+            - _PNM_BASE
       _IS_LAST_ELIGIBLE:
         row_number:
           window:
@@ -640,6 +615,26 @@ rows:
             filter: "VISIT IN ('WEEK 2', 'WEEK 4', 'WEEK 6', 'WEEK 8',
               'WEEK 12', 'WEEK 16', 'WEEK 20', 'WEEK 24')"
       _RANK_AVISITN: AVISITN
+      _T1: "1.5 * A1HI - _AVAL_BASE"
+      _T2: "_AVAL_BASE - 0.5 * A1LO"
+      ALBTRVAL:
+        greatest:
+          sources:
+            - _T1
+            - _T2
+      _R2A1HI_R: "_AVAL_BASE / A1HI"
+      _R2A1LO_R:
+        case:
+          - when: "A1LO IS NULL OR A1LO = 0"
+            then:
+          - otherwise: "_AVAL_BASE / A1LO"
+      _ANRIND_BASE:
+        case:
+          - when: "_R2A1HI_R > 1.5"
+            then: "'H'"
+          - when: "_R2A1LO_R < 0.5"
+            then: "'L'"
+          - otherwise: "'N'"
       _BASELINE_ANRIND:
         case:
           - when: "ABLFL = 'Y'"
@@ -654,10 +649,16 @@ rows:
               - PARAMCD
             order_by:
               - {variable: LBSEQ, nulls: last}
+      _BNRIND_VAL:
+        first_available:
+          sources:
+            - _BASELINE_ANRIND
+            - _PNM_BNRIND
       _LBCAT:
       _VISIT_RAW:
       _LBBLFL:
       _LBTESTCD:
+      LBTESTCD: LB.LBTESTCD
 
   - id: base-eot
     dataset: LB
@@ -669,6 +670,9 @@ rows:
     derivations:
       STUDYID:
         aggregate: "ONLY(LB.STUDYID)"
+      USUBJID: LB.USUBJID
+      PARAMCD: LB.LBTESTCD
+      LBSEQ: LB.LBSEQ
       _IS_EOT: "'Y'"
       _LBCAT:
         aggregate: "ONLY(LB.LBCAT)"
@@ -688,6 +692,15 @@ rows:
         aggregate: "ONLY(LB.LBSTNRHI)"
       _LBDTM_TXT:
         aggregate: "ONLY(LB.LBDTC)"
+      _LBDTM:
+        impute:
+          type: datetime
+          source: _LBDTM_TXT
+          time: first
+          invalid:
+      _ADT_DATE:
+        to_date:
+          source: _LBDTM
       _LBBLFL:
         aggregate: "ONLY(LB.LBBLFL)"
       _LBTESTCD:
@@ -789,6 +802,11 @@ rows:
               - PARAMCD
             order_by:
               - {variable: LBSEQ, nulls: last}
+      _BASE:
+        first_available:
+          sources:
+            - _BASELINE_AVAL
+            - _PNM_BASE
       _IS_LAST_ELIGIBLE:
         row_number:
           window:
@@ -823,6 +841,26 @@ rows:
           - when: "_VISIT_RAW = 'WEEK 26'"
             then: 26.0
           - otherwise:
+      _T1: "1.5 * A1HI - _AVAL_BASE"
+      _T2: "_AVAL_BASE - 0.5 * A1LO"
+      ALBTRVAL:
+        greatest:
+          sources:
+            - _T1
+            - _T2
+      _R2A1HI_R: "_AVAL_BASE / A1HI"
+      _R2A1LO_R:
+        case:
+          - when: "A1LO IS NULL OR A1LO = 0"
+            then:
+          - otherwise: "_AVAL_BASE / A1LO"
+      _ANRIND_BASE:
+        case:
+          - when: "_R2A1HI_R > 1.5"
+            then: "'H'"
+          - when: "_R2A1LO_R < 0.5"
+            then: "'L'"
+          - otherwise: "'N'"
       _BASELINE_ANRIND:
         case:
           - when: "_LBBLFL = 'Y'"
@@ -837,3 +875,9 @@ rows:
               - PARAMCD
             order_by:
               - {variable: LBSEQ, nulls: last}
+      _BNRIND_VAL:
+        first_available:
+          sources:
+            - _BASELINE_ANRIND
+            - _PNM_BNRIND
+      LBTESTCD: LB.LBTESTCD
