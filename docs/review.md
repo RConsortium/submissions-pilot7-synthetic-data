@@ -112,12 +112,13 @@ Several checks can support one issue; independent problems in one variable stay
 separate. A shared check can support more than one issue without duplicating it
 in the supporting-check count.
 
-Expand **Trace evidence** to see:
+Expand **Trace evidence** and follow the numbered steps:
 
-- expected and observed behavior;
-- the relevant source quotations and specification clauses, each shown once;
-- selected data comparisons, with record counts and representative value pairs;
-- the proposed action.
+1. **Rule comparison:** compare expected and observed behavior with the quoted
+   document and specification clauses.
+2. **Data comparison:** read the subject-impact summary, then inspect record
+   counts and representative value pairs for each named comparison.
+3. **Proposed action:** review the suggested change or decision.
 
 Measured impact names both sides, such as **Documented rule vs published
 reference** or **Documented codelist vs yamaa output**. Each comparison counts
@@ -126,7 +127,11 @@ its own subjects; context-only comparisons are excluded from issue impact.
 **Full context** reveals the complete quotation or specification with original
 line numbers. **Supporting checks and agent review** retains the rule statements,
 complete check evidence and the adjudicator's reasons. Source quotations stay
-literal. **View source** opens the retained document at the cited location.
+literal. **View source** opens the retained document. **Source lines** opens
+the original quoted XML element or YAML lines in the repository. Define-XML
+2.x derivation citations follow the variable's referenced `MethodDef`; comment
+and codelist citations open their own elements. Define-XML 1.0 derivations
+remain on the `ItemDef` that contains their comment text.
 
 Impact counts distinct subjects across issue-specific comparisons. Shared and
 alternative comparisons are labelled as context and excluded from impact.

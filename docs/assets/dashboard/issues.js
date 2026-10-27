@@ -110,8 +110,8 @@ function citation(e, report) {
     report.documents?.some((d) => d.path === e.path && d.available)
       ? `<button class="text-link" data-document="${esc(e.path)}" data-document-section="${esc(e.section)}">View source</button>`
       : "";
-  const lines = e.lines ? `lines ${e.lines.join("-")}` : "Source lines";
-  return `<div class="issue-citation"><p class="quote-source">${esc(e.type === "specification" ? "Specification" : e.path.split("/").pop())}${location ? ", " + esc(location) : ""}</p><blockquote>${esc(snippet)}</blockquote>${!e.verified ? `<p>Quote not verified: ${esc(e.reason || "source unavailable")}</p>` : ""}<p class="finding-links">${source}${source && e.url ? " &middot; " : ""}${e.url ? link(e.url, lines) : ""}</p>${e.context && (normalize(e.context) !== quote || quote.length > 240 || e.type === "specification") ? `<details><summary>Full context</summary>${context}</details>` : ""}</div>`;
+  const lines = e.lines ? `Source lines ${e.lines.join("-")}` : "Source file";
+  return `<div class="issue-citation"><p class="quote-source">${esc((e.type === "specification" ? "Specification: " : "Document: ") + e.path.split("/").pop())}${location ? ", " + esc(location) : ""}</p><blockquote>${esc(snippet)}</blockquote>${!e.verified ? `<p>Quote not verified: ${esc(e.reason || "source unavailable")}</p>` : ""}<p class="finding-links">${source}${source && e.url ? " &middot; " : ""}${e.url ? link(e.url, lines) : ""}</p>${e.context && (normalize(e.context) !== quote || quote.length > 240 || e.type === "specification") ? `<details><summary>Full context</summary>${context}</details>` : ""}</div>`;
 }
 
 function patterns(e) {
@@ -176,7 +176,7 @@ export function issueTrace(issue, report) {
   const checks = r.checks.filter((c) => issue.check_ids.includes(c.id));
   const comparisons =
     issue.expected || issue.observed
-      ? `<section><h4>Rule comparison</h4><dl class="issue-comparison">${issue.expected ? `<dt>Expected</dt><dd>${esc(issue.expected)}</dd>` : ""}${issue.observed ? `<dt>Observed</dt><dd>${esc(issue.observed)}</dd>` : ""}</dl></section>`
+      ? `<dl class="issue-comparison">${issue.expected ? `<dt>Expected</dt><dd>${esc(issue.expected)}</dd>` : ""}${issue.observed ? `<dt>Observed</dt><dd>${esc(issue.observed)}</dd>` : ""}</dl>`
       : "";
   const audit = checks
     .map(
@@ -191,7 +191,7 @@ export function issueTrace(issue, report) {
           .join("")}</details></details>`,
     )
     .join("");
-  return `<div class="finding-evidence">${comparisons}${quotes.length ? `<section><h4>Source statements</h4>${quotes.map(({ e }) => citation(e, report)).join("")}</section>` : ""}<section><h4>Data comparison</h4>${data.length ? data.map(({ e, role }) => measurement(e, role)).join("") : "<p>No issue-specific data comparison.</p>"}</section>${issue.action ? `<section><h4>Proposed action</h4><p>${esc(issue.action)}</p></section>` : ""}<section><details class="issue-checks"><summary>${plural(checks.length, "supporting check")} and agent review</summary>${audit}</details></section><button class="text-link" data-finding="${esc(issue.id)}">Open evidence in workspace${issue.impact.subject_count ? ` (${plural(issue.impact.subject_count, "subject")})` : ""}</button></div>`;
+  return `<div class="finding-evidence"><section><h4>1. Rule comparison</h4>${comparisons}${quotes.length ? quotes.map(({ e }) => citation(e, report)).join("") : "<p>No source statements retained for this issue.</p>"}</section><section><h4>2. Data comparison</h4><p>${esc(impactText(issue, report))}</p>${data.length ? data.map(({ e, role }) => measurement(e, role)).join("") : "<p>No issue-specific data comparison.</p>"}</section>${issue.action ? `<section><h4>3. Proposed action</h4><p>${esc(issue.action)}</p></section>` : ""}<section><details class="issue-checks"><summary>${plural(checks.length, "supporting check")} and agent review</summary>${audit}</details></section><button class="text-link" data-finding="${esc(issue.id)}">Open evidence in workspace${issue.impact.subject_count ? ` (${plural(issue.impact.subject_count, "subject")})` : ""}</button></div>`;
 }
 
 export function issueRow(issue, report) {
