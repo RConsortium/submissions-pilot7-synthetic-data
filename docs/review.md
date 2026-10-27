@@ -155,6 +155,19 @@ study revision. Extracted reading copies and repository paths are omitted from
 this interface. Selected files and the primary cited location are preserved in
 the review URL. Missing documents remain explicitly unavailable.
 
+## Compare Define-XML
+
+Open **Define-XML comparison** in a pilot workspace to view the original ADaM
+Define-XML on the left and the yamaa-generated XML on the right. Both files have
+line numbers, an **Open source** link and a **Download XML** link for the unchanged
+file. The panes stack on smaller screens.
+
+The metadata result and field differences come from study validation. Review
+the original and generated values below the XML panes, including any legacy
+metadata gaps, unsupported content and unresolved source declarations. **Complete
+comparison evidence** opens the recorded result. Metadata agreement is separate
+from XML byte identity, schema validity and data conformance.
+
 ## Review synthetic analysis development
 
 Synthetic workspaces inventory staged ODM archives and show the availability

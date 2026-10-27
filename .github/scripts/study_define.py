@@ -21,6 +21,22 @@ def version(path):
     )
 
 
+def candidate_path(root, study):
+    """Resolve the declared ADaM XML output without conflating it with the original."""
+    root = Path(root).resolve()
+    project_file = root / study / "spec/yamaa/project.yaml"
+    if not project_file.is_file():
+        return None
+    declaration = yaml.safe_load(project_file.read_text()).get("adam", {})
+    if not declaration.get("define"):
+        return None
+    candidate = (project_file.parent / declaration["define"]).resolve()
+    candidate.relative_to(root)
+    if candidate == (root / study / "spec/define/define-adam.xml").resolve():
+        raise ValueError("Generated Define-XML must be separate from the reference")
+    return candidate
+
+
 def check_define(root, study, project):
     """Compare freshly composed metadata; never infer a match from ADaM data."""
     root = Path(root).resolve()
@@ -31,14 +47,9 @@ def check_define(root, study, project):
         "adam_version": version(reference),
         "comparison": "not_compared",
     }
-    project_file = base / "spec/yamaa/project.yaml"
-    declaration = yaml.safe_load(project_file.read_text())["adam"]
-    if not declaration.get("define"):
+    candidate = candidate_path(root, study)
+    if candidate is None:
         return record
-    candidate = (project_file.parent / declaration["define"]).resolve()
-    candidate.relative_to(root)
-    if candidate == reference.resolve():
-        raise ValueError("Generated Define-XML must be separate from the reference")
     candidate.unlink(missing_ok=True)
     submission = project.submission("adam")
     if submission.status != "succeeded":

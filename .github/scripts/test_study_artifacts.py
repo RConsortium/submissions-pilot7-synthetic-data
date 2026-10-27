@@ -52,6 +52,25 @@ class ArtifactTests(unittest.TestCase):
         with self.assertRaisesRegex(ValueError, 'artifacts changed'):
             verify_artifacts(self.root, 'study', report)
 
+    def test_declared_define_output_is_transferred_and_rejects_changed_or_missing_bytes(self):
+        project = self.root / 'study/spec/yamaa/project.yaml'
+        project.write_text('adam: {define: ../../data/adam/custom-define.xml}\n')
+        path = self.root / 'study/data/adam/custom-define.xml'
+        original = b'<ODM>generated metadata</ODM>'
+        path.write_bytes(original)
+        report = {'status': 'succeeded', 'artifacts': artifact_snapshot(self.root, 'study')}
+        target = self.root / 'transfer'
+        stage(self.root, 'study', target, report)
+        self.assertEqual((target / path.relative_to(self.root)).read_bytes(), original)
+        for changed in (b'<ODM>stale metadata</ODM>', None):
+            with self.subTest(changed=changed):
+                if changed is None:
+                    path.unlink()
+                else:
+                    path.write_bytes(changed)
+                with self.assertRaisesRegex(ValueError, 'custom-define.xml'):
+                    verify_artifacts(self.root, 'study', report)
+
     def test_tracked_sources_and_ignored_outputs_reject_changed_bytes(self):
         for name in self.files:
             with self.subTest(name=name):
