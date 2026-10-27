@@ -9,7 +9,7 @@ import sys
 import yamaa
 
 from engine import STUDY, export_definitions, run_section
-from odm.extract import extract
+from odm.prepare import prepare
 
 
 def main():
@@ -24,7 +24,7 @@ def main():
     record = log / "run.json"
     record.unlink(missing_ok=True)
     try:
-        inventory = extract()
+        inventory = prepare()
         manifest["source"] = inventory
         (log / "odm.log").write_text(json.dumps(inventory, indent=2) + "\n")
         manifest["sdtm"] = run_section("sdtm")

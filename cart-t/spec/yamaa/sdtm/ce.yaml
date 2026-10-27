@@ -7,12 +7,8 @@ keys:
 - USUBJID
 - CESEQ
 input:
-  SRC:
-    path: ../../../data/odm/clinical_events.csv
-    types:
-      ROWID: int
-base: SRC
-filter: SRC.IGROUP = 'EVENT' AND SRC.I_DESC IS NOT NULL
+  ODM: ../../../data/odm/car-t-utf8.xml
+  RAW: ../../../data/odm/car-t-utf8.xml
 
 output:
   path: ../../../data/sdtm/ce.parquet
@@ -26,7 +22,7 @@ output:
   - CECAT
   - CESTDTC
   - VISIT
-  report: ../../../log/ce-report.csv
+  report: ../../../log/ce-report.parquet
   order_by:
   - variable: STUDYID
     nulls: last
@@ -35,26 +31,65 @@ output:
   - variable: CESEQ
     nulls: last
 
+intermediates:
+- id: CONTEXT
+  dataset: RAW
+  key:
+    StudyOID: ODM.StudyOID
+    MetaDataVersionOID: ODM.MetaDataVersionOID
+    SubjectKey: ODM.SubjectKey
+    StudyEventOID: ODM.StudyEventOID
+    FormOID: ODM.FormOID
+    ItemGroupOID: ODM.ItemGroupOID
+  filter: (RAW.StudyEventRepeatKey = ODM.StudyEventRepeatKey
+    OR (RAW.StudyEventRepeatKey IS NULL AND ODM.StudyEventRepeatKey
+    IS NULL)) AND (RAW.FormRepeatKey = ODM.FormRepeatKey OR
+    (RAW.FormRepeatKey IS NULL AND ODM.FormRepeatKey IS NULL))
+    AND (RAW.ItemGroupRepeatKey = ODM.ItemGroupRepeatKey OR
+    (RAW.ItemGroupRepeatKey IS NULL AND ODM.ItemGroupRepeatKey
+    IS NULL))
+  order_by:
+  - RAW.SourceOrdinal
+  keep: first
+
 columns:
+- name: CRF_DESC
+  type: str
+  label: CRF_DESC
+
+- name: CRF_EVENTDATE
+  type: str
+  label: CRF_EVENTDATE
+
+- name: STARTDATE
+  type: str
+  label: STARTDATE
+  derivation: CONTEXT.StartDate
+
+- name: EVENTNAME
+  type: str
+  label: EVENTNAME
+  derivation: CONTEXT.EventName
+
 - name: SUBJECTKEY
   type: str
   label: SUBJECTKEY
-  derivation: SRC.SUBJECTKEY
+  derivation: ODM.SubjectKey
 
 - name: EVENTOID
   type: str
   label: EVENTOID
-  derivation: SRC.EVENTOID
+  derivation: ODM.StudyEventOID
 
 - name: EVENTREPEAT
   type: str
   label: EVENTREPEAT
-  derivation: SRC.EVENTREPEAT
+  derivation: ODM.StudyEventRepeatKey
 
 - name: ROWID
   type: int
   label: ROWID
-  derivation: SRC.ROWID
+  derivation: CONTEXT.SourceOrdinal
 
 - name: STUDYID
   type: str
@@ -95,7 +130,7 @@ columns:
   type: str
   label: Unique Subject Identifier
   derivation:
-    str_template: CART-T-PILOT-{SRC.SUBJECTKEY}
+    str_template: CART-T-PILOT-{SUBJECTKEY}
   verifications:
   - max_length:
       max: 80
@@ -104,10 +139,10 @@ columns:
     origins:
     - type: Derived
       source: Sponsor
-    method: CART-T-PILOT followed by the globally unique ODM SubjectKey.
-      Display subject ID is retained in DM.SUBJID.
-    comment: CART-T-PILOT followed by the globally unique ODM SubjectKey.
-      Display subject ID is retained in DM.SUBJID.
+    method: CART-T-PILOT followed by the globally unique ODM
+      SubjectKey. Display subject ID is retained in DM.SUBJID.
+    comment: CART-T-PILOT followed by the globally unique ODM
+      SubjectKey. Display subject ID is retained in DM.SUBJID.
     core: Req
     mandatory: true
     data_type: text
@@ -123,7 +158,7 @@ columns:
         group_by:
         - USUBJID
         order_by:
-        - variable: SRC.ROWID
+        - variable: ROWID
           nulls: last
   submission:
     origins:
@@ -135,7 +170,7 @@ columns:
           group_by:
           - USUBJID
           order_by:
-          - variable: SRC.ROWID
+          - variable: ROWID
             nulls: last
     core: Req
     mandatory: true
@@ -147,7 +182,7 @@ columns:
 - name: CESPID
   type: str
   label: Source Group Ordinal
-  derivation: SRC.ROWID
+  derivation: ROWID
   verifications:
   - max_length:
       max: 20
@@ -155,10 +190,10 @@ columns:
     length: 20
     origins:
     - type: Predecessor
-      description: SRC.ROWID
-    comment: ODM SourceOrdinal (item), or first SourceOrdinal in the complete
-      ODM item-group instance. Trace to data/odm/clinical_items.csv or
-      groups.csv.
+      description: ROWID
+    comment: ODM SourceOrdinal (item), or first SourceOrdinal
+      in the complete ODM item-group instance. Trace to SourceOrdinal
+      in data/odm/items.parquet and the unchanged XML.
     core: Perm
     mandatory: false
     data_type: text
@@ -167,7 +202,7 @@ columns:
 - name: CETERM
   type: str
   label: Reported Term for the Clinical Event
-  derivation: SRC.I_DESC
+  derivation: CRF_DESC
   verifications:
   - max_length:
       max: 200
@@ -175,9 +210,10 @@ columns:
     length: 200
     origins:
     - type: Predecessor
-      description: SRC.I_DESC
-    comment: Verbatim suspected-MI description. Test text and dates outside
-      participation are retained for review, not deleted or recoded.
+      description: CRF_DESC
+    comment: Verbatim suspected-MI description. Test text and
+      dates outside participation are retained for review, not
+      deleted or recoded.
     core: Req
     mandatory: true
     data_type: text
@@ -205,7 +241,7 @@ columns:
   label: Start Date/Time of Clinical Event
   derivation:
     date_text:
-      source: SRC.I_EVENTDATE
+      source: CRF_EVENTDATE
       forms:
       - iso
       - mdy_slash
@@ -220,7 +256,7 @@ columns:
       source: Sponsor
     method: |-
       Executable yamaa derivation: date_text:
-        source: SRC.I_EVENTDATE
+        source: CRF_EVENTDATE
         forms:
         - iso
         - mdy_slash
@@ -233,7 +269,7 @@ columns:
 - name: VISIT
   type: str
   label: Visit Name
-  derivation: SRC.EVENTNAME
+  derivation: EVENTNAME
   verifications:
   - max_length:
       max: 80
@@ -241,11 +277,42 @@ columns:
     length: 80
     origins:
     - type: Predecessor
-      description: SRC.EVENTNAME
+      description: EVENTNAME
     core: Perm
     mandatory: false
     data_type: text
     role: Timing
+
+- name: SOURCE_GROUP
+  type: str
+  label: SOURCE_GROUP
+
+- name: SOURCE_FORM
+  type: str
+  label: SOURCE_FORM
+
+rows:
+- id: collected
+  dataset: ODM
+  group_by:
+  - ODM.StudyOID
+  - ODM.MetaDataVersionOID
+  - ODM.SubjectKey
+  - ODM.StudyEventOID
+  - ODM.StudyEventRepeatKey
+  - ODM.FormOID
+  - ODM.FormRepeatKey
+  - ODM.ItemGroupOID
+  - ODM.ItemGroupRepeatKey
+  filter: SOURCE_FORM = 'F_SUSPECTEDMI' AND (SOURCE_GROUP =
+    'IG_SUSPE_EVENT' AND CRF_DESC IS NOT NULL)
+  derivations:
+    SOURCE_GROUP: ODM.ItemGroupOID
+    CRF_DESC:
+      odm: ODM.I_SUSPE_DESC
+    CRF_EVENTDATE:
+      odm: ODM.I_SUSPE_EVENTDATE
+    SOURCE_FORM: ODM.FormOID
 
 submission:
   label: Clinical Events
@@ -254,6 +321,6 @@ submission:
   repeating: true
   mode: historical
   artifact: ce.xpt
-  comment: Review draft metadata. Historical mode keeps declarations separate
-    from incomplete data; this is not a validated submission. See
-    spec/review/decisions.md.
+  comment: Review draft metadata. Historical mode keeps declarations
+    separate from incomplete data; this is not a validated submission.
+    See spec/review/decisions.md.

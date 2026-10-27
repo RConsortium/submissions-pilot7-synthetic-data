@@ -6,32 +6,11 @@ keys:
 - STUDYID
 - USUBJID
 input:
-  SRC: ../../../data/odm/subjects.csv
-  DEM:
-    path: ../../../data/odm/demographics.csv
-    types:
-      ROWID: int
+  RAW: ../../../data/odm/car-t-utf8.xml
+  ITEMS:
+    path: ../../../data/odm/car-t-utf8.xml
     key:
-    - SUBJECTKEY
-  ELIG:
-    path: ../../../data/odm/eligibility.csv
-    types:
-      ROWID: int
-    key:
-    - SUBJECTKEY
-  DISP:
-    path: ../../../data/odm/disposition.csv
-    types:
-      ROWID: int
-    key:
-    - SUBJECTKEY
-  AE:
-    path: ../../../data/odm/adverse_events.csv
-    types:
-      ROWID: int
-    key:
-    - SUBJECTKEY
-base: SRC
+    - SubjectKey
 
 output:
   path: ../../../data/sdtm/dm.parquet
@@ -61,7 +40,7 @@ output:
   - ARMNRS
   - DTHFL
   - DTHDTC
-  report: ../../../log/dm-report.csv
+  report: ../../../log/dm-report.parquet
   order_by:
   - variable: STUDYID
     nulls: last
@@ -69,10 +48,36 @@ output:
     nulls: last
 
 columns:
+- name: SITE
+  type: str
+  label: SITE
+  derivation:
+    mapping:
+      source: RAW.StudyOID
+      dict:
+        S_20204824(TEST): CART2020
+        S_DF(TEST): DF
+        S_1234(TEST): '1234'
+        S_MGH_6315(TEST): MGH
+        S_ABBOTT(TEST): Abbott
+        S_ZZ01_7109(TEST): ZZ01
+        S_CNH(TEST): CNH
+        S_SJ01(TEST): SJ01
+      unmapped: null
+
+- name: SUBJECTID
+  type: str
+  label: SUBJECTID
+
+- name: SubjectKey
+  type: str
+  label: SubjectKey
+  derivation: RAW.SubjectKey
+
 - name: SUBJECTKEY
   type: str
   label: SUBJECTKEY
-  derivation: SRC.SUBJECTKEY
+  derivation: RAW.SubjectKey
 
 - name: STUDYID
   type: str
@@ -113,7 +118,7 @@ columns:
   type: str
   label: Unique Subject Identifier
   derivation:
-    str_template: CART-T-PILOT-{SRC.SUBJECTKEY}
+    str_template: CART-T-PILOT-{RAW.SubjectKey}
   verifications:
   - max_length:
       max: 80
@@ -122,10 +127,10 @@ columns:
     origins:
     - type: Derived
       source: Sponsor
-    method: CART-T-PILOT followed by native ODM SubjectKey; globally unique,
-      stable across site labels.
-    comment: CART-T-PILOT followed by native ODM SubjectKey; globally unique,
-      stable across site labels.
+    method: CART-T-PILOT followed by native ODM SubjectKey;
+      globally unique, stable across site labels.
+    comment: CART-T-PILOT followed by native ODM SubjectKey;
+      globally unique, stable across site labels.
     core: Req
     mandatory: true
     data_type: text
@@ -135,7 +140,7 @@ columns:
 - name: SUBJID
   type: str
   label: Subject Identifier for the Study
-  derivation: SRC.SUBJECTID
+  derivation: SUBJECTID
   verifications:
   - max_length:
       max: 40
@@ -143,7 +148,7 @@ columns:
     length: 40
     origins:
     - type: Predecessor
-      description: SRC.SUBJECTID
+      description: SUBJECTID
     core: Req
     mandatory: true
     data_type: text
@@ -152,7 +157,7 @@ columns:
 - name: SITEID
   type: str
   label: Study Site Identifier
-  derivation: SRC.SITEID
+  derivation: SITE
   verifications:
   - max_length:
       max: 20
@@ -160,7 +165,7 @@ columns:
     length: 20
     origins:
     - type: Predecessor
-      description: SRC.SITEID
+      description: SITE
     core: Req
     mandatory: true
     data_type: text
@@ -178,14 +183,15 @@ columns:
     origins:
     - type: Derived
       source: Sponsor
-    comment: No documented exposure or complete participation period. No
-      reference date is inferred from an administrative event date.
+    comment: No documented exposure or complete participation
+      period. No reference date is inferred from an administrative
+      event date.
     core: Exp
     mandatory: false
     data_type: text
-    method: No documented exposure or complete participation period. No
-      reference
-      date is inferred from an administrative event date.
+    method: No documented exposure or complete participation
+      period. No reference date is inferred from an administrative
+      event date.
     role: Timing
 
 - name: RFENDTC
@@ -200,14 +206,15 @@ columns:
     origins:
     - type: Derived
       source: Sponsor
-    comment: No documented exposure or complete participation period. No
-      reference date is inferred from an administrative event date.
+    comment: No documented exposure or complete participation
+      period. No reference date is inferred from an administrative
+      event date.
     core: Exp
     mandatory: false
     data_type: text
-    method: No documented exposure or complete participation period. No
-      reference
-      date is inferred from an administrative event date.
+    method: No documented exposure or complete participation
+      period. No reference date is inferred from an administrative
+      event date.
     role: Timing
 
 - name: RFXSTDTC
@@ -222,14 +229,15 @@ columns:
     origins:
     - type: Derived
       source: Sponsor
-    comment: No documented exposure or complete participation period. No
-      reference date is inferred from an administrative event date.
+    comment: No documented exposure or complete participation
+      period. No reference date is inferred from an administrative
+      event date.
     core: Exp
     mandatory: false
     data_type: text
-    method: No documented exposure or complete participation period. No
-      reference
-      date is inferred from an administrative event date.
+    method: No documented exposure or complete participation
+      period. No reference date is inferred from an administrative
+      event date.
     role: Timing
 
 - name: RFXENDTC
@@ -244,14 +252,15 @@ columns:
     origins:
     - type: Derived
       source: Sponsor
-    comment: No documented exposure or complete participation period. No
-      reference date is inferred from an administrative event date.
+    comment: No documented exposure or complete participation
+      period. No reference date is inferred from an administrative
+      event date.
     core: Exp
     mandatory: false
     data_type: text
-    method: No documented exposure or complete participation period. No
-      reference
-      date is inferred from an administrative event date.
+    method: No documented exposure or complete participation
+      period. No reference date is inferred from an administrative
+      event date.
     role: Timing
 
 - name: RFPENDTC
@@ -266,14 +275,15 @@ columns:
     origins:
     - type: Derived
       source: Sponsor
-    comment: No documented exposure or complete participation period. No
-      reference date is inferred from an administrative event date.
+    comment: No documented exposure or complete participation
+      period. No reference date is inferred from an administrative
+      event date.
     core: Exp
     mandatory: false
     data_type: text
-    method: No documented exposure or complete participation period. No
-      reference
-      date is inferred from an administrative event date.
+    method: No documented exposure or complete participation
+      period. No reference date is inferred from an administrative
+      event date.
     role: Timing
 
 - name: CONSENT
@@ -281,10 +291,11 @@ columns:
   label: CONSENT
   derivation:
     source:
-      variable: DISP.I_CONSENTEDDT
-      filter: DISP.I_CONSENTEDDT IS NOT NULL
+      variable: ITEMS.Value
+      filter: ITEMS.ItemOID = 'I_DISPO_CONSENTEDDT' AND ITEMS.Value
+        IS NOT NULL
       order_by:
-      - DISP.ROWID
+      - ITEMS.SourceOrdinal
       keep: first
 
 - name: RFICDTC
@@ -305,11 +316,10 @@ columns:
     origins:
     - type: Derived
       source: Sponsor
-    method: Only Disposition.CONSENTEDDT. No proxy consent date and no clamping
-      to other event dates.
-    comment: Only Disposition.CONSENTEDDT. No proxy consent date and no
-      clamping
-      to other event dates.
+    method: Only Disposition.CONSENTEDDT. No proxy consent date
+      and no clamping to other event dates.
+    comment: Only Disposition.CONSENTEDDT. No proxy consent
+      date and no clamping to other event dates.
     core: Exp
     mandatory: false
     data_type: text
@@ -320,10 +330,11 @@ columns:
   label: BYEAR
   derivation:
     source:
-      variable: ELIG.I_PTBYEAR
-      filter: ELIG.I_PTBYEAR IS NOT NULL
+      variable: ITEMS.Value
+      filter: ITEMS.ItemOID = 'I_ELIGI_PTBYEAR' AND ITEMS.Value
+        IS NOT NULL
       order_by:
-      - ELIG.ROWID
+      - ITEMS.SourceOrdinal
       keep: first
 
 - name: BRTHDTC
@@ -344,10 +355,10 @@ columns:
     origins:
     - type: Derived
       source: Sponsor
-    method: Eligibility.PTBYEAR, retaining year precision. BDAY is a binary
-      item, not a birth date.
-    comment: Eligibility.PTBYEAR, retaining year precision. BDAY is a binary
-      item, not a birth date.
+    method: Eligibility.PTBYEAR, retaining year precision. BDAY
+      is a binary item, not a birth date.
+    comment: Eligibility.PTBYEAR, retaining year precision.
+      BDAY is a binary item, not a birth date.
     core: Perm
     mandatory: false
     data_type: text
@@ -358,10 +369,11 @@ columns:
   label: AGE_RAW
   derivation:
     source:
-      variable: ELIG.I_PTAGE
-      filter: ELIG.I_PTAGE IS NOT NULL
+      variable: ITEMS.Value
+      filter: ITEMS.ItemOID = 'I_ELIGI_PTAGE' AND ITEMS.Value
+        IS NOT NULL
       order_by:
-      - ELIG.ROWID
+      - ITEMS.SourceOrdinal
       keep: first
 
 - name: AGE
@@ -374,10 +386,12 @@ columns:
     origins:
     - type: Derived
       source: Sponsor
-    method: First present Eligibility.PTAGE by source group ordinal. No age
-      is invented when the recorded value is unavailable.
-    comment: First present Eligibility.PTAGE by source group ordinal. No
-      age is invented when the recorded value is unavailable.
+    method: First present Eligibility.PTAGE by source group
+      ordinal. No age is invented when the recorded value is
+      unavailable.
+    comment: First present Eligibility.PTAGE by source group
+      ordinal. No age is invented when the recorded value is
+      unavailable.
     core: Exp
     mandatory: false
     data_type: integer
@@ -419,10 +433,11 @@ columns:
   label: S1
   derivation:
     source:
-      variable: DEM.I_PTSEX
-      filter: DEM.I_PTSEX IS NOT NULL
+      variable: ITEMS.Value
+      filter: ITEMS.ItemOID = 'I_1DEMO_PTSEX' AND ITEMS.Value
+        IS NOT NULL
       order_by:
-      - DEM.ROWID
+      - ITEMS.SourceOrdinal
       keep: first
 
 - name: S2
@@ -430,10 +445,11 @@ columns:
   label: S2
   derivation:
     source:
-      variable: DEM.I_PTSEXEL
-      filter: DEM.I_PTSEXEL IS NOT NULL
+      variable: ITEMS.Value
+      filter: ITEMS.ItemOID = 'I_1DEMO_PTSEXEL' AND ITEMS.Value
+        IS NOT NULL
       order_by:
-      - DEM.ROWID
+      - ITEMS.SourceOrdinal
       keep: first
 
 - name: S3
@@ -441,10 +457,11 @@ columns:
   label: S3
   derivation:
     source:
-      variable: ELIG.I_PSEX
-      filter: ELIG.I_PSEX IS NOT NULL
+      variable: ITEMS.Value
+      filter: ITEMS.ItemOID = 'I_ELIGI_PSEX' AND ITEMS.Value
+        IS NOT NULL
       order_by:
-      - ELIG.ROWID
+      - ITEMS.SourceOrdinal
       keep: first
 
 - name: RACE_RAW
@@ -452,10 +469,11 @@ columns:
   label: RACE_RAW
   derivation:
     source:
-      variable: DEM.I_PTRACE
-      filter: DEM.I_PTRACE IS NOT NULL
+      variable: ITEMS.Value
+      filter: ITEMS.ItemOID = 'I_1DEMO_PTRACE' AND ITEMS.Value
+        IS NOT NULL
       order_by:
-      - DEM.ROWID
+      - ITEMS.SourceOrdinal
       keep: first
 
 - name: ETH_RAW
@@ -463,10 +481,11 @@ columns:
   label: ETH_RAW
   derivation:
     source:
-      variable: DEM.I_HISP
-      filter: DEM.I_HISP IS NOT NULL
+      variable: ITEMS.Value
+      filter: ITEMS.ItemOID = 'I_1DEMO_HISP' AND ITEMS.Value
+        IS NOT NULL
       order_by:
-      - DEM.ROWID
+      - ITEMS.SourceOrdinal
       keep: first
 
 - name: S1_STD
@@ -538,10 +557,12 @@ columns:
     origins:
     - type: Derived
       source: Sponsor
-    method: PTSEX, then PTSEXEL, then Eligibility.PSEX; source codes 1=male,
-      2=female. Missing or unrecognized is U. Conflicts are listed for review.
-    comment: PTSEX, then PTSEXEL, then Eligibility.PSEX; source codes 1=male,
-      2=female. Missing or unrecognized is U. Conflicts are listed for review.
+    method: PTSEX, then PTSEXEL, then Eligibility.PSEX; source
+      codes 1=male, 2=female. Missing or unrecognized is U.
+      Conflicts are listed for review.
+    comment: PTSEX, then PTSEXEL, then Eligibility.PSEX; source
+      codes 1=male, 2=female. Missing or unrecognized is U.
+      Conflicts are listed for review.
     core: Req
     mandatory: true
     data_type: text
@@ -657,13 +678,13 @@ columns:
     origins:
     - type: Derived
       source: Sponsor
-    comment: Not assigned from institution names. Country is not collected
-      in the source.
+    comment: Not assigned from institution names. Country is
+      not collected in the source.
     core: Req
     mandatory: true
     data_type: text
-    method: Not assigned from institution names. Country is not collected
-      in the source.
+    method: Not assigned from institution names. Country is
+      not collected in the source.
     role: Record Qualifier
 
 - name: ARMCD
@@ -679,13 +700,14 @@ columns:
     - type: Derived
       source: Sponsor
     comment: No actual allocation or administration is identified.
-      Randomization
-      PROFILE describes sex/ethnicity, not a treatment arm.
+      Randomization PROFILE describes sex/ethnicity, not a treatment
+      arm.
     core: Exp
     mandatory: false
     data_type: text
-    method: No actual allocation or administration is identified. Randomization
-      PROFILE describes sex/ethnicity, not a treatment arm.
+    method: No actual allocation or administration is identified.
+      Randomization PROFILE describes sex/ethnicity, not a treatment
+      arm.
     role: Record Qualifier
 
 - name: ARM
@@ -701,13 +723,14 @@ columns:
     - type: Derived
       source: Sponsor
     comment: No actual allocation or administration is identified.
-      Randomization
-      PROFILE describes sex/ethnicity, not a treatment arm.
+      Randomization PROFILE describes sex/ethnicity, not a treatment
+      arm.
     core: Exp
     mandatory: false
     data_type: text
-    method: No actual allocation or administration is identified. Randomization
-      PROFILE describes sex/ethnicity, not a treatment arm.
+    method: No actual allocation or administration is identified.
+      Randomization PROFILE describes sex/ethnicity, not a treatment
+      arm.
     role: Record Qualifier
 
 - name: ACTARMCD
@@ -723,13 +746,14 @@ columns:
     - type: Derived
       source: Sponsor
     comment: No actual allocation or administration is identified.
-      Randomization
-      PROFILE describes sex/ethnicity, not a treatment arm.
+      Randomization PROFILE describes sex/ethnicity, not a treatment
+      arm.
     core: Exp
     mandatory: false
     data_type: text
-    method: No actual allocation or administration is identified. Randomization
-      PROFILE describes sex/ethnicity, not a treatment arm.
+    method: No actual allocation or administration is identified.
+      Randomization PROFILE describes sex/ethnicity, not a treatment
+      arm.
     role: Record Qualifier
 
 - name: ACTARM
@@ -745,13 +769,14 @@ columns:
     - type: Derived
       source: Sponsor
     comment: No actual allocation or administration is identified.
-      Randomization
-      PROFILE describes sex/ethnicity, not a treatment arm.
+      Randomization PROFILE describes sex/ethnicity, not a treatment
+      arm.
     core: Exp
     mandatory: false
     data_type: text
-    method: No actual allocation or administration is identified. Randomization
-      PROFILE describes sex/ethnicity, not a treatment arm.
+    method: No actual allocation or administration is identified.
+      Randomization PROFILE describes sex/ethnicity, not a treatment
+      arm.
     role: Record Qualifier
 
 - name: ARMNRS
@@ -776,8 +801,9 @@ columns:
   label: DEATH_N
   derivation:
     aggregate:
-      filter: AE.I_AESDTH = 'Y'
-      expr: COUNT(AE.ROWID)
+      filter: ITEMS.ItemOID = 'I_ADVER_AESDTH' AND ITEMS.Value
+        = 'Y'
+      expr: COUNT(ITEMS.SourceOrdinal)
 
 - name: DTHFL
   type: str
@@ -799,12 +825,10 @@ columns:
     origins:
     - type: Derived
       source: Sponsor
-    method: Y only when a source AE seriousness death criterion is Y.
-      Conflicting
-      AE outcome is queried, not overwritten.
-    comment: Y only when a source AE seriousness death criterion is Y.
-      Conflicting
-      AE outcome is queried, not overwritten.
+    method: Y only when a source AE seriousness death criterion
+      is Y. Conflicting AE outcome is queried, not overwritten.
+    comment: Y only when a source AE seriousness death criterion
+      is Y. Conflicting AE outcome is queried, not overwritten.
     core: Perm
     mandatory: false
     data_type: text
@@ -821,12 +845,13 @@ columns:
           type: str
           derivation:
             date_text:
-              source: AE.I_DTHDAT
+              source: ITEMS.Value
               forms:
               - iso
               - mdy_slash
               invalid: null
       expr: MIN(D)
+      filter: ITEMS.ItemOID = 'I_ADVER_DTHDAT'
   verifications:
   - max_length:
       max: 25
@@ -842,16 +867,28 @@ columns:
             type: str
             derivation:
               date_text:
-                source: AE.I_DTHDAT
+                source: ITEMS.Value
                 forms:
                 - iso
                 - mdy_slash
                 invalid: null
         expr: MIN(D)
+        filter: ITEMS.ItemOID = 'I_ADVER_DTHDAT'
     core: Perm
     mandatory: false
     data_type: text
     role: Timing
+
+rows:
+- id: subject
+  dataset: RAW
+  group_by:
+  - RAW.StudyOID
+  - RAW.MetaDataVersionOID
+  - RAW.SubjectKey
+  derivations:
+    SUBJECTID:
+      aggregate: MIN(RAW.StudySubjectID)
 
 verifications:
 - assert:
@@ -866,6 +903,6 @@ submission:
   repeating: false
   mode: historical
   artifact: dm.xpt
-  comment: Review draft metadata. Historical mode keeps declarations separate
-    from incomplete data; this is not a validated submission. See
-    spec/review/decisions.md.
+  comment: Review draft metadata. Historical mode keeps declarations
+    separate from incomplete data; this is not a validated submission.
+    See spec/review/decisions.md.

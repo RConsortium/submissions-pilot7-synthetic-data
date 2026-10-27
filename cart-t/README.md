@@ -5,6 +5,10 @@ original ODM XML. It produces ten SDTM datasets, nine exploratory ADaM datasets,
 SAS XPT exports, separate SDTM and ADaM Define-XML 2.0 files, and dataset QC
 logs. The original `.archieve/cart-t/` is unchanged.
 
+SDTM specifications read ODM XML directly. Native yamaa row grouping and
+item expressions perform the clinical reshaping. No per-form staging tables
+or CSV dataset exports are generated.
+
 Scope is data standardization, metadata and dataset quality checks. Tables,
 listings, figures, analysis displays and TLF programs are outside this package.
 
@@ -25,12 +29,11 @@ Human review starts as `not_reviewed`; automated checks do not approve
 statistical decisions. [The issue #98 assessment](spec/review/issue-98.md)
 separates corrected standardization defects from unresolved source gaps.
 
-Data are available as CSV, typed Parquet and XPT. For example, in R:
+Data are available as typed Parquet and XPT. For example, in R:
 
 ```r
-adsl <- read.csv("cart-t/data/adam/adsl-yamaa.csv", na.strings = "")
-# Retain analysis-date types:
 adsl <- arrow::read_parquet("cart-t/data/adam/adsl-yamaa.parquet")
+items <- arrow::read_parquet("cart-t/data/odm/items.parquet")
 ```
 
 ## Rebuild from a fresh clone
@@ -46,6 +49,11 @@ python3 -m venv .venv
 RUSTUP_TOOLCHAIN=1.99.1 .venv/bin/python -m pip install \
   --config-settings build-args=--profile=dev \
   -r cart-t/program/adam/python/requirements.txt
+git clone --filter=blob:none --no-checkout \
+  https://github.com/elong0527/yamaa.git .build/define-engine
+git -C .build/define-engine sparse-checkout set rust/tests/schemas
+git -C .build/define-engine checkout --detach \
+  1d78496c0cbd4fe89462596a738db3adbd72c8ad
 .venv/bin/python cart-t/program/run.py
 .venv/bin/python -m unittest discover -s cart-t/program -p 'test_*.py' -v
 .venv/bin/python .github/scripts/validate_yamaa.py cart-t
@@ -54,15 +62,19 @@ RUSTUP_TOOLCHAIN=1.99.1 .venv/bin/python -m pip install \
 No archived RDS, XPT or derived dataset is an input to a clinical derivation.
 The audit reads archived XPT only for previous row counts; the issue verifier
 reads them only to reproduce the reported data-quality findings.
-The build fails on extraction ambiguity, an unsuccessful yamaa run, changed
+The build fails on ambiguous ODM scopes, an unsuccessful yamaa run, changed
 XPT values/labels/widths, invalid Define-XML, missing artifact links, or failed
 source reconciliation. Clinical queries remain unresolved when these
 execution and integrity checks pass.
 
+The schema checkout follows the pilot studies' Define-XML validation workflow.
+No CDISC schema files are copied into this study. An existing checkout can be
+used by setting `YAMAA_XML_SCHEMAS` to its `rust/tests/schemas` directory.
+
 Individual stages can be rerun in dependency order:
 
 ```bash
-.venv/bin/python cart-t/program/odm/extract.py
+.venv/bin/python cart-t/program/odm/prepare.py
 .venv/bin/python cart-t/program/sdtm/run.py
 .venv/bin/python cart-t/program/adam/run.py
 ```
@@ -79,11 +91,11 @@ To repeat the issue assessment against an existing build:
 ```text
 cart-t/
   data/
-    odm/       original XML, generated item table and per-form CSV extracts
+    odm/       staged original XML, reader copy and native item Parquet for QC
     sdtm/      generated DM, SUPPDM, AE, CM, LB, QS, MH, IE, CE, DS
     adam/      generated ADSL, ADAE, ADCM, ADLB, ADQS, ADMH, ADDS, ADIE, ADCE
   program/
-    odm/       native yamaa ODM reader and lossless OpenClinica reshaping
+    odm/       source staging, encoding compatibility and native item QC inventory
     sdtm/      SDTM stage entry point
     adam/      ADaM stage entry point and pinned Python requirements
     run.py     complete standardization, export and audit
@@ -101,17 +113,19 @@ Each SDTM `--SPID` points to an original item `SourceOrdinal` (LB/QS), or to
 the first ordinal of a complete item-group instance (other observation
 domains). The group key retains study, metadata version, subject, event and
 event repeat, form and form repeat/layout, and item group/repeat. Find an
-observation's original values in `data/odm/items.csv` or the per-form CSVs.
+observation's original values in `data/odm/items.parquet` and the original XML.
 ADaM carries `SRCDOM`, `SRCSEQ` and `SRCVAR` for direct trace-back. ADSL obtains
 the phenotype from `SUPPDM.RANDPROF`; its inputs are SDTM. `USUBJID` uses the
 unique ODM SubjectKey; `DM.SUBJID` retains the study subject ID.
 
-Clinical mappings are executable yamaa YAML. The extraction adapter reads
-metadata, preserves values and pivots complete source instances. Python
-orchestration/export does not calculate analysis variables. The same YAML
-can execute with the matching yamaa R host after extraction.
+Clinical mappings and reshaping are executable yamaa YAML. The preparation
+step stages the unchanged archived XML and creates a reader copy with only
+its ASCII encoding declaration normalized to UTF-8. The native item Parquet
+is independent QC evidence; no SDTM specification reads it. Subject/site
+metadata mappings are checked independently against XML attributes.
+The same YAML can execute with the matching yamaa R host after preparation.
 
-Generated data, XML and logs are ignored by Git. CI rebuilds and packages
+Generated data, staged XML and logs are ignored by Git. CI rebuilds and packages
 them with the source and specifications. ADaM Parquet files use
 `-yamaa.parquet`; generated files are not independent references.
 
@@ -127,7 +141,7 @@ Reproducibility checks cover values, types, labels and widths. yamaa uses
 the snapshot creation time for the direct runner's Define-XML export;
 ReadStat timestamps XPT headers when exporting. SAS fixed-width padding makes
 trailing blanks indistinguishable; exact source strings remain in XML,
-Parquet and CSV. Leading blanks and all other characters are checked.
+Parquet. Leading blanks and all other characters are checked.
 
 ## Responsibilities and tools
 

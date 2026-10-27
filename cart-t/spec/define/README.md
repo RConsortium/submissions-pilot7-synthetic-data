@@ -3,7 +3,7 @@
 The yamaa project generates `cart-t/data/sdtm/define.xml` and
 `cart-t/data/adam/define.xml`. Each stays beside the XPT files its dataset
 leaves reference. Moving a copy here would break those relative links.
-This folder holds the schema bundle and the documentation for the definitions.
+This folder documents the definitions. No schema bundle is vendored here.
 
 The definitions use the native yamaa historical profile, Define-XML 2.0,
 and `context: Other`. They declare the archived study's target SDTMIG 3.3 /
@@ -13,13 +13,15 @@ Native historical composition does not publish transport; ReadStat writes
 the separate review XPT files and checks every value, label and width.
 
 The full runner checks both definitions with lxml against
-`schema/define/2.0/define2-0-0.xsd`, checks all relative dataset links, and
+`define/2.0/define2-0-0.xsd` under the external schema root, checks all relative dataset links, and
 fails on an error. Schema validity is distinct from guide conformance,
 reference metadata agreement and human statistical approval.
 
-The schema files are retained unchanged from
-`elong0527/yamaa@1d78496c0cbd4fe89462596a738db3adbd72c8ad`,
-`rust/tests/schemas/define/2.0` and `rust/tests/schemas/odm/1.3.2`.
-Their original notices and `schema/LICENSE` are retained. These are the
-same versioned schema sources the pinned engine distributes in its source
-qualification set; lxml provides the separate parser/validator.
+As in the three pilot studies' Define-XML workflow, CI checks out only
+`rust/tests/schemas` from the study's pinned yamaa revision into
+`.build/define-engine`. This supplies the CDISC Define-XML 2.0 schema and its
+ODM 1.3.2 imports without another committed copy. The source checkout retains
+the original notices and license. See the study README for local setup;
+`YAMAA_XML_SCHEMAS` can select an existing pinned checkout. Validation disables
+network imports. yamaa composes the XML and lxml provides an independent
+parser/validator.

@@ -1,6 +1,6 @@
 # ADaM execution
 
-After ODM extraction and SDTM execution, run:
+After ODM preparation and SDTM execution, run:
 
 ```bash
 .venv/bin/python cart-t/program/adam/run.py
@@ -25,7 +25,7 @@ project <- yamaa_project("cart-t/spec/yamaa/project.yaml")
 project$run("adam")$save()
 ```
 
-The complete extraction/export/audit driver is Python. The R call above
-is an alternative ADaM execution entry point after extraction/SDTM, not
+The complete preparation/export/audit driver is Python. The R call above
+is an alternative ADaM execution entry point after preparation/SDTM, not
 a separately qualified full R pipeline. Use the Python full runner to
 refresh datasets, Define-XML and quality evidence.

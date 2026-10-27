@@ -7,15 +7,12 @@ keys:
 - USUBJID
 - QSSEQ
 input:
-  SRC:
-    path: ../../../data/odm/clinical_items.csv
-    types:
-      ROWID: int
-      ITEMROW: int
-base: SRC
-filter: SRC.FORMNAME = 'RAND SF-12 Survey' AND SRC.ITEMNAME IN ('Q1', 'Q2',
-  'Q3', 'Q4', 'Q5', 'Q6', 'Q7', 'Q8', 'Q9', 'Q10', 'Q11', 'Q12', 'PF-S',
-  'RP-S', 'BP', 'GH', 'VT', 'SF', 'RE-S', 'ME-S') AND SRC.VALUE IS NOT NULL
+  RAW: ../../../data/odm/car-t-utf8.xml
+base: RAW
+filter: RAW.FormName = 'RAND SF-12 Survey' AND RAW.ItemName
+  IN ('Q1', 'Q2', 'Q3', 'Q4', 'Q5', 'Q6', 'Q7', 'Q8', 'Q9',
+  'Q10', 'Q11', 'Q12', 'PF-S', 'RP-S', 'BP', 'GH', 'VT', 'SF',
+  'RE-S', 'ME-S') AND RAW.Value IS NOT NULL
 
 output:
   path: ../../../data/sdtm/qs.parquet
@@ -35,7 +32,7 @@ output:
   - QSDTC
   - QSBLFL
   - VISIT
-  report: ../../../log/qs-report.csv
+  report: ../../../log/qs-report.parquet
   order_by:
   - variable: STUDYID
     nulls: last
@@ -48,22 +45,22 @@ columns:
 - name: SUBJECTKEY
   type: str
   label: SUBJECTKEY
-  derivation: SRC.SUBJECTKEY
+  derivation: RAW.SubjectKey
 
 - name: EVENTOID
   type: str
   label: EVENTOID
-  derivation: SRC.EVENTOID
+  derivation: RAW.StudyEventOID
 
 - name: EVENTREPEAT
   type: str
   label: EVENTREPEAT
-  derivation: SRC.EVENTREPEAT
+  derivation: RAW.StudyEventRepeatKey
 
 - name: ROWID
   type: int
   label: ROWID
-  derivation: SRC.ROWID
+  derivation: RAW.SourceOrdinal
 
 - name: STUDYID
   type: str
@@ -104,7 +101,7 @@ columns:
   type: str
   label: Unique Subject Identifier
   derivation:
-    str_template: CART-T-PILOT-{SRC.SUBJECTKEY}
+    str_template: CART-T-PILOT-{RAW.SubjectKey}
   verifications:
   - max_length:
       max: 80
@@ -113,10 +110,10 @@ columns:
     origins:
     - type: Derived
       source: Sponsor
-    method: CART-T-PILOT followed by the globally unique ODM SubjectKey.
-      Display subject ID is retained in DM.SUBJID.
-    comment: CART-T-PILOT followed by the globally unique ODM SubjectKey.
-      Display subject ID is retained in DM.SUBJID.
+    method: CART-T-PILOT followed by the globally unique ODM
+      SubjectKey. Display subject ID is retained in DM.SUBJID.
+    comment: CART-T-PILOT followed by the globally unique ODM
+      SubjectKey. Display subject ID is retained in DM.SUBJID.
     core: Req
     mandatory: true
     data_type: text
@@ -132,7 +129,7 @@ columns:
         group_by:
         - USUBJID
         order_by:
-        - variable: SRC.ITEMROW
+        - variable: RAW.SourceOrdinal
           nulls: last
   submission:
     origins:
@@ -144,7 +141,7 @@ columns:
           group_by:
           - USUBJID
           order_by:
-          - variable: SRC.ITEMROW
+          - variable: RAW.SourceOrdinal
             nulls: last
     core: Req
     mandatory: true
@@ -156,7 +153,7 @@ columns:
 - name: QSSPID
   type: str
   label: Source Item Ordinal
-  derivation: SRC.ITEMROW
+  derivation: RAW.SourceOrdinal
   verifications:
   - max_length:
       max: 20
@@ -164,10 +161,10 @@ columns:
     length: 20
     origins:
     - type: Predecessor
-      description: SRC.ITEMROW
-    comment: ODM SourceOrdinal (item), or first SourceOrdinal in the complete
-      ODM item-group instance. Trace to data/odm/clinical_items.csv or
-      groups.csv.
+      description: RAW.SourceOrdinal
+    comment: ODM SourceOrdinal (item), or first SourceOrdinal
+      in the complete ODM item-group instance. Trace to SourceOrdinal
+      in data/odm/items.parquet and the unchanged XML.
     core: Perm
     mandatory: false
     data_type: text
@@ -178,7 +175,7 @@ columns:
   label: Questionnaire Short Name
   derivation:
     mapping:
-      source: SRC.ITEMNAME
+      source: RAW.ItemName
       dict:
         Q1: SF1201
         Q2: SF1202
@@ -233,7 +230,7 @@ columns:
       source: Sponsor
     method: |-
       Executable yamaa derivation: mapping:
-        source: SRC.ITEMNAME
+        source: RAW.ItemName
         dict:
           Q1: SF1201
           Q2: SF1202
@@ -255,7 +252,6 @@ columns:
           SF: SF12SF
           RE-S: SF12RE
           ME-S: SF12MH
-        missing: null
         unmapped: null
     core: Req
     mandatory: true
@@ -268,7 +264,7 @@ columns:
   label: Questionnaire Name
   derivation:
     mapping:
-      source: SRC.ITEMNAME
+      source: RAW.ItemName
       dict:
         Q1: General Health
         Q2: Moderate Activities
@@ -301,7 +297,7 @@ columns:
       source: Sponsor
     method: |-
       Executable yamaa derivation: mapping:
-        source: SRC.ITEMNAME
+        source: RAW.ItemName
         dict:
           Q1: General Health
           Q2: Moderate Activities
@@ -323,7 +319,6 @@ columns:
           SF: Social Functioning Score
           RE-S: Role Emotional Score
           ME-S: Mental Health Score
-        missing: null
         unmapped: null
     core: Req
     mandatory: true
@@ -335,7 +330,7 @@ columns:
   label: Subcategory for Questionnaire
   derivation:
     mapping:
-      source: SRC.ITEMNAME
+      source: RAW.ItemName
       dict:
         Q1: ITEM
         Q2: ITEM
@@ -368,7 +363,7 @@ columns:
       source: Sponsor
     method: |-
       Executable yamaa derivation: mapping:
-        source: SRC.ITEMNAME
+        source: RAW.ItemName
         dict:
           Q1: ITEM
           Q2: ITEM
@@ -390,7 +385,6 @@ columns:
           SF: SUBSCALE
           RE-S: SUBSCALE
           ME-S: SUBSCALE
-        missing: null
         unmapped: null
     core: Perm
     mandatory: false
@@ -417,7 +411,7 @@ columns:
 - name: QSORRES
   type: str
   label: Original Result
-  derivation: SRC.VALUE
+  derivation: RAW.Value
   verifications:
   - max_length:
       max: 80
@@ -425,7 +419,7 @@ columns:
     length: 80
     origins:
     - type: Predecessor
-      description: SRC.VALUE
+      description: RAW.Value
     core: Exp
     mandatory: false
     data_type: text
@@ -476,7 +470,7 @@ columns:
   label: Date/Time of Finding
   derivation:
     date_text:
-      source: SRC.STARTDATE
+      source: RAW.StartDate
       forms:
       - iso
       - mdy_slash
@@ -489,10 +483,12 @@ columns:
     origins:
     - type: Derived
       source: Sponsor
-    method: QoL event date, the only source timing available. This is an
-      administrative proxy, not a confirmed questionnaire completion date.
-    comment: QoL event date, the only source timing available. This is an
-      administrative proxy, not a confirmed questionnaire completion date.
+    method: QoL event date, the only source timing available.
+      This is an administrative proxy, not a confirmed questionnaire
+      completion date.
+    comment: QoL event date, the only source timing available.
+      This is an administrative proxy, not a confirmed questionnaire
+      completion date.
     core: Exp
     mandatory: false
     data_type: text
@@ -514,18 +510,20 @@ columns:
     origins:
     - type: Derived
       source: Sponsor
-    comment: No treatment reference or approved SAP baseline definition.
+    comment: No treatment reference or approved SAP baseline
+      definition.
     core: Perm
     mandatory: false
     data_type: text
-    method: No treatment reference or approved SAP baseline definition.
+    method: No treatment reference or approved SAP baseline
+      definition.
     codelist: NY
     role: Record Qualifier
 
 - name: VISIT
   type: str
   label: Visit Name
-  derivation: SRC.EVENTNAME
+  derivation: RAW.EventName
   verifications:
   - max_length:
       max: 80
@@ -533,7 +531,7 @@ columns:
     length: 80
     origins:
     - type: Predecessor
-      description: SRC.EVENTNAME
+      description: RAW.EventName
     core: Perm
     mandatory: false
     data_type: text
@@ -546,6 +544,6 @@ submission:
   repeating: true
   mode: historical
   artifact: qs.xpt
-  comment: Review draft metadata. Historical mode keeps declarations separate
-    from incomplete data; this is not a validated submission. See
-    spec/review/decisions.md.
+  comment: Review draft metadata. Historical mode keeps declarations
+    separate from incomplete data; this is not a validated submission.
+    See spec/review/decisions.md.

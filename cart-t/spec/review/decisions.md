@@ -6,7 +6,7 @@ test export. They are not an approved SAP. Resolve the blocking queries in
 
 | Topic | Refactored behavior | Reason and review needed |
 | --- | --- | --- |
-| Source instances | Retain the full ODM key, including event/form repeats and layout | Repeating labs and AEs are separate observations, not presumed corrections. Repeated items inside one true group are refused. |
+| Source instances | Native yamaa XML inputs retain event/form/item-group repeats; source ordinals link to every original item | Repeating labs and AEs are separate observations. Duplicate items are refused. Metadata versions/layouts sharing one native hierarchy are refused before mapping; this snapshot has no such ambiguity. |
 | Identity | USUBJID = CART-T-PILOT plus native SubjectKey; preserve StudySubjectID in SUBJID | Native subject keys are globally unique in this export. Review this sponsor ID convention before a submission. |
 | Site | SITEID is the ProtocolName of the source StudyOID partition | The XML represents seven named centers plus the master study partition. Confirm the partition-to-site registry; administrative master-study subjects are not silently assigned to a center. |
 | Country | Missing | Institution names and generic study partitions are insufficient to assign every site country. COUNTRY is a real required-data gap. |
@@ -56,7 +56,7 @@ was supplied for CAR-T and no metadata-equivalence claim is made.
 1. Confirm source scope, subject/site identity and data provenance.
 2. Resolve COUNTRY, MedDRA coding and exposure/allocation gaps.
 3. Confirm consent, randomization and collection timing; inspect retained
-   contradictions using source ordinals and the original-item CSV extracts.
+   contradictions using source ordinals and the original-item Parquet.
 4. Approve populations, baseline, nominal visit windows and endpoints in a SAP.
 5. Update executable YAML and metadata, rerun the full pipeline, and review
    record-level differences. Requalify transport and Define-XML.

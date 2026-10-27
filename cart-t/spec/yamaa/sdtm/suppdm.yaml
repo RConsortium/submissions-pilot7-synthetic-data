@@ -7,12 +7,8 @@ keys:
 - USUBJID
 - QNAM
 input:
-  SRC:
-    path: ../../../data/odm/randomization.csv
-    types:
-      ROWID: int
-base: SRC
-filter: SRC.I_PROFILE IS NOT NULL
+  ODM: ../../../data/odm/car-t-utf8.xml
+  RAW: ../../../data/odm/car-t-utf8.xml
 
 output:
   path: ../../../data/sdtm/suppdm.parquet
@@ -27,7 +23,7 @@ output:
   - QVAL
   - QORIG
   - QEVAL
-  report: ../../../log/suppdm-report.csv
+  report: ../../../log/suppdm-report.parquet
   order_by:
   - variable: STUDYID
     nulls: last
@@ -36,7 +32,52 @@ output:
   - variable: QNAM
     nulls: last
 
+intermediates:
+- id: CONTEXT
+  dataset: RAW
+  key:
+    StudyOID: ODM.StudyOID
+    MetaDataVersionOID: ODM.MetaDataVersionOID
+    SubjectKey: ODM.SubjectKey
+    StudyEventOID: ODM.StudyEventOID
+    FormOID: ODM.FormOID
+    ItemGroupOID: ODM.ItemGroupOID
+  filter: (RAW.StudyEventRepeatKey = ODM.StudyEventRepeatKey
+    OR (RAW.StudyEventRepeatKey IS NULL AND ODM.StudyEventRepeatKey
+    IS NULL)) AND (RAW.FormRepeatKey = ODM.FormRepeatKey OR
+    (RAW.FormRepeatKey IS NULL AND ODM.FormRepeatKey IS NULL))
+    AND (RAW.ItemGroupRepeatKey = ODM.ItemGroupRepeatKey OR
+    (RAW.ItemGroupRepeatKey IS NULL AND ODM.ItemGroupRepeatKey
+    IS NULL))
+  order_by:
+  - RAW.SourceOrdinal
+  keep: first
+
 columns:
+- name: CRF_PROFILE
+  type: str
+  label: CRF_PROFILE
+
+- name: STARTDATE
+  type: str
+  label: STARTDATE
+  derivation: CONTEXT.StartDate
+
+- name: EVENTNAME
+  type: str
+  label: EVENTNAME
+  derivation: CONTEXT.EventName
+
+- name: ROWID
+  type: int
+  label: ROWID
+  derivation: CONTEXT.SourceOrdinal
+
+- name: SUBJECTKEY
+  type: str
+  label: SUBJECTKEY
+  derivation: ODM.SubjectKey
+
 - name: STUDYID
   type: str
   label: Study Identifier
@@ -76,7 +117,7 @@ columns:
   type: str
   label: Unique Subject Identifier
   derivation:
-    str_template: CART-T-PILOT-{SRC.SUBJECTKEY}
+    str_template: CART-T-PILOT-{SUBJECTKEY}
   verifications:
   - max_length:
       max: 80
@@ -85,8 +126,8 @@ columns:
     origins:
     - type: Derived
       source: Sponsor
-    method: 'Executable yamaa derivation: str_template:
-      CART-T-PILOT-{SRC.SUBJECTKEY}'
+    method: 'Executable yamaa derivation:
+      str_template: CART-T-PILOT-{SUBJECTKEY}'
     core: Req
     mandatory: true
     data_type: text
@@ -169,7 +210,7 @@ columns:
   label: QVAL
   derivation:
     str_replace:
-      source: SRC.I_PROFILE
+      source: CRF_PROFILE
       pattern: ^\s+|\s+$
       replacement: ''
   verifications:
@@ -182,7 +223,7 @@ columns:
       source: Sponsor
     method: |-
       Executable yamaa derivation: str_replace:
-        source: SRC.I_PROFILE
+        source: CRF_PROFILE
         pattern: ^\s+|\s+$
         replacement: ''
     core: Perm
@@ -225,6 +266,35 @@ columns:
     method: Not derivable; the output remains missing.
     role: Record Qualifier
 
+- name: SOURCE_GROUP
+  type: str
+  label: SOURCE_GROUP
+
+- name: SOURCE_FORM
+  type: str
+  label: SOURCE_FORM
+
+rows:
+- id: collected
+  dataset: ODM
+  group_by:
+  - ODM.StudyOID
+  - ODM.MetaDataVersionOID
+  - ODM.SubjectKey
+  - ODM.StudyEventOID
+  - ODM.StudyEventRepeatKey
+  - ODM.FormOID
+  - ODM.FormRepeatKey
+  - ODM.ItemGroupOID
+  - ODM.ItemGroupRepeatKey
+  filter: SOURCE_FORM = 'F_3RANDOMIZE' AND (CRF_PROFILE IS NOT
+    NULL)
+  derivations:
+    SOURCE_GROUP: ODM.ItemGroupOID
+    CRF_PROFILE:
+      odm: ODM.I_3RAND_PROFILE
+    SOURCE_FORM: ODM.FormOID
+
 submission:
   label: Supplemental Demographics
   class: RELATIONSHIP
@@ -232,6 +302,6 @@ submission:
   repeating: true
   mode: historical
   artifact: suppdm.xpt
-  comment: Review draft metadata. Historical mode keeps declarations separate
-    from incomplete data; this is not a validated submission. See
-    spec/review/decisions.md.
+  comment: Review draft metadata. Historical mode keeps declarations
+    separate from incomplete data; this is not a validated submission.
+    See spec/review/decisions.md.

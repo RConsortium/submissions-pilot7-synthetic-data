@@ -7,10 +7,8 @@ keys:
 - USUBJID
 - IESEQ
 input:
-  SRC:
-    path: ../../../data/odm/eligibility.csv
-    types:
-      ROWID: int
+  ODM: ../../../data/odm/car-t-utf8.xml
+  RAW: ../../../data/odm/car-t-utf8.xml
 
 output:
   path: ../../../data/sdtm/ie.parquet
@@ -27,7 +25,7 @@ output:
   - IESTRESC
   - IEDTC
   - EPOCH
-  report: ../../../log/ie-report.csv
+  report: ../../../log/ie-report.parquet
   order_by:
   - variable: STUDYID
     nulls: last
@@ -36,26 +34,69 @@ output:
   - variable: IESEQ
     nulls: last
 
+intermediates:
+- id: CONTEXT
+  dataset: RAW
+  key:
+    StudyOID: ODM.StudyOID
+    MetaDataVersionOID: ODM.MetaDataVersionOID
+    SubjectKey: ODM.SubjectKey
+    StudyEventOID: ODM.StudyEventOID
+    FormOID: ODM.FormOID
+    ItemGroupOID: ODM.ItemGroupOID
+  filter: (RAW.StudyEventRepeatKey = ODM.StudyEventRepeatKey
+    OR (RAW.StudyEventRepeatKey IS NULL AND ODM.StudyEventRepeatKey
+    IS NULL)) AND (RAW.FormRepeatKey = ODM.FormRepeatKey OR
+    (RAW.FormRepeatKey IS NULL AND ODM.FormRepeatKey IS NULL))
+    AND (RAW.ItemGroupRepeatKey = ODM.ItemGroupRepeatKey OR
+    (RAW.ItemGroupRepeatKey IS NULL AND ODM.ItemGroupRepeatKey
+    IS NULL))
+  order_by:
+  - RAW.SourceOrdinal
+  keep: first
+
 columns:
+- name: CRF_EXCEVAL
+  type: str
+  label: CRF_EXCEVAL
+
+- name: CRF_INC1EVAL
+  type: str
+  label: CRF_INC1EVAL
+
+- name: CRF_INC2EVAL
+  type: str
+  label: CRF_INC2EVAL
+
+- name: STARTDATE
+  type: str
+  label: STARTDATE
+  derivation: CONTEXT.StartDate
+
+- name: EVENTNAME
+  type: str
+  label: EVENTNAME
+  derivation: CONTEXT.EventName
+
 - name: SUBJECTKEY
   type: str
   label: SUBJECTKEY
-  derivation: SRC.SUBJECTKEY
+  derivation: ODM.SubjectKey
 
 - name: EVENTOID
   type: str
   label: EVENTOID
-  derivation: SRC.EVENTOID
+  derivation: ODM.StudyEventOID
 
 - name: EVENTREPEAT
   type: str
   label: EVENTREPEAT
-  derivation: SRC.EVENTREPEAT
+  derivation: ODM.StudyEventRepeatKey
 
 - name: ROWID
   type: int
   label: ROWID
-  derivation: SRC.ROWID
+  derivation: CONTEXT.SourceOrdinal
 
 - name: STUDYID
   type: str
@@ -96,7 +137,7 @@ columns:
   type: str
   label: Unique Subject Identifier
   derivation:
-    str_template: CART-T-PILOT-{SRC.SUBJECTKEY}
+    str_template: CART-T-PILOT-{SUBJECTKEY}
   verifications:
   - max_length:
       max: 80
@@ -105,10 +146,10 @@ columns:
     origins:
     - type: Derived
       source: Sponsor
-    method: CART-T-PILOT followed by the globally unique ODM SubjectKey.
-      Display subject ID is retained in DM.SUBJID.
-    comment: CART-T-PILOT followed by the globally unique ODM SubjectKey.
-      Display subject ID is retained in DM.SUBJID.
+    method: CART-T-PILOT followed by the globally unique ODM
+      SubjectKey. Display subject ID is retained in DM.SUBJID.
+    comment: CART-T-PILOT followed by the globally unique ODM
+      SubjectKey. Display subject ID is retained in DM.SUBJID.
     core: Req
     mandatory: true
     data_type: text
@@ -124,7 +165,7 @@ columns:
         group_by:
         - USUBJID
         order_by:
-        - variable: SRC.ROWID
+        - variable: ROWID
           nulls: last
   submission:
     origins:
@@ -136,7 +177,7 @@ columns:
           group_by:
           - USUBJID
           order_by:
-          - variable: SRC.ROWID
+          - variable: ROWID
             nulls: last
     core: Req
     mandatory: true
@@ -148,7 +189,7 @@ columns:
 - name: IESPID
   type: str
   label: Source Group Ordinal
-  derivation: SRC.ROWID
+  derivation: ROWID
   verifications:
   - max_length:
       max: 20
@@ -156,10 +197,10 @@ columns:
     length: 20
     origins:
     - type: Predecessor
-      description: SRC.ROWID
-    comment: ODM SourceOrdinal (item), or first SourceOrdinal in the complete
-      ODM item-group instance. Trace to data/odm/clinical_items.csv or
-      groups.csv.
+      description: ROWID
+    comment: ODM SourceOrdinal (item), or first SourceOrdinal
+      in the complete ODM item-group instance. Trace to SourceOrdinal
+      in data/odm/items.parquet and the unchanged XML.
     core: Perm
     mandatory: false
     data_type: text
@@ -260,7 +301,7 @@ columns:
   label: Date/Time of Collection
   derivation:
     date_text:
-      source: SRC.STARTDATE
+      source: STARTDATE
       forms:
       - iso
       - mdy_slash
@@ -297,36 +338,98 @@ columns:
     data_type: text
     role: Timing
 
+- name: SOURCE_GROUP
+  type: str
+  label: SOURCE_GROUP
+  derivation: ODM.ItemGroupOID
+
+- name: SOURCE_FORM
+  type: str
+  label: SOURCE_FORM
+
 rows:
 - id: inc1
-  dataset: SRC
-  filter: SRC.I_INC1EVAL = 'fail'
+  dataset: ODM
+  group_by:
+  - ODM.StudyOID
+  - ODM.MetaDataVersionOID
+  - ODM.SubjectKey
+  - ODM.StudyEventOID
+  - ODM.StudyEventRepeatKey
+  - ODM.FormOID
+  - ODM.FormRepeatKey
+  - ODM.ItemGroupOID
+  - ODM.ItemGroupRepeatKey
+  filter: SOURCE_FORM = 'F_ELIGIBILITY' AND (CRF_INC1EVAL =
+    'fail')
   derivations:
     IETESTCD: '''INC1'''
     IETEST: '''Disease history inclusion evaluation'''
     IECAT: '''INCLUSION'''
     IEORRES: '''N'''
     IESTRESC: '''N'''
+    CRF_EXCEVAL:
+      odm: ODM.I_ELIGI_EXCEVAL
+    CRF_INC1EVAL:
+      odm: ODM.I_ELIGI_INC1EVAL
+    CRF_INC2EVAL:
+      odm: ODM.I_ELIGI_INC2EVAL
+    SOURCE_FORM: ODM.FormOID
 
 - id: inc2
-  dataset: SRC
-  filter: SRC.I_INC2EVAL = 'fail'
+  dataset: ODM
+  group_by:
+  - ODM.StudyOID
+  - ODM.MetaDataVersionOID
+  - ODM.SubjectKey
+  - ODM.StudyEventOID
+  - ODM.StudyEventRepeatKey
+  - ODM.FormOID
+  - ODM.FormRepeatKey
+  - ODM.ItemGroupOID
+  - ODM.ItemGroupRepeatKey
+  filter: SOURCE_FORM = 'F_ELIGIBILITY' AND (CRF_INC2EVAL =
+    'fail')
   derivations:
     IETESTCD: '''INC2'''
     IETEST: '''Organ function inclusion evaluation'''
     IECAT: '''INCLUSION'''
     IEORRES: '''N'''
     IESTRESC: '''N'''
+    CRF_EXCEVAL:
+      odm: ODM.I_ELIGI_EXCEVAL
+    CRF_INC1EVAL:
+      odm: ODM.I_ELIGI_INC1EVAL
+    CRF_INC2EVAL:
+      odm: ODM.I_ELIGI_INC2EVAL
+    SOURCE_FORM: ODM.FormOID
 
 - id: exc
-  dataset: SRC
-  filter: SRC.I_EXCEVAL = 'fail'
+  dataset: ODM
+  group_by:
+  - ODM.StudyOID
+  - ODM.MetaDataVersionOID
+  - ODM.SubjectKey
+  - ODM.StudyEventOID
+  - ODM.StudyEventRepeatKey
+  - ODM.FormOID
+  - ODM.FormRepeatKey
+  - ODM.ItemGroupOID
+  - ODM.ItemGroupRepeatKey
+  filter: SOURCE_FORM = 'F_ELIGIBILITY' AND (CRF_EXCEVAL = 'fail')
   derivations:
     IETESTCD: '''EXC'''
     IETEST: '''Safety exclusion evaluation'''
     IECAT: '''EXCLUSION'''
     IEORRES: '''Y'''
     IESTRESC: '''Y'''
+    CRF_EXCEVAL:
+      odm: ODM.I_ELIGI_EXCEVAL
+    CRF_INC1EVAL:
+      odm: ODM.I_ELIGI_INC1EVAL
+    CRF_INC2EVAL:
+      odm: ODM.I_ELIGI_INC2EVAL
+    SOURCE_FORM: ODM.FormOID
 
 submission:
   label: Inclusion Exclusion Exceptions
@@ -335,6 +438,6 @@ submission:
   repeating: true
   mode: historical
   artifact: ie.xpt
-  comment: Review draft metadata. Historical mode keeps declarations separate
-    from incomplete data; this is not a validated submission. See
-    spec/review/decisions.md.
+  comment: Review draft metadata. Historical mode keeps declarations
+    separate from incomplete data; this is not a validated submission.
+    See spec/review/decisions.md.

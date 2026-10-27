@@ -7,12 +7,8 @@ keys:
 - USUBJID
 - CMSEQ
 input:
-  SRC:
-    path: ../../../data/odm/medications.csv
-    types:
-      ROWID: int
-base: SRC
-filter: SRC.I_CMTRTL IS NOT NULL OR SRC.I_CMTRTLX IS NOT NULL
+  ODM: ../../../data/odm/car-t-utf8.xml
+  RAW: ../../../data/odm/car-t-utf8.xml
 
 output:
   path: ../../../data/sdtm/cm.parquet
@@ -36,7 +32,7 @@ output:
   - CMENRTPT
   - CMENTPT
   - VISIT
-  report: ../../../log/cm-report.csv
+  report: ../../../log/cm-report.parquet
   order_by:
   - variable: STUDYID
     nulls: last
@@ -45,26 +41,109 @@ output:
   - variable: CMSEQ
     nulls: last
 
+intermediates:
+- id: CONTEXT
+  dataset: RAW
+  key:
+    StudyOID: ODM.StudyOID
+    MetaDataVersionOID: ODM.MetaDataVersionOID
+    SubjectKey: ODM.SubjectKey
+    StudyEventOID: ODM.StudyEventOID
+    FormOID: ODM.FormOID
+    ItemGroupOID: ODM.ItemGroupOID
+  filter: (RAW.StudyEventRepeatKey = ODM.StudyEventRepeatKey
+    OR (RAW.StudyEventRepeatKey IS NULL AND ODM.StudyEventRepeatKey
+    IS NULL)) AND (RAW.FormRepeatKey = ODM.FormRepeatKey OR
+    (RAW.FormRepeatKey IS NULL AND ODM.FormRepeatKey IS NULL))
+    AND (RAW.ItemGroupRepeatKey = ODM.ItemGroupRepeatKey OR
+    (RAW.ItemGroupRepeatKey IS NULL AND ODM.ItemGroupRepeatKey
+    IS NULL))
+  order_by:
+  - RAW.SourceOrdinal
+  keep: first
+
 columns:
+- name: CRF_CMDOSE
+  type: str
+  label: CRF_CMDOSE
+
+- name: CRF_CMDOSFRM
+  type: str
+  label: CRF_CMDOSFRM
+
+- name: CRF_CMDOSFRQ
+  type: str
+  label: CRF_CMDOSFRQ
+
+- name: CRF_CMDOSU
+  type: str
+  label: CRF_CMDOSU
+
+- name: CRF_CMDOSUTXT
+  type: str
+  label: CRF_CMDOSUTXT
+
+- name: CRF_CMENDAT
+  type: str
+  label: CRF_CMENDAT
+
+- name: CRF_CMINDC
+  type: str
+  label: CRF_CMINDC
+
+- name: CRF_CMROUTE
+  type: str
+  label: CRF_CMROUTE
+
+- name: CRF_CMSTDAT
+  type: str
+  label: CRF_CMSTDAT
+
+- name: CRF_CMTRTL
+  type: str
+  label: CRF_CMTRTL
+
+- name: CRF_CMTRTLX
+  type: str
+  label: CRF_CMTRTLX
+
+- name: CRF_MEDNAME
+  type: str
+  label: CRF_MEDNAME
+
+- name: CRF_ONGOING
+  type: str
+  label: CRF_ONGOING
+
+- name: STARTDATE
+  type: str
+  label: STARTDATE
+  derivation: CONTEXT.StartDate
+
+- name: EVENTNAME
+  type: str
+  label: EVENTNAME
+  derivation: CONTEXT.EventName
+
 - name: SUBJECTKEY
   type: str
   label: SUBJECTKEY
-  derivation: SRC.SUBJECTKEY
+  derivation: ODM.SubjectKey
 
 - name: EVENTOID
   type: str
   label: EVENTOID
-  derivation: SRC.EVENTOID
+  derivation: ODM.StudyEventOID
 
 - name: EVENTREPEAT
   type: str
   label: EVENTREPEAT
-  derivation: SRC.EVENTREPEAT
+  derivation: ODM.StudyEventRepeatKey
 
 - name: ROWID
   type: int
   label: ROWID
-  derivation: SRC.ROWID
+  derivation: CONTEXT.SourceOrdinal
 
 - name: STUDYID
   type: str
@@ -105,7 +184,7 @@ columns:
   type: str
   label: Unique Subject Identifier
   derivation:
-    str_template: CART-T-PILOT-{SRC.SUBJECTKEY}
+    str_template: CART-T-PILOT-{SUBJECTKEY}
   verifications:
   - max_length:
       max: 80
@@ -114,10 +193,10 @@ columns:
     origins:
     - type: Derived
       source: Sponsor
-    method: CART-T-PILOT followed by the globally unique ODM SubjectKey.
-      Display subject ID is retained in DM.SUBJID.
-    comment: CART-T-PILOT followed by the globally unique ODM SubjectKey.
-      Display subject ID is retained in DM.SUBJID.
+    method: CART-T-PILOT followed by the globally unique ODM
+      SubjectKey. Display subject ID is retained in DM.SUBJID.
+    comment: CART-T-PILOT followed by the globally unique ODM
+      SubjectKey. Display subject ID is retained in DM.SUBJID.
     core: Req
     mandatory: true
     data_type: text
@@ -133,7 +212,7 @@ columns:
         group_by:
         - USUBJID
         order_by:
-        - variable: SRC.ROWID
+        - variable: ROWID
           nulls: last
   submission:
     origins:
@@ -145,7 +224,7 @@ columns:
           group_by:
           - USUBJID
           order_by:
-          - variable: SRC.ROWID
+          - variable: ROWID
             nulls: last
     core: Req
     mandatory: true
@@ -157,7 +236,7 @@ columns:
 - name: CMSPID
   type: str
   label: Source Group Ordinal
-  derivation: SRC.ROWID
+  derivation: ROWID
   verifications:
   - max_length:
       max: 20
@@ -165,10 +244,10 @@ columns:
     length: 20
     origins:
     - type: Predecessor
-      description: SRC.ROWID
-    comment: ODM SourceOrdinal (item), or first SourceOrdinal in the complete
-      ODM item-group instance. Trace to data/odm/clinical_items.csv or
-      groups.csv.
+      description: ROWID
+    comment: ODM SourceOrdinal (item), or first SourceOrdinal
+      in the complete ODM item-group instance. Trace to SourceOrdinal
+      in data/odm/items.parquet and the unchanged XML.
     core: Perm
     mandatory: false
     data_type: text
@@ -180,8 +259,8 @@ columns:
   derivation:
     first_available:
       sources:
-      - SRC.I_CMTRTL
-      - SRC.I_CMTRTLX
+      - CRF_CMTRTL
+      - CRF_CMTRTLX
   verifications:
   - max_length:
       max: 200
@@ -193,8 +272,8 @@ columns:
     method: |-
       Executable yamaa derivation: first_available:
         sources:
-        - SRC.I_CMTRTL
-        - SRC.I_CMTRTLX
+        - CRF_CMTRTL
+        - CRF_CMTRTLX
     core: Req
     mandatory: true
     data_type: text
@@ -203,7 +282,7 @@ columns:
 - name: CMDECOD
   type: str
   label: Standardized Medication Name
-  derivation: SRC.I_MEDNAME
+  derivation: CRF_MEDNAME
   verifications:
   - max_length:
       max: 200
@@ -211,9 +290,9 @@ columns:
     length: 200
     origins:
     - type: Predecessor
-      description: SRC.I_MEDNAME
-    comment: Recorded MEDNAME only. No new WHO
-      Drug or RxNorm coding is claimed.
+      description: CRF_MEDNAME
+    comment: Recorded MEDNAME only. No new WHO Drug or RxNorm
+      coding is claimed.
     core: Exp
     mandatory: false
     data_type: text
@@ -222,7 +301,7 @@ columns:
 - name: CMINDC
   type: str
   label: Indication
-  derivation: SRC.I_CMINDC
+  derivation: CRF_CMINDC
   verifications:
   - max_length:
       max: 200
@@ -230,7 +309,7 @@ columns:
     length: 200
     origins:
     - type: Predecessor
-      description: SRC.I_CMINDC
+      description: CRF_CMINDC
     core: Perm
     mandatory: false
     data_type: text
@@ -240,7 +319,7 @@ columns:
   type: float
   label: Dose per Administration
   derivation:
-    value: SRC.I_CMDOSE
+    value: CRF_CMDOSE
     unconvertible: null
   submission:
     significant_digits: 6
@@ -248,7 +327,7 @@ columns:
     - type: Derived
       source: Sponsor
     method: |-
-      Executable yamaa derivation: value: SRC.I_CMDOSE
+      Executable yamaa derivation: value: CRF_CMDOSE
       unconvertible: null
     core: Perm
     mandatory: false
@@ -259,7 +338,7 @@ columns:
 - name: CMDOSTXT
   type: str
   label: Dose Description
-  derivation: SRC.I_CMDOSE
+  derivation: CRF_CMDOSE
   verifications:
   - max_length:
       max: 80
@@ -267,7 +346,7 @@ columns:
     length: 80
     origins:
     - type: Predecessor
-      description: SRC.I_CMDOSE
+      description: CRF_CMDOSE
     core: Perm
     mandatory: false
     data_type: text
@@ -278,10 +357,10 @@ columns:
   label: Dose Units
   derivation:
     case:
-    - when: SRC.I_CMDOSU = 'Other'
+    - when: CRF_CMDOSU = 'Other'
       then:
         mapping:
-          source: SRC.I_CMDOSUTXT
+          source: CRF_CMDOSUTXT
           dict:
             MG: mg
             mg: mg
@@ -299,7 +378,7 @@ columns:
           unmapped: null
     - otherwise:
         mapping:
-          source: SRC.I_CMDOSU
+          source: CRF_CMDOSU
           dict:
             MG: mg
             mg: mg
@@ -323,9 +402,9 @@ columns:
     origins:
     - type: Derived
       source: Sponsor
-    method: Decode CL_205 units; microgram spellings map to ug. When
-      CMDOSU=Other,
-      use CMDOSUTXT (mg/m^2 -> mg/m2; mcg -> ug). No dose conversion.
+    method: Decode CL_205 units; microgram spellings map to
+      ug. When CMDOSU=Other, use CMDOSUTXT (mg/m^2 -> mg/m2;
+      mcg -> ug). No dose conversion.
     core: Perm
     mandatory: false
     data_type: text
@@ -336,7 +415,7 @@ columns:
   label: Dosing Frequency per Interval
   derivation:
     mapping:
-      source: SRC.I_CMDOSFRQ
+      source: CRF_CMDOSFRQ
       dict:
         QD (once a day): QD
         BID (twice a day): BID
@@ -369,9 +448,8 @@ columns:
     origins:
     - type: Derived
       source: Sponsor
-    method: Decode CL_209 text and numeric codes, then map the decoded
-      frequency
-      to the explicit frequency abbreviation.
+    method: Decode CL_209 text and numeric codes, then map the
+      decoded frequency to the explicit frequency abbreviation.
     core: Perm
     mandatory: false
     data_type: text
@@ -382,7 +460,7 @@ columns:
   label: Dose Form
   derivation:
     mapping:
-      source: SRC.I_CMDOSFRM
+      source: CRF_CMDOSFRM
       dict:
         Implant: IMPLANT
         Aerosol: AEROSOL
@@ -408,10 +486,12 @@ columns:
     origins:
     - type: Derived
       source: Sponsor
-    method: Decode CL_207. Chewable maps to CHEWABLE TABLET. Other without
-      an approved standard term remains missing for review.
-    comment: Uppercase collected term. Unmapped source terms remain visible
-      for terminology review; no dictionary certification is claimed.
+    method: Decode CL_207. Chewable maps to CHEWABLE TABLET.
+      Other without an approved standard term remains missing
+      for review.
+    comment: Uppercase collected term. Unmapped source terms
+      remain visible for terminology review; no dictionary certification
+      is claimed.
     core: Perm
     mandatory: false
     data_type: text
@@ -422,7 +502,7 @@ columns:
   label: Route of Administration
   derivation:
     mapping:
-      source: SRC.I_CMROUTE
+      source: CRF_CMROUTE
       dict:
         Rectal: RECTAL
         Oral: ORAL
@@ -459,11 +539,12 @@ columns:
     origins:
     - type: Derived
       source: Sponsor
-    method: Decode CL_211 text and numeric values. Source spelling Intravaneous
-      means INTRAVENOUS; Introacular means INTRAOCULAR. Unspecified Other
-      remains missing.
-    comment: Uppercase collected term. Unmapped source terms remain visible
-      for terminology review; no dictionary certification is claimed.
+    method: Decode CL_211 text and numeric values. Source spelling
+      Intravaneous means INTRAVENOUS; Introacular means INTRAOCULAR.
+      Unspecified Other remains missing.
+    comment: Uppercase collected term. Unmapped source terms
+      remain visible for terminology review; no dictionary certification
+      is claimed.
     core: Perm
     mandatory: false
     data_type: text
@@ -474,7 +555,7 @@ columns:
   label: Start Date/Time of Medication
   derivation:
     date_text:
-      source: SRC.I_CMSTDAT
+      source: CRF_CMSTDAT
       forms:
       - iso
       - mdy_slash
@@ -489,7 +570,7 @@ columns:
       source: Sponsor
     method: |-
       Executable yamaa derivation: date_text:
-        source: SRC.I_CMSTDAT
+        source: CRF_CMSTDAT
         forms:
         - iso
         - mdy_slash
@@ -504,7 +585,7 @@ columns:
   label: End Date/Time of Medication
   derivation:
     date_text:
-      source: SRC.I_CMENDAT
+      source: CRF_CMENDAT
       forms:
       - iso
       - mdy_slash
@@ -519,7 +600,7 @@ columns:
       source: Sponsor
     method: |-
       Executable yamaa derivation: date_text:
-        source: SRC.I_CMENDAT
+        source: CRF_CMENDAT
         forms:
         - iso
         - mdy_slash
@@ -534,7 +615,7 @@ columns:
   label: End Relative to Reference Time Point
   derivation:
     case:
-    - when: SRC.I_ONGOING = 'Yes' OR SRC.I_ONGOING = '1'
+    - when: CRF_ONGOING = 'Yes' OR CRF_ONGOING = '1'
       then: '''ONGOING'''
     - otherwise: null
   verifications:
@@ -547,7 +628,7 @@ columns:
       source: Sponsor
     method: |-
       Executable yamaa derivation: case:
-      - when: SRC.I_ONGOING = 'Yes' OR SRC.I_ONGOING = '1'
+      - when: CRF_ONGOING = 'Yes' OR CRF_ONGOING = '1'
         then: '''ONGOING'''
       - otherwise: null
     core: Perm
@@ -584,7 +665,7 @@ columns:
 - name: VISIT
   type: str
   label: Visit Name
-  derivation: SRC.EVENTNAME
+  derivation: EVENTNAME
   verifications:
   - max_length:
       max: 80
@@ -592,16 +673,70 @@ columns:
     length: 80
     origins:
     - type: Predecessor
-      description: SRC.EVENTNAME
+      description: EVENTNAME
     core: Perm
     mandatory: false
     data_type: text
     role: Timing
 
+- name: SOURCE_GROUP
+  type: str
+  label: SOURCE_GROUP
+
+- name: SOURCE_FORM
+  type: str
+  label: SOURCE_FORM
+
+rows:
+- id: collected
+  dataset: ODM
+  group_by:
+  - ODM.StudyOID
+  - ODM.MetaDataVersionOID
+  - ODM.SubjectKey
+  - ODM.StudyEventOID
+  - ODM.StudyEventRepeatKey
+  - ODM.FormOID
+  - ODM.FormRepeatKey
+  - ODM.ItemGroupOID
+  - ODM.ItemGroupRepeatKey
+  filter: SOURCE_FORM = 'F_CONMED' AND (CRF_CMTRTL IS NOT NULL
+    OR CRF_CMTRTLX IS NOT NULL)
+  derivations:
+    SOURCE_GROUP: ODM.ItemGroupOID
+    CRF_CMDOSE:
+      odm: ODM.I_CONME_CMDOSE
+    CRF_CMDOSFRM:
+      odm: ODM.I_CONME_CMDOSFRM
+    CRF_CMDOSFRQ:
+      odm: ODM.I_CONME_CMDOSFRQ
+    CRF_CMDOSU:
+      odm: ODM.I_CONME_CMDOSU
+    CRF_CMDOSUTXT:
+      odm: ODM.I_CONME_CMDOSUTXT
+    CRF_CMENDAT:
+      odm: ODM.I_CONME_CMENDAT
+    CRF_CMINDC:
+      odm: ODM.I_CONME_CMINDC
+    CRF_CMROUTE:
+      odm: ODM.I_CONME_CMROUTE
+    CRF_CMSTDAT:
+      odm: ODM.I_CONME_CMSTDAT
+    CRF_CMTRTL:
+      odm: ODM.I_CONME_CMTRTL
+    CRF_CMTRTLX:
+      odm: ODM.I_CONME_CMTRTLX
+    CRF_MEDNAME:
+      odm: ODM.I_CONME_MEDNAME
+    CRF_ONGOING:
+      odm: ODM.I_CONME_ONGOING
+    SOURCE_FORM: ODM.FormOID
+
 verifications:
 - assert:
     id: cm_end_before_start
-    require: CMENDTC IS NULL OR CMSTDTC IS NULL OR CMENDTC >= CMSTDTC
+    require: CMENDTC IS NULL OR CMSTDTC IS NULL OR CMENDTC >=
+      CMSTDTC
     severity: warning
 
 submission:
@@ -611,6 +746,6 @@ submission:
   repeating: true
   mode: historical
   artifact: cm.xpt
-  comment: Review draft metadata. Historical mode keeps declarations separate
-    from incomplete data; this is not a validated submission. See
-    spec/review/decisions.md.
+  comment: Review draft metadata. Historical mode keeps declarations
+    separate from incomplete data; this is not a validated submission.
+    See spec/review/decisions.md.

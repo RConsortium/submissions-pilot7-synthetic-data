@@ -1,6 +1,7 @@
 """Shared execution and artifact publication; no clinical derivations here."""
 
 import json
+import os
 from pathlib import Path
 
 import pandas as pd
@@ -12,6 +13,8 @@ from lxml import etree
 
 STUDY = Path(__file__).resolve().parents[1]
 PROJECT = STUDY / "spec/yamaa/project.yaml"
+SCHEMAS = Path(os.environ.get("YAMAA_XML_SCHEMAS", str(
+    STUDY.parent / ".build/define-engine/rust/tests/schemas"))).resolve()
 # Define-XML uses the source snapshot time. ReadStat timestamps XPT at export;
 # reproducibility of XPT is assessed on data and labels, not header bytes.
 CREATED = "2025-10-28T14:40:02"
@@ -57,8 +60,6 @@ def run_section(section):
     for path, spec in specifications(section):
         run = runs[spec["domain"]]
         artifact = (path.parent / spec["output"]["path"]).resolve()
-        # CSV is a review convenience; Parquet remains the typed artifact.
-        pq.read_table(artifact).to_pandas().to_csv(artifact.with_suffix(".csv"), index=False)
         records.append({"domain": spec["domain"], "rows": run.output.num_rows,
                         "columns": len(run.output.column_names), "build": "succeeded"})
     print(runs, flush=True)
@@ -104,7 +105,7 @@ def export_xpt(path, spec):
         expected = frame.copy()
         # SAS character fields are padded with blanks. Its reader cannot
         # distinguish collected trailing blanks from that physical padding.
-        # Keep exact collected strings in Parquet/CSV and compare XPT by SAS
+        # Keep exact collected strings in Parquet and compare XPT by SAS
         # semantics. Leading blanks and every other character must agree.
         for name in frame.columns:
             if columns[name]["type"] == "str":
@@ -128,7 +129,12 @@ def export_definitions():
     records = []
     project = yamaa.project(PROJECT)
     parser = etree.XMLParser(no_network=True, resolve_entities=False)
-    schema_path = STUDY / "spec/define/schema/define/2.0/define2-0-0.xsd"
+    schema_path = SCHEMAS / "define/2.0/define2-0-0.xsd"
+    if not schema_path.is_file():
+        raise FileNotFoundError(
+            "Check out rust/tests/schemas from the pinned yamaa revision into "
+            ".build/define-engine, as in the pilot Define-XML workflow; "
+            "or set YAMAA_XML_SCHEMAS to that schema root. See cart-t/README.md.")
     schema = etree.XMLSchema(etree.parse(str(schema_path), parser))
     for section in ("sdtm", "adam"):
         for path, spec in specifications(section):

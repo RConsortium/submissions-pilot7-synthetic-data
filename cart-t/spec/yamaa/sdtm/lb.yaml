@@ -7,31 +7,13 @@ keys:
 - USUBJID
 - LBSEQ
 input:
-  SRC:
-    path: ../../../data/odm/clinical_items.csv
-    types:
-      ROWID: int
-      ITEMROW: int
-  BL:
-    path: ../../../data/odm/baseline_labs.csv
-    types:
-      ROWID: int
-    key:
-    - SUBJECTKEY
-    - EVENTOID
-    - EVENTREPEAT
-  FU:
-    path: ../../../data/odm/laboratory.csv
-    types:
-      ROWID: int
-    key:
-    - ROWID
-base: SRC
-filter: (SRC.FORMNAME = '2. Baseline Labs and Imaging' OR SRC.FORMNAME =
-  'Lab Results') AND SRC.ITEMNAME IN ('AMYLASE', 'BUN', 'CHLORIDE', 'HOMOC',
-  'CREAT', 'EGFR', 'CHOLES', 'TRIG', 'HEMA', 'HEMO', 'RBC', 'WBC') AND
-  SRC.VALUE
-  IS NOT NULL
+  RAW: ../../../data/odm/car-t-utf8.xml
+  DATES: ../../../data/odm/car-t-utf8.xml
+base: RAW
+filter: (RAW.FormName = '2. Baseline Labs and Imaging' OR RAW.FormName
+  = 'Lab Results') AND RAW.ItemName IN ('AMYLASE', 'BUN', 'CHLORIDE',
+  'HOMOC', 'CREAT', 'EGFR', 'CHOLES', 'TRIG', 'HEMA', 'HEMO',
+  'RBC', 'WBC') AND RAW.Value IS NOT NULL
 
 output:
   path: ../../../data/sdtm/lb.parquet
@@ -52,7 +34,7 @@ output:
   - LBDTC
   - LBBLFL
   - VISIT
-  report: ../../../log/lb-report.csv
+  report: ../../../log/lb-report.parquet
   order_by:
   - variable: STUDYID
     nulls: last
@@ -61,26 +43,78 @@ output:
   - variable: LBSEQ
     nulls: last
 
+intermediates:
+- id: DRAW_DATE
+  dataset: DATES
+  key:
+    StudyOID: RAW.StudyOID
+    MetaDataVersionOID: RAW.MetaDataVersionOID
+    SubjectKey: RAW.SubjectKey
+    StudyEventOID: RAW.StudyEventOID
+  filter: DATES.ItemOID = 'I_2BASE_DATE_OF_BLOOD_DRAW' AND DATES.Value
+    IS NOT NULL AND (DATES.StudyEventRepeatKey = RAW.StudyEventRepeatKey
+    OR (DATES.StudyEventRepeatKey IS NULL AND RAW.StudyEventRepeatKey
+    IS NULL))
+  order_by:
+  - DATES.SourceOrdinal
+  keep: first
+
+- id: DRAW_ALT
+  dataset: DATES
+  key:
+    StudyOID: RAW.StudyOID
+    MetaDataVersionOID: RAW.MetaDataVersionOID
+    SubjectKey: RAW.SubjectKey
+    StudyEventOID: RAW.StudyEventOID
+  filter: DATES.ItemOID = 'I_2BASE_DRAWDATE' AND DATES.Value
+    IS NOT NULL AND (DATES.StudyEventRepeatKey = RAW.StudyEventRepeatKey
+    OR (DATES.StudyEventRepeatKey IS NULL AND RAW.StudyEventRepeatKey
+    IS NULL))
+  order_by:
+  - DATES.SourceOrdinal
+  keep: first
+
+- id: FOLLOWUP_DATE
+  dataset: DATES
+  key:
+    StudyOID: RAW.StudyOID
+    MetaDataVersionOID: RAW.MetaDataVersionOID
+    SubjectKey: RAW.SubjectKey
+    StudyEventOID: RAW.StudyEventOID
+    FormOID: RAW.FormOID
+    ItemGroupOID: RAW.ItemGroupOID
+  filter: DATES.ItemOID = 'I_LABRE_LABDATE' AND DATES.Value
+    IS NOT NULL AND (DATES.StudyEventRepeatKey = RAW.StudyEventRepeatKey
+    OR (DATES.StudyEventRepeatKey IS NULL AND RAW.StudyEventRepeatKey
+    IS NULL)) AND (DATES.FormRepeatKey = RAW.FormRepeatKey OR
+    (DATES.FormRepeatKey IS NULL AND RAW.FormRepeatKey IS NULL))
+    AND (DATES.ItemGroupRepeatKey = RAW.ItemGroupRepeatKey OR
+    (DATES.ItemGroupRepeatKey IS NULL AND RAW.ItemGroupRepeatKey
+    IS NULL))
+  order_by:
+  - DATES.SourceOrdinal
+  keep: first
+
 columns:
 - name: SUBJECTKEY
   type: str
   label: SUBJECTKEY
-  derivation: SRC.SUBJECTKEY
+  derivation: RAW.SubjectKey
 
 - name: EVENTOID
   type: str
   label: EVENTOID
-  derivation: SRC.EVENTOID
+  derivation: RAW.StudyEventOID
 
 - name: EVENTREPEAT
   type: str
   label: EVENTREPEAT
-  derivation: SRC.EVENTREPEAT
+  derivation: RAW.StudyEventRepeatKey
 
 - name: ROWID
   type: int
   label: ROWID
-  derivation: SRC.ROWID
+  derivation: RAW.SourceOrdinal
 
 - name: STUDYID
   type: str
@@ -121,7 +155,7 @@ columns:
   type: str
   label: Unique Subject Identifier
   derivation:
-    str_template: CART-T-PILOT-{SRC.SUBJECTKEY}
+    str_template: CART-T-PILOT-{RAW.SubjectKey}
   verifications:
   - max_length:
       max: 80
@@ -130,10 +164,10 @@ columns:
     origins:
     - type: Derived
       source: Sponsor
-    method: CART-T-PILOT followed by the globally unique ODM SubjectKey.
-      Display subject ID is retained in DM.SUBJID.
-    comment: CART-T-PILOT followed by the globally unique ODM SubjectKey.
-      Display subject ID is retained in DM.SUBJID.
+    method: CART-T-PILOT followed by the globally unique ODM
+      SubjectKey. Display subject ID is retained in DM.SUBJID.
+    comment: CART-T-PILOT followed by the globally unique ODM
+      SubjectKey. Display subject ID is retained in DM.SUBJID.
     core: Req
     mandatory: true
     data_type: text
@@ -149,7 +183,7 @@ columns:
         group_by:
         - USUBJID
         order_by:
-        - variable: SRC.ITEMROW
+        - variable: RAW.SourceOrdinal
           nulls: last
   submission:
     origins:
@@ -161,7 +195,7 @@ columns:
           group_by:
           - USUBJID
           order_by:
-          - variable: SRC.ITEMROW
+          - variable: RAW.SourceOrdinal
             nulls: last
     core: Req
     mandatory: true
@@ -173,7 +207,7 @@ columns:
 - name: LBSPID
   type: str
   label: Source Item Ordinal
-  derivation: SRC.ITEMROW
+  derivation: RAW.SourceOrdinal
   verifications:
   - max_length:
       max: 20
@@ -181,10 +215,10 @@ columns:
     length: 20
     origins:
     - type: Predecessor
-      description: SRC.ITEMROW
-    comment: ODM SourceOrdinal (item), or first SourceOrdinal in the complete
-      ODM item-group instance. Trace to data/odm/clinical_items.csv or
-      groups.csv.
+      description: RAW.SourceOrdinal
+    comment: ODM SourceOrdinal (item), or first SourceOrdinal
+      in the complete ODM item-group instance. Trace to SourceOrdinal
+      in data/odm/items.parquet and the unchanged XML.
     core: Perm
     mandatory: false
     data_type: text
@@ -195,7 +229,7 @@ columns:
   label: Lab Test or Examination Short Name
   derivation:
     mapping:
-      source: SRC.ITEMNAME
+      source: RAW.ItemName
       dict:
         AMYLASE: AMYLASE
         BUN: UREAN
@@ -234,7 +268,7 @@ columns:
       source: Sponsor
     method: |-
       Executable yamaa derivation: mapping:
-        source: SRC.ITEMNAME
+        source: RAW.ItemName
         dict:
           AMYLASE: AMYLASE
           BUN: UREAN
@@ -248,7 +282,6 @@ columns:
           HEMO: HGB
           RBC: RBC
           WBC: WBC
-        missing: null
         unmapped: null
     core: Req
     mandatory: true
@@ -261,7 +294,7 @@ columns:
   label: Lab Test or Examination Name
   derivation:
     mapping:
-      source: SRC.ITEMNAME
+      source: RAW.ItemName
       dict:
         AMYLASE: Amylase
         BUN: Urea Nitrogen
@@ -286,7 +319,7 @@ columns:
       source: Sponsor
     method: |-
       Executable yamaa derivation: mapping:
-        source: SRC.ITEMNAME
+        source: RAW.ItemName
         dict:
           AMYLASE: Amylase
           BUN: Urea Nitrogen
@@ -300,7 +333,6 @@ columns:
           HEMO: Hemoglobin
           RBC: Erythrocytes
           WBC: Leukocytes
-        missing: null
         unmapped: null
     core: Req
     mandatory: true
@@ -312,7 +344,7 @@ columns:
   label: Category for Lab Test
   derivation:
     mapping:
-      source: SRC.ITEMNAME
+      source: RAW.ItemName
       dict:
         AMYLASE: CHEMISTRY
         BUN: CHEMISTRY
@@ -337,7 +369,7 @@ columns:
       source: Sponsor
     method: |-
       Executable yamaa derivation: mapping:
-        source: SRC.ITEMNAME
+        source: RAW.ItemName
         dict:
           AMYLASE: CHEMISTRY
           BUN: CHEMISTRY
@@ -351,7 +383,6 @@ columns:
           HEMO: HEMATOLOGY
           RBC: HEMATOLOGY
           WBC: HEMATOLOGY
-        missing: null
         unmapped: null
     core: Exp
     mandatory: false
@@ -363,7 +394,7 @@ columns:
   label: Original Units
   derivation:
     mapping:
-      source: SRC.ITEMNAME
+      source: RAW.ItemName
       dict:
         AMYLASE: U/L
         BUN: mg/dL
@@ -388,7 +419,7 @@ columns:
       source: Sponsor
     method: |-
       Executable yamaa derivation: mapping:
-        source: SRC.ITEMNAME
+        source: RAW.ItemName
         dict:
           AMYLASE: U/L
           BUN: mg/dL
@@ -402,7 +433,6 @@ columns:
           HEMO: g/dL
           RBC: 10^12/L
           WBC: 10^9/L
-        missing: null
         unmapped: null
     core: Exp
     mandatory: false
@@ -412,7 +442,7 @@ columns:
 - name: LBORRES
   type: str
   label: Result or Finding in Original Units
-  derivation: SRC.VALUE
+  derivation: RAW.Value
   verifications:
   - max_length:
       max: 80
@@ -420,7 +450,7 @@ columns:
     length: 80
     origins:
     - type: Predecessor
-      description: SRC.VALUE
+      description: RAW.Value
     core: Exp
     mandatory: false
     data_type: text
@@ -478,12 +508,12 @@ columns:
     origins:
     - type: Derived
       source: Sponsor
-    method: Collected CRF fixed units from the archived form specification;
-      no unit conversion. Requires confirmation of the source CRF unit
-      definitions.
-    comment: Collected CRF fixed units from the archived form specification;
-      no unit conversion. Requires confirmation of the source CRF unit
-      definitions.
+    method: Collected CRF fixed units from the archived form
+      specification; no unit conversion. Requires confirmation
+      of the source CRF unit definitions.
+    comment: Collected CRF fixed units from the archived form
+      specification; no unit conversion. Requires confirmation
+      of the source CRF unit definitions.
     core: Exp
     mandatory: false
     data_type: text
@@ -492,32 +522,20 @@ columns:
 - name: DRAW1
   type: str
   label: DRAW1
-  derivation:
-    source:
-      variable: BL.I_DATE_OF_BLOOD_DRAW
-      filter: BL.I_DATE_OF_BLOOD_DRAW IS NOT NULL
-      order_by:
-      - BL.ROWID
-      keep: first
+  derivation: DRAW_DATE.Value
 
 - name: DRAW2
   type: str
   label: DRAW2
-  derivation:
-    source:
-      variable: BL.I_DRAWDATE
-      filter: BL.I_DRAWDATE IS NOT NULL
-      order_by:
-      - BL.ROWID
-      keep: first
+  derivation: DRAW_ALT.Value
 
 - name: DATE_RAW
   type: str
   label: DATE_RAW
   derivation:
     case:
-    - when: SRC.FORMNAME = 'Lab Results'
-      then: FU.I_LABDATE
+    - when: RAW.FormName = 'Lab Results'
+      then: FOLLOWUP_DATE.Value
     - otherwise:
         first_available:
           sources:
@@ -542,13 +560,12 @@ columns:
     origins:
     - type: Derived
       source: Sponsor
-    method: Form blood-draw date, or Lab Results.LABDATE from the same complete
-      repeated instance. No scan date or administrative event date substitutes
-      for collection.
-    comment: Form blood-draw date, or Lab Results.LABDATE from the same
-      complete
-      repeated instance. No scan date or administrative event date substitutes
-      for collection.
+    method: Form blood-draw date, or Lab Results.LABDATE from
+      the same complete repeated instance. No scan date or administrative
+      event date substitutes for collection.
+    comment: Form blood-draw date, or Lab Results.LABDATE from
+      the same complete repeated instance. No scan date or administrative
+      event date substitutes for collection.
     core: Exp
     mandatory: false
     data_type: text
@@ -570,22 +587,20 @@ columns:
     origins:
     - type: Derived
       source: Sponsor
-    comment: No exposure reference exists. A form named Baseline is not
-      sufficient
-      for a treatment baseline flag.
+    comment: No exposure reference exists. A form named Baseline
+      is not sufficient for a treatment baseline flag.
     core: Perm
     mandatory: false
     data_type: text
-    method: No exposure reference exists. A form named Baseline is not
-      sufficient
-      for a treatment baseline flag.
+    method: No exposure reference exists. A form named Baseline
+      is not sufficient for a treatment baseline flag.
     codelist: NY
     role: Record Qualifier
 
 - name: VISIT
   type: str
   label: Visit Name
-  derivation: SRC.EVENTNAME
+  derivation: RAW.EventName
   verifications:
   - max_length:
       max: 80
@@ -593,7 +608,7 @@ columns:
     length: 80
     origins:
     - type: Predecessor
-      description: SRC.EVENTNAME
+      description: RAW.EventName
     core: Perm
     mandatory: false
     data_type: text
@@ -606,6 +621,6 @@ submission:
   repeating: true
   mode: historical
   artifact: lb.xpt
-  comment: Review draft metadata. Historical mode keeps declarations separate
-    from incomplete data; this is not a validated submission. See
-    spec/review/decisions.md.
+  comment: Review draft metadata. Historical mode keeps declarations
+    separate from incomplete data; this is not a validated submission.
+    See spec/review/decisions.md.

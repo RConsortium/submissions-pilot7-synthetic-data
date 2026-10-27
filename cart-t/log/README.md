@@ -1,7 +1,8 @@
 # Execution evidence
 
-The full runner generates `run.json`, `audit.json`, `odm.log`, per-dataset
-stage logs and yamaa CSV run reports here. A failed run replaces old success
+The full runner generates `run.json`, `audit.json`, `odm.log` and per-dataset
+stage logs here. Native yamaa run reports are also Parquet files here,
+named `<domain>-report.parquet`. A failed run replaces old success
 evidence with a failed manifest. A successful run records source coverage,
 engine information, dataset dimensions, Define-XML checks and audit status.
 

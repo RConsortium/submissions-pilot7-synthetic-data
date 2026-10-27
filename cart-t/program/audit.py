@@ -1,7 +1,6 @@
 """Independent source reconciliation, dataset lineage and data-quality queries."""
 
 from collections import Counter, defaultdict
-import csv
 import json
 import math
 import xml.etree.ElementTree as ET
@@ -10,11 +9,6 @@ import pyarrow.parquet as pq
 import pyreadstat
 
 from engine import STUDY, specifications
-
-
-def read_csv(path):
-    with path.open(newline="", encoding="utf-8") as stream:
-        return list(csv.DictReader(stream))
 
 
 def tables():
@@ -32,7 +26,7 @@ def tables():
 def source_items():
     """Independent XML walk: no native reader or extraction helper is used.
 
-    A full item projection proves that extraction neither lost nor changed a
+    A full item projection proves that native reading neither lost nor changed a
     clinical value, including blanks, null flags, repeat keys and site IDs.
     """
     ns = "{http://www.cdisc.org/ns/odm/v1.3}"
@@ -63,12 +57,18 @@ def equal_value(left, right):
 
 def audit():
     datasets = tables()
-    staged_groups = read_csv(STUDY / "data/odm/groups.csv")
-    # Form tables hold raw item values as well as complete instance keys.
-    raw_records = {}
-    for info in json.loads((STUDY / "data/odm/inventory.json").read_text())["forms"].values():
-        for row in read_csv(STUDY / "data/odm" / info["file"]):
-            raw_records[row["ROWID"]] = row
+    original = source_items()
+    # Independent, in-memory XML grouping is only a QC oracle. No transformed
+    # raw dataset is passed to SDTM; all SDTM inputs are the XML itself.
+    instance_fields = ("StudyOID", "MetaDataVersionOID", "SubjectKey", "StudyEventOID",
+                       "StudyEventRepeatKey", "FormOID", "FormRepeatKey", "FormLayoutOID",
+                       "ItemGroupOID", "ItemGroupRepeatKey")
+    groups = {}
+    for ordinal, item in enumerate(original, 1):
+        key = tuple(item.get(field) for field in instance_fields)
+        group = groups.setdefault(key, {"ordinal": str(ordinal), "items": {}})
+        group["items"][item["ItemOID"]] = item.get("Value")
+    raw_records = {group["ordinal"]: group for group in groups.values()}
     issues, checks = [], []
     def require(name, condition, detail):
         checks.append({"check": name, "passed": bool(condition), "details": detail})
@@ -78,11 +78,10 @@ def audit():
                            "count": int(count), "severity": severity, "details": detail,
                            "sample": sample or [], "review_status": "not_reviewed"})
 
-    original = source_items()
-    native = read_csv(STUDY / "data/odm/items.csv")
+    native = pq.read_table(STUDY / "data/odm/items.parquet").to_pylist()
     fields = ["StudyOID", "MetaDataVersionOID", "SubjectKey", "StudyEventOID",
               "StudyEventRepeatKey", "FormOID", "FormRepeatKey", "ItemGroupOID",
-              "ItemGroupRepeatKey", "ItemOID", "ItemName", "Value"]
+              "ItemGroupRepeatKey", "FormLayoutOID", "ItemOID", "ItemName", "Value"]
     require("xml_items_preserved", len(original) == len(native) and all(
         all((a.get(k) or "") == (b.get(k) or "") for k in fields) and
         ("Value" in a) == (b["ValuePresent"] == "true") and
@@ -91,7 +90,7 @@ def audit():
     require("all_subjects_in_dm", len(datasets["DM"]["rows"]) == len(
         {(r["StudyOID"], r["SubjectKey"]) for r in original}), "All XML subjects must be retained.")
     source_ids = {str(i + 1) for i in range(len(original))}
-    group_ids = {r["ROWID"] for r in staged_groups}
+    group_ids = set(raw_records)
     for domain, data in datasets.items():
         spec, rows = data["spec"], data["rows"]
         keys = spec["keys"]
@@ -103,6 +102,15 @@ def audit():
             ids = source_ids if domain in ("LB", "QS") else group_ids
             require(f"{domain}_source_links", all(r[spid] in ids for r in rows),
                     "Every record must point to an original item or complete group instance.")
+            native_items = {}
+            for template in spec.get("rows", []):
+                for name, expression in template.get("derivations", {}).items():
+                    if isinstance(expression, dict) and "value" in expression:
+                        expression = expression["value"]
+                    if isinstance(expression, dict) and "odm" in expression:
+                        item = expression["odm"]
+                        item = item["item"] if isinstance(item, dict) else item
+                        native_items[name] = item.split(".", 1)[1]
             for column in spec["columns"]:
                 expression = column.get("derivation")
                 if isinstance(expression, dict) and "value" in expression:
@@ -113,11 +121,11 @@ def audit():
                 variable = operation["source"]
                 if isinstance(variable, dict):
                     variable = variable["variable"]
-                if not isinstance(variable, str) or not variable.startswith("SRC.I_"):
+                if variable not in native_items:
                     continue
-                field = variable.split(".", 1)[1]
-                unmapped = [r for r in rows if raw_records.get(r[spid], {}).get(field)
-                            not in (None, "") and raw_records[r[spid]][field]
+                field = native_items[variable]
+                unmapped = [r for r in rows if raw_records[r[spid]]["items"].get(field)
+                            not in (None, "") and raw_records[r[spid]]["items"][field]
                             not in operation["dict"]]
                 query("unmapped_source_code", domain, column["name"], len(unmapped),
                       f"A present source value in {field} has no approved mapping. It remains in the raw source and is not silently assigned a clinical code.",
@@ -188,14 +196,24 @@ def audit():
             for r in datasets[domain]["rows"]), "Every original result, including nonnumeric text, is preserved.")
     dm = {r["USUBJID"]: r for r in datasets["DM"]["rows"]}
     adsl = {r["USUBJID"]: r for r in datasets["ADSL"]["rows"]}
+    subject_labels = {"CART-T-PILOT-" + row["SubjectKey"]: row.get("StudySubjectID")
+                      for row in original}
+    ns = "{http://www.cdisc.org/ns/odm/v1.3}"
+    sites = {node.get("OID"): node.findtext(ns + "GlobalVariables/" + ns + "ProtocolName")
+             for node in ET.parse(STUDY / "data/odm/car-t-openclinica.xml").iter(ns + "Study")}
+    subject_sites = {"CART-T-PILOT-" + row["SubjectKey"]: sites[row["StudyOID"]]
+                     for row in original}
+    require("subject_labels_match_xml", all(row["SUBJID"] == subject_labels[key]
+            for key, row in dm.items()), "Human-readable subject IDs agree with XML attributes.")
+    require("site_labels_match_xml", all(row["SITEID"] == subject_sites[key]
+            for key, row in dm.items()), "The YAML site mapping agrees with XML ProtocolName metadata.")
     recorded_sex = defaultdict(set)
     sex_codes = {"1": "M", "2": "F", "M": "M", "F": "F", "Male": "M", "Female": "F"}
-    for raw in raw_records.values():
-        if raw["FORMNAME"] not in ("Eligibility", "1. Demographics and History"):
+    for raw in original:
+        if raw.get("FormName") not in ("Eligibility", "1. Demographics and History"):
             continue
-        for field in ("I_PTSEX", "I_PTSEXEL", "I_PSEX"):
-            if raw.get(field) in sex_codes:
-                recorded_sex[raw["SUBJECTKEY"]].add(sex_codes[raw[field]])
+        if raw.get("ItemName") in ("PTSEX", "PTSEXEL", "PSEX") and raw.get("Value") in sex_codes:
+            recorded_sex[raw["SubjectKey"]].add(sex_codes[raw["Value"]])
     conflicts = ["CART-T-PILOT-" + key for key, values in recorded_sex.items() if len(values) > 1]
     query("conflicting_sex_sources", "DM", "SEX", len(conflicts),
           "Recorded sex differs across demographic/eligibility items. The declared precedence is applied, but the source conflict still requires review.",
