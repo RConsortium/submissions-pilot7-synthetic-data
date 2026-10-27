@@ -1,0 +1,269 @@
+yamaa: '1.0'
+type: spec
+model: ADaM
+domain: ADLBC
+keys:
+- STUDYID
+- USUBJID
+- AVISIT
+- LBSEQ
+input:
+  ADLBC_REF:
+    path: ../../data/adam/adlbc.parquet
+    empty_string: present
+  LB:
+    path: ../../data/sdtm/lb.parquet
+    empty_string: present
+base: ADLBC_REF
+output:
+  path: ../../../.build/verification/submission-pilot3/adlbc-probe.parquet
+  columns:
+  - STUDYID
+  - USUBJID
+  - AVISIT
+  - LBSEQ
+  - PARAM
+  - PARAM__CODELIST_SPACE
+  - PARAM__CODELIST_LABEL
+  - PARAMN
+  - CHG
+  - R2A1LO
+  - R2A1HI
+  - BR2A1LO
+  - BR2A1HI
+  - ALBTRVAL
+  - ADT
+intermediates:
+- id: REF
+  dataset: ADLBC_REF
+  key:
+  - STUDYID
+  - USUBJID
+  - AVISIT
+  - LBSEQ
+  order_by:
+  - variable: ADLBC_REF.USUBJID
+    nulls: last
+  keep: first
+- id: P_LB
+  dataset: LB
+  key:
+  - STUDYID
+  - USUBJID
+  - LBSEQ
+  order_by:
+  - variable: LB.LBSEQ
+    nulls: last
+  keep: first
+- id: P_BASE_BATCH1
+  dataset: ADLBC_REF
+  key:
+    STUDYID: STUDYID
+    USUBJID: USUBJID
+    PARAMCD: _PARAMCD_BATCH1
+  filter: ADLBC_REF.AVISITN = 0
+columns:
+- name: STUDYID
+  type: str
+  label: Study Identifier
+  derivation: ADLBC_REF.STUDYID
+- name: USUBJID
+  type: str
+  label: Unique Subject Identifier
+  derivation: ADLBC_REF.USUBJID
+- name: AVISIT
+  type: str
+  label: Analysis Visit
+  derivation: ADLBC_REF.AVISIT
+- name: LBSEQ
+  type: float
+  label: Sequence Number
+  derivation: ADLBC_REF.LBSEQ
+- name: _PARAMCD_BATCH1
+  type: str
+  label: _PARAMCD_BATCH1
+  derivation: REF.PARAMCD
+- name: PARAM
+  type: str
+  label: PARAM
+  derivation:
+    str_template: '{P_LB.LBTEST}({P_LB.LBSTRESU})'
+- name: PARAM__CODELIST_SPACE
+  type: str
+  label: PARAM__CODELIST_SPACE
+  derivation:
+    str_template: '{P_LB.LBTEST} ({P_LB.LBSTRESU})'
+- name: PARAM__CODELIST_LABEL
+  type: str
+  label: PARAM__CODELIST_LABEL
+  derivation:
+    mapping:
+      source: REF.PARAMCD
+      dict:
+        ALB: Albumin (g/L)
+        ALP: Alkaline Phosphatase (U/L)
+        ALT: Alanine Aminotransferase (U/L)
+        AST: Aspartate Aminotransferase (U/L)
+        BILI: Bilirubin (umol/L)
+        BUN: Blood Urea Nitrogen (mmol/L)
+        CA: Calcium (mmol/L)
+        CHOL: Cholesterol (mmol/L)
+        CK: Creatine Kinase (U/L)
+        CL: Chloride (mmol/L)
+        CREAT: Creatinine (umol/L)
+        GGT: Gamma Glutamyl Transferase (U/L)
+        GLUC: Glucose (mmol/L)
+        K: Potassium (mmol/L)
+        PHOS: Phosphate (mmol/L)
+        PROT: Protein (g/L)
+        SODIUM: Sodium (mmol/L)
+        URATE: Urate (umol/L)
+        _ALB: Albumin (g/L) change from previous visit, relative to normal range
+        _ALP: Alkaline Phosphatase (U/L) change from previous visit, relative to normal range
+        _ALT: Alanine Aminotransferase (U/L) change from previous visit, relative to normal range
+        _AST: Aspartate Aminotransferase (U/L) change from previous visit, relative to normal range
+        _BILI: Bilirubin (umol/L) change from previous visit, relative to normal range
+        _BUN: Blood Urea Nitrogen (mmol/L) change from previous visit, relative to normal range
+        _CA: Calcium (mmol/L) change from previous visit, relative to normal range
+        _CHOL: Cholesterol (mmol/L) change from previous visit, relative to normal range
+        _CK: Creatine Kinase (U/L) change from previous visit, relative to normal range
+        _CL: Chloride (mmol/L) change from previous visit, relative to normal range
+        _CREAT: Creatinine (umol/L) change from previous visit, relative to normal range
+        _GGT: Gamma Glutamyl Transferase (U/L) change from previous visit, relative to normal range
+        _GLUC: Glucose (mmol/L) change from previous visit, relative to normal range
+        _K: Potassium (mmol/L) change from previous visit, relative to normal range
+        _PHOS: Phosphate (mmol/L) change from previous visit, relative to normal range
+        _PROT: Protein (g/L) change from previous visit, relative to normal range
+        _SODIUM: Sodium (mmol/L) change from previous visit, relative to normal range
+        _URATE: Urate (umol/L) change from previous visit, relative to normal range
+- name: PARAMN
+  type: float
+  label: PARAMN
+  derivation:
+    mapping:
+      source: REF.PARAM
+      dict:
+        Sodium (mmol/L): 18
+        Potassium (mmol/L): 19
+        Chloride (mmol/L): 20
+        Bilirubin (umol/L): 21
+        Alkaline Phosphatase (U/L): 22
+        Gamma Glutamyl Transferase (U/L): 23
+        Alanine Aminotransferase (U/L): 24
+        Aspartate Aminotransferase (U/L): 25
+        Blood Urea Nitrogen (mmol/L): 26
+        Creatinine (umol/L): 27
+        Urate (umol/L): 28
+        Phosphate (mmol/L): 29
+        Calcium (mmol/L): 30
+        Glucose (mmol/L): 31
+        Protein (g/L): 32
+        Albumin (g/L): 33
+        Cholesterol (mmol/L): 34
+        Creatine Kinase (U/L): 35
+        Sodium (mmol/L) change from previous visit, relative to normal range: 118
+        Potassium (mmol/L) change from previous visit, relative to normal range: 119
+        Chloride (mmol/L) change from previous visit, relative to normal range: 120
+        Bilirubin (umol/L) change from previous visit, relative to normal range: 121
+        Alkaline Phosphatase (U/L) change from previous visit, relative to normal range: 122
+        Gamma Glutamyl Transferase (U/L) change from previous visit, relative to normal range: 123
+        Alanine Aminotransferase (U/L) change from previous visit, relative to normal range: 124
+        Aspartate Aminotransferase (U/L) change from previous visit, relative to normal range: 125
+        Blood Urea Nitrogen (mmol/L) change from previous visit, relative to normal range: 126
+        Creatinine (umol/L) change from previous visit, relative to normal range: 127
+        Urate (umol/L) change from previous visit, relative to normal range: 128
+        Phosphate (mmol/L) change from previous visit, relative to normal range: 129
+        Calcium (mmol/L) change from previous visit, relative to normal range: 130
+        Glucose (mmol/L) change from previous visit, relative to normal range: 131
+        Protein (g/L) change from previous visit, relative to normal range: 132
+        Albumin (g/L) change from previous visit, relative to normal range: 133
+        Cholesterol (mmol/L) change from previous visit, relative to normal range: 134
+        Creatine Kinase (U/L) change from previous visit, relative to normal range: 135
+- name: _CHG_BATCH1_RAW
+  type: float
+  label: _CHG_BATCH1_RAW
+  derivation: REF.AVAL - REF.BASE
+- name: CHG
+  type: float
+  label: CHG
+  derivation:
+    round_half_away_from_zero:
+      source: _CHG_BATCH1_RAW
+      digits: 5
+- name: _R2A1LO_BATCH1_RAW
+  type: float
+  label: _R2A1LO_BATCH1_RAW
+  derivation: REF.AVAL / REF.A1LO
+- name: R2A1LO
+  type: float
+  label: R2A1LO
+  derivation:
+    round_half_away_from_zero:
+      source: _R2A1LO_BATCH1_RAW
+      digits: 1
+- name: _R2A1HI_BATCH1_RAW
+  type: float
+  label: _R2A1HI_BATCH1_RAW
+  derivation: REF.AVAL / REF.A1HI
+- name: R2A1HI
+  type: float
+  label: R2A1HI
+  derivation:
+    round_half_away_from_zero:
+      source: _R2A1HI_BATCH1_RAW
+      digits: 1
+- name: _BR2A1LO_BATCH1_RAW
+  type: float
+  label: _BR2A1LO_BATCH1_RAW
+  derivation: P_BASE_BATCH1.AVAL / P_BASE_BATCH1.A1LO
+- name: BR2A1LO
+  type: float
+  label: BR2A1LO
+  derivation:
+    round_half_away_from_zero:
+      source: _BR2A1LO_BATCH1_RAW
+      digits: 1
+- name: _BR2A1HI_BATCH1_RAW
+  type: float
+  label: _BR2A1HI_BATCH1_RAW
+  derivation: P_BASE_BATCH1.AVAL / P_BASE_BATCH1.A1HI
+- name: BR2A1HI
+  type: float
+  label: BR2A1HI
+  derivation:
+    round_half_away_from_zero:
+      source: _BR2A1HI_BATCH1_RAW
+      digits: 1
+- name: _P2_ALB_UPPER_SIGNED
+  type: float
+  label: _P2_ALB_UPPER_SIGNED
+  derivation: P_LB.LBSTRESN - 1.5 * P_LB.LBSTNRHI
+- name: _P2_ALB_LOWER_SIGNED
+  type: float
+  label: _P2_ALB_LOWER_SIGNED
+  derivation: 0.5 * P_LB.LBSTNRLO - P_LB.LBSTRESN
+- name: _P2_ALB_SIGNED_MAX
+  type: float
+  label: _P2_ALB_SIGNED_MAX
+  derivation:
+    case:
+    - when: P_LB.LBSTRESN IS NULL OR P_LB.LBSTNRLO IS NULL OR P_LB.LBSTNRHI IS NULL
+      then: null
+    - otherwise:
+        greatest:
+          sources:
+          - _P2_ALB_UPPER_SIGNED
+          - _P2_ALB_LOWER_SIGNED
+- name: ALBTRVAL
+  type: float
+  label: ALBTRVAL
+  derivation:
+    round_half_away_from_zero:
+      source: _P2_ALB_SIGNED_MAX
+      digits: 3
+- name: ADT
+  type: date
+  label: Analysis Date
+  derivation:
+    to_date:
+      source: P_LB.LBDTC

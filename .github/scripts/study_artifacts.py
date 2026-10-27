@@ -4,6 +4,7 @@ import hashlib
 import json
 from pathlib import Path
 
+from study_define import candidate_path
 from study_evidence import shared_layers
 
 
@@ -17,6 +18,9 @@ def artifact_snapshot(root, study):
     root = Path(root).resolve()
     base = root / study
     files = set()
+    candidate = candidate_path(root, study)
+    if candidate is not None and candidate.is_file():
+        files.add(candidate)
     catalog_file = root / ".github/yamaa-studies.json"
     source_pipeline = (json.loads(catalog_file.read_text()).get(study, {}).get("prepare")
                        if catalog_file.is_file() else False)

@@ -1,0 +1,477 @@
+yamaa: '1.0'
+type: spec
+model: ADaM
+domain: ADSL
+keys:
+- STUDYID
+- USUBJID
+input:
+  ADSL_REF:
+    path: ../../data/adam/adsl.parquet
+    empty_string: present
+  SV:
+    path: ../../data/sdtm/sv.parquet
+    empty_string: present
+  EX:
+    path: ../../data/sdtm/ex.parquet
+    empty_string: present
+  DS:
+    path: ../../data/sdtm/ds.parquet
+    empty_string: present
+  DM:
+    path: ../../data/sdtm/dm.parquet
+    empty_string: present
+  VS:
+    path: ../../data/sdtm/vs.parquet
+    empty_string: present
+  SC:
+    path: ../../data/sdtm/sc.parquet
+    empty_string: present
+  MH:
+    path: ../../data/sdtm/mh.parquet
+    empty_string: present
+  QS:
+    path: ../../data/sdtm/qs.parquet
+    empty_string: present
+base: ADSL_REF
+output:
+  path: ../../../.build/verification/submission-pilot5/adsl-probe.parquet
+  columns:
+  - STUDYID
+  - USUBJID
+  - TRT01PN
+  - TRT01A
+  - TRT01AN
+  - TRTSDT
+  - TRTEDT
+  - TRTDURD
+  - AVGDD
+  - AGEGR1
+  - AGEGR1N
+  - RACEN
+  - SAFFL
+  - ITTFL
+  - BMIBL
+  - BMIBLGR1
+  - HEIGHTBL
+  - WEIGHTBL
+  - EDUCLVL
+  - DISONSDT
+  - DURDSGR1
+  - VISIT1DT
+  - VISNUMEN
+  - RFENDT
+  - EOSSTT
+  - MMSETOT
+  - EFFFL
+  - DISCONFL
+  - DSRAEFL
+  - DCDECOD
+  - DSRAEFL__PARQUET_NULL
+intermediates:
+- id: REF
+  dataset: ADSL_REF
+  key:
+  - STUDYID
+  - USUBJID
+  order_by:
+  - variable: ADSL_REF.USUBJID
+    nulls: last
+  keep: first
+- id: SV3
+  dataset: SV
+  key:
+  - STUDYID
+  - USUBJID
+  filter: SV.VISITNUM = 3
+  order_by:
+  - variable: SV.SVSTDTC
+    nulls: last
+  keep: first
+- id: LAST_EX
+  dataset: EX
+  key:
+  - STUDYID
+  - USUBJID
+  order_by:
+  - variable: EX.EXSEQ
+    nulls: last
+  keep: last
+- id: DS_DISP
+  dataset: DS
+  key:
+  - STUDYID
+  - USUBJID
+  filter: DS.DSCAT = 'DISPOSITION EVENT'
+  order_by:
+  - variable: DS.DSSEQ
+    nulls: last
+  keep: first
+- id: DMROW
+  dataset: DM
+  key:
+  - STUDYID
+  - USUBJID
+  order_by:
+  - variable: DM.USUBJID
+    nulls: last
+  keep: first
+- id: P4_HT
+  dataset: VS
+  key:
+  - STUDYID
+  - USUBJID
+  filter: VS.VSTESTCD = 'HEIGHT' AND VS.VISITNUM = 1
+  order_by:
+  - variable: VS.VSDTC
+    nulls: last
+  keep: first
+- id: P4_WT
+  dataset: VS
+  key:
+  - STUDYID
+  - USUBJID
+  filter: VS.VSTESTCD = 'WEIGHT' AND VS.VISITNUM = 3
+  order_by:
+  - variable: VS.VSDTC
+    nulls: last
+  keep: first
+- id: P4_EDU
+  dataset: SC
+  key:
+  - STUDYID
+  - USUBJID
+  filter: SC.SCTESTCD = 'EDLEVEL'
+  order_by:
+  - variable: SC.SCDTC
+    nulls: last
+  keep: first
+- id: P4_DX
+  dataset: MH
+  key:
+  - STUDYID
+  - USUBJID
+  filter: MH.MHCAT = 'PRIMARY DIAGNOSIS'
+  order_by:
+  - variable: MH.MHSTDTC
+    nulls: last
+  keep: first
+- id: P4_SV1
+  dataset: SV
+  key:
+  - STUDYID
+  - USUBJID
+  filter: SV.VISITNUM = 1
+  order_by:
+  - variable: SV.SVSTDTC
+    nulls: last
+  keep: first
+- id: P4_COMPLETE
+  dataset: DS
+  key:
+  - STUDYID
+  - USUBJID
+  filter: DS.DSTERM = 'PROTCOL COMPLETED'
+  order_by:
+  - variable: DS.DSSEQ
+    nulls: last
+  keep: first
+- id: _P6_DS_DISPOSITION
+  dataset: DS
+  key:
+  - STUDYID
+  - USUBJID
+  filter: DS.DSCAT = 'DISPOSITION EVENT'
+columns:
+- name: STUDYID
+  type: str
+  label: STUDYID
+  derivation: ADSL_REF.STUDYID
+- name: USUBJID
+  type: str
+  label: USUBJID
+  derivation: ADSL_REF.USUBJID
+- name: TRT01PN
+  type: float
+  label: Planned Treatment Numeric Code
+  derivation:
+    mapping:
+      source: REF.TRT01P
+      dict:
+        Placebo: 0
+        Xanomeline Low Dose: 54
+        Xanomeline High Dose: 81
+- name: TRT01A
+  type: str
+  label: Actual Treatment
+  derivation: REF.TRT01P
+- name: TRT01AN
+  type: float
+  label: Actual Treatment Numeric Code
+  derivation:
+    mapping:
+      source: REF.TRT01A
+      dict:
+        Placebo: 0
+        Xanomeline Low Dose: 54
+        Xanomeline High Dose: 81
+- name: TRTSDT
+  type: date
+  label: Treatment Start Date
+  derivation:
+    impute:
+      type: date
+      source: SV3.SVSTDTC
+      invalid: null
+- name: _LAST_EXENDT
+  type: date
+  label: Final Exposure End Date
+  derivation:
+    impute:
+      type: date
+      source: LAST_EX.EXENDTC
+      invalid: null
+- name: _DISCDT
+  type: date
+  label: Discontinuation Date
+  derivation:
+    impute:
+      type: date
+      source: DS_DISP.DSSTDTC
+      invalid: null
+- name: TRTEDT
+  type: date
+  label: Treatment End Date
+  derivation:
+    case:
+    - when: _LAST_EXENDT IS NOT NULL
+      then: _LAST_EXENDT
+    - when: DS_DISP.DSDECOD <> 'COMPLETED' AND DS_DISP.VISITNUM > 3
+      then: _DISCDT
+- name: TRTDURD
+  type: float
+  label: Documented Total Treatment Duration
+  derivation:
+    diff:
+      type: date
+      start: REF.TRTSDT
+      end: REF.TRTEDT
+      unit: day
+      closed: both
+- name: _AVGDD_LITERAL_RAW
+  type: float
+  label: Documented Average Daily Dose Before Rounding
+  derivation: REF.CUMDOSE / REF.TRTDURD
+- name: AVGDD
+  type: float
+  label: Documented Average Daily Dose
+  derivation:
+    round_half_away_from_zero:
+      source: _AVGDD_LITERAL_RAW
+      digits: 1
+- name: AGEGR1
+  type: str
+  label: Documented Character Age Group
+  derivation:
+    case:
+    - when: REF.AGEGR1N = 1
+      then: '''<65'''
+    - when: REF.AGEGR1N = 2
+      then: '''65-80'''
+    - when: REF.AGEGR1N = 3
+      then: '''>80'''
+- name: AGEGR1N
+  type: float
+  label: Documented Numeric Age Group
+  derivation:
+    case:
+    - when: REF.AGE < 65
+      then: 1
+    - when: REF.AGE >= 65 AND REF.AGE <= 80
+      then: 2
+    - when: REF.AGE > 80
+      then: 3
+- name: RACEN
+  type: float
+  label: Documented Numeric Race Code
+  derivation:
+    mapping:
+      source: REF.RACE
+      dict:
+        WHITE: 1
+        BLACK OR AFRICAN AMERICAN: 2
+        AMERICAN INDIAN OR ALASKA NATIVE: 6
+        ASIAN: 7
+        NATIVE HAWAIIAN OR OTHER PACIFIC ISLANDER: 5
+- name: SAFFL
+  type: str
+  label: Documented Safety Population Flag
+  derivation:
+    flag:
+      condition: REF.ITTFL = 'Y' AND REF.TRTSDT IS NOT NULL
+      false_value: N
+      missing: N
+- name: ITTFL
+  type: str
+  label: Documented Intent To Treat Flag
+  derivation:
+    flag:
+      condition: DMROW.ARMCD <> ''
+      false_value: N
+      missing: N
+- name: _BMIBL_LITERAL_RAW
+  type: float
+  label: Documented BMI Before Rounding
+  derivation: REF.WEIGHTBL / POWER(REF.HEIGHTBL / 100, 2)
+- name: BMIBL
+  type: float
+  label: Documented Baseline BMI
+  derivation:
+    round_half_away_from_zero:
+      source: _BMIBL_LITERAL_RAW
+      digits: 1
+- name: BMIBLGR1
+  type: str
+  label: Documented Baseline BMI Group
+  derivation:
+    case:
+    - when: REF.BMIBL IS NOT NULL AND REF.BMIBL < 25
+      then: '''<25'''
+    - when: REF.BMIBL >= 25 AND REF.BMIBL < 30
+      then: '''25-<30'''
+    - when: REF.BMIBL >= 30
+      then: '''>=30'''
+    - otherwise: ''''''
+- name: HEIGHTBL
+  type: float
+  label: Documented HEIGHTBL
+  derivation:
+    round_half_away_from_zero:
+      source: P4_HT.VSSTRESN
+      digits: 1
+- name: WEIGHTBL
+  type: float
+  label: Documented WEIGHTBL
+  derivation:
+    round_half_away_from_zero:
+      source: P4_WT.VSSTRESN
+      digits: 1
+- name: EDUCLVL
+  type: float
+  label: Documented Education Result
+  derivation: P4_EDU.SCSTRESN
+- name: DISONSDT
+  type: date
+  label: Documented Disease Onset Date
+  derivation:
+    impute:
+      type: date
+      source: P4_DX.MHSTDTC
+      invalid: 'null'
+- name: DURDSGR1
+  type: str
+  label: Documented Disease Duration Group
+  derivation:
+    case:
+    - when: REF.DURDIS < 12
+      then: '''<12'''
+    - when: REF.DURDIS >= 12
+      then: '''>=12'''
+- name: VISIT1DT
+  type: date
+  label: Documented Visit 1 Date
+  derivation:
+    impute:
+      type: date
+      source: P4_SV1.SVSTDTC
+      invalid: 'null'
+- name: VISNUMEN
+  type: float
+  label: Documented End Treatment Visit
+  derivation:
+    case:
+    - when: P4_COMPLETE.VISITNUM = 13
+      then: 12
+    - otherwise: P4_COMPLETE.VISITNUM
+- name: RFENDT
+  type: date
+  label: Documented Discontinuation Completion Date
+  derivation:
+    to_date:
+      source: REF.RFENDTC
+- name: EOSSTT
+  type: str
+  label: Documented End Of Study Status
+  derivation:
+    case:
+    - when: REF.DCDECOD = 'COMPLETED'
+      then: '''COMPLETED'''
+    - otherwise: '''DISCONTINUED'''
+- name: MMSETOT
+  type: float
+  label: Documented Mini Mental Original Result Total
+  derivation:
+    aggregate:
+      expr: SUM(_P5_MM_ORRES)
+      derivations:
+        _P5_MM_ORRES:
+          type: float
+          derivation: QS.QSORRES
+      filter: QS.QSCAT = 'MINI-MENTAL STATE'
+      key:
+      - STUDYID
+      - USUBJID
+- name: _P6_ADAS_RECORDS
+  type: float
+  label: Documented Post-Baseline ADAS-Cog Records
+  derivation:
+    aggregate:
+      expr: COUNT(QS.USUBJID)
+      filter: QS.VISITNUM > 3 AND QS.QSCAT = 'ALZHEIMER''S DISEASE ASSESSMENT SCALE'
+      key:
+      - STUDYID
+      - USUBJID
+- name: _P6_CIBIC_RECORDS
+  type: float
+  label: Documented Post-Baseline CIBIC Plus Records
+  derivation:
+    aggregate:
+      expr: COUNT(QS.USUBJID)
+      filter: QS.VISITNUM > 3 AND QS.QSCAT = 'CLINICIAN''S INTERVIEW-BASED IMPRESSION OF CHANGE (CIBIC+)'
+      key:
+      - STUDYID
+      - USUBJID
+- name: EFFFL
+  type: str
+  label: Documented Efficacy Population Flag
+  derivation:
+    flag:
+      condition: REF.SAFFL = 'Y' AND _P6_ADAS_RECORDS > 0 AND _P6_CIBIC_RECORDS > 0
+      false_value: N
+      missing: N
+- name: DISCONFL
+  type: str
+  label: Documented Study Discontinuation Flag
+  derivation:
+    case:
+    - when: REF.DCSREAS <> 'Completed' OR REF.DCSREAS IS NULL
+      then: '''Y'''
+- name: DSRAEFL
+  type: str
+  label: Documented Adverse Event Discontinuation Flag
+  derivation:
+    flag:
+      condition: REF.DCSREAS = 'Adverse Event'
+      false_value: ''
+      missing: ''
+- name: DCDECOD
+  type: str
+  label: Documented Standardized Disposition Term
+  derivation: _P6_DS_DISPOSITION.DSDECOD
+- name: DSRAEFL__PARQUET_NULL
+  type: str
+  label: Documented AE Discontinuation Physical Null Reading
+  derivation:
+    case:
+    - when: REF.DCSREAS = 'Adverse Event'
+      then: '''Y'''

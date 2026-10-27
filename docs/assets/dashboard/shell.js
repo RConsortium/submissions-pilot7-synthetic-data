@@ -1,5 +1,8 @@
 import { metric } from "./ui.js";
 import { consistencyFindings } from "./report.js";
+import { criticalFinding } from "./issues.js";
+
+export const COMPARISON_EXPLANATION = "Reference agreement measures reproduction of the published datasets under the study's comparison rules. Consistency review checks agreement among documents, derivation rules, and data. Findings can remain open even when reference agreement is 100%.";
 
 /** Components read the live application context at render time. */
 export function createShell(ctx) {
@@ -7,8 +10,14 @@ export function createShell(ctx) {
     const { model, report } = ctx;
     if (model.kind === "synthetic")
       return `<div class="metric-strip"><span><strong>Subjects:</strong> ${metric(model.subjects.length)}</span><span><strong>ADaM datasets:</strong> ${model.datasets.length}</span><span>No independent published reference</span><span>Human analysis review pending</span></div>`;
-    const m = model.metrics;
-    return `<div class="metric-strip">${["Datasets", "Columns", "Cells"].map((n, i) => `<span><strong>${n}</strong> ${metric(m.matched[i])} / ${metric(m.reference[i])} <small>${m.reference[i] ? Math.round((100 * m.matched[i]) / m.reference[i]) + "%" : "n/a"}</small></span>`).join("")}<span><strong>Consistency:</strong> ${consistencyFindings(report).length} issue${consistencyFindings(report).length === 1 ? "" : "s"}</span></div>`;
+    const m = model.metrics, issues = consistencyFindings(report);
+    const counts = { yes: 0, no: 0, needs_review: 0 };
+    for (const issue of issues) counts[criticalFinding(issue).status]++;
+    const status = m.reference[0]
+      ? `<strong>${Math.round(100 * m.matched[0] / m.reference[0])}%</strong> of reference datasets matched`
+      : "No official reference";
+    const labels = ["Datasets matching reference", "Columns in matching datasets", "Cells in matching datasets"];
+    return `<div class="review-summaries"><section class="summary-card reference-summary" aria-label="Published ADaM reference agreement"><h2>Published ADaM reference agreement</h2><p class="summary-value">${status}</p><dl class="summary-metrics">${labels.map((label, i) => `<div><dt>${label}</dt><dd>${metric(m.matched[i])} / ${metric(m.reference[i])}</dd></div>`).join("")}</dl></section><section class="summary-card consistency-summary" aria-label="Consistency review"><h2>Consistency review</h2><p class="summary-value"><strong>${issues.length}</strong> finding${issues.length === 1 ? "" : "s"} ${issues.length ? "awaiting review" : "reported"}</p><p class="critical-counts">${counts.yes} critical; ${counts.no} non-critical; ${counts.needs_review} needing assessment</p><button class="text-link" data-view="overview">View consistency findings</button></section></div><p class="comparison-explanation">${COMPARISON_EXPLANATION}</p>`;
   }
   function frame() {
     const { model, state, site, REPO, esc, link } = ctx;
@@ -18,6 +27,7 @@ export function createShell(ctx) {
       ...(model.development ? [["development", "Analysis development"]] : []),
       ["overview", "Consistency findings"],
       ["materials", "Source documents"],
+      ...(model.define_comparison ? [["define", "Define-XML comparison"]] : []),
     ]
       .map(
         ([id, label]) =>

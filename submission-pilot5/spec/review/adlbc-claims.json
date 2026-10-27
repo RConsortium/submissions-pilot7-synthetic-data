@@ -1,0 +1,947 @@
+{
+  "schema_version": 2,
+  "dataset": "ADLBC",
+  "author": {
+    "kind": "agent",
+    "model": "gpt-6",
+    "instructions": ".automation/consistency_review/extract.md",
+    "date": "2026-10-26"
+  },
+  "claims": [
+    {
+      "variable": "AVISIT",
+      "rule": "The attached method describes a last-in-treatment flag, although the variable and codelist describe analysis visit labels.",
+      "citations": [
+        {
+          "document": "spec/define/define-adam.xml",
+          "section": "ADLBC.AVISIT",
+          "quote": "Last observed value for this lab parameter during treatment phase: 'Y' if VISITNUM=12, if subject discontinues prior to VISIT 12, then this variable is set to 'Y' if this is the last assessment of this analyte for the subject"
+        },
+        {
+          "document": "spec/define/define-adam.xml",
+          "section": "ADLBC.AVISIT",
+          "quote": "Codelist CL.AVISIT: Baseline = Baseline; Week 2 = Week 2; Week 4 = Week 4; Week 6 = Week 6; Week 8 = Week 8; Week 10 = Week 10; Week 12 = Week 12; Week 14 = Week 14; Week 16 = Week 16; Week 18 = Week 18; Week 20 = Week 20; Week 22 = Week 22; Week 24 = Week 24; Week 26 = Week 26; Weeks 4-24 = Weeks 4-24; End of Treatment = End of Treatment"
+        },
+        {
+          "document": "spec/define/define-adam.xml",
+          "section": "ADLBC.AENTMTFL",
+          "quote": "Last observed value for this lab parameter during treatment phase: 'Y' if VISITNUM=12, if subject discontinues prior to VISIT 12, then this variable is set to 'Y' if this is the last assessment of this analyte for the subject"
+        },
+        {
+          "document": "spec/source/adrg.pdf",
+          "section": "page-8",
+          "quote": "In some of the summaries the derived end-of-treatment visit (A VISITN=99) is also presented."
+        }
+      ],
+      "clauses": [
+        {
+          "relation": "differs",
+          "document": {
+            "citation": 1,
+            "quote": "'Y' if VISITNUM=12"
+          },
+          "spec": {
+            "element": "eot",
+            "quote": "AVISIT: \"'End of Treatment'\""
+          },
+          "note": "The attached method assigns a flag value at Visit 12 while the row rule assigns an analysis visit label."
+        },
+        {
+          "relation": "contradicts",
+          "document": {
+            "citation": 1,
+            "quote": "'Y' if VISITNUM=12"
+          },
+          "against": {
+            "citation": 2,
+            "quote": "Codelist CL.AVISIT: Baseline = Baseline; Week 2 = Week 2; Week 4 = Week 4; Week 6 = Week 6; Week 8 = Week 8; Week 10 = Week 10; Week 12 = Week 12; Week 14 = Week 14; Week 16 = Week 16; Week 18 = Week 18; Week 20 = Week 20; Week 22 = Week 22; Week 24 = Week 24; Week 26 = Week 26; Weeks 4-24 = Weeks 4-24; End of Treatment = End of Treatment"
+          },
+          "note": "The method assigns Y, which is absent from the enumerated analysis visit values."
+        },
+        {
+          "relation": "same",
+          "document": {
+            "citation": 4,
+            "quote": "the derived end-of-treatment visit (A VISITN=99) is also presented."
+          },
+          "spec": {
+            "element": "eot",
+            "quote": "AVISITN: 99.0"
+          }
+        }
+      ],
+      "interpretations": [
+        "The same last-value flag text is attached to AENTMTFL; this may be a misplaced AVISIT method.",
+        "The ADRG describes a derived End of Treatment visit, but neither that description nor this method gives the complete analysis-visit mapping."
+      ],
+      "assessment": "The retained AVISIT method does not define the visit-label derivation implemented by the row templates.",
+      "question": "Was the last-in-treatment flag method attached to AVISIT accidentally, and what is the intended visit-label derivation?",
+      "not_probed_reason": "The attached method gives a flag derivation rather than analysis visit labels. It does not state how to derive the ordinary visit names or map unscheduled and end-of-treatment observations; constructing a literal visit-label probe requires supplying an additional mapping."
+    },
+    {
+      "variable": "AVISITN",
+      "rule": "Assign the enumerated numeric analysis-visit code to its analysis-visit label, including the derived End of Treatment code.",
+      "citations": [
+        {
+          "document": "spec/define/define-adam.xml",
+          "section": "ADLBC.AVISITN",
+          "quote": "Codelist CL.AVISITN: 0 = Baseline; 2 = Week 2; 4 = Week 4; 6 = Week 6; 8 = Week 8; 10 = Week 10; 12 = Week 12; 14 = Week 14; 16 = Week 16; 18 = Week 18; 20 = Week 20; 22 = Week 22; 24 = Week 24; 26 = Week 26; 98 = Weeks 4-24; 99 = End of Treatment"
+        },
+        {
+          "document": "spec/source/adrg.pdf",
+          "section": "page-8",
+          "quote": "In some of the summaries the derived end-of-treatment visit\n(A VISITN=99) is also presented."
+        }
+      ],
+      "clauses": [
+        {
+          "relation": "same",
+          "document": {
+            "citation": 1,
+            "quote": "Codelist CL.AVISITN: 0 = Baseline; 2 = Week 2; 4 = Week 4; 6 = Week 6; 8 = Week 8; 10 = Week 10; 12 = Week 12; 14 = Week 14; 16 = Week 16; 18 = Week 18; 20 = Week 20; 22 = Week 22; 24 = Week 24; 26 = Week 26; 98 = Weeks 4-24; 99 = End of Treatment"
+          },
+          "spec": {
+            "element": "main",
+            "quote": "AVISITN:\n        mapping:\n          source: AVISIT\n          unmapped:\n          dict:\n            Baseline: 0.0\n            Week 2: 2.0\n            Week 4: 4.0\n            Week 6: 6.0\n            Week 8: 8.0\n            Week 12: 12.0\n            Week 16: 16.0\n            Week 20: 20.0\n            Week 24: 24.0\n            Week 26: 26.0"
+          },
+          "note": "Every label-to-code pair implemented in the main row template has the same binding in the enumerated codelist. The codelist also permits labels beyond those mapped by this row template; it does not specify when to generate those visits."
+        },
+        {
+          "relation": "same",
+          "document": {
+            "citation": 2,
+            "quote": "the derived end-of-treatment visit\n(A VISITN=99)"
+          },
+          "spec": {
+            "element": "eot",
+            "quote": "AVISIT: \"'End of Treatment'\"\n      AVISITN: 99.0"
+          },
+          "note": "This compares the assigned visit label and code only; the ADRG does not give the complete eligibility rule for creating the derived record."
+        },
+        {
+          "relation": "same",
+          "document": {
+            "citation": 1,
+            "quote": "99 = End of Treatment"
+          },
+          "spec": {
+            "element": "eot2",
+            "quote": "AVISIT: \"'End of Treatment'\"\n      AVISITN: 99.0"
+          },
+          "note": "The fallback row template uses the same enumerated binding. Its record selection is not established by the codelist."
+        }
+      ],
+      "probes": [
+        {
+          "column": "AVISITN",
+          "reading": "literal"
+        }
+      ],
+      "interpretations": [
+        "The original Define-XML and workbook give AVISITN Assigned origin, the Analysis Visit (N) label, and the numeric codelist, with no attached method or value-level rule. The probe explicitly binds each decoded analysis-visit label to same-record REF.AVISIT and returns its coded value; it does not derive AVISIT from source visit or dates.",
+        "The probe includes every enumerated label-to-code pair and returns missing for a missing or unlisted REF.AVISIT. The documents do not specify a different assignment for such labels.",
+        "The published reference keys STUDYID, USUBJID, PARAMCD, AVISIT, and LBSEQ remain unchanged. AVISITN is an output under test, not a key.",
+        "The main, eot, eot2, and EOTFB visit-selection and fallback algorithms are outside this conditional code-assignment probe. Neither the codelist nor the ADRG end-of-treatment statement supplies a complete analysis-visit windowing or record-generation algorithm."
+      ],
+      "assessment": "The retained enumeration supports analysis-visit code assignment conditional on an existing visit label; it does not establish all visit and row selection rules.",
+      "question": "What is the intended complete ADLBC analysis-visit assignment and derived End of Treatment record-selection algorithm?"
+    },
+    {
+      "variable": "ADT",
+      "rule": "Derive the analysis date from LB.LBDTC and retain the R-generated ADLBC date class described by the ADRG.",
+      "citations": [
+        {
+          "document": "spec/define/define-adam.xml",
+          "section": "ADLBC.ADT",
+          "quote": "Label: Analysis Date\nData type: integer\nMethod: LB.LBDTC"
+        },
+        {
+          "document": "spec/source/adrg.pdf",
+          "section": "page-30",
+          "quote": "Three variables from R-generated ADLBC have class date while the same variables are numeric\nin the CDISC ADLBC. We opted to keep the date class in our R-generated ADLB."
+        },
+        {
+          "document": "spec/source/adrg.pdf",
+          "section": "page-30",
+          "quote": "ADT Date numeric"
+        }
+      ],
+      "clauses": [
+        {
+          "relation": "same",
+          "document": {
+            "citation": 1,
+            "quote": "LB.LBDTC"
+          },
+          "spec": {
+            "element": "_r_LBDTC",
+            "quote": "derivation: LB.LBDTC"
+          },
+          "note": "The maintained date conversion reads the LB.LBDTC alias. The fallback row also carries LBDTC through EOTFB from the same LB domain."
+        },
+        {
+          "relation": "same",
+          "document": {
+            "citation": 2,
+            "quote": "We opted to keep the date class in our R-generated ADLB."
+          },
+          "spec": {
+            "element": "ADT",
+            "quote": "type: date"
+          },
+          "note": "The table in citation 3 identifies ADT as Date in the generated dataset and numeric in the CDISC comparator. This is the documented representation choice, not an instruction to convert the probe output into an epoch-day number."
+        },
+        {
+          "relation": "same",
+          "document": {
+            "citation": 1,
+            "quote": "Data type: integer"
+          },
+          "spec": {
+            "element": "ADT",
+            "quote": "data_type: integer"
+          },
+          "note": "The historical Define integer declaration is preserved in submission metadata while the ADRG explicitly retains the runtime date class."
+        }
+      ],
+      "probes": [
+        {
+          "column": "ADT",
+          "reading": "literal"
+        }
+      ],
+      "interpretations": [
+        "The original Define-XML and workbook give ADT Derived origin, DATE9. format, and the LB.LBDTC method, with no value-level rule or further parsing/imputation instruction. Analysis Date and the ADRG date-class statement are read as the calendar-date component of LB.LBDTC.",
+        "The probe binds each reference record to the existing LBROW source lookup by STUDYID, USUBJID, and LBSEQ, preserving the reference analysis keys and the documented LB.LBDTC source. It does not read REF.ADT as a derivation input.",
+        "The probe uses to_date on the source ISO date or datetime text, discards time-of-day, and does not impute missing year, month, or day. Missing or incomplete dates remain missing; retained documents do not specify a different partial-date policy.",
+        "The maintained specification constructs a transient datetime with first time fields before taking its date. The probe takes the calendar date directly without supplying time fields. The retained statements specify the source and date result, not that transient implementation step.",
+        "The literal output remains a date, as explicitly retained in the ADRG and in the staged published reference schema. No epoch conversion or numeric representation change is imposed."
+      ],
+      "assessment": "The retained method identifies the LB date source, and the ADRG resolves the generated date-class representation. Parsing and partial-date handling remain explicit interpretations.",
+      "question": "Should the ADT method state calendar-date extraction and the policy for incomplete LB.LBDTC dates?"
+    },
+    {
+      "variable": "PARAM",
+      "rule": "Concatenate the lab test name and parenthesized standard unit.",
+      "citations": [
+        {
+          "document": "spec/define/define-adam.xml",
+          "section": "ADLBC.PARAM",
+          "quote": "Concatenated LB.LBTEST, '(', LB.LBSTRESU and ')'"
+        },
+        {
+          "document": "spec/define/define-adam.xml",
+          "section": "ADLBC.PARAM",
+          "quote": "Codelist CL.PARAM_ADLBC: Albumin (g/L) = Albumin (g/L)"
+        },
+        {
+          "document": "spec/source/adrg.pdf",
+          "section": "page-8",
+          "quote": "Two sets of lab parameters exist in ADLBC. One set contains the standard- ised lab value from the LB domain and the second set contains change from previous visit relative to normal range values."
+        }
+      ],
+      "clauses": [
+        {
+          "relation": "same",
+          "document": {
+            "citation": 1,
+            "quote": "Concatenated LB.LBTEST, '(', LB.LBSTRESU and ')'"
+          },
+          "spec": {
+            "element": "PARAM",
+            "quote": "str_template: '{_r_LBTEST} ({_r_LBSTRESU})'"
+          },
+          "note": "The same source fields and parentheses are used; the specification inserts a separator before the opening parenthesis, consistent with codelist formatting."
+        },
+        {
+          "relation": "same",
+          "document": {
+            "citation": 2,
+            "quote": "Codelist CL.PARAM_ADLBC: Albumin (g/L) = Albumin (g/L)"
+          },
+          "spec": {
+            "element": "PARAM",
+            "quote": "str_template: '{_r_LBTEST} ({_r_LBSTRESU})'"
+          },
+          "note": "The separator in the implemented label follows the codelist-format example."
+        }
+      ],
+      "interpretations": [
+        "The literal probe concatenates exactly the quoted components without adding a separator. The codelist-format reading inserts the space shown in the codelist."
+      ],
+      "assessment": "The concatenation wording leaves separator handling implicit, while the enumerated parameter values show it.",
+      "question": "Should the concatenation rule explicitly include the space before the opening parenthesis?",
+      "probes": [
+        {
+          "column": "PARAM",
+          "reading": "literal"
+        },
+        {
+          "column": "PARAM__CODELIST_SPACING",
+          "reading": "Insert the space before the opening parenthesis displayed by the PARAM codelist, rather than concatenating only the quoted pieces."
+        }
+      ]
+    },
+    {
+      "variable": "PARAMN",
+      "rule": "Assign the numeric parameter code enumerated for the parameter label.",
+      "citations": [
+        {
+          "document": "spec/define/define-adam.xml",
+          "section": "ADLBC.PARAMN",
+          "quote": "Numeric code for Parameter"
+        },
+        {
+          "document": "spec/define/define-adam.xml",
+          "section": "ADLBC.PARAMN",
+          "quote": "Codelist CL.PARAMN_ADLBC: 18 = Sodium (mmol/L); 19 = Potassium (mmol/L); 20 = Chloride (mmol/L); 21 = Bilirubin (umol/L); 22 = Alkaline Phosphatase (U/L); 23 = Gamma Glutamyl Transferase (U/L); 24 = Alanine Aminotransferase (U/L); 25 = Aspartate Aminotransferase (U/L); 26 = Blood Urea Nitrogen (mmol/L); 27 = Creatinine (umol/L); 28 = Urate (umol/L); 29 = Phosphate (mmol/L); 30 = Calcium (mmol/L); 31 = Glucose (mmol/L); 32 = Protein (g/L); 33 = Albumin (g/L); 34 = Cholesterol (mmol/L); 35 = Creatine Kinase (U/L); 118 = Sodium (mmol/L) change from previous visit, relative to normal range; 119 = Potassium (mmol/L) change from previous visit, relative to normal range; 120 = Chloride (mmol/L) change from previous visit, relative to normal range; 121 = Bilirubin (umol/L) change from previous visit, relative to normal range; 122 = Alkaline Phosphatase (U/L) change from previous visit, relative to normal range; 123 = Gamma Glutamyl Transferase (U/L) change from previous visit, relative to normal range; 124 = Alanine Aminotransferase (U/L) change from previous visit, relative to normal range; 125 = Aspartate Aminotransferase (U/L) change from previous visit, relative to normal range; 126 = Blood Urea Nitrogen (mmol/L) change from previous visit, relative to normal range; 127 = Creatinine (umol/L) change from previous visit, relative to normal range; 128 = Urate (umol/L) change from previous visit, relative to normal range; 129 = Phosphate (mmol/L) change from previous visit, relative to normal range; 130 = Calcium (mmol/L) change from previous visit, relative to normal range; 131 = Glucose (mmol/L) change from previous visit, relative to normal range; 132 = Protein (g/L) change from previous visit, relative to normal range; 133 = Albumin (g/L) change from previous visit, relative to normal range; 134 = Cholesterol (mmol/L) change from previous visit, relative to normal range; 135 = Creatine Kinase (U/L) change from previous visit, relative to normal range"
+        }
+      ],
+      "clauses": [
+        {
+          "relation": "same",
+          "document": {
+            "citation": 1,
+            "quote": "Numeric code for Parameter"
+          },
+          "spec": {
+            "element": "PARAMN",
+            "quote": "source: PARAM"
+          }
+        },
+        {
+          "relation": "same",
+          "document": {
+            "citation": 2,
+            "quote": "18 = Sodium (mmol/L); 19 = Potassium (mmol/L)"
+          },
+          "spec": {
+            "element": "PARAMN",
+            "quote": "Sodium (mmol/L): 18 Potassium (mmol/L): 19"
+          }
+        }
+      ],
+      "interpretations": [
+        "The codelist also enumerates change-from-previous-visit parameter labels. The maintained row templates generate the standardized-value parameter set; coverage of the additional parameter set is a record-selection question rather than a different numeric mapping for the present parameter labels."
+      ],
+      "assessment": "",
+      "question": "",
+      "probes": [
+        {
+          "column": "PARAMN",
+          "reading": "literal"
+        }
+      ]
+    },
+    {
+      "variable": "PARCAT1",
+      "rule": "Assign the Chemistry category code to the lab chemistry parameters described for ADLBC.",
+      "citations": [
+        {
+          "document": "spec/define/define-adam.xml",
+          "section": "ADLBC.PARCAT1",
+          "quote": "Codelist CL.ADLBCAT: CHEM = Chemistry; HEM = Hematology; HYLAW = Hy's Law"
+        },
+        {
+          "document": "spec/source/adrg.pdf",
+          "section": "page-8",
+          "quote": "ADLBC contains one record per lab analysis parameter, per time point, per subject. ADLBC\ncontains lab chemistry parameters and these data are derived from the SDTM LB (Laboratory\nTests) domain."
+        }
+      ],
+      "clauses": [
+        {
+          "relation": "same",
+          "document": {
+            "citation": 1,
+            "quote": "CHEM = Chemistry"
+          },
+          "spec": {
+            "element": "PARCAT1",
+            "quote": "derivation: \"'CHEM'\""
+          },
+          "note": "The code is bound to the Chemistry decode using the codelist; the ADLBC lab chemistry scope in citation 2 supplies the applicability of that assigned code."
+        },
+        {
+          "relation": "same",
+          "document": {
+            "citation": 2,
+            "quote": "contains lab chemistry parameters and these data are derived from the SDTM LB (Laboratory\nTests) domain."
+          },
+          "spec": {
+            "element": "main",
+            "quote": "dataset: LB\n    filter: LB.LBCAT = 'CHEMISTRY' AND (LB.VISIT LIKE '%WEEK%' OR LB.VISIT LIKE '%SCREENING%' OR LB.VISIT LIKE '%UNSCHEDULED%')"
+          },
+          "note": "This compares the LB source and chemistry scope only. The additional visit-selection conditions in this specification quote are not stated by the chemistry description."
+        }
+      ],
+      "probes": [
+        {
+          "column": "PARCAT1",
+          "reading": "literal"
+        }
+      ],
+      "interpretations": [
+        "The original Define-XML and workbook give PARCAT1 Assigned origin and the category codelist but no attached method, assigned value, or value-level rule. The probe explicitly binds the ADRG phrase lab chemistry parameters to the Chemistry decode and therefore its CHEM coded value for the described ADLBC records.",
+        "The literal probe assigns the dataset-level chemistry category without copying REF.PARCAT1 or inventing a row-level category source. The ADRG names LB as the domain source, while the retained main row template restricts LB.LBCAT to CHEMISTRY.",
+        "The HEM and HYLAW entries enumerate permitted category codes; they do not supply rules for creating Hematology or Hy's Law parameters in this lab chemistry dataset."
+      ],
+      "assessment": "The Chemistry decode and the ADRG dataset scope together support the implemented category assignment.",
+      "question": "Should PARCAT1 metadata state the assigned Chemistry category explicitly?"
+    },
+    {
+      "variable": "CHG",
+      "rule": "Subtract the reference baseline value from the reference analysis value.",
+      "citations": [
+        {
+          "document": "spec/define/define-adam.xml",
+          "section": "ADLBC.CHG",
+          "quote": "Significant digits: 5\nMethod: AVAL - BASE"
+        }
+      ],
+      "clauses": [
+        {
+          "relation": "differs",
+          "document": {
+            "citation": 1,
+            "quote": "AVAL - BASE"
+          },
+          "spec": {
+            "element": "CHG",
+            "quote": "case: - when: VISITNUM = 1 then: - otherwise: AVAL - BASE"
+          },
+          "note": "The implementation suppresses change on Visit 1 although the method states the subtraction without that exception."
+        }
+      ],
+      "interpretations": [
+        "The literal probe applies the recorded precision. An alternative leaves the arithmetic unrounded when Significant digits is interpreted as display precision."
+      ],
+      "assessment": "The subtraction agrees away from the additional Visit 1 suppression.",
+      "question": "Should the change method state the Visit 1 exception and clarify whether precision changes stored values?",
+      "probes": [
+        {
+          "column": "CHG",
+          "reading": "literal"
+        },
+        {
+          "column": "CHG__UNROUNDED",
+          "reading": "Interpret Significant digits: 5 as display precision and retain the unrounded AVAL - BASE arithmetic."
+        }
+      ]
+    },
+    {
+      "variable": "R2A1LO",
+      "rule": "Divide the analysis value by the analysis range limit A1LO.",
+      "citations": [
+        {
+          "document": "spec/define/define-adam.xml",
+          "section": "ADLBC.R2A1LO",
+          "quote": "Significant digits: 1\nMethod: AVAL / A1LO"
+        }
+      ],
+      "clauses": [
+        {
+          "relation": "same",
+          "document": {
+            "citation": 1,
+            "quote": "AVAL / A1LO"
+          },
+          "spec": {
+            "element": "R2A1LO",
+            "quote": "derivation: AVAL / A1LO"
+          }
+        }
+      ],
+      "interpretations": [
+        "The literal probe applies the recorded precision. The unrounded reading treats Significant digits as display precision rather than a storage-rounding instruction."
+      ],
+      "assessment": "",
+      "question": "Does the reported precision require rounded stored ratios or only display formatting?",
+      "probes": [
+        {
+          "column": "R2A1LO",
+          "reading": "literal"
+        },
+        {
+          "column": "R2A1LO__UNROUNDED",
+          "reading": "Interpret Significant digits: 1 as display precision and retain the unrounded documented ratio."
+        }
+      ]
+    },
+    {
+      "variable": "R2A1HI",
+      "rule": "Divide the analysis value by the analysis range limit A1HI.",
+      "citations": [
+        {
+          "document": "spec/define/define-adam.xml",
+          "section": "ADLBC.R2A1HI",
+          "quote": "Significant digits: 1\nMethod: AVAL / A1HI"
+        }
+      ],
+      "clauses": [
+        {
+          "relation": "same",
+          "document": {
+            "citation": 1,
+            "quote": "AVAL / A1HI"
+          },
+          "spec": {
+            "element": "R2A1HI",
+            "quote": "derivation: AVAL / A1HI"
+          }
+        }
+      ],
+      "interpretations": [
+        "The literal probe applies the recorded precision. The unrounded reading treats Significant digits as display precision rather than a storage-rounding instruction."
+      ],
+      "assessment": "",
+      "question": "Does the reported precision require rounded stored ratios or only display formatting?",
+      "probes": [
+        {
+          "column": "R2A1HI",
+          "reading": "literal"
+        },
+        {
+          "column": "R2A1HI__UNROUNDED",
+          "reading": "Interpret Significant digits: 1 as display precision and retain the unrounded documented ratio."
+        }
+      ]
+    },
+    {
+      "variable": "BR2A1LO",
+      "rule": "Carry the analysis-value-to-A1LO ratio evaluated at baseline.",
+      "citations": [
+        {
+          "document": "spec/define/define-adam.xml",
+          "section": "ADLBC.BR2A1LO",
+          "quote": "Significant digits: 1\nMethod: AVAL / A1LO at baseline"
+        },
+        {
+          "document": "spec/define/define-adam.xml",
+          "section": "ADLBC.BASE",
+          "quote": "Label: Baseline Value"
+        },
+        {
+          "document": "spec/define/define-adam.xml",
+          "section": "ADLBC.ABLFL",
+          "quote": "Label: Baseline Record Flag"
+        }
+      ],
+      "clauses": [
+        {
+          "relation": "differs",
+          "document": {
+            "citation": 1,
+            "quote": "AVAL / A1LO at baseline"
+          },
+          "spec": {
+            "element": "BR2A1LO",
+            "quote": "derivation: BASE / A1LO"
+          },
+          "note": "The literal baseline reading evaluates both numerator and limit on baseline-flagged records; the specification uses the baseline numerator with the current record limit."
+        }
+      ],
+      "interpretations": [
+        "The literal reading identifies baseline using the published ABLFL and carries the ratio within study, subject and parameter.",
+        "The phrase at baseline may instead mean replace AVAL with BASE while retaining the current record limit; that interpretation is supplied as a separate reading.",
+        "The literal probe applies the recorded precision. Unrounded variants interpret Significant digits as display precision."
+      ],
+      "assessment": "The method leaves the scope of at baseline and the precision convention open.",
+      "question": "Should both numerator and normal-range limit come from baseline, and should the stored ratio be rounded?",
+      "probes": [
+        {
+          "column": "BR2A1LO",
+          "reading": "literal"
+        },
+        {
+          "column": "BR2A1LO__UNROUNDED",
+          "reading": "Evaluate AVAL and its range limit on baseline-flagged reference records, but treat Significant digits: 1 as display precision."
+        },
+        {
+          "column": "BR2A1LO__CURRENT_LIMIT",
+          "reading": "Read at baseline as replacing AVAL with the labeled BASE value while retaining each record range limit, applying the recorded precision."
+        },
+        {
+          "column": "BR2A1LO__CURRENT_LIMIT_UNROUNDED",
+          "reading": "Read at baseline as replacing AVAL with BASE while retaining each record range limit, and treat Significant digits: 1 as display precision."
+        }
+      ]
+    },
+    {
+      "variable": "BR2A1HI",
+      "rule": "Carry the analysis-value-to-A1HI ratio evaluated at baseline.",
+      "citations": [
+        {
+          "document": "spec/define/define-adam.xml",
+          "section": "ADLBC.BR2A1HI",
+          "quote": "Significant digits: 1\nMethod: AVAL / A1HI at baseline"
+        },
+        {
+          "document": "spec/define/define-adam.xml",
+          "section": "ADLBC.BASE",
+          "quote": "Label: Baseline Value"
+        },
+        {
+          "document": "spec/define/define-adam.xml",
+          "section": "ADLBC.ABLFL",
+          "quote": "Label: Baseline Record Flag"
+        }
+      ],
+      "clauses": [
+        {
+          "relation": "differs",
+          "document": {
+            "citation": 1,
+            "quote": "AVAL / A1HI at baseline"
+          },
+          "spec": {
+            "element": "BR2A1HI",
+            "quote": "derivation: BASE / A1HI"
+          },
+          "note": "The literal baseline reading evaluates both numerator and limit on baseline-flagged records; the specification uses the baseline numerator with the current record limit."
+        }
+      ],
+      "interpretations": [
+        "The literal reading identifies baseline using the published ABLFL and carries the ratio within study, subject and parameter.",
+        "The phrase at baseline may instead mean replace AVAL with BASE while retaining the current record limit; that interpretation is supplied as a separate reading.",
+        "The literal probe applies the recorded precision. Unrounded variants interpret Significant digits as display precision."
+      ],
+      "assessment": "The method leaves the scope of at baseline and the precision convention open.",
+      "question": "Should both numerator and normal-range limit come from baseline, and should the stored ratio be rounded?",
+      "probes": [
+        {
+          "column": "BR2A1HI",
+          "reading": "literal"
+        },
+        {
+          "column": "BR2A1HI__UNROUNDED",
+          "reading": "Evaluate AVAL and its range limit on baseline-flagged reference records, but treat Significant digits: 1 as display precision."
+        },
+        {
+          "column": "BR2A1HI__CURRENT_LIMIT",
+          "reading": "Read at baseline as replacing AVAL with the labeled BASE value while retaining each record range limit, applying the recorded precision."
+        },
+        {
+          "column": "BR2A1HI__CURRENT_LIMIT_UNROUNDED",
+          "reading": "Read at baseline as replacing AVAL with BASE while retaining each record range limit, and treat Significant digits: 1 as display precision."
+        }
+      ]
+    },
+    {
+      "variable": "ANL01FL",
+      "rule": "Flag records whose threshold amount equals its maximum.",
+      "citations": [
+        {
+          "document": "spec/define/define-adam.xml",
+          "section": "ADLBC.ANL01FL",
+          "quote": "If ALBTRVAL = max(ALBTRVAL) then ANL01FL is 'Y'"
+        },
+        {
+          "document": "spec/source/adrg.pdf",
+          "section": "page-8",
+          "quote": "ADLBC contains one record per lab analysis parameter, per time point, per subject."
+        }
+      ],
+      "clauses": [
+        {
+          "relation": "differs",
+          "document": {
+            "citation": 1,
+            "quote": "If ALBTRVAL = max(ALBTRVAL) then ANL01FL is 'Y'"
+          },
+          "spec": {
+            "element": "ANL01FL",
+            "quote": "condition: LBSEQ = _WINLB"
+          },
+          "note": "The document flags equality to a maximum, including tied values, whereas the specification flags the selected sequence number."
+        },
+        {
+          "relation": "absent_in_document",
+          "spec": {
+            "element": "_RN_ANL",
+            "quote": "filter: VISITNUM >= 4 AND VISITNUM <= 12 AND NOT (VISIT LIKE '%UN%') AND ALBTRVAL IS NOT NULL"
+          },
+          "note": "The retained maximum rule does not state these visit and unscheduled-record restrictions."
+        },
+        {
+          "relation": "absent_in_document",
+          "spec": {
+            "element": "_RN_ANL",
+            "quote": "- variable: LBSEQ nulls: last"
+          },
+          "note": "The retained equality-to-maximum rule does not select one tied assessment by sequence number."
+        }
+      ],
+      "probes": [
+        {
+          "column": "ANL01FL",
+          "reading": "literal"
+        },
+        {
+          "column": "ANL01FL__SUBJECT_PARAMETER",
+          "reading": "Interpret the maximum within each subject and lab parameter, using the ADLBC record structure in ADRG page-8; keep all tied maxima and add no undocumented visit restriction."
+        }
+      ],
+      "interpretations": [
+        "The maximum rule gives no grouping scope. The literal probe applies an ungrouped maximum; a separate reading supplies the subject/parameter scope suggested by the ADRG record structure.",
+        "The documents state only the positive flag assignment; unflagged records are represented by an empty string."
+      ],
+      "assessment": "The implementation restricts the maximum search and selects a sequence-number winner rather than directly flagging every maximum.",
+      "question": "What maximum-search scope, visit eligibility and tie policy should govern this flag?"
+    },
+    {
+      "variable": "ALBTRVAL",
+      "rule": "Take the maximum of the signed upper-threshold and lower-threshold differences.",
+      "citations": [
+        {
+          "document": "spec/define/define-adam.xml",
+          "section": "ADLBC.ALBTRVAL",
+          "quote": "Maximum of [LBSTRESN-(1.5*ULN)] and [(.5*LLN) - LBSTRESN]"
+        },
+        {
+          "document": "spec/define/define-adam.xml",
+          "section": "ADLBC.ALBTRVAL",
+          "quote": "Significant digits: 3"
+        },
+        {
+          "document": "spec/define/define-adam.xml",
+          "section": "ADLBC.A1LO",
+          "quote": "Label: Analysis Range 1 Lower Limit\nData type: float\nSignificant digits: 5\nMethod: LB.LBSTNRLO"
+        },
+        {
+          "document": "spec/define/define-adam.xml",
+          "section": "ADLBC.A1HI",
+          "quote": "Label: Analysis Range 1 Upper Limit\nData type: float\nSignificant digits: 5\nMethod: LB.LBSTNRHI"
+        }
+      ],
+      "clauses": [
+        {
+          "relation": "differs",
+          "document": {
+            "citation": 1,
+            "quote": "LBSTRESN-(1.5*ULN)"
+          },
+          "spec": {
+            "element": "_UPPER_DISTANCE",
+            "quote": "ABS(AVAL - 1.5 * A1HI)"
+          },
+          "note": "The implementation uses an absolute difference and AVAL instead of the signed difference from LBSTRESN."
+        },
+        {
+          "relation": "differs",
+          "document": {
+            "citation": 1,
+            "quote": "(.5*LLN) - LBSTRESN"
+          },
+          "spec": {
+            "element": "_LOWER_DISTANCE",
+            "quote": "ABS(0.5 * A1LO - AVAL)"
+          },
+          "note": "The implementation uses an absolute difference and AVAL instead of the signed difference from LBSTRESN."
+        },
+        {
+          "relation": "same",
+          "document": {
+            "citation": 1,
+            "quote": "Maximum of"
+          },
+          "spec": {
+            "element": "ALBTRVAL",
+            "quote": "greatest: sources: - _UPPER_DISTANCE - _LOWER_DISTANCE"
+          }
+        }
+      ],
+      "probes": [
+        {
+          "column": "ALBTRVAL",
+          "reading": "literal"
+        },
+        {
+          "column": "ALBTRVAL__UNROUNDED",
+          "reading": "Treat Significant digits as display precision and leave the signed documented arithmetic unrounded, rather than rounding the stored value."
+        }
+      ],
+      "interpretations": [
+        "ULN and LLN are interpreted as the published analysis upper and lower limits A1HI and A1LO, whose own methods identify the standard lab normal-range limits.",
+        "LBSTRESN is read from the reference carry variable, rather than substituting the analysis value for derived parameters."
+      ],
+      "assessment": "The specification takes absolute distances from AVAL; the documented formula takes signed differences from LBSTRESN.",
+      "question": "Should this be a signed threshold exceedance or an absolute distance, and which result variable governs derived parameters?"
+    },
+    {
+      "variable": "ANRIND",
+      "rule": "Classify the analysis value against the stated half-normal-range thresholds.",
+      "citations": [
+        {
+          "document": "spec/define/define-adam.xml",
+          "section": "ADLBC.ANRIND",
+          "quote": "if AVAL < [0.5*LBSTNRLO) then ANRIND = 'Y' else if AVAL > [0.5*LBSTRNHI),'H','N'"
+        },
+        {
+          "document": "spec/define/define-adam.xml",
+          "section": "ADLBC.ANRIND",
+          "quote": "Codelist CL.LNH: L = Low; N = Normal; H = High"
+        }
+      ],
+      "clauses": [
+        {
+          "relation": "differs",
+          "document": {
+            "citation": 1,
+            "quote": "AVAL < [0.5*LBSTNRLO) then ANRIND = 'Y'"
+          },
+          "spec": {
+            "element": "ANRIND",
+            "quote": "- when: AVAL < _LO_HALF then: \"'L'\""
+          },
+          "note": "The documented low result is Y, while the executable result is L."
+        },
+        {
+          "relation": "differs",
+          "document": {
+            "citation": 1,
+            "quote": "AVAL > [0.5*LBSTRNHI),'H','N'"
+          },
+          "spec": {
+            "element": "_HI_15",
+            "quote": "derivation: 1.5 * A1HI"
+          },
+          "note": "The documented upper threshold is a half-limit expression with a transposed source name; the specification uses one-and-a-half times the analysis upper limit."
+        },
+        {
+          "relation": "contradicts",
+          "document": {
+            "citation": 1,
+            "quote": "ANRIND = 'Y'"
+          },
+          "against": {
+            "citation": 2,
+            "quote": "Codelist CL.LNH: L = Low; N = Normal; H = High"
+          },
+          "note": "The documented low code is absent from the documented enumerated values."
+        },
+        {
+          "relation": "absent_in_document",
+          "spec": {
+            "element": "ANRIND",
+            "quote": "- when: AVAL IS NULL then: \"'N'\""
+          },
+          "note": "The retained rule does not state the special missing-analysis-value assignment."
+        }
+      ],
+      "not_probed_reason": "The rule names LBSTRNHI, which is not a retained LB variable; LBSTNRHI exists instead. A literal executable upper-threshold test cannot be constructed without repairing that source name and the malformed expression. The low code Y also conflicts with the enumerated L/N/H codelist, so a repaired reading needs an explicit reviewer decision.",
+      "interpretations": [
+        "The source spelling LBSTRNHI, the half-upper-limit multiplier, and the low code Y are preserved as documented discrepancies; no silent repair or implementation substitution is made."
+      ],
+      "assessment": "The documented thresholds and low code differ from the implementation, and the stated upper source is unavailable.",
+      "question": "Confirm the intended upper source, multiplier, low code and missing-value policy."
+    },
+    {
+      "variable": "BNRIND",
+      "rule": "The attached baseline-indicator method compares BASE with normal-range thresholds but names ANRIND as its assignment target.",
+      "citations": [
+        {
+          "document": "spec/define/define-adam.xml",
+          "section": "ADLBC.BNRIND",
+          "quote": "if BASE < [0.5*LBSTNRLO) then ANRIND = 'Y' else if BASE > [0.5*LBSTRNHI),'H','N'"
+        },
+        {
+          "document": "spec/define/define-adam.xml",
+          "section": "ADLBC.BNRIND",
+          "quote": "Codelist CL.LNH: L = Low; N = Normal; H = High"
+        }
+      ],
+      "clauses": [
+        {
+          "relation": "differs",
+          "document": {
+            "citation": 1,
+            "quote": "if BASE < [0.5*LBSTNRLO) then ANRIND = 'Y' else if BASE > [0.5*LBSTRNHI),'H','N'"
+          },
+          "spec": {
+            "element": "_BNRIND_RAW",
+            "quote": "aggregate: filter: ABLFL = 'Y' group_by: - STUDYID - USUBJID - PARAMCD expr: ONLY(ANRIND)"
+          },
+          "note": "The attached method compares BASE against row-level limits and names ANRIND; the implementation propagates the baseline record's ANRIND instead of stating that calculation."
+        },
+        {
+          "relation": "absent_in_document",
+          "spec": {
+            "element": "BNRIND",
+            "quote": "- when: _BNRIND_RAW IS NULL then: \"''\""
+          },
+          "note": "The retained baseline-indicator method does not state replacement of a missing baseline indicator by an empty string."
+        }
+      ],
+      "not_probed_reason": "The attached BNRIND method assigns ANRIND and names LBSTRNHI, which is absent from retained LB; the source has LBSTNRHI. A literal BNRIND output cannot be obtained without repairing the target and source names, and deciding whether the half-upper-limit and low code Y are intended.",
+      "interpretations": [
+        "The method may contain copied ANRIND text, but no retained statement explicitly supplies corrected target, upper source, threshold multiplier or low code."
+      ],
+      "assessment": "The executable baseline-indicator propagation does not state the formula attached to BNRIND.",
+      "question": "Is BNRIND the baseline ANRIND value, or a fresh BASE comparison, and what corrections to the attached method are intended?"
+    },
+    {
+      "variable": "AENTMTFL",
+      "rule": "Flag Visit 12 observations, or the last in-treatment analyte assessment when the subject discontinued before Visit 12.",
+      "citations": [
+        {
+          "document": "spec/define/define-adam.xml",
+          "section": "ADLBC.AENTMTFL",
+          "quote": "Last observed value for this lab parameter during treatment phase: 'Y' if VISITNUM=12, if subject discontinues prior to VISIT 12, then this variable is set to 'Y' if this is the last assessment of this analyte for the subject"
+        },
+        {
+          "document": "spec/define/define-adam.xml",
+          "section": "ADSL.DISCONFL",
+          "quote": "Label: Did the Subject Discontinue the Study?"
+        },
+        {
+          "document": "spec/define/define-adam.xml",
+          "section": "ADSL.VISNUMEN",
+          "quote": "Label: End of Trt Visit (Vis 12 or Early Term.)"
+        }
+      ],
+      "clauses": [
+        {
+          "relation": "absent_in_spec",
+          "document": {
+            "citation": 1,
+            "quote": "if subject discontinues prior to VISIT 12"
+          },
+          "note": "The executable flag and its maximum helper do not test whether the subject discontinued before Visit 12."
+        },
+        {
+          "relation": "absent_in_document",
+          "spec": {
+            "element": "_AENT_MAX",
+            "quote": "filter: VISITNUM <= 12 AND AVISITN > 0 AND AVISITN < 99 AND NOT (VISIT LIKE '%UN%')"
+          },
+          "note": "The retained last-assessment rule does not specify this analysis-visit range or exclusion of unscheduled assessments."
+        },
+        {
+          "relation": "differs",
+          "document": {
+            "citation": 1,
+            "quote": "last assessment of this analyte for the subject"
+          },
+          "spec": {
+            "element": "_AENT_MAX",
+            "quote": "expr: MAX(AVISITN)"
+          },
+          "note": "The specification chooses the highest eligible analysis visit rather than explicitly ordering assessment dates."
+        }
+      ],
+      "probes": [
+        {
+          "column": "AENTMTFL",
+          "reading": "literal"
+        }
+      ],
+      "interpretations": [
+        "The published ADSL.DISCONFL and VISNUMEN identify discontinuation before Visit 12; these source-variable names are selected from their labels because the method names only the clinical condition.",
+        "During treatment is interpreted as the closed TRTSDT-to-TRTEDT date interval. Last assessment uses the latest ADT within each subject and PARAMCD, retaining date ties; the method supplies no ordering or tie-break field.",
+        "The reference record universe includes derived visit records; all rows carrying the selected assessment date receive the flag, since no retained method distinguishes their flag handling."
+      ],
+      "assessment": "The implementation uses analysis-visit eligibility and end-of-treatment row markers without checking the documented early-discontinuation condition.",
+      "question": "Confirm the discontinuation source, treatment-phase boundary, last-assessment ordering and treatment of unscheduled and derived visit records."
+    }
+  ]
+}

@@ -1,11 +1,11 @@
-# Documented-rule probes for ADSL. Review evidence only; not in project.yaml.
+# ADSL review probes and diagnostics; not in project.yaml.
 #
-# Each output column states one ADSL rule as the submission documents write
-# it. Upstream ADSL values are read from the published reference (REF), so a
-# difference is attributable to that one rule. A column named VAR__READING is
-# an alternative reading of the same rule, declared in adsl-claims.json with
-# its reason. .github/scripts/verify_derivations.py runs this specification
-# and compares every column with the reference and the yamaa-derived ADSL.
+# Only outputs registered in adsl-claims.json are claimed probes.
+# Claimed probes state documented rules and cited alternative readings.
+# Upstream analysis values come from the published reference (REF).
+# MMSETOT__* and DURDIS__* remain unclaimed diagnostic calculations:
+# original-result conversion and month conventions are unspecified.
+# Diagnostics do not establish literal agreement or measured impact.
 yamaa: "1.0"
 type: spec
 model: ADaM
@@ -85,7 +85,7 @@ output:
     - EDUCLVL
     - EDUCLVL__EDLEVEL
     - DISONSDT
-    - DURDIS
+    - DURDIS__WHOLE_MONTHS
     - DURDIS__AVERAGE_MONTH
     - DURDIS__ENROLLMENT
     - DURDSGR1
@@ -94,8 +94,8 @@ output:
     - VISNUMEN__PROTOCOL_SPELLING
     - RFENDT
     - DCDECOD
-    - MMSETOT
-    - MMSETOT__MMSE_ONLY
+    - MMSETOT__NUMERIC_QSORRES
+    - MMSETOT__MMSE_ORIGINAL_ONLY
     - VISNUMEN__END_OF_TREATMENT
     - VISNUMEN__ON_OR_BEFORE_WEEK24
   order_by:
@@ -762,10 +762,10 @@ columns:
         source: MH_DX.MHSTDTC
         invalid:
 
-  # DURDIS -- "number of months" is undefined; calendar months are literal.
-  - name: DURDIS
+  # DURDIS -- Unused diagnostic readings; no literal month convention is documented.
+  - name: DURDIS__WHOLE_MONTHS
     type: float
-    label: Duration of Disease (Months)
+    label: Diagnostic disease duration, whole calendar months to visit 1
     derivation:
       diff:
         type: date
@@ -791,7 +791,7 @@ columns:
 
   - name: DURDIS__AVERAGE_MONTH
     type: float
-    label: Duration of Disease, average months of 30.4375 days
+    label: Diagnostic disease duration, average months to visit 1
     derivation:
       round_half_away_from_zero:
         source: _DURDIS_AVG
@@ -815,7 +815,7 @@ columns:
 
   - name: DURDIS__ENROLLMENT
     type: float
-    label: Duration of Disease to enrollment, average months
+    label: Diagnostic disease duration, average months to enrollment
     derivation:
       round_half_away_from_zero:
         source: _DURDIS_ENROL_AVG
@@ -873,23 +873,38 @@ columns:
     label: Standardized Disposition Term
     derivation: DS_DISP.DSDECOD
 
-  # MMSETOT -- QSORRES is text; its numeric standardized form is summed.
-  - name: MMSETOT
+  # Exploratory original-result readings; no literal probe is claimed.
+  - name: MMSETOT__NUMERIC_QSORRES
     type: float
-    label: MMSE Total
+    label: Diagnostic original-result sum, invalid text missing
     derivation:
       aggregate:
-        expr: "SUM(QS.QSSTRESN)"
-        key: [STUDYID, USUBJID]
-
-  - name: MMSETOT__MMSE_ONLY
+        expr: SUM(_MM_ORRES)
+        derivations:
+          _MM_ORRES:
+            type: float
+            derivation:
+              value: QS.QSORRES
+              unconvertible: null
+        key:
+        - STUDYID
+        - USUBJID
+  - name: MMSETOT__MMSE_ORIGINAL_ONLY
     type: float
-    label: MMSE Total, MINI-MENTAL STATE records only
+    label: Diagnostic MMSE original-result sum, invalid text missing
     derivation:
       aggregate:
-        expr: "SUM(QS.QSSTRESN)"
-        filter: "QS.QSCAT = 'MINI-MENTAL STATE'"
-        key: [STUDYID, USUBJID]
+        expr: SUM(_MM_ONLY_ORRES)
+        derivations:
+          _MM_ONLY_ORRES:
+            type: float
+            derivation:
+              value: QS.QSORRES
+              unconvertible: null
+        filter: QS.QSCAT = 'MINI-MENTAL STATE'
+        key:
+        - STUDYID
+        - USUBJID
 
   # SAP page 10: end of treatment is the Week 24 visit or the early
   # termination visit. Week 24 is Vis 12, as the label writes it; the early
