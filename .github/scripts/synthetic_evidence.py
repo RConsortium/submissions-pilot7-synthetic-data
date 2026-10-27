@@ -21,6 +21,7 @@ def artifact_inventory(root, study):
         paths.append(root / '.github/scripts' / name)
     paths.extend(p for p in (root / '.github/schemas/cdisc').rglob('*') if p.is_file())
     paths.append(root / '.github/schemas/synthetic-review.schema.json')
+    paths.append(root / '.github/scripts/study_dashboard/specifications.py')
     return {p.relative_to(root).as_posix(): hashlib.sha256(p.read_bytes()).hexdigest()
             for p in sorted(set(paths))}
 

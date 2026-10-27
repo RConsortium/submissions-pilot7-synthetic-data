@@ -18,7 +18,7 @@ const status = (staged) =>
   `<span class="report-status ${staged ? "neutral" : "attention"}">${staged ? "Available" : "Not staged"}</span>`;
 const stageFiles = (model, id) => {
   const n = count(model, id);
-  const unit = id === "odm" ? "archive" : "file";
+  const unit = "file";
   return `${number(n)} ${unit}${n === 1 ? "" : "s"}`;
 };
 
@@ -32,7 +32,7 @@ function metrics(models, gallery) {
     gallery
       ? ["Studies", models.length, "synthetic workspaces"]
       : ["Source members", members(models[0]).length, "files in available archives"],
-    ["ODM archives", total("odm"), "available sources"],
+    ["ODM sources", total("odm"), "available files and archives"],
     ["SDTM files", total("sdtm"), "staged files"],
     ["ADaM files", total("adam"), "staged files"],
     ["Metadata files", total("define"), "staged Define-XML"],
@@ -47,6 +47,7 @@ function overview(models, site, gallery) {
     ["Scope", (m) => esc(m.description)],
     ["Study source", (m) => link(sourceUrl(m), m.id)],
     ["ODM archives", (m) => `${available(m).length} / ${m.archives.length} available`],
+    ...(models.some((m) => m.source_files?.length) ? [["ODM XML files", (m) => number((m.source_files || []).filter((f) => f.available).length)]] : []),
     ["Source members", (m) => number(members(m).length)],
     ["Compressed size", (m) => bytes(available(m).reduce((n, a) => n + a.bytes, 0))],
   ];
@@ -71,6 +72,9 @@ function inventory(models, gallery) {
   let body = rows.length
     ? table("ODM source archives", [...(gallery ? ["Study"] : []), "Archive", "Status", "Compressed size", "Source members"], rows)
     : "<p>No source archives are declared.</p>";
+  const files = models.flatMap((m) => (m.source_files || []).map((f) =>
+    `<tr><th scope="row">${esc(m.title)}</th><td>${f.available ? link(`${REPO}/blob/${m.revision}/${f.path}`, f.path) : esc(f.path)}</td><td>${status(f.available)}</td><td>${f.available ? bytes(f.bytes) : "-"}</td></tr>`));
+  if (files.length) body += table("ODM XML sources", ["Study", "Source file", "Status", "Size"], files);
   if (!gallery) {
     for (const archive of available(models[0])) {
       body += `<h3>${esc(archive.path.split("/").pop())}</h3>`;

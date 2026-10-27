@@ -55,6 +55,8 @@ def build_table(root, reports_dir):
     total_matched = [0, 0, 0]
     total_reference = [0, 0, 0]
     for name, entry in entries.items():
+        if entry.get('category') == 'synthetic':
+            continue
         report = reports[name]
         title = entry["title"]
         reference = reference_totals(root, name)

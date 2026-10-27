@@ -51,9 +51,19 @@ def prepare_preview(root, work):
     config.write_text(f'INHERIT: {root / "mkdocs.yml"}\ndocs_dir: {docs}\n'
                       f'site_dir: {work / "site"}\nhooks: []\n' +
                       (yaml.safe_dump({"nav": nav}, sort_keys=False) if nav else ""))
-    if synthetic_catalog(root):
+    if synthetic_catalog(root) or any(e.get('category') == 'synthetic' for e in entries.values()):
         revision = subprocess.check_output(['git', 'rev-parse', 'HEAD'], cwd=root, text=True).strip()
-        build_synthetic(root, docs / 'evidence/dashboard', revision, allow_unbuilt=True)
+        destination = docs / 'evidence/dashboard'
+        records = build_synthetic(root, destination, revision, allow_unbuilt=True)
+        from study_dashboard.datasets import write_json
+        from study_dashboard.config import comments
+        write_json(destination / 'index.json', {
+            'schema_version': 1, 'revision': revision, 'studies': [],
+            'synthetic_studies': records, 'comments': comments(root),
+        })
+        for item in records:
+            if not item['workspace'] and item['id'] in synthetic_catalog(root):
+                (studies / f"{item['id']}.md").write_text(f"# {item['title']}\n\n{note}")
     return config
 
 

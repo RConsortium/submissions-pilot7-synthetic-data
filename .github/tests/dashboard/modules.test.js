@@ -50,6 +50,8 @@ test("new study defaults and shared routes validate unknown and duplicate select
     model.subjects,
   );
   assert.equal(readRoute("#new-study/comments/CUSTOM", model).view, "datasets");
+  assert.equal(readRoute("#finding-GAP-01", { ...model, development: "synthetic/new-study/catalog.json" }).view, "development");
+  assert.equal(readRoute("#new-study/development/CUSTOM", model).view, "datasets");
   assert.equal(
     readRoute("#new-study/datasets/CUSTOM?rowSearch=" + "x".repeat(700), model)
       .rowSearch.length,

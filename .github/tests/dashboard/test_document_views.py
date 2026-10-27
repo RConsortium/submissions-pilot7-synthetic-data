@@ -10,9 +10,29 @@ from openpyxl import Workbook
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[2] / "scripts"))
 from study_dashboard.document_views import render_xml, workbook_body
+from study_dashboard.documents import materials
 
 
 class DocumentViewTests(unittest.TestCase):
+    def test_protocol_conversion_keeps_original_bytes_and_escapes_reading_view(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            source = root / 'study/spec/source/protocol-sap.mmd'
+            source.parent.mkdir(parents=True)
+            text = 'Age \u2264 65; <script>retained source</script>\n'
+            source.write_text(text, encoding='utf-8')
+            (source.parent / 'manifest.json').write_text(
+                '{"files":[{"path":"study/spec/source/protocol-sap.mmd"}]}')
+            target = root / 'bundle'
+            target.mkdir()
+            _, documents = materials(root, 'study', target, {})
+            document = documents[0]
+            self.assertEqual((target / document['original']).read_bytes(), source.read_bytes())
+            view = (target / document['view']).read_text(encoding='ascii')
+            tree = etree.HTML(view)
+            self.assertEqual(tree.xpath('string(//pre)'), text)
+            self.assertEqual(tree.xpath('//script'), [])
+
     def test_workbook_keeps_coordinates_merges_formulas_and_escaped_cell_text(self):
         with tempfile.TemporaryDirectory() as tmp:
             path = Path(tmp) / "spec.xlsx"

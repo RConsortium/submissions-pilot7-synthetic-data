@@ -57,6 +57,8 @@ def _load(bundle):
     studies = []
     for item in index["studies"]:
         catalog = json.loads((bundle / item["id"] / "catalog.json").read_text())
+        if catalog.get("kind") == "synthetic":
+            continue
         report = None
         if catalog["status"] != "pending":
             report = json.loads((bundle / item["id"] / catalog["report"]).read_text())
