@@ -103,9 +103,14 @@ def check(browser, base, site_dir, screenshots):
         issues = study_report["review"]["issues"]
         checks = study_report["review"]["counts"]["checks"]
         expect(page.locator(".metric-strip")).to_contain_text(f"Consistency: {len(issues)} issues")
+        expect(page.locator(".metric-strip .status")).to_have_text("Under Review")
         page.get_by_role("button", name="Consistency findings", exact=True).click()
         expect(page.locator(".result-count")).to_have_text(f"{len(issues)} of {len(issues)} issues \u00b7 {checks} supporting checks")
         expect(page.locator(".consistency-table tbody tr[data-finding-id]")).to_have_count(len(issues))
+        expect(page.get_by_role("columnheader", name="Status", exact=True)).to_be_visible()
+        expect(page.locator(".consistency-table .issue-status .status")).to_have_text(
+            ["Under Review"] * len(issues)
+        )
         expect(page.locator(".consistency-table .finding-evidence")).to_have_count(0)
         expect(page.get_by_role("button", name="Copy review context", exact=True)).to_have_count(0)
     # An explicit predecessor column retains its complete authored block,
@@ -315,7 +320,9 @@ def check(browser, base, site_dir, screenshots):
     cdisc_issue_count = len(cdisc_issues)
     expect(page.locator('.review-tabs [data-view="datasets"]')).to_have_text("SDTM -> ADaM")
     expect(page.locator('.review-tabs [data-view="overview"]')).to_have_text("Consistency findings")
-    expect(page.locator('.metric-strip > span').last).to_have_text(f"Consistency: {cdisc_issue_count} issues")
+    expect(page.locator('.metric-strip > span').last).to_have_text(
+        f"Consistency: {cdisc_issue_count} issues Under Review"
+    )
     expect(page.locator('.metric-strip button, .metric-strip a')).to_have_count(0)
     page.locator('.review-tabs [data-view="overview"]').click()
     expect(page.locator(".consistency-table")).to_be_visible()

@@ -8,7 +8,7 @@ export function createShell(ctx) {
     if (model.kind === "synthetic")
       return `<div class="metric-strip"><span><strong>Subjects:</strong> ${metric(model.subjects.length)}</span><span><strong>ADaM datasets:</strong> ${model.datasets.length}</span><span>No independent published reference</span><span>Human analysis review pending</span></div>`;
     const m = model.metrics;
-    return `<div class="metric-strip">${["Datasets", "Columns", "Cells"].map((n, i) => `<span><strong>${n}</strong> ${metric(m.matched[i])} / ${metric(m.reference[i])} <small>${m.reference[i] ? Math.round((100 * m.matched[i]) / m.reference[i]) + "%" : "n/a"}</small></span>`).join("")}<span><strong>Consistency:</strong> ${consistencyFindings(report).length} issue${consistencyFindings(report).length === 1 ? "" : "s"}</span></div>`;
+    return `<div class="metric-strip">${["Datasets", "Columns", "Cells"].map((n, i) => `<span><strong>${n}</strong> ${metric(m.matched[i])} / ${metric(m.reference[i])} <small>${m.reference[i] ? Math.round((100 * m.matched[i]) / m.reference[i]) + "%" : "n/a"}</small></span>`).join("")}<span><strong>Consistency:</strong> ${consistencyFindings(report).length} issue${consistencyFindings(report).length === 1 ? "" : "s"} <span class="status attention">Under Review</span></span></div>`;
   }
   function frame() {
     const { model, state, site, REPO, esc, link } = ctx;
