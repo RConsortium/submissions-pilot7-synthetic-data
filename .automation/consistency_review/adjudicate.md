@@ -12,7 +12,7 @@ wastes a reviewer's time, so check each one.
 - `.build/verification/<study>/report.json`: the dataset's `findings`. Each
   has an `id`, the `rule` it cites with the rule's statement, the quoted
   `documents` and `spec` sides with their locations, the `evidence`, and a
-  `basis` string.
+  complete `basis` string and its compact `basis_fingerprint`.
 - `.build/verification/<study>/sections/<document>.txt`: the exact text of
   every retained document, one `=== <section id>` block per section.
 - The specification under review and `<study>/spec/review/<dataset>-probe.yaml`.
@@ -55,7 +55,7 @@ relied on. Do not add numbers the evidence does not contain.
   "dataset": "ADSL",
   "author": {"kind": "agent", "model": "<model id>", "instructions": ".automation/consistency_review/adjudicate.md", "date": "<YYYY-MM-DD>"},
   "decisions": [
-    {"finding": "ADSL.TRTSDT.CR-6.1", "basis": "<copied exactly from the finding>", "decision": "agree", "reason": "Define-XML ADSL.TRTSDT names visit 3; the specification reads MIN(EX.EXSTDTC) in EX_MINDTC."}
+    {"finding": "ADSL.TRTSDT.CR-6.1", "basis": "<copied exactly from the finding's basis_fingerprint>", "decision": "agree", "reason": "Define-XML ADSL.TRTSDT names visit 3; the specification reads MIN(EX.EXSTDTC) in EX_MINDTC."}
   ],
   "missed": [
     {"variable": "TRTEDT", "document": "spec/source/SAP.pdf", "section": "page-9", "quote": "<verbatim>", "reason": "A statement of the rule no finding cites."}
@@ -63,10 +63,14 @@ relied on. Do not add numbers the evidence does not contain.
 }
 ```
 
-Decide every finding exactly once and copy its `basis` unchanged: the verifier
-marks a decision stale when the finding it judged has changed. Start the file
-from the report with a short script that writes each finding's `id` and
-`basis`, then fill in each decision and reason by hand. Use `missed`
+Decide every finding exactly once and copy its `basis_fingerprint` unchanged
+into the decision's `basis`. It is a SHA-256 fingerprint of the complete basis;
+the verifier marks a decision stale when any bound evidence changes. Legacy
+decisions containing the complete basis text remain supported. For an older
+report without a fingerprint, copy `basis` instead. Start the file from the
+report with a short script that writes each finding's `id` and
+`basis_fingerprint` (or legacy `basis`), then fill in each decision and reason
+by hand. Full quotations and record evidence stay in the report. Use `missed`
 for any statement of a rule that no claim cites; quote it verbatim from the
 section files. A statement about which records the dataset holds, not how a
 variable is derived, names the specification's row rule id (the `id` under
@@ -77,7 +81,8 @@ variable is derived, names the specification's row rule id (the `id` under
 After a follow-up extraction round, decide only the findings whose
 `adjudication.decision` in `report.json` is `stale` or `pending`; keep every
 other decision in `<dataset>-adjudication.json` unchanged. Replace a stale
-decision with a new one carrying the finding's current `basis`, and remove
+decision with a new one carrying the finding's current `basis_fingerprint`
+(or legacy `basis`), and remove
 decisions listed in the dataset's `orphaned_decisions`. Rewrite `missed` to
 hold only statements that are still uncited: check each earlier entry against
 the findings' quotes, and add any new one you find.
