@@ -7,13 +7,21 @@ import tempfile
 import unittest
 from unittest.mock import patch
 
-from study_evidence import validate_reports, validate_verifications
+from study_evidence import catalog, engine_revision, validate_reports, validate_verifications
 import validate_yamaa
 
 PIN = 'a' * 40
 
 
 class EvidenceTests(unittest.TestCase):
+    def test_published_projects_share_one_engine_revision(self):
+        root = Path(__file__).resolve().parents[2]
+        revisions = {
+            engine_revision(root, study) for study in catalog(root)
+            if (root / study / 'spec/yamaa/project.yaml').is_file()
+        }
+        self.assertEqual(len(revisions), 1, 'Publication requires one shared yamaa revision')
+
     def setUp(self):
         self.temp = tempfile.TemporaryDirectory()
         self.addCleanup(self.temp.cleanup)
