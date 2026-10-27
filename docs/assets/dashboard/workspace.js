@@ -13,12 +13,12 @@ import {
 
 /** Shared specification and independently paged, resizable dataset panels. */
 export function createWorkspace(ctx) {
-  const displayedSpec = () => specificationView(ctx.specification, ctx.state.specView);
+  const displayedSpec = () => specificationView(ctx.specification, ctx.state.specView, ctx.state.focus);
   function specificationPicker() {
     const { specification, state, esc, sourceUrl, link } = ctx;
     const shown = displayedSpec();
     const sources = specification.documents || [{ path: specification.path }];
-    return `<div class="spec-controls"><label>View<select id="spec-view">${sources.map((source, i) => `<option value="${i ? "source:" + i : ""}" ${state.specView === "source:" + i || (!i && !state.specView) ? "selected" : ""}>Source: ${esc(source.path.split("/").slice(-2).join("/"))}</option>`).join("")}${specification.resolved ? `<option value="resolved" ${state.specView === "resolved" ? "selected" : ""}>Resolved model (inspection)</option>` : ""}</select></label><button id="copy-specification">${shown.inspection ? "Copy model" : "Copy source file"}</button>${link(sourceUrl(shown.path), "Open source")}</div>`;
+    return `<div class="spec-controls"><label>View<select id="spec-view">${sources.map((source, i) => `<option value="source:${i}" ${!shown.inspection && shown.sourceIndex === i ? "selected" : ""}>Source: ${esc(source.path.split("/").slice(-2).join("/"))}</option>`).join("")}${specification.resolved ? `<option value="resolved" ${shown.inspection ? "selected" : ""}>Resolved model (inspection)</option>` : ""}</select></label><button id="copy-specification">${shown.inspection ? "Copy model" : "Copy source file"}</button>${link(sourceUrl(shown.path), "Open source")}</div>`;
   }
   async function copySpecification() {
     try {

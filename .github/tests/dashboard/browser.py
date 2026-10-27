@@ -47,8 +47,15 @@ def assert_page_fits(page, selector):
     }"""), selector + " clips the selected page of rows"
 
 
+def displayed_source(page, specification):
+    """The source document the specification pane shows."""
+    view = page.locator("#spec-view").input_value()
+    index = int(view.removeprefix("source:")) if view.startswith("source:") else 0
+    return specification["documents"][index]
+
+
 def assert_yaml_context(page, specification, inputs, intermediates):
-    focus = specification["lineage"]["focus"]
+    focus = displayed_source(page, specification)["lineage"]["focus"]
     for name, span in focus["inputs"].items():
         line = page.locator(f'#spec-L{span["start"]}')
         if name in inputs:
@@ -107,20 +114,14 @@ def check(browser, base, site_dir, screenshots):
         expect(page.locator(".result-count")).to_have_text(f"{len(issues)} of {len(issues)} issues \u00b7 {checks} supporting checks")
         expect(page.locator(".consistency-table tbody tr[data-finding-id]")).to_have_count(len(issues))
         expect(page.get_by_role("button", name="Copy review context", exact=True)).to_have_count(0)
-    # A layered column keeps its package's historical metadata in the entry,
-    # opens the shared layer that writes its rule when selected, and resolves.
+    # A layered column opens the shared layer that writes its rule; its entry
+    # keeps this package's historical metadata; the model resolves both.
     copied = json.loads((site_dir / "evidence/dashboard/cdiscpilot01/specs/adtte.json").read_text())
     page.goto(base + "/studies/cdiscpilot01/#cdiscpilot01/datasets/ADTTE?focus=output.AGE")
     expect(page.locator("#spec-caption")).to_contain_text("Focused view")
-    selected = page.locator(".spec-line.node-selected code").all_text_contents()
-    span = copied["lineage"]["spans"]["AGE"]
-    authored = copied["text"].split("\n")[span["start"] - 1:span["end"]]
-    assert selected == [line or " " for line in authored]
-    assert "data_type: integer" in "\n".join(selected)
-    page.get_by_role("button", name="Clear highlight", exact=True).click()
-    page.locator('#output-table button[data-node="output.AGE"]').click()
     paths = [document["path"] for document in copied["documents"]]
     defining = paths.index(copied["lineage"]["definitions"]["AGE"]["path"])
+    assert defining > 0
     expect(page.locator("#spec-view")).to_have_value(f"source:{defining}")
     rule = "\n".join(page.locator(".spec-line.node-selected code").all_text_contents())
     assert "dataset: ADSL" in rule and "AGE" in rule
@@ -128,6 +129,12 @@ def check(browser, base, site_dir, screenshots):
     page.get_by_role("button", name="Copy source file", exact=True).click()
     expect(page.get_by_role("button", name="Copied", exact=True)).to_be_visible()
     assert page.evaluate("navigator.clipboard.readText()") == copied["documents"][defining]["text"]
+    page.locator("#spec-view").select_option("source:0")
+    selected = page.locator(".spec-line.node-selected code").all_text_contents()
+    span = copied["lineage"]["spans"]["AGE"]
+    authored = copied["text"].split("\n")[span["start"] - 1:span["end"]]
+    assert selected == [line or " " for line in authored]
+    assert "data_type: integer" in "\n".join(selected)
     page.locator("#spec-view").select_option("resolved")
     expect(page.locator("#spec-caption")).to_contain_text("model lines")
     expect(page.locator(".spec-pane .pane-footer")).to_contain_text("Engine-resolved model for inspection")

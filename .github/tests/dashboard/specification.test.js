@@ -1,6 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { definingView, specificationLines, specificationView, specificationGaps } from "../../../docs/assets/dashboard/specification.js";
+import { specificationLines, specificationView, specificationGaps } from "../../../docs/assets/dashboard/specification.js";
 
 test("source views retain exact text and resolved model selection never becomes executable source", () => {
   const spec = {text: "entry", path: "entry.yaml", documents: [
@@ -217,18 +217,21 @@ test("inline row expressions sharing a source line remain visible for either var
   }
 });
 
-test("selecting a layered variable opens the source that writes its rule", () => {
+test("a layered specification shows the source that writes the selected rule until a view is chosen", () => {
   const layered = {
     documents: [{ path: "study/spec/yamaa/adsl.yaml" }, { path: "spec/yamaa/adsl.yaml" }],
+    resolved: { text: "model" },
     lineage: { definitions: { AGE: { path: "spec/yamaa/adsl.yaml", start: 2, end: 4 },
                               SEX: { path: "study/spec/yamaa/adsl.yaml", start: 5, end: 6 } } },
   };
   const cases = [
-    ["output column defined in the shared layer", "output.AGE", "", "source:1"],
-    ["specification column defined in the entry", "spec.SEX", "source:1", ""],
-    ["input column keeps the chosen source", "DM.AGE", "source:1", "source:1"],
-    ["resolved model stays chosen", "spec.AGE", "resolved", "resolved"],
+    ["output column defined in the shared layer", "", "output.AGE", 1],
+    ["specification column defined in the entry", "", "spec.SEX", 0],
+    ["input column shows the entry", "", "DM.AGE", 0],
+    ["chosen source stays", "source:0", "output.AGE", 0],
+    ["missing source falls back to the entry", "source:9", "", 0],
   ];
-  for (const [label, focus, view, expected] of cases)
-    assert.equal(definingView(layered, focus, view), expected, label);
+  for (const [label, view, focus, expected] of cases)
+    assert.equal(specificationView(layered, view, focus).sourceIndex, expected, label);
+  assert.equal(specificationView(layered, "resolved", "output.AGE").inspection, true);
 });
