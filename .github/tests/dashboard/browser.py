@@ -487,7 +487,7 @@ def check(browser, base, site_dir, screenshots):
     page.get_by_role("button", name="Clear filters", exact=True).click()
     page.locator("#finding-search").fill("BMIBLGR1")
     expect(rule).to_have_count(2)
-    expect(rule.filter(has_text="Missing BMI is assigned")).to_contain_text("Documented rule vs published reference: 1 subject differs")
+    expect(rule.filter(has_text="Missing BMI is assigned")).to_contain_text("Alternative rule (BMIBLGR1__CODED_GE30) vs published reference: 1 subject differs")
     expect(rule.filter(has_text="Obese category code differs")).to_contain_text("Documented codelist vs published reference: 28 subjects differ")
     capture(page, screenshots, "bmi-issues.png")
     missing = rule.filter(has_text="Missing BMI is assigned")
@@ -503,7 +503,7 @@ def check(browser, base, site_dir, screenshots):
     page.locator("#finding-search").fill("VISNUMEN")
     expect(rule).to_have_count(2)
     expect(rule.filter(has_text="Completion term is misspelled")).to_contain_text("No issue-specific data comparison")
-    expect(rule.filter(has_text="Completion-only rule")).to_contain_text("Documented rule vs published reference: 144 subjects differ")
+    expect(rule.filter(has_text="Completion-only rule")).to_contain_text("Alternative rule (VISNUMEN__PROTOCOL_SPELLING) vs published reference: 144 subjects differ")
     capture(page, screenshots, "visit-issues.png")
     page.get_by_role("button", name="Clear filters", exact=True).click()
     for status in ("yes", "no", "needs_review"):
