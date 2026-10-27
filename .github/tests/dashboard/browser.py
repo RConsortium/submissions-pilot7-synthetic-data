@@ -339,7 +339,9 @@ def check(browser, base, site_dir, screenshots):
     page.locator(".finding-trace > summary").click()
     expect(page.locator(".finding-evidence")).to_be_visible()
     expect(page.locator(".consistency-table tbody")).to_contain_text("No issue-specific data comparison")
-    expect(page.locator('.finding-evidence a[href*="adae.yaml"]').first).to_have_attribute("href", re.compile(r"adae\.yaml#L\d+$"))
+    # The ASTDT rule is written in the CDISC Pilot 01 version of the ADAE template.
+    expect(page.locator('.finding-evidence a[href*="pilot-program/adae_v1.yaml"]').first).to_have_attribute(
+        "href", re.compile(r"spec/yamaa/pilot-program/adae_v1\.yaml#L\d+$"))
     capture(page, screenshots, "consistency-review.png")
     page.get_by_role("button", name="Open evidence in workspace", exact=True).click()
     expect(page.locator(".evidence-drawer")).to_be_visible()
