@@ -81,7 +81,10 @@ def select_checks(root, changed):
         r_changed = any(path.startswith('program/adam/R/') and path.lower().endswith('.r')
                         and path != 'program/adam/R/make_plan.R' for path in local)
         pending = entries.get(study, {}).get('allow_pending') and not (root / study / 'spec/yamaa/project.yaml').exists()
-        yamaa = study in entries and (inputs or python or spec or (all_yamaa and not pending))
+        preparation = bool(entries.get(study, {}).get('prepare')) and any(
+            path.startswith(('program/', 'data/odm/')) and Path(path).suffix != '.md'
+            for path in local)
+        yamaa = study in entries and (inputs or python or spec or preparation or (all_yamaa and not pending))
         core = has_validatable_data(str(root), study) and (binary or all_core)
         r = (root / study / 'program/adam/R/run.R').exists() and (
             r_changed or WORKER in changed or f'{study}/program/adam/python/requirements.txt' in changed)

@@ -7,6 +7,8 @@ import importlib.util
 import json
 import os
 from pathlib import Path
+import subprocess
+import sys
 
 from study_evidence import catalog, engine_revision, project_specs
 from study_artifacts import artifact_snapshot
@@ -27,6 +29,14 @@ def validate(study_name, entry, report):
 
     import yamaa
 
+    if entry.get('prepare'):
+        # End-to-end studies start from their retained ODM, not from an
+        # independently published SDTM input. The repository-owned runner
+        # must fail before a successful validation record can be produced.
+        runner = (study / entry['prepare']).resolve()
+        runner.relative_to(study.resolve())
+        subprocess.run([sys.executable, str(runner)], cwd=ROOT, check=True)
+        report['source_pipeline'] = True
     report.update(yamaa_revision=engine_revision(ROOT, study_name),
                   yamaa_version=yamaa.__version__)
     project = yamaa.project(project_file)

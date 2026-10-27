@@ -5,7 +5,7 @@ Every study folder is expected to expose the same stage-based layout:
 
     <study>/data/{odm,sdtm,adam}      datasets, by stage
     <study>/program/{odm,sdtm,adam}   derivation code, by stage
-    <study>/tlf                       reporting outputs
+    <study>/tlf                       optional reporting outputs
 
 Studies are discovered, not listed: any top-level directory that does not
 start with "." and is not named in `non_study_dirs` is treated as a study.
@@ -117,7 +117,7 @@ def check_study(root: str, study: str, spec: dict) -> None:
             expected_dirs.add("/".join(parts[:i]))
 
     for dirpath, dirnames, _ in os.walk(os.path.join(root, study)):
-        dirnames[:] = [d for d in dirnames if not d.startswith(".")]
+        dirnames[:] = [d for d in dirnames if not d.startswith(".") and d != "__pycache__"]
         rel_dir = os.path.relpath(dirpath, os.path.join(root, study))
         depth = 0 if rel_dir == "." else len(rel_dir.split("/"))
         if depth >= 2:  # only police the template's own two levels

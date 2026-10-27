@@ -33,7 +33,7 @@ def check_define(root, study, project):
     }
     project_file = base / "spec/yamaa/project.yaml"
     declaration = yaml.safe_load(project_file.read_text())["adam"]
-    if not declaration.get("define") or not reference.is_file():
+    if not declaration.get("define"):
         return record
     candidate = (project_file.parent / declaration["define"]).resolve()
     candidate.relative_to(root)
@@ -44,6 +44,13 @@ def check_define(root, study, project):
     if submission.status != "succeeded":
         raise ValueError(str(submission.issues.to_pylist()))
     submission.save()
+    if not reference.is_file():
+        # New source-to-submission studies have no published Define reference.
+        # A fresh native export must not be presented as a reference match.
+        record.update(candidate_version=version(candidate),
+                      sdtm_version=version(base / "data/sdtm/define.xml"),
+                      candidate_sha256=hashlib.sha256(candidate.read_bytes()).hexdigest())
+        return record
     if record["adam_version"] == "1.0.0":
         legacy = compare_legacy(reference, candidate)
         # The full field inventory belongs in the reproduction artifact. Keep

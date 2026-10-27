@@ -1,6 +1,7 @@
 """Published successes must describe the exact bytes exported to the dashboard."""
 
 from pathlib import Path
+import json
 import tempfile
 import unittest
 
@@ -29,6 +30,27 @@ class ArtifactTests(unittest.TestCase):
                          ['study/data/adam/adsl-yamaa.parquet'])
         self.assertEqual((target / self.files[4]).read_bytes(), b'validated bytes')
         verify_artifacts(self.root, 'study', self.report)
+
+    def test_source_pipeline_transfers_generated_sdtm_and_hashes_odm_and_extraction(self):
+        catalog = self.root / '.github/yamaa-studies.json'
+        catalog.write_text(json.dumps({'study': {'prepare': 'program/run.py'}}))
+        additions = ['study/data/odm/source.xml', 'study/data/odm/clinical_items.csv',
+                     'study/data/sdtm/define.xml', 'study/program/odm/extract.py']
+        for name in additions:
+            path = self.root / name
+            path.parent.mkdir(parents=True, exist_ok=True)
+            path.write_bytes(b'source pipeline bytes')
+        report = {'status': 'succeeded', 'source_pipeline': True,
+                  'artifacts': artifact_snapshot(self.root, 'study')}
+        for name in additions:
+            self.assertIn(name, report['artifacts']['files'])
+        target = self.root / 'transfer'
+        stage(self.root, 'study', target, report)
+        self.assertEqual(sorted(p.relative_to(target).as_posix() for p in target.rglob('*') if p.is_file()),
+                         sorted(name for name in self.files + additions if name.startswith('study/data/')))
+        (self.root / additions[-1]).write_bytes(b'changed extraction')
+        with self.assertRaisesRegex(ValueError, 'artifacts changed'):
+            verify_artifacts(self.root, 'study', report)
 
     def test_tracked_sources_and_ignored_outputs_reject_changed_bytes(self):
         for name in self.files:
