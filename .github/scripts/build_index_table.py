@@ -59,18 +59,18 @@ def build_table(root, reports_dir):
             continue
         report = reports[name]
         title = entry["title"]
+        status = f"[Under Review](studies/{name}.md#{name}/overview)"
         reference = reference_totals(root, name)
         if not reference[0]:
             if entry["comparison"] == "official":
                 raise ValueError(f"{name}: official reference datasets are missing")
-            rows.append(f"| [{title}](studies/{name}.md) | Ongoing | "
+            rows.append(f"| [{title}](studies/{name}.md) | {status} | "
                         f"{PENDING_DATASETS} | n/a | n/a |")
             continue
         matched = matched_totals(report)
         for i in range(3):
             total_matched[i] += matched[i]
             total_reference[i] += reference[i]
-        status = "Done" if matched == reference else "Ongoing"
         rows.append(f"| [{title}](studies/{name}.md) | {status} | "
                     f"{matched[0]} / {reference[0]} ({_percent(matched[0], reference[0])}) | "
                     f"{matched[1]} / {reference[1]} ({_percent(matched[1], reference[1])}) | "

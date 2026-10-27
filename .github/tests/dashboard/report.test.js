@@ -130,11 +130,14 @@ test("the metric and listing count issues separately from supporting checks", ()
     model: { metrics: { matched: [1, 2, 3], reference: [1, 2, 3] } },
   }).metrics();
   assert.match(html, /Consistency:<\/strong> 1 issue/);
+  assert.match(html, /class="status attention">Under Review<\/span>/);
   const listing = createReport({ report, state: state(), esc }).findingsView();
   assert.match(listing, /1 of 1 issue &middot; 2 supporting checks/);
   assert.equal((listing.match(/<tr class="review-issue"/g) || []).length, 1);
   assert.ok(listing.includes("Issue type"));
   assert.ok(listing.includes("Agent review"));
+  assert.ok(listing.includes('<th scope="col">Status</th>'));
+  assert.match(listing, /class="issue-status"[^]*?class="status attention">Under Review<\/span>/);
 });
 
 test("trace shows selected quotes and comparisons once, with full context and check audit expandable", () => {
