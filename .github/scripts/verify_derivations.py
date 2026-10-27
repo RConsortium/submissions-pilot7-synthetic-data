@@ -205,41 +205,89 @@ def locate_quote(lines, span, quote):
 
 
 def field_spans(text):
-    """Line spans of each field of every named column entry in one YAML file."""
+    """Line spans of each field of every column and row template in one YAML file.
+
+    A row template's derivations are spanned one variable at a time, as
+    `derivations/<variable>`, the fields field_sources names.
+    """
     root = yaml.compose(text)
     found = {}
+
+    def span(key, value):
+        start = key.start_mark.line + 1
+        return {"start": start, "end": start + text[key.start_mark.index:value.end_mark.index].rstrip().count("\n")}
+
     for key, value in root.value if isinstance(root, yaml.MappingNode) else []:
-        if key.value != "columns" or not isinstance(value, yaml.SequenceNode):
+        label = {"columns": "name", "rows": "id"}.get(key.value)
+        if label is None or not isinstance(value, yaml.SequenceNode):
             continue
         for item in value.value:
             if not isinstance(item, yaml.MappingNode):
                 continue
             fields = {k.value: (k, v) for k, v in item.value}
-            if "name" in fields:
-                found[fields["name"][1].value] = {
-                    field: {"start": k.start_mark.line + 1,
-                            "end": k.start_mark.line + 1 + text[k.start_mark.index:v.end_mark.index].rstrip().count("\n")}
-                    for field, (k, v) in fields.items() if field != "name"
-                }
+            if label not in fields:
+                continue
+            spans = {}
+            for field, (k, v) in fields.items():
+                if field == "derivations" and isinstance(v, yaml.MappingNode):
+                    spans.update({f"derivations/{dk.value}": span(dk, dv) for dk, dv in v.value})
+                else:
+                    spans[field] = span(k, v)
+            found[fields[label][1].value] = spans
     return found
+
+
+def layered_elements(packet):
+    """Where each element of a layered specification may be quoted.
+
+    An element is read first in the layer that writes its rule, then in the
+    fields other layers still contribute, such as an entry's Define-XML
+    metadata or one row template rule a later version replaces. The defining
+    layer's own text for a field another layer overrode or cleared is blanked
+    for quote search, so it never verifies a quote.
+    """
+    from study_dashboard.specifications import defining_sources, field_sources
+
+    texts = {source["path"]: source["text"] for source in packet["sources"]}
+    located = {path: source_locations(text)["spans"] for path, text in texts.items()}
+    fields = {path: field_spans(text) for path, text in texts.items()}
+    kept, elements = field_sources(packet), {}
+    for element, path in defining_sources(packet).items():
+        if element not in located[path]:
+            continue
+        lines, written, own = texts[path].splitlines(), kept.get(element, {}), fields[path].get(element, {})
+        current = {f: f in {"name", "id"} or path in written.get(f, ()) for f in own}
+        live = {n for f, s in own.items() if current[f] for n in range(s["start"], s["end"] + 1)}
+        stale = {n for f, s in own.items() if not current[f] for n in range(s["start"], s["end"] + 1)} - live
+        search = ["" if number in stale else line for number, line in enumerate(lines, 1)]
+        candidates = [{"path": path, "lines": lines, "search": search, "span": located[path][element]}]
+        for field, sources in sorted(written.items()):
+            for source in sorted(sources - {path}):
+                span = fields[source].get(element, {}).get(field)
+                candidate = {"path": source, "lines": texts[source].splitlines(), "span": span}
+                if span and candidate not in candidates:
+                    candidates.append(candidate)
+        elements[element] = candidates
+    return elements
 
 
 def spec_side(spec_file, element, quote=None):
     """A specification element, and the lines of a quote inside it when given.
 
-    A layered specification's element is read where the composition keeps it:
-    first in the layer that writes its rule, then in the fields other layers
-    still contribute, such as an entry's Define-XML metadata. Text a later
-    layer overrode never verifies a quote.
+    A layered specification's element is read where the composition keeps it,
+    as layered_elements lists it. Text a later layer overrode never verifies a
+    quote.
     """
     path, lines, spans, revision = spec_file["path"], spec_file["lines"], spec_file["spans"], spec_file["revision"]
     span = spans.get(element) if element else None
+    search = lines
     candidates = spec_file.get("elements", {}).get(element, [])
     if candidates:
         chosen = candidates[0]
         if quote is not None:
-            chosen = next((c for c in candidates if locate_quote(c["lines"], c["span"], quote)), chosen)
+            chosen = next((c for c in candidates if locate_quote(c.get("search", c["lines"]), c["span"], quote)), chosen)
         path, lines, span = (chosen[k] for k in ("path", "lines", "span"))
+        search = chosen.get("search", lines)
     side = {"path": path, "element": element, "quote": quote, "element_lines": None, "lines": None, "excerpt": None, "verified": True, "reason": None}
     if span is None:
         if quote is not None or element is not None:
@@ -248,7 +296,7 @@ def spec_side(spec_file, element, quote=None):
     side.update(element_lines=[span["start"], span["end"]], excerpt="\n".join(lines[span["start"] - 1 : span["end"]]))
     shown = [span["start"], span["end"]]
     if quote is not None:
-        found = locate_quote(lines, span, quote)
+        found = locate_quote(search, span, quote)
         if found is None:
             side.update(verified=False, reason=f"quote not found in specification element {element}")
         else:
@@ -348,9 +396,10 @@ def copy_check(base, spec, tables, variable, comment, subject_key):
     if derivation is None:
         # Row templates supply the value; one plain source across them is a copy.
         found = {
-            str(row["derivations"][variable])
+            str(rule["value"] if isinstance(rule, dict) and set(rule) == {"value"} else rule)
             for row in spec.get("rows", [])
-            if variable in (row.get("derivations") or {})
+            for rule in [(row.get("derivations") or {}).get(variable)]
+            if rule is not None
         }
         derivation = found.pop() if len(found) == 1 else derivation
     resolved = resolve_source(spec, derivation)
@@ -739,26 +788,11 @@ def dataset_report(context, domain, spec_path, derived, reference):
     elements = {}
     if spec.get("parent") or spec.get("include") or any("copy" in c for c in spec.get("columns", [])):
         import yamaa
-        from study_dashboard.specifications import capture_specification, defining_sources, field_sources
+        from study_dashboard.specifications import capture_specification
 
         packet = capture_specification(root, spec_path, yamaa.spec(spec_path).resolve())
         spec = packet["model"]
-        texts = {source["path"]: source["text"] for source in packet["sources"]}
-        located = {path: source_locations(source)["spans"] for path, source in texts.items()}
-        fields = {path: field_spans(source) for path, source in texts.items()}
-        kept = field_sources(packet)
-        for element, path in defining_sources(packet).items():
-            if element not in located[path]:
-                continue
-            candidates = [{"path": path, "lines": texts[path].splitlines(), "span": located[path][element]}]
-            # Fields another layer still writes for this column, such as its metadata.
-            for field, sources in sorted(kept.get(element, {}).items()):
-                for source in sorted(sources - {path}):
-                    span = fields[source].get(element, {}).get(field)
-                    candidate = {"path": source, "lines": texts[source].splitlines(), "span": span}
-                    if span and candidate not in candidates:
-                        candidates.append(candidate)
-            elements[element] = candidates
+        elements = layered_elements(packet)
     spans = source_locations(text)["spans"]
     spec_file = {
         "path": spec_path.relative_to(root).as_posix(),
