@@ -62,7 +62,9 @@ human approval or resolved state. Raw findings remain available for audit.
 
 `critical` contains `status` (yes, no, needs_review) and a short `reason`.
 Authored issues can explicitly set it; otherwise the generator prioritizes
-source, derivation, category and output discrepancies as critical. CR-6 clauses
+source, derivation, category and output discrepancies as critical.
+An absent source named by Define-XML (CR-2) is a critical source discrepancy,
+including when its data impact cannot be measured. CR-6 clauses
 quoting only `Significant digits: N` and variable-label differences are
 non-critical. The full variable context is not used for that exception because
 it can contain a different formula alongside precision metadata. Documentation

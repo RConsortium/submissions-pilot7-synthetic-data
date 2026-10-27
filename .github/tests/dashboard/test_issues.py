@@ -162,6 +162,36 @@ class IssueSchemaTests(unittest.TestCase):
         with self.assertRaisesRegex(ValueError, "reason"):
             self.build(declaration)
 
+    def test_absent_documented_sources_are_critical_without_measured_impact(self):
+        findings = []
+        for domain, variable in (
+            ("ADQSADAS", "EFFFL"), ("ADQSNPIX", "EFFFL"),
+            ("ADQSCIBC", "EFFFL"), ("ADTTE", "TRTDUR"),
+        ):
+            finding = check("CR-2", [])
+            finding.update(
+                id=f"study:{domain}.{variable}.CR-2", dataset=domain,
+                variable=variable, title="A documented copy source exists",
+                observation="Define-XML names a source variable that is absent.",
+                evidence={"copy": {"source": f"ADSL.{variable}",
+                                   "reason": "Source variable is absent.", "reference": None}},
+            )
+            finding["rule"]["id"] = "CR-2"
+            findings.append(finding)
+        citation = check("CR-1", [])
+        citation["kind"] = "evidence"
+        citation["rule"]["id"] = "CR-1"
+        citation["documents"][0]["verified"] = False
+        citation["evidence"] = {}
+        result = build_review(self.root, "study", "revision", findings + [citation])
+        by_check = {i["check_ids"][0]: i for i in result["issues"]}
+        for finding in findings:
+            with self.subTest(check=finding["id"]):
+                issue = by_check[finding["id"]]
+                self.assertEqual(issue["critical"]["status"], "yes")
+                self.assertEqual(issue["impact"]["status"], "not_measured")
+        self.assertEqual(by_check[citation["id"]]["critical"]["status"], "needs_review")
+
     def test_grouping_is_many_to_many_without_double_counting_subjects_or_sources(self):
         result = self.build()
         first, second = result["issues"]

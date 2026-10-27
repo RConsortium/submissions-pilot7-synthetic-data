@@ -109,7 +109,7 @@ def critical_assessment(checks, pool):
             assessments.append(("no", "Only the declared numeric precision differs."))
         elif check["title"] == "Variable label differs from published Define-XML":
             assessments.append(("no", "Only the variable label differs."))
-        elif rule in {"CR-3", "CR-4", "CR-5", "CR-6", "CR-8", "CR-9"} or (
+        elif rule in {"CR-2", "CR-3", "CR-4", "CR-5", "CR-6", "CR-8", "CR-9"} or (
             check["comparison"] == "input_output" and check["kind"] == "inconsistent"
         ):
             assessments.append(("yes", "A source, derivation rule, category or output differs."))
