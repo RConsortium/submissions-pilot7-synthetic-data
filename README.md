@@ -28,6 +28,11 @@ based on the original protocol.
 
 ## Folder Structure
 
+The [CAR-T study](cart-t/README.md) rebuilds the archived OpenClinica ODM
+through SDTM, exploratory ADaM and draft Define-XML with yamaa. Its PR/CI
+`cart-t-review` artifact includes a source-linked workbook for statistical
+review and explicit unresolved study-data questions.
+
 Each study lives in its own top-level folder, organized by pipeline stage. The
 data flow is **ODM -> SDTM -> ADaM -> TLF**: an ODM export of the collected CRF
 data is mapped to SDTM tabulation datasets, those are derived into ADaM

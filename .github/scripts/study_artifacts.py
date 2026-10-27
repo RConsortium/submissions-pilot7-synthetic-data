@@ -15,6 +15,9 @@ def artifact_snapshot(root, study):
     root = Path(root).resolve()
     base = root / study
     files = set()
+    catalog_file = root / ".github/yamaa-studies.json"
+    source_pipeline = (json.loads(catalog_file.read_text()).get(study, {}).get("prepare")
+                       if catalog_file.is_file() else False)
     manifest = base / "spec/source/manifest.json"
     if manifest.is_file():
         for entry in json.loads(manifest.read_text()).get("files", []):
@@ -38,7 +41,8 @@ def artifact_snapshot(root, study):
         path = root / relative
         if path.is_file():
             files.add(path)
-    for directory in (base / "spec", base / "data", base / "program/adam/python"):
+    programs = base / ("program" if source_pipeline else "program/adam/python")
+    for directory in (base / "spec", base / "data", programs):
         for path in directory.rglob("*"):
             if not path.is_file() or any(
                 p.startswith(".") or p == "__pycache__"
@@ -54,7 +58,7 @@ def artifact_snapshot(root, study):
                 ".parquet",
                 ".csv",
                 ".xpt",
-            }:
+            } and not (source_pipeline and path.suffix == ".xml"):
                 continue
             files.add(path)
     hashes = {}

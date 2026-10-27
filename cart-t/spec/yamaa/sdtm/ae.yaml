@@ -1,0 +1,688 @@
+yamaa: '1.0'
+type: spec
+model: SDTM
+domain: AE
+keys:
+- STUDYID
+- USUBJID
+- AESEQ
+input:
+  SRC:
+    path: ../../../data/odm/adverse_events.csv
+    types:
+      ROWID: int
+base: SRC
+filter: SRC.IGROUP = 'AE' AND SRC.I_AETERM IS NOT NULL
+
+output:
+  path: ../../../data/sdtm/ae.parquet
+  columns:
+  - STUDYID
+  - DOMAIN
+  - USUBJID
+  - AESEQ
+  - AESPID
+  - AETERM
+  - AEDECOD
+  - AEBODSYS
+  - AESEV
+  - AESER
+  - AEACN
+  - AEREL
+  - AESCONG
+  - AESDISAB
+  - AESDTH
+  - AESHOSP
+  - AESLIFE
+  - AESMIE
+  - AEOUT
+  - AESTDTC
+  - AEENDTC
+  - AEENRTPT
+  - AEENTPT
+  - VISIT
+  report: ../../../log/ae-report.csv
+  order_by:
+  - variable: STUDYID
+    nulls: last
+  - variable: USUBJID
+    nulls: last
+  - variable: AESEQ
+    nulls: last
+
+columns:
+- name: SUBJECTKEY
+  type: str
+  label: SUBJECTKEY
+  derivation: SRC.SUBJECTKEY
+
+- name: EVENTOID
+  type: str
+  label: EVENTOID
+  derivation: SRC.EVENTOID
+
+- name: EVENTREPEAT
+  type: str
+  label: EVENTREPEAT
+  derivation: SRC.EVENTREPEAT
+
+- name: ROWID
+  type: int
+  label: ROWID
+  derivation: SRC.ROWID
+
+- name: STUDYID
+  type: str
+  label: Study Identifier
+  derivation: '''CART-T-PILOT'''
+  verifications:
+  - max_length:
+      max: 12
+  submission:
+    length: 12
+    origins:
+    - type: Assigned
+      source: Sponsor
+    core: Req
+    mandatory: true
+    data_type: text
+    key_sequence: 1
+    role: Identifier
+
+- name: DOMAIN
+  type: str
+  label: Domain Abbreviation
+  derivation: '''AE'''
+  verifications:
+  - max_length:
+      max: 2
+  submission:
+    length: 2
+    origins:
+    - type: Assigned
+      source: Sponsor
+    core: Req
+    mandatory: true
+    data_type: text
+    role: Identifier
+
+- name: USUBJID
+  type: str
+  label: Unique Subject Identifier
+  derivation:
+    str_template: CART-T-PILOT-{SRC.SUBJECTKEY}
+  verifications:
+  - max_length:
+      max: 80
+  submission:
+    length: 80
+    origins:
+    - type: Derived
+      source: Sponsor
+    method: CART-T-PILOT followed by the globally unique ODM SubjectKey.
+      Display subject ID is retained in DM.SUBJID.
+    comment: CART-T-PILOT followed by the globally unique ODM SubjectKey.
+      Display subject ID is retained in DM.SUBJID.
+    core: Req
+    mandatory: true
+    data_type: text
+    key_sequence: 2
+    role: Identifier
+
+- name: AESEQ
+  type: int
+  label: Sequence Number
+  derivation:
+    row_number:
+      window:
+        group_by:
+        - USUBJID
+        order_by:
+        - variable: SRC.ROWID
+          nulls: last
+  submission:
+    origins:
+    - type: Derived
+      source: Sponsor
+    method: |-
+      Executable yamaa derivation: row_number:
+        window:
+          group_by:
+          - USUBJID
+          order_by:
+          - variable: SRC.ROWID
+            nulls: last
+    core: Req
+    mandatory: true
+    data_type: integer
+    length: 8
+    key_sequence: 3
+    role: Identifier
+
+- name: AESPID
+  type: str
+  label: Source Group Ordinal
+  derivation: SRC.ROWID
+  verifications:
+  - max_length:
+      max: 20
+  submission:
+    length: 20
+    origins:
+    - type: Predecessor
+      description: SRC.ROWID
+    comment: ODM SourceOrdinal (item), or first SourceOrdinal in the complete
+      ODM item-group instance. Trace to data/odm/clinical_items.csv or
+      groups.csv.
+    core: Perm
+    mandatory: false
+    data_type: text
+    role: Identifier
+
+- name: AETERM
+  type: str
+  label: Reported Term for the Adverse Event
+  derivation: SRC.I_AETERM
+  verifications:
+  - max_length:
+      max: 200
+  submission:
+    length: 200
+    origins:
+    - type: Predecessor
+      description: SRC.I_AETERM
+    core: Req
+    mandatory: true
+    data_type: text
+    role: Topic
+
+- name: AEDECOD
+  type: str
+  label: Dictionary-Derived Term
+  derivation: null
+  verifications:
+  - max_length:
+      max: 200
+  submission:
+    length: 200
+    origins:
+    - type: Derived
+      source: Sponsor
+    comment: No MedDRA preferred term is supplied. Verbatim text is not
+      represented
+      as dictionary coding.
+    core: Req
+    mandatory: true
+    data_type: text
+    method: No MedDRA preferred term is supplied. Verbatim text is not
+      represented
+      as dictionary coding.
+    role: Record Qualifier
+
+- name: AEBODSYS
+  type: str
+  label: Body System or Organ Class
+  derivation: null
+  verifications:
+  - max_length:
+      max: 200
+  submission:
+    length: 200
+    origins:
+    - type: Derived
+      source: Sponsor
+    core: Exp
+    mandatory: false
+    data_type: text
+    method: Not derivable; the output remains missing.
+    role: Record Qualifier
+
+- name: AESEV
+  type: str
+  label: Severity/Intensity
+  derivation:
+    str_case:
+      source: SRC.I_AESEV
+      to: upper
+  verifications:
+  - max_length:
+      max: 12
+  submission:
+    length: 12
+    origins:
+    - type: Derived
+      source: Sponsor
+    method: |-
+      Executable yamaa derivation: str_case:
+        source: SRC.I_AESEV
+        to: upper
+    core: Perm
+    mandatory: false
+    data_type: text
+    role: Record Qualifier
+
+- name: AESER
+  type: str
+  label: Serious Event
+  derivation:
+    str_case:
+      source: SRC.I_AESER
+      to: upper
+  verifications:
+  - max_length:
+      max: 12
+  - allowed_values:
+      values:
+      - N
+      - Y
+  submission:
+    length: 12
+    origins:
+    - type: Derived
+      source: Sponsor
+    method: |-
+      Executable yamaa derivation: str_case:
+        source: SRC.I_AESER
+        to: upper
+    core: Exp
+    mandatory: false
+    data_type: text
+    codelist: NY
+    role: Record Qualifier
+
+- name: AEACN
+  type: str
+  label: Action Taken with Study Treatment
+  derivation:
+    str_case:
+      source: SRC.I_AEACN
+      to: upper
+  verifications:
+  - max_length:
+      max: 40
+  submission:
+    length: 40
+    origins:
+    - type: Derived
+      source: Sponsor
+    method: |-
+      Executable yamaa derivation: str_case:
+        source: SRC.I_AEACN
+        to: upper
+    core: Exp
+    mandatory: false
+    data_type: text
+    role: Record Qualifier
+
+- name: AEREL
+  type: str
+  label: Causality
+  derivation:
+    str_case:
+      source: SRC.I_AEREL
+      to: upper
+  verifications:
+  - max_length:
+      max: 40
+  submission:
+    length: 40
+    origins:
+    - type: Derived
+      source: Sponsor
+    method: |-
+      Executable yamaa derivation: str_case:
+        source: SRC.I_AEREL
+        to: upper
+    core: Exp
+    mandatory: false
+    data_type: text
+    role: Record Qualifier
+
+- name: AESCONG
+  type: str
+  label: Congenital Anomaly or Birth Defect
+  derivation:
+    str_case:
+      source: SRC.I_AESCONG
+      to: upper
+  verifications:
+  - max_length:
+      max: 12
+  - allowed_values:
+      values:
+      - N
+      - Y
+  submission:
+    length: 12
+    origins:
+    - type: Derived
+      source: Sponsor
+    method: |-
+      Executable yamaa derivation: str_case:
+        source: SRC.I_AESCONG
+        to: upper
+    core: Perm
+    mandatory: false
+    data_type: text
+    codelist: NY
+    role: Record Qualifier
+
+- name: AESDISAB
+  type: str
+  label: Persist/Significant Disability/Incapacit
+  derivation:
+    str_case:
+      source: SRC.I_AESDISAB
+      to: upper
+  verifications:
+  - max_length:
+      max: 12
+  - allowed_values:
+      values:
+      - N
+      - Y
+  submission:
+    length: 12
+    origins:
+    - type: Derived
+      source: Sponsor
+    method: |-
+      Executable yamaa derivation: str_case:
+        source: SRC.I_AESDISAB
+        to: upper
+    core: Perm
+    mandatory: false
+    data_type: text
+    codelist: NY
+    role: Record Qualifier
+
+- name: AESDTH
+  type: str
+  label: Results in Death
+  derivation:
+    str_case:
+      source: SRC.I_AESDTH
+      to: upper
+  verifications:
+  - max_length:
+      max: 12
+  - allowed_values:
+      values:
+      - N
+      - Y
+  submission:
+    length: 12
+    origins:
+    - type: Derived
+      source: Sponsor
+    method: |-
+      Executable yamaa derivation: str_case:
+        source: SRC.I_AESDTH
+        to: upper
+    core: Perm
+    mandatory: false
+    data_type: text
+    codelist: NY
+    role: Record Qualifier
+
+- name: AESHOSP
+  type: str
+  label: Requires or Prolongs Hospitalization
+  derivation:
+    str_case:
+      source: SRC.I_AESHOSP
+      to: upper
+  verifications:
+  - max_length:
+      max: 12
+  - allowed_values:
+      values:
+      - N
+      - Y
+  submission:
+    length: 12
+    origins:
+    - type: Derived
+      source: Sponsor
+    method: |-
+      Executable yamaa derivation: str_case:
+        source: SRC.I_AESHOSP
+        to: upper
+    core: Perm
+    mandatory: false
+    data_type: text
+    codelist: NY
+    role: Record Qualifier
+
+- name: AESLIFE
+  type: str
+  label: Is Life Threatening
+  derivation:
+    str_case:
+      source: SRC.I_AESLIFE
+      to: upper
+  verifications:
+  - max_length:
+      max: 12
+  - allowed_values:
+      values:
+      - N
+      - Y
+  submission:
+    length: 12
+    origins:
+    - type: Derived
+      source: Sponsor
+    method: |-
+      Executable yamaa derivation: str_case:
+        source: SRC.I_AESLIFE
+        to: upper
+    core: Perm
+    mandatory: false
+    data_type: text
+    codelist: NY
+    role: Record Qualifier
+
+- name: AESMIE
+  type: str
+  label: Other Medically Important Serious Event
+  derivation: SRC.I_AESIMIE
+  verifications:
+  - max_length:
+      max: 1
+  - allowed_values:
+      values:
+      - N
+      - Y
+  submission:
+    length: 1
+    origins:
+    - type: Predecessor
+      description: SRC.I_AESIMIE
+    core: Perm
+    mandatory: false
+    data_type: text
+    codelist: NY
+    role: Record Qualifier
+
+- name: AEOUT
+  type: str
+  label: Outcome of Adverse Event
+  derivation:
+    mapping:
+      source: SRC.I_AEOUT
+      dict:
+        RECOVERED_RESOLVED: RECOVERED/RESOLVED
+        RECOVERING_RESOLVING: RECOVERING/RESOLVING
+        NOT_RECOVERED_NOT_RESOLVED: NOT RECOVERED/NOT RESOLVED
+        RECOVERED_RESOLVED_WITH_SEQUELAE: RECOVERED/RESOLVED WITH SEQUELAE
+        FATAL: FATAL
+        UNKNOWN: UNKNOWN
+        NOT RECOVERED_NOT_RESOLVED: NOT RECOVERED/NOT RESOLVED
+      unmapped: null
+  verifications:
+  - max_length:
+      max: 40
+  submission:
+    length: 40
+    origins:
+    - type: Derived
+      source: Sponsor
+    method: Decode OpenClinica CL_195, including the literal mixed-space
+      token NOT RECOVERED_NOT_RESOLVED, into outcome submission terms. Do
+      not alter seriousness criteria.
+    core: Perm
+    mandatory: false
+    data_type: text
+    role: Record Qualifier
+
+- name: AESTDTC
+  type: str
+  label: Start Date/Time of Adverse Event
+  derivation:
+    date_text:
+      source: SRC.I_AESTDAT
+      forms:
+      - iso
+      - mdy_slash
+      invalid: null
+  verifications:
+  - max_length:
+      max: 25
+  submission:
+    length: 25
+    origins:
+    - type: Derived
+      source: Sponsor
+    method: |-
+      Executable yamaa derivation: date_text:
+        source: SRC.I_AESTDAT
+        forms:
+        - iso
+        - mdy_slash
+        invalid: null
+    core: Exp
+    mandatory: false
+    data_type: text
+    role: Timing
+
+- name: AEENDTC
+  type: str
+  label: End Date/Time of Adverse Event
+  derivation:
+    date_text:
+      source: SRC.I_AEENDDAT
+      forms:
+      - iso
+      - mdy_slash
+      invalid: null
+  verifications:
+  - max_length:
+      max: 25
+  submission:
+    length: 25
+    origins:
+    - type: Derived
+      source: Sponsor
+    method: |-
+      Executable yamaa derivation: date_text:
+        source: SRC.I_AEENDDAT
+        forms:
+        - iso
+        - mdy_slash
+        invalid: null
+    core: Exp
+    mandatory: false
+    data_type: text
+    role: Timing
+
+- name: AEENRTPT
+  type: str
+  label: End Relative to Reference Time Point
+  derivation:
+    case:
+    - when: SRC.I_AEONGO = 'Y'
+      then: '''ONGOING'''
+    - otherwise: null
+  verifications:
+  - max_length:
+      max: 12
+  submission:
+    length: 12
+    origins:
+    - type: Derived
+      source: Sponsor
+    method: |-
+      Executable yamaa derivation: case:
+      - when: SRC.I_AEONGO = 'Y'
+        then: '''ONGOING'''
+      - otherwise: null
+    core: Perm
+    mandatory: false
+    data_type: text
+    role: Record Qualifier
+
+- name: AEENTPT
+  type: str
+  label: End Reference Time Point
+  derivation:
+    case:
+    - when: SRC.I_AEONGO = 'Y'
+      then: '''AE FORM ASSESSMENT'''
+    - otherwise: null
+  verifications:
+  - max_length:
+      max: 40
+  submission:
+    length: 40
+    origins:
+    - type: Derived
+      source: Sponsor
+    method: |-
+      Executable yamaa derivation: case:
+      - when: SRC.I_AEONGO = 'Y'
+        then: '''AE FORM ASSESSMENT'''
+      - otherwise: null
+    core: Perm
+    mandatory: false
+    data_type: text
+    role: Record Qualifier
+
+- name: VISIT
+  type: str
+  label: Visit Name
+  derivation: SRC.EVENTNAME
+  verifications:
+  - max_length:
+      max: 80
+  submission:
+    length: 80
+    origins:
+    - type: Predecessor
+      description: SRC.EVENTNAME
+    core: Perm
+    mandatory: false
+    data_type: text
+    role: Timing
+
+verifications:
+- assert:
+    id: ae_end_before_start
+    require: AEENDTC IS NULL OR AESTDTC IS NULL OR AEENDTC >= AESTDTC
+    severity: warning
+- assert:
+    id: ae_fatal_disagreement
+    require: (AEOUT <> 'FATAL' OR AESDTH = 'Y') AND (AESDTH <> 'Y' OR AEOUT
+      = 'FATAL')
+    severity: warning
+
+submission:
+  label: Adverse Events
+  class: EVENTS
+  structure: One record per source observation per subject
+  repeating: true
+  mode: historical
+  artifact: ae.xpt
+  comment: Review draft metadata. Historical mode keeps declarations separate
+    from incomplete data; this is not a validated submission. See
+    spec/review/decisions.md.

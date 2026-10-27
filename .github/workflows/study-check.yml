@@ -68,6 +68,27 @@ jobs:
       - name: Check resolved specification publication contracts
         if: inputs.yamaa && hashFiles(format('{0}/spec/yamaa/project.yaml', inputs.study)) != ''
         run: python -m unittest discover -s .github/tests/dashboard -p 'test_specifications.py' -v
+      - name: Run study pipeline regression checks
+        if: inputs.yamaa && hashFiles(format('{0}/program/test_pipeline.py', inputs.study)) != ''
+        run: python -m unittest discover -s "$STUDY/program" -p 'test_*.py' -v
+      - name: Render CAR-T statistical review workbook
+        if: inputs.yamaa && inputs.study == 'cart-t'
+        run: python "$STUDY/program/run.py" --review-only
+      - name: Check CAR-T workbook in a browser
+        if: inputs.yamaa && inputs.study == 'cart-t'
+        run: |
+          python -m pip install -r .github/tests/dashboard/requirements.txt
+          python "$STUDY/program/check_workbook.py"
+      - uses: actions/upload-artifact@v4
+        if: inputs.yamaa && inputs.study == 'cart-t'
+        with:
+          name: cart-t-review
+          path: |
+            cart-t/
+            !cart-t/**/__pycache__/**
+          include-hidden-files: true
+          if-no-files-found: error
+          retention-days: 30
       - uses: actions/upload-artifact@v4
         if: always() && inputs.yamaa
         with:

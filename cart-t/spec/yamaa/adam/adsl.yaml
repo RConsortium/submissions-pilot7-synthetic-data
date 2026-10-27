@@ -1,0 +1,647 @@
+yamaa: '1.0'
+type: spec
+model: ADaM
+domain: ADSL
+keys:
+- STUDYID
+- USUBJID
+input:
+  SUPP:
+    path: ../../../data/sdtm/suppdm.parquet
+    schema: ../sdtm/suppdm.yaml
+    key:
+    - USUBJID
+  DS:
+    path: ../../../data/sdtm/ds.parquet
+    schema: ../sdtm/ds.yaml
+    key:
+    - USUBJID
+  DM:
+    path: ../../../data/sdtm/dm.parquet
+    schema: ../sdtm/dm.yaml
+base: DM
+
+output:
+  path: ../../../data/adam/adsl-yamaa.parquet
+  columns:
+  - STUDYID
+  - USUBJID
+  - SUBJID
+  - SITEID
+  - AGE
+  - AGEU
+  - SEX
+  - RACE
+  - ETHNIC
+  - COUNTRY
+  - ARMCD
+  - ARM
+  - ACTARMCD
+  - ACTARM
+  - AGEGR1
+  - AGEGR1N
+  - STRAT1
+  - STRAT1L
+  - TRT01P
+  - TRT01A
+  - TRT01PN
+  - TRT01AN
+  - TRTSDT
+  - TRTEDT
+  - TRTDURD
+  - RANDDT
+  - RANDFL
+  - ITTCAND
+  - SAFFL
+  - EFFFL
+  - DCDECOD
+  - DCREASCD
+  - EOSDT
+  - EOSSTT
+  - COMPLFL
+  - DTHDT
+  report: ../../../log/adsl-report.csv
+  order_by:
+  - variable: STUDYID
+    nulls: last
+  - variable: USUBJID
+    nulls: last
+
+intermediates:
+- id: FINAL
+  dataset: DS
+  key:
+  - USUBJID
+  filter: DS.DSCAT = 'DISPOSITION EVENT'
+  order_by:
+  - variable: DS.DSSTDTC
+    nulls: last
+  - variable: DS.DSSEQ
+    nulls: last
+  keep: last
+
+columns:
+- name: STUDYID
+  type: str
+  label: Study Identifier
+  derivation: DM.STUDYID
+  verifications:
+  - max_length:
+      max: 12
+  submission:
+    length: 12
+    origins:
+    - type: Predecessor
+      description: DM.STUDYID
+    core: Req
+    mandatory: true
+    data_type: text
+    key_sequence: 1
+
+- name: USUBJID
+  type: str
+  label: Unique Subject Identifier
+  derivation: DM.USUBJID
+  verifications:
+  - max_length:
+      max: 80
+  submission:
+    length: 80
+    origins:
+    - type: Predecessor
+      description: DM.USUBJID
+    core: Req
+    mandatory: true
+    data_type: text
+    key_sequence: 2
+
+- copy:
+    dataset: DM
+    columns:
+    - SUBJID
+    - SITEID
+    - AGE
+    - AGEU
+    - SEX
+    - RACE
+    - COUNTRY
+    - ARMCD
+    - ARM
+    - ACTARMCD
+    - ACTARM
+    submission:
+      core: Req
+      mandatory: false
+
+- copy:
+    dataset: DM
+    columns:
+    - ETHNIC
+    submission:
+      core: Perm
+      mandatory: false
+
+- name: AGEGR1
+  type: str
+  label: Pooled Age Group 1
+  derivation:
+    case:
+    - when: AGE < 65
+      then: '''<65'''
+    - when: AGE >= 65
+      then: '''>=65'''
+    - otherwise: null
+  verifications:
+  - max_length:
+      max: 8
+  - allowed_values:
+      values:
+      - <65
+      - '>=65'
+  submission:
+    length: 8
+    origins:
+    - type: Derived
+    method: |-
+      Executable yamaa derivation: case:
+      - when: AGE < 65
+        then: '''<65'''
+      - when: AGE >= 65
+        then: '''>=65'''
+      - otherwise: null
+    core: Perm
+    mandatory: false
+    data_type: text
+    codelist: AGEGR1
+
+- name: AGEGR1N
+  type: int
+  label: Pooled Age Group 1 (N)
+  derivation:
+    mapping:
+      source: AGEGR1
+      dict:
+        <65: 1
+        '>=65': 2
+      unmapped: null
+  submission:
+    origins:
+    - type: Derived
+    method: |-
+      Executable yamaa derivation: mapping:
+        source: AGEGR1
+        dict:
+          <65: 1
+          '>=65': 2
+        missing: null
+        unmapped: null
+    core: Perm
+    mandatory: false
+    data_type: integer
+    length: 8
+
+- name: PROFILE
+  type: str
+  label: PROFILE
+  derivation:
+    source:
+      variable: SUPP.QVAL
+      filter: SUPP.QNAM = 'RANDPROF'
+
+- name: STRAT1
+  type: str
+  label: Phenotype Stratification Code
+  derivation:
+    mapping:
+      source: PROFILE
+      dict:
+        a non-Hispanic male: NHM
+        a non-Hispanic female: NHF
+        an Hispanic male: HM
+        an Hispanic female: HF
+      unmapped: null
+  verifications:
+  - max_length:
+      max: 8
+  - allowed_values:
+      values:
+      - NHM
+      - NHF
+      - HM
+      - HF
+  submission:
+    length: 8
+    origins:
+    - type: Derived
+    method: Phenotype from SUPPDM.RANDPROF; not a treatment arm.
+    comment: Phenotype from SUPPDM.RANDPROF; not a treatment arm.
+    core: Perm
+    mandatory: false
+    data_type: text
+    codelist: STRAT1
+
+- name: STRAT1L
+  type: str
+  label: Randomization Phenotype Label
+  derivation: PROFILE
+  verifications:
+  - max_length:
+      max: 80
+  submission:
+    length: 80
+    origins:
+    - type: Derived
+    method: |-
+      Executable yamaa derivation: PROFILE
+      ...
+    core: Perm
+    mandatory: false
+    data_type: text
+
+- name: TRT01P
+  type: str
+  label: Planned Treatment for Period 01
+  derivation: ARM
+  verifications:
+  - max_length:
+      max: 40
+  submission:
+    length: 40
+    origins:
+    - type: Derived
+    method: |-
+      Executable yamaa derivation: ARM
+      ...
+    core: Req
+    mandatory: false
+    data_type: text
+
+- name: TRT01A
+  type: str
+  label: Actual Treatment for Period 01
+  derivation: ACTARM
+  verifications:
+  - max_length:
+      max: 40
+  submission:
+    length: 40
+    origins:
+    - type: Derived
+    method: |-
+      Executable yamaa derivation: ACTARM
+      ...
+    core: Req
+    mandatory: false
+    data_type: text
+
+- name: TRT01PN
+  type: int
+  label: Planned Treatment Number Period 01
+  derivation: null
+  submission:
+    origins:
+    - type: Derived
+    core: Req
+    mandatory: false
+    data_type: integer
+    length: 8
+    method: Not derivable; the output remains missing.
+
+- name: TRT01AN
+  type: int
+  label: Actual Treatment Number Period 01
+  derivation: null
+  submission:
+    origins:
+    - type: Derived
+    core: Req
+    mandatory: false
+    data_type: integer
+    length: 8
+    method: Not derivable; the output remains missing.
+
+- name: TRTSDT
+  type: date
+  label: Date of First Exposure to Treatment
+  derivation:
+    impute:
+      type: date
+      source: DM.RFXSTDTC
+      invalid: null
+  submission:
+    origins:
+    - type: Derived
+    method: |-
+      Executable yamaa derivation: impute:
+        type: date
+        source: DM.RFXSTDTC
+        invalid: null
+    core: Cond
+    mandatory: false
+    data_type: integer
+    length: 8
+    display_format: DATE9.
+
+- name: TRTEDT
+  type: date
+  label: Date of Last Exposure to Treatment
+  derivation:
+    impute:
+      type: date
+      source: DM.RFXENDTC
+      invalid: null
+  submission:
+    origins:
+    - type: Derived
+    method: |-
+      Executable yamaa derivation: impute:
+        type: date
+        source: DM.RFXENDTC
+        invalid: null
+    core: Cond
+    mandatory: false
+    data_type: integer
+    length: 8
+    display_format: DATE9.
+
+- name: TRTDURD
+  type: int
+  label: Duration of Treatment (Days)
+  derivation: null
+  submission:
+    origins:
+    - type: Derived
+    comment: No documented treatment reference dates.
+    core: Perm
+    mandatory: false
+    data_type: integer
+    length: 8
+    method: No documented treatment reference dates.
+
+- name: RAND_DTC
+  type: str
+  label: RAND_DTC
+  derivation:
+    source:
+      variable: DS.DSSTDTC
+      filter: DS.DSDECOD = 'RANDOMIZATION RECORD PRESENT'
+      order_by:
+      - DS.DSSEQ
+      keep: first
+
+- name: RANDDT
+  type: date
+  label: Date of Randomization
+  derivation:
+    impute:
+      type: date
+      source: RAND_DTC
+      invalid: null
+  submission:
+    origins:
+    - type: Derived
+    method: Administrative baseline event date attached to a recorded
+      randomization phenotype. This is a proxy, not a verified randomization
+      timestamp.
+    comment: Administrative baseline event date attached to a recorded
+      randomization phenotype. This is a proxy, not a verified randomization
+      timestamp.
+    core: Perm
+    mandatory: false
+    data_type: integer
+    length: 8
+    display_format: DATE9.
+
+- name: RANDFL
+  type: str
+  label: Randomization Workflow Record Flag
+  derivation:
+    flag:
+      condition: PROFILE IS NOT NULL
+      false_value: N
+      missing: N
+  verifications:
+  - max_length:
+      max: 1
+  - allowed_values:
+      values:
+      - N
+      - Y
+  submission:
+    length: 1
+    origins:
+    - type: Derived
+    method: Y for recorded randomization PROFILE, regardless of RANDDT
+      availability. This workflow proxy requires clinical confirmation.
+    comment: Y for recorded randomization PROFILE, regardless of RANDDT
+      availability. This workflow proxy requires clinical confirmation.
+    core: Cond
+    mandatory: false
+    data_type: text
+    codelist: NY
+
+- name: ITTCAND
+  type: str
+  label: Candidate ITT Population Flag
+  derivation: RANDFL
+  verifications:
+  - max_length:
+      max: 1
+  - allowed_values:
+      values:
+      - N
+      - Y
+  submission:
+    length: 1
+    origins:
+    - type: Derived
+    method: Candidate ITT membership from recorded randomization workflow.
+      No approved ITT population is claimed without a SAP.
+    comment: Candidate ITT membership from recorded randomization workflow.
+      No approved ITT population is claimed without a SAP.
+    core: Perm
+    mandatory: false
+    data_type: text
+    codelist: NY
+
+- name: SAFFL
+  type: str
+  label: Documented Exposure Safety Flag
+  derivation: '''N'''
+  verifications:
+  - max_length:
+      max: 1
+  - allowed_values:
+      values:
+      - N
+      - Y
+  submission:
+    length: 1
+    origins:
+    - type: Assigned
+    comment: No documented exposure in this export. AE occurrence is
+      not evidence of study treatment. N means no documented eligibility
+      for the safety population.
+    core: Cond
+    mandatory: false
+    data_type: text
+    codelist: NY
+
+- name: EFFFL
+  type: str
+  label: Efficacy Analysis Population Flag
+  derivation: '''N'''
+  verifications:
+  - max_length:
+      max: 1
+  - allowed_values:
+      values:
+      - N
+      - Y
+  submission:
+    length: 1
+    origins:
+    - type: Assigned
+    comment: No approved efficacy population or endpoint in the supplied
+      materials.
+    core: Perm
+    mandatory: false
+    data_type: text
+    codelist: NY
+
+- name: DCDECOD
+  type: str
+  label: Standardized Disposition Term
+  derivation: FINAL.DSDECOD
+  verifications:
+  - max_length:
+      max: 80
+  submission:
+    length: 80
+    origins:
+    - type: Predecessor
+      description: FINAL.DSDECOD
+    core: Perm
+    mandatory: false
+    data_type: text
+
+- name: DCREASCD
+  type: str
+  label: Reason for Discontinuation
+  derivation: FINAL.DSTERM
+  verifications:
+  - max_length:
+      max: 200
+  submission:
+    length: 200
+    origins:
+    - type: Predecessor
+      description: FINAL.DSTERM
+    core: Perm
+    mandatory: false
+    data_type: text
+
+- name: EOS_DTC
+  type: str
+  label: EOS_DTC
+  derivation: FINAL.DSSTDTC
+
+- name: EOSDT
+  type: date
+  label: Date of End of Study
+  derivation:
+    impute:
+      type: date
+      source: EOS_DTC
+      invalid: null
+  submission:
+    origins:
+    - type: Derived
+    method: |-
+      Executable yamaa derivation: impute:
+        type: date
+        source: EOS_DTC
+        invalid: null
+    core: Cond
+    mandatory: false
+    data_type: integer
+    length: 8
+    display_format: DATE9.
+
+- name: EOSSTT
+  type: str
+  label: End of Study Status
+  derivation:
+    case:
+    - when: DCDECOD = 'ADVERSE EVENT' OR DCDECOD = 'WITHDRAWAL BY SUBJECT'
+      then: '''DISCONTINUED'''
+    - otherwise: '''UNKNOWN'''
+  verifications:
+  - max_length:
+      max: 20
+  submission:
+    length: 20
+    origins:
+    - type: Derived
+    method: Only explicit disposition events establish discontinuation.
+      No terminal record means UNKNOWN, not COMPLETED or ONGOING.
+    comment: Only explicit disposition events establish discontinuation.
+      No terminal record means UNKNOWN, not COMPLETED or ONGOING.
+    core: Cond
+    mandatory: false
+    data_type: text
+
+- name: COMPLFL
+  type: str
+  label: Study Completer Flag
+  derivation: '''N'''
+  verifications:
+  - max_length:
+      max: 1
+  - allowed_values:
+      values:
+      - N
+      - Y
+  submission:
+    length: 1
+    origins:
+    - type: Assigned
+    comment: No explicit completion event exists. No completion is
+      synthesized from randomization.
+    core: Perm
+    mandatory: false
+    data_type: text
+    codelist: NY
+
+- name: DTHDT
+  type: date
+  label: DTHDT
+  derivation:
+    impute:
+      type: date
+      source: DM.DTHDTC
+      invalid: null
+  submission:
+    origins:
+    - type: Derived
+    method: |-
+      Executable yamaa derivation: impute:
+        type: date
+        source: DM.DTHDTC
+        invalid: null
+    core: Perm
+    mandatory: false
+    data_type: integer
+    length: 8
+    display_format: DATE9.
+
+submission:
+  label: Subject-Level Analysis Dataset
+  class: SUBJECT LEVEL ANALYSIS DATASET
+  structure: One record per subject
+  repeating: false
+  mode: historical
+  artifact: adsl.xpt
+  comment: Review draft metadata. Historical mode keeps declarations
+    separate from incomplete data; this is not a validated submission.
+    See spec/review/decisions.md.

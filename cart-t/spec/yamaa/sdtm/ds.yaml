@@ -1,0 +1,307 @@
+yamaa: '1.0'
+type: spec
+model: SDTM
+domain: DS
+keys:
+- STUDYID
+- USUBJID
+- DSSEQ
+input:
+  SRC:
+    path: ../../../data/odm/disposition.csv
+    types:
+      ROWID: int
+  RAND:
+    path: ../../../data/odm/randomization.csv
+    types:
+      ROWID: int
+
+output:
+  path: ../../../data/sdtm/ds.parquet
+  columns:
+  - STUDYID
+  - DOMAIN
+  - USUBJID
+  - DSSEQ
+  - DSSPID
+  - DSTERM
+  - DSDECOD
+  - DSCAT
+  - DSSTDTC
+  report: ../../../log/ds-report.csv
+  order_by:
+  - variable: STUDYID
+    nulls: last
+  - variable: USUBJID
+    nulls: last
+  - variable: DSSEQ
+    nulls: last
+
+columns:
+- name: SUBJECTKEY
+  type: str
+  label: SUBJECTKEY
+  derivation: null
+
+- name: ROWID
+  type: int
+  label: ROWID
+  derivation: null
+
+- name: STUDYID
+  type: str
+  label: Study Identifier
+  derivation: '''CART-T-PILOT'''
+  verifications:
+  - max_length:
+      max: 12
+  submission:
+    length: 12
+    origins:
+    - type: Assigned
+      source: Sponsor
+    core: Req
+    mandatory: true
+    data_type: text
+    key_sequence: 1
+    role: Identifier
+
+- name: DOMAIN
+  type: str
+  label: Domain Abbreviation
+  derivation: '''DS'''
+  verifications:
+  - max_length:
+      max: 2
+  submission:
+    length: 2
+    origins:
+    - type: Assigned
+      source: Sponsor
+    core: Req
+    mandatory: true
+    data_type: text
+    role: Identifier
+
+- name: USUBJID
+  type: str
+  label: Unique Subject Identifier
+  derivation:
+    str_template: CART-T-PILOT-{SUBJECTKEY}
+  verifications:
+  - max_length:
+      max: 80
+  submission:
+    length: 80
+    origins:
+    - type: Derived
+      source: Sponsor
+    method: 'Executable yamaa derivation:
+      str_template: CART-T-PILOT-{SUBJECTKEY}'
+    core: Req
+    mandatory: true
+    data_type: text
+    key_sequence: 2
+    role: Identifier
+
+- name: DSSEQ
+  type: int
+  label: Sequence Number
+  derivation:
+    row_number:
+      window:
+        group_by:
+        - USUBJID
+        order_by:
+        - variable: ROWID
+          nulls: last
+  submission:
+    origins:
+    - type: Derived
+      source: Sponsor
+    method: |-
+      Executable yamaa derivation: row_number:
+        window:
+          group_by:
+          - USUBJID
+          order_by:
+          - variable: ROWID
+            nulls: last
+    core: Req
+    mandatory: true
+    data_type: integer
+    length: 8
+    key_sequence: 3
+    role: Identifier
+
+- name: DSSPID
+  type: str
+  label: Source Group Ordinal
+  derivation: ROWID
+  verifications:
+  - max_length:
+      max: 20
+  submission:
+    length: 20
+    origins:
+    - type: Derived
+      source: Sponsor
+    method: |-
+      Executable yamaa derivation: ROWID
+      ...
+    core: Perm
+    mandatory: false
+    data_type: text
+    role: Identifier
+
+- name: DSTERM
+  type: str
+  label: Reported Term for the Disposition Event
+  derivation: null
+  verifications:
+  - max_length:
+      max: 200
+  submission:
+    length: 200
+    origins:
+    - type: Derived
+      source: Sponsor
+    core: Req
+    mandatory: true
+    data_type: text
+    method: Not derivable; the output remains missing.
+    role: Topic
+
+- name: DSDECOD
+  type: str
+  label: Standardized Disposition Term
+  derivation: null
+  verifications:
+  - max_length:
+      max: 80
+  submission:
+    length: 80
+    origins:
+    - type: Derived
+      source: Sponsor
+    core: Req
+    mandatory: true
+    data_type: text
+    method: Not derivable; the output remains missing.
+    role: Record Qualifier
+
+- name: DSCAT
+  type: str
+  label: Category for Disposition Event
+  derivation: null
+  verifications:
+  - max_length:
+      max: 40
+  submission:
+    length: 40
+    origins:
+    - type: Derived
+      source: Sponsor
+    core: Req
+    mandatory: true
+    data_type: text
+    method: Not derivable; the output remains missing.
+    role: Record Qualifier
+
+- name: DSSTDTC
+  type: str
+  label: Start Date/Time of Disposition Event
+  derivation: null
+  verifications:
+  - max_length:
+      max: 25
+  submission:
+    length: 25
+    origins:
+    - type: Derived
+      source: Sponsor
+    core: Exp
+    mandatory: false
+    data_type: text
+    method: Not derivable; the output remains missing.
+    role: Timing
+
+rows:
+- id: consent
+  dataset: SRC
+  filter: SRC.I_CONSENTEDDT IS NOT NULL
+  derivations:
+    SUBJECTKEY: SRC.SUBJECTKEY
+    ROWID: SRC.ROWID
+    DSTERM: '''Informed consent obtained'''
+    DSDECOD: '''INFORMED CONSENT OBTAINED'''
+    DSCAT: '''PROTOCOL MILESTONE'''
+    DSSTDTC:
+      date_text:
+        source: SRC.I_CONSENTEDDT
+        forms:
+        - iso
+        - mdy_slash
+        invalid: null
+
+- id: eligible
+  dataset: SRC
+  filter: SRC.I_ELIGIBLE = 'Yes'
+  derivations:
+    SUBJECTKEY: SRC.SUBJECTKEY
+    ROWID: SRC.ROWID
+    DSTERM: '''Determined eligible'''
+    DSDECOD: '''ELIGIBILITY CRITERIA MET'''
+    DSCAT: '''PROTOCOL MILESTONE'''
+    DSSTDTC: null
+
+- id: discontinued
+  dataset: SRC
+  filter: SRC.I_EARLYTERMINATIONREASON IS NOT NULL
+  derivations:
+    SUBJECTKEY: SRC.SUBJECTKEY
+    ROWID: SRC.ROWID
+    DSTERM: SRC.I_EARLYTERMINATIONREASON
+    DSDECOD:
+      mapping:
+        source: SRC.I_EARLYTERMINATIONREASON
+        dict:
+          Withdrew Consent: WITHDRAWAL BY SUBJECT
+          Adverse Event: ADVERSE EVENT
+        unmapped: null
+    DSCAT: '''DISPOSITION EVENT'''
+    DSSTDTC:
+      date_text:
+        source: SRC.I_EARLYTERMINATIONDATE
+        forms:
+        - iso
+        - mdy_slash
+        invalid: null
+
+- id: randomization_workflow
+  dataset: RAND
+  filter: RAND.I_PROFILE IS NOT NULL
+  derivations:
+    SUBJECTKEY: RAND.SUBJECTKEY
+    ROWID: RAND.ROWID
+    DSTERM: '''Randomization workflow record present'''
+    DSDECOD: '''RANDOMIZATION RECORD PRESENT'''
+    DSCAT: '''PROTOCOL MILESTONE'''
+    DSSTDTC:
+      date_text:
+        source: RAND.STARTDATE
+        forms:
+        - iso
+        - mdy_slash
+        invalid: null
+
+submission:
+  label: Disposition
+  class: EVENTS
+  structure: One record per source observation per subject
+  repeating: true
+  mode: historical
+  artifact: ds.xpt
+  comment: Review draft metadata. Historical mode keeps declarations separate
+    from incomplete data; this is not a validated submission. See
+    spec/review/decisions.md.

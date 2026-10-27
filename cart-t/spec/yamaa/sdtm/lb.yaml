@@ -1,0 +1,611 @@
+yamaa: '1.0'
+type: spec
+model: SDTM
+domain: LB
+keys:
+- STUDYID
+- USUBJID
+- LBSEQ
+input:
+  SRC:
+    path: ../../../data/odm/clinical_items.csv
+    types:
+      ROWID: int
+      ITEMROW: int
+  BL:
+    path: ../../../data/odm/baseline_labs.csv
+    types:
+      ROWID: int
+    key:
+    - SUBJECTKEY
+    - EVENTOID
+    - EVENTREPEAT
+  FU:
+    path: ../../../data/odm/laboratory.csv
+    types:
+      ROWID: int
+    key:
+    - ROWID
+base: SRC
+filter: (SRC.FORMNAME = '2. Baseline Labs and Imaging' OR SRC.FORMNAME =
+  'Lab Results') AND SRC.ITEMNAME IN ('AMYLASE', 'BUN', 'CHLORIDE', 'HOMOC',
+  'CREAT', 'EGFR', 'CHOLES', 'TRIG', 'HEMA', 'HEMO', 'RBC', 'WBC') AND
+  SRC.VALUE
+  IS NOT NULL
+
+output:
+  path: ../../../data/sdtm/lb.parquet
+  columns:
+  - STUDYID
+  - DOMAIN
+  - USUBJID
+  - LBSEQ
+  - LBSPID
+  - LBTESTCD
+  - LBTEST
+  - LBCAT
+  - LBORRESU
+  - LBORRES
+  - LBSTRESC
+  - LBSTRESN
+  - LBSTRESU
+  - LBDTC
+  - LBBLFL
+  - VISIT
+  report: ../../../log/lb-report.csv
+  order_by:
+  - variable: STUDYID
+    nulls: last
+  - variable: USUBJID
+    nulls: last
+  - variable: LBSEQ
+    nulls: last
+
+columns:
+- name: SUBJECTKEY
+  type: str
+  label: SUBJECTKEY
+  derivation: SRC.SUBJECTKEY
+
+- name: EVENTOID
+  type: str
+  label: EVENTOID
+  derivation: SRC.EVENTOID
+
+- name: EVENTREPEAT
+  type: str
+  label: EVENTREPEAT
+  derivation: SRC.EVENTREPEAT
+
+- name: ROWID
+  type: int
+  label: ROWID
+  derivation: SRC.ROWID
+
+- name: STUDYID
+  type: str
+  label: Study Identifier
+  derivation: '''CART-T-PILOT'''
+  verifications:
+  - max_length:
+      max: 12
+  submission:
+    length: 12
+    origins:
+    - type: Assigned
+      source: Sponsor
+    core: Req
+    mandatory: true
+    data_type: text
+    key_sequence: 1
+    role: Identifier
+
+- name: DOMAIN
+  type: str
+  label: Domain Abbreviation
+  derivation: '''LB'''
+  verifications:
+  - max_length:
+      max: 2
+  submission:
+    length: 2
+    origins:
+    - type: Assigned
+      source: Sponsor
+    core: Req
+    mandatory: true
+    data_type: text
+    role: Identifier
+
+- name: USUBJID
+  type: str
+  label: Unique Subject Identifier
+  derivation:
+    str_template: CART-T-PILOT-{SRC.SUBJECTKEY}
+  verifications:
+  - max_length:
+      max: 80
+  submission:
+    length: 80
+    origins:
+    - type: Derived
+      source: Sponsor
+    method: CART-T-PILOT followed by the globally unique ODM SubjectKey.
+      Display subject ID is retained in DM.SUBJID.
+    comment: CART-T-PILOT followed by the globally unique ODM SubjectKey.
+      Display subject ID is retained in DM.SUBJID.
+    core: Req
+    mandatory: true
+    data_type: text
+    key_sequence: 2
+    role: Identifier
+
+- name: LBSEQ
+  type: int
+  label: Sequence Number
+  derivation:
+    row_number:
+      window:
+        group_by:
+        - USUBJID
+        order_by:
+        - variable: SRC.ITEMROW
+          nulls: last
+  submission:
+    origins:
+    - type: Derived
+      source: Sponsor
+    method: |-
+      Executable yamaa derivation: row_number:
+        window:
+          group_by:
+          - USUBJID
+          order_by:
+          - variable: SRC.ITEMROW
+            nulls: last
+    core: Req
+    mandatory: true
+    data_type: integer
+    length: 8
+    key_sequence: 3
+    role: Identifier
+
+- name: LBSPID
+  type: str
+  label: Source Item Ordinal
+  derivation: SRC.ITEMROW
+  verifications:
+  - max_length:
+      max: 20
+  submission:
+    length: 20
+    origins:
+    - type: Predecessor
+      description: SRC.ITEMROW
+    comment: ODM SourceOrdinal (item), or first SourceOrdinal in the complete
+      ODM item-group instance. Trace to data/odm/clinical_items.csv or
+      groups.csv.
+    core: Perm
+    mandatory: false
+    data_type: text
+    role: Identifier
+
+- name: LBTESTCD
+  type: str
+  label: Lab Test or Examination Short Name
+  derivation:
+    mapping:
+      source: SRC.ITEMNAME
+      dict:
+        AMYLASE: AMYLASE
+        BUN: UREAN
+        CHLORIDE: CL
+        HOMOC: HOMOCY
+        CREAT: CREAT
+        EGFR: GFR
+        CHOLES: CHOL
+        TRIG: TRIG
+        HEMA: HCT
+        HEMO: HGB
+        RBC: RBC
+        WBC: WBC
+      unmapped: null
+  verifications:
+  - max_length:
+      max: 8
+  - allowed_values:
+      values:
+      - AMYLASE
+      - UREAN
+      - CL
+      - HOMOCY
+      - CREAT
+      - GFR
+      - CHOL
+      - TRIG
+      - HCT
+      - HGB
+      - RBC
+      - WBC
+  submission:
+    length: 8
+    origins:
+    - type: Derived
+      source: Sponsor
+    method: |-
+      Executable yamaa derivation: mapping:
+        source: SRC.ITEMNAME
+        dict:
+          AMYLASE: AMYLASE
+          BUN: UREAN
+          CHLORIDE: CL
+          HOMOC: HOMOCY
+          CREAT: CREAT
+          EGFR: GFR
+          CHOLES: CHOL
+          TRIG: TRIG
+          HEMA: HCT
+          HEMO: HGB
+          RBC: RBC
+          WBC: WBC
+        missing: null
+        unmapped: null
+    core: Req
+    mandatory: true
+    data_type: text
+    codelist: LBTESTCD
+    role: Topic
+
+- name: LBTEST
+  type: str
+  label: Lab Test or Examination Name
+  derivation:
+    mapping:
+      source: SRC.ITEMNAME
+      dict:
+        AMYLASE: Amylase
+        BUN: Urea Nitrogen
+        CHLORIDE: Chloride
+        HOMOC: Homocysteine
+        CREAT: Creatinine
+        EGFR: Glomerular Filtration Rate
+        CHOLES: Cholesterol
+        TRIG: Triglycerides
+        HEMA: Hematocrit
+        HEMO: Hemoglobin
+        RBC: Erythrocytes
+        WBC: Leukocytes
+      unmapped: null
+  verifications:
+  - max_length:
+      max: 40
+  submission:
+    length: 40
+    origins:
+    - type: Derived
+      source: Sponsor
+    method: |-
+      Executable yamaa derivation: mapping:
+        source: SRC.ITEMNAME
+        dict:
+          AMYLASE: Amylase
+          BUN: Urea Nitrogen
+          CHLORIDE: Chloride
+          HOMOC: Homocysteine
+          CREAT: Creatinine
+          EGFR: Glomerular Filtration Rate
+          CHOLES: Cholesterol
+          TRIG: Triglycerides
+          HEMA: Hematocrit
+          HEMO: Hemoglobin
+          RBC: Erythrocytes
+          WBC: Leukocytes
+        missing: null
+        unmapped: null
+    core: Req
+    mandatory: true
+    data_type: text
+    role: Record Qualifier
+
+- name: LBCAT
+  type: str
+  label: Category for Lab Test
+  derivation:
+    mapping:
+      source: SRC.ITEMNAME
+      dict:
+        AMYLASE: CHEMISTRY
+        BUN: CHEMISTRY
+        CHLORIDE: CHEMISTRY
+        HOMOC: CHEMISTRY
+        CREAT: CHEMISTRY
+        EGFR: CHEMISTRY
+        CHOLES: CHEMISTRY
+        TRIG: CHEMISTRY
+        HEMA: HEMATOLOGY
+        HEMO: HEMATOLOGY
+        RBC: HEMATOLOGY
+        WBC: HEMATOLOGY
+      unmapped: null
+  verifications:
+  - max_length:
+      max: 40
+  submission:
+    length: 40
+    origins:
+    - type: Derived
+      source: Sponsor
+    method: |-
+      Executable yamaa derivation: mapping:
+        source: SRC.ITEMNAME
+        dict:
+          AMYLASE: CHEMISTRY
+          BUN: CHEMISTRY
+          CHLORIDE: CHEMISTRY
+          HOMOC: CHEMISTRY
+          CREAT: CHEMISTRY
+          EGFR: CHEMISTRY
+          CHOLES: CHEMISTRY
+          TRIG: CHEMISTRY
+          HEMA: HEMATOLOGY
+          HEMO: HEMATOLOGY
+          RBC: HEMATOLOGY
+          WBC: HEMATOLOGY
+        missing: null
+        unmapped: null
+    core: Exp
+    mandatory: false
+    data_type: text
+    role: Record Qualifier
+
+- name: LBORRESU
+  type: str
+  label: Original Units
+  derivation:
+    mapping:
+      source: SRC.ITEMNAME
+      dict:
+        AMYLASE: U/L
+        BUN: mg/dL
+        CHLORIDE: mmol/L
+        HOMOC: umol/L
+        CREAT: mg/dL
+        EGFR: mL/min/1.73 m2
+        CHOLES: mg/dL
+        TRIG: mg/dL
+        HEMA: '%'
+        HEMO: g/dL
+        RBC: 10^12/L
+        WBC: 10^9/L
+      unmapped: null
+  verifications:
+  - max_length:
+      max: 40
+  submission:
+    length: 40
+    origins:
+    - type: Derived
+      source: Sponsor
+    method: |-
+      Executable yamaa derivation: mapping:
+        source: SRC.ITEMNAME
+        dict:
+          AMYLASE: U/L
+          BUN: mg/dL
+          CHLORIDE: mmol/L
+          HOMOC: umol/L
+          CREAT: mg/dL
+          EGFR: mL/min/1.73 m2
+          CHOLES: mg/dL
+          TRIG: mg/dL
+          HEMA: '%'
+          HEMO: g/dL
+          RBC: 10^12/L
+          WBC: 10^9/L
+        missing: null
+        unmapped: null
+    core: Exp
+    mandatory: false
+    data_type: text
+    role: Record Qualifier
+
+- name: LBORRES
+  type: str
+  label: Result or Finding in Original Units
+  derivation: SRC.VALUE
+  verifications:
+  - max_length:
+      max: 80
+  submission:
+    length: 80
+    origins:
+    - type: Predecessor
+      description: SRC.VALUE
+    core: Exp
+    mandatory: false
+    data_type: text
+    role: Record Qualifier
+
+- name: LBSTRESC
+  type: str
+  label: Character Result/Finding in Std Format
+  derivation: LBORRES
+  verifications:
+  - max_length:
+      max: 80
+  submission:
+    length: 80
+    origins:
+    - type: Derived
+      source: Sponsor
+    method: |-
+      Executable yamaa derivation: LBORRES
+      ...
+    core: Req
+    mandatory: true
+    data_type: text
+    role: Record Qualifier
+
+- name: LBSTRESN
+  type: float
+  label: Numeric Result/Finding in Standard Units
+  derivation:
+    value: LBORRES
+    unconvertible: null
+  submission:
+    significant_digits: 6
+    origins:
+    - type: Derived
+      source: Sponsor
+    method: |-
+      Executable yamaa derivation: value: LBORRES
+      unconvertible: null
+    core: Exp
+    mandatory: false
+    data_type: float
+    length: 8
+    role: Record Qualifier
+
+- name: LBSTRESU
+  type: str
+  label: Standard Units
+  derivation: LBORRESU
+  verifications:
+  - max_length:
+      max: 40
+  submission:
+    length: 40
+    origins:
+    - type: Derived
+      source: Sponsor
+    method: Collected CRF fixed units from the archived form specification;
+      no unit conversion. Requires confirmation of the source CRF unit
+      definitions.
+    comment: Collected CRF fixed units from the archived form specification;
+      no unit conversion. Requires confirmation of the source CRF unit
+      definitions.
+    core: Exp
+    mandatory: false
+    data_type: text
+    role: Record Qualifier
+
+- name: DRAW1
+  type: str
+  label: DRAW1
+  derivation:
+    source:
+      variable: BL.I_DATE_OF_BLOOD_DRAW
+      filter: BL.I_DATE_OF_BLOOD_DRAW IS NOT NULL
+      order_by:
+      - BL.ROWID
+      keep: first
+
+- name: DRAW2
+  type: str
+  label: DRAW2
+  derivation:
+    source:
+      variable: BL.I_DRAWDATE
+      filter: BL.I_DRAWDATE IS NOT NULL
+      order_by:
+      - BL.ROWID
+      keep: first
+
+- name: DATE_RAW
+  type: str
+  label: DATE_RAW
+  derivation:
+    case:
+    - when: SRC.FORMNAME = 'Lab Results'
+      then: FU.I_LABDATE
+    - otherwise:
+        first_available:
+          sources:
+          - DRAW1
+          - DRAW2
+
+- name: LBDTC
+  type: str
+  label: Date/Time of Specimen Collection
+  derivation:
+    date_text:
+      source: DATE_RAW
+      forms:
+      - iso
+      - mdy_slash
+      invalid: null
+  verifications:
+  - max_length:
+      max: 25
+  submission:
+    length: 25
+    origins:
+    - type: Derived
+      source: Sponsor
+    method: Form blood-draw date, or Lab Results.LABDATE from the same complete
+      repeated instance. No scan date or administrative event date substitutes
+      for collection.
+    comment: Form blood-draw date, or Lab Results.LABDATE from the same
+      complete
+      repeated instance. No scan date or administrative event date substitutes
+      for collection.
+    core: Exp
+    mandatory: false
+    data_type: text
+    role: Timing
+
+- name: LBBLFL
+  type: str
+  label: Baseline Flag
+  derivation: null
+  verifications:
+  - max_length:
+      max: 1
+  - allowed_values:
+      values:
+      - N
+      - Y
+  submission:
+    length: 1
+    origins:
+    - type: Derived
+      source: Sponsor
+    comment: No exposure reference exists. A form named Baseline is not
+      sufficient
+      for a treatment baseline flag.
+    core: Perm
+    mandatory: false
+    data_type: text
+    method: No exposure reference exists. A form named Baseline is not
+      sufficient
+      for a treatment baseline flag.
+    codelist: NY
+    role: Record Qualifier
+
+- name: VISIT
+  type: str
+  label: Visit Name
+  derivation: SRC.EVENTNAME
+  verifications:
+  - max_length:
+      max: 80
+  submission:
+    length: 80
+    origins:
+    - type: Predecessor
+      description: SRC.EVENTNAME
+    core: Perm
+    mandatory: false
+    data_type: text
+    role: Timing
+
+submission:
+  label: Laboratory Test Results
+  class: FINDINGS
+  structure: One record per source observation per subject
+  repeating: true
+  mode: historical
+  artifact: lb.xpt
+  comment: Review draft metadata. Historical mode keeps declarations separate
+    from incomplete data; this is not a validated submission. See
+    spec/review/decisions.md.

@@ -1,0 +1,340 @@
+yamaa: '1.0'
+type: spec
+model: SDTM
+domain: IE
+keys:
+- STUDYID
+- USUBJID
+- IESEQ
+input:
+  SRC:
+    path: ../../../data/odm/eligibility.csv
+    types:
+      ROWID: int
+
+output:
+  path: ../../../data/sdtm/ie.parquet
+  columns:
+  - STUDYID
+  - DOMAIN
+  - USUBJID
+  - IESEQ
+  - IESPID
+  - IETESTCD
+  - IETEST
+  - IECAT
+  - IEORRES
+  - IESTRESC
+  - IEDTC
+  - EPOCH
+  report: ../../../log/ie-report.csv
+  order_by:
+  - variable: STUDYID
+    nulls: last
+  - variable: USUBJID
+    nulls: last
+  - variable: IESEQ
+    nulls: last
+
+columns:
+- name: SUBJECTKEY
+  type: str
+  label: SUBJECTKEY
+  derivation: SRC.SUBJECTKEY
+
+- name: EVENTOID
+  type: str
+  label: EVENTOID
+  derivation: SRC.EVENTOID
+
+- name: EVENTREPEAT
+  type: str
+  label: EVENTREPEAT
+  derivation: SRC.EVENTREPEAT
+
+- name: ROWID
+  type: int
+  label: ROWID
+  derivation: SRC.ROWID
+
+- name: STUDYID
+  type: str
+  label: Study Identifier
+  derivation: '''CART-T-PILOT'''
+  verifications:
+  - max_length:
+      max: 12
+  submission:
+    length: 12
+    origins:
+    - type: Assigned
+      source: Sponsor
+    core: Req
+    mandatory: true
+    data_type: text
+    key_sequence: 1
+    role: Identifier
+
+- name: DOMAIN
+  type: str
+  label: Domain Abbreviation
+  derivation: '''IE'''
+  verifications:
+  - max_length:
+      max: 2
+  submission:
+    length: 2
+    origins:
+    - type: Assigned
+      source: Sponsor
+    core: Req
+    mandatory: true
+    data_type: text
+    role: Identifier
+
+- name: USUBJID
+  type: str
+  label: Unique Subject Identifier
+  derivation:
+    str_template: CART-T-PILOT-{SRC.SUBJECTKEY}
+  verifications:
+  - max_length:
+      max: 80
+  submission:
+    length: 80
+    origins:
+    - type: Derived
+      source: Sponsor
+    method: CART-T-PILOT followed by the globally unique ODM SubjectKey.
+      Display subject ID is retained in DM.SUBJID.
+    comment: CART-T-PILOT followed by the globally unique ODM SubjectKey.
+      Display subject ID is retained in DM.SUBJID.
+    core: Req
+    mandatory: true
+    data_type: text
+    key_sequence: 2
+    role: Identifier
+
+- name: IESEQ
+  type: int
+  label: Sequence Number
+  derivation:
+    row_number:
+      window:
+        group_by:
+        - USUBJID
+        order_by:
+        - variable: SRC.ROWID
+          nulls: last
+  submission:
+    origins:
+    - type: Derived
+      source: Sponsor
+    method: |-
+      Executable yamaa derivation: row_number:
+        window:
+          group_by:
+          - USUBJID
+          order_by:
+          - variable: SRC.ROWID
+            nulls: last
+    core: Req
+    mandatory: true
+    data_type: integer
+    length: 8
+    key_sequence: 3
+    role: Identifier
+
+- name: IESPID
+  type: str
+  label: Source Group Ordinal
+  derivation: SRC.ROWID
+  verifications:
+  - max_length:
+      max: 20
+  submission:
+    length: 20
+    origins:
+    - type: Predecessor
+      description: SRC.ROWID
+    comment: ODM SourceOrdinal (item), or first SourceOrdinal in the complete
+      ODM item-group instance. Trace to data/odm/clinical_items.csv or
+      groups.csv.
+    core: Perm
+    mandatory: false
+    data_type: text
+    role: Identifier
+
+- name: IETESTCD
+  type: str
+  label: Inclusion/Exclusion Criterion Short Name
+  derivation: null
+  verifications:
+  - max_length:
+      max: 8
+  submission:
+    length: 8
+    origins:
+    - type: Derived
+      source: Sponsor
+    core: Req
+    mandatory: true
+    data_type: text
+    method: Not derivable; the output remains missing.
+    role: Topic
+
+- name: IETEST
+  type: str
+  label: Inclusion/Exclusion Criterion
+  derivation: null
+  verifications:
+  - max_length:
+      max: 200
+  submission:
+    length: 200
+    origins:
+    - type: Derived
+      source: Sponsor
+    core: Req
+    mandatory: true
+    data_type: text
+    method: Not derivable; the output remains missing.
+    role: Record Qualifier
+
+- name: IECAT
+  type: str
+  label: Inclusion/Exclusion Category
+  derivation: null
+  verifications:
+  - max_length:
+      max: 20
+  submission:
+    length: 20
+    origins:
+    - type: Derived
+      source: Sponsor
+    core: Req
+    mandatory: true
+    data_type: text
+    method: Not derivable; the output remains missing.
+    role: Record Qualifier
+
+- name: IEORRES
+  type: str
+  label: I/E Criterion Original Result
+  derivation: null
+  verifications:
+  - max_length:
+      max: 1
+  submission:
+    length: 1
+    origins:
+    - type: Derived
+      source: Sponsor
+    core: Req
+    mandatory: true
+    data_type: text
+    method: Not derivable; the output remains missing.
+    role: Record Qualifier
+
+- name: IESTRESC
+  type: str
+  label: Standardized Character Result
+  derivation: null
+  verifications:
+  - max_length:
+      max: 1
+  submission:
+    length: 1
+    origins:
+    - type: Derived
+      source: Sponsor
+    core: Req
+    mandatory: true
+    data_type: text
+    method: Not derivable; the output remains missing.
+    role: Record Qualifier
+
+- name: IEDTC
+  type: str
+  label: Date/Time of Collection
+  derivation:
+    date_text:
+      source: SRC.STARTDATE
+      forms:
+      - iso
+      - mdy_slash
+      invalid: null
+  verifications:
+  - max_length:
+      max: 25
+  submission:
+    length: 25
+    origins:
+    - type: Derived
+      source: Sponsor
+    method: Eligibility event date; assessment date proxy only.
+    comment: Eligibility event date; assessment date proxy only.
+    core: Exp
+    mandatory: false
+    data_type: text
+    role: Timing
+
+- name: EPOCH
+  type: str
+  label: Epoch
+  derivation: '''SCREENING'''
+  verifications:
+  - max_length:
+      max: 20
+  submission:
+    length: 20
+    origins:
+    - type: Assigned
+      source: Sponsor
+    core: Exp
+    mandatory: false
+    data_type: text
+    role: Timing
+
+rows:
+- id: inc1
+  dataset: SRC
+  filter: SRC.I_INC1EVAL = 'fail'
+  derivations:
+    IETESTCD: '''INC1'''
+    IETEST: '''Disease history inclusion evaluation'''
+    IECAT: '''INCLUSION'''
+    IEORRES: '''N'''
+    IESTRESC: '''N'''
+
+- id: inc2
+  dataset: SRC
+  filter: SRC.I_INC2EVAL = 'fail'
+  derivations:
+    IETESTCD: '''INC2'''
+    IETEST: '''Organ function inclusion evaluation'''
+    IECAT: '''INCLUSION'''
+    IEORRES: '''N'''
+    IESTRESC: '''N'''
+
+- id: exc
+  dataset: SRC
+  filter: SRC.I_EXCEVAL = 'fail'
+  derivations:
+    IETESTCD: '''EXC'''
+    IETEST: '''Safety exclusion evaluation'''
+    IECAT: '''EXCLUSION'''
+    IEORRES: '''Y'''
+    IESTRESC: '''Y'''
+
+submission:
+  label: Inclusion Exclusion Exceptions
+  class: FINDINGS
+  structure: One record per source observation per subject
+  repeating: true
+  mode: historical
+  artifact: ie.xpt
+  comment: Review draft metadata. Historical mode keeps declarations separate
+    from incomplete data; this is not a validated submission. See
+    spec/review/decisions.md.

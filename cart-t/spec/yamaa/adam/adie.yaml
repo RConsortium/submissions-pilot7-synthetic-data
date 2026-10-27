@@ -1,0 +1,394 @@
+yamaa: '1.0'
+type: spec
+model: ADaM
+domain: ADIE
+keys:
+- STUDYID
+- USUBJID
+- ASEQ
+input:
+  ADSL:
+    path: ../../../data/adam/adsl-yamaa.parquet
+    schema: ../adam/adsl.yaml
+    key:
+    - USUBJID
+  IE:
+    path: ../../../data/sdtm/ie.parquet
+    schema: ../sdtm/ie.yaml
+base: IE
+
+output:
+  path: ../../../data/adam/adie-yamaa.parquet
+  columns:
+  - STUDYID
+  - USUBJID
+  - IESEQ
+  - IESPID
+  - IETESTCD
+  - IETEST
+  - IECAT
+  - IEORRES
+  - IESTRESC
+  - IEDTC
+  - EPOCH
+  - SUBJID
+  - SITEID
+  - AGE
+  - AGEGR1
+  - SEX
+  - RACE
+  - STRAT1
+  - STRAT1L
+  - TRT01P
+  - TRT01PN
+  - TRT01A
+  - TRT01AN
+  - TRTSDT
+  - TRTEDT
+  - RANDFL
+  - ITTCAND
+  - SAFFL
+  - EFFFL
+  - ASEQ
+  - ASTDT
+  - AENDT
+  - ASTDY
+  - AENDY
+  - TRTP
+  - TRTA
+  - SRCDOM
+  - SRCSEQ
+  - SRCVAR
+  - ANL01FL
+  report: ../../../log/adie-report.csv
+  order_by:
+  - variable: STUDYID
+    nulls: last
+  - variable: USUBJID
+    nulls: last
+  - variable: ASEQ
+    nulls: last
+
+columns:
+- name: STUDYID
+  type: str
+  label: Study Identifier
+  derivation: IE.STUDYID
+  verifications:
+  - max_length:
+      max: 12
+  submission:
+    length: 12
+    origins:
+    - type: Predecessor
+      description: IE.STUDYID
+    core: Req
+    mandatory: true
+    data_type: text
+    key_sequence: 1
+
+- name: USUBJID
+  type: str
+  label: Unique Subject Identifier
+  derivation: IE.USUBJID
+  verifications:
+  - max_length:
+      max: 80
+  submission:
+    length: 80
+    origins:
+    - type: Predecessor
+      description: IE.USUBJID
+    core: Req
+    mandatory: true
+    data_type: text
+    key_sequence: 2
+
+- copy:
+    dataset: IE
+    columns:
+    - IESEQ
+    - IETESTCD
+    - IETEST
+    - IECAT
+    - IEORRES
+    submission:
+      core: Req
+      mandatory: false
+
+- copy:
+    dataset: IE
+    columns:
+    - IESPID
+    - IESTRESC
+    - IEDTC
+    - EPOCH
+    submission:
+      core: Perm
+      mandatory: false
+
+- copy:
+    dataset: ADSL
+    columns:
+    - SUBJID
+    - SITEID
+    - AGE
+    - SEX
+    - RACE
+    - TRT01P
+    submission:
+      core: Req
+      mandatory: false
+
+- copy:
+    dataset: ADSL
+    columns:
+    - AGEGR1
+    - STRAT1
+    - STRAT1L
+    - TRT01PN
+    - TRT01A
+    - TRT01AN
+    - RANDFL
+    - ITTCAND
+    - SAFFL
+    - EFFFL
+    submission:
+      core: Perm
+      mandatory: false
+
+- name: TRTSDT
+  type: date
+  label: Date of First Exposure to Treatment
+  derivation: ADSL.TRTSDT
+  submission:
+    core: Perm
+    mandatory: false
+    data_type: integer
+    length: 8
+    display_format: DATE9.
+    origins:
+    - type: Predecessor
+      description: ADSL.TRTSDT
+
+- name: TRTEDT
+  type: date
+  label: Date of Last Exposure to Treatment
+  derivation: ADSL.TRTEDT
+  submission:
+    core: Perm
+    mandatory: false
+    data_type: integer
+    length: 8
+    display_format: DATE9.
+    origins:
+    - type: Predecessor
+      description: ADSL.TRTEDT
+
+- name: ASEQ
+  type: int
+  label: Analysis Sequence Number
+  derivation: IE.IESEQ
+  submission:
+    origins:
+    - type: Predecessor
+      description: IE.IESEQ
+    core: Req
+    mandatory: true
+    data_type: integer
+    length: 8
+    key_sequence: 3
+
+- name: ASTDT
+  type: date
+  label: Analysis Start Date
+  derivation:
+    impute:
+      type: date
+      source: IE.IEDTC
+      invalid: null
+  submission:
+    origins:
+    - type: Derived
+    method: |-
+      Executable yamaa derivation: impute:
+        type: date
+        source: IE.IEDTC
+        invalid: null
+    core: Perm
+    mandatory: false
+    data_type: integer
+    length: 8
+    display_format: DATE9.
+
+- name: AENDT
+  type: date
+  label: Analysis End Date
+  derivation: null
+  submission:
+    origins:
+    - type: Derived
+    core: Perm
+    mandatory: false
+    data_type: integer
+    length: 8
+    display_format: DATE9.
+    method: Not derivable; the output remains missing.
+
+- name: ASTDY
+  type: int
+  label: Analysis Start Relative Day
+  derivation:
+    study_day:
+      source: ASTDT
+      reference: TRTSDT
+  submission:
+    origins:
+    - type: Derived
+    method: |-
+      Executable yamaa derivation: study_day:
+        source: ASTDT
+        reference: TRTSDT
+    core: Perm
+    mandatory: false
+    data_type: integer
+    length: 8
+
+- name: AENDY
+  type: int
+  label: Analysis End Relative Day
+  derivation:
+    study_day:
+      source: AENDT
+      reference: TRTSDT
+  submission:
+    origins:
+    - type: Derived
+    method: |-
+      Executable yamaa derivation: study_day:
+        source: AENDT
+        reference: TRTSDT
+    core: Perm
+    mandatory: false
+    data_type: integer
+    length: 8
+
+- name: TRTP
+  type: str
+  label: Planned Treatment
+  derivation: TRT01P
+  verifications:
+  - max_length:
+      max: 40
+  submission:
+    length: 40
+    origins:
+    - type: Derived
+    method: |-
+      Executable yamaa derivation: TRT01P
+      ...
+    core: Perm
+    mandatory: false
+    data_type: text
+
+- name: TRTA
+  type: str
+  label: Actual Treatment
+  derivation: TRT01A
+  verifications:
+  - max_length:
+      max: 40
+  submission:
+    length: 40
+    origins:
+    - type: Derived
+    method: |-
+      Executable yamaa derivation: TRT01A
+      ...
+    core: Perm
+    mandatory: false
+    data_type: text
+
+- name: SRCDOM
+  type: str
+  label: Source Domain
+  derivation: '''IE'''
+  verifications:
+  - max_length:
+      max: 2
+  submission:
+    length: 2
+    origins:
+    - type: Assigned
+    core: Perm
+    mandatory: false
+    data_type: text
+
+- name: SRCSEQ
+  type: int
+  label: Source Sequence Number
+  derivation: IE.IESEQ
+  submission:
+    origins:
+    - type: Predecessor
+      description: IE.IESEQ
+    core: Perm
+    mandatory: false
+    data_type: integer
+    length: 8
+
+- name: SRCVAR
+  type: str
+  label: Source Variable
+  derivation: '''IETESTCD'''
+  verifications:
+  - max_length:
+      max: 8
+  submission:
+    length: 8
+    origins:
+    - type: Assigned
+    core: Perm
+    mandatory: false
+    data_type: text
+
+- name: ANL01FL
+  type: str
+  label: Analysis Record Flag 01
+  derivation: null
+  verifications:
+  - max_length:
+      max: 1
+  - allowed_values:
+      values:
+      - N
+      - Y
+  submission:
+    length: 1
+    origins:
+    - type: Derived
+    comment: No approved analysis-selection rule. These records are
+      supplied for review.
+    core: Perm
+    mandatory: false
+    data_type: text
+    method: No approved analysis-selection rule. These records are
+      supplied for review.
+    codelist: NY
+
+verifications:
+- assert:
+    id: recorded_end_before_start
+    require: AENDT IS NULL OR ASTDT IS NULL OR AENDT >= ASTDT
+    severity: warning
+
+submission:
+  label: Eligibility Exceptions Analysis
+  class: OCCURRENCE DATA STRUCTURE
+  structure: One record per source observation per subject
+  repeating: true
+  mode: historical
+  artifact: adie.xpt
+  comment: Review draft metadata. Historical mode keeps declarations
+    separate from incomplete data; this is not a validated submission.
+    See spec/review/decisions.md.

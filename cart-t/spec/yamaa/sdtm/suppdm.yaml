@@ -1,0 +1,237 @@
+yamaa: '1.0'
+type: spec
+model: SDTM
+domain: SUPPDM
+keys:
+- STUDYID
+- USUBJID
+- QNAM
+input:
+  SRC:
+    path: ../../../data/odm/randomization.csv
+    types:
+      ROWID: int
+base: SRC
+filter: SRC.I_PROFILE IS NOT NULL
+
+output:
+  path: ../../../data/sdtm/suppdm.parquet
+  columns:
+  - STUDYID
+  - RDOMAIN
+  - USUBJID
+  - IDVAR
+  - IDVARVAL
+  - QNAM
+  - QLABEL
+  - QVAL
+  - QORIG
+  - QEVAL
+  report: ../../../log/suppdm-report.csv
+  order_by:
+  - variable: STUDYID
+    nulls: last
+  - variable: USUBJID
+    nulls: last
+  - variable: QNAM
+    nulls: last
+
+columns:
+- name: STUDYID
+  type: str
+  label: Study Identifier
+  derivation: '''CART-T-PILOT'''
+  verifications:
+  - max_length:
+      max: 12
+  submission:
+    length: 12
+    origins:
+    - type: Assigned
+      source: Sponsor
+    core: Req
+    mandatory: true
+    data_type: text
+    key_sequence: 1
+    role: Identifier
+
+- name: RDOMAIN
+  type: str
+  label: RDOMAIN
+  derivation: '''DM'''
+  verifications:
+  - max_length:
+      max: 2
+  submission:
+    length: 2
+    origins:
+    - type: Assigned
+      source: Sponsor
+    core: Perm
+    mandatory: false
+    data_type: text
+    role: Identifier
+
+- name: USUBJID
+  type: str
+  label: Unique Subject Identifier
+  derivation:
+    str_template: CART-T-PILOT-{SRC.SUBJECTKEY}
+  verifications:
+  - max_length:
+      max: 80
+  submission:
+    length: 80
+    origins:
+    - type: Derived
+      source: Sponsor
+    method: 'Executable yamaa derivation: str_template:
+      CART-T-PILOT-{SRC.SUBJECTKEY}'
+    core: Req
+    mandatory: true
+    data_type: text
+    key_sequence: 2
+    role: Identifier
+
+- name: IDVAR
+  type: str
+  label: IDVAR
+  derivation: null
+  verifications:
+  - max_length:
+      max: 8
+  submission:
+    length: 8
+    origins:
+    - type: Derived
+      source: Sponsor
+    core: Perm
+    mandatory: false
+    data_type: text
+    method: Not derivable; the output remains missing.
+    role: Identifier
+
+- name: IDVARVAL
+  type: str
+  label: IDVARVAL
+  derivation: null
+  verifications:
+  - max_length:
+      max: 40
+  submission:
+    length: 40
+    origins:
+    - type: Derived
+      source: Sponsor
+    core: Perm
+    mandatory: false
+    data_type: text
+    method: Not derivable; the output remains missing.
+    role: Identifier
+
+- name: QNAM
+  type: str
+  label: QNAM
+  derivation: '''RANDPROF'''
+  verifications:
+  - max_length:
+      max: 8
+  submission:
+    length: 8
+    origins:
+    - type: Assigned
+      source: Sponsor
+    core: Req
+    mandatory: true
+    data_type: text
+    key_sequence: 3
+    role: Identifier
+
+- name: QLABEL
+  type: str
+  label: QLABEL
+  derivation: '''Recorded Randomization Phenotype'''
+  verifications:
+  - max_length:
+      max: 40
+  submission:
+    length: 40
+    origins:
+    - type: Assigned
+      source: Sponsor
+    core: Perm
+    mandatory: false
+    data_type: text
+    role: Record Qualifier
+
+- name: QVAL
+  type: str
+  label: QVAL
+  derivation:
+    str_replace:
+      source: SRC.I_PROFILE
+      pattern: ^\s+|\s+$
+      replacement: ''
+  verifications:
+  - max_length:
+      max: 80
+  submission:
+    length: 80
+    origins:
+    - type: Derived
+      source: Sponsor
+    method: |-
+      Executable yamaa derivation: str_replace:
+        source: SRC.I_PROFILE
+        pattern: ^\s+|\s+$
+        replacement: ''
+    core: Perm
+    mandatory: false
+    data_type: text
+    role: Record Qualifier
+
+- name: QORIG
+  type: str
+  label: QORIG
+  derivation: '''CRF'''
+  verifications:
+  - max_length:
+      max: 8
+  submission:
+    length: 8
+    origins:
+    - type: Assigned
+      source: Sponsor
+    core: Perm
+    mandatory: false
+    data_type: text
+    role: Record Qualifier
+
+- name: QEVAL
+  type: str
+  label: QEVAL
+  derivation: null
+  verifications:
+  - max_length:
+      max: 40
+  submission:
+    length: 40
+    origins:
+    - type: Derived
+      source: Sponsor
+    core: Perm
+    mandatory: false
+    data_type: text
+    method: Not derivable; the output remains missing.
+    role: Record Qualifier
+
+submission:
+  label: Supplemental Demographics
+  class: RELATIONSHIP
+  structure: One record per source observation per subject
+  repeating: true
+  mode: historical
+  artifact: suppdm.xpt
+  comment: Review draft metadata. Historical mode keeps declarations separate
+    from incomplete data; this is not a validated submission. See
+    spec/review/decisions.md.

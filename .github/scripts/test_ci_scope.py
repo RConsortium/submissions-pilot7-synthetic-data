@@ -60,6 +60,18 @@ class ScopeTests(unittest.TestCase):
             self.assertEqual(self.scope(path)['studies'], [
                 {'study': 'submission-pilot3', 'yamaa': True, 'core': False, 'r': False}])
 
+    def test_source_pipeline_changes_select_its_study_before_sdtm_exists(self):
+        manifest = self.root / '.github/yamaa-studies.json'
+        entries = json.loads(manifest.read_text())
+        entries['cdiscpilot01']['prepare'] = 'program/run.py'
+        manifest.write_text(json.dumps(entries))
+        for path in ('cdiscpilot01/program/odm/extract.py',
+                     'cdiscpilot01/program/engine.py',
+                     'cdiscpilot01/data/odm/source.xml'):
+            with self.subTest(path=path):
+                self.assertEqual(self.scope(path)['studies'], [
+                    {'study': 'cdiscpilot01', 'yamaa': True, 'core': False, 'r': False}])
+
     def test_data_change_combines_yamaa_and_core_in_one_job(self):
         self.assertEqual(self.scope('submission-pilot5/data/sdtm/ae.parquet')['studies'], [
             {'study': 'submission-pilot5', 'yamaa': True, 'core': True, 'r': False}])
