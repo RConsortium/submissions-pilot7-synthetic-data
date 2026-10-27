@@ -180,8 +180,8 @@ columns:
     def test_home_page_shows_review_counts_separately_and_rejects_stale_summary(self):
         target = self.generate()
         table = "\n".join(build_table(self.root, self.root / ".build/validation"))
-        self.assertIn("Datasets matching reference", table)
-        self.assertIn("Cells in matching datasets", table)
+        self.assertIn("Published ADaM reference agreement", table)
+        self.assertIn("No official reference", table)
         self.assertIn("[0 findings](studies/future-study.md#future-study/overview)", table)
         self.assertIn("0 critical; 0 non-critical; 0 needing assessment", table)
         self.assertIn("Review pending", table)

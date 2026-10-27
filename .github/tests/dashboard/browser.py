@@ -559,7 +559,16 @@ def check(browser, base, site_dir, screenshots):
     expect(home).to_contain_text("Cells in matching datasets")
     expect(home).to_contain_text("Consistency review")
     expect(home).to_contain_text("needing assessment")
+    expect(home.locator("thead th")).to_have_text([
+        "Study", "Published ADaM reference agreement", "Consistency review"
+    ])
+    assert home.evaluate("region => region.scrollWidth <= region.clientWidth + 1")
     capture(page, screenshots, "home-comparison-summary.png")
+    page.set_viewport_size({"width": 375, "height": 1000})
+    assert page.evaluate("document.documentElement.scrollWidth <= innerWidth")
+    assert home.evaluate("region => region.scrollWidth <= region.clientWidth + 1")
+    capture(page, screenshots, "home-comparison-phone.png")
+    page.set_viewport_size({"width": 1600, "height": 1000})
     page.go_back()
     first_badge = matrix.locator("a.report-issues").first
     issue_count = int(first_badge.inner_text().split()[0])

@@ -33,9 +33,8 @@ REPORTS = ROOT / ".build" / "validation"
 
 BEGIN = "<!-- pilot-metrics:begin -->"
 END = "<!-- pilot-metrics:end -->"
-HEADER = ["| Study | Datasets matching reference | Columns in matching datasets | Cells in matching datasets | Consistency review |",
-          "| --- | --- | --- | --- | --- |"]
-PENDING_DATASETS = "n/a"
+HEADER = ["| Study | Published ADaM reference agreement | Consistency review |",
+          "| --- | --- | --- |"]
 
 
 def _percent(matched, total):
@@ -46,6 +45,17 @@ def _percent(matched, total):
 
 def _millions(value):
     return f"{value / 1e6:.1f}M"
+
+
+def reference_cell(matched, reference):
+    if not reference[0]:
+        return "No official reference"
+    return (
+        f"Datasets matching reference: **{matched[0]} / {reference[0]} "
+        f"({_percent(matched[0], reference[0])})**<br>"
+        f"Columns in matching datasets: {matched[1]} / {reference[1]}<br>"
+        f"Cells in matching datasets: {_millions(matched[2])} / {_millions(reference[2])}"
+    )
 
 
 def build_table(root, reports_dir):
@@ -85,20 +95,14 @@ def build_table(root, reports_dir):
             if entry["comparison"] == "official":
                 raise ValueError(f"{name}: official reference datasets are missing")
             rows.append(f"| [{title}](studies/{name}.md) | "
-                        f"{PENDING_DATASETS} | n/a | n/a | {status} |")
+                        f"No official reference | {status} |")
             continue
         matched = matched_totals(report)
         for i in range(3):
             total_matched[i] += matched[i]
             total_reference[i] += reference[i]
-        rows.append(f"| [{title}](studies/{name}.md) | "
-                    f"{matched[0]} / {reference[0]} ({_percent(matched[0], reference[0])}) | "
-                    f"{matched[1]} / {reference[1]} | "
-                    f"{_millions(matched[2])} / {_millions(reference[2])} | {status} |")
-    overall = (f"| Overall | {total_matched[0]} / {total_reference[0]} "
-               f"({_percent(total_matched[0], total_reference[0])}) | "
-               f"{total_matched[1]} / {total_reference[1]} | "
-               f"{_millions(total_matched[2])} / {_millions(total_reference[2])} | "
+        rows.append(f"| [{title}](studies/{name}.md) | {reference_cell(matched, reference)} | {status} |")
+    overall = (f"| Overall | {reference_cell(total_matched, total_reference)} | "
                f"{len(all_issues)} findings<br>{review_breakdown(all_issues)} |")
     return HEADER + [overall] + rows
 
