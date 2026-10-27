@@ -48,9 +48,10 @@ export function createReport(ctx) {
         (!state.kind || i.kind === state.kind) &&
         (!state.comparison || i.comparison === state.comparison) &&
         (!state.reviewStatus || i.review === state.reviewStatus) &&
-        (exactScope
-          ? scope(i)
-          : issueSearchText(i, report).toLowerCase().includes(q)),
+        (!q ||
+          (exactScope
+            ? scope(i)
+            : issueSearchText(i, report).toLowerCase().includes(q))),
     );
   }
   function findingRows() {
@@ -66,6 +67,18 @@ export function createReport(ctx) {
     const entries = (values) => values.map((v) => [v, v.replaceAll("_", " ")]);
     return `<div class="report-filters"><label class="search-field"><span class="field-label">Search issues</span><input id="finding-search" type="search" value="${esc(state.findingSearch)}" placeholder="Variable, issue, document or rule..."></label>${select("finding-comparison", "Comparison", Object.entries(comparisons), state.comparison)}${select("finding-kind", "Issue type", entries(KINDS), state.kind)}${select("issue-review", "Agent review", entries(REVIEWS), state.reviewStatus)}<button class="button" id="clear-findings">Clear filters</button></div><div id="finding-results">${findingRows()}</div>`;
   }
+  function expandTrace(details) {
+    if (!details.open) return;
+    const host = details.querySelector("[data-issue-trace]");
+    if (!host || host.dataset.loaded === "true") return;
+    const issue = findIssue(
+      ctx.report,
+      details.closest("[data-finding-id]")?.dataset.findingId,
+    );
+    if (!issue) return;
+    host.innerHTML = issueTrace(issue, ctx.report);
+    host.dataset.loaded = "true";
+  }
   function drawer() {
     const { state, esc, byId, root, report } = ctx;
     const issue = findIssue(report, state.evidence),
@@ -78,5 +91,12 @@ export function createReport(ctx) {
     }
     host.innerHTML = `<aside class="evidence-drawer" aria-label="Source evidence"><header><div><span class="eyebrow">CONSISTENCY ISSUE</span><h2>${esc(issue.dataset + (issue.variable ? "." + issue.variable : ""))}</h2></div><button class="button" id="close-evidence" aria-label="Close source evidence">Close</button></header><h3>${esc(issue.title)}</h3><p>${esc(issue.summary)}</p><p>${esc(impactText(issue))}</p>${issueTrace(issue, report)}<button class="button" data-comment>Comment on this issue</button></aside>`;
   }
-  return { allFindings, findingItems, findingRows, findingsView, drawer };
+  return {
+    allFindings,
+    findingItems,
+    findingRows,
+    findingsView,
+    expandTrace,
+    drawer,
+  };
 }

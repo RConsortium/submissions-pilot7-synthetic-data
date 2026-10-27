@@ -106,6 +106,7 @@ def check(browser, base, site_dir, screenshots):
         page.get_by_role("button", name="Consistency findings", exact=True).click()
         expect(page.locator(".result-count")).to_have_text(f"{len(issues)} of {len(issues)} issues \u00b7 {checks} supporting checks")
         expect(page.locator(".consistency-table tbody tr[data-finding-id]")).to_have_count(len(issues))
+        expect(page.locator(".consistency-table .finding-evidence")).to_have_count(0)
         expect(page.get_by_role("button", name="Copy review context", exact=True)).to_have_count(0)
     # An explicit predecessor column retains its complete authored block,
     # including historical metadata, and opens its resolved derivation.
@@ -327,6 +328,7 @@ def check(browser, base, site_dir, screenshots):
     page.locator("#finding-search").fill("imputation")
     expect(page.locator(".consistency-table tbody tr")).to_have_count(1)
     expect(page.locator(".consistency-table tbody")).to_contain_text("ADAE.ASTDT")
+    expect(page.locator(".finding-evidence")).to_have_count(0)
     page.locator(".finding-trace > summary").click()
     expect(page.locator(".finding-evidence")).to_be_visible()
     expect(page.locator(".consistency-table tbody")).to_contain_text("No issue-specific data comparison")

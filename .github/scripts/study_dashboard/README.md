@@ -226,6 +226,9 @@ checks and adds document links. `issues.py` groups them using the versioned
 `docs/assets/dashboard/issues.js` renders concise issue rows and progressively
 expanded trace evidence from that contract. Both the metric and the static study
 report count issues. The table separately counts unique supporting checks.
+Closed trace panels keep their full evidence out of the initial DOM. Opening a
+panel renders its complete trace once, including source context and check audit;
+the workspace evidence drawer uses the same trace renderer.
 
 Author `<study>/spec/review/<dataset>-issues.json` to group related checks.
 Inventory every check and its basis hash, then write short issue titles,

@@ -103,7 +103,7 @@ import { mountSynthetic } from "./synthetic.js";
   const { frame } = createShell(ctx),
     { workspace, applyHighlight, paintTables, fitWorkbench, copySpecification } =
       createWorkspace(ctx);
-  const { findingRows, findingsView, drawer } = createReport(ctx),
+  const { findingRows, findingsView, expandTrace, drawer } = createReport(ctx),
     { commentsView, loadComments } = createComments(ctx);
   const sourceDocuments = createSourceDocuments(ctx),
     { materialsView } = sourceDocuments;
@@ -297,6 +297,14 @@ import { mountSynthetic } from "./synthetic.js";
       el.checked = state.subjects.includes(el.dataset.subject);
     await refreshRows();
   }
+  document.addEventListener(
+    "toggle",
+    (event) => {
+      if (root()?.contains(event.target) && event.target.matches(".finding-trace"))
+        expandTrace(event.target);
+    },
+    true,
+  );
   document.addEventListener("click", async (event) => {
     if (event.target.closest("#reload-synthetic")) {
       mount();

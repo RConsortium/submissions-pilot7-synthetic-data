@@ -9,6 +9,7 @@ import {
   findIssue,
   impactText,
   issueRow,
+  issueTrace,
   readReview,
 } from "../../../docs/assets/dashboard/issues.js";
 import { createShell } from "../../../docs/assets/dashboard/shell.js";
@@ -122,9 +123,8 @@ test("the metric and listing count issues separately from supporting checks", ()
 });
 
 test("trace shows selected quotes and comparisons once, with full context and check audit expandable", () => {
-  const html = issueRow(issue, report);
+  const html = issueTrace(issue, report);
   for (const fragment of [
-    "Partial-date rule differs",
     "Rule comparison",
     "Expected",
     "Observed",
@@ -145,6 +145,56 @@ test("trace shows selected quotes and comparisons once, with full context and ch
     1,
   );
   assert.ok(!html.includes("<value>"));
+});
+
+test("closed finding rows defer evidence and an opened trace is populated only once", () => {
+  const row = issueRow(issue, report);
+  assert.match(row, /Partial-date rule differs/);
+  assert.ok(!row.includes("finding-evidence"));
+  assert.ok(!row.includes("Use &lt;first&gt; day"));
+  let html = "",
+    writes = 0;
+  const host = {
+    dataset: {},
+    set innerHTML(value) {
+      html = value;
+      writes++;
+    },
+  };
+  const details = {
+    open: false,
+    querySelector: () => host,
+    closest: () => ({ dataset: { findingId: issue.id } }),
+  };
+  const view = createReport({ report, state: state(), esc });
+  view.expandTrace(details);
+  assert.equal(writes, 0);
+  details.open = true;
+  view.expandTrace(details);
+  assert.equal(writes, 1);
+  assert.match(html, /Use &lt;first&gt; day/);
+  assert.match(html, /2 \/ 3 records differ/);
+  details.open = false;
+  view.expandTrace(details);
+  details.open = true;
+  view.expandTrace(details);
+  assert.equal(writes, 1);
+});
+
+test("an empty finding search does not serialize complete evidence", () => {
+  const data = {
+    ...report,
+    review: {
+      ...report.review,
+      evidence: [{
+        ...source,
+        toJSON() { throw Error("Full evidence was serialized"); },
+      }],
+    },
+  };
+  const view = createReport({ report: data, state: state(), esc });
+  assert.deepEqual(view.findingItems(), [issue]);
+  assert.match(view.findingRows(), /1 of 1 issue/);
 });
 
 test("search includes check evidence while type and agent review filter independently", () => {
@@ -210,7 +260,7 @@ test("unmeasured impact stays distinct from zero observed differences and contex
     trace: [{ evidence_id: "comparison", role: "context" }],
   };
   assert.match(
-    issueRow(contextual, report),
+    issueTrace(contextual, report),
     /Context comparison; excluded from issue impact/,
   );
 });
