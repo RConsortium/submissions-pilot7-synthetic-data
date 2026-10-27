@@ -29,6 +29,8 @@ def artifact_snapshot(root, study):
         ".github/scripts/study_artifacts.py",
         ".github/scripts/study_define.py",
         ".github/scripts/define_metadata.py",
+        ".github/scripts/legacy_define.py",
+        ".github/scripts/compare_legacy_define.py",
         ".github/scripts/study_evidence.py",
         ".github/scripts/study_dashboard/specifications.py",
         ".github/scripts/compare_adam.py",

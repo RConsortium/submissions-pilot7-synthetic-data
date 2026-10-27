@@ -7,6 +7,7 @@ import xml.etree.ElementTree as ET
 import yaml
 
 from define_metadata import compare
+from compare_legacy_define import compare_legacy
 
 
 def version(path):
@@ -43,7 +44,25 @@ def check_define(root, study, project):
     if submission.status != "succeeded":
         raise ValueError(str(submission.issues.to_pylist()))
     submission.save()
-    comparison = compare(reference, candidate)
+    if record["adam_version"] == "1.0.0":
+        legacy = compare_legacy(reference, candidate)
+        # The full field inventory belongs in the reproduction artifact. Keep
+        # dashboard evidence small without turning a partial migration into a
+        # metadata match, even when all comparable fields agree.
+        comparison = {key: legacy[key] for key in (
+            "comparison_completed", "comparable_metadata_equal",
+            "reference_define_version", "candidate_define_version",
+            "full_reference_reproduced", "coverage", "field_counts",
+            "differences", "unexpected_differences", "known_gap_difference_count",
+            "unresolved", "mapping_policy",
+        )}
+        comparison["metadata_equivalent"] = False
+        comparison["unsupported"] = [
+            {key: value for key, value in entry.items() if key != "xml"}
+            for entry in legacy["unsupported"]
+        ]
+    else:
+        comparison = compare(reference, candidate)
     record.update(
         comparison="matched" if comparison["metadata_equivalent"] else "different",
         candidate_version=comparison["candidate_define_version"],

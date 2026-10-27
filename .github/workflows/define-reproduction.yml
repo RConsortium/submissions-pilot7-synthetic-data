@@ -3,12 +3,22 @@ name: Define-XML 2.0 reproduction
 on:
   pull_request:
     paths:
+      - cdiscpilot01/spec/yamaa/**
+      - cdiscpilot01/program/adam/python/**
       - submission-pilot3/spec/yamaa/**
       - submission-pilot5/spec/yamaa/**
       - submission-pilot3/program/adam/python/**
       - submission-pilot5/program/adam/python/**
       - .github/scripts/generate_define.py
       - .github/scripts/define_metadata.py
+      - .github/scripts/legacy_define.py
+      - .github/scripts/compare_legacy_define.py
+      - .github/scripts/define_report.py
+      - .github/scripts/test_legacy_define.py
+      - .github/scripts/test_define_generation.py
+      - .github/scripts/study_define.py
+      - .github/scripts/test_study_define.py
+      - .github/tests/fixtures/legacy-define/**
       - .github/workflows/define-reproduction.yml
   workflow_dispatch:
 
@@ -22,7 +32,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        study: [submission-pilot3, submission-pilot5]
+        study: [cdiscpilot01, submission-pilot3, submission-pilot5]
     env:
       STUDY: ${{ matrix.study }}
       CARGO_BUILD_JOBS: '2'
@@ -59,7 +69,9 @@ jobs:
           persist-credentials: false
       - name: Install the pinned engine and XML validator
         run: python -m pip install --config-settings build-args=--profile=dev -r "$STUDY/program/adam/python/requirements-define.txt"
-      - name: Derive, reproduce, validate and compare
+      - name: Test comparison and generation checks
+        run: python -m unittest discover -s .github/scripts -p 'test_*define*.py' -v
+      - name: Derive, generate, validate and report comparison
         run: python .github/scripts/generate_define.py "$STUDY" --schemas .build/define-engine/rust/tests/schemas
       - uses: actions/upload-artifact@v4
         if: always()
@@ -67,6 +79,11 @@ jobs:
           name: define-xml-2-0-${{ matrix.study }}
           path: |
             .build/${{ matrix.study }}-define/report.json
+            .build/${{ matrix.study }}-define/comparison.json
+            .build/${{ matrix.study }}-define/comparison.html
             ${{ matrix.study }}/data/adam/define-yamaa.xml
+            ${{ matrix.study }}/data/adam/adrg.pdf
+            ${{ matrix.study }}/data/adam/dataguide.pdf
+            ${{ matrix.study }}/spec/define/define-adam.xml
           include-hidden-files: true
           if-no-files-found: error
