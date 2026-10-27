@@ -571,7 +571,14 @@ def check(browser, base, site_dir, screenshots):
     expect(page.get_by_role("table", name="Workflow readiness").locator("tbody tr")).to_have_count(4)
     expect(page.locator("#synthetic-dashboard")).to_contain_text("ODM source inventory")
     expect(page.locator(".review-workbench")).to_have_count(0)
-    expect(page.locator("#synthetic-dashboard")).to_contain_text("Not staged")
+    synthetic_model = json.loads(
+        (site_dir / "evidence/dashboard/synthetic/kn189/catalog.json").read_text()
+    )
+    readiness = page.get_by_role("table", name="Workflow readiness").locator("tbody tr")
+    for index, stage in enumerate(synthetic_model["stages"]):
+        expect(readiness.nth(index)).to_contain_text(
+            "Available" if stage["count"] else "Not staged"
+        )
     expect(page.locator(".md-sidebar--primary")).to_be_visible()
     assert (
         page.locator("#synthetic-dashboard").get_by_role("link", name="kn189", exact=True)

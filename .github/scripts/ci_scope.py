@@ -22,6 +22,9 @@ YAMAA_CODE = {'.github/scripts/validate_yamaa.py', '.github/scripts/study_eviden
               '.github/yamaa-studies.json',
               '.github/workflows/yamaa-site.yml', 'requirements.txt'}
 PUBLICATION_CODE = {'.github/scripts/build_study_docs.py', '.github/scripts/build_index_table.py',
+                    '.github/scripts/synthetic_odm.py', '.github/scripts/synthetic_checks.py',
+                    '.github/scripts/synthetic_evidence.py', '.github/scripts/validate_synthetic.py',
+                    '.github/workflows/synthetic-check.yml',
                     '.github/scripts/study_define.py', '.github/scripts/define_metadata.py',
                     '.github/scripts/legacy_define.py', '.github/scripts/compare_legacy_define.py',
                     '.github/scripts/study_evidence.py', '.github/scripts/study_artifacts.py',
@@ -55,7 +58,7 @@ def select_checks(root, changed):
         f'{study}/program/adam/python/requirements.txt' in changed for study in entries
     ) or any(
         path.startswith(PUBLICATION_PREFIXES) or
-        any(path.startswith((f'{study}/data/', f'{study}/spec/')) and Path(path).suffix != '.md'
+        any(path.startswith((f'{study}/data/', f'{study}/spec/', f'{study}/program/')) and Path(path).suffix != '.md'
             for study in synthetic) or
         any(path.startswith(f'{study}/spec/{part}/') for study in entries
             for part in ('source', 'define', 'review')) for path in changed)
