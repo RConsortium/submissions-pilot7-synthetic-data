@@ -8,7 +8,7 @@ const fields = [
   "kind",
   "evidence",
   "comparison",
-  "reviewStatus",
+  "critical",
   "document",
   "compareDocument",
   "documentSection",
@@ -65,6 +65,8 @@ export function readRoute(hash, model) {
   }
   for (const field of fields)
     state[field] = (params.get(field) || "").slice(0, 500);
+  if (!["yes", "no", "needs_review"].includes(state.critical))
+    state.critical = "";
   if (state.specView !== "resolved" && !/^source:\d{1,3}$/.test(state.specView))
     state.specView = "";
   const keys = new Set([

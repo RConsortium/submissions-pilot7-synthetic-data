@@ -107,6 +107,20 @@ def check(browser, base, site_dir, screenshots):
         page.get_by_role("button", name="Consistency findings", exact=True).click()
         expect(page.locator(".result-count")).to_have_text(f"{len(issues)} of {len(issues)} issues \u00b7 {checks} supporting checks")
         expect(page.locator(".consistency-table tbody tr[data-finding-id]")).to_have_count(len(issues))
+        expect(page.locator(".consistency-table thead th")).to_have_text([
+            "Dataset / variable", "Impact / review", "Issue", "Critical finding", "Status", "Evidence"
+        ])
+        expect(page.locator("#issue-review")).to_have_count(0)
+        for issue in issues:
+            row = page.locator(f'[data-finding-id="{issue["id"]}"]')
+            expect(row.locator(".issue-summary p")).to_have_text(issue["summary"])
+        assert page.locator(".issue-summary").evaluate_all(
+            "cells => cells.every(cell => getComputedStyle(cell).overflow === 'visible' "
+            "&& getComputedStyle(cell).whiteSpace === 'normal')"
+        )
+        assert page.locator(".issue-impact").evaluate_all(
+            "cells => cells.every(cell => getComputedStyle(cell).position === 'static')"
+        )
         expect(page.get_by_role("columnheader", name="Status", exact=True)).to_be_visible()
         expect(page.locator(".consistency-table .issue-status .status")).to_have_text(
             ["Under Review"] * len(issues)
@@ -489,12 +503,16 @@ def check(browser, base, site_dir, screenshots):
     expect(rule.filter(has_text="Completion-only rule")).to_contain_text("144 subjects with observed differences")
     capture(page, screenshots, "visit-issues.png")
     page.get_by_role("button", name="Clear filters", exact=True).click()
-    page.locator("#issue-review").select_option("disputed")
-    disputed_issue_count = sum(issue["review"] == "disputed" for issue in cdisc_issues)
-    expect(rule).to_have_count(disputed_issue_count)
-    expect(page.locator(".consistency-table tbody")).not_to_contain_text("Agent review: agreed")
+    for status in ("yes", "no", "needs_review"):
+        page.locator("#finding-critical").select_option(status)
+        expect(rule).to_have_count(sum(issue["critical"]["status"] == status for issue in cdisc_issues))
+    page.locator("#finding-critical").select_option("yes")
     page.reload()
-    expect(page.locator("#issue-review")).to_have_value("disputed")
+    expect(page.locator("#finding-critical")).to_have_value("yes")
+    expect(rule).to_have_count(sum(issue["critical"]["status"] == "yes" for issue in cdisc_issues))
+    page.get_by_role("button", name="Clear filters", exact=True).click()
+    expect(page.locator("#finding-critical")).to_have_value("")
+    expect(rule).to_have_count(len(cdisc_issues))
     # Pilot and synthetic reports share summary metrics and study tables.
     page.get_by_role("link", name="All pilot studies", exact=True).click()
     report = page.locator(".study-report")

@@ -95,8 +95,13 @@ The **Consistency** metric counts issues; the listing separately counts the
 supporting automated checks. Successful execution stays in the study metrics.
 
 Search a variable, issue, document, quote or rule ID. **Issue type** filters
-conflicts, divergences and gaps. **Agent review** separately filters agreed,
-disputed, mixed, stale and pending assessments. Agreement is not resolution.
+conflicts, divergences and gaps. **Impact / review** is the second column.
+**Critical finding** filters Yes, No and Needs review, with a reason in each row.
+Incorrect source, derivation, category and output rules are critical; differences
+limited to significant digits or variable labels are not. Incomplete evidence
+and documentation gaps need review. Criticality is independent of the number
+of affected subjects. Agent assessments remain visible in the impact column;
+agreement is not resolution.
 Several checks can support one issue; independent problems in one variable stay
 separate. A shared check can support more than one issue without duplicating it
 in the supporting-check count.

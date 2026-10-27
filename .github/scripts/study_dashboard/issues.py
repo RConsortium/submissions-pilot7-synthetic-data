@@ -4,6 +4,7 @@ from functools import lru_cache
 import hashlib
 import json
 from pathlib import Path
+import re
 
 from jsonschema import Draft202012Validator
 
@@ -86,6 +87,42 @@ def review_status(checks):
     if "stale" in decisions:
         return "stale"
     return "mixed"
+
+
+def critical_assessment(checks, pool):
+    """Prioritize rule errors separately from impact counts and agent agreement."""
+    assessments = []
+    for check in checks:
+        rule = (check["rule"] or {}).get("id")
+        quotes = [
+            pool.items[key]["quote"].strip()
+            for key in check["evidence_ids"]
+            if pool.items[key]["type"] == "document"
+        ]
+        # Use the clause's exact quotation, never the full variable context:
+        # that context can contain both precision metadata and a wrong formula.
+        precision_only = rule == "CR-6" and quotes and all(
+            re.fullmatch(r"Significant digits:\s*\d+\.?", quote, re.IGNORECASE)
+            for quote in quotes
+        )
+        if precision_only:
+            assessments.append(("no", "Only the declared numeric precision differs."))
+        elif check["title"] == "Variable label differs from published Define-XML":
+            assessments.append(("no", "Only the variable label differs."))
+        elif rule in {"CR-3", "CR-4", "CR-5", "CR-6", "CR-8", "CR-9"} or (
+            check["comparison"] == "input_output" and check["kind"] == "inconsistent"
+        ):
+            assessments.append(("yes", "A source, derivation rule, category or output differs."))
+        else:
+            assessments.append(
+                ("needs_review", "Evidence is incomplete or the finding needs a review decision.")
+            )
+    status = next(
+        s for s in ("yes", "needs_review", "no")
+        if any(a[0] == s for a in assessments)
+    )
+    reasons = list(dict.fromkeys(reason for s, reason in assessments if s == status))
+    return {"status": status, "reason": " ".join(reasons)}
 
 
 class Evidence:
@@ -274,6 +311,7 @@ def make_issue(study, definition, checks, data, pool, citations=None):
             [pool.items[k] for k, role in selected.items() if role == "impact"]
         ),
         "review": review_status(checks),
+        "critical": definition.get("critical") or critical_assessment(checks, pool),
     }
 
 
@@ -382,11 +420,7 @@ def build_review(root, study, revision, findings):
             "id": "check-" + digest(check["id"])[:16],
             "variable": check["variable"],
             "title": CHECK_TITLES.get((f.get("rule") or {}).get("id"), f["title"]),
-            "summary": (
-                f["observation"][:237] + "..."
-                if len(f["observation"]) > 240
-                else f["observation"]
-            ),
+            "summary": f["observation"],
             "expected": "",
             "observed": "",
             "action": f.get("recommendation", ""),

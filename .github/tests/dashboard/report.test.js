@@ -11,6 +11,7 @@ import {
   issueRow,
   issueTrace,
   readReview,
+  criticalFinding,
 } from "../../../docs/assets/dashboard/issues.js";
 import { createShell } from "../../../docs/assets/dashboard/shell.js";
 import { esc, link } from "../../../docs/assets/dashboard/ui.js";
@@ -91,6 +92,7 @@ const issue = {
   ],
   impact: { status: "observed", subject_count: 2, subjects: ["A", "B"] },
   review: "agreed",
+  critical: { status: "yes", reason: "The date derivation differs." },
 };
 const report = {
   documents: [{ path: source.path, available: true }],
@@ -105,7 +107,7 @@ const state = () => ({
   findingSearch: "",
   kind: "",
   comparison: "",
-  reviewStatus: "",
+  critical: "",
 });
 
 test("synthetic workspaces retain development review without claiming reference agreement", () => {
@@ -136,6 +138,9 @@ test("the metric and listing count issues separately from supporting checks", ()
   assert.equal((listing.match(/<tr class="review-issue"/g) || []).length, 1);
   assert.ok(listing.includes("Issue type"));
   assert.ok(listing.includes("Agent review"));
+  assert.ok(!listing.includes('id="issue-review"'));
+  assert.match(listing, /Dataset \/ variable<\/th><th scope="col">Impact \/ review<\/th><th scope="col">Issue/);
+  assert.match(listing, /<th scope="col">Critical finding<\/th>/);
   assert.ok(listing.includes('<th scope="col">Status</th>'));
   assert.match(listing, /class="issue-status"[^]*?class="status attention">Under Review<\/span>/);
 });
@@ -215,18 +220,37 @@ test("an empty finding search does not serialize complete evidence", () => {
   assert.match(view.findingRows(), /1 of 1 issue/);
 });
 
-test("search includes check evidence while type and agent review filter independently", () => {
+test("search includes check evidence while type and criticality filter independently", () => {
   const s = state(),
     view = createReport({ report, state: s, esc });
   s.findingSearch = "<first>";
   assert.deepEqual(view.findingItems(), [issue]);
-  s.reviewStatus = "disputed";
+  s.critical = "no";
   assert.deepEqual(view.findingItems(), []);
-  s.reviewStatus = "agreed";
+  s.critical = "yes";
   s.kind = "gap";
   assert.match(view.findingRows(), /No issues match/);
   s.kind = "conflict";
   assert.deepEqual(view.findingItems(), [issue]);
+});
+
+test("criticality filters all assessments, preserves long issues and handles older reports", () => {
+  const issues = ["yes", "no", "needs_review"].map((status) => ({
+    ...issue, id: status, critical: { status, reason: `Assessment: ${status}` },
+    summary: "Full issue text. ".repeat(40) + "End of issue.",
+  }));
+  const data = { ...report, review: { ...report.review, issues } };
+  const s = state(), view = createReport({ report: data, state: s, esc });
+  for (const item of issues) {
+    s.critical = item.critical.status;
+    assert.deepEqual(view.findingItems(), [item]);
+    assert.ok(view.findingRows().includes(item.summary));
+  }
+  s.critical = "";
+  assert.equal(view.findingItems().length, 3);
+  assert.equal(criticalFinding({}).status, "needs_review");
+  s.findingSearch = "absent";
+  assert.match(view.findingRows(), /colspan="6"/);
 });
 
 test("workspace drawer resolves old check links to the issue and uses the same evidence", () => {
