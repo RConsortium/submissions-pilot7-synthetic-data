@@ -172,7 +172,7 @@ def check(browser, base, site_dir, screenshots):
     assert defining > 0
     expect(page.locator("#spec-view")).to_have_value(f"source:{defining}")
     rule = "\n".join(page.locator(".spec-line.node-selected code").all_text_contents())
-    assert "dataset: ADSL" in rule and "AGE" in rule
+    assert "derivation: ADSL.AGE" in rule
     assert page.locator(".spec-omission:visible").count() > 0
     page.get_by_role("button", name="Copy source file", exact=True).click()
     expect(page.get_by_role("button", name="Copied", exact=True)).to_be_visible()
