@@ -107,11 +107,17 @@ def check(browser, base, site_dir, screenshots):
         expect(page.locator(".result-count")).to_have_text(f"{len(issues)} of {len(issues)} issues \u00b7 {checks} supporting checks")
         expect(page.locator(".consistency-table tbody tr[data-finding-id]")).to_have_count(len(issues))
         expect(page.get_by_role("button", name="Copy review context", exact=True)).to_have_count(0)
-    # A copied column retains its source block and opens its resolved derivation.
+    # An explicit predecessor column retains its complete authored block,
+    # including historical metadata, and opens its resolved derivation.
     copied = json.loads((site_dir / "evidence/dashboard/cdiscpilot01/specs/adtte.json").read_text())
     page.goto(base + "/studies/cdiscpilot01/#cdiscpilot01/datasets/ADTTE?focus=output.AGE")
     expect(page.locator("#spec-caption")).to_contain_text("Focused view")
-    assert "copy:" in "\n".join(page.locator(".spec-line.node-selected code").all_text_contents())
+    selected = page.locator(".spec-line.node-selected code").all_text_contents()
+    span = copied["lineage"]["spans"]["AGE"]
+    authored = copied["text"].split("\n")[span["start"] - 1:span["end"]]
+    assert selected == [line or " " for line in authored]
+    assert "derivation: ADSL.AGE" in "\n".join(selected)
+    assert "data_type: integer" in "\n".join(selected)
     assert page.locator(".spec-omission:visible").count() > 0
     page.get_by_role("button", name="Copy source file", exact=True).click()
     expect(page.get_by_role("button", name="Copied", exact=True)).to_be_visible()
