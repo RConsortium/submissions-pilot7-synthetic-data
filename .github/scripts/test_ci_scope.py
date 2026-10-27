@@ -61,20 +61,20 @@ class ScopeTests(unittest.TestCase):
                 {'study': 'submission-pilot3', 'yamaa': True, 'core': False, 'r': False}])
 
     def test_a_shared_layer_selects_exactly_the_studies_that_inherit_it(self):
-        layers = {'spec/yamaa/cdiscpilot01/adsl.yaml': 'yamaa: "1.0"\n',
-                  'spec/yamaa/cdiscpilot01/pilot3/adsl.yaml': 'parent: ../adsl.yaml\n',
+        layers = {'spec/yamaa/pilot-program/adsl_v1.yaml': 'yamaa: "1.0"\n',
+                  'spec/yamaa/pilot-program/adsl_v2.yaml': 'parent: adsl_v1.yaml\n',
                   'cdiscpilot01/spec/yamaa/adsl.yaml':
-                      'parent: ../../../spec/yamaa/cdiscpilot01/adsl.yaml\n'}
+                      'parent: ../../../spec/yamaa/pilot-program/adsl_v1.yaml\n'}
         for study in ('submission-pilot3', 'submission-pilot5'):
             layers[f'{study}/spec/yamaa/adsl.yaml'] = \
-                'parent: ../../../spec/yamaa/cdiscpilot01/pilot3/adsl.yaml\n'
+                'parent: ../../../spec/yamaa/pilot-program/adsl_v2.yaml\n'
         for name, text in layers.items():
             (self.root / name).parent.mkdir(parents=True, exist_ok=True)
             (self.root / name).write_text(text)
         cases = [
-            ('study layer', 'spec/yamaa/cdiscpilot01/adsl.yaml',
+            ('version 1', 'spec/yamaa/pilot-program/adsl_v1.yaml',
              ['cdiscpilot01', 'submission-pilot3', 'submission-pilot5']),
-            ('package layer', 'spec/yamaa/cdiscpilot01/pilot3/adsl.yaml',
+            ('version 2', 'spec/yamaa/pilot-program/adsl_v2.yaml',
              ['submission-pilot3', 'submission-pilot5']),
             ('guide', 'spec/yamaa/README.md', []),
         ]

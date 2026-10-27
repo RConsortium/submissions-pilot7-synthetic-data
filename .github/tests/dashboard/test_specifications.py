@@ -186,8 +186,8 @@ columns:
 class ResolvedPackageTests(unittest.TestCase):
     """Each package's datasets resolve with complete Define-XML metadata.
 
-    A dataset may be composed from a shared study layer, a package layer and
-    its entry; the contract holds for the composition, which only the engine
+    A dataset may be composed from pilot program template versions and its
+    entry; the contract holds for the composition, which only the engine
     computes. Seam: the engine's resolve(), across the committed projects.
     """
 

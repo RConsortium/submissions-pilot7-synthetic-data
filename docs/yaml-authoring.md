@@ -41,8 +41,8 @@ label or an additional transformation needs its own column declaration.
 
 Use `parent` for a complete dataset template, `include` for cohesive shared
 derivations and named `windows` for repeated grouping, ordering and selection.
-Layers that several packages of one study inherit live under the root
-`spec/yamaa/`; its
+Templates that several studies inherit live under the root
+`spec/yamaa/pilot-program/`, in versions; its
 [README](https://github.com/RConsortium/submissions-pilot7-synthetic-data/tree/main/spec/yamaa)
 states where each fact goes.
 Keep a shared recoding dictionary in a file named by `mapping.dict`. Read the
