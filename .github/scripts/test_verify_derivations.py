@@ -85,15 +85,20 @@ class CitationTests(unittest.TestCase):
                 self.assertEqual((side["verified"], side["lines"], side["reason"]), expected, label)
 
 
-    def test_a_layered_element_is_read_only_in_the_layer_that_defines_it(self):
+    def test_a_layered_element_is_read_only_where_the_composition_keeps_it(self):
         entry = "columns:\n  - name: TRTSDT\n    label: Treatment start\n    derivation: EX_MINDTC\n"
+        metadata = "columns:\n  - name: TRTSDT\n    submission:\n      comment: SV.SVSTDTC\n"
         layered = {**spec_file(), "path": "s/adsl.yaml", "lines": entry.splitlines(),
                    "spans": source_locations(entry)["spans"],
-                   "elements": {"TRTSDT": {"path": "spec/yamaa/adsl.yaml", "lines": SPEC.splitlines(),
-                                           "span": source_locations(SPEC)["spans"]["TRTSDT"]}}}
+                   "elements": {"TRTSDT": [
+                       {"path": "spec/yamaa/adsl.yaml", "lines": SPEC.splitlines(),
+                        "span": source_locations(SPEC)["spans"]["TRTSDT"]},
+                       {"path": "s/adsl.yaml", "lines": metadata.splitlines(),
+                        "span": vd.field_spans(metadata)["TRTSDT"]["submission"]}]}}
         cases = [
             ("rule in its defining layer", "month: 1 day: 1", (True, "spec/yamaa/adsl.yaml", [10, 11])),
-            ("text only in another layer", "derivation: EX_MINDTC", (False, "spec/yamaa/adsl.yaml", None)),
+            ("metadata another layer still writes", "comment: SV.SVSTDTC", (True, "s/adsl.yaml", [4, 4])),
+            ("overridden text in another layer", "derivation: EX_MINDTC", (False, "spec/yamaa/adsl.yaml", None)),
         ]
         for label, quote, expected in cases:
             with self.subTest(case=label):

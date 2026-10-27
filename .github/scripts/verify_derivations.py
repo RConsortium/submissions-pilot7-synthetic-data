@@ -204,16 +204,42 @@ def locate_quote(lines, span, quote):
     return None
 
 
+def field_spans(text):
+    """Line spans of each field of every named column entry in one YAML file."""
+    root = yaml.compose(text)
+    found = {}
+    for key, value in root.value if isinstance(root, yaml.MappingNode) else []:
+        if key.value != "columns" or not isinstance(value, yaml.SequenceNode):
+            continue
+        for item in value.value:
+            if not isinstance(item, yaml.MappingNode):
+                continue
+            fields = {k.value: (k, v) for k, v in item.value}
+            if "name" in fields:
+                found[fields["name"][1].value] = {
+                    field: {"start": k.start_mark.line + 1,
+                            "end": k.start_mark.line + 1 + text[k.start_mark.index:v.end_mark.index].rstrip().count("\n")}
+                    for field, (k, v) in fields.items() if field != "name"
+                }
+    return found
+
+
 def spec_side(spec_file, element, quote=None):
     """A specification element, and the lines of a quote inside it when given.
 
-    A layered specification's element is read only in the layer that defines
-    it, so an overridden rule in another layer can never verify a quote.
+    A layered specification's element is read where the composition keeps it:
+    first in the layer that writes its rule, then in the fields other layers
+    still contribute, such as an entry's Define-XML metadata. Text a later
+    layer overrode never verifies a quote.
     """
     path, lines, spans, revision = spec_file["path"], spec_file["lines"], spec_file["spans"], spec_file["revision"]
     span = spans.get(element) if element else None
-    if element in spec_file.get("elements", {}):
-        path, lines, span = (spec_file["elements"][element][k] for k in ("path", "lines", "span"))
+    candidates = spec_file.get("elements", {}).get(element, [])
+    if candidates:
+        chosen = candidates[0]
+        if quote is not None:
+            chosen = next((c for c in candidates if locate_quote(c["lines"], c["span"], quote)), chosen)
+        path, lines, span = (chosen[k] for k in ("path", "lines", "span"))
     side = {"path": path, "element": element, "quote": quote, "element_lines": None, "lines": None, "excerpt": None, "verified": True, "reason": None}
     if span is None:
         if quote is not None or element is not None:
@@ -713,16 +739,26 @@ def dataset_report(context, domain, spec_path, derived, reference):
     elements = {}
     if spec.get("parent") or spec.get("include") or any("copy" in c for c in spec.get("columns", [])):
         import yamaa
-        from study_dashboard.specifications import capture_specification, defining_sources
+        from study_dashboard.specifications import capture_specification, defining_sources, field_sources
 
         packet = capture_specification(root, spec_path, yamaa.spec(spec_path).resolve())
         spec = packet["model"]
         texts = {source["path"]: source["text"] for source in packet["sources"]}
         located = {path: source_locations(source)["spans"] for path, source in texts.items()}
+        fields = {path: field_spans(source) for path, source in texts.items()}
+        kept = field_sources(packet)
         for element, path in defining_sources(packet).items():
-            if element in located[path]:
-                elements[element] = {"path": path, "lines": texts[path].splitlines(),
-                                     "span": located[path][element]}
+            if element not in located[path]:
+                continue
+            candidates = [{"path": path, "lines": texts[path].splitlines(), "span": located[path][element]}]
+            # Fields another layer still writes for this column, such as its metadata.
+            for field, sources in sorted(kept.get(element, {}).items()):
+                for source in sorted(sources - {path}):
+                    span = fields[source].get(element, {}).get(field)
+                    candidate = {"path": source, "lines": texts[source].splitlines(), "span": span}
+                    if span and candidate not in candidates:
+                        candidates.append(candidate)
+            elements[element] = candidates
     spans = source_locations(text)["spans"]
     spec_file = {
         "path": spec_path.relative_to(root).as_posix(),
