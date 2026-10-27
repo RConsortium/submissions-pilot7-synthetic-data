@@ -41,12 +41,9 @@ A study-only dataset, such as CDISC Pilot 01's ADVS, stays in its study's
 
 ## Shared datasets
 
-| Dataset | Study layer | Pilot 3 layer changes |
-| --- | --- | --- |
-| ADTTE | `cdiscpilot01/adtte.yaml` | `TRTDUR` reads ADSL `TRTDURD`; three labels. |
-
-ADSL, ADAE, ADLBC and ADADAS remain package-specific until their layers
-are reviewed.
+Each file under `cdiscpilot01/` is a shared dataset, and the comments in
+its `pilot3/` counterpart state each Pilot 3 change. A dataset without a
+study layer is still written in full by each package.
 
 ## Reviewing a layered dataset
 
