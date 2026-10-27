@@ -92,8 +92,6 @@ def inventory(root, study, entry, revision):
 
 def development(root, study, target, revision, *, required=False):
     """Publish measured development results separately from official comparisons."""
-    from .datasets import write_json
-
     report = verified_report(root, study, revision)
     if not report:
         if required:
@@ -101,6 +99,8 @@ def development(root, study, target, revision, *, required=False):
         return {"status": "not_run", "human_review": "pending"}
     if report['status'] != 'succeeded':
         raise ValueError(f'{study}: failed synthetic validation cannot be published')
+    from .datasets import write_json
+
     target.mkdir(parents=True, exist_ok=True)
     write_json(target / 'build-report.json', report)
     package(root, study, target / f'{study}-development.zip', report)
