@@ -1,0 +1,592 @@
+yamaa: '1.0'
+type: spec
+model: ADaM
+domain: ADQSNPIX
+keys:
+- STUDYID
+- USUBJID
+- PARAMCD
+- AVISITN
+- ANL01FL
+- VISIT
+input:
+  REF:
+    path: ../../data/adam/adqsnpix.parquet
+    empty_string: present
+  _NPIX1_QS_SOURCE:
+    path: ../../data/sdtm/qs.parquet
+    empty_string: present
+  _NPIX2_QS_SOURCE:
+    path: ../../data/sdtm/qs.parquet
+    empty_string: present
+  _NPIX3_ADSL_SOURCE:
+    path: ../../data/adam/adsl.parquet
+    empty_string: present
+base: REF
+output:
+  path: ../../../.build/verification/cdiscpilot01/adqsnpix-probe.parquet
+  columns:
+  - STUDYID
+  - USUBJID
+  - PARAMCD
+  - AVISITN
+  - ANL01FL
+  - VISIT
+  - AVISIT__LITERAL
+  - AVISIT__SAP_LABELS
+  - ADY__LITERAL
+  - ADT__LITERAL
+  - PARAM__LITERAL
+  - PARAMCD__LITERAL
+  - PARAMN__LITERAL
+  - ANL01FL__LITERAL
+  - _NPIX2_DIAG_AVAL_SELECTED
+  - _NPIX2_DIAG_AVAL_ALL_ASSESSMENTS
+  - _NPIX2_DIAG_BASE
+  - _NPIX2_DIAG_CHG
+  - _NPIX2_DIAG_PCHG
+  - _NPIX2_DIAG_ABLFL
+  - _NPIX2_DIAG_DTYPE
+  - AWRANGE__LITERAL
+  - AWTDIFF__LITERAL
+  - AWU__LITERAL
+  - STUDYID__LITERAL
+  - USUBJID__LITERAL
+  - _NPIX3_DIAG_AWTARGET_VISITS
+  - _NPIX3_DIAG_AWLO_VISITS
+  - _NPIX3_DIAG_AWHI_VISITS
+intermediates:
+- id: _NPIX1_QS
+  dataset: _NPIX1_QS_SOURCE
+  key:
+    STUDYID: STUDYID
+    USUBJID: USUBJID
+    QSSEQ: _NPIX1_QSSEQ
+- id: _NPIX2_QS
+  dataset: _NPIX2_QS_SOURCE
+  key:
+    STUDYID: STUDYID
+    USUBJID: USUBJID
+    QSSEQ: _NPIX2_QSSEQ
+- id: _NPIX2_BASESRC
+  dataset: _NPIX2_QS_SOURCE
+  key:
+    STUDYID: STUDYID
+    USUBJID: USUBJID
+    QSTESTCD: _NPIX2_BASE_PARAMCD
+  filter: _NPIX2_QS_SOURCE.QSBLFL = 'Y'
+  order_by:
+  - variable: _NPIX2_QS_SOURCE.QSSEQ
+    nulls: last
+  keep: first
+- id: _NPIX3_ADSL
+  dataset: _NPIX3_ADSL_SOURCE
+  key:
+  - USUBJID
+columns:
+- name: STUDYID
+  type: str
+  label: Study Identifier
+  derivation: REF.STUDYID
+- name: USUBJID
+  type: str
+  label: Unique Subject Identifier
+  derivation: REF.USUBJID
+- name: PARAMCD
+  type: str
+  label: Parameter Code
+  derivation: REF.PARAMCD
+- name: AVISITN
+  type: float
+  label: Analysis Visit (N)
+  derivation: REF.AVISITN
+- name: ANL01FL
+  type: str
+  label: Analysis Record Flag 01
+  derivation: REF.ANL01FL
+- name: VISIT
+  type: str
+  label: Visit Name
+  derivation: REF.VISIT
+- name: _NPIX1_QSSEQ
+  type: float
+  label: NPIX1 QSSEQ
+  derivation: REF.QSSEQ
+- name: AVISIT__LITERAL
+  type: str
+  label: AVISIT  LITERAL
+  derivation:
+    case:
+    - when: REF.AVISITN = 0
+      then: '''Baseline'''
+    - when: REF.AVISITN = 2
+      then: '''Week 2'''
+    - when: REF.AVISITN = 4
+      then: '''Week 4'''
+    - when: REF.AVISITN = 6
+      then: '''Week 6'''
+    - when: REF.AVISITN = 8
+      then: '''Week 8'''
+    - when: REF.AVISITN = 10
+      then: '''Week 10'''
+    - when: REF.AVISITN = 12
+      then: '''Week 12'''
+    - when: REF.AVISITN = 14
+      then: '''Week 14'''
+    - when: REF.AVISITN = 16
+      then: '''Week 16'''
+    - when: REF.AVISITN = 18
+      then: '''Week 18'''
+    - when: REF.AVISITN = 20
+      then: '''Week 20'''
+    - when: REF.AVISITN = 22
+      then: '''Week 22'''
+    - when: REF.AVISITN = 24
+      then: '''Week 24'''
+    - when: REF.AVISITN = 26
+      then: '''Week 26'''
+    - when: REF.AVISITN = 98
+      then: '''Weeks 4-24'''
+    - when: REF.AVISITN = 99
+      then: '''End of Treatment'''
+- name: AVISIT__SAP_LABELS
+  type: str
+  label: AVISIT  SAP LABELS
+  derivation:
+    case:
+    - when: REF.AVISITN = 0
+      then: '''Baseline'''
+    - when: REF.AVISITN = 2
+      then: '''Week 2'''
+    - when: REF.AVISITN = 4
+      then: '''Week 4'''
+    - when: REF.AVISITN = 6
+      then: '''Week 6'''
+    - when: REF.AVISITN = 8
+      then: '''Week 8'''
+    - when: REF.AVISITN = 10
+      then: '''Week 10 (Tel)'''
+    - when: REF.AVISITN = 12
+      then: '''Week 12'''
+    - when: REF.AVISITN = 14
+      then: '''Week 14 (Tel)'''
+    - when: REF.AVISITN = 16
+      then: '''Week 16'''
+    - when: REF.AVISITN = 18
+      then: '''Week 18 (Tel)'''
+    - when: REF.AVISITN = 20
+      then: '''Week 20'''
+    - when: REF.AVISITN = 22
+      then: '''Week 22 (Tel)'''
+    - when: REF.AVISITN = 24
+      then: '''Week 24'''
+    - when: REF.AVISITN = 26
+      then: '''Week 26'''
+    - when: REF.AVISITN = 98
+      then: '''Weeks 4-24'''
+    - when: REF.AVISITN = 99
+      then: '''End of Treatment'''
+- name: ADY__LITERAL
+  type: float
+  label: ADY  LITERAL
+  derivation:
+    study_day:
+      source: REF.ADT
+      reference: REF.TRTSDT
+- name: ADT__LITERAL
+  type: date
+  label: ADT  LITERAL
+  derivation:
+    to_date:
+      source: _NPIX1_QS.QSDTC
+- name: PARAM__LITERAL
+  type: str
+  label: PARAM  LITERAL
+  derivation:
+    case:
+    - when: REF.PARAMCD = 'NPITM01S'
+      then: '''NPI-X Item A (Delusion) Score'''
+    - when: REF.PARAMCD = 'NPITM02S'
+      then: '''NPI-X Item B (Hallucination) Score'''
+    - when: REF.PARAMCD = 'NPITM03S'
+      then: '''NPI-X Item C (Agitation/Agression) Score'''
+    - when: REF.PARAMCD = 'NPITM04S'
+      then: '''NPI-X Item D (Depression/Dysphoria) Score'''
+    - when: REF.PARAMCD = 'NPITM05S'
+      then: '''NPI-X Item E (Anxiety) Score'''
+    - when: REF.PARAMCD = 'NPITM06S'
+      then: '''NPI-X Item F (Eupohoria/Elation) Score'''
+    - when: REF.PARAMCD = 'NPITM07S'
+      then: '''NPI-X Item G (Apathy/Indifference) Score'''
+    - when: REF.PARAMCD = 'NPITM08S'
+      then: '''NPI-X Item H (Disinhibition) Score'''
+    - when: REF.PARAMCD = 'NPITM09S'
+      then: '''NPI-X Item I (Irritability/Lability) Score'''
+    - when: REF.PARAMCD = 'NPITM10S'
+      then: '''NPI-X Item J (Aberrant Motor Behavior) Score'''
+    - when: REF.PARAMCD = 'NPITM11S'
+      then: '''NPI-X Item K (Night-time Behavior) Score'''
+    - when: REF.PARAMCD = 'NPITM12S'
+      then: '''NPI-X Item L (Appetite/Eating Change) Score'''
+    - when: REF.PARAMCD = 'NPTOT'
+      then: '''NPI-X (9) Total Score'''
+    - when: REF.PARAMCD = 'NPTOTMN'
+      then: '''Mean NPI-X (9) Total (Week 4 to 24)'''
+- name: PARAMCD__LITERAL
+  type: str
+  label: PARAMCD  LITERAL
+  derivation:
+    case:
+    - when: REF.PARAMN = 1
+      then: '''NPITM01S'''
+    - when: REF.PARAMN = 2
+      then: '''NPITM02S'''
+    - when: REF.PARAMN = 3
+      then: '''NPITM03S'''
+    - when: REF.PARAMN = 4
+      then: '''NPITM04S'''
+    - when: REF.PARAMN = 5
+      then: '''NPITM05S'''
+    - when: REF.PARAMN = 6
+      then: '''NPITM06S'''
+    - when: REF.PARAMN = 7
+      then: '''NPITM07S'''
+    - when: REF.PARAMN = 8
+      then: '''NPITM08S'''
+    - when: REF.PARAMN = 9
+      then: '''NPITM09S'''
+    - when: REF.PARAMN = 10
+      then: '''NPITM10S'''
+    - when: REF.PARAMN = 11
+      then: '''NPITM11S'''
+    - when: REF.PARAMN = 12
+      then: '''NPITM12S'''
+    - when: REF.PARAMN = 13
+      then: '''NPTOT'''
+    - when: REF.PARAMN = 14
+      then: '''NPTOTMN'''
+- name: PARAMN__LITERAL
+  type: float
+  label: PARAMN  LITERAL
+  derivation:
+    case:
+    - when: REF.PARAMCD = 'NPITM01S'
+      then: 1.0
+    - when: REF.PARAMCD = 'NPITM02S'
+      then: 2.0
+    - when: REF.PARAMCD = 'NPITM03S'
+      then: 3.0
+    - when: REF.PARAMCD = 'NPITM04S'
+      then: 4.0
+    - when: REF.PARAMCD = 'NPITM05S'
+      then: 5.0
+    - when: REF.PARAMCD = 'NPITM06S'
+      then: 6.0
+    - when: REF.PARAMCD = 'NPITM07S'
+      then: 7.0
+    - when: REF.PARAMCD = 'NPITM08S'
+      then: 8.0
+    - when: REF.PARAMCD = 'NPITM09S'
+      then: 9.0
+    - when: REF.PARAMCD = 'NPITM10S'
+      then: 10.0
+    - when: REF.PARAMCD = 'NPITM11S'
+      then: 11.0
+    - when: REF.PARAMCD = 'NPITM12S'
+      then: 12.0
+    - when: REF.PARAMCD = 'NPTOT'
+      then: 13.0
+    - when: REF.PARAMCD = 'NPTOTMN'
+      then: 14.0
+- name: _NPIX2_QSSEQ
+  type: float
+  label: NPIX2 QSSEQ
+  derivation: REF.QSSEQ
+- name: _NPIX2_ADY
+  type: float
+  label: NPIX2 ADY
+  derivation: REF.ADY
+- name: _NPIX2_AWTARGET
+  type: float
+  label: NPIX2 AWTARGET
+  derivation: REF.AWTARGET
+- name: _NPIX2_AVAL
+  type: float
+  label: NPIX2 AVAL
+  derivation: REF.AVAL
+- name: _NPIX2_BASE
+  type: float
+  label: NPIX2 BASE
+  derivation: REF.BASE
+- name: _NPIX2_CHG
+  type: float
+  label: NPIX2 CHG
+  derivation: REF.CHG
+- name: _NPIX2_BASE_PARAMCD
+  type: str
+  label: NPIX2 BASE PARAMCD
+  derivation:
+    case:
+    - when: REF.PARAMCD = 'NPTOTMN'
+      then: '''NPTOT'''
+    - otherwise: REF.PARAMCD
+- name: _NPIX2_TARGET_DISTANCE
+  type: float
+  label: NPIX2 TARGET DISTANCE
+  derivation: ABS(_NPIX2_ADY - _NPIX2_AWTARGET)
+- name: _NPIX2_INDEPENDENT_RANK
+  type: int
+  label: NPIX2 INDEPENDENT RANK
+  derivation:
+    rank:
+      method: dense
+      window:
+        group_by:
+        - STUDYID
+        - USUBJID
+        - PARAMCD
+        - AVISITN
+        order_by:
+        - variable: _NPIX2_TARGET_DISTANCE
+          nulls: last
+        - variable: _NPIX2_ADY
+          nulls: last
+- name: ANL01FL__LITERAL
+  type: str
+  label: 'Unclaimed native-metadata diagnostic: independent analysis selection'
+  derivation:
+    case:
+    - when: REF.PARAMCD = 'NPTOTMN'
+      then: '''Y'''
+    - when: _NPIX2_INDEPENDENT_RANK = 1
+      then: '''Y'''
+    - otherwise: ''''''
+- name: _NPIX2_MEAN_SELECTED
+  type: float
+  label: NPIX2 MEAN SELECTED
+  derivation:
+    aggregate:
+      expr: SUM(REF.AVAL) / NULLIF(COUNT(REF.AVAL), 0)
+      key:
+      - STUDYID
+      - USUBJID
+      filter: REF.PARAMCD = 'NPTOT' AND REF.AVISITN >= 4 AND REF.AVISITN <= 24 AND
+        REF.ANL01FL = 'Y'
+- name: _NPIX2_MEAN_ALL_ASSESSMENTS
+  type: float
+  label: NPIX2 MEAN ALL ASSESSMENTS
+  derivation:
+    aggregate:
+      expr: SUM(REF.AVAL) / NULLIF(COUNT(REF.AVAL), 0)
+      key:
+      - STUDYID
+      - USUBJID
+      filter: REF.PARAMCD = 'NPTOT' AND REF.AVISITN >= 4 AND REF.AVISITN <= 24
+- name: _NPIX2_DIAG_AVAL_SELECTED
+  type: float
+  label: 'Unclaimed diagnostic: guide baseline and window-selected Week 4-24 mean'
+  derivation:
+    case:
+    - when: REF.PARAMCD = 'NPTOTMN' AND REF.AVISITN = 0
+      then: _NPIX2_BASESRC.QSSTRESN
+    - when: REF.PARAMCD = 'NPTOTMN'
+      then: _NPIX2_MEAN_SELECTED
+    - otherwise: _NPIX2_QS.QSSTRESN
+- name: _NPIX2_DIAG_AVAL_ALL_ASSESSMENTS
+  type: float
+  label: 'Unclaimed diagnostic: guide baseline and all available assessments mean'
+  derivation:
+    case:
+    - when: REF.PARAMCD = 'NPTOTMN' AND REF.AVISITN = 0
+      then: _NPIX2_BASESRC.QSSTRESN
+    - when: REF.PARAMCD = 'NPTOTMN'
+      then: _NPIX2_MEAN_ALL_ASSESSMENTS
+    - otherwise: _NPIX2_QS.QSSTRESN
+- name: _NPIX2_DIAG_BASE
+  type: float
+  label: 'Unclaimed native-metadata diagnostic: QS baseline numeric result'
+  derivation: _NPIX2_BASESRC.QSSTRESN
+- name: _NPIX2_DIAG_CHG
+  type: float
+  label: 'Unclaimed native-metadata diagnostic: ordinary post-baseline change'
+  derivation:
+    case:
+    - when: REF.PARAMCD <> 'NPTOTMN' AND REF.AVISITN > 0
+      then: _NPIX2_AVAL - _NPIX2_BASE
+- name: _NPIX2_DIAG_PCHG
+  type: float
+  label: 'Unclaimed native-metadata diagnostic: nullable percent-change quotient'
+  derivation:
+    case:
+    - when: REF.PARAMCD <> 'NPTOTMN' AND REF.AVISITN > 0
+      then: 100 * (_NPIX2_CHG / NULLIF(_NPIX2_BASE, 0))
+- name: _NPIX2_DIAG_ABLFL
+  type: str
+  label: 'Unclaimed native-metadata diagnostic: QS flag and composite missing'
+  derivation:
+    case:
+    - when: REF.PARAMCD = 'NPTOTMN'
+      then: ''''''
+    - otherwise: _NPIX2_QS.QSBLFL
+- name: _NPIX2_DIAG_DTYPE
+  type: str
+  label: 'Unclaimed native-metadata diagnostic: parameter-specific derivation type'
+  derivation:
+    case:
+    - when: REF.PARAMCD = 'NPTOTMN'
+      then: '''AVERAGE'''
+    - otherwise: ''''''
+- name: AWRANGE__LITERAL
+  type: str
+  label: Documented NPI-X analysis-window day range
+  derivation:
+    case:
+    - when: REF.AVISITN = 0
+      then: '''<= 1'''
+    - when: REF.AVISITN = 2
+      then: '''2 - 21'''
+    - when: REF.AVISITN = 4
+      then: '''22 - 35'''
+    - when: REF.AVISITN = 6
+      then: '''36 - 49'''
+    - when: REF.AVISITN = 8
+      then: '''50 - 63'''
+    - when: REF.AVISITN = 10
+      then: '''64 - 77'''
+    - when: REF.AVISITN = 12
+      then: '''78 - 91'''
+    - when: REF.AVISITN = 14
+      then: '''92 - 105'''
+    - when: REF.AVISITN = 16
+      then: '''106 - 119'''
+    - when: REF.AVISITN = 18
+      then: '''120 - 133'''
+    - when: REF.AVISITN = 20
+      then: '''134 - 147'''
+    - when: REF.AVISITN = 22
+      then: '''148 - 161'''
+    - when: REF.AVISITN = 24
+      then: '''162 - 175'''
+    - when: REF.AVISITN = 26
+      then: '''>175'''
+    - when: REF.AVISITN = 98
+      then: '''22 - 175'''
+- name: _NPIX3_AWTARGET
+  type: float
+  label: Published upstream window target
+  derivation: REF.AWTARGET
+- name: _NPIX3_ADY
+  type: float
+  label: Published upstream analysis day
+  derivation: REF.ADY
+- name: AWTDIFF__LITERAL
+  type: float
+  label: Documented absolute target distance
+  derivation: ABS(_NPIX3_AWTARGET - _NPIX3_ADY)
+- name: AWU__LITERAL
+  type: str
+  label: Documented analysis-window unit
+  derivation: '''DAYS'''
+- name: STUDYID__LITERAL
+  type: str
+  label: Documented ADSL study identifier
+  derivation: _NPIX3_ADSL.STUDYID
+- name: USUBJID__LITERAL
+  type: str
+  label: Documented ADSL subject identifier
+  derivation: _NPIX3_ADSL.USUBJID
+- name: _NPIX3_DIAG_AWTARGET_VISITS
+  type: float
+  label: Unclaimed finite scheduled-visit AWTARGET
+  derivation:
+    case:
+    - when: REF.AVISITN = 0
+      then: 1
+    - when: REF.AVISITN = 2
+      then: 14
+    - when: REF.AVISITN = 4
+      then: 28
+    - when: REF.AVISITN = 6
+      then: 42
+    - when: REF.AVISITN = 8
+      then: 56
+    - when: REF.AVISITN = 10
+      then: 70
+    - when: REF.AVISITN = 12
+      then: 84
+    - when: REF.AVISITN = 14
+      then: 98
+    - when: REF.AVISITN = 16
+      then: 112
+    - when: REF.AVISITN = 18
+      then: 126
+    - when: REF.AVISITN = 20
+      then: 140
+    - when: REF.AVISITN = 22
+      then: 154
+    - when: REF.AVISITN = 24
+      then: 168
+    - when: REF.AVISITN = 26
+      then: 182
+- name: _NPIX3_DIAG_AWLO_VISITS
+  type: float
+  label: Unclaimed finite scheduled-visit AWLO
+  derivation:
+    case:
+    - when: REF.AVISITN = 2
+      then: 2
+    - when: REF.AVISITN = 4
+      then: 22
+    - when: REF.AVISITN = 6
+      then: 36
+    - when: REF.AVISITN = 8
+      then: 50
+    - when: REF.AVISITN = 10
+      then: 64
+    - when: REF.AVISITN = 12
+      then: 78
+    - when: REF.AVISITN = 14
+      then: 92
+    - when: REF.AVISITN = 16
+      then: 106
+    - when: REF.AVISITN = 18
+      then: 120
+    - when: REF.AVISITN = 20
+      then: 134
+    - when: REF.AVISITN = 22
+      then: 148
+    - when: REF.AVISITN = 24
+      then: 162
+    - when: REF.AVISITN = 26
+      then: 176
+- name: _NPIX3_DIAG_AWHI_VISITS
+  type: float
+  label: Unclaimed finite scheduled-visit AWHI
+  derivation:
+    case:
+    - when: REF.AVISITN = 0
+      then: 1
+    - when: REF.AVISITN = 2
+      then: 21
+    - when: REF.AVISITN = 4
+      then: 35
+    - when: REF.AVISITN = 6
+      then: 49
+    - when: REF.AVISITN = 8
+      then: 63
+    - when: REF.AVISITN = 10
+      then: 77
+    - when: REF.AVISITN = 12
+      then: 91
+    - when: REF.AVISITN = 14
+      then: 105
+    - when: REF.AVISITN = 16
+      then: 119
+    - when: REF.AVISITN = 18
+      then: 133
+    - when: REF.AVISITN = 20
+      then: 147
+    - when: REF.AVISITN = 22
+      then: 161
+    - when: REF.AVISITN = 24
+      then: 175

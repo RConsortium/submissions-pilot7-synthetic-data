@@ -14,6 +14,7 @@ import { createWorkspace } from "./workspace.js";
 import { createReport } from "./report.js";
 import { findIssue } from "./issues.js";
 import { createSourceDocuments } from "./source-documents.js";
+import { defineComparisonView } from "./define-comparison.js";
 import { createComments } from "./comments.js";
 import { createResizing } from "./resize.js";
 import { mountSynthetic } from "./synthetic.js";
@@ -105,7 +106,7 @@ import { developmentReport, mountDevelopment } from "./synthetic-development.js"
   const { frame } = createShell(ctx),
     { workspace, applyHighlight, paintTables, fitWorkbench, copySpecification } =
       createWorkspace(ctx);
-  const { findingRows, findingsView, drawer } = createReport(ctx),
+  const { findingRows, findingsView, expandTrace, drawer } = createReport(ctx),
     { commentsView, loadComments } = createComments(ctx);
   const sourceDocuments = createSourceDocuments(ctx),
     { materialsView } = sourceDocuments;
@@ -174,7 +175,9 @@ import { developmentReport, mountDevelopment } from "./synthetic-development.js"
           ? developmentReport(development, dataRoot)
           : state.view === "overview"
             ? findingsView()
-            : materialsView();
+            : state.view === "define"
+              ? defineComparisonView(model, resource)
+              : materialsView();
     if (state.view === "development" && development)
       mountDevelopment(byId("view-content"), development);
     byId("review-comments").innerHTML = commentsView();
@@ -308,6 +311,14 @@ import { developmentReport, mountDevelopment } from "./synthetic-development.js"
       el.checked = state.subjects.includes(el.dataset.subject);
     await refreshRows();
   }
+  document.addEventListener(
+    "toggle",
+    (event) => {
+      if (root()?.contains(event.target) && event.target.matches(".finding-trace"))
+        expandTrace(event.target);
+    },
+    true,
+  );
   document.addEventListener("click", async (event) => {
     if (event.target.closest("#reload-synthetic")) {
       mount();
@@ -434,12 +445,12 @@ import { developmentReport, mountDevelopment } from "./synthetic-development.js"
       state.findingSearch = "";
       state.kind = "";
       state.comparison = "";
-      state.reviewStatus = "";
+      state.critical = "";
       save();
       byId("finding-search").value = "";
       byId("finding-kind").value = "";
       byId("finding-comparison").value = "";
-      byId("issue-review").value = "";
+      byId("finding-critical").value = "";
       byId("finding-results").innerHTML = findingRows();
       return;
     }
@@ -527,13 +538,13 @@ import { developmentReport, mountDevelopment } from "./synthetic-development.js"
       return;
     }
     if (
-      ["finding-kind", "finding-comparison", "issue-review"].includes(el.id)
+      ["finding-kind", "finding-comparison", "finding-critical"].includes(el.id)
     ) {
       state[
         {
           "finding-kind": "kind",
           "finding-comparison": "comparison",
-          "issue-review": "reviewStatus",
+          "finding-critical": "critical",
         }[el.id]
       ] = el.value;
       save();

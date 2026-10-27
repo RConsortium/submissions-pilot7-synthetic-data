@@ -5,6 +5,8 @@ import json
 from collections import Counter
 from urllib.parse import quote
 
+from .summaries import review_breakdown, summary_cards
+
 UNMATCHED = {
     "Not compared": "a reference is staged but the comparator did not check it",
     "No reference": "no official reference is staged",
@@ -45,7 +47,7 @@ def _status(label, tone):
 def _comparison(dataset):
     """Validation compares only the default reference path; a configured one may stay unchecked."""
     if dataset["comparison"] == "passed":
-        return "Matched", "good"
+        return "Reference matched", "good"
     if dataset["reference"]:
         return "Not compared", "attention"
     return "No reference", "neutral"
@@ -95,26 +97,10 @@ def _header(studies, validated):
 def _kpis(studies, validated):
     matched = [sum(c["metrics"]["matched"][i] for c, _ in validated) for i in range(3)]
     reference = [sum(c["metrics"]["reference"][i] for c, _ in validated) for i in range(3)]
-    items = sum(r["review"]["counts"]["issues"] for _, r in validated)
-    tiles = [("Studies", f"{len(validated)} / {len(studies)}", "validated")]
-    for i, name in enumerate(["ADaM datasets", "Columns", "Cells"]):
-        tiles.append(
-            (
-                name,
-                f"{_metric(matched[i])} / {_metric(reference[i])}",
-                f"{100 * matched[i] / reference[i]:.0f}% matched"
-                if reference[i]
-                else "no official reference",
-            )
-        )
-    tiles.append(("Review items", str(items), "open questions"))
+    issues = [issue for _, report in validated for issue in report["review"]["issues"]]
     return [
-        '<dl class="report-kpis">'
-        + "".join(
-            f"<div><dt>{name}</dt><dd>{value}<span>{html.escape(note)}</span></dd></div>"
-            for name, value, note in tiles
-        )
-        + "</dl>"
+        f'<p class="report-scope">{len(validated)} / {len(studies)} studies validated</p>',
+        summary_cards(matched, reference, issues),
     ]
 
 
@@ -183,6 +169,9 @@ def _overview(studies):
                 "ADaM datasets matched": _share(matched[0], reference[0]),
                 "Columns matched": _share(matched[1], reference[1]),
                 "Cells matched": _share(matched[2], reference[2]),
+                "Consistency review": f'<a href="{catalog["id"]}/#{catalog["id"]}/overview">'
+                f'{len(report["review"]["issues"])} findings</a>'
+                f'<small>{review_breakdown(report["review"]["issues"])}</small>',
                 "SDTM Define-XML version": html.escape(define.get("sdtm_version") or "-"),
                 "ADaM Define-XML version": adam_version,
                 "Define-XML match": _status(status, tone),
@@ -193,14 +182,19 @@ def _overview(studies):
     for title, names in [
         ("Study information", ["Description", "Source", "Documents", "Subjects"]),
         ("SDTM", ["SDTM inputs", "SDTM Define-XML version"]),
-        ("ADaM", ["ADaM datasets matched", "Columns matched", "Cells matched",
+        ("Published ADaM reference agreement", ["ADaM datasets matched", "Columns matched", "Cells matched",
                   "ADaM Define-XML version", "Define-XML match"]),
+        ("Consistency review", ["Consistency review"]),
     ]:
         rows = []
         for name in names:
             values = [facts[c["id"]].get(name, "") for c, _ in studies]
             if any(values):
-                label = "Define-XML version" if name.endswith("Define-XML version") else name
+                label = {
+                    "Columns matched": "Columns in reference-matched datasets",
+                    "Cells matched": "Cells in reference-matched datasets",
+                    "Consistency review": "Findings awaiting review",
+                }.get(name, "Define-XML version" if name.endswith("Define-XML version") else name)
                 rows.append(
                     f'<tr><th scope="row">{label}</th>'
                     + "".join(f"<td>{value or '-'}</td>" for value in values)
@@ -279,7 +273,7 @@ def _matrix(studies):
         '<h2 id="dataset-results">Dataset results</h2>',
         _table(["Dataset", "Description"], studies, body, link=True, keep=True),
         '<p class="report-foot">Status with rows &#215; columns of the yamaa output. '
-        "Matched: the study comparator found the output equal to the official ADaM "
+        "Reference matched: the study comparator found the output equal to the official ADaM "
         "dataset, labels included, under that study's comparison policy. "
         + "".join(f"{k}: {v}. " for k, v in UNMATCHED.items() if k in labels)
         + "A dash means the dataset is not part of that study.</p>",

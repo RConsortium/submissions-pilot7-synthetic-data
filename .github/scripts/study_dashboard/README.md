@@ -28,6 +28,7 @@ The reviewer guide is `docs/review.md`.
     synthetic.py                         separate source and development manifests
     documents.py                         retained originals and searchable reading copies
     document_views.py                    workbook tables and original XML HTML
+    define_comparison.py                 exact compared XML and numbered source views
     consistency.py                       metadata checks and source-backed review questions
     rule_review.py                       documented-rule checks from the verification report
     issues.py                            validated issue grouping and normalized evidence
@@ -44,6 +45,7 @@ docs/assets/dashboard/
   resize.js, synthetic.js                 sizing and synthetic-development views
   shell.js, workspace.js                 study layout and linked review panels
   source-documents.js                    independent file tabs and two original viewers
+  define-comparison.js                   original/generated XML and metadata differences
   report.js, comments.js, ui.js           evidence, discussions, and shared primitives
   issues.js                              concise issues, progressive traces and check aliases
 docs/stylesheets/dashboard.css           responsive layout and light/dark themes
@@ -175,6 +177,15 @@ both study and dataset table headers link to each study workspace.
 Dataset result badges count `report.review.issues` for that dataset, separately
 from their supporting checks, and nonzero badges link to its filtered issue list.
 
+The pilot workspace's Define-XML comparison tab shows the original and generated
+ADaM XML side by side with line numbers and independent source and download links.
+It lists the validation job's metadata differences and retains unsupported legacy content,
+unresolved source declarations and version-mapping policies. Generated XML joins
+the artifact inventory and cross-job transfer; publication verifies both compared
+XML files against the recorded hashes before creating their escaped source views.
+The tab has a shareable `#<study>/define/<dataset>` route and stacks its panes on
+small screens. No XML comparison is recomputed in the browser.
+
 CI transfers validated generated Parquet bytes as `derived-<study>` artifacts,
 preserving repository-relative paths; the publication job verifies them again.
 Both the PR publication check and main deployment run the same strict build
@@ -227,6 +238,9 @@ checks and adds document links. `issues.py` groups them using the versioned
 `docs/assets/dashboard/issues.js` renders concise issue rows and progressively
 expanded trace evidence from that contract. Both the metric and the static study
 report count issues. The table separately counts unique supporting checks.
+Closed trace panels keep their full evidence out of the initial DOM. Opening a
+panel renders its complete trace once, including source context and check audit;
+the workspace evidence drawer uses the same trace renderer.
 
 Author `<study>/spec/review/<dataset>-issues.json` to group related checks.
 Inventory every check and its basis hash, then write short issue titles,
@@ -260,6 +274,12 @@ each finding quotes its rule, shows the document and specification quotes with
 links to the reading copy, the original page or XML lines and the
 specification lines, and lists the differing records. Findings are not
 regulatory validation; each awaits a person's decision.
+
+Adjudication state can store the finding's `basis_fingerprint` in its `basis`
+field instead of duplicating the complete evidence string. The verifier
+recomputes this SHA-256 fingerprint from the full current basis; legacy full-text
+decisions remain valid, and changed evidence still makes either format stale.
+The generated report retains the full basis, quotations and record comparisons.
 
 ## Dataset comparisons and synthetic workspaces
 

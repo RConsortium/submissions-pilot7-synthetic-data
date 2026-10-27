@@ -7,6 +7,7 @@ from pathlib import Path
 import shutil
 
 from study_artifacts import verify_artifacts
+from study_define import candidate_path
 
 
 def stage(root, study, destination, report):
@@ -16,11 +17,13 @@ def stage(root, study, destination, report):
     if report["status"] != "succeeded":
         raise ValueError(f"{study}: cannot stage failed validation")
     verify_artifacts(root, study, report)
+    candidate = candidate_path(root, study)
     for relative in report["artifacts"]["files"]:
         path = Path(relative)
         generated_adam = path.parts[:3] == (study, "data", "adam") and path.name.endswith("-yamaa.parquet")
         pipeline_data = report.get("source_pipeline") and path.parts[:2] == (study, "data")
-        if generated_adam or pipeline_data:
+        generated_define = candidate is not None and (root / path).resolve() == candidate
+        if generated_adam or generated_define or pipeline_data:
             target = destination / path
             target.parent.mkdir(parents=True, exist_ok=True)
             shutil.copyfile(root / path, target)

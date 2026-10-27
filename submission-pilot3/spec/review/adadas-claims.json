@@ -1,0 +1,1200 @@
+{
+  "schema_version": 2,
+  "dataset": "ADADAS",
+  "author": {
+    "kind": "agent",
+    "model": "Codex",
+    "instructions": ".automation/consistency_review/extract.md",
+    "date": "2026-10-26"
+  },
+  "claims": [
+    {
+      "variable": "AVISIT",
+      "rule": "Place visits into analysis visits using the visit date and visit windows; the native method refers to SAP Section 8.2.",
+      "citations": [
+        {
+          "document": "spec/define/define-adam.xml",
+          "section": "ADADAS.AVISIT",
+          "quote": "Derived based on windowing algorithm described in SAP, Section 8.2"
+        },
+        {
+          "document": "spec/source/adrg.pdf",
+          "section": "page-11",
+          "quote": "It contains one record per subject per parameter (ADAS-Cog questionnaire item)\nper VISIT. Visits are placed into analysis visits (represented by A VISIT and A VISITN) based\non the date of the visit and the visit windows."
+        },
+        {
+          "document": "spec/define/define-adam.xml",
+          "section": "ADADAS.AVISIT",
+          "quote": "Codelist CL.AVISIT: Baseline = Baseline; Week 2 = Week 2; Week 4 = Week 4; Week 6 = Week 6; Week 8 = Week 8; Week 10 = Week 10; Week 12 = Week 12; Week 14 = Week 14; Week 16 = Week 16; Week 18 = Week 18; Week 20 = Week 20; Week 22 = Week 22; Week 24 = Week 24; Week 26 = Week 26; Weeks 4-24 = Weeks 4-24; End of Treatment = End of Treatment"
+        },
+        {
+          "document": "spec/define/define-adam.xml",
+          "section": "ADADAS.ADT",
+          "quote": "SAS date from QS.QSDTC"
+        },
+        {
+          "document": "spec/define/define-adam.xml",
+          "section": "ADADAS.ADY",
+          "quote": "ADY = ADT - TRTSDT + 1, if ADT>=TRTSDT. ADY = ADT - TRTSDT, if ADT<TRTSDT."
+        }
+      ],
+      "clauses": [
+        {
+          "relation": "differs",
+          "document": {
+            "citation": 2,
+            "quote": "Visits are placed into analysis visits (represented by A VISIT and A VISITN) based\non the date of the visit and the visit windows."
+          },
+          "spec": {
+            "element": "AVISIT",
+            "quote": "- when: ROWSRC = 1\n          then: PLAN_AVISIT"
+          },
+          "note": "The planned-row branch reads a separately supplied planned visit instead of windowing the carried visit date."
+        },
+        {
+          "relation": "absent_in_document",
+          "spec": {
+            "element": "AVISIT",
+            "quote": "cut:\n              source: ADY_RAW\n              breaks:\n                - 1\n                - 84\n                - 140\n              labels:\n                - Baseline\n                - Week 8\n                - Week 16\n                - Week 24\n              closed: right"
+          },
+          "note": "The applicable native text does not give these cut points, labels, right-closed or open outer intervals, or direct windowing on raw study day; the shared SAP is pending applicability review."
+        },
+        {
+          "relation": "same",
+          "document": {
+            "citation": 5,
+            "quote": "ADY = ADT - TRTSDT + 1, if ADT>=TRTSDT. ADY = ADT - TRTSDT, if ADT<TRTSDT."
+          },
+          "spec": {
+            "element": "ADY_RAW",
+            "quote": "    derivation:\n      study_day: {source: ADT_RAW, reference: TRTSDT}"
+          },
+          "note": "The raw-day arithmetic follows the separately documented ADY formula on collected rows, where ADT returns ADT_RAW; the AVISIT window boundaries remain unspecified."
+        },
+        {
+          "relation": "same",
+          "document": {
+            "citation": 4,
+            "quote": "SAS date from QS.QSDTC"
+          },
+          "spec": {
+            "element": "collected",
+            "quote": "ADT_RAW:\n        to_date:\n          source: QS.QSDTC"
+          },
+          "note": "The raw assessment-date conversion is separately stated by the native ADT method."
+        },
+        {
+          "relation": "absent_in_document",
+          "spec": {
+            "element": "planned",
+            "quote": "dataset: PLAN\n    derivations:\n      ROWSRC: 1\n      USUBJID: PLAN.USUBJID\n      PARAMCD: PLAN.PARAMCD\n      ADT_RAW:\n      PLAN_AVISIT: PLAN.AVISIT"
+          },
+          "note": "No applicable native rule specifies the planning relation, subject/parameter routing, missing raw date, or assignments of planned analysis visits."
+        },
+        {
+          "relation": "absent_in_document",
+          "spec": {
+            "element": "collected",
+            "quote": "filter: QS.QSTESTCD IN ('ACITM01', 'ACITM02', 'ACITM03', 'ACITM04', 'ACITM05', 'ACITM06', 'ACITM07', 'ACITM08', 'ACITM09', 'ACITM10', 'ACITM11', 'ACITM12', 'ACITM13', 'ACITM14', 'ACTOT')"
+          },
+          "note": "The native codelists enumerate parameter codes but do not state this QS record-selection condition."
+        }
+      ],
+      "not_probed_reason": "The native documents identify date-based windowing and refer to SAP Section 8.2, but the study manifest leaves the retained shared SAP applicability pending. The native ADRG gives no window boundaries, treatment-reference convention, or deterministic rules for the planning relation and its visit assignments. A literal AVISIT probe would have to invent these conditions or copy the runtime lookup. The native AVISIT codelist supplies permissible visit names, not date windows.",
+      "interpretations": [
+        "The native ADRG description of one record per subject, parameter and VISIT does not specify how additional planned imputation rows relate to collected visits.",
+        "The ADRG appendix illustrates changed imputation donor dates and visit names but does not state a complete general assignment rule for planned analysis visits.",
+        "The shared CDISC SAP remains pending applicability review in this study manifest and has not been used as a governing rule."
+      ],
+      "assessment": "The runtime implements explicit raw-day intervals for collected records and imports planned visits for the other template; the applicable native text does not complete either convention.",
+      "question": "Confirm which SAP governs this study, then specify the date windows, relative-day reference, planned-slot selection, and planned-visit assignments before approving a literal windowing probe."
+    },
+    {
+      "variable": "PARAM",
+      "rule": "Decode PARAMCD using its native parameter-code codelist.",
+      "citations": [
+        {
+          "document": "spec/define/define-adam.xml",
+          "section": "ADADAS.PARAM",
+          "quote": "Decoded value for PARAMCD"
+        },
+        {
+          "document": "spec/define/define-adam.xml",
+          "section": "ADADAS.PARAMCD",
+          "quote": "Codelist CL.PARAMCD_ADQSADAS: ACITM01 = Word Recall Task; ACITM02 = Naming Objects And Fingers (Refer To 5 C; ACITM03 = Delayed Word Recall; ACITM04 = Commands; ACITM05 = Constructional Praxis; ACITM06 = Ideational Praxis; ACITM07 = Orientation; ACITM08 = Word Recognition; ACITM09 = Attention/Visual Search Task; ACITM10 = Maze Solution; ACITM11 = Spoken Language Ability; ACITM12 = Comprehension Of Spoken Language; ACITM13 = Word Finding Difficulty In Spontaneous S; ACITM14 = Recall Of Test Instructions; ACTOT = Adas-Cog(11) Subscore"
+        },
+        {
+          "document": "spec/define/define-adam.xml",
+          "section": "ADADAS.PARAM",
+          "quote": "Codelist CL.PARAM_ADQSADAS: Word Recall Task = Word Recall Task; Naming Objects And Fingers (Refer To 5 C = Naming Objects And Fingers (Refer To 5 C; Delayed Word Recall = Delayed Word Recall; Commands = Commands; Constructional Praxis = Constructional Praxis; Ideational Praxis = Ideational Praxis; Orientation = Orientation; Word Recognition = Word Recognition; Attention/Visual Search Task = Attention/Visual Search Task; Maze Solution = Maze Solution; Spoken Language Ability = Spoken Language Ability; Comprehension Of Spoken Language = Comprehension Of Spoken Language; Word Finding Difficulty In Spontaneous S = Word Finding Difficulty In Spontaneous S; Recall Of Test Instructions = Recall Of Test Instructions; Adas-Cog(11) Subscore = Adas-Cog(11) Subscore"
+        }
+      ],
+      "clauses": [
+        {
+          "relation": "same",
+          "document": {
+            "citation": 1,
+            "quote": "Decoded value for PARAMCD"
+          },
+          "spec": {
+            "element": "PARAM",
+            "quote": "source: PARAMCD"
+          }
+        },
+        {
+          "relation": "same",
+          "document": {
+            "citation": 2,
+            "quote": "Codelist CL.PARAMCD_ADQSADAS: ACITM01 = Word Recall Task; ACITM02 = Naming Objects And Fingers (Refer To 5 C; ACITM03 = Delayed Word Recall; ACITM04 = Commands; ACITM05 = Constructional Praxis; ACITM06 = Ideational Praxis; ACITM07 = Orientation; ACITM08 = Word Recognition; ACITM09 = Attention/Visual Search Task; ACITM10 = Maze Solution; ACITM11 = Spoken Language Ability; ACITM12 = Comprehension Of Spoken Language; ACITM13 = Word Finding Difficulty In Spontaneous S; ACITM14 = Recall Of Test Instructions; ACTOT = Adas-Cog(11) Subscore"
+          },
+          "spec": {
+            "element": "PARAM",
+            "quote": "ACITM01: Word Recall Task\n          ACITM02: Naming Objects And Fingers (Refer To 5 C\n          ACITM03: Delayed Word Recall\n          ACITM04: Commands\n          ACITM05: Constructional Praxis\n          ACITM06: Ideational Praxis\n          ACITM07: Orientation\n          ACITM08: Word Recognition\n          ACITM09: Attention/Visual Search Task\n          ACITM10: Maze Solution\n          ACITM11: Spoken Language Ability\n          ACITM12: Comprehension Of Spoken Language\n          ACITM13: Word Finding Difficulty In Spontaneous S\n          ACITM14: Recall Of Test Instructions\n          ACTOT: Adas-Cog(11) Subscore"
+          }
+        }
+      ],
+      "probes": [
+        {
+          "column": "PARAM",
+          "reading": "literal"
+        }
+      ],
+      "interpretations": [
+        "The native truncated parameter decodes are retained verbatim; the probe uses the published REF.PARAMCD and does not validate its upstream collected or planned assignment.",
+        "Missing character decodes are represented as empty text."
+      ],
+      "assessment": "The runtime dictionary states the native parameter-code decodes.",
+      "question": ""
+    },
+    {
+      "variable": "PARAMN",
+      "rule": "Assign the numeric parameter code by matching the PARAMCD and PARAMN codelist decodes.",
+      "citations": [
+        {
+          "document": "spec/define/define-adam.xml",
+          "section": "ADADAS.PARAMN",
+          "quote": "Assign a numeric code for each value of PARAMCD (see codelist PARAMN_ADQSADAS)"
+        },
+        {
+          "document": "spec/define/define-adam.xml",
+          "section": "ADADAS.PARAMCD",
+          "quote": "Codelist CL.PARAMCD_ADQSADAS: ACITM01 = Word Recall Task; ACITM02 = Naming Objects And Fingers (Refer To 5 C; ACITM03 = Delayed Word Recall; ACITM04 = Commands; ACITM05 = Constructional Praxis; ACITM06 = Ideational Praxis; ACITM07 = Orientation; ACITM08 = Word Recognition; ACITM09 = Attention/Visual Search Task; ACITM10 = Maze Solution; ACITM11 = Spoken Language Ability; ACITM12 = Comprehension Of Spoken Language; ACITM13 = Word Finding Difficulty In Spontaneous S; ACITM14 = Recall Of Test Instructions; ACTOT = Adas-Cog(11) Subscore"
+        },
+        {
+          "document": "spec/define/define-adam.xml",
+          "section": "ADADAS.PARAMN",
+          "quote": "Codelist CL.PARAMN_ADQSADAS: 1 = Word Recall Task; 2 = Naming Objects And Fingers (Refer To 5 C; 3 = Delayed Word Recall; 4 = Commands; 5 = Constructional Praxis; 6 = Ideational Praxis; 7 = Orientation; 8 = Word Recognition; 9 = Attention/Visual Search Task; 10 = Maze Solution; 11 = Spoken Language Ability; 12 = Comprehension Of Spoken Language; 13 = Word Finding Difficulty In Spontaneous S; 14 = Recall Of Test Instructions; 15 = Adas-Cog(11) Subscore"
+        }
+      ],
+      "clauses": [
+        {
+          "relation": "same",
+          "document": {
+            "citation": 1,
+            "quote": "Assign a numeric code for each value of PARAMCD (see codelist PARAMN_ADQSADAS)"
+          },
+          "spec": {
+            "element": "PARAMN",
+            "quote": "source: PARAMCD"
+          }
+        },
+        {
+          "relation": "same",
+          "document": {
+            "citation": 3,
+            "quote": "Codelist CL.PARAMN_ADQSADAS: 1 = Word Recall Task; 2 = Naming Objects And Fingers (Refer To 5 C; 3 = Delayed Word Recall; 4 = Commands; 5 = Constructional Praxis; 6 = Ideational Praxis; 7 = Orientation; 8 = Word Recognition; 9 = Attention/Visual Search Task; 10 = Maze Solution; 11 = Spoken Language Ability; 12 = Comprehension Of Spoken Language; 13 = Word Finding Difficulty In Spontaneous S; 14 = Recall Of Test Instructions; 15 = Adas-Cog(11) Subscore"
+          },
+          "spec": {
+            "element": "PARAMN",
+            "quote": "      mapping:\n        source: PARAMCD\n        dict:\n          ACITM01: 1.0\n          ACITM02: 2.0\n          ACITM03: 3.0\n          ACITM04: 4.0\n          ACITM05: 5.0\n          ACITM06: 6.0\n          ACITM07: 7.0\n          ACITM08: 8.0\n          ACITM09: 9.0\n          ACITM10: 10.0\n          ACITM11: 11.0\n          ACITM12: 12.0\n          ACITM13: 13.0\n          ACITM14: 14.0\n          ACTOT: 15.0"
+          },
+          "note": "The parameter-code codelist in the preceding citation and the numeric codelist share identical decodes, which establishes each mapping pair."
+        }
+      ],
+      "probes": [
+        {
+          "column": "PARAMN",
+          "reading": "literal"
+        }
+      ],
+      "interpretations": [],
+      "assessment": "The runtime mapping follows the paired native codelists. The unprojected workbook duplicates are retained in the omission inventory.",
+      "question": ""
+    },
+    {
+      "variable": "AVISITN",
+      "rule": "Assign the numeric code corresponding to AVISIT in the native AVISITN codelist.",
+      "citations": [
+        {
+          "document": "spec/define/define-adam.xml",
+          "section": "ADADAS.AVISITN",
+          "quote": "Numeric code for AVISIT"
+        },
+        {
+          "document": "spec/define/define-adam.xml",
+          "section": "ADADAS.AVISITN",
+          "quote": "Codelist CL.AVISITN: 0 = Baseline; 2 = Week 2; 4 = Week 4; 6 = Week 6; 8 = Week 8; 10 = Week 10; 12 = Week 12; 14 = Week 14; 16 = Week 16; 18 = Week 18; 20 = Week 20; 22 = Week 22; 24 = Week 24; 26 = Week 26; 98 = Weeks 4-24; 99 = End of Treatment"
+        },
+        {
+          "document": "spec/source/adrg.pdf",
+          "section": "page-11",
+          "quote": "Visits are placed into analysis visits (represented by A VISIT and A VISITN) based\non the date of the visit and the visit windows."
+        }
+      ],
+      "clauses": [
+        {
+          "relation": "same",
+          "document": {
+            "citation": 1,
+            "quote": "Numeric code for AVISIT"
+          },
+          "spec": {
+            "element": "AVISITN",
+            "quote": "source: AVISIT"
+          }
+        },
+        {
+          "relation": "differs",
+          "document": {
+            "citation": 2,
+            "quote": "Codelist CL.AVISITN: 0 = Baseline; 2 = Week 2; 4 = Week 4; 6 = Week 6; 8 = Week 8; 10 = Week 10; 12 = Week 12; 14 = Week 14; 16 = Week 16; 18 = Week 18; 20 = Week 20; 22 = Week 22; 24 = Week 24; 26 = Week 26; 98 = Weeks 4-24; 99 = End of Treatment"
+          },
+          "spec": {
+            "element": "AVISITN",
+            "quote": "Baseline: 0.0\n          Week 8: 8.0\n          Week 16: 16.0\n          Week 24: 24.0"
+          },
+          "note": "The runtime dictionary covers its baseline and scheduled efficacy visits, while the native numeric codelist also defines codes for other analysis visits."
+        }
+      ],
+      "probes": [
+        {
+          "column": "AVISITN",
+          "reading": "literal"
+        }
+      ],
+      "interpretations": [
+        "A reference-based probe exercises supplied reference visits; it does not exercise dictionary entries for visits absent from the probe input."
+      ],
+      "assessment": "The runtime reads the documented source, but its dictionary does not implement the full native numeric visit mapping.",
+      "question": "Should the runtime implement every enumerated native AVISITN mapping, or should a study-specific visit restriction be documented?"
+    },
+    {
+      "variable": "AWRANGE",
+      "rule": "Use the SAP-defined analysis-window range text; the retained current-study text does not provide the visit-specific assignments.",
+      "citations": [
+        {
+          "document": "spec/define/define-adam.xml",
+          "section": "ADADAS.AWRANGE",
+          "quote": "Window range, specified in the SAP."
+        },
+        {
+          "document": "spec/source/adrg.pdf",
+          "section": "page-11",
+          "quote": "Visits are placed into analysis visits (represented by A VISIT and A VISITN) based\non the date of the visit and the visit windows."
+        }
+      ],
+      "clauses": [
+        {
+          "relation": "same",
+          "document": {
+            "citation": 1,
+            "quote": "Window range, specified in the SAP."
+          },
+          "spec": {
+            "element": "AWRANGE",
+            "quote": "comment: Window range, specified in the SAP."
+          },
+          "note": "This comparison establishes the declared purpose and SAP delegation only; it does not assert agreement of the lookup assignments."
+        },
+        {
+          "relation": "absent_in_document",
+          "spec": {
+            "element": "AWRANGE",
+            "quote": "derivation: AW_LOOKUP.AWRANGE"
+          },
+          "note": "The runtime resolves range text through its AVISIT-keyed analysis-window lookup. The inspected current-study text and native workbook do not state the exact range string for each AVISIT, boundary inclusiveness and representation of an unbounded endpoint."
+        }
+      ],
+      "probes": [],
+      "interpretations": [
+        "The unstated row-level choice is the exact range string for each AVISIT, boundary inclusiveness and representation of an unbounded endpoint; neither the field description nor the visit-window narrative supplies this mapping.",
+        "AW_LOOKUP joins the staged AW mapping relation by AVISIT. Its supplied assignments are implementation inputs, not independent documentary derivation rules.",
+        "The shared CDISC SAP has applicability pending_review for Pilot 3 and is outside the supplied citable section set; no shared window table or endpoint convention is imported.",
+        "The complete native workbook repeats the Define-XML comment and supplies no visit-specific mapping or value-level override; the unprojected duplicate is inventoried separately."
+      ],
+      "assessment": "The field purpose and SAP reference are documented. The implementation chooses a visit-keyed mapping whose governing assignments cannot yet be stated from applicable citable current-study evidence.",
+      "question": "Establish the governing SAP applicability and supply the exact range string for each AVISIT, boundary inclusiveness and representation of an unbounded endpoint.",
+      "not_probed_reason": "The current-study Define-XML and native workbook delegate the assignment to the SAP without stating the exact range string for each AVISIT, boundary inclusiveness and representation of an unbounded endpoint. The retained ADRG confirms visit windowing but supplies no such mapping. Shared SAP applicability remains pending_review, so a literal row-level probe would require importing an unestablished rule or copying the implementation lookup."
+    },
+    {
+      "variable": "AWTARGET",
+      "rule": "Use the SAP-defined analysis-window target day; the retained current-study text does not provide the visit-specific assignments.",
+      "citations": [
+        {
+          "document": "spec/define/define-adam.xml",
+          "section": "ADADAS.AWTARGET",
+          "quote": "Target day within the window, specified in the SAP."
+        },
+        {
+          "document": "spec/source/adrg.pdf",
+          "section": "page-11",
+          "quote": "Visits are placed into analysis visits (represented by A VISIT and A VISITN) based\non the date of the visit and the visit windows."
+        }
+      ],
+      "clauses": [
+        {
+          "relation": "same",
+          "document": {
+            "citation": 1,
+            "quote": "Target day within the window, specified in the SAP."
+          },
+          "spec": {
+            "element": "AWTARGET",
+            "quote": "comment: Target day within the window, specified in the SAP."
+          },
+          "note": "This comparison establishes the declared purpose and SAP delegation only; it does not assert agreement of the lookup assignments."
+        },
+        {
+          "relation": "absent_in_document",
+          "spec": {
+            "element": "AWTARGET",
+            "quote": "derivation: AW_LOOKUP.AWTARGET"
+          },
+          "note": "The runtime resolves target day through its AVISIT-keyed analysis-window lookup. The inspected current-study text and native workbook do not state the numeric target day assigned to each AVISIT."
+        }
+      ],
+      "probes": [],
+      "interpretations": [
+        "The unstated row-level choice is the numeric target day assigned to each AVISIT; neither the field description nor the visit-window narrative supplies this mapping.",
+        "AW_LOOKUP joins the staged AW mapping relation by AVISIT. Its supplied assignments are implementation inputs, not independent documentary derivation rules.",
+        "The shared CDISC SAP has applicability pending_review for Pilot 3 and is outside the supplied citable section set; no shared window table or endpoint convention is imported.",
+        "The complete native workbook repeats the Define-XML comment and supplies no visit-specific mapping or value-level override; the unprojected duplicate is inventoried separately."
+      ],
+      "assessment": "The field purpose and SAP reference are documented. The implementation chooses a visit-keyed mapping whose governing assignments cannot yet be stated from applicable citable current-study evidence.",
+      "question": "Establish the governing SAP applicability and supply the numeric target day assigned to each AVISIT.",
+      "not_probed_reason": "The current-study Define-XML and native workbook delegate the assignment to the SAP without stating the numeric target day assigned to each AVISIT. The retained ADRG confirms visit windowing but supplies no such mapping. Shared SAP applicability remains pending_review, so a literal row-level probe would require importing an unestablished rule or copying the implementation lookup."
+    },
+    {
+      "variable": "AWLO",
+      "rule": "Use the SAP-defined analysis-window window start day; the retained current-study text does not provide the visit-specific assignments.",
+      "citations": [
+        {
+          "document": "spec/define/define-adam.xml",
+          "section": "ADADAS.AWLO",
+          "quote": "Start day of the window, specified in the SAP."
+        },
+        {
+          "document": "spec/source/adrg.pdf",
+          "section": "page-11",
+          "quote": "Visits are placed into analysis visits (represented by A VISIT and A VISITN) based\non the date of the visit and the visit windows."
+        }
+      ],
+      "clauses": [
+        {
+          "relation": "same",
+          "document": {
+            "citation": 1,
+            "quote": "Start day of the window, specified in the SAP."
+          },
+          "spec": {
+            "element": "AWLO",
+            "quote": "comment: Start day of the window, specified in the SAP."
+          },
+          "note": "This comparison establishes the declared purpose and SAP delegation only; it does not assert agreement of the lookup assignments."
+        },
+        {
+          "relation": "absent_in_document",
+          "spec": {
+            "element": "AWLO",
+            "quote": "derivation: AW_LOOKUP.AWLO"
+          },
+          "note": "The runtime resolves window start day through its AVISIT-keyed analysis-window lookup. The inspected current-study text and native workbook do not state the numeric beginning day assigned to each AVISIT and the representation of an unbounded lower endpoint."
+        }
+      ],
+      "probes": [],
+      "interpretations": [
+        "The unstated row-level choice is the numeric beginning day assigned to each AVISIT and the representation of an unbounded lower endpoint; neither the field description nor the visit-window narrative supplies this mapping.",
+        "AW_LOOKUP joins the staged AW mapping relation by AVISIT. Its supplied assignments are implementation inputs, not independent documentary derivation rules.",
+        "The shared CDISC SAP has applicability pending_review for Pilot 3 and is outside the supplied citable section set; no shared window table or endpoint convention is imported.",
+        "The complete native workbook repeats the Define-XML comment and supplies no visit-specific mapping or value-level override; the unprojected duplicate is inventoried separately."
+      ],
+      "assessment": "The field purpose and SAP reference are documented. The implementation chooses a visit-keyed mapping whose governing assignments cannot yet be stated from applicable citable current-study evidence.",
+      "question": "Establish the governing SAP applicability and supply the numeric beginning day assigned to each AVISIT and the representation of an unbounded lower endpoint.",
+      "not_probed_reason": "The current-study Define-XML and native workbook delegate the assignment to the SAP without stating the numeric beginning day assigned to each AVISIT and the representation of an unbounded lower endpoint. The retained ADRG confirms visit windowing but supplies no such mapping. Shared SAP applicability remains pending_review, so a literal row-level probe would require importing an unestablished rule or copying the implementation lookup."
+    },
+    {
+      "variable": "AWHI",
+      "rule": "Use the SAP-defined analysis-window window end day; the retained current-study text does not provide the visit-specific assignments.",
+      "citations": [
+        {
+          "document": "spec/define/define-adam.xml",
+          "section": "ADADAS.AWHI",
+          "quote": "End day of the window, specified in the SAP."
+        },
+        {
+          "document": "spec/source/adrg.pdf",
+          "section": "page-11",
+          "quote": "Visits are placed into analysis visits (represented by A VISIT and A VISITN) based\non the date of the visit and the visit windows."
+        }
+      ],
+      "clauses": [
+        {
+          "relation": "same",
+          "document": {
+            "citation": 1,
+            "quote": "End day of the window, specified in the SAP."
+          },
+          "spec": {
+            "element": "AWHI",
+            "quote": "comment: End day of the window, specified in the SAP."
+          },
+          "note": "This comparison establishes the declared purpose and SAP delegation only; it does not assert agreement of the lookup assignments."
+        },
+        {
+          "relation": "absent_in_document",
+          "spec": {
+            "element": "AWHI",
+            "quote": "derivation: AW_LOOKUP.AWHI"
+          },
+          "note": "The runtime resolves window end day through its AVISIT-keyed analysis-window lookup. The inspected current-study text and native workbook do not state the numeric ending day assigned to each AVISIT and the representation of an unbounded upper endpoint."
+        }
+      ],
+      "probes": [],
+      "interpretations": [
+        "The unstated row-level choice is the numeric ending day assigned to each AVISIT and the representation of an unbounded upper endpoint; neither the field description nor the visit-window narrative supplies this mapping.",
+        "AW_LOOKUP joins the staged AW mapping relation by AVISIT. Its supplied assignments are implementation inputs, not independent documentary derivation rules.",
+        "The shared CDISC SAP has applicability pending_review for Pilot 3 and is outside the supplied citable section set; no shared window table or endpoint convention is imported.",
+        "The complete native workbook repeats the Define-XML comment and supplies no visit-specific mapping or value-level override; the unprojected duplicate is inventoried separately."
+      ],
+      "assessment": "The field purpose and SAP reference are documented. The implementation chooses a visit-keyed mapping whose governing assignments cannot yet be stated from applicable citable current-study evidence.",
+      "question": "Establish the governing SAP applicability and supply the numeric ending day assigned to each AVISIT and the representation of an unbounded upper endpoint.",
+      "not_probed_reason": "The current-study Define-XML and native workbook delegate the assignment to the SAP without stating the numeric ending day assigned to each AVISIT and the representation of an unbounded upper endpoint. The retained ADRG confirms visit windowing but supplies no such mapping. Shared SAP applicability remains pending_review, so a literal row-level probe would require importing an unestablished rule or copying the implementation lookup."
+    },
+    {
+      "variable": "AWU",
+      "rule": "Assign DAYS on every record.",
+      "citations": [
+        {
+          "document": "spec/define/define-adam.xml",
+          "section": "ADADAS.AWU",
+          "quote": "Assigned as \"DAYS\"."
+        },
+        {
+          "document": "spec/define/define-adam.xml",
+          "section": "ADADAS.AWU",
+          "quote": "Codelist CL.AWU: DAYS = DAYS"
+        }
+      ],
+      "clauses": [
+        {
+          "relation": "same",
+          "document": {
+            "citation": 1,
+            "quote": "Assigned as \"DAYS\"."
+          },
+          "spec": {
+            "element": "AWU",
+            "quote": "derivation: \"'DAYS'\""
+          }
+        }
+      ],
+      "probes": [
+        {
+          "column": "AWU",
+          "reading": "literal"
+        }
+      ],
+      "interpretations": [
+        "The native workbook repeats the constant assignment and codelist; its unprojected duplicates are inventoried separately."
+      ],
+      "assessment": "The literal assignment and runtime constant use the documented unit.",
+      "question": ""
+    },
+    {
+      "variable": "ANL01FL",
+      "rule": "For multiple visits in a visit window choose the visit closest to target and flag it Y; the R-generated ADRG example illustrates selected, unselected and imputed flags, while general tie and eligibility rules remain unstated.",
+      "citations": [
+        {
+          "document": "spec/define/define-adam.xml",
+          "section": "ADADAS.ANL01FL",
+          "quote": "If multiple visits fall into the same visit window, then the one closest to the target date is chosen for analysis. These are flagged with ANL01FL=\"Y\"."
+        },
+        {
+          "document": "spec/source/adrg.pdf",
+          "section": "page-8",
+          "quote": "Was windowing used in one or more analysis datasets?\nYes\nWere unscheduled visits used in any analyses?\nYes"
+        },
+        {
+          "document": "spec/source/adrg.pdf",
+          "section": "page-11",
+          "quote": "It contains one record per subject per parameter (ADAS-Cog questionnaire item)\nper VISIT. Visits are placed into analysis visits (represented by A VISIT and A VISITN) based\non the date of the visit and the visit windows."
+        },
+        {
+          "document": "spec/source/adrg.pdf",
+          "section": "page-16",
+          "quote": "ADADAS.ANL01FL\n== \u201cY\u201d"
+        },
+        {
+          "document": "spec/source/adrg.pdf",
+          "section": "page-45",
+          "quote": "The R-generated ADADAS matches original ADADAS from CDISC pilot data , except for the\nrecords where PARAMCD=ACTOT, DTYPE=LOCF . This is an issue from the CDISC ADADAS."
+        },
+        {
+          "document": "spec/source/adrg.pdf",
+          "section": "page-47",
+          "quote": "USUBJID QSSEQ PARAMCD AVISITN AVISIT VISIT AVAL DTYPE ANL01FL\n<chr> <dbl> <chr> <dbl> <chr> <chr> <dbl> <chr> <chr>\n1 01-701-1294 5015 ACTOT 0 Baseline BASELINE 9 \"\" \"Y\"\n2 01-701-1294 5030 ACTOT 8 Week 8 WEEK 8 14 \"\" \"Y\"\n3 01-701-1294 5045 ACTOT 8 Week 8 WEEK 12 6 \"\" \"\"\n4 01-701-1294 5030 ACTOT 16 Week 16 WEEK 8 14 \"LOCF\" \"Y\"\n5 01-701-1294 5060 ACTOT 24 Week 24 RETRIEVAL 9 \"\" \"Y\""
+        },
+        {
+          "document": "spec/source/adrg.pdf",
+          "section": "page-46",
+          "quote": "ADADAS generated by R:\nDTYPE is not LOCF for the record with QSSEQ=5045 and AVISIT=Week 8 , as this record is directly\nfrom qs."
+        }
+      ],
+      "clauses": [
+        {
+          "relation": "same",
+          "document": {
+            "citation": 1,
+            "quote": "the one closest to the target date is chosen for analysis."
+          },
+          "spec": {
+            "element": "AWTDIFF_RAW",
+            "quote": "ABS(AWTARGET - ADY_RAW)"
+          },
+          "note": "The primary ranking uses this absolute distance within each analysis-visit group."
+        },
+        {
+          "relation": "same",
+          "document": {
+            "citation": 1,
+            "quote": "These are flagged with ANL01FL=\"Y\"."
+          },
+          "spec": {
+            "element": "ANL01FL",
+            "quote": "- when: ANL01_RN = 1\n          then: \"'Y'\""
+          }
+        },
+        {
+          "relation": "absent_in_document",
+          "spec": {
+            "element": "ANL01_RN",
+            "quote": "- variable: DIFF_RAW\n              nulls: last"
+          },
+          "note": "After absolute distance the runtime sorts AWTARGET minus ADY_RAW ascending, preferring the later visit when distances tie; the source states no tie rule."
+        },
+        {
+          "relation": "absent_in_document",
+          "spec": {
+            "element": "ANL01_RN",
+            "quote": "- variable: AWTDIFF_RAW\n              nulls: last"
+          },
+          "note": "The runtime places missing primary distances last; the documented rule does not state how a visit without a usable target distance is eligible or ranked."
+        },
+        {
+          "relation": "absent_in_document",
+          "spec": {
+            "element": "ANL01_RN",
+            "quote": "filter: ROWSRC = 0"
+          },
+          "note": "The runtime excludes planned rows from ranking; no cited selection rule defines that eligibility restriction."
+        },
+        {
+          "relation": "same",
+          "spec": {
+            "element": "ANL01FL",
+            "quote": "- when: ROWSRC = 1\n          then: \"'Y'\""
+          },
+          "note": "The R-generated worked example flags its illustrated imputed ACTOT record for analysis, agreeing with this branch for that record. The example does not state that every planned or imputed record is eligible or flagged.",
+          "document": {
+            "citation": 6,
+            "quote": "USUBJID QSSEQ PARAMCD AVISITN AVISIT VISIT AVAL DTYPE ANL01FL\n<chr> <dbl> <chr> <dbl> <chr> <chr> <dbl> <chr> <chr>\n1 01-701-1294 5015 ACTOT 0 Baseline BASELINE 9 \"\" \"Y\"\n2 01-701-1294 5030 ACTOT 8 Week 8 WEEK 8 14 \"\" \"Y\"\n3 01-701-1294 5045 ACTOT 8 Week 8 WEEK 12 6 \"\" \"\"\n4 01-701-1294 5030 ACTOT 16 Week 16 WEEK 8 14 \"LOCF\" \"Y\"\n5 01-701-1294 5060 ACTOT 24 Week 24 RETRIEVAL 9 \"\" \"Y\""
+          }
+        },
+        {
+          "relation": "same",
+          "spec": {
+            "element": "ANL01FL",
+            "quote": "- when: ANL01_RN = 1\n          then: \"'Y'\"\n        - otherwise:"
+          },
+          "note": "The R-generated example shows flags on the illustrated visits with no competing collected record and leaves the other unselected collected record blank. It supports these illustrated outcomes without prescribing all singleton, unselected or tied-window behavior.",
+          "document": {
+            "citation": 6,
+            "quote": "USUBJID QSSEQ PARAMCD AVISITN AVISIT VISIT AVAL DTYPE ANL01FL\n<chr> <dbl> <chr> <dbl> <chr> <chr> <dbl> <chr> <chr>\n1 01-701-1294 5015 ACTOT 0 Baseline BASELINE 9 \"\" \"Y\"\n2 01-701-1294 5030 ACTOT 8 Week 8 WEEK 8 14 \"\" \"Y\"\n3 01-701-1294 5045 ACTOT 8 Week 8 WEEK 12 6 \"\" \"\"\n4 01-701-1294 5030 ACTOT 16 Week 16 WEEK 8 14 \"LOCF\" \"Y\"\n5 01-701-1294 5060 ACTOT 24 Week 24 RETRIEVAL 9 \"\" \"Y\""
+          }
+        }
+      ],
+      "probes": [],
+      "interpretations": [
+        "A visit-window assignment is upstream context; no shared SAP window algorithm is imported while applicability is unresolved.",
+        "The target and analysis-visit group can be read from published upstream metadata, but equally close visits still require an unstated tie decision.",
+        "The runtime groups by USUBJID, PARAMCD and AVISIT and excludes planned rows from ranking; the cited text does not specify all eligibility and imputation choices.",
+        "The ADRG identifies Y as an analysis selection flag and illustrates selected, unselected and imputed-record flags in R-generated ADADAS; it does not supply a complete general selection algorithm. The original CDISC table is shown separately as comparison context."
+      ],
+      "assessment": "The nearest-target direction and the illustrated selected, unselected and imputed flag outcomes have source counterparts. A general literal flag still requires a tie rule and eligibility decisions beyond the example.",
+      "question": "State general tie resolution, eligibility and grouping scope, and whether the illustrated singleton, unselected and imputed-record flagging is intended for all such records.",
+      "not_probed_reason": "The current-study rule does not resolve equally close visits or fully specify eligible records and general singleton/imputed treatment. The worked example establishes its illustrated outcomes but does not define those general choices, so it does not add an executable reading."
+    },
+    {
+      "variable": "ADT",
+      "rule": "Convert QS.QSDTC to an analysis date; the R-generated ADRG example also illustrates carrying a selected source record's date onto an imputed ACTOT analysis visit.",
+      "citations": [
+        {
+          "document": "spec/define/define-adam.xml",
+          "section": "ADADAS.ADT",
+          "quote": "SAS date from QS.QSDTC"
+        },
+        {
+          "document": "spec/define/define-adam.xml",
+          "section": "ADADAS.DTYPE",
+          "quote": "Set to \"LOCF\" if a record is imputated when PARAMCD=\"ACTOT\"; otherwise, set to missing"
+        },
+        {
+          "document": "spec/define/define-adam.xml",
+          "section": "ADADAS.ANL01FL",
+          "quote": "If multiple visits fall into the same visit window, then the one closest to the target date is chosen for analysis. These are flagged with ANL01FL=\"Y\"."
+        },
+        {
+          "document": "spec/source/adrg.pdf",
+          "section": "page-47",
+          "quote": "USUBJID QSSEQ PARAMCD AVISITN AVISIT VISIT AVAL DTYPE ANL01FL\n<chr> <dbl> <chr> <dbl> <chr> <chr> <dbl> <chr> <chr>\n1 01-701-1294 5015 ACTOT 0 Baseline BASELINE 9 \"\" \"Y\"\n2 01-701-1294 5030 ACTOT 8 Week 8 WEEK 8 14 \"\" \"Y\"\n3 01-701-1294 5045 ACTOT 8 Week 8 WEEK 12 6 \"\" \"\"\n4 01-701-1294 5030 ACTOT 16 Week 16 WEEK 8 14 \"LOCF\" \"Y\"\n5 01-701-1294 5060 ACTOT 24 Week 24 RETRIEVAL 9 \"\" \"Y\"\nADT ADY\n<date> <dbl>\n2013-03-24 1\n2013-05-22 60\n2013-06-14 83\n2013-05-22 60\n2013-10-08 199"
+        },
+        {
+          "document": "spec/source/adrg.pdf",
+          "section": "page-46",
+          "quote": "ADADAS generated by R:\nDTYPE is not LOCF for the record with QSSEQ=5045 and AVISIT=Week 8 , as this record is directly\nfrom qs."
+        }
+      ],
+      "clauses": [
+        {
+          "relation": "same",
+          "document": {
+            "citation": 1,
+            "quote": "SAS date from QS.QSDTC"
+          },
+          "spec": {
+            "element": "collected",
+            "quote": "ADT_RAW:\n        to_date:\n          source: QS.QSDTC"
+          }
+        },
+        {
+          "relation": "same",
+          "document": {
+            "citation": 1,
+            "quote": "SAS date from QS.QSDTC"
+          },
+          "spec": {
+            "element": "ADT",
+            "quote": "- otherwise: ADT_RAW"
+          },
+          "note": "The collected-row branch returns the converted QS date."
+        },
+        {
+          "relation": "same",
+          "document": {
+            "citation": 4,
+            "quote": "USUBJID QSSEQ PARAMCD AVISITN AVISIT VISIT AVAL DTYPE ANL01FL\n<chr> <dbl> <chr> <dbl> <chr> <chr> <dbl> <chr> <chr>\n1 01-701-1294 5015 ACTOT 0 Baseline BASELINE 9 \"\" \"Y\"\n2 01-701-1294 5030 ACTOT 8 Week 8 WEEK 8 14 \"\" \"Y\"\n3 01-701-1294 5045 ACTOT 8 Week 8 WEEK 12 6 \"\" \"\"\n4 01-701-1294 5030 ACTOT 16 Week 16 WEEK 8 14 \"LOCF\" \"Y\"\n5 01-701-1294 5060 ACTOT 24 Week 24 RETRIEVAL 9 \"\" \"Y\"\nADT ADY\n<date> <dbl>\n2013-03-24 1\n2013-05-22 60\n2013-06-14 83\n2013-05-22 60\n2013-10-08 199"
+          },
+          "spec": {
+            "element": "ADT",
+            "quote": "- when: ROWSRC = 1\n          then:\n            locf:\n              source: ADT_Y"
+          },
+          "note": "The R-generated worked example carries the earlier selected source record's date to its illustrated imputed ACTOT record. This supports that carry operation in the example; it does not state a general grouping, visit-ordering or missing-order policy."
+        },
+        {
+          "relation": "same",
+          "spec": {
+            "element": "ADT_Y",
+            "quote": "    derivation:\n      case:\n        - when: ANL01FL = 'Y'\n          then: ADT_RAW\n        - otherwise:"
+          },
+          "note": "In the R-generated example the donor is an earlier flagged collected record, and the other unselected record does not donate its date to the imputed record. This supports the illustrated selected-donor choice without establishing a universal donor-eligibility or donor-tie rule.",
+          "document": {
+            "citation": 4,
+            "quote": "USUBJID QSSEQ PARAMCD AVISITN AVISIT VISIT AVAL DTYPE ANL01FL\n<chr> <dbl> <chr> <dbl> <chr> <chr> <dbl> <chr> <chr>\n1 01-701-1294 5015 ACTOT 0 Baseline BASELINE 9 \"\" \"Y\"\n2 01-701-1294 5030 ACTOT 8 Week 8 WEEK 8 14 \"\" \"Y\"\n3 01-701-1294 5045 ACTOT 8 Week 8 WEEK 12 6 \"\" \"\"\n4 01-701-1294 5030 ACTOT 16 Week 16 WEEK 8 14 \"LOCF\" \"Y\"\n5 01-701-1294 5060 ACTOT 24 Week 24 RETRIEVAL 9 \"\" \"Y\"\nADT ADY\n<date> <dbl>\n2013-03-24 1\n2013-05-22 60\n2013-06-14 83\n2013-05-22 60\n2013-10-08 199"
+          }
+        },
+        {
+          "relation": "absent_in_document",
+          "spec": {
+            "element": "planned",
+            "quote": "ADT_RAW:"
+          },
+          "note": "The missing planned raw date is an unstated helper convention."
+        },
+        {
+          "relation": "absent_in_document",
+          "spec": {
+            "element": "ADT",
+            "quote": "window:\n                group_by:\n                  - STUDYID\n                  - USUBJID\n                  - PARAMCD\n                order_by:\n                  - variable: AVISITN\n                    nulls: last"
+          },
+          "note": "The native method and the worked R-generated example do not state this full general grouping, analysis-visit ordering, or placement of missing ordering values. The worked example documents the illustrated carry operation only."
+        }
+      ],
+      "probes": [
+        {
+          "column": "ADT__LITERAL",
+          "reading": "literal"
+        }
+      ],
+      "interpretations": [
+        "The literal probe converts QSDTC from the raw QS record identified by reference STUDYID, USUBJID and QSSEQ; it does not read reference ADT as the candidate answer.",
+        "The reference ADT join key is preserved; the candidate date is emitted as ADT__LITERAL.",
+        "The ADRG appendix illustrates donor-date changes for imputation but does not give a complete general date-carry or donor-tie rule.",
+        "The cited appendix table is R-generated ADADAS, introduced on the preceding page; its original CDISC comparison table is a separate result. The example is evidence for the illustrated date donor and does not supply an executable general date-carry reading distinct from the retained literal QS-date probe."
+      ],
+      "assessment": "The named QS-date conversion and the worked example's selected-date carry have source counterparts. The example does not complete the general donor, grouping, visit-ordering or tie policy.",
+      "question": "Document the general selected-date donor eligibility, grouping, visit ordering and tie handling beyond the worked example."
+    },
+    {
+      "variable": "ADY",
+      "rule": "Subtract TRTSDT from ADT and add one when ADT is on or after TRTSDT; do not add one before treatment start.",
+      "citations": [
+        {
+          "document": "spec/define/define-adam.xml",
+          "section": "ADADAS.ADY",
+          "quote": "ADY = ADT - TRTSDT + 1, if ADT>=TRTSDT. ADY = ADT - TRTSDT, if ADT<TRTSDT."
+        },
+        {
+          "document": "spec/define/define-adam.xml",
+          "section": "ADADAS.DTYPE",
+          "quote": "Set to \"LOCF\" if a record is imputated when PARAMCD=\"ACTOT\"; otherwise, set to missing"
+        },
+        {
+          "document": "spec/define/define-adam.xml",
+          "section": "ADADAS.ANL01FL",
+          "quote": "If multiple visits fall into the same visit window, then the one closest to the target date is chosen for analysis. These are flagged with ANL01FL=\"Y\"."
+        }
+      ],
+      "clauses": [
+        {
+          "relation": "same",
+          "document": {
+            "citation": 1,
+            "quote": "ADY = ADT - TRTSDT + 1, if ADT>=TRTSDT. ADY = ADT - TRTSDT, if ADT<TRTSDT."
+          },
+          "spec": {
+            "element": "ADY_RAW",
+            "quote": "    derivation:\n      study_day: {source: ADT_RAW, reference: TRTSDT}"
+          },
+          "note": "On collected rows the study_day helper uses the raw assessment date, which the collected ADT route also returns, and the subject treatment-start date."
+        },
+        {
+          "relation": "differs",
+          "document": {
+            "citation": 1,
+            "quote": "ADY = ADT - TRTSDT + 1, if ADT>=TRTSDT. ADY = ADT - TRTSDT, if ADT<TRTSDT."
+          },
+          "spec": {
+            "element": "ADY",
+            "quote": "    derivation:\n      case:\n        - when: ROWSRC = 1\n          then:\n            locf:\n              source: ADY_Y\n              window:\n                group_by:\n                  - STUDYID\n                  - USUBJID\n                  - PARAMCD\n                order_by:\n                  - variable: AVISITN\n                    nulls: last\n        - otherwise: ADY_RAW"
+          },
+          "note": "The documented formula uses final ADT; the planned-row branch carries an earlier raw-derived analysis day through ADY_Y rather than computing the formula from final ADT."
+        },
+        {
+          "relation": "absent_in_document",
+          "spec": {
+            "element": "ADY_Y",
+            "quote": "    derivation:\n      case:\n        - when: ANL01FL = 'Y'\n          then: ADY_RAW\n        - otherwise:"
+          },
+          "note": "The analysis-flag method documents selection for analysis, but does not direct ADY propagation to use only donors flagged ANL01FL=\"Y\"."
+        },
+        {
+          "relation": "absent_in_document",
+          "spec": {
+            "element": "planned",
+            "quote": "ADT_RAW:"
+          },
+          "note": "The planned template supplies a missing raw assessment date, so its raw study day is missing before donor propagation; this helper convention is unstated."
+        }
+      ],
+      "probes": [
+        {
+          "column": "ADY",
+          "reading": "literal"
+        }
+      ],
+      "interpretations": [
+        "The literal probe reads final reference ADT and TRTSDT and leaves missing dates missing; it isolates the documented day calculation from date imputation and donor selection."
+      ],
+      "assessment": "The collected-row arithmetic follows the native formula; planned rows add a donor-selection and carry convention that the native day formula does not state.",
+      "question": "Should planned-row ADY be computed from final ADT, or should its selected-donor propagation, grouping and visit ordering be explicitly documented?"
+    },
+    {
+      "variable": "AVAL",
+      "rule": "PARTIAL: the generic item-level rule reads QS.QSSTRESN where QSTESTCD equals PARAMCD with the documented precision; native ACTOT value-level metadata overrides this method.",
+      "citations": [
+        {
+          "document": "spec/define/define-adam.xml",
+          "section": "ADADAS.AVAL",
+          "quote": "Significant digits: 13\nMethod: QS.QSSTRESN where QSTESTCD=PARAMCD"
+        },
+        {
+          "document": "spec/source/adrg.pdf",
+          "section": "page-45",
+          "quote": "The R-generated ADADAS matches original ADADAS from CDISC pilot data , except for the\nrecords where PARAMCD=ACTOT, DTYPE=LOCF . This is an issue from the CDISC ADADAS."
+        },
+        {
+          "document": "spec/source/adrg.pdf",
+          "section": "page-48",
+          "quote": "expected missing DTYPE, resulting IN different AVAL/CHG/PCHG values for\nthese subjects."
+        }
+      ],
+      "clauses": [
+        {
+          "relation": "same",
+          "document": {
+            "citation": 1,
+            "quote": "QS.QSSTRESN"
+          },
+          "spec": {
+            "element": "collected",
+            "quote": "AVAL_RAW: QS.QSSTRESN"
+          },
+          "note": "This comparison applies to item-level entries bound to the generic method; it does not apply the generic method to the native ACTOT override."
+        },
+        {
+          "relation": "same",
+          "document": {
+            "citation": 1,
+            "quote": "QSTESTCD=PARAMCD"
+          },
+          "spec": {
+            "element": "collected",
+            "quote": "PARAMCD: QS.QSTESTCD"
+          }
+        },
+        {
+          "relation": "same",
+          "document": {
+            "citation": 1,
+            "quote": "Significant digits: 13"
+          },
+          "spec": {
+            "element": "AVAL",
+            "quote": "significant_digits: 13"
+          }
+        }
+      ],
+      "probes": [],
+      "interpretations": [
+        "EXPORT/CITATION LIMIT: native define-adam.xml /ODM/Study/MetaDataVersion/def:ValueListDef[@OID=\"VL.ADADAS.AVAL\"]/ItemRef[@ItemOID=\"IT.ADADAS.AVAL.ADADAS.PARAMCD.EQ.ACTOT\"] binds MT.ADADAS.AVAL.ACTOT rather than the generic method.",
+        "The complete native overriding statement is retained in define-adam.xml MethodDef OID MT.ADADAS.AVAL.ACTOT and workbook ValueLevel!O16 plus Methods!D6, but the verifier export includes only the generic AVAL method. Exact native pointers and text are in extract-adadas-batch4-omissions.json.",
+        "The ACTOT method refers to SAP Section 14.2 for missing-item adjustment; shared SAP applicability remains pending. No shared algorithm, generic global copy, or REF.AVAL substitution is used.",
+        "Collected rows use AVAL_RAW from QS; planned rows carry the last nonmissing AVAL_Y ordered by AVISITN within STUDYID, USUBJID and PARAMCD. AVAL_Y is restricted to ANL01FL Y. This runtime path still requires comparison with the unprojected overriding native method.",
+        "The ADRG QC context attributes source-versus-imputation differences to ACTOT/LOCF handling; it does not supply the missing citable item-sum or missing-item-adjustment statement."
+      ],
+      "assessment": "This is a partial source comparison. The complete native derivation is retained, but its ACTOT override is outside the allowed citation export; no retained-document absence or incompleteness is asserted.",
+      "question": "Expose VL.ADADAS.AVAL, MT.ADADAS.AVAL.ACTOT and workbook ValueLevel!O16/Methods!D6 as citable sections, then assess the native override and referenced SAP adjustment before approving a full-scope probe.",
+      "not_probed_reason": "EXPORT/CITATION LIMIT: the complete native ACTOT value-level rule is retained in the submitted Define-XML and workbook but omitted from the verifier section export. The generic method is citable only within its native binding scope; a full-scope source-verified literal probe is unavailable without the overriding rule becoming citable. This is not absent or incomplete retained documentation."
+    },
+    {
+      "variable": "AWTDIFF",
+      "rule": "Take the absolute difference between the published upstream AWTARGET and ADY.",
+      "citations": [
+        {
+          "document": "spec/define/define-adam.xml",
+          "section": "ADADAS.AWTDIFF",
+          "quote": "Absolute difference between AWTARGET and ADY"
+        }
+      ],
+      "clauses": [
+        {
+          "relation": "same",
+          "document": {
+            "citation": 1,
+            "quote": "Absolute difference between AWTARGET and ADY"
+          },
+          "spec": {
+            "element": "AWTDIFF",
+            "quote": "derivation: ABS(AWTARGET - ADY)"
+          }
+        }
+      ],
+      "probes": [
+        {
+          "column": "AWTDIFF",
+          "reading": "literal"
+        }
+      ],
+      "interpretations": [
+        "The probe reads REF.AWTARGET and REF.ADY to isolate this absolute-difference rule from target assignment, date derivation, windowing and imputation choices.",
+        "The native workbook repeats this formula and has no additional condition or precision instruction; its unprojected duplicate is inventoried separately."
+      ],
+      "assessment": "The documented computation and runtime expression state the same absolute difference.",
+      "question": ""
+    },
+    {
+      "variable": "BASE",
+      "rule": "Use QS.QSSTRESN from the same study, subject and matching questionnaire parameter where QS.QSBLFL is Y and QS.VISITNUM is 3, and attach that baseline to each analysis row for the subject and parameter.",
+      "citations": [
+        {
+          "document": "spec/define/define-adam.xml",
+          "section": "ADADAS.BASE",
+          "quote": "QS.QSSTRESN when QS.QSBLFL=Y (QS.VISITNUM=3)"
+        },
+        {
+          "document": "spec/source/adrg.pdf",
+          "section": "page-11",
+          "quote": "It contains one record per subject per parameter (ADAS-Cog questionnaire item)\nper VISIT."
+        }
+      ],
+      "clauses": [
+        {
+          "relation": "same",
+          "document": {
+            "citation": 1,
+            "quote": "QS.QSSTRESN"
+          },
+          "spec": {
+            "element": "collected",
+            "quote": "AVAL_RAW: QS.QSSTRESN"
+          },
+          "note": "Only collected rows can have the copied baseline flag Y; their AVAL is AVAL_RAW, so the baseline source resolves through the helpers to QS.QSSTRESN."
+        },
+        {
+          "relation": "same",
+          "document": {
+            "citation": 1,
+            "quote": "QS.QSBLFL=Y"
+          },
+          "spec": {
+            "element": "BASE",
+            "quote": "filter: ABLFL = 'Y'"
+          },
+          "note": "The collected row copies QS.QSBLFL into ABLFL."
+        },
+        {
+          "relation": "absent_in_spec",
+          "document": {
+            "citation": 1,
+            "quote": "QS.VISITNUM=3"
+          },
+          "note": "The baseline aggregate filters only ABLFL; it has no VISITNUM condition."
+        },
+        {
+          "relation": "same",
+          "document": {
+            "citation": 1,
+            "quote": "QS.QSSTRESN when QS.QSBLFL=Y (QS.VISITNUM=3)"
+          },
+          "spec": {
+            "element": "BASE",
+            "quote": "expr: ONLY(AVAL)"
+          },
+          "note": "With the documented fixed-visit predicate, the native QS domain key identifies at most one baseline source per study, subject and questionnaire test. On that source scope ONLY is a uniqueness assertion, not a selection policy for competing records; the separately omitted visit predicate remains addressed in its existing clause."
+        },
+        {
+          "relation": "same",
+          "document": {
+            "citation": 2,
+            "quote": "It contains one record per subject per parameter (ADAS-Cog questionnaire item)\nper VISIT."
+          },
+          "spec": {
+            "element": "BASE",
+            "quote": "group_by:\n          - STUDYID\n          - USUBJID\n          - PARAMCD"
+          },
+          "note": "The baseline source rule is applied in the retained dataset's subject/parameter scope, retaining study identity. Native PARAMCD predecessor and QS key metadata supply the raw QSTESTCD match and fixed-visit uniqueness; no across-parameter aggregation or donor ordering is required."
+        }
+      ],
+      "probes": [
+        {
+          "column": "BASE",
+          "reading": "literal"
+        }
+      ],
+      "interpretations": [
+        "The parentheses may assert that baseline flag Y coincides with VISITNUM 3 or may impose an additional condition; the literal reading requires both, without dropping the visit condition.",
+        "Matching assumes that the published study and subject identifiers preserve raw QS identity and uses the native PARAMCD predecessor QS.QSTESTCD. The fixed visit condition reduces the native QS key to one baseline source per study, subject and parameter; that source is attached to every corresponding reference analysis row without restricting the current row to baseline.",
+        "The raw lookup has no keep, ordering, averaging, imputation or other competing-record selection. An explicit uniqueness verification checks its filtered source identity. A missing match uses yamaa's missing result rather than an invented substitute.",
+        "The BASE method applies to the native parameter scope, including ACTOT. Native AVAL value-level metadata gives ACTOT its separate item-sum method; the BASE method itself still names raw QS.QSSTRESN, so the literal BASE probe neither substitutes the item methods nor rebuilds ACTOT from them.",
+        "The native workbook Methods, Variables, Datasets and ValueLevel sheets and the native Define-XML Origin, key and value-level metadata were inspected. The allowed workbook and SDTM section exports are empty and the ADaM sections omit those native fields, so no unexported workbook, Origin, key or value-level passage is fabricated as a citation. Those native fields inform the explicit matching assumptions; the citable BASE rule and ADRG layout remain the documentary quotations.",
+        "The shared SAP remains pending applicability review and supplies no governing condition to this probe."
+      ],
+      "assessment": "The named raw source and both literal baseline predicates can be stated as a yamaa lookup using native subject/parameter identity and fixed-visit key uniqueness. Matching and missing-match assumptions are explicit; no undocumented competing-record selection is introduced.",
+      "question": "Confirm whether the parenthetical visit condition is an additional predicate or explanatory equivalence; the retained literal probe applies both conditions."
+    },
+    {
+      "variable": "CHG",
+      "rule": "Subtract the published upstream BASE from published upstream AVAL on every record.",
+      "citations": [
+        {
+          "document": "spec/define/define-adam.xml",
+          "section": "ADADAS.CHG",
+          "quote": "AVAL - BASE"
+        },
+        {
+          "document": "spec/source/adrg.pdf",
+          "section": "page-17",
+          "quote": "Primary Endpoint Analysis: ADAS Cog (11) - Change\nfrom Baseline to Week 24 - LOCF"
+        },
+        {
+          "document": "spec/source/adrg.pdf",
+          "section": "page-45",
+          "quote": "The R-generated ADADAS matches original ADADAS from CDISC pilot data , except for the\nrecords where PARAMCD=ACTOT, DTYPE=LOCF . This is an issue from the CDISC ADADAS."
+        },
+        {
+          "document": "spec/source/adrg.pdf",
+          "section": "page-48",
+          "quote": "expected missing DTYPE, resulting IN different AVAL/CHG/PCHG values for\nthese subjects."
+        }
+      ],
+      "clauses": [
+        {
+          "relation": "same",
+          "document": {
+            "citation": 1,
+            "quote": "AVAL - BASE"
+          },
+          "spec": {
+            "element": "CHG",
+            "quote": "then: AVAL - BASE"
+          }
+        },
+        {
+          "relation": "absent_in_document",
+          "spec": {
+            "element": "CHG",
+            "quote": "when: ABLFL IS NULL"
+          },
+          "note": "The documented subtraction has no baseline-flag condition, while the runtime suppresses change on flagged rows."
+        }
+      ],
+      "probes": [
+        {
+          "column": "CHG",
+          "reading": "literal"
+        }
+      ],
+      "interpretations": [
+        "No baseline-row suppression is added to the literal formula.",
+        "ADRG primary-analysis use and QC discussion provide analysis and imputation context; they do not replace the subtraction rule."
+      ],
+      "assessment": "The subtraction is documented. The runtime adds a baseline-flag condition; the literal probe uses independent published upstream AVAL and BASE.",
+      "question": ""
+    },
+    {
+      "variable": "PCHG",
+      "rule": "Multiply the published upstream CHG divided by published upstream BASE by one hundred.",
+      "citations": [
+        {
+          "document": "spec/define/define-adam.xml",
+          "section": "ADADAS.PCHG",
+          "quote": "100* (CHG/BASE)"
+        },
+        {
+          "document": "spec/source/adrg.pdf",
+          "section": "page-45",
+          "quote": "The R-generated ADADAS matches original ADADAS from CDISC pilot data , except for the\nrecords where PARAMCD=ACTOT, DTYPE=LOCF . This is an issue from the CDISC ADADAS."
+        },
+        {
+          "document": "spec/source/adrg.pdf",
+          "section": "page-48",
+          "quote": "expected missing DTYPE, resulting IN different AVAL/CHG/PCHG values for\nthese subjects."
+        }
+      ],
+      "clauses": [
+        {
+          "relation": "differs",
+          "document": {
+            "citation": 1,
+            "quote": "100* (CHG/BASE)"
+          },
+          "spec": {
+            "element": "PCHG",
+            "quote": "then: (AVAL - BASE) / NULLIF(BASE, 0) * 100"
+          },
+          "note": "The runtime expands CHG into AVAL minus BASE and additionally converts a zero denominator to missing; the literal probe reads published CHG and does not add that guard."
+        },
+        {
+          "relation": "absent_in_document",
+          "spec": {
+            "element": "PCHG",
+            "quote": "when: ABLFL IS NULL"
+          },
+          "note": "The method has no baseline-flag condition, while the runtime suppresses percent change on flagged rows."
+        }
+      ],
+      "probes": [],
+      "interpretations": [
+        "The literal expression is 100 * (REF.CHG / REF.BASE). The temporary pinned-engine run rejected its undefined division on retained zero-baseline records; that failed probe artifact is preserved separately for inspection.",
+        "No baseline-row suppression, zero-baseline guard, or rounding is documented for this variable; no output policy is invented to make the expression execute.",
+        "The formula reads published REF.CHG directly rather than substituting a locally derived CHG.",
+        "The ADRG QC explanation attributes differences in change variables to imputation context and does not define an alternate percent-change formula."
+      ],
+      "assessment": "The runtime adds a baseline condition and a zero-denominator guard. The exact literal formula names upstream CHG, but does not define output for a zero baseline.",
+      "question": "Specify the intended output when BASE is zero and confirm whether baseline-record suppression is intended.",
+      "not_probed_reason": "The stated literal expression is undefined on retained zero-baseline records, and the pinned engine rejects that division. The retained documents do not state the intended output policy for those records. No failing executable column is included in the returned additions; the exact failed temporary literal is preserved in extract-adadas-batch4-failed-pchg-probe.yaml."
+    },
+    {
+      "variable": "DTYPE",
+      "rule": "Set LOCF for an imputed ACTOT record and missing otherwise; the retained current-study text does not fully define which analysis records must be imputed.",
+      "citations": [
+        {
+          "document": "spec/define/define-adam.xml",
+          "section": "ADADAS.DTYPE",
+          "quote": "Set to \"LOCF\" if a record is imputated when PARAMCD=\"ACTOT\"; otherwise, set to missing"
+        },
+        {
+          "document": "spec/define/define-adam.xml",
+          "section": "ADADAS.DTYPE",
+          "quote": "Codelist CL.DTYPE: LOCF = Last Observation Carried Forward; AVERAGE = Average"
+        },
+        {
+          "document": "spec/source/adrg.pdf",
+          "section": "page-15",
+          "quote": "These outputs were rerun in Pilot 3 using the analysis datasets generated\nby the ADaM programs."
+        },
+        {
+          "document": "spec/source/adrg.pdf",
+          "section": "page-16",
+          "quote": "Parameters:\nADADAS.PARAMCD\n== \u201cACTOT"
+        },
+        {
+          "document": "spec/source/adrg.pdf",
+          "section": "page-17",
+          "quote": "Primary Endpoint Analysis: ADAS Cog (11) - Change\nfrom Baseline to Week 24 - LOCF"
+        },
+        {
+          "document": "spec/source/adrg.pdf",
+          "section": "page-45",
+          "quote": "The R-generated ADADAS matches original ADADAS from CDISC pilot data , except for the\nrecords where PARAMCD=ACTOT, DTYPE=LOCF . This is an issue from the CDISC ADADAS."
+        },
+        {
+          "document": "spec/source/adrg.pdf",
+          "section": "page-46",
+          "quote": "DTYPE is not LOCF for the record with QSSEQ=5045 and AVISIT=Week 8 , as this record is directly\nfrom qs."
+        },
+        {
+          "document": "spec/source/adrg.pdf",
+          "section": "page-48",
+          "quote": "incorrect DTYPE=LOCF\nvalue instead of the expected missing DTYPE, resulting IN different AVAL/CHG/PCHG values for\nthese subjects."
+        }
+      ],
+      "clauses": [
+        {
+          "relation": "differs",
+          "document": {
+            "citation": 1,
+            "quote": "Set to \"LOCF\" if a record is imputated when PARAMCD=\"ACTOT\"; otherwise, set to missing"
+          },
+          "spec": {
+            "element": "DTYPE",
+            "quote": "case:\n        - when: ROWSRC = 1\n          then: \"'LOCF'\"\n        - otherwise:"
+          },
+          "note": "The documented predicate names an imputed ACTOT record; the runtime predicate uses membership in the planned row template, whose ACTOT restriction is supplied by the external PLAN relation rather than this condition."
+        }
+      ],
+      "probes": [],
+      "interpretations": [
+        "The current Pilot 3 analysis-program description says the earlier outputs were rerun; the ACTOT analysis filter and LOCF endpoint title describe that analysis use, rather than a complete record-imputation algorithm.",
+        "The ADRG QC appendix explicitly distinguishes the original CDISC analysis dataset from the current R-generated dataset. Its description of erroneous original LOCF labels is not a competing instruction to label collected current-study records LOCF.",
+        "The current-study QC example treats a record directly from QS as non-imputed. It does not define the complete expected ACTOT visit universe, absence criteria after windowing, or which missing slots receive an added row.",
+        "The specification reads PLAN for planned rows, sets ROWSRC to one on that template and to zero on collected QS rows, then uses ROWSRC to assign DTYPE. Neither reference DTYPE nor reference-derived PLAN membership establishes an independent documented imputation predicate.",
+        "A match to QS by the carried QSSEQ alone cannot classify a record as observed: an imputed record can retain the earlier source sequence. The codelist explains LOCF and permits AVERAGE but supplies no additional AVERAGE assignment rule.",
+        "The complete native workbook DTYPE method repeats the citable Define-XML method; no additional governing imputation condition or value-level DTYPE override was found. Its unprojected duplicate and codelist are inventoried separately."
+      ],
+      "assessment": "The output label and fallback are explicit. The implementation substitutes a planned-row indicator for the documented imputed-ACTOT condition; the current-study analyses and QC explanation do not independently define that indicator for every record.",
+      "question": "Specify the expected ACTOT analysis visits and the source-based criteria for creating imputed records after windowing, then confirm that planned-row membership expresses those criteria.",
+      "not_probed_reason": "The rule requires an independent predicate identifying an imputed ACTOT record. The retained current-study Define-XML, native workbook and ADRG do not fully state the expected visit universe and absence/eligibility conditions that determine added imputed rows. Using REF.DTYPE would test the result against itself, using reference-derived PLAN membership would import the implementation choice, and raw QSSEQ existence cannot distinguish an observed row from a carried-source imputed row."
+    }
+  ]
+}

@@ -12,7 +12,7 @@ import yaml
 sys.path.insert(0, str(Path(__file__).resolve().parents[2] / "scripts"))
 from study_dashboard.lineage import build_lineage, source_locations
 from study_dashboard.specifications import (
-    capture_specification, defining_sources, inspection_specification, resource_path,
+    capture_specification, defining_sources, field_sources, inspection_specification, resource_path,
 )
 
 
@@ -161,11 +161,28 @@ type: spec
 keys: [USUBJID]
 input:
   DM: {path: dm.csv, relative_to: entry}
-output: {path: out.csv, relative_to: entry, columns: [USUBJID, AGEGR, SEXN]}
+output: {path: out.csv, relative_to: entry, columns: [USUBJID, AGEGR, SEXN, AVISIT, VISITNUM]}
 columns:
   - {name: USUBJID, type: str, label: Subject, derivation: DM.USUBJID}
   - {name: AGEGR, type: str, label: Age group, derivation: "'ALL'"}
-  - {name: SEXN, type: int, label: Sex (N), derivation: 1}
+  - name: SEXN
+    type: int
+    label: Sex (N)
+    derivation:
+      case:
+        - {when: "DM.SEX = 'M'", then: 1}
+        - otherwise: 2
+  - {name: AVISIT, type: str, label: Visit}
+  - {name: VISITNUM, type: str, label: Visit number}
+rows:
+  - id: base
+    dataset: DM
+    derivations:
+      AVISIT:
+        case:
+          - {when: "DM.SEX = 'M'", then: "'  Baseline'"}
+          - otherwise: "'  Baseline'"
+      VISITNUM: DM.SEX
 ''')
             path = root / "study/entry.yaml"
             path.write_text('''yamaa: "1.0"
@@ -174,12 +191,28 @@ parent: ../shared/base.yaml
 domain: ADSL
 columns:
   - {name: AGEGR, derivation: "'65+'"}
-  - {name: SEXN, label: Sex code}
+  - name: SEXN
+    label: Sex code
+    derivation:
+      case:
+        - {when: "DM.SEX = 'F'", then: 2}
+        - otherwise: 1
+rows:
+  - id: base
+    derivations:
+      AVISIT:
+        case:
+          - {when: "DM.SEX = 'M'", then: "'Baseline'"}
+          - otherwise: "'Baseline'"
 ''')
             packet = capture_specification(root, path, yamaa.spec(path).resolve())
-            self.assertEqual(defining_sources(packet), {
-                "USUBJID": "shared/base.yaml", "AGEGR": "study/entry.yaml",
-                "SEXN": "shared/base.yaml"})
+            base, entry = "shared/base.yaml", "study/entry.yaml"
+            self.assertEqual(
+                (defining_sources(packet), field_sources(packet)["SEXN"], field_sources(packet)["base"]),
+                ({"USUBJID": base, "AGEGR": entry, "SEXN": entry, "AVISIT": base, "VISITNUM": base, "base": base},
+                 {"type": {base}, "label": {entry}, "derivation": {entry}},
+                 {"dataset": {base}, "derivations/AVISIT": {entry}, "derivations/VISITNUM": {base}}),
+                "a case rule a later layer rewrites belongs to that layer, in a column or a row template")
 
 
 @unittest.skipUnless(importlib.util.find_spec("yamaa"), "requires the study's pinned yamaa")

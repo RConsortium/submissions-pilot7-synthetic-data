@@ -20,6 +20,16 @@ const model = {
   tables: {},
   settings: { default_subject_count: 2 },
 };
+test("criticality filters survive shared URLs and obsolete agent filters are dropped", () => {
+  for (const critical of ["yes", "no", "needs_review"]) {
+    const state = readRoute(`#new-study/overview/CUSTOM?critical=${critical}`, model);
+    assert.equal(state.critical, critical);
+    assert.deepEqual(readRoute(formatRoute(state, model), model), state);
+  }
+  const state = readRoute("#new-study/overview/CUSTOM?critical=invalid&reviewStatus=disputed", model);
+  assert.equal(state.critical, "");
+  assert.equal(formatRoute(state, model), "#new-study/overview/CUSTOM");
+});
 test("authored and resolved model views survive shared URLs with invalid views discarded", () => {
   for (const value of ["resolved", "source:1"]) {
     const state = readRoute("#new-study/datasets/CUSTOM?specView=" + value, model);

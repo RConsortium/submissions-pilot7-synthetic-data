@@ -65,8 +65,9 @@ class ScopeTests(unittest.TestCase):
                   'spec/yamaa/pilot-program/adsl_v2.yaml': 'parent: adsl_v1.yaml\n',
                   'cdiscpilot01/spec/yamaa/adsl.yaml':
                       'parent: ../../../spec/yamaa/pilot-program/adsl_v1.yaml\n'}
-        for study in ('submission-pilot3', 'submission-pilot5'):
-            layers[f'{study}/spec/yamaa/adsl.yaml'] = \
+        # An entry may use either supported suffix.
+        for study, suffix in (('submission-pilot3', 'yaml'), ('submission-pilot5', 'yml')):
+            layers[f'{study}/spec/yamaa/adsl.{suffix}'] = \
                 'parent: ../../../spec/yamaa/pilot-program/adsl_v2.yaml\n'
         for name, text in layers.items():
             (self.root / name).parent.mkdir(parents=True, exist_ok=True)

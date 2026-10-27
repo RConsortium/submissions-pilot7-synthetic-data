@@ -85,19 +85,66 @@ class CitationTests(unittest.TestCase):
                 self.assertEqual((side["verified"], side["lines"], side["reason"]), expected, label)
 
 
-    def test_a_layered_element_is_read_only_in_the_layer_that_defines_it(self):
-        entry = "columns:\n  - name: TRTSDT\n    label: Treatment start\n    derivation: EX_MINDTC\n"
-        layered = {**spec_file(), "path": "s/adsl.yaml", "lines": entry.splitlines(),
-                   "spans": source_locations(entry)["spans"],
-                   "elements": {"TRTSDT": {"path": "spec/yamaa/adsl.yaml", "lines": SPEC.splitlines(),
-                                           "span": source_locations(SPEC)["spans"]["TRTSDT"]}}}
+    def test_a_layered_element_is_read_only_where_the_composition_keeps_it(self):
+        # Seam: the engine's origin ledger, as recorded in a validation packet.
+        layers = {
+            "spec/yamaa/pilot-program/adx_v1.yaml": """columns:
+  - name: TRTSDT
+    label: Treatment start
+    derivation:
+      impute: {type: date, source: EX_MINDTC}
+rows:
+  - id: base-ord
+    dataset: LB
+    derivations:
+      AVISIT: "'  Baseline'"
+      VISITNUM: LB.VISITNUM
+""",
+            "spec/yamaa/pilot-program/adx_v2.yaml": """columns:
+  - name: TRTSDT
+    label: Date of First Exposure to Treatment
+rows:
+  - id: base-ord
+    derivations:
+      AVISIT: "'Baseline'"
+""",
+            "s/spec/yamaa/adx.yaml": """columns:
+  - name: TRTSDT
+    submission:
+      comment: SV.SVSTDTC
+""",
+        }
+        v1, v2, entry = layers
+        written = {
+            "/columns/0": v1, "/columns/0/name": entry, "/columns/0/label": v2,
+            "/columns/0/derivation": v1, "/columns/0/derivation/impute": v1,
+            "/columns/0/derivation/impute/type": v1, "/columns/0/derivation/impute/source": v1,
+            "/columns/0/submission": entry, "/columns/0/submission/comment": entry,
+            "/rows/0": v1, "/rows/0/id": v2, "/rows/0/dataset": v1, "/rows/0/derivations": v1,
+            "/rows/0/derivations/AVISIT/value": v2, "/rows/0/derivations/VISITNUM/value": v1,
+        }
+        origins = {pointer: {"declaring_source": source, "source_kind": "authored", "generated": False}
+                   for pointer, source in written.items()}
+        for name in ("AVISIT", "VISITNUM"):
+            origins[f"/rows/0/derivations/{name}"] = {"declaring_source": v1, "source_kind": "authored", "generated": True}
+        packet = {
+            "model": {"columns": [{"name": "TRTSDT"}], "rows": [{"id": "base-ord"}]},
+            "sources": [{"path": path, "text": text} for path, text in layers.items()],
+            "origins": origins,
+        }
+        layered = {**spec_file(), "path": entry, "elements": vd.layered_elements(packet)}
         cases = [
-            ("rule in its defining layer", "month: 1 day: 1", (True, "spec/yamaa/adsl.yaml", [10, 11])),
-            ("text only in another layer", "derivation: EX_MINDTC", (False, "spec/yamaa/adsl.yaml", None)),
+            ("rule in its defining layer", "TRTSDT", "type: date, source: EX_MINDTC", (True, v1, [5, 5])),
+            ("metadata another layer still writes", "TRTSDT", "comment: SV.SVSTDTC", (True, entry, [4, 4])),
+            ("label a later layer writes", "TRTSDT", "Date of First Exposure", (True, v2, [3, 3])),
+            ("label a later layer overrode", "TRTSDT", "label: Treatment start", (False, v1, None)),
+            ("row rule the declaring layer keeps", "base-ord", "VISITNUM: LB.VISITNUM", (True, v1, [11, 11])),
+            ("row rule a later layer replaces", "base-ord", "AVISIT: \"'Baseline'\"", (True, v2, [7, 7])),
+            ("row rule a later layer replaced", "base-ord", "'  Baseline'", (False, v1, None)),
         ]
-        for label, quote, expected in cases:
+        for label, element, quote, expected in cases:
             with self.subTest(case=label):
-                side = vd.spec_side(layered, "TRTSDT", quote)
+                side = vd.spec_side(layered, element, quote)
                 self.assertEqual((side["verified"], side["path"], side["lines"]), expected, label)
 
 
@@ -183,6 +230,33 @@ class FindingTests(unittest.TestCase):
             "agreed, stale after a change, pending, and a decision for a removed finding",
         )
 
+    def test_compact_decisions_bind_the_full_basis_and_do_not_trust_a_reported_fingerprint(self):
+        # SHA-256 of the UTF-8 text "a", independent of the production helper.
+        digest = "sha256:ca978112ca1bbdcafac231b39a23dc4da786eff8147c4e72b9807785afee48bb"
+        findings = [
+            {"id": "legacy", "basis": "a"},
+            {"id": "compact", "basis": "a"},
+            {"id": "changed", "basis": "b", "basis_fingerprint": digest},
+            {"id": "malformed", "basis": "a"},
+        ]
+        decisions = {
+            name: {"finding": name, "basis": value, "decision": "agree", "reason": "Checked the sources."}
+            for name, value in (
+                ("legacy", "a"), ("compact", digest),
+                ("changed", digest), ("malformed", digest[:-1]),
+            )
+        }
+        self.assertEqual(vd.fingerprint_basis("a"), digest)
+        self.assertEqual(vd.adjudicate(findings, {"decisions": decisions}), [])
+        self.assertEqual(
+            [finding["adjudication"]["decision"] for finding in findings],
+            ["agree", "agree", "stale", "stale"],
+        )
+        self.assertEqual(
+            [finding["adjudication"]["reason"] for finding in findings],
+            ["Checked the sources."] * 4,
+        )
+
 
     def test_an_uncited_statement_keeps_the_adjudicators_reason_beside_its_quote_check(self):
         statements = [
@@ -252,6 +326,20 @@ class SourceTests(unittest.TestCase):
             with self.subTest(case=label):
                 self.assertEqual(vd.resolve_source(spec, derivation), expected, label)
 
+    def test_a_copy_written_in_row_templates_is_read_through_their_value_rules(self):
+        # Seam: copy_check reads the composed model, whose row rules are {value: ...}.
+        cases = [
+            ("composed and authored rules agree", [{"value": "LB.LBSEQ"}, "LB.LBSEQ"], ("LB.LBSEQ", "LB.LBSEQ", True)),
+            ("templates disagree", [{"value": "LB.LBSEQ"}, "1"], (None, None, False)),
+        ]
+        for label, rules, expected in cases:
+            with self.subTest(case=label):
+                spec = {"keys": ["USUBJID"], "columns": [{"name": "LBSEQ"}],
+                        "rows": [{"id": f"r{i}", "derivations": {"LBSEQ": r}} for i, r in enumerate(rules)]}
+                with tempfile.TemporaryDirectory() as tmp:
+                    result = vd.copy_check(Path(tmp), spec, {}, "LBSEQ", "LB.LBSEQ", "USUBJID")
+                self.assertEqual((result["spec_derivation"], result["spec_source"], result["spec_matches"]), expected, label)
+
 
 class CodelistTests(unittest.TestCase):
     def test_coded_values_compare_as_published_and_dictionaries_are_not_enumerated(self):
@@ -301,6 +389,15 @@ class RenderTests(unittest.TestCase):
         for label, context, quote, expected in cases:
             with self.subTest(case=label):
                 self.assertEqual(cr.highlight(context, quote), expected, label)
+
+    def test_a_quoted_element_the_specification_no_longer_declares_renders_as_not_found(self):
+        side = vd.spec_side(spec_file(), "EVTSRC", "ADAE.AOCC01FL = 'Y'")
+        self.assertEqual(cr.spec_block(side, None), [
+            "**Specification says** `ADAE.AOCC01FL = 'Y'` in `EVTSRC` (`s/adsl.yaml`)",
+            "",
+            "Not found: specification element EVTSRC not found.",
+            "",
+        ])
 
     def test_quoted_specification_lines_carry_a_mark(self):
         side = vd.spec_side(spec_file(), "TRTSDT", "month: 1 day: 1")
