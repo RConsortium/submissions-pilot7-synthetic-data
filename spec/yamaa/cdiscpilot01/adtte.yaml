@@ -1,0 +1,186 @@
+# CDISCPILOT01 ADTTE: time to the first dermatologic adverse event.
+#
+# The study layer shared by every package of CDISCPILOT01. It reproduces
+# the original CDISC Pilot 01 submission; pilot3/adtte.yaml states what
+# R Submission Pilots 3 and 5 changed. Each package's entry names the
+# dataset and adds its own Define-XML metadata. Paths are written from an
+# entry, so every package reads and writes its own data.
+yamaa: "1.0"
+type: spec
+model: ADaM
+keys:
+  - STUDYID
+  - USUBJID
+input:
+  ADSL:
+    path: ../../data/adam/adsl-yamaa.parquet
+    relative_to: entry
+    schema: adsl.yaml
+    empty_string: present
+  ADAE:
+    path: ../../data/adam/adae-yamaa.parquet
+    relative_to: entry
+    schema: adae.yaml
+    empty_string: present
+base: ADSL
+
+output:
+  path: ../../data/adam/adtte-yamaa.parquet
+  relative_to: entry
+  columns:
+    - STUDYID
+    - SITEID
+    - USUBJID
+    - AGE
+    - AGEGR1
+    - AGEGR1N
+    - RACE
+    - RACEN
+    - SEX
+    - TRTSDT
+    - TRTEDT
+    - TRTDUR
+    - TRTP
+    - TRTA
+    - TRTAN
+    - PARAM
+    - PARAMCD
+    - AVAL
+    - STARTDT
+    - ADT
+    - CNSR
+    - EVNTDESC
+    - SRCDOM
+    - SRCVAR
+    - SRCSEQ
+    - SAFFL
+  order_by:
+    - variable: USUBJID
+      nulls: last
+    - variable: PARAMCD
+      nulls: last
+
+intermediates:
+  - id: FIRST_DERM
+    dataset: ADAE
+    key:
+      - STUDYID
+      - USUBJID
+    filter: "ADAE.AOCC01FL = 'Y'"
+    order_by:
+      - variable: ADAE.ASTDT
+        nulls: last
+      - variable: ADAE.AESEQ
+        nulls: last
+    keep: first
+
+columns:
+  - copy:
+      dataset: ADSL
+      columns: [STUDYID, SITEID, USUBJID, AGE, AGEGR1, AGEGR1N, RACE, RACEN,
+        SEX, TRTSDT, TRTEDT, SAFFL]
+
+  - name: TRTDUR
+    type: float
+    label: Duration of treatment (days)
+    derivation: ADSL.TRTDUR
+
+  - name: TRTP
+    type: str
+    label: Planned Treatment
+    derivation: ADSL.TRT01P
+
+  - name: TRTA
+    type: str
+    label: Actual Treatment
+    derivation: ADSL.TRT01A
+
+  - name: TRTAN
+    type: float
+    label: Actual Treatment (N)
+    derivation: ADSL.TRT01AN
+
+  - name: PARAM
+    type: str
+    label: Parameter Description
+    derivation: "'Time to First Dermatologic Event'"
+
+  - name: PARAMCD
+    type: str
+    label: Parameter Code
+    derivation: "'TTDE'"
+
+  - name: STARTDT
+    type: date
+    label: Time to Event Origin Date for Subject
+    derivation: ADSL.TRTSDT
+
+  - name: HAS_EVENT
+    type: str
+    label: Dermatologic event flag
+    derivation:
+      case:
+        - when: "FIRST_DERM.AESEQ IS NOT NULL"
+          then: "'Y'"
+        - otherwise: "'N'"
+
+  - name: ADT
+    type: date
+    label: Analysis Date
+    derivation:
+      case:
+        - when: "HAS_EVENT = 'Y'"
+          then: FIRST_DERM.ASTDT
+        - otherwise: ADSL.RFENDT
+
+  - name: AVAL
+    type: float
+    label: Analysis Value
+    derivation:
+      diff:
+        type: date
+        start: STARTDT
+        end: ADT
+        unit: day
+        closed: both
+
+  - name: CNSR
+    type: float
+    label: Censor
+    derivation:
+      case:
+        - when: "HAS_EVENT = 'Y'"
+          then: 0
+        - otherwise: 1
+
+  - name: EVNTDESC
+    type: str
+    label: Event or Censoring Description
+    derivation:
+      case:
+        - when: "HAS_EVENT = 'Y'"
+          then: "'Dematologic Event Occured'"
+        - otherwise: "'Study Completion Date'"
+
+  - name: SRCDOM
+    type: str
+    label: Source Domain
+    derivation:
+      case:
+        - when: "HAS_EVENT = 'Y'"
+          then: "'ADAE'"
+        - otherwise: "'ADSL'"
+
+  - name: SRCVAR
+    type: str
+    label: Source Variable
+    derivation:
+      case:
+        - when: "HAS_EVENT = 'Y'"
+          then: "'ASTDT'"
+        - otherwise: "'RFENDT'"
+
+  - name: SRCSEQ
+    type: float
+    label: Source Sequence Number
+    derivation: FIRST_DERM.AESEQ
