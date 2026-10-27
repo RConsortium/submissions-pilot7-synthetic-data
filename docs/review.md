@@ -155,13 +155,31 @@ study revision. Extracted reading copies and repository paths are omitted from
 this interface. Selected files and the primary cited location are preserved in
 the review URL. Missing documents remain explicitly unavailable.
 
-## Review synthetic workflow readiness
+## Review synthetic analysis development
 
 Synthetic workspaces inventory staged ODM archives and show the availability
 of source, SDTM, ADaM, and submission-metadata files. Missing stages are shown as
 **Not staged**. Archive members, sizes, and repository links help locate source
-material. These dashboards describe source availability; they do not claim
-successful derivations or passed reference comparisons.
+material. Availability alone does not establish successful derivation.
+
+After a successful development build, each study adds **Analysis coverage**,
+**Findings for review**, and **Built datasets**. Download the study package for
+Parquet, XPT, both Define-XML files, maintained yamaa specifications, retained
+source documents and exact build evidence. XPT read-back and XML schema checks
+are distinct from an independent reference comparison or regulatory validation.
+
+Coverage separates supported descriptive scope from partial and unsupported
+analyses. Findings distinguish data gaps, measured conflicts and unresolved
+decisions. Expand a finding to see measured counts, representative records,
+verbatim protocol/SAP citations and a proposed action. The retained document
+link opens the cited source line.
+
+Use the search and type filter to focus a review. Enter a decision draft and
+notes, then **Export review draft** to retain them as JSON. Drafts stay in the
+current browser and build until exported. They do not resolve findings or
+approve datasets. Apply agreed specification or data changes, then rebuild
+before claiming analysis readiness. Primary efficacy records remain unapproved
+while their governing decisions are open.
 
 ## Share and discuss a review
 

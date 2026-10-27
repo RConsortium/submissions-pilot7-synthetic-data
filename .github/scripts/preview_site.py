@@ -9,6 +9,7 @@ import sys
 from study_evidence import catalog
 from build_index_table import BEGIN, replace_block
 from dashboard_nav import study_navigation, synthetic_navigation
+from study_dashboard.synthetic import build_synthetic, synthetic_catalog
 
 ROOT = Path(__file__).resolve().parents[2]
 
@@ -50,6 +51,9 @@ def prepare_preview(root, work):
     config.write_text(f'INHERIT: {root / "mkdocs.yml"}\ndocs_dir: {docs}\n'
                       f'site_dir: {work / "site"}\nhooks: []\n' +
                       (yaml.safe_dump({"nav": nav}, sort_keys=False) if nav else ""))
+    if synthetic_catalog(root):
+        revision = subprocess.check_output(['git', 'rev-parse', 'HEAD'], cwd=root, text=True).strip()
+        build_synthetic(root, docs / 'evidence/dashboard', revision, allow_unbuilt=True)
     return config
 
 

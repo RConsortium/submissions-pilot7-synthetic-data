@@ -25,7 +25,7 @@ The reviewer guide is `docs/review.md`.
     references.py                        scoped lookup keys and expression-local bindings
     specifications.py                    portable engine-resolved models and original sources
     domains.py                           dataset descriptions from retained Define-XML
-    synthetic.py                         separate source/readiness manifests
+    synthetic.py                         separate source and development manifests
     documents.py                         retained originals and searchable reading copies
     document_views.py                    workbook tables and original XML HTML
     consistency.py                       metadata checks and source-backed review questions
@@ -48,12 +48,29 @@ docs/assets/dashboard/
 docs/stylesheets/dashboard.css           responsive layout and light/dark themes
 .github/tests/dashboard/                 artifact, extension, module, and browser checks
 <study>/spec/review/questions.json        optional authored review questions
+<synthetic-study>/spec/review/findings.json  coverage, gaps and review decisions
 ```
 
 Generated `docs/studies/`, `docs/evidence/`, and `site/` stay ignored. The bundle
 is published under `evidence/dashboard/`; assets use URLs relative to the module
 so GitHub Pages project prefixes and MkDocs instant navigation work together.
 Heading-based URL tracking is disabled because dashboard fragments own review state.
+
+Synthetic studies remain in `.github/synthetic-studies.json`. Their pinned
+engine is installed separately by `synthetic-check.yml`; `validate_synthetic.py`
+builds SDTM/ADaM and submission files through yamaa. `synthetic_checks.py`
+independently checks keys, subject coverage, every XPT cell and the retained
+CDISC Define-XML XSD. The report binds all inputs, specifications and outputs
+to their bytes; missing, stale or failed required evidence blocks publication.
+`synthetic_evidence.py --stage <study>` transfers exact files between CI jobs.
+The frontend `synthetic-development.js` renders coverage and unresolved findings
+and exports browser-local human review drafts without applying them.
+After validating both synthetic studies, `python .github/scripts/export_synthetic_review.py`
+packages a portable review in `.build/kn189-kn564-review.zip`. It embeds the same
+production components and exact study manifests, with source and download files
+beside `review.html`; it needs no external scripts or server. Local preview of
+the existing website uses `python .github/scripts/preview_site.py` and keeps
+official pilot results explicitly omitted when their evidence is unavailable.
 
 ## Add a study
 

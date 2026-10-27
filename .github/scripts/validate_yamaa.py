@@ -79,10 +79,19 @@ def validate(study_name, entry, report):
 
 def main():
     entries = catalog(ROOT)
+    from study_dashboard.synthetic import synthetic_catalog
+    synthetic = synthetic_catalog(ROOT)
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument('study', choices=entries)
+    parser.add_argument('study', choices=sorted(set(entries) | set(synthetic)))
     parser.add_argument('--report', type=Path)
     args = parser.parse_args()
+    if args.study in synthetic:
+        from validate_synthetic import validate as validate_development
+        record = validate_development(args.study, ROOT)
+        if args.report:
+            args.report.parent.mkdir(parents=True, exist_ok=True)
+            args.report.write_text(json.dumps(record, indent=2) + '\n')
+        return int(record['status'] != 'succeeded')
     destination = args.report or ROOT / '.build/validation' / f'{args.study}.json'
     # A failed attempt must never leave an earlier successful record behind.
     destination.parent.mkdir(parents=True, exist_ok=True)
