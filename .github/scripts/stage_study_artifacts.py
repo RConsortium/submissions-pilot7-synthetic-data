@@ -18,9 +18,9 @@ def stage(root, study, destination, report):
     verify_artifacts(root, study, report)
     for relative in report["artifacts"]["files"]:
         path = Path(relative)
-        if path.parts[:3] == (study, "data", "adam") and path.name.endswith(
-            "-yamaa.parquet"
-        ):
+        generated_adam = path.parts[:3] == (study, "data", "adam") and path.name.endswith("-yamaa.parquet")
+        pipeline_data = report.get("source_pipeline") and path.parts[:2] == (study, "data")
+        if generated_adam or pipeline_data:
             target = destination / path
             target.parent.mkdir(parents=True, exist_ok=True)
             shutil.copyfile(root / path, target)

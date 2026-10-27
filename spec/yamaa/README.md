@@ -50,6 +50,6 @@ study layer is still written in full by each package.
 The study dashboard opens the layer that writes a selected variable's rule,
 and its resolved-model view shows the composed specification. In Python,
 `yamaa.spec(path).resolve()` returns the same model, with the file that wrote
-each value. A change to a layer here affects every package that inherits it,
-so validate CDISC Pilot 01, Submission Pilot 3 and Submission Pilot 5; pull
-request CI selects all three.
+each value. A change to a layer here affects every package that inherits it, so
+validate each of them; pull request CI selects the studies whose
+specifications reach the changed layer through `parent` or `include`.

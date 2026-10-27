@@ -11,9 +11,10 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[2] / "scripts"))
 import pyarrow as pa
 import pyarrow.parquet as pq
 from build_study_docs import generate
-from dashboard_nav import study_navigation
+from dashboard_nav import study_navigation, synthetic_navigation
 from study_artifacts import artifact_snapshot
-from study_dashboard import artifacts, pages
+from synthetic_evidence import artifact_inventory
+from study_dashboard import artifacts, pages, workspace
 from study_dashboard.datasets import read_table
 
 PIN = "a" * 40
@@ -221,7 +222,7 @@ columns:
     def test_changed_artifacts_during_export_leave_previous_bundle_intact(self):
         current = self.generate()
         before = (current / "index.json").read_bytes()
-        export = artifacts.export_table
+        export = workspace.export_table
 
         def tampered(*args, **kwargs):
             result = export(*args, **kwargs)
@@ -230,10 +231,59 @@ columns:
             )
             return result
 
-        with patch.object(artifacts, "export_table", side_effect=tampered):
+        with patch.object(workspace, "export_table", side_effect=tampered):
             with self.assertRaisesRegex(ValueError, "artifacts changed"):
                 self.generate()
         self.assertEqual((current / "index.json").read_bytes(), before)
+
+    def test_synthetic_category_moves_workspace_out_of_pilot_report(self):
+        self.entries['future-study']['category'] = 'synthetic'
+        self.write('.github/yamaa-studies.json', json.dumps(self.entries))
+        self.refresh()
+        current = self.generate()
+        self.assertNotIn({'Future study': 'studies/future-study.md'}, study_navigation(self.root, []))
+        self.assertIn({'Future study': 'studies/future-study.md'}, synthetic_navigation(self.root))
+        self.assertNotIn('Future study', (self.root / 'docs/studies/index.md').read_text())
+        index = json.loads((current / 'synthetic/index.json').read_text())
+        self.assertEqual([s['id'] for s in index['studies']], ['future-study'])
+        self.assertTrue(index['studies'][0]['workspace'])
+        self.assertTrue((current / 'future-study/catalog.json').is_file())
+
+    def test_synthetic_build_exports_linked_workspace_without_reference_agreement(self):
+        entry = self.entries.pop('future-study')
+        self.write('.github/yamaa-studies.json', json.dumps(self.entries))
+        self.write('.github/synthetic-studies.json', json.dumps({'future-study': {
+            'title': entry['title'], 'description': entry['description'],
+            'dashboard': entry['dashboard'], 'build_required': True,
+        }}))
+        for name in ['synthetic_odm.py', 'synthetic_checks.py', 'synthetic_evidence.py',
+                     'validate_synthetic.py', 'study_dashboard/specifications.py']:
+            self.write('.github/scripts/' + name, '# execution fixture\n')
+        self.write('.github/schemas/synthetic-review.schema.json', '{}')
+        self.write('future-study/spec/source/protocol-sap.mmd', 'Retained protocol\n')
+        for section in ['sdtm', 'adam']:
+            self.write(f'future-study/data/{section}/define.xml', '<ODM/>')
+        report = {
+            'status': 'succeeded', 'source_revision': 'commit', 'created_utc': 'now',
+            'engine': {'version': '1.0'}, 'source_subjects': 3,
+            'datasets': [{**d, 'section': 'adam'} for d in self.reports['future-study']['datasets']],
+            'define_xml': {}, 'reference_comparison': 'unavailable', 'human_review': 'pending',
+            'review': {'findings': [], 'coverage': []}, 'summaries': {},
+            'artifacts': artifact_inventory(self.root, 'future-study'),
+        }
+        self.write('.build/synthetic/future-study/report.json', json.dumps(report))
+        self.refresh()
+        current = self.generate()
+        model = json.loads((current / 'future-study/catalog.json').read_text())
+        self.assertEqual(model['subjects'], ['001', '002', '003'])
+        self.assertEqual(model['metrics'], {'matched': [0, 0, 0], 'reference': [0, 0, 0]})
+        dataset = model['datasets'][0]
+        self.assertIsNone(dataset['reference'])
+        self.assertEqual(dataset['comparison'], 'unavailable')
+        spec = json.loads((current / 'future-study' / dataset['spec']).read_text())
+        self.assertIn('SRC.VALUE', spec['lineage']['edges']['spec.VALUE'])
+        self.assertEqual(model['development'], 'synthetic/future-study/catalog.json')
+        self.assertTrue((current / 'synthetic/future-study/future-study-development.zip').is_file())
 
     def test_invalid_issue_schema_leaves_previous_bundle_intact(self):
         current = self.generate()

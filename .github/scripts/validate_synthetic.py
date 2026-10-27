@@ -15,6 +15,7 @@ import yaml
 from synthetic_odm import stage
 from synthetic_checks import check_datasets, check_define, check_source_trace, clinical_observations, frame
 from synthetic_evidence import artifact_inventory
+from study_dashboard.specifications import capture_specification
 
 ROOT = Path(__file__).resolve().parents[2]
 ENGINE_PIN = '44fa7ae736fd7cb4adb4dd385275a1759e5f2656'
@@ -130,6 +131,11 @@ def validate(study, root=ROOT):
             if submission.status!='succeeded':raise ValueError(submission.issues.to_pylist())
             submission.save()
         report['datasets']=check_datasets(root,study,declaration)
+        for dataset in report['datasets']:
+            if dataset['section'] == 'adam':
+                path = root / dataset['spec']
+                dataset['resolved_specification'] = capture_specification(
+                    root, path, project.spec(dataset['domain']).resolve())
         report['source_trace_checks']=check_source_trace(base)
         report['define_xml']={section:check_define(root,base,section,
             [d['domain'] for d in report['datasets'] if d['section']==section]) for section in ['sdtm','adam']}

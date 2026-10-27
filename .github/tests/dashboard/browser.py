@@ -465,18 +465,18 @@ def check(browser, base, site_dir, screenshots):
     # Pilot and synthetic reports share summary metrics and study tables.
     page.get_by_role("link", name="All pilot studies", exact=True).click()
     report = page.locator(".study-report")
+    pilot_studies = [entry for entry in json.loads(
+        (site_dir / "evidence/dashboard/index.json").read_text())["studies"]
+        if entry.get("kind") != "synthetic"]
     expect(report.locator("#studies + .report-table thead a")).to_have_count(
-        len(
-            json.loads((site_dir / "evidence/dashboard/index.json").read_text())[
-                "studies"
-            ]
-        )
+        len(pilot_studies)
     )
     expect(report.locator("#dataset-results + .report-table thead a")).to_have_count(
-        len(json.loads((site_dir / "evidence/dashboard/index.json").read_text())["studies"])
+        len(pilot_studies)
     )
     matrix = report.locator("#dataset-results + .report-table")
-    for entry in json.loads((site_dir / "evidence/dashboard/index.json").read_text())["studies"]:
+    expect(report).not_to_contain_text("CAR-T for ALL")
+    for entry in pilot_studies:
         model = json.loads((site_dir / f"evidence/dashboard/{entry['id']}/catalog.json").read_text())
         if model["status"] == "pending":
             continue
@@ -572,32 +572,22 @@ def check(browser, base, site_dir, screenshots):
     expect(synthetic.get_by_role("table", name="Workflow readiness").locator("tbody tr")).to_have_count(4)
     expect(synthetic.locator(".report-provenance, #reading, .study-card")).to_have_count(0)
     capture(page, screenshots, "synthetic-report.png")
-    synthetic.get_by_role("link", name="KN189", exact=True).click()
-    expect(page.get_by_role("heading", name="KN189 study report", exact=True)).to_be_visible()
-    expect(page.get_by_role("table", name="Workflow readiness").locator("tbody tr")).to_have_count(4)
-    expect(page.locator("#synthetic-dashboard")).to_contain_text("ODM source inventory")
-    expect(page.locator(".review-workbench")).to_have_count(0)
-    synthetic_model = json.loads(
-        (site_dir / "evidence/dashboard/synthetic/kn189/catalog.json").read_text()
-    )
-    readiness = page.get_by_role("table", name="Workflow readiness").locator("tbody tr")
-    for index, stage in enumerate(synthetic_model["stages"]):
-        expect(readiness.nth(index)).to_contain_text(
-            "Available" if stage["count"] else "Not staged"
-        )
-    expect(page.locator(".md-sidebar--primary")).to_be_visible()
-    assert (
-        page.locator("#synthetic-dashboard").get_by_role("link", name="kn189", exact=True)
-        .get_attribute("href")
-        .endswith("/kn189")
-    )
-    capture(page, screenshots, "synthetic-workspace.png")
-    page.get_by_role("link", name="All synthetic studies", exact=True).click()
-    page.locator("#synthetic-dashboard").get_by_role("link", name="KN564", exact=True).click()
-    expect(page.get_by_role("heading", name="KN564 study report", exact=True)).to_be_visible()
-    expect(page.get_by_role("table", name="Workflow readiness").locator("tbody tr")).to_have_count(4)
-    expect(page.get_by_role("table", name="ODM source archives")).to_contain_text("kn564/data/odm/kn564_odm.tar.gz")
-    capture(page, screenshots, "kn564-report.png")
+    expect(synthetic.get_by_role("link", name="CAR-T for ALL", exact=True)).to_be_visible()
+    for name in ["kn189", "kn564"]:
+        page.goto(base + f"/studies/{name}/#{name}/datasets/ADSL?focus=output.AGE")
+        expect(page.locator(".review-hero h1")).to_have_text(name.upper())
+        expect(page.locator(".review-workbench")).to_be_visible()
+        expect(page.locator("#output-table tbody tr")).not_to_have_count(0)
+        expect(page.locator('.input-group [data-domain="DM"]')).to_be_visible()
+        expect(page.locator(".metric-strip")).to_contain_text("No independent published reference")
+        expect(page.locator(".md-sidebar--primary")).not_to_be_visible()
+        capture(page, screenshots, name + "-workspace.png")
+        page.get_by_role("button", name="Analysis development", exact=True).click()
+        expect(page.locator(".synthetic-development")).to_contain_text("Human analysis review pending")
+        expect(page.get_by_role("link", name="Retained protocol and SAP", exact=True)).to_be_visible()
+        capture(page, screenshots, name + "-development.png")
+        page.get_by_role("link", name="All synthetic studies", exact=True).click()
+        expect(page.locator("#synthetic-dashboard h1")).to_have_text("Synthetic data report")
     for width in [375, 768, 1600, 2560]:
         page.set_viewport_size({"width": width, "height": 1000})
         for view in ["datasets", "findings", "materials"]:
@@ -622,10 +612,13 @@ def check(browser, base, site_dir, screenshots):
                 assert box["x"] >= 0 and box["x"] + box["width"] <= width
                 page.locator("#record-search").click()
                 capture(page, screenshots, "mobile-workspace.png")
-        for path, title in [("synthetic", "Synthetic data report"), ("studies/kn189", "KN189 study report"), ("studies/kn564", "KN564 study report")]:
+        for path, title in [("synthetic", "Synthetic data report"), ("studies/kn189", "KN189"), ("studies/kn564", "KN564")]:
             page.goto(base + "/" + path + "/")
             expect(page.get_by_role("heading", name=title, exact=True)).to_be_visible()
-            expect(page.get_by_role("table", name="Workflow readiness").locator("tbody tr")).to_have_count(4)
+            if path == "synthetic":
+                expect(page.get_by_role("table", name="Workflow readiness").locator("tbody tr")).to_have_count(4)
+            else:
+                expect(page.locator("#output-table tbody tr")).not_to_have_count(0)
             assert page.evaluate("document.documentElement.scrollWidth<=innerWidth"), (width, path)
     page.goto(study + "#cdiscpilot01/datasets/ADAE?focus=output.TRTSDT")
     expect(page.locator("#panel-o-ADAE th.node-selected")).to_have_count(1)

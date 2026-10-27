@@ -9,7 +9,7 @@ import subprocess
 
 from check_structure import discover_studies
 from discover_core_studies import has_validatable_data
-from study_evidence import catalog
+from study_evidence import catalog, shared_layers
 from study_dashboard.synthetic import synthetic_catalog
 
 CORE_CODE = {'.github/scripts/run_core.py', '.github/scripts/parquet_to_xpt.py',
@@ -38,8 +38,6 @@ PUBLICATION_CODE = {'.github/scripts/build_study_docs.py', '.github/scripts/buil
 PUBLICATION_PREFIXES = ('.github/scripts/study_dashboard/', '.github/tests/dashboard/',
                         '.github/schemas/', 'docs/assets/dashboard/', 'docs/stylesheets/dashboard.css')
 WORKER = '.github/workflows/study-check.yml'
-# Layers that several studies' specifications inherit (see spec/yamaa/README.md).
-SHARED_SPECS = 'spec/yamaa/'
 PLAN = 'submission-pilot3/data/mapping/plan.csv'
 PLAN_INPUTS = {PLAN,
                'submission-pilot3/data/sdtm/qs.parquet',
@@ -66,7 +64,6 @@ def select_checks(root, changed):
             for part in ('source', 'define', 'review')) for path in changed)
     all_yamaa = publication or bool(changed & (YAMAA_CODE | {WORKER}))
     all_core = bool(changed & (CORE_CODE | {WORKER}))
-    shared_spec = any(path.startswith(SHARED_SPECS) and path.endswith(('.yaml', '.yml')) for path in changed)
     selected = []
     for study in studies:
         local = [path[len(study) + 1:] for path in changed if path.startswith(study + '/')]
@@ -81,10 +78,15 @@ def select_checks(root, changed):
                      and (path.endswith('.py') or path.endswith('/requirements.txt'))
                      and path != 'program/adam/python/make_plan.py' for path in local)
         spec = any(path.startswith('spec/yamaa/') and path.endswith(('.yaml', '.yml')) for path in local)
+        # A layer under the root spec/yamaa/ changes every study that inherits it.
+        spec = spec or bool(changed & set(shared_layers(root, study)))
         r_changed = any(path.startswith('program/adam/R/') and path.lower().endswith('.r')
                         and path != 'program/adam/R/make_plan.R' for path in local)
         pending = entries.get(study, {}).get('allow_pending') and not (root / study / 'spec/yamaa/project.yaml').exists()
-        yamaa = study in entries and (inputs or python or spec or ((all_yamaa or shared_spec) and not pending))
+        preparation = bool(entries.get(study, {}).get('prepare')) and any(
+            path.startswith(('program/', 'data/odm/')) and Path(path).suffix != '.md'
+            for path in local)
+        yamaa = study in entries and (inputs or python or spec or preparation or (all_yamaa and not pending))
         core = has_validatable_data(str(root), study) and (binary or all_core)
         r = (root / study / 'program/adam/R/run.R').exists() and (
             r_changed or WORKER in changed or f'{study}/program/adam/python/requirements.txt' in changed)

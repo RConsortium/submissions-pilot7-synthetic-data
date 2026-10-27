@@ -66,7 +66,18 @@ def main():
             origin = f'http://127.0.0.1:{server.server_port}{PREFIX}'
             for study, findings, datasets in [('kn189', 17, 27), ('kn564', 19, 24)]:
                 page.goto(origin + f'/studies/{study}/')
+                expect(page.locator('.review-hero h1')).to_have_text(study.upper())
+                expect(page.locator('.spec-line').first).to_be_visible()
+                expect(page.locator('[data-table-for]').first).to_be_visible()
+                expect(page.get_by_role('link', name='All synthetic studies')).to_have_attribute('href', origin + '/synthetic/')
+                page.get_by_role('button', name='Analysis development', exact=True).click()
                 check_study(page, study, findings, datasets, args.screenshots)
+                coverage_link = page.locator('a[href^="#finding-"]').first
+                anchor = coverage_link.get_attribute('href')
+                coverage_link.click()
+                expect(page.locator(anchor)).to_have_attribute('open', '')
+                page.reload()
+                expect(page.locator(anchor)).to_have_attribute('open', '')
                 href = page.locator('.synthetic-downloads a').first.get_attribute('href')
                 assert href.startswith(origin + '/evidence/dashboard/synthetic/' + study)
                 assert page.request.get(href).ok

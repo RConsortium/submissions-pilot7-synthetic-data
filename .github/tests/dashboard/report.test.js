@@ -12,7 +12,7 @@ import {
   readReview,
 } from "../../../docs/assets/dashboard/issues.js";
 import { createShell } from "../../../docs/assets/dashboard/shell.js";
-import { esc } from "../../../docs/assets/dashboard/ui.js";
+import { esc, link } from "../../../docs/assets/dashboard/ui.js";
 
 const source = {
   id: "source",
@@ -105,6 +105,21 @@ const state = () => ({
   kind: "",
   comparison: "",
   reviewStatus: "",
+});
+
+test("synthetic workspaces retain development review without claiming reference agreement", () => {
+  const html = createShell({
+    model: { id: "kn189", title: "KN189", kind: "synthetic", revision: "commit",
+      subjects: ["001", "002"], datasets: [{ name: "ADSL" }],
+      development: "synthetic/kn189/catalog.json" },
+    state: { view: "datasets" }, site: new URL("https://example.test/project/"),
+    REPO: "https://github.com/RConsortium/submissions-pilot7-synthetic-data", esc, link,
+  }).frame();
+  assert.match(html, /href="https:\/\/example.test\/project\/synthetic\/">All synthetic studies/);
+  assert.match(html, /data-view="development"[^>]*>Analysis development/);
+  assert.match(html, /No independent published reference/);
+  assert.match(html, /Human analysis review pending/);
+  assert.doesNotMatch(html, /All pilot studies|published submission package|%/);
 });
 
 test("the metric and listing count issues separately from supporting checks", () => {

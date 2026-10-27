@@ -18,6 +18,7 @@ import { createSourceDocuments } from "./source-documents.js";
 import { createComments } from "./comments.js";
 import { createResizing } from "./resize.js";
 import { mountSynthetic } from "./synthetic.js";
+import { developmentReport, mountDevelopment } from "./synthetic-development.js";
 
 (() => {
   const REPO =
@@ -33,6 +34,7 @@ import { mountSynthetic } from "./synthetic.js";
     plan = null,
     report = null,
     index = null;
+  let development = null;
   let rowsByTable = new Map(),
     rowErrors = new Map(),
     rowsLoading = false;
@@ -169,9 +171,13 @@ import { mountSynthetic } from "./synthetic.js";
     byId("view-content").innerHTML =
       state.view === "datasets"
         ? workspace()
-        : state.view === "overview"
-          ? findingsView()
-          : materialsView();
+        : state.view === "development" && development
+          ? developmentReport(development, dataRoot)
+          : state.view === "overview"
+            ? findingsView()
+            : materialsView();
+    if (state.view === "development" && development)
+      mountDevelopment(byId("view-content"), development);
     byId("review-comments").innerHTML = commentsView();
     loadComments();
     if (state.view === "datasets") {
@@ -204,7 +210,7 @@ import { mountSynthetic } from "./synthetic.js";
         const catalog = await get(new URL("index.json", dataRoot));
         if (
           token === mount.token &&
-          catalog.studies.some((s) => s.id === study)
+          [...catalog.studies, ...(catalog.synthetic_studies || []).filter((s) => s.workspace)].some((s) => s.id === study)
         )
           location.replace(
             new URL("studies/" + study + "/" + location.hash, site),
@@ -216,6 +222,8 @@ import { mountSynthetic } from "./synthetic.js";
       const loadedIndex = await get(new URL("index.json", dataRoot));
       if (token !== mount.token) return;
       index = loadedIndex;
+      index = { ...index, studies: [...index.studies,
+        ...(index.synthetic_studies || []).filter((s) => s.workspace && !index.studies.some((p) => p.id === s.id))] };
       const id = main.dataset.study;
       if (!index.studies.some((s) => s.id === id)) {
         main.innerHTML =
@@ -224,7 +232,10 @@ import { mountSynthetic } from "./synthetic.js";
       }
       const loadedModel = await get(new URL(id + "/catalog.json", dataRoot));
       if (token !== mount.token) return;
+      const loadedDevelopment = loadedModel.development ? await get(new URL(loadedModel.development, dataRoot)) : null;
+      if (token !== mount.token) return;
       model = loadedModel;
+      development = loadedDevelopment;
       if (model.status === "pending") {
         main.innerHTML = `<h1>${esc(model.title)}</h1><div class="coverage-note"><h2>Validation pending</h2><p>${esc(model.reason)}</p>${link(`${REPO}/tree/${model.revision}/${model.id}`, "Study source")}</div>`;
         return;

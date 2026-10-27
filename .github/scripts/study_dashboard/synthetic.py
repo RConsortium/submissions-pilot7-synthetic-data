@@ -50,12 +50,21 @@ def inventory(root, study, entry, revision):
                 bytes=path.stat().st_size, sha256=digest.hexdigest(), files=members
             )
         archives.append(record)
+    sources = []
+    manifest = base / 'spec/source/manifest.json'
+    for item in json.loads(manifest.read_text()).get('files', []) if manifest.exists() else []:
+        if item.get('role') != 'collected_odm_snapshot':
+            continue
+        path = (root / item['path']).resolve()
+        path.relative_to(base)
+        sources.append({'path': item['path'], 'available': path.is_file(),
+                        'bytes': path.stat().st_size if path.is_file() else 0})
     stages = [
         {
             "id": "odm",
             "title": "EDC / ODM sources",
-            "count": sum(a["available"] for a in archives),
-            "unit": "source archives",
+            "count": sum(a["available"] for a in archives + sources),
+            "unit": "source files and archives",
         }
     ]
     for name, title, folder, patterns in [
@@ -86,6 +95,7 @@ def inventory(root, study, entry, revision):
         "kind": "synthetic",
         "revision": revision,
         "archives": archives,
+        "source_files": sources,
         "stages": stages,
     }
 
@@ -121,18 +131,45 @@ def development(root, study, target, revision, *, required=False):
     verified_report(root, study, revision)
     return {key: report[key] for key in ['status','created_utc','engine','source_subjects',
             'datasets','define_xml','reference_comparison','human_review','review','summaries']} | {
+                'datasets': [{key: value for key, value in dataset.items()
+                              if key != 'resolved_specification'} for dataset in report['datasets']],
                 'report': 'build-report.json', 'package': f'{study}-development.zip',
                 'protocol': 'protocol-sap.html'}
 
 
 def build_synthetic(root, destination, revision, *, allow_unbuilt=False):
     from .datasets import write_json
+    from .workspace import build_workspace
+    from study_evidence import catalog
 
     records = []
-    for study, entry in synthetic_catalog(root).items():
+    entries = {**synthetic_catalog(root), **{
+        name: entry for name, entry in catalog(root).items()
+        if entry.get('category') == 'synthetic'
+    }}
+    for study, entry in entries.items():
         record = inventory(root, study, entry, revision)
-        record['development'] = development(root, study, destination / 'synthetic' / study, revision,
-                                             required=entry.get('build_required', False) and not allow_unbuilt)
+        if entry.get('category') != 'synthetic':
+            record['development'] = development(root, study, destination / 'synthetic' / study, revision,
+                                                 required=entry.get('build_required', False) and not allow_unbuilt)
+            if record['development']['status'] == 'succeeded':
+                report = verified_report(root, study, revision)
+                validation = {
+                    **report,
+                    'artifacts': {'files': report['artifacts']},
+                    'datasets': [{**d, 'comparison': 'unavailable'} for d in report['datasets']
+                                 if d['section'] == 'adam'],
+                }
+                workspace = build_workspace(root, destination, study, {
+                    **entry, 'category': 'synthetic',
+                    'source': f'https://github.com/RConsortium/submissions-pilot7-synthetic-data/tree/{revision}/{study}',
+                }, validation, revision)
+                workspace['development'] = f'synthetic/{study}/catalog.json'
+                write_json(destination / study / 'catalog.json', workspace)
+                verified_report(root, study, revision)
+                record['workspace'] = True
+        else:
+            record['workspace'] = (destination / study / 'catalog.json').exists()
         # Submission metadata is generated beside the transport files it describes.
         record['stages'][-1]['count'] += sum(
             (root / study / 'data' / section / 'define.xml').is_file() for section in ['sdtm', 'adam'])
@@ -143,6 +180,7 @@ def build_synthetic(root, destination, revision, *, allow_unbuilt=False):
                 "title": entry["title"],
                 "archives": sum(a["available"] for a in record["archives"]),
                 "url": f"synthetic/{study}/catalog.json",
+                "workspace": record.get('workspace', False),
             }
         )
     write_json(

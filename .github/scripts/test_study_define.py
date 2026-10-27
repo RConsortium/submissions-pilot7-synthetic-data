@@ -53,6 +53,15 @@ class StudyDefineTests(unittest.TestCase):
         self.project.submission.assert_not_called()
         self.assertIsNone(version(self.base / "missing.xml"))
 
+    def test_new_study_exports_fresh_metadata_without_claiming_a_reference_match(self):
+        original = self.reference.read_bytes()
+        self.reference.unlink()
+        self.project.submission.return_value.save.side_effect = lambda: self.candidate.write_bytes(original)
+        record = check_define(self.root, "study", self.project)
+        self.assertEqual((record["comparison"], record["adam_version"], record["candidate_version"]),
+                         ("not_compared", None, "2.0.0"))
+        self.project.submission.assert_called_once_with("adam")
+
     def test_cross_version_comparison_keeps_legacy_gaps_different(self):
         fixtures = ROOT / ".github/tests/fixtures/legacy-define"
         self.reference.write_bytes((fixtures / "reference.xml").read_bytes())

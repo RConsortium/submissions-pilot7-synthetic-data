@@ -165,6 +165,13 @@ of source, SDTM, ADaM, and submission-metadata files. Missing stages are shown a
 **Not staged**. Archive members, sizes, and repository links help locate source
 material. Availability alone does not establish successful derivation.
 
+KN189 and KN564 open the same linked SDTM-to-ADaM dashboard as the pilot
+studies. Select subjects, review YAML and data side by side, follow column
+lineage, and open retained protocol/SAP and generated metadata under
+**Source documents**. Use **Analysis development** for their coverage,
+findings, downloads and review drafts. CAR-T for ALL also appears under
+**Synthetic data**.
+
 After a successful development build, each study adds **Analysis coverage**,
 **Findings for review**, and **Built datasets**. Download the study package for
 Parquet, XPT, both Define-XML files, maintained yamaa specifications, retained

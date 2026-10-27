@@ -60,11 +60,40 @@ class ScopeTests(unittest.TestCase):
             self.assertEqual(self.scope(path)['studies'], [
                 {'study': 'submission-pilot3', 'yamaa': True, 'core': False, 'r': False}])
 
-    def test_shared_layers_select_every_study_project_and_skip_pending_ones(self):
-        self.assertEqual(self.scope('spec/yamaa/cdiscpilot01/adsl.yaml')['studies'], [
-            {'study': name, 'yamaa': True, 'core': False, 'r': False}
-            for name in ('cdiscpilot01', 'submission-pilot3', 'submission-pilot5')])
-        self.assertEqual(self.scope('spec/yamaa/README.md')['studies'], [])
+    def test_a_shared_layer_selects_exactly_the_studies_that_inherit_it(self):
+        layers = {'spec/yamaa/cdiscpilot01/adsl.yaml': 'yamaa: "1.0"\n',
+                  'spec/yamaa/cdiscpilot01/pilot3/adsl.yaml': 'parent: ../adsl.yaml\n',
+                  'cdiscpilot01/spec/yamaa/adsl.yaml':
+                      'parent: ../../../spec/yamaa/cdiscpilot01/adsl.yaml\n'}
+        for study in ('submission-pilot3', 'submission-pilot5'):
+            layers[f'{study}/spec/yamaa/adsl.yaml'] = \
+                'parent: ../../../spec/yamaa/cdiscpilot01/pilot3/adsl.yaml\n'
+        for name, text in layers.items():
+            (self.root / name).parent.mkdir(parents=True, exist_ok=True)
+            (self.root / name).write_text(text)
+        cases = [
+            ('study layer', 'spec/yamaa/cdiscpilot01/adsl.yaml',
+             ['cdiscpilot01', 'submission-pilot3', 'submission-pilot5']),
+            ('package layer', 'spec/yamaa/cdiscpilot01/pilot3/adsl.yaml',
+             ['submission-pilot3', 'submission-pilot5']),
+            ('guide', 'spec/yamaa/README.md', []),
+        ]
+        for label, path, studies in cases:
+            with self.subTest(case=label):
+                self.assertEqual(self.scope(path)['studies'], [
+                    {'study': name, 'yamaa': True, 'core': False, 'r': False} for name in studies])
+
+    def test_source_pipeline_changes_select_its_study_before_sdtm_exists(self):
+        manifest = self.root / '.github/yamaa-studies.json'
+        entries = json.loads(manifest.read_text())
+        entries['cdiscpilot01']['prepare'] = 'program/run.py'
+        manifest.write_text(json.dumps(entries))
+        for path in ('cdiscpilot01/program/odm/extract.py',
+                     'cdiscpilot01/program/engine.py',
+                     'cdiscpilot01/data/odm/source.xml'):
+            with self.subTest(path=path):
+                self.assertEqual(self.scope(path)['studies'], [
+                    {'study': 'cdiscpilot01', 'yamaa': True, 'core': False, 'r': False}])
 
     def test_data_change_combines_yamaa_and_core_in_one_job(self):
         self.assertEqual(self.scope('submission-pilot5/data/sdtm/ae.parquet')['studies'], [

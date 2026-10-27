@@ -32,6 +32,7 @@ The reviewer guide is `docs/review.md`.
     rule_review.py                       documented-rule checks from the verification report
     issues.py                            validated issue grouping and normalized evidence
     artifacts.py                         versioned study and gallery manifests
+    workspace.py                         shared pilot and synthetic study workspace
     pages.py                             study page shells and the static two-page study report
 docs/assets/dashboard/
   app.js                                 lifecycle, events, and navigation
@@ -308,6 +309,11 @@ without extracting the archive or loading its clinical XML. It writes small
 source/readiness manifests under `synthetic/` in the evidence bundle.
 `synthetic.js` renders the overview and individual studies with the shared
 report metrics, study tables, workflow readiness, and archive inventories.
+KN189 and KN564 use `workspace.py` and the same linked specification/data
+dashboard as the pilot studies. Their Analysis development tab retains build
+evidence, downloads, findings and browser-local review drafts. Synthetic build
+records carry engine-resolved specification packets; publication verifies their
+source texts and input/output inventories before exporting a workspace.
 Availability is separate from derivation and comparison success. Original
 archives stay in the repository and are linked at the publication revision.
 
@@ -318,3 +324,9 @@ archive paths to that catalog and create a maintained page like
 key. Navigation and source inventory follow the catalog.
 Keep a study in the catalog for its intended purpose; pilot verification and
 synthetic source development use different dashboard contracts.
+
+Use a `study-dashboard` container for a synthetic study with a required build
+and a linked workspace. Studies validated through the pilot build worker can
+set `category: synthetic` in `.github/yamaa-studies.json` to appear under
+Synthetic data and in its overview while retaining their existing validation
+path. They do not contribute to the pilot report or landing-page pilot metrics.

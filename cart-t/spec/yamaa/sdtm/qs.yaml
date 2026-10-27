@@ -1,0 +1,549 @@
+yamaa: '1.0'
+type: spec
+model: SDTM
+domain: QS
+keys:
+- STUDYID
+- USUBJID
+- QSSEQ
+input:
+  RAW: ../../../data/odm/car-t-utf8.xml
+base: RAW
+filter: RAW.FormName = 'RAND SF-12 Survey' AND RAW.ItemName
+  IN ('Q1', 'Q2', 'Q3', 'Q4', 'Q5', 'Q6', 'Q7', 'Q8', 'Q9',
+  'Q10', 'Q11', 'Q12', 'PF-S', 'RP-S', 'BP', 'GH', 'VT', 'SF',
+  'RE-S', 'ME-S') AND RAW.Value IS NOT NULL
+
+output:
+  path: ../../../data/sdtm/qs.parquet
+  columns:
+  - STUDYID
+  - DOMAIN
+  - USUBJID
+  - QSSEQ
+  - QSSPID
+  - QSTESTCD
+  - QSTEST
+  - QSSCAT
+  - QSCAT
+  - QSORRES
+  - QSSTRESC
+  - QSSTRESN
+  - QSDTC
+  - QSBLFL
+  - VISIT
+  report: ../../../log/qs-report.parquet
+  order_by:
+  - variable: STUDYID
+    nulls: last
+  - variable: USUBJID
+    nulls: last
+  - variable: QSSEQ
+    nulls: last
+
+columns:
+- name: SUBJECTKEY
+  type: str
+  label: SUBJECTKEY
+  derivation: RAW.SubjectKey
+
+- name: EVENTOID
+  type: str
+  label: EVENTOID
+  derivation: RAW.StudyEventOID
+
+- name: EVENTREPEAT
+  type: str
+  label: EVENTREPEAT
+  derivation: RAW.StudyEventRepeatKey
+
+- name: ROWID
+  type: int
+  label: ROWID
+  derivation: RAW.SourceOrdinal
+
+- name: STUDYID
+  type: str
+  label: Study Identifier
+  derivation: '''CART-T-PILOT'''
+  verifications:
+  - max_length:
+      max: 12
+  submission:
+    length: 12
+    origins:
+    - type: Assigned
+      source: Sponsor
+    core: Req
+    mandatory: true
+    data_type: text
+    key_sequence: 1
+    role: Identifier
+
+- name: DOMAIN
+  type: str
+  label: Domain Abbreviation
+  derivation: '''QS'''
+  verifications:
+  - max_length:
+      max: 2
+  submission:
+    length: 2
+    origins:
+    - type: Assigned
+      source: Sponsor
+    core: Req
+    mandatory: true
+    data_type: text
+    role: Identifier
+
+- name: USUBJID
+  type: str
+  label: Unique Subject Identifier
+  derivation:
+    str_template: CART-T-PILOT-{RAW.SubjectKey}
+  verifications:
+  - max_length:
+      max: 80
+  submission:
+    length: 80
+    origins:
+    - type: Derived
+      source: Sponsor
+    method: CART-T-PILOT followed by the globally unique ODM
+      SubjectKey. Display subject ID is retained in DM.SUBJID.
+    comment: CART-T-PILOT followed by the globally unique ODM
+      SubjectKey. Display subject ID is retained in DM.SUBJID.
+    core: Req
+    mandatory: true
+    data_type: text
+    key_sequence: 2
+    role: Identifier
+
+- name: QSSEQ
+  type: int
+  label: Sequence Number
+  derivation:
+    row_number:
+      window:
+        group_by:
+        - USUBJID
+        order_by:
+        - variable: RAW.SourceOrdinal
+          nulls: last
+  submission:
+    origins:
+    - type: Derived
+      source: Sponsor
+    method: |-
+      Executable yamaa derivation: row_number:
+        window:
+          group_by:
+          - USUBJID
+          order_by:
+          - variable: RAW.SourceOrdinal
+            nulls: last
+    core: Req
+    mandatory: true
+    data_type: integer
+    length: 8
+    key_sequence: 3
+    role: Identifier
+
+- name: QSSPID
+  type: str
+  label: Source Item Ordinal
+  derivation: RAW.SourceOrdinal
+  verifications:
+  - max_length:
+      max: 20
+  submission:
+    length: 20
+    origins:
+    - type: Predecessor
+      description: RAW.SourceOrdinal
+    comment: ODM SourceOrdinal (item), or first SourceOrdinal
+      in the complete ODM item-group instance. Trace to SourceOrdinal
+      in data/odm/items.parquet and the unchanged XML.
+    core: Perm
+    mandatory: false
+    data_type: text
+    role: Identifier
+
+- name: QSTESTCD
+  type: str
+  label: Questionnaire Short Name
+  derivation:
+    mapping:
+      source: RAW.ItemName
+      dict:
+        Q1: SF1201
+        Q2: SF1202
+        Q3: SF1203
+        Q4: SF1204
+        Q5: SF1205
+        Q6: SF1206
+        Q7: SF1207
+        Q8: SF1208
+        Q9: SF1209
+        Q10: SF1210
+        Q11: SF1211
+        Q12: SF1212
+        PF-S: SF12PF
+        RP-S: SF12RP
+        BP: SF12BP
+        GH: SF12GH
+        VT: SF12VT
+        SF: SF12SF
+        RE-S: SF12RE
+        ME-S: SF12MH
+      unmapped: null
+  verifications:
+  - max_length:
+      max: 8
+  - allowed_values:
+      values:
+      - SF1201
+      - SF1202
+      - SF1203
+      - SF1204
+      - SF1205
+      - SF1206
+      - SF1207
+      - SF1208
+      - SF1209
+      - SF1210
+      - SF1211
+      - SF1212
+      - SF12PF
+      - SF12RP
+      - SF12BP
+      - SF12GH
+      - SF12VT
+      - SF12SF
+      - SF12RE
+      - SF12MH
+  submission:
+    length: 8
+    origins:
+    - type: Derived
+      source: Sponsor
+    method: |-
+      Executable yamaa derivation: mapping:
+        source: RAW.ItemName
+        dict:
+          Q1: SF1201
+          Q2: SF1202
+          Q3: SF1203
+          Q4: SF1204
+          Q5: SF1205
+          Q6: SF1206
+          Q7: SF1207
+          Q8: SF1208
+          Q9: SF1209
+          Q10: SF1210
+          Q11: SF1211
+          Q12: SF1212
+          PF-S: SF12PF
+          RP-S: SF12RP
+          BP: SF12BP
+          GH: SF12GH
+          VT: SF12VT
+          SF: SF12SF
+          RE-S: SF12RE
+          ME-S: SF12MH
+        unmapped: null
+    core: Req
+    mandatory: true
+    data_type: text
+    codelist: QSTESTCD
+    role: Topic
+
+- name: QSTEST
+  type: str
+  label: Questionnaire Name
+  derivation:
+    mapping:
+      source: RAW.ItemName
+      dict:
+        Q1: General Health
+        Q2: Moderate Activities
+        Q3: Climb Several Flights
+        Q4: Accomplished Less - Physical
+        Q5: Limited in Kind - Physical
+        Q6: Accomplished Less - Emotional
+        Q7: Less Careful - Emotional
+        Q8: Pain Interfered
+        Q9: Calm and Peaceful
+        Q10: Energy
+        Q11: Felt Downhearted
+        Q12: Social Interference
+        PF-S: Physical Functioning Score
+        RP-S: Role Physical Score
+        BP: Bodily Pain Score
+        GH: General Health Score
+        VT: Vitality Score
+        SF: Social Functioning Score
+        RE-S: Role Emotional Score
+        ME-S: Mental Health Score
+      unmapped: null
+  verifications:
+  - max_length:
+      max: 40
+  submission:
+    length: 40
+    origins:
+    - type: Derived
+      source: Sponsor
+    method: |-
+      Executable yamaa derivation: mapping:
+        source: RAW.ItemName
+        dict:
+          Q1: General Health
+          Q2: Moderate Activities
+          Q3: Climb Several Flights
+          Q4: Accomplished Less - Physical
+          Q5: Limited in Kind - Physical
+          Q6: Accomplished Less - Emotional
+          Q7: Less Careful - Emotional
+          Q8: Pain Interfered
+          Q9: Calm and Peaceful
+          Q10: Energy
+          Q11: Felt Downhearted
+          Q12: Social Interference
+          PF-S: Physical Functioning Score
+          RP-S: Role Physical Score
+          BP: Bodily Pain Score
+          GH: General Health Score
+          VT: Vitality Score
+          SF: Social Functioning Score
+          RE-S: Role Emotional Score
+          ME-S: Mental Health Score
+        unmapped: null
+    core: Req
+    mandatory: true
+    data_type: text
+    role: Record Qualifier
+
+- name: QSSCAT
+  type: str
+  label: Subcategory for Questionnaire
+  derivation:
+    mapping:
+      source: RAW.ItemName
+      dict:
+        Q1: ITEM
+        Q2: ITEM
+        Q3: ITEM
+        Q4: ITEM
+        Q5: ITEM
+        Q6: ITEM
+        Q7: ITEM
+        Q8: ITEM
+        Q9: ITEM
+        Q10: ITEM
+        Q11: ITEM
+        Q12: ITEM
+        PF-S: SUBSCALE
+        RP-S: SUBSCALE
+        BP: SUBSCALE
+        GH: SUBSCALE
+        VT: SUBSCALE
+        SF: SUBSCALE
+        RE-S: SUBSCALE
+        ME-S: SUBSCALE
+      unmapped: null
+  verifications:
+  - max_length:
+      max: 40
+  submission:
+    length: 40
+    origins:
+    - type: Derived
+      source: Sponsor
+    method: |-
+      Executable yamaa derivation: mapping:
+        source: RAW.ItemName
+        dict:
+          Q1: ITEM
+          Q2: ITEM
+          Q3: ITEM
+          Q4: ITEM
+          Q5: ITEM
+          Q6: ITEM
+          Q7: ITEM
+          Q8: ITEM
+          Q9: ITEM
+          Q10: ITEM
+          Q11: ITEM
+          Q12: ITEM
+          PF-S: SUBSCALE
+          RP-S: SUBSCALE
+          BP: SUBSCALE
+          GH: SUBSCALE
+          VT: SUBSCALE
+          SF: SUBSCALE
+          RE-S: SUBSCALE
+          ME-S: SUBSCALE
+        unmapped: null
+    core: Perm
+    mandatory: false
+    data_type: text
+    role: Record Qualifier
+
+- name: QSCAT
+  type: str
+  label: Category for Questionnaire
+  derivation: '''SF12'''
+  verifications:
+  - max_length:
+      max: 12
+  submission:
+    length: 12
+    origins:
+    - type: Assigned
+      source: Sponsor
+    core: Req
+    mandatory: true
+    data_type: text
+    role: Record Qualifier
+
+- name: QSORRES
+  type: str
+  label: Original Result
+  derivation: RAW.Value
+  verifications:
+  - max_length:
+      max: 80
+  submission:
+    length: 80
+    origins:
+    - type: Predecessor
+      description: RAW.Value
+    core: Exp
+    mandatory: false
+    data_type: text
+    role: Record Qualifier
+
+- name: QSSTRESC
+  type: str
+  label: Character Result in Standard Format
+  derivation: QSORRES
+  verifications:
+  - max_length:
+      max: 80
+  submission:
+    length: 80
+    origins:
+    - type: Derived
+      source: Sponsor
+    method: |-
+      Executable yamaa derivation: QSORRES
+      ...
+    core: Req
+    mandatory: true
+    data_type: text
+    role: Record Qualifier
+
+- name: QSSTRESN
+  type: float
+  label: Numeric Result in Standard Units
+  derivation:
+    value: QSORRES
+    unconvertible: null
+  submission:
+    significant_digits: 6
+    origins:
+    - type: Derived
+      source: Sponsor
+    method: |-
+      Executable yamaa derivation: value: QSORRES
+      unconvertible: null
+    core: Exp
+    mandatory: false
+    data_type: float
+    length: 8
+    role: Record Qualifier
+
+- name: QSDTC
+  type: str
+  label: Date/Time of Finding
+  derivation:
+    date_text:
+      source: RAW.StartDate
+      forms:
+      - iso
+      - mdy_slash
+      invalid: null
+  verifications:
+  - max_length:
+      max: 25
+  submission:
+    length: 25
+    origins:
+    - type: Derived
+      source: Sponsor
+    method: QoL event date, the only source timing available.
+      This is an administrative proxy, not a confirmed questionnaire
+      completion date.
+    comment: QoL event date, the only source timing available.
+      This is an administrative proxy, not a confirmed questionnaire
+      completion date.
+    core: Exp
+    mandatory: false
+    data_type: text
+    role: Timing
+
+- name: QSBLFL
+  type: str
+  label: Baseline Flag
+  derivation: null
+  verifications:
+  - max_length:
+      max: 1
+  - allowed_values:
+      values:
+      - N
+      - Y
+  submission:
+    length: 1
+    origins:
+    - type: Derived
+      source: Sponsor
+    comment: No treatment reference or approved SAP baseline
+      definition.
+    core: Perm
+    mandatory: false
+    data_type: text
+    method: No treatment reference or approved SAP baseline
+      definition.
+    codelist: NY
+    role: Record Qualifier
+
+- name: VISIT
+  type: str
+  label: Visit Name
+  derivation: RAW.EventName
+  verifications:
+  - max_length:
+      max: 80
+  submission:
+    length: 80
+    origins:
+    - type: Predecessor
+      description: RAW.EventName
+    core: Perm
+    mandatory: false
+    data_type: text
+    role: Timing
+
+submission:
+  label: Questionnaires
+  class: FINDINGS
+  structure: One record per source observation per subject
+  repeating: true
+  mode: historical
+  artifact: qs.xpt
+  comment: Review draft metadata. Historical mode keeps declarations
+    separate from incomplete data; this is not a validated submission.
+    See spec/review/decisions.md.

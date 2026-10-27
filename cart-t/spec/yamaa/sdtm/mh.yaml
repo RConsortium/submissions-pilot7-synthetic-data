@@ -1,0 +1,502 @@
+yamaa: '1.0'
+type: spec
+model: SDTM
+domain: MH
+keys:
+- STUDYID
+- USUBJID
+- MHSEQ
+input:
+  ODM: ../../../data/odm/car-t-utf8.xml
+  RAW: ../../../data/odm/car-t-utf8.xml
+
+output:
+  path: ../../../data/sdtm/mh.parquet
+  columns:
+  - STUDYID
+  - DOMAIN
+  - USUBJID
+  - MHSEQ
+  - MHSPID
+  - MHTERM
+  - MHCAT
+  - MHDECOD
+  - MHSTDTC
+  - MHENDTC
+  - VISIT
+  report: ../../../log/mh-report.parquet
+  order_by:
+  - variable: STUDYID
+    nulls: last
+  - variable: USUBJID
+    nulls: last
+  - variable: MHSEQ
+    nulls: last
+
+intermediates:
+- id: CONTEXT
+  dataset: RAW
+  key:
+    StudyOID: ODM.StudyOID
+    MetaDataVersionOID: ODM.MetaDataVersionOID
+    SubjectKey: ODM.SubjectKey
+    StudyEventOID: ODM.StudyEventOID
+    FormOID: ODM.FormOID
+    ItemGroupOID: ODM.ItemGroupOID
+  filter: (RAW.StudyEventRepeatKey = ODM.StudyEventRepeatKey
+    OR (RAW.StudyEventRepeatKey IS NULL AND ODM.StudyEventRepeatKey
+    IS NULL)) AND (RAW.FormRepeatKey = ODM.FormRepeatKey OR
+    (RAW.FormRepeatKey IS NULL AND ODM.FormRepeatKey IS NULL))
+    AND (RAW.ItemGroupRepeatKey = ODM.ItemGroupRepeatKey OR
+    (RAW.ItemGroupRepeatKey IS NULL AND ODM.ItemGroupRepeatKey
+    IS NULL))
+  order_by:
+  - RAW.SourceOrdinal
+  keep: first
+
+columns:
+- name: CRF_CANCER1
+  type: str
+  label: CRF_CANCER1
+
+- name: CRF_CANCER2
+  type: str
+  label: CRF_CANCER2
+
+- name: CRF_DATE
+  type: str
+  label: CRF_DATE
+  derivation:
+    odm: ODM.I_1DEMO_DATE
+
+- name: CRF_DIAG
+  type: str
+  label: CRF_DIAG
+
+- name: CRF_STOP
+  type: str
+  label: CRF_STOP
+  derivation:
+    odm: ODM.I_1DEMO_STOP
+
+- name: STARTDATE
+  type: str
+  label: STARTDATE
+  derivation: CONTEXT.StartDate
+
+- name: EVENTNAME
+  type: str
+  label: EVENTNAME
+  derivation: CONTEXT.EventName
+
+- name: SUBJECTKEY
+  type: str
+  label: SUBJECTKEY
+  derivation: ODM.SubjectKey
+
+- name: EVENTOID
+  type: str
+  label: EVENTOID
+  derivation: ODM.StudyEventOID
+
+- name: EVENTREPEAT
+  type: str
+  label: EVENTREPEAT
+  derivation: ODM.StudyEventRepeatKey
+
+- name: ROWID
+  type: int
+  label: ROWID
+  derivation: CONTEXT.SourceOrdinal
+
+- name: STUDYID
+  type: str
+  label: Study Identifier
+  derivation: '''CART-T-PILOT'''
+  verifications:
+  - max_length:
+      max: 12
+  submission:
+    length: 12
+    origins:
+    - type: Assigned
+      source: Sponsor
+    core: Req
+    mandatory: true
+    data_type: text
+    key_sequence: 1
+    role: Identifier
+
+- name: DOMAIN
+  type: str
+  label: Domain Abbreviation
+  derivation: '''MH'''
+  verifications:
+  - max_length:
+      max: 2
+  submission:
+    length: 2
+    origins:
+    - type: Assigned
+      source: Sponsor
+    core: Req
+    mandatory: true
+    data_type: text
+    role: Identifier
+
+- name: USUBJID
+  type: str
+  label: Unique Subject Identifier
+  derivation:
+    str_template: CART-T-PILOT-{SUBJECTKEY}
+  verifications:
+  - max_length:
+      max: 80
+  submission:
+    length: 80
+    origins:
+    - type: Derived
+      source: Sponsor
+    method: CART-T-PILOT followed by the globally unique ODM
+      SubjectKey. Display subject ID is retained in DM.SUBJID.
+    comment: CART-T-PILOT followed by the globally unique ODM
+      SubjectKey. Display subject ID is retained in DM.SUBJID.
+    core: Req
+    mandatory: true
+    data_type: text
+    key_sequence: 2
+    role: Identifier
+
+- name: MHSEQ
+  type: int
+  label: Sequence Number
+  derivation:
+    row_number:
+      window:
+        group_by:
+        - USUBJID
+        order_by:
+        - variable: ROWID
+          nulls: last
+  submission:
+    origins:
+    - type: Derived
+      source: Sponsor
+    method: |-
+      Executable yamaa derivation: row_number:
+        window:
+          group_by:
+          - USUBJID
+          order_by:
+          - variable: ROWID
+            nulls: last
+    core: Req
+    mandatory: true
+    data_type: integer
+    length: 8
+    key_sequence: 3
+    role: Identifier
+
+- name: MHSPID
+  type: str
+  label: Source Group Ordinal
+  derivation: ROWID
+  verifications:
+  - max_length:
+      max: 20
+  submission:
+    length: 20
+    origins:
+    - type: Predecessor
+      description: ROWID
+    comment: ODM SourceOrdinal (item), or first SourceOrdinal
+      in the complete ODM item-group instance. Trace to SourceOrdinal
+      in data/odm/items.parquet and the unchanged XML.
+    core: Perm
+    mandatory: false
+    data_type: text
+    role: Identifier
+
+- name: MHTERM
+  type: str
+  label: Reported Term for the Medical History
+  derivation: null
+  verifications:
+  - max_length:
+      max: 200
+  submission:
+    length: 200
+    origins:
+    - type: Derived
+      source: Sponsor
+    core: Req
+    mandatory: true
+    data_type: text
+    method: Not derivable; the output remains missing.
+    role: Topic
+
+- name: MHCAT
+  type: str
+  label: Category for Medical History
+  derivation: null
+  verifications:
+  - max_length:
+      max: 40
+  submission:
+    length: 40
+    origins:
+    - type: Derived
+      source: Sponsor
+    core: Exp
+    mandatory: false
+    data_type: text
+    method: Not derivable; the output remains missing.
+    role: Record Qualifier
+
+- name: MHDECOD
+  type: str
+  label: Dictionary-Derived Term
+  derivation: null
+  verifications:
+  - max_length:
+      max: 200
+  submission:
+    length: 200
+    origins:
+    - type: Derived
+      source: Sponsor
+    comment: No MedDRA coding is available.
+    core: Perm
+    mandatory: false
+    data_type: text
+    method: No MedDRA coding is available.
+    role: Record Qualifier
+
+- name: MHSTDTC
+  type: str
+  label: Start Date/Time of Medical History Event
+  derivation:
+    date_text:
+      source: CRF_DATE
+      forms:
+      - iso
+      - mdy_slash
+      invalid: null
+  verifications:
+  - max_length:
+      max: 25
+  submission:
+    length: 25
+    origins:
+    - type: Derived
+      source: Sponsor
+    method: |-
+      Executable yamaa derivation: date_text:
+        source: CRF_DATE
+        forms:
+        - iso
+        - mdy_slash
+        invalid: null
+    core: Exp
+    mandatory: false
+    data_type: text
+    role: Timing
+
+- name: MHENDTC
+  type: str
+  label: End Date/Time of Medical History Event
+  derivation:
+    date_text:
+      source: CRF_STOP
+      forms:
+      - iso
+      - mdy_slash
+      invalid: null
+  verifications:
+  - max_length:
+      max: 25
+  submission:
+    length: 25
+    origins:
+    - type: Derived
+      source: Sponsor
+    method: |-
+      Executable yamaa derivation: date_text:
+        source: CRF_STOP
+        forms:
+        - iso
+        - mdy_slash
+        invalid: null
+    core: Perm
+    mandatory: false
+    data_type: text
+    role: Timing
+
+- name: VISIT
+  type: str
+  label: Visit Name
+  derivation: EVENTNAME
+  verifications:
+  - max_length:
+      max: 80
+  submission:
+    length: 80
+    origins:
+    - type: Predecessor
+      description: EVENTNAME
+    core: Perm
+    mandatory: false
+    data_type: text
+    role: Timing
+
+- name: SOURCE_GROUP
+  type: str
+  label: SOURCE_GROUP
+
+- name: SOURCE_FORM
+  type: str
+  label: SOURCE_FORM
+
+rows:
+- id: general
+  dataset: ODM
+  group_by:
+  - ODM.StudyOID
+  - ODM.MetaDataVersionOID
+  - ODM.SubjectKey
+  - ODM.StudyEventOID
+  - ODM.StudyEventRepeatKey
+  - ODM.FormOID
+  - ODM.FormRepeatKey
+  - ODM.ItemGroupOID
+  - ODM.ItemGroupRepeatKey
+  filter: SOURCE_FORM = 'F_1DEMOGRAPHIC' AND (SOURCE_GROUP =
+    'IG_1DEMO_GROUP1' AND CRF_DIAG IS NOT NULL)
+  derivations:
+    MHTERM: CRF_DIAG
+    MHCAT: '''GENERAL MEDICAL HISTORY'''
+    SOURCE_GROUP: ODM.ItemGroupOID
+    CRF_CANCER1:
+      odm: ODM.I_1DEMO_CANCER1
+    CRF_CANCER2:
+      odm: ODM.I_1DEMO_CANCER2
+    CRF_DIAG:
+      odm: ODM.I_1DEMO_DIAG
+    SOURCE_FORM: ODM.FormOID
+
+- id: cancer_type
+  dataset: ODM
+  group_by:
+  - ODM.StudyOID
+  - ODM.MetaDataVersionOID
+  - ODM.SubjectKey
+  - ODM.StudyEventOID
+  - ODM.StudyEventRepeatKey
+  - ODM.FormOID
+  - ODM.FormRepeatKey
+  - ODM.ItemGroupOID
+  - ODM.ItemGroupRepeatKey
+  filter: SOURCE_FORM = 'F_1DEMOGRAPHIC' AND (SOURCE_GROUP =
+    'IG_1DEMO_GROUP2' AND CRF_CANCER1 IS NOT NULL)
+  derivations:
+    MHTERM:
+      mapping:
+        source: CRF_CANCER1
+        dict:
+          '1': Carcinoma
+          '2': Leukemia
+          '3': Lymphoma
+          '4': Sarcoma
+          '5': Myeloma
+        unmapped: null
+    MHCAT: '''CANCER HISTORY'''
+    MHSTDTC: null
+    MHENDTC: null
+    SOURCE_GROUP: ODM.ItemGroupOID
+    CRF_CANCER1:
+      odm: ODM.I_1DEMO_CANCER1
+    CRF_CANCER2:
+      odm: ODM.I_1DEMO_CANCER2
+    CRF_DIAG:
+      odm: ODM.I_1DEMO_DIAG
+    SOURCE_FORM: ODM.FormOID
+
+- id: cancer_subtype
+  dataset: ODM
+  group_by:
+  - ODM.StudyOID
+  - ODM.MetaDataVersionOID
+  - ODM.SubjectKey
+  - ODM.StudyEventOID
+  - ODM.StudyEventRepeatKey
+  - ODM.FormOID
+  - ODM.FormRepeatKey
+  - ODM.ItemGroupOID
+  - ODM.ItemGroupRepeatKey
+  filter: SOURCE_FORM = 'F_1DEMOGRAPHIC' AND (SOURCE_GROUP =
+    'IG_1DEMO_GROUP2' AND CRF_CANCER2 IS NOT NULL)
+  derivations:
+    MHTERM:
+      mapping:
+        source: CRF_CANCER2
+        dict:
+          '22': Acute myeloid leukemia (AML)
+          '23': Chronic myeloid leukemia (CML)
+          '24': Acute lymphocytic leukemia (ALL)
+          '25': Chronic lymphocytic leukemia (CLL)
+          '26': IgG
+          '27': IgA
+          '28': IgM
+          '29': IgD
+          '30': IgE
+          '10': Rhabdomyosarcomas
+          '11': Gastrointestinal Stromal Tumours (GISTs)
+          '12': Leiomyosarcoma
+          '13': Liposarcoma
+          '14': Osteosarcoma
+          '15': Ewing's sarcoma
+          '16': Chondrosarcoma
+          '17': B-cell lymphoma
+          '18': T-cell lymphoma
+          '19': Burkitt's lymphoma
+          '1': Adenocarcinoma
+          '2': Small cell carcinoma
+          '3': Squamos cell Carcinoma
+          '4': Large cell carcinoma
+          '5': Transitional cell carcinoma
+          '6': Undifferentiated carcinoma
+          '7': Soft Tissue Sarcoma
+          '8': Bone Sarcoma
+          '9': Fibroblastic sarcomas
+          '20': Follicular lymphoma
+          '21': Mantle cell lymphoma
+        unmapped: null
+    MHCAT: '''CANCER SUBTYPE'''
+    MHSTDTC: null
+    MHENDTC: null
+    SOURCE_GROUP: ODM.ItemGroupOID
+    CRF_CANCER1:
+      odm: ODM.I_1DEMO_CANCER1
+    CRF_CANCER2:
+      odm: ODM.I_1DEMO_CANCER2
+    CRF_DIAG:
+      odm: ODM.I_1DEMO_DIAG
+    SOURCE_FORM: ODM.FormOID
+
+verifications:
+- assert:
+    id: mh_end_before_start
+    require: MHENDTC IS NULL OR MHSTDTC IS NULL OR MHENDTC >=
+      MHSTDTC
+    severity: warning
+
+submission:
+  label: Medical History
+  class: EVENTS
+  structure: One record per source observation per subject
+  repeating: true
+  mode: historical
+  artifact: mh.xpt
+  comment: Review draft metadata. Historical mode keeps declarations
+    separate from incomplete data; this is not a validated submission.
+    See spec/review/decisions.md.
