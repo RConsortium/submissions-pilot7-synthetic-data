@@ -87,10 +87,13 @@ class ScopeTests(unittest.TestCase):
         self.assertEqual(self.scope('submission-pilot3/program/adam/R/run.R')['studies'], [
             {'study': 'submission-pilot3', 'yamaa': False, 'core': False, 'r': True}])
 
-    def test_engine_pin_change_rechecks_python_and_r_for_that_study(self):
+    def test_engine_pin_change_rechecks_publication_and_r_for_that_study(self):
         scope = self.scope('submission-pilot3/program/adam/python/requirements.txt')
+        self.assertTrue(scope['publication'])
         self.assertEqual(scope['studies'], [
-            {'study': 'submission-pilot3', 'yamaa': True, 'core': False, 'r': True}])
+            {'study': 'cdiscpilot01', 'yamaa': True, 'core': False, 'r': False},
+            {'study': 'submission-pilot3', 'yamaa': True, 'core': False, 'r': True},
+            {'study': 'submission-pilot5', 'yamaa': True, 'core': False, 'r': False}])
 
     def test_shared_engine_and_worker_changes_cover_all_affected_studies(self):
         scope = self.scope('.github/scripts/validate_yamaa.py')
