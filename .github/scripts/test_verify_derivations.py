@@ -329,6 +329,15 @@ class RenderTests(unittest.TestCase):
             with self.subTest(case=label):
                 self.assertEqual(cr.highlight(context, quote), expected, label)
 
+    def test_a_quoted_element_the_specification_no_longer_declares_renders_as_not_found(self):
+        side = vd.spec_side(spec_file(), "EVTSRC", "ADAE.AOCC01FL = 'Y'")
+        self.assertEqual(cr.spec_block(side, None), [
+            "**Specification says** `ADAE.AOCC01FL = 'Y'` in `EVTSRC` (`s/adsl.yaml`)",
+            "",
+            "Not found: specification element EVTSRC not found.",
+            "",
+        ])
+
     def test_quoted_specification_lines_carry_a_mark(self):
         side = vd.spec_side(spec_file(), "TRTSDT", "month: 1 day: 1")
         self.assertEqual(
