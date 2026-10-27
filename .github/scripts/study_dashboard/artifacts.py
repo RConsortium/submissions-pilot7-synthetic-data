@@ -12,7 +12,7 @@ from study_metrics import matched_totals, reference_totals
 from .config import SCHEMA_VERSION, comments, reference_path, settings, study_path
 from .datasets import export_table, write_json
 from .lineage import build_lineage, source_locations
-from .specifications import inspection_specification, resource_path
+from .specifications import defining_sources, inspection_specification, resource_path
 from .consistency import build_report
 from .domains import domain_labels, domain_keys
 from .synthetic import build_synthetic
@@ -135,6 +135,14 @@ def build_bundle(root, destination, entries, reports, revision, verifications=No
                 {**source, "lineage": {**lineage, **source_locations(source["text"])}}
                 for source in sources
             ]
+            # Review links open the layer that writes a variable's rule.
+            spans = {d["path"]: d["lineage"]["spans"] for d in documents}
+            packet = results[domain].get("resolved_specification")
+            lineage["definitions"] = {
+                name: {"path": path, **spans[path][name]}
+                for name, path in (defining_sources(packet) if packet else {}).items()
+                if name in spans.get(path, {})
+            }
             relative = f"specs/{domain.lower()}.json"
             write_json(
                 target / relative,

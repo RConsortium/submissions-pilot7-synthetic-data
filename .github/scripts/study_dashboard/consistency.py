@@ -57,6 +57,13 @@ def build_report(
             }
         )
 
+    def defined_at(spec_path, lineage, name):
+        """The file and lines writing a variable's rule: its layer, else the entry."""
+        definition = lineage.get("definitions", {}).get(name)
+        if definition:
+            return root / definition["path"], definition
+        return spec_path, lineage["spans"].get(name)
+
     for spec_path, spec, lineage in specifications:
         domain = spec["domain"]
         output_path = resource_path(root, spec_path, lineage.get("resources", {}), "output.path", spec["output"]["path"])
@@ -84,7 +91,8 @@ def build_report(
             )
         for name in spec["output"]["columns"]:
             checks["output_columns"] += 1
-            line = lineage["spans"].get(name, {}).get("start", 1)
+            defined, span = defined_at(spec_path, lineage, name)
+            line = (span or {}).get("start", 1)
             if name not in output_columns:
                 add(
                     domain,
@@ -98,7 +106,7 @@ def build_report(
                         "excerpt": ", ".join(sorted(output_columns)),
                         "url": "",
                     },
-                    spec_path,
+                    defined,
                     line,
                     "Review the output selection and build evidence.",
                 )
@@ -121,7 +129,7 @@ def build_report(
                         "excerpt": define_section_text(item),
                         "url": f"{define_reading}#{domain}.{name}",
                     },
-                    spec_path,
+                    defined,
                     line,
                     "Check the original ItemDef and determine whether the difference is intended.",
                 )
@@ -193,8 +201,14 @@ def build_report(
                     else "source_documents"
                 ),
             )
-            span = lineage["spans"].get(name)
-            text = spec_path.read_text().splitlines()
+            defined, span = defined_at(spec_path, lineage, name)
+            text = defined.read_text().splitlines()
+            if span:
+                relative = defined.relative_to(root).as_posix()
+                finding["spec"].update(
+                    path=relative, line=span["start"],
+                    url=f"{repo}/blob/{revision}/{relative}#L{span['start']}",
+                )
             finding["spec"]["excerpt"] = (
                 "\n".join(text[span["start"] - 1 : span["end"]])
                 if span

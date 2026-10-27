@@ -204,9 +204,15 @@ def locate_quote(lines, span, quote):
 
 
 def spec_side(spec_file, element, quote=None):
-    """A specification element, and the lines of a quote inside it when given."""
+    """A specification element, and the lines of a quote inside it when given.
+
+    A layered specification's element is read only in the layer that defines
+    it, so an overridden rule in another layer can never verify a quote.
+    """
     path, lines, spans, revision = spec_file["path"], spec_file["lines"], spec_file["spans"], spec_file["revision"]
     span = spans.get(element) if element else None
+    if element in spec_file.get("elements", {}):
+        path, lines, span = (spec_file["elements"][element][k] for k in ("path", "lines", "span"))
     side = {"path": path, "element": element, "quote": quote, "element_lines": None, "lines": None, "excerpt": None, "verified": True, "reason": None}
     if span is None:
         if quote is not None or element is not None:
@@ -604,7 +610,7 @@ def variable_findings(record, rules, spec_file, define_citation):
             }
         )
 
-    own = spec_side(spec_file, name if name in spec_file["spans"] else None)
+    own = spec_side(spec_file, name if name in spec_file["spans"] or name in spec_file["elements"] else None)
     if record["check"] == "copy":
         copy = record["copy"]
         documents = [quote_side(define_citation(record["define"]["comment"]), record["define"]["comment"], "states")]
@@ -696,15 +702,25 @@ def dataset_report(context, domain, spec_path, derived, reference):
     base = root / study
     text = spec_path.read_text()
     spec = yaml.safe_load(text)
-    if spec.get("parent") or spec.get("include") or any("copy" in c for c in spec["columns"]):
+    elements = {}
+    if spec.get("parent") or spec.get("include") or any("copy" in c for c in spec.get("columns", [])):
         import yamaa
-        resolved = yamaa.spec(spec_path).resolve()
-        spec = next(e["specification"] for e in resolved["entries"] if e["entry"] == resolved["entry"])
+        from study_dashboard.specifications import capture_specification, defining_sources
+
+        packet = capture_specification(root, spec_path, yamaa.spec(spec_path).resolve())
+        spec = packet["model"]
+        texts = {source["path"]: source["text"] for source in packet["sources"]}
+        located = {path: source_locations(source)["spans"] for path, source in texts.items()}
+        for element, path in defining_sources(packet).items():
+            if element in located[path]:
+                elements[element] = {"path": path, "lines": texts[path].splitlines(),
+                                     "span": located[path][element]}
     spans = source_locations(text)["spans"]
     spec_file = {
         "path": spec_path.relative_to(root).as_posix(),
         "lines": text.splitlines(),
         "spans": spans,
+        "elements": elements,
         "keys": spec["keys"],
         "revision": revision,
     }
@@ -744,7 +760,7 @@ def dataset_report(context, domain, spec_path, derived, reference):
                 "comment": item.get("comment", ""),
                 "text": define_section_text(item) if item else "",
             },
-            "spec": spec_side(spec_file, name if name in spans else None),
+            "spec": spec_side(spec_file, name if name in spans or name in elements else None),
         }
         record["spec"]["in_output"] = name in spec["output"]["columns"]
 

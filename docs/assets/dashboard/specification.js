@@ -6,6 +6,17 @@ export function specificationView(specification, view = "") {
   return { ...specification, ...(specification.documents?.[index] || specification.documents?.[0]) };
 }
 
+/** Show the source that writes a selected variable's rule; a chosen resolved model stays. */
+export function definingView(specification, focus, view = "") {
+  if (view === "resolved") return view;
+  const name = focus.replace(/^(spec|output)\./, "");
+  const path = specification.lineage?.definitions?.[name]?.path;
+  const index = path
+    ? (specification.documents || []).findIndex((d) => d.path === path)
+    : -1;
+  return index < 0 ? view : index ? "source:" + index : "";
+}
+
 export function specificationGaps(lines) {
   const gaps = new Map();
   let count = 0;

@@ -60,6 +60,12 @@ class ScopeTests(unittest.TestCase):
             self.assertEqual(self.scope(path)['studies'], [
                 {'study': 'submission-pilot3', 'yamaa': True, 'core': False, 'r': False}])
 
+    def test_shared_layers_select_every_study_project_and_skip_pending_ones(self):
+        self.assertEqual(self.scope('spec/yamaa/cdiscpilot01/adsl.yaml')['studies'], [
+            {'study': name, 'yamaa': True, 'core': False, 'r': False}
+            for name in ('cdiscpilot01', 'submission-pilot3', 'submission-pilot5')])
+        self.assertEqual(self.scope('spec/yamaa/README.md')['studies'], [])
+
     def test_data_change_combines_yamaa_and_core_in_one_job(self):
         self.assertEqual(self.scope('submission-pilot5/data/sdtm/ae.parquet')['studies'], [
             {'study': 'submission-pilot5', 'yamaa': True, 'core': True, 'r': False}])

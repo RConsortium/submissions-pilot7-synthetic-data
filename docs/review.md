@@ -61,6 +61,9 @@ inherited declarations, copied producer columns and named windows. Source files
 retain their original text and line numbers; the resolved model is an inspection
 artifact with its own line numbers. Its normalized representation is not an
 authoring template. **Open source** opens the selected original file.
+Selecting a variable of a layered specification opens the source file that
+writes its rule, such as a shared study layer under `spec/yamaa/`, unless the
+resolved model is shown.
 
 Focused views mark omitted line ranges. **Copy source file** copies the complete
 selected file, including hidden lines. **Copy model** copies the complete

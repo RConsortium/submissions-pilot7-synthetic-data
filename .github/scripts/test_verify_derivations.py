@@ -85,6 +85,22 @@ class CitationTests(unittest.TestCase):
                 self.assertEqual((side["verified"], side["lines"], side["reason"]), expected, label)
 
 
+    def test_a_layered_element_is_read_only_in_the_layer_that_defines_it(self):
+        entry = "columns:\n  - name: TRTSDT\n    label: Treatment start\n    derivation: EX_MINDTC\n"
+        layered = {**spec_file(), "path": "s/adsl.yaml", "lines": entry.splitlines(),
+                   "spans": source_locations(entry)["spans"],
+                   "elements": {"TRTSDT": {"path": "spec/yamaa/adsl.yaml", "lines": SPEC.splitlines(),
+                                           "span": source_locations(SPEC)["spans"]["TRTSDT"]}}}
+        cases = [
+            ("rule in its defining layer", "month: 1 day: 1", (True, "spec/yamaa/adsl.yaml", [10, 11])),
+            ("text only in another layer", "derivation: EX_MINDTC", (False, "spec/yamaa/adsl.yaml", None)),
+        ]
+        for label, quote, expected in cases:
+            with self.subTest(case=label):
+                side = vd.spec_side(layered, "TRTSDT", quote)
+                self.assertEqual((side["verified"], side["path"], side["lines"]), expected, label)
+
+
 class FindingTests(unittest.TestCase):
     def test_each_clause_relation_becomes_a_finding_under_its_rule_with_both_quotes(self):
         clauses = [

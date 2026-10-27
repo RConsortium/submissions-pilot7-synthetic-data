@@ -9,6 +9,7 @@ import {
   reviewPlan,
   PAGE_SIZES,
 } from "./review-model.js";
+import { definingView } from "./specification.js";
 import { createShell } from "./shell.js";
 import { createWorkspace } from "./workspace.js";
 import { createReport } from "./report.js";
@@ -321,6 +322,8 @@ import { mountSynthetic } from "./synthetic.js";
       const owner = target.dataset.outputDataset;
       if (owner && owner !== state.dataset) changePrimary(state, owner);
       state.focus = clear ? "" : raw;
+      if (state.focus && !(owner && specification.domain !== owner))
+        state.specView = definingView(specification, state.focus, state.specView);
       state.relatedOnly = true;
       state.pages = {};
       save();

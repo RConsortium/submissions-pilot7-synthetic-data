@@ -86,3 +86,25 @@ def inspection_specification(root, path, record, inventory):
 def resource_path(root, path, resources, key, written):
     """Use the engine's location, retaining standalone legacy evidence support."""
     return (root / resources[key]).resolve() if key in resources else (path.parent / written).resolve()
+
+
+def defining_sources(packet):
+    """Name the source file that writes each column's value rule.
+
+    A layered specification spreads one column over several files: the study
+    layer derives it, a package layer may override the rule or the label, and
+    the entry adds Define-XML metadata. The engine's origin ledger records
+    which file wrote each value, so review links follow the rule, not the name.
+    Intermediates and row templates are located where they are declared.
+    """
+    origins, model, found = packet.get("origins", {}), packet["model"], {}
+    fields = {"columns": ("/derivation/value", "/derivation", ""),
+              "intermediates": ("",), "rows": ("",)}
+    for key, suffixes in fields.items():
+        for index, item in enumerate(model.get(key, [])):
+            for suffix in suffixes:
+                origin = origins.get(f"/{key}/{index}{suffix}", {})
+                if origin.get("declaring_source") and origin.get("source_kind") != "schema_default":
+                    found.setdefault(item.get("name") or item.get("id"), origin["declaring_source"])
+                    break
+    return found

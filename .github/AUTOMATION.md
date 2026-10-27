@@ -21,6 +21,7 @@ in that same job.
 | Prompts, READMEs, agent guides, generated CORE reports | None. | 1 |
 | Site prose, general CSS, or MkDocs config | Strict layout/link preview in the shared job. | 1 |
 | A study's yamaa specs or Python runner/comparator | Build and compare that study. | 2 |
+| Shared yamaa layers under the root `spec/yamaa/` | Build and compare every study with a yamaa project. | 1 + studies |
 | A study's SDTM/ADaM binary data | yamaa comparison and CORE in one study job. | 2 |
 | A study's R program | Run R with the pinned engine and compare outputs. | 2 |
 | Pilot 3 planning generator or its QS/EX/plan.csv inputs | Relevant Python/R plan reproduction steps in the shared job. Input data changes also select the study job. | 1 or 2 |
