@@ -20,6 +20,7 @@ jobs:
     outputs:
       studies: ${{ steps.scope.outputs.studies }}
       publication: ${{ steps.scope.outputs.publication }}
+      synthetic: ${{ steps.synthetic.outputs.studies }}
     steps:
       - uses: actions/checkout@v5
         with:
@@ -40,6 +41,8 @@ jobs:
           python .github/scripts/ci_scope.py --base "$BASE" --head "$HEAD"
           git diff --check "$BASE" "$HEAD"
       - run: python -m pip install PyYAML==6.0.3
+      - id: synthetic
+        run: python .github/scripts/synthetic_evidence.py --list
       - run: python .github/scripts/check_structure.py
       - run: python .github/scripts/check_ascii.py
       - run: python -m unittest discover -s .github/scripts -p 'test_*.py' -v
@@ -100,8 +103,19 @@ jobs:
       core: ${{ matrix.core }}
       r: ${{ matrix.r }}
 
+  synthetic-check:
+    if: github.event_name == 'pull_request' && needs.structure-check.outputs.publication == 'true'
+    needs: structure-check
+    strategy:
+      fail-fast: false
+      matrix:
+        study: ${{ fromJSON(needs.structure-check.outputs.synthetic) }}
+    uses: ./.github/workflows/synthetic-check.yml
+    with:
+      study: ${{ matrix.study }}
+
   publication-check:
-    needs: [structure-check, study-check]
+    needs: [structure-check, study-check, synthetic-check]
     if: needs.structure-check.outputs.publication == 'true'
     runs-on: ubuntu-24.04
     steps:
@@ -125,6 +139,11 @@ jobs:
         with:
           pattern: verification-*
           path: .build/verification
+          merge-multiple: true
+      - uses: actions/download-artifact@v4
+        with:
+          pattern: synthetic-*
+          path: .
           merge-multiple: true
       - uses: actions/setup-node@v4
         with:

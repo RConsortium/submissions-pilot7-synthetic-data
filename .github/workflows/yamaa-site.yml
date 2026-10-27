@@ -17,12 +17,15 @@ jobs:
     runs-on: ubuntu-24.04
     outputs:
       studies: ${{ steps.catalog.outputs.studies }}
+      synthetic: ${{ steps.synthetic.outputs.studies }}
     steps:
       - uses: actions/checkout@v5
         with:
           persist-credentials: false
       - id: catalog
         run: python3 .github/scripts/study_evidence.py
+      - id: synthetic
+        run: python3 .github/scripts/synthetic_evidence.py --list
 
   validate:
     needs: inventory
@@ -35,9 +38,19 @@ jobs:
       study: ${{ matrix.study }}
       yamaa: true
 
+  synthetic:
+    needs: inventory
+    strategy:
+      fail-fast: false
+      matrix:
+        study: ${{ fromJSON(needs.inventory.outputs.synthetic) }}
+    uses: ./.github/workflows/synthetic-check.yml
+    with:
+      study: ${{ matrix.study }}
+
   website:
     name: Build website
-    needs: validate
+    needs: [validate, synthetic]
     runs-on: ubuntu-24.04
     steps:
       - uses: actions/checkout@v5
@@ -60,6 +73,11 @@ jobs:
         with:
           pattern: verification-*
           path: .build/verification
+          merge-multiple: true
+      - uses: actions/download-artifact@v4
+        with:
+          pattern: synthetic-*
+          path: .
           merge-multiple: true
       - uses: actions/setup-node@v4
         with:

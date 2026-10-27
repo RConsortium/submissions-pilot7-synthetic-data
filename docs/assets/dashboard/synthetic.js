@@ -1,5 +1,6 @@
-/** Synthetic reports share the pilot report layout, with file availability only. */
+/** Synthetic source inventory and measured analysis development share the report layout. */
 import { esc, link } from "./ui.js";
+import { developmentReport, mountDevelopment } from "./synthetic-development.js";
 
 const REPO = "https://github.com/RConsortium/submissions-pilot7-synthetic-data";
 const number = (n) => n.toLocaleString("en-US");
@@ -84,19 +85,19 @@ function inventory(models, gallery) {
 
 function workflow() {
   return `<h2 id="development-workflow">Development workflow</h2>${table("Development workflow", ["Stage", "Next work"], [
-    ["EDC / ODM sources", "Inspect the ODM source and document its collection structure."],
-    ["SDTM mapping", "Author and review mappings into staged SDTM domains."],
-    ["ADaM derivation", "Add yamaa specifications and independent ADaM references when available."],
-    ["Submission metadata", "Produce submission metadata and review conformance and derivation evidence."],
+    ["EDC / ODM sources", "Review collection structure, supplied values and missing source data."],
+    ["SDTM mapping", "Review mappings, units, terminology and retained source trace."],
+    ["ADaM derivation", "Align analysis decisions and review candidate derivations and independent checks."],
+    ["Submission metadata", "Review metadata, conformance, derivation evidence and remaining findings."],
   ].map(([stage, task]) => `<tr><th scope="row">${stage}</th><td>${task}</td></tr>`))}`;
 }
 
-export function syntheticReport(models, site, gallery) {
+export function syntheticReport(models, site, gallery, dataRoot = new URL("evidence/dashboard/", site)) {
   const title = gallery ? "Synthetic data report" : `${models[0].title} study report`;
   return `<h1>${esc(title)}</h1>
     <p class="report-lede">Synthetic clinical trial sources support development of the EDC-to-submission workflow. This report summarizes source archives and staged files${gallery ? " across the synthetic studies" : ` for ${esc(models[0].title)}`}.</p>
     ${!gallery ? `<p class="report-screen"><a href="${esc(new URL("synthetic/", site).href)}">All synthetic studies</a></p>` : ""}
-    ${models.length ? `${metrics(models, gallery)}${overview(models, site, gallery)}${readiness(models)}${inventory(models, gallery)}${workflow()}` : "<p>No synthetic studies are configured.</p>"}
+    ${models.length ? `${metrics(models, gallery)}${overview(models, site, gallery)}${!gallery ? developmentReport(models[0], dataRoot) : ""}${readiness(models)}${inventory(models, gallery)}${workflow()}` : "<p>No synthetic studies are configured.</p>"}
     <p class="report-foot">Source members are files inside the available archives, not counts of subjects or clinical records. Reference comparisons are reported separately in the <a href="${esc(new URL("studies/", site).href)}">pilot study report</a>.</p>`;
 }
 
@@ -111,5 +112,6 @@ export async function mountSynthetic(main, get, dataRoot, site) {
   }
   const models = await Promise.all(studies.map((s) => get(new URL(s.url, dataRoot))));
   if (!main.isConnected) return;
-  main.innerHTML = syntheticReport(models, site, gallery);
+  main.innerHTML = syntheticReport(models, site, gallery, dataRoot);
+  if (!gallery) mountDevelopment(main, models[0]);
 }
