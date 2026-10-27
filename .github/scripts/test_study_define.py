@@ -53,6 +53,24 @@ class StudyDefineTests(unittest.TestCase):
         self.project.submission.assert_not_called()
         self.assertIsNone(version(self.base / "missing.xml"))
 
+    def test_cross_version_comparison_keeps_legacy_gaps_different(self):
+        fixtures = ROOT / ".github/tests/fixtures/legacy-define"
+        self.reference.write_bytes((fixtures / "reference.xml").read_bytes())
+        self.project.submission.return_value.save.side_effect = lambda: self.candidate.write_bytes(
+            (fixtures / "candidate.xml").read_bytes())
+        record = check_define(self.root, "study", self.project)
+        self.assertEqual(record["adam_version"], "1.0.0")
+        self.assertEqual(record["candidate_version"], "2.0.0")
+        self.assertEqual(record["comparison"], "different")
+        metadata = record["metadata"]
+        self.assertTrue(metadata["comparable_metadata_equal"])
+        self.assertFalse(metadata["metadata_equivalent"])
+        self.assertFalse(metadata["full_reference_reproduced"])
+        self.assertTrue(metadata["unsupported"])
+        self.assertTrue(metadata["unresolved"])
+        self.assertNotIn("fields", metadata)
+        self.assertTrue(all("xml" not in entry for entry in metadata["unsupported"]))
+
     def test_failed_composition_cannot_reuse_an_old_candidate(self):
         self.candidate.write_bytes(self.reference.read_bytes())
         self.project.submission.return_value.status = "failed"

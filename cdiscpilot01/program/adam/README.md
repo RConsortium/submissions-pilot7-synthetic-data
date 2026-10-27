@@ -1,16 +1,20 @@
 # CDISC Pilot 01 ADaM derivations
 
-R and Python run the same [yamaa project](../../spec/yamaa/project.yaml):
-ADSL -> ADAE -> ADTTE -> ADVS -> ADLBC -> ADLBH -> ADLBHY -> ADQSNPIX
--> ADQSADAS -> ADQSCIBC.
+R and Python run the same [yamaa project](../../spec/yamaa/project.yaml).
+The project lists all ten datasets in reference Define-XML order, beginning
+with ADSL, which supplies the shared subject-level data.
 The engine revision is pinned in [python/requirements.txt](python/requirements.txt).
+
+The same specifications also generate Define-XML 2.0.0 and a comparison with
+the published 1.0 reference. See [Define-XML generation and comparison](DEFINE.md)
+for commands, coverage and explicit gaps.
 
 Run the commands below from the repository root.
 
 ## Setup
 
-Source installation requires Python 3.12+, Rust/Cargo 1.82+, Git, and a C
-compiler. The R runner also requires R 4.2+.
+Source installation requires Python 3.12+, Git, a C compiler, and the source
+checkout's pinned Rust toolchain (1.99.1). The R runner also requires R 4.2+.
 
 Install the Python engine and comparison tools:
 
@@ -23,7 +27,8 @@ For R, build the package from the same pinned revision:
 ```bash
 mkdir -p .build/cdiscpilot01-r/library
 git clone https://github.com/elong0527/yamaa.git .build/cdiscpilot01-r/yamaa-source
-git -C .build/cdiscpilot01-r/yamaa-source checkout --detach 3e8d5f6b5d2af223fba6aa29fa7209699123f706
+git -C .build/cdiscpilot01-r/yamaa-source checkout --detach fa2867b68497755023daa4baa4477b34e5cfedc7
+python -m pip install py-yaml12==0.2.0
 (
   cd .build/cdiscpilot01-r/yamaa-source
   python -m tools.staging.stage_r_package ../package

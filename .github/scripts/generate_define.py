@@ -17,7 +17,7 @@ import yaml
 from define_metadata import Document, compare
 
 ROOT = Path(__file__).resolve().parents[2]
-CREATED = {"submission-pilot3": "2023-05-01T17:47:59", "submission-pilot5": "2025-08-26T06:47:57"}
+CREATED = {"cdiscpilot01": "2012-10-18T17:33:04", "submission-pilot3": "2023-05-01T17:47:59", "submission-pilot5": "2025-08-26T06:47:57"}
 
 
 def audit_data(document, artifacts):
@@ -32,6 +32,29 @@ def audit_data(document, artifacts):
     for domain, dataset in metadata["datasets"].items():
         table = pq.read_table(artifacts[domain])
         data = table.to_pydict()
+        indexes = {}
+        selections = {}
+
+        def selected_rows(where):
+            key = tuple((c["variable"], c["comparator"], tuple(c["values"])) for c in where)
+            if key in selections:
+                return selections[key]
+            selected = None
+            for name, operator, values in key:
+                if operator not in {"EQ", "IN", "NE", "NOTIN"}:
+                    raise ValueError(f"Unsupported data audit comparator: {operator}")
+                if name not in indexes:
+                    index = {}
+                    for row, value in enumerate(data[name]):
+                        index.setdefault(value, set()).add(row)
+                    indexes[name] = index
+                included = set().union(*(indexes[name].get(value, set()) for value in values))
+                if operator in {"NE", "NOTIN"}:
+                    included = set(range(table.num_rows)) - included
+                selected = included if selected is None else selected & included
+            result = sorted(selected) if selected is not None else list(range(table.num_rows))
+            selections[key] = result
+            return result
         if table.column_names != dataset["column_order"]:
             conflicts.append({"dataset": domain, "check": "column_order"})
         key_names = sorted((v["key_sequence"], name) for name, v in dataset["variables"].items()
@@ -46,18 +69,7 @@ def audit_data(document, artifacts):
             values = data[name]
             checks = [(variable, range(table.num_rows), "column")]
             for index, entry in enumerate(variable["value_level"]):
-                selected = []
-                for row in range(table.num_rows):
-                    matches = []
-                    for condition in entry["where"]:
-                        value = data[condition["variable"]][row]
-                        included = value in condition["values"]
-                        op = condition["comparator"]
-                        if op not in {"EQ", "IN", "NE", "NOTIN"}:
-                            raise ValueError(f"Unsupported data audit comparator: {op}")
-                        matches.append(not included if op in {"NE", "NOTIN"} else included)
-                    if all(matches):
-                        selected.append(row)
+                selected = selected_rows(entry["where"])
                 value_level_rows[f"{domain}.{name}.{index + 1}"] = len(selected)
                 checks.append((entry, selected, f"value_level/{index}"))
             for declaration, selected, scope in checks:
@@ -69,14 +81,26 @@ def audit_data(document, artifacts):
                             violations.setdefault("not_missing", []).append(value)
                         continue
                     kind = declaration["type"]
-                    if kind == "integer" and not isinstance(value, (date, datetime)) and value != int(value):
-                        violations.setdefault("integer_type", []).append(value)
-                    if kind == "text" and declaration["length"] and len(value) > int(declaration["length"]):
-                        violations.setdefault("max_length", []).append(value)
+                    if kind == "integer" and not isinstance(value, (date, datetime)):
+                        try:
+                            integer = value == int(value)
+                        except (ValueError, TypeError, OverflowError):
+                            integer = False
+                        if not integer:
+                            violations.setdefault("integer_type", []).append(value)
+                    if kind == "text":
+                        if not isinstance(value, str):
+                            violations.setdefault("text_type", []).append(value)
+                        elif declaration["length"] and len(value) > int(declaration["length"]):
+                            violations.setdefault("max_length", []).append(value)
                     if declaration["codelist"]:
                         codelist = metadata["codelists"][declaration["codelist"]]
                         if not codelist["external"]:
-                            coded = str(value) if codelist["type"] == "text" else str_numeric(value)
+                            try:
+                                coded = str(value) if codelist["type"] == "text" else str_numeric(value)
+                            except (ValueError, TypeError, ArithmeticError):
+                                violations.setdefault("codelist_type", []).append(value)
+                                continue
                             allowed = {entry["value"] for entry in codelist["items"]}
                             if coded not in allowed:
                                 violations.setdefault("codelist", []).append(value)
@@ -110,7 +134,16 @@ def generate(study_name, schema_root):
     module = importlib.util.spec_from_file_location("study_comparator", study / "program/adam/python/compare.py")
     comparator = importlib.util.module_from_spec(module)
     module.loader.exec_module(comparator)
-    datasets = [comparator.compare_domain(name) for name in comparator.DATASETS]
+    if hasattr(comparator, "compare_domain"):
+        datasets = [comparator.compare_domain(name) for name in comparator.DATASETS]
+    else:
+        datasets = []
+        for name in comparator.DATASETS:
+            matched = comparator.compare(name)
+            reference_name = getattr(comparator, "EXPECTED_NAMES", {}).get(name, name)
+            shape = pq.read_schema(study / "data/adam" / f"{reference_name}.parquet")
+            rows = pq.ParquetFile(study / "data/adam" / f"{reference_name}.parquet").metadata.num_rows
+            datasets.append({"dataset": name, "ok": matched, "columns": len(shape), "rows": rows, "cells": rows * len(shape)})
     if not all(result["ok"] for result in datasets):
         raise ValueError("ADaM reference comparison failed")
 
@@ -120,11 +153,15 @@ def generate(study_name, schema_root):
         spec = yaml.safe_load(spec_file.read_text())
         artifacts[spec["domain"]] = (spec_file.parent / spec["output"]["path"]).resolve()
     candidate = (project_file.parent / declaration["adam"]["define"]).resolve()
-    guide = study / "spec/source/adrg.pdf"
-    guide_copy = candidate.parent / "adrg.pdf"
-    if guide_copy.exists() and guide_copy.read_bytes() != guide.read_bytes():
-        raise ValueError(f"Refusing to overwrite a different reviewer guide: {guide_copy}")
-    shutil.copyfile(guide, guide_copy)
+    for supporting in declaration["adam"].get("documents", []):
+        # These studies stage their reviewer guide under its original filename.
+        if supporting["kind"] != "supplemental":
+            continue
+        guide = study / "spec/source" / supporting["link"]
+        guide_copy = candidate.parent / supporting["link"]
+        if guide_copy.exists() and guide_copy.read_bytes() != guide.read_bytes():
+            raise ValueError(f"Refusing to overwrite a different reviewer guide: {guide_copy}")
+        shutil.copyfile(guide, guide_copy)
     submission = project.submission("adam", created=CREATED[study_name])
     if submission.status != "succeeded":
         raise ValueError(str(submission.issues.to_pylist()))
@@ -143,23 +180,42 @@ def generate(study_name, schema_root):
     schema = etree.XMLSchema(etree.parse(str(xsd), parser))
     schema.assertValid(etree.parse(str(candidate), parser))
     reference = study / "spec/define/define-adam.xml"
-    comparison = compare(reference, candidate)
+    legacy = study_name == "cdiscpilot01"
+    if legacy:
+        from compare_legacy_define import compare_legacy
+        comparison = compare_legacy(reference, candidate)
+    else:
+        comparison = compare(reference, candidate)
     if comparison["candidate_define_version"] != "2.0.0":
         raise ValueError("The reproduction requires native Define-XML 2.0.0 output")
     data = audit_data(Document(candidate), artifacts)
     reference_artifacts = {domain: study / "data/adam" / f"{domain.lower()}.parquet" for domain in artifacts}
-    reference_data = audit_data(Document(reference), reference_artifacts)
-    return {
+    if legacy:
+        from legacy_define import LegacyDocument
+        original = LegacyDocument(reference)
+        reference_data = audit_data(original, reference_artifacts)
+        reference_data["complete"] = not original.unresolved
+        reference_data["unresolved_declarations"] = original.unresolved
+        reference_data["conformant"] = reference_data["conformant"] and reference_data["complete"]
+        matched = comparison["comparable_metadata_equal"]
+        approved_scope = not comparison["unexpected_differences"] and not any(
+            u["reason"] != "Legacy DomainKeys names variables absent from its dataset" for u in comparison["unresolved"])
+    else:
+        reference_data = audit_data(Document(reference), reference_artifacts)
+        matched = comparison["metadata_equivalent"]
+        approved_scope = matched
+    result = {
         # Reproducing historical declarations and their truth about the data
         # are separate claims. Preserve the audit failures in full.
-        "status": "succeeded" if comparison["metadata_equivalent"] else "incomplete",
+        "status": ("compared_with_gaps" if legacy else "succeeded") if approved_scope else "incomplete",
         "study": study_name, "yamaa_version": yamaa.__version__, "derivation_succeeded": True,
         "composition_succeeded": True,
         "deterministic_xml": True,
         "xml_schema_valid": True, "candidate": candidate.relative_to(ROOT).as_posix(),
         "datasets": datasets, "comparison": comparison, "data_audit": data,
         "reference_data_audit": reference_data,
-        "metadata_reproduction_matched": comparison["metadata_equivalent"],
+        "metadata_reproduction_matched": matched and not legacy,
+        "approved_comparison_scope_satisfied": approved_scope,
         "submission_data_conformant": data["conformant"],
         "historical_package_links": [
             {"dataset": name, "link": dataset["artifact"]["link"],
@@ -168,13 +224,29 @@ def generate(study_name, schema_root):
             if dataset["artifact"]
         ],
         "limits": [
-            "The candidate reproduces the published Define-XML 2.0 metadata; XML byte identity is reported separately.",
+            ("The reference uses Define-XML 1.0 and the candidate uses 2.0. Known differences and unsupported source content are reported; full reproduction is false."
+             if legacy else "The candidate reproduces the published Define-XML 2.0 metadata; XML byte identity is reported separately."),
             "One project and one specification per dataset produce both the Parquet data and its Define-XML metadata.",
             "Historical XPT/JSON package links are retained literally; no transport is generated or certified.",
             "Historical metadata is not enforced as a data constraint; executable types, keys and explicit verifications still apply.",
             "A schema-valid XML document can still disagree with the reference or its datasets.",
         ],
     }
+    from study_evidence import engine_revision
+    result["yamaa_revision"] = engine_revision(ROOT, study_name)
+    result["supporting_documents"] = [{"link": d["link"], "available": (candidate.parent / d["link"]).is_file()}
+                                      for d in declaration["adam"].get("documents", [])]
+    stylesheet = declaration["adam"].get("stylesheet")
+    result["stylesheet"] = {"link": stylesheet, "available": bool(stylesheet and (candidate.parent / stylesheet).is_file())}
+    if legacy:
+        result["full_reference_reproduced"] = False
+        result["limits"].extend([
+            "Draft ADaMRes displays/results and unbound document leaves are inventoried, not generated.",
+            "Value-level optional metadata inherits from its parent in yamaa; the legacy omission differences remain different fields.",
+            "An absent LBSEQ in the reference ADLBHY DomainKeys is unresolved, not added to the data or XML.",
+            "XML schema validation is not a complete business-rule or regulatory conformance assessment.",
+        ])
+    return result
 
 
 def main():
@@ -188,6 +260,8 @@ def main():
     report_path = destination / "report.json"
     # Remove earlier success evidence and XML before attempting a fresh build.
     report_path.unlink(missing_ok=True)
+    for name in ("comparison.json", "comparison.html"):
+        (destination / name).unlink(missing_ok=True)
     project_file = ROOT / args.study / "spec/yamaa/project.yaml"
     declaration = yaml.safe_load(project_file.read_text())
     (project_file.parent / declaration["adam"]["define"]).resolve().unlink(missing_ok=True)
@@ -197,11 +271,15 @@ def main():
     except Exception as error:
         report["error"] = str(error)
     report_path.write_text(json.dumps(report, indent=2) + "\n")
+    if args.study == "cdiscpilot01" and "comparison" in report:
+        from define_report import write_legacy_report
+        (destination / "comparison.json").write_text(json.dumps(report["comparison"], indent=2) + "\n")
+        write_legacy_report(destination / "comparison.html", report)
     print(f"{report['status']}: {report_path}")
     if "comparison" in report:
         print(f"Metadata differences: {len(report['comparison']['differences'])}")
         print(f"Data conflicts: {len(report['data_audit']['conflicts'])}")
-    return int(report["status"] != "succeeded")
+    return int(report["status"] not in {"succeeded", "compared_with_gaps"})
 
 
 if __name__ == "__main__":
