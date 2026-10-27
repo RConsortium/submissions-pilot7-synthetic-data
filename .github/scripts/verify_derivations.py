@@ -18,6 +18,7 @@ Writes .build/verification/<study>/report.json, report.md and sections/.
 """
 
 import argparse
+import hashlib
 import json
 import math
 import os
@@ -444,7 +445,7 @@ def adjudicate(findings, adjudication):
         decision = decisions.get(finding["id"])
         if decision is None:
             finding["adjudication"] = {"decision": "pending"}
-        elif decision.get("basis") != finding["basis"]:
+        elif decision.get("basis") not in (finding["basis"], fingerprint_basis(finding["basis"])):
             finding["adjudication"] = {"decision": "stale", "previous": decision["decision"], "reason": decision.get("reason", "")}
         else:
             finding["adjudication"] = {"decision": decision["decision"], "reason": decision.get("reason", "")}
@@ -580,6 +581,11 @@ def basis(rule, documents, spec, evidence=None, extra=""):
     return " | ".join(parts + ([extra] if extra else []))
 
 
+def fingerprint_basis(value):
+    """Bind a compact stored decision to the complete, unchanged basis text."""
+    return "sha256:" + hashlib.sha256(value.encode("utf-8")).hexdigest()
+
+
 def variable_findings(record, rules, spec_file, define_citation):
     """Every inconsistency of one variable, each citing exactly one rule."""
     dataset, name = record["dataset"], record["variable"]
@@ -588,6 +594,7 @@ def variable_findings(record, rules, spec_file, define_citation):
     def add(rule, number, documents, spec, summary, evidence=None, note="", extra="", relation=None):
         # A quote in an element the variable reads is shown with the variable's own definition.
         variable_spec = own if spec and own["element"] and spec["element"] != own["element"] else None
+        finding_basis = basis(rule, documents, spec, evidence, extra)
         findings.append(
             {
                 "id": f"{dataset}.{name}.{rule}" + (f".{number}" if number else ""),
@@ -606,7 +613,8 @@ def variable_findings(record, rules, spec_file, define_citation):
                 "interpretations": record.get("interpretations", []),
                 "assessment": record.get("assessment", ""),
                 "question": record.get("question", ""),
-                "basis": basis(rule, documents, spec, evidence, extra),
+                "basis": finding_basis,
+                "basis_fingerprint": fingerprint_basis(finding_basis),
             }
         )
 

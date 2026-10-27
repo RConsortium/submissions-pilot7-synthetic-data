@@ -3,6 +3,14 @@
 A specification that builds successfully and a dataset that agrees with an
 official reference are different results. The study pages show both.
 
+**Published ADaM reference agreement** measures reproduction of the published
+datasets under the study's comparison rules. **Consistency review** checks
+agreement among documents, derivation rules, and data. Findings can remain open
+even when reference agreement is 100%. For example, the generated and published
+datasets can contain the same BMI values while a document states a different
+formula. The reference comparison passes, and the consistency finding remains
+open for review. Each measured finding names the sources it compares.
+
 ## What is checked
 
 1. **Specification checks:** yamaa checks the project and its specifications
