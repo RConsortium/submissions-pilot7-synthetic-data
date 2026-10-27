@@ -212,49 +212,29 @@
           },
           "spec": {
             "element": "ADT",
-            "quote": "first_available:\n        sources:\n          - EVTSRC.ASTDT\n          - EOS2DT"
+            "quote": "case:\n        - when: \"HAS_EVENT = 'Y'\"\n          then: FIRST_DERM.ASTDT"
           },
-          "note": "The specification uses any nonmissing selected ASTDT without the documented strict after-TRTSDT test."
+          "note": "The specification takes the first flagged dermatologic record's ASTDT whenever HAS_EVENT finds that record, without the documented nonmissing and strict after-TRTSDT tests."
         },
         {
-          "relation": "differs",
+          "relation": "same",
           "document": {
             "citation": 1,
             "quote": "else convert ADSL.RFENDTC to a SAS numeric date"
           },
           "spec": {
-            "element": "EOS2DT",
-            "quote": "case:\n        - when: ADSL.DCDECOD = 'DEATH'\n          then:\n            impute:\n              type: date\n              source: ADSL.RFENDTC\n              month: 1\n              day: 1\n        - otherwise: EOSDT"
+            "element": "ADT",
+            "quote": "- otherwise: ADSL.RFENDT"
           },
-          "note": "The documented fallback always names ADSL.RFENDTC; the specification uses that source only for death and otherwise reads EOSDT from disposition."
+          "note": "The Define-XML ADSL.RFENDT method is RFENDTC converted to SAS date, so the fallback source agrees; the branch condition is the first clause's difference."
         },
         {
-          "relation": "absent_in_document",
-          "spec": {
-            "element": "DS_DISP",
-            "quote": "filter: DS.DSCAT = 'DISPOSITION EVENT' AND DS.DSDECOD NOT IN ('SCREEN FAILURE', 'FINAL LAB VISIT')\n    order_by:\n      - variable: DS.DSSTDTC\n        nulls: last\n    keep: first"
-          },
-          "note": "The retained ADTTE rule does not state these disposition-event exclusions or the earliest-disposition selection."
-        },
-        {
-          "relation": "absent_in_document",
-          "spec": {
-            "element": "EOSDT",
-            "quote": "impute:\n        type: date\n        source: DS_DISP.DSSTDTC\n        month: 1\n        day: 1"
-          },
-          "note": "The retained ADTTE rule does not state censor-date imputation from the selected disposition date."
-        },
-        {
-          "relation": "same",
+          "relation": "absent_in_spec",
           "document": {
             "citation": 2,
             "quote": "Events of particular interest (dermatologic) are captured in the customized query\nvariable (CQ01NAM) in this dataset."
           },
-          "spec": {
-            "element": "EVTSRC",
-            "quote": "ADAE.CQ01NAM = 'DERMATOLOGIC EVENTS'"
-          },
-          "note": "The ADRG identifies the dermatologic query carried by the selected published ADAE records."
+          "note": "The specification no longer tests CQ01NAM; FIRST_DERM relies on the published AOCC01FL flag alone to select the dermatologic record."
         },
         {
           "relation": "same",
@@ -263,10 +243,10 @@
             "quote": "dermatological events are flagged (AOCC01FL) to facilitate traceability between these two\nanalysis datasets."
           },
           "spec": {
-            "element": "EVTSRC",
+            "element": "FIRST_DERM",
             "quote": "ADAE.AOCC01FL = 'Y'"
           },
-          "note": "The specification consumes the published first-event flag described across the two ADRG pages; the source flag is not re-derived by this probe."
+          "note": "The specification consumes the published first-event flag described across the two ADRG pages; it does not re-derive the flag."
         },
         {
           "relation": "same",
@@ -275,18 +255,10 @@
             "quote": "the first chrono-\nlogical occurrence based on the start dates (and sequence numbers)"
           },
           "spec": {
-            "element": "EVTSRC",
-            "quote": "order_by:\n      - variable: ADAE.ASTDT\n        nulls: last\n    keep: first"
+            "element": "FIRST_DERM",
+            "quote": "order_by:\n      - variable: ADAE.ASTDT\n        nulls: last\n      - variable: ADAE.AESEQ\n        nulls: last\n    keep: first"
           },
-          "note": "The specification selects the first start date after consuming AOCC01FL, whose documented role already includes the sequence-number ordering; the probe spells out both ordering fields."
-        },
-        {
-          "relation": "absent_in_document",
-          "spec": {
-            "element": "EVTSRC",
-            "quote": "AND ADAE.SAFFL = 'Y'"
-          },
-          "note": "The ADRG describes safety analyses and a downstream SAFFL population selection, but does not state a separate SAFFL restriction when selecting the source event."
+          "note": "The specification orders the flagged records by start date and then sequence number and keeps the first."
         },
         {
           "relation": "same",
@@ -295,7 +267,7 @@
             "quote": "ADTTE ADSL, ADAE"
           },
           "spec": {
-            "element": "EVTSRC",
+            "element": "FIRST_DERM",
             "quote": "dataset: ADAE"
           },
           "note": "The ADRG dependency table repeats ADAE as an analysis source for ADTTE."
@@ -307,10 +279,10 @@
             "quote": "ADTTE ADSL, ADAE"
           },
           "spec": {
-            "element": "EOS2DT",
-            "quote": "source: ADSL.RFENDTC"
+            "element": "ADT",
+            "quote": "ADSL.RFENDT"
           },
-          "note": "The ADRG dependency table also repeats ADSL as an analysis source; it does not specify the additional disposition fallback."
+          "note": "The ADRG dependency table also repeats ADSL as an analysis source; the specification's censor date reads ADSL.RFENDT."
         }
       ],
       "probes": [
@@ -336,8 +308,8 @@
         "Citation 5 defines treatment emergence inclusively while the ADT method says after TRTSDT. These govern related, separately stated conditions; the inclusive reading tests a possible alignment and does not assert that the two statements are necessarily contradictory.",
         "Citation 6 documents the safety population for the downstream KM analysis; it does not explicitly add ADAE.SAFFL to the first-event selection condition."
       ],
-      "assessment": "The retained method and source-event context leave date-boundary and selection-order choices visible. The implemented fallback introduces disposition and death-specific logic not stated in the ADTTE method.",
-      "question": "Should ADT use a strict or inclusive treatment-date boundary, and should eligibility be applied before first-event selection? Confirm the intended censor source and any date imputation before changing the specification."
+      "assessment": "The retained method and source-event context leave date-boundary and selection-order choices visible. The specification's fallback reads ADSL.RFENDT, the documented conversion of RFENDTC, but its event branch tests only for a flagged first dermatologic record.",
+      "question": "Should ADT use a strict or inclusive treatment-date boundary, and should eligibility be applied before first-event selection?"
     },
     {
       "variable": "CNSR",
@@ -388,9 +360,9 @@
           },
           "spec": {
             "element": "CNSR",
-            "quote": "case:\n        - when: EVTSRC.ASTDT IS NOT NULL\n          then: 0\n        - otherwise: 1"
+            "quote": "case:\n        - when: \"HAS_EVENT = 'Y'\"\n          then: 0\n        - otherwise: 1"
           },
-          "note": "The documented test is TRTEMFL=Y; the specification tests whether the selected source date is nonmissing."
+          "note": "The documented test is TRTEMFL=Y; the specification sets CNSR=0 whenever HAS_EVENT finds a record flagged AOCC01FL, without reading TRTEMFL."
         },
         {
           "relation": "same",
@@ -405,16 +377,12 @@
           "note": "The specification names the enumerated event/censor codelist."
         },
         {
-          "relation": "same",
+          "relation": "absent_in_spec",
           "document": {
             "citation": 3,
             "quote": "Events of particular interest (dermatologic) are captured in the customized query\nvariable (CQ01NAM) in this dataset."
           },
-          "spec": {
-            "element": "EVTSRC",
-            "quote": "ADAE.CQ01NAM = 'DERMATOLOGIC EVENTS'"
-          },
-          "note": "The ADRG identifies the dermatologic query carried by the selected published ADAE records."
+          "note": "The specification no longer tests CQ01NAM; FIRST_DERM relies on the published AOCC01FL flag alone to select the dermatologic record."
         },
         {
           "relation": "same",
@@ -423,10 +391,10 @@
             "quote": "dermatological events are flagged (AOCC01FL) to facilitate traceability between these two\nanalysis datasets."
           },
           "spec": {
-            "element": "EVTSRC",
+            "element": "FIRST_DERM",
             "quote": "ADAE.AOCC01FL = 'Y'"
           },
-          "note": "The specification consumes the published first-event flag described across the two ADRG pages; the source flag is not re-derived by this probe."
+          "note": "The specification consumes the published first-event flag described across the two ADRG pages; it does not re-derive the flag."
         },
         {
           "relation": "same",
@@ -435,18 +403,10 @@
             "quote": "the first chrono-\nlogical occurrence based on the start dates (and sequence numbers)"
           },
           "spec": {
-            "element": "EVTSRC",
-            "quote": "order_by:\n      - variable: ADAE.ASTDT\n        nulls: last\n    keep: first"
+            "element": "FIRST_DERM",
+            "quote": "order_by:\n      - variable: ADAE.ASTDT\n        nulls: last\n      - variable: ADAE.AESEQ\n        nulls: last\n    keep: first"
           },
-          "note": "The specification selects the first start date after consuming AOCC01FL, whose documented role already includes the sequence-number ordering; the probe spells out both ordering fields."
-        },
-        {
-          "relation": "absent_in_document",
-          "spec": {
-            "element": "EVTSRC",
-            "quote": "AND ADAE.SAFFL = 'Y'"
-          },
-          "note": "The ADRG describes safety analyses and a downstream SAFFL population selection, but does not state a separate SAFFL restriction when selecting the source event."
+          "note": "The specification orders the flagged records by start date and then sequence number and keeps the first."
         },
         {
           "relation": "same",
@@ -455,7 +415,7 @@
             "quote": "ADTTE ADSL, ADAE"
           },
           "spec": {
-            "element": "EVTSRC",
+            "element": "FIRST_DERM",
             "quote": "dataset: ADAE"
           },
           "note": "The dependency table confirms the analysis source used for the event/censor decision."
@@ -474,7 +434,7 @@
         "The documented first-event context limits the source to dermatologic treatment-emergent events; the probe does not mark a subject with an unrelated treatment-emergent AE as an event.",
         "CNSR explicitly reads the published source TRTEMFL. The literal ADT method uses a stricter date boundary; the CNSR probe does not silently replace its flag rule with the ADT condition."
       ],
-      "assessment": "The specification substitutes nonmissing source date for the documented source treatment-emergent flag test.",
+      "assessment": "The specification substitutes the presence of a flagged first dermatologic record for the documented source treatment-emergent flag test.",
       "question": "Confirm that the first dermatologic event identified through the published source flag is the intended ADAE record for CNSR and how its rule should align with the ADT date boundary."
     },
     {
@@ -501,9 +461,9 @@
           },
           "spec": {
             "element": "EVNTDESC",
-            "quote": "case:\n        - when: EVTSRC.ASTDT IS NOT NULL\n          then: \"'Dematologic Event Occured'\"\n        - otherwise: \"'Study Completion Date'\""
+            "quote": "case:\n        - when: \"HAS_EVENT = 'Y'\"\n          then: \"'Dematologic Event Occured'\"\n        - otherwise: \"'Study Completion Date'\""
           },
-          "note": "The literal output text agrees, including its spelling; the specification branches on source ASTDT instead of CNSR and supplies the completion text for every other case."
+          "note": "The literal output text agrees, including its spelling; the specification branches on HAS_EVENT, the flag that also sets its CNSR, instead of CNSR and supplies the completion text for every other case."
         }
       ],
       "probes": [
@@ -517,7 +477,7 @@
         "The method only assigns descriptions for CNSR zero or one, consistent with the enumerated codelist. A missing or other CNSR receives unpopulated character text, serialized as an empty string, without inventing another description.",
         "The probe reads REF.CNSR so that it tests this description rule independently of the CNSR probe."
       ],
-      "assessment": "The specification retains the documented strings but replaces the explicit CNSR conditions with source-date availability.",
+      "assessment": "The specification retains the documented strings but replaces the explicit CNSR conditions with the HAS_EVENT flag that also sets its CNSR.",
       "question": "Should the description follow the published CNSR value exactly, including leaving it unpopulated when CNSR is outside the stated cases?"
     },
     {
@@ -584,7 +544,7 @@
           },
           "spec": {
             "element": "SRCDOM",
-            "quote": "case:\n        - when: EVTSRC.ASTDT IS NOT NULL\n          then: \"'ADAE'\"\n        - otherwise: \"'ADSL'\""
+            "quote": "case:\n        - when: \"HAS_EVENT = 'Y'\"\n          then: \"'ADAE'\"\n        - otherwise: \"'ADSL'\""
           },
           "note": "The specification emits the two documented domain names."
         },
@@ -596,12 +556,12 @@
           },
           "spec": {
             "element": "SRCDOM",
-            "quote": "when: EVTSRC.ASTDT IS NOT NULL"
+            "quote": "when: \"HAS_EVENT = 'Y'\""
           },
-          "note": "The documented ADT source branch has a strict treatment-date condition that the specification source-domain branch omits."
+          "note": "The documented ADT source branch has a strict treatment-date condition that the specification's HAS_EVENT branch omits."
         },
         {
-          "relation": "differs",
+          "relation": "same",
           "document": {
             "citation": 1,
             "quote": "The Source domain referred to in order to populate ADT"
@@ -610,19 +570,15 @@
             "element": "SRCDOM",
             "quote": "- otherwise: \"'ADSL'\""
           },
-          "note": "The implementation labels every non-event branch ADSL although its ADT fallback may be EOSDT derived from DS_DISP.DSSTDTC."
+          "note": "Every non-event ADT value now reads ADSL.RFENDT, so the ADSL label names the supplying dataset."
         },
         {
-          "relation": "same",
+          "relation": "absent_in_spec",
           "document": {
             "citation": 3,
             "quote": "Events of particular interest (dermatologic) are captured in the customized query\nvariable (CQ01NAM) in this dataset."
           },
-          "spec": {
-            "element": "EVTSRC",
-            "quote": "ADAE.CQ01NAM = 'DERMATOLOGIC EVENTS'"
-          },
-          "note": "The ADRG identifies the dermatologic query carried by the selected published ADAE records."
+          "note": "The specification no longer tests CQ01NAM; FIRST_DERM relies on the published AOCC01FL flag alone to select the dermatologic record."
         },
         {
           "relation": "same",
@@ -631,10 +587,10 @@
             "quote": "dermatological events are flagged (AOCC01FL) to facilitate traceability between these two\nanalysis datasets."
           },
           "spec": {
-            "element": "EVTSRC",
+            "element": "FIRST_DERM",
             "quote": "ADAE.AOCC01FL = 'Y'"
           },
-          "note": "The specification consumes the published first-event flag described across the two ADRG pages; the source flag is not re-derived by this probe."
+          "note": "The specification consumes the published first-event flag described across the two ADRG pages; it does not re-derive the flag."
         },
         {
           "relation": "same",
@@ -643,18 +599,10 @@
             "quote": "the first chrono-\nlogical occurrence based on the start dates (and sequence numbers)"
           },
           "spec": {
-            "element": "EVTSRC",
-            "quote": "order_by:\n      - variable: ADAE.ASTDT\n        nulls: last\n    keep: first"
+            "element": "FIRST_DERM",
+            "quote": "order_by:\n      - variable: ADAE.ASTDT\n        nulls: last\n      - variable: ADAE.AESEQ\n        nulls: last\n    keep: first"
           },
-          "note": "The specification selects the first start date after consuming AOCC01FL, whose documented role already includes the sequence-number ordering; the probe spells out both ordering fields."
-        },
-        {
-          "relation": "absent_in_document",
-          "spec": {
-            "element": "EVTSRC",
-            "quote": "AND ADAE.SAFFL = 'Y'"
-          },
-          "note": "The ADRG describes safety analyses and a downstream SAFFL population selection, but does not state a separate SAFFL restriction when selecting the source event."
+          "note": "The specification orders the flagged records by start date and then sequence number and keeps the first."
         },
         {
           "relation": "same",
@@ -664,7 +612,7 @@
           },
           "spec": {
             "element": "SRCDOM",
-            "quote": "case:\n        - when: EVTSRC.ASTDT IS NOT NULL\n          then: \"'ADAE'\"\n        - otherwise: \"'ADSL'\""
+            "quote": "case:\n        - when: \"HAS_EVENT = 'Y'\"\n          then: \"'ADAE'\"\n        - otherwise: \"'ADSL'\""
           },
           "note": "The ADRG dependency table repeats the same two source analysis datasets named by the source-domain method."
         }
@@ -696,8 +644,8 @@
         "The ADT_STRICT, INCLUSIVE and FIRST_AFTER readings deliberately re-derive source branches from the separately stated ADT interpretations. Their branch assumptions are not used by the primary source-label probe.",
         "Citation 9 reports that the label was updated from Source Data to Source Domain. This is metadata context and does not alter the method's supplying-domain rule."
       ],
-      "assessment": "The specification reports the named domains but its event condition and disposition-based ADT fallback can make the label depart from the documented supplying-source rule.",
-      "question": "Resolve ADT eligibility and its censor source, then confirm whether SRCDOM must always identify the actual supplying dataset."
+      "assessment": "The specification reports the named domains, and its ADSL branch matches its RFENDT censor date, but its event condition omits the documented ADT treatment-date test, so the label can depart from the documented supplying-source rule.",
+      "question": "Resolve ADT eligibility, then confirm whether SRCDOM must always identify the actual supplying dataset."
     },
     {
       "variable": "SRCVAR",
@@ -763,7 +711,7 @@
           },
           "spec": {
             "element": "SRCVAR",
-            "quote": "case:\n        - when: EVTSRC.ASTDT IS NOT NULL\n          then: \"'ASTDT'\"\n        - otherwise: \"'RFENDT'\""
+            "quote": "case:\n        - when: \"HAS_EVENT = 'Y'\"\n          then: \"'ASTDT'\"\n        - otherwise: \"'RFENDT'\""
           },
           "note": "The specification preserves the source-variable method's literal output names."
         },
@@ -775,12 +723,12 @@
           },
           "spec": {
             "element": "SRCVAR",
-            "quote": "when: EVTSRC.ASTDT IS NOT NULL"
+            "quote": "when: \"HAS_EVENT = 'Y'\""
           },
-          "note": "The specification source-variable branch omits the strict treatment-date condition stated by the ADT method."
+          "note": "The specification's HAS_EVENT branch omits the strict treatment-date condition stated by the ADT method."
         },
         {
-          "relation": "differs",
+          "relation": "same",
           "document": {
             "citation": 1,
             "quote": "The Source variable referred to in order to populate ADT"
@@ -789,7 +737,7 @@
             "element": "SRCVAR",
             "quote": "- otherwise: \"'RFENDT'\""
           },
-          "note": "The implementation reports RFENDT even when its non-death ADT fallback is selected from DS_DISP.DSSTDTC rather than either named ADSL field."
+          "note": "Every non-event ADT value now reads ADSL.RFENDT, so the RFENDT label names the supplying variable."
         },
         {
           "relation": "contradicts",
@@ -804,16 +752,12 @@
           "note": "The source-variable method names RFENDT while the ADT method explicitly names RFENDTC as the input to convert; the separately documented RFENDT conversion may explain a converted-value reading, but the source names differ literally."
         },
         {
-          "relation": "same",
+          "relation": "absent_in_spec",
           "document": {
             "citation": 3,
             "quote": "Events of particular interest (dermatologic) are captured in the customized query\nvariable (CQ01NAM) in this dataset."
           },
-          "spec": {
-            "element": "EVTSRC",
-            "quote": "ADAE.CQ01NAM = 'DERMATOLOGIC EVENTS'"
-          },
-          "note": "The ADRG identifies the dermatologic query carried by the selected published ADAE records."
+          "note": "The specification no longer tests CQ01NAM; FIRST_DERM relies on the published AOCC01FL flag alone to select the dermatologic record."
         },
         {
           "relation": "same",
@@ -822,10 +766,10 @@
             "quote": "dermatological events are flagged (AOCC01FL) to facilitate traceability between these two\nanalysis datasets."
           },
           "spec": {
-            "element": "EVTSRC",
+            "element": "FIRST_DERM",
             "quote": "ADAE.AOCC01FL = 'Y'"
           },
-          "note": "The specification consumes the published first-event flag described across the two ADRG pages; the source flag is not re-derived by this probe."
+          "note": "The specification consumes the published first-event flag described across the two ADRG pages; it does not re-derive the flag."
         },
         {
           "relation": "same",
@@ -834,18 +778,10 @@
             "quote": "the first chrono-\nlogical occurrence based on the start dates (and sequence numbers)"
           },
           "spec": {
-            "element": "EVTSRC",
-            "quote": "order_by:\n      - variable: ADAE.ASTDT\n        nulls: last\n    keep: first"
+            "element": "FIRST_DERM",
+            "quote": "order_by:\n      - variable: ADAE.ASTDT\n        nulls: last\n      - variable: ADAE.AESEQ\n        nulls: last\n    keep: first"
           },
-          "note": "The specification selects the first start date after consuming AOCC01FL, whose documented role already includes the sequence-number ordering; the probe spells out both ordering fields."
-        },
-        {
-          "relation": "absent_in_document",
-          "spec": {
-            "element": "EVTSRC",
-            "quote": "AND ADAE.SAFFL = 'Y'"
-          },
-          "note": "The ADRG describes safety analyses and a downstream SAFFL population selection, but does not state a separate SAFFL restriction when selecting the source event."
+          "note": "The specification orders the flagged records by start date and then sequence number and keeps the first."
         },
         {
           "relation": "same",
@@ -854,7 +790,7 @@
             "quote": "ADTTE ADSL, ADAE"
           },
           "spec": {
-            "element": "EVTSRC",
+            "element": "FIRST_DERM",
             "quote": "dataset: ADAE"
           },
           "note": "The ADRG dependency table repeats the analysis source that supplies the ASTDT event variable."
@@ -892,8 +828,8 @@
         "The literal method names RFENDT. The ADT method names RFENDTC and its conversion; the RFENDTC reading exposes that literal naming difference instead of silently replacing the requested output text.",
         "Within the documented event/censor codes, the source label follows the branch even when its date is missing. The documents do not state another source label for a missing date."
       ],
-      "assessment": "The specification preserves the listed output names while omitting the documented ADT treatment-date condition and introducing a censor source that those labels do not identify.",
-      "question": "Should the censor-source label identify the raw RFENDTC input, its RFENDT converted form, or the actual disposition input used by the current specification? Resolve this with the ADT censor-source decision."
+      "assessment": "The specification preserves the listed output names and reads the RFENDT censor date its label names, while omitting the documented ADT treatment-date condition.",
+      "question": "Should the censor-source label identify the raw RFENDTC input named by the ADT method or its RFENDT converted form, which the specification reads?"
     },
     {
       "variable": "SRCSEQ",
@@ -949,9 +885,9 @@
           },
           "spec": {
             "element": "SRCSEQ",
-            "quote": "then: EVTSRC.AESEQ"
+            "quote": "FIRST_DERM.AESEQ"
           },
-          "note": "The selected ADAE sequence number supplies the value on the event-source branch."
+          "note": "The first flagged ADAE record's sequence number supplies the value."
         },
         {
           "relation": "differs",
@@ -961,21 +897,17 @@
           },
           "spec": {
             "element": "SRCSEQ",
-            "quote": "case:\n        - when: EVTSRC.ASTDT IS NOT NULL\n          then: EVTSRC.AESEQ"
+            "quote": "derivation: FIRST_DERM.AESEQ"
           },
-          "note": "The specification replaces the documented SRCDOM condition with a nonmissing selected event date. Its omitted otherwise branch leaves a numeric missing result, but the predicate is a different statement."
+          "note": "The specification copies FIRST_DERM.AESEQ without testing SRCDOM; the copy is null exactly when HAS_EVENT, which also sets SRCDOM, finds no record, but the predicate is not stated."
         },
         {
-          "relation": "same",
+          "relation": "absent_in_spec",
           "document": {
             "citation": 2,
             "quote": "Events of particular interest (dermatologic) are captured in the customized query\nvariable (CQ01NAM) in this dataset."
           },
-          "spec": {
-            "element": "EVTSRC",
-            "quote": "ADAE.CQ01NAM = 'DERMATOLOGIC EVENTS'"
-          },
-          "note": "The CQ01NAM method identifies DERMATOLOGIC EVENTS as the populated query name for this source context."
+          "note": "The specification no longer tests CQ01NAM; FIRST_DERM relies on the published AOCC01FL flag alone to select the dermatologic record."
         },
         {
           "relation": "same",
@@ -984,7 +916,7 @@
             "quote": "dermatological events are flagged (AOCC01FL) to facilitate traceability between these two\nanalysis datasets."
           },
           "spec": {
-            "element": "EVTSRC",
+            "element": "FIRST_DERM",
             "quote": "ADAE.AOCC01FL = 'Y'"
           },
           "note": "The specification consumes the published first-event flag whose treatment-emergent dermatologic context is described across the ADRG pages."
@@ -996,18 +928,10 @@
             "quote": "the first chrono-\nlogical occurrence based on the start dates (and sequence numbers) of the treatment emergent"
           },
           "spec": {
-            "element": "EVTSRC",
-            "quote": "order_by:\n      - variable: ADAE.ASTDT\n        nulls: last\n    keep: first"
+            "element": "FIRST_DERM",
+            "quote": "order_by:\n      - variable: ADAE.ASTDT\n        nulls: last\n      - variable: ADAE.AESEQ\n        nulls: last\n    keep: first"
           },
-          "note": "The specification takes the first start date after consuming the first-event flag. That upstream flag already carries the documented sequence ordering and treatment-emergent selection; the probe states the chronological ASTDT and AESEQ ordering explicitly."
-        },
-        {
-          "relation": "absent_in_document",
-          "spec": {
-            "element": "EVTSRC",
-            "quote": "AND ADAE.SAFFL = 'Y'"
-          },
-          "note": "The ADRG describes an ADTTE safety analysis and a downstream ADSL.SAFFL analysis population, but does not state a separate SAFFL restriction on the source event selected for SRCSEQ."
+          "note": "The specification orders the flagged records by ASTDT and then AESEQ and keeps the first, the documented chronological ordering."
         },
         {
           "relation": "same",
@@ -1016,7 +940,7 @@
             "quote": "ADTTE ADSL, ADAE"
           },
           "spec": {
-            "element": "EVTSRC",
+            "element": "FIRST_DERM",
             "quote": "dataset: ADAE"
           },
           "note": "The dependency table repeats the published analysis source supplying the sequence number."
@@ -1054,7 +978,7 @@
         "The SRCSEQ method does not impose a separate ADT treatment-date boundary. The supplying-domain interpretation is tested in the SRCDOM claim; this SRCSEQ probe preserves the published upstream SRCDOM to isolate the sequence-source rule.",
         "The native workbook repeats the SRCSEQ method at Methods!D150, referenced by Variables!O216. Its allowed section projection is empty, so that native statement is recorded in the omission inventory instead of being given a fabricated section citation."
       ],
-      "assessment": "The specification reads the documented sequence source through EVTSRC, but states an event-date predicate in place of the documented source-domain predicate. The upstream first-event metadata and ADRG also leave a source-selection wording discrepancy for review.",
+      "assessment": "The specification copies the documented sequence source from FIRST_DERM without stating the documented source-domain predicate. The upstream first-event metadata and ADRG also leave a source-selection wording discrepancy for review.",
       "question": "Should SRCSEQ test SRCDOM literally as documented, and should its source follow the published dermatologic first-event flag or the empty-query subset written in the upstream flag method?"
     },
     {

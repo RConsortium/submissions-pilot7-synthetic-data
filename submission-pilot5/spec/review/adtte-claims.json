@@ -227,8 +227,8 @@
             "quote": "then ADAE.ASTDT"
           },
           "spec": {
-            "element": "_EVDT",
-            "quote": "derivation: DERM_EV.ASTDT"
+            "element": "ADT",
+            "quote": "then: FIRST_DERM.ASTDT"
           }
         },
         {
@@ -238,22 +238,22 @@
             "quote": "if ADAE.ASTDT is not missing and occurred after TRTSDT"
           },
           "spec": {
-            "element": "_IS_EVENT",
-            "quote": "    derivation:\n      case:\n        - when: _EVDT IS NOT NULL AND _EVDT <= _EOSDT\n          then: 1\n        - otherwise: 0\n\n  # --- Analysis dates / value ---"
+            "element": "HAS_EVENT",
+            "quote": "      case:\n        - when: \"FIRST_DERM.AESEQ IS NOT NULL\"\n          then: \"'Y'\"\n        - otherwise: \"'N'\""
           },
-          "note": "The executable event test compares the first event with a censor date, allows a tie with that date, and contains no strict comparison with TRTSDT."
+          "note": "The event test is whether a first-occurrence-flagged ADAE record exists; that flag is set only on TRTEMFL='Y' records (ASTDT >= TRTSDT), so the specification accepts an event dated on TRTSDT and makes no strict comparison of ASTDT with TRTSDT."
         },
         {
-          "relation": "differs",
+          "relation": "same",
           "document": {
             "citation": 1,
             "quote": "else convert ADSL.RFENDTC to a SAS numeric date"
           },
           "spec": {
-            "element": "_EOSDT",
-            "quote": "    derivation:\n      case:\n        - when: ADSL.DCDECOD = 'DEATH'\n          then:\n            to_date:\n              source: ADSL.RFENDTC\n        - otherwise: _DSSTDT"
+            "element": "ADT",
+            "quote": "- otherwise: ADSL.RFENDT"
           },
-          "note": "The executable fallback converts RFENDTC only for DEATH and otherwise uses the disposition-date helper."
+          "note": "Define-XML documents ADSL.RFENDT as RFENDTC converted to SAS date, so reading it is the documented conversion."
         },
         {
           "relation": "same",
@@ -262,10 +262,10 @@
             "quote": "Since ADAE is a source for ADTTE, the first chrono-\nlogical occurrence based on the start dates (and sequence numbers) of the treatment emergent\ndermatological events are flagged (AOCC01FL) to facilitate traceability between these two\nanalysis datasets."
           },
           "spec": {
-            "element": "DERM_EV",
-            "quote": "ADAE.AOCC01FL = 'Y'"
+            "element": "FIRST_DERM",
+            "quote": "filter: \"ADAE.AOCC01FL = 'Y'\""
           },
-          "note": "AOCC01FL identifies the first treatment-emergent dermatologic occurrence; the extra safety restriction is assessed separately."
+          "note": "AOCC01FL identifies the first treatment-emergent dermatologic occurrence, and the lookup keeps the record it flags."
         },
         {
           "relation": "same",
@@ -274,26 +274,10 @@
             "quote": "Subset to CQ01NAM='DERMATOLOGIC EVENTS' and TRTEMFL='Y' and sort by Subject (USUBJID), Start Date (ASTDT), and Sequence Number (AESEQ) and flag the first record"
           },
           "spec": {
-            "element": "DERM_EV",
-            "quote": "filter: ADAE.AOCC01FL = 'Y' AND ADAE.CQ01NAM = 'DERMATOLOGIC EVENTS'"
+            "element": "FIRST_DERM",
+            "quote": "    filter: \"ADAE.AOCC01FL = 'Y'\"\n    order_by:\n      - variable: ADAE.ASTDT\n        nulls: last\n      - variable: ADAE.AESEQ\n        nulls: last\n    keep: first"
           },
-          "note": "The maintained lookup reads the first-occurrence flag whose documented construction already resolves start-date and sequence order; it does not need to repeat that upstream tie break."
-        },
-        {
-          "relation": "absent_in_document",
-          "spec": {
-            "element": "DERM_EV",
-            "quote": "AND ADAE.SAFFL = 'Y'"
-          },
-          "note": "The retained first-event construction does not restrict the source AE rows by SAFFL; the ADRG safety-population display filter is a later analysis-selection statement."
-        },
-        {
-          "relation": "absent_in_document",
-          "spec": {
-            "element": "EOSDS",
-            "quote": "  - id: EOSDS\n    dataset: DS\n    key:\n      - STUDYID\n      - USUBJID\n    filter: DS.DSCAT = 'DISPOSITION EVENT' AND DS.DSDECOD <> 'SCREEN FAILURE' AND DS.DSDECOD <> 'FINAL LAB VISIT'\n    order_by:\n      - variable: DS.DSSTDTC\n        nulls: last\n    keep: first\n"
-          },
-          "note": "The retained ADT fallback names ADSL.RFENDTC, without the disposition-category exclusions or first-disposition-row selection used by this lookup."
+          "note": "The lookup reads the first-occurrence flag, whose documented construction carries the dermatologic and treatment-emergent subset, and keeps the first flagged record in the same ASTDT then AESEQ order."
         }
       ],
       "interpretations": [
@@ -306,8 +290,8 @@
         "Both readings use published ADSL.RFENDTC as the fallback, without a DEATH gate, disposition-date replacement, or event-versus-censor minimum. A missing fallback date remains null. There is no documented instruction to truncate an eligible event date at RFENDTC.",
         "The original ADTTE workbook and raw Define bind this variable-level method without an ADTTE value-level override or additional formal expression. The exact verifier-retained workbook text is empty, so no workbook citation is invented. The shared SAP is pending_review and supplies no Pilot 5 rule in this proposal."
       ],
-      "assessment": "The retained first-occurrence construction selects the first treatment-emergent dermatologic event before the ADT condition. The ADT method states a strict-after test of that selected date, while treatment-emergent wording also supports an inclusive-threshold reading. The maintained event-versus-censor test and disposition-date fallback state different conditions and sources.",
-      "question": "Should the selected first treatment-emergent event on TRTSDT invoke the literal RFENDTC fallback or be accepted under the inclusive treatment-emergent reading; and which approved source authorizes event-versus-censor precedence and the disposition-date fallback?",
+      "assessment": "The retained first-occurrence construction selects the first treatment-emergent dermatologic event before the ADT condition. The ADT method states a strict-after test of that selected date, while the specification accepts any flagged event, as the inclusive treatment-emergent wording does. The specification's fallback reads the documented RFENDTC conversion, ADSL.RFENDT.",
+      "question": "Should the selected first treatment-emergent event on TRTSDT invoke the literal RFENDTC fallback or be accepted under the inclusive treatment-emergent reading?",
       "probes": [
         {
           "column": "ADT",
@@ -363,16 +347,16 @@
           "note": "The submission method preserves the flag-based wording separately from the executable case."
         },
         {
-          "relation": "differs",
+          "relation": "same",
           "document": {
             "citation": 1,
             "quote": "if ADAE.TRTEMFL =\"Y\" then CNSR=0, else CNSR=1"
           },
           "spec": {
             "element": "CNSR",
-            "quote": "    derivation:\n      case:\n        - when: _IS_EVENT = 1\n          then: 0\n        - otherwise: 1"
+            "quote": "    derivation:\n      case:\n        - when: \"HAS_EVENT = 'Y'\"\n          then: 0\n        - otherwise: 1"
           },
-          "note": "The executable case tests _IS_EVENT, whose event-versus-censor-date comparison can override the source treatment-emergence flag."
+          "note": "HAS_EVENT is Y exactly when a first-occurrence-flagged ADAE record exists, and the flag is set only on records with TRTEMFL='Y', so the case gives 0 when the selected record's TRTEMFL is Y and 1 otherwise."
         },
         {
           "relation": "same",
@@ -382,7 +366,7 @@
           },
           "spec": {
             "element": "CNSR",
-            "quote": "    derivation:\n      case:\n        - when: _IS_EVENT = 1\n          then: 0\n        - otherwise: 1"
+            "quote": "    derivation:\n      case:\n        - when: \"HAS_EVENT = 'Y'\"\n          then: 0\n        - otherwise: 1"
           },
           "note": "The output codes retain the documented event and censor meanings; the selection condition is assessed separately."
         }
@@ -393,8 +377,8 @@
         "The literal status rule uses the published treatment-emergence flag and is independent of the strict-after scope alternatives for ADT. The documents do not explain how to reconcile those thresholds if they select different event status.",
         "The numeric result is preserved without added rounding; source-missing and absent-record handling are explicit in the else branch."
       ],
-      "assessment": "The source flag and code meanings are explicit; the maintained implementation conditions status on an additional date-precedence decision.",
-      "question": "Should the published treatment-emergence flag alone govern CNSR, or which retained rule authorizes the added event-versus-censor-date condition?",
+      "assessment": "The source flag and code meanings are explicit, and the specification sets the event code exactly when the first flagged treatment-emergent dermatologic record exists.",
+      "question": "",
       "probes": [
         {
           "column": "CNSR",
@@ -426,9 +410,9 @@
           },
           "spec": {
             "element": "EVNTDESC",
-            "quote": "    derivation:\n      case:\n        - when: _IS_EVENT = 1\n          then: \"'Dematologic Event Occured'\"\n        - otherwise: \"'Study Completion Date'\""
+            "quote": "    derivation:\n      case:\n        - when: \"HAS_EVENT = 'Y'\"\n          then: \"'Dematologic Event Occured'\"\n        - otherwise: \"'Study Completion Date'\""
           },
-          "note": "CNSR maps the same _IS_EVENT indicator to event and censor codes, so these local branches implement the documented labels for the generated status."
+          "note": "CNSR maps the same HAS_EVENT flag to 0 and 1, so these branches give the documented labels for CNSR = 0 and CNSR = 1."
         }
       ],
       "interpretations": [
@@ -504,7 +488,7 @@
           },
           "spec": {
             "element": "SRCDOM",
-            "quote": "    derivation:\n      case:\n        - when: _IS_EVENT = 1\n          then: \"'ADAE'\"\n        - otherwise: \"'ADSL'\""
+            "quote": "    derivation:\n      case:\n        - when: \"HAS_EVENT = 'Y'\"\n          then: \"'ADAE'\"\n        - otherwise: \"'ADSL'\""
           },
           "note": "Both documented source-domain names appear in the executable labels."
         },
@@ -515,22 +499,22 @@
             "quote": "then ADAE.ASTDT"
           },
           "spec": {
-            "element": "_EVDT",
-            "quote": "derivation: DERM_EV.ASTDT"
+            "element": "ADT",
+            "quote": "then: FIRST_DERM.ASTDT"
           },
-          "note": "The event-date branch reads the documented ADAE start date and is labelled ADAE by SRCDOM. This clause concerns that source only; the strict-after and event-versus-censor conditions are upstream ADT choices, not an independently tested SRCDOM condition."
+          "note": "The event branch of ADT reads the documented ADAE start date, and SRCDOM labels that branch ADAE under the same HAS_EVENT condition."
         },
         {
-          "relation": "differs",
+          "relation": "same",
           "document": {
             "citation": 1,
             "quote": "The Source domain referred to in order to populate ADT"
           },
           "spec": {
-            "element": "_DSSTDT",
-            "quote": "    derivation:\n      to_date:\n        source: EOSDS.DSSTDTC"
+            "element": "ADT",
+            "quote": "- otherwise: ADSL.RFENDT"
           },
-          "note": "The non-DEATH analysis-date fallback comes from the DS lookup while its source-domain label remains ADSL, so that label does not identify the actual executable date source."
+          "note": "The fallback branch of ADT reads ADSL.RFENDT, and SRCDOM labels that branch ADSL under the same HAS_EVENT condition, so the label names the domain that populates ADT."
         }
       ],
       "interpretations": [
@@ -539,12 +523,12 @@
         "The former strict-after SRCDOM column repeated the literal ADT branch. The former treatment-emergent reading repeated the alternative ADT branch. Both are withdrawn from this independent provenance test; the ADT readings themselves are outside this followup.",
         "Citations 7 and 8 define CNSR from the source treatment-emergence flag and give event/censor meanings. Citation 9 gives the corresponding event/completion descriptions. None explicitly defines CNSR or EVNTDESC as the source-domain indicator for ADT. A same-day treatment-emergent event illustrates why the separately stated CNSR and strict-after ADT rules cannot be assumed to choose one synchronized branch.",
         "For fixed REF.ADT, source-date equality is only compatibility evidence. When event and fallback dates coincide, a literal source choice requires an independently documented branch indicator or precedence rule. No event-first or censor-first precedence is invented, and REF.SRCDOM, REF.SRCVAR, and REF.SRCSEQ are not used to identify the target provenance.",
-        "The retained dependency table names ADSL and ADAE for ADTTE. The executable non-DEATH date fallback uses DS.DSSTDTC through EOSDS and _DSSTDT while the source label remains ADSL; this source-label clause remains independently assessable even though a whole-variable literal is unavailable.",
+        "The retained dependency table names ADSL and ADAE for ADTTE. The specification's ADT fallback reads ADSL.RFENDT and labels that branch ADSL; this source-label clause remains independently assessable even though a whole-variable literal is unavailable.",
         "SRCVAR is inspected as a companion and left unchanged: its existing probe conditions only the documented ASTDT/RFENDT naming choice on published REF.SRCDOM. It does not rebuild an ADT branch or establish whether that upstream domain correctly traces ADT.",
         "The Pilot 5 workbook binds the same variable-level methods and contains no ADTTE value-level override or additional formal expression for this source choice. Its exact verifier-retained text is empty, so no workbook citation is invented. The Pilot 5 ADRG supplies first-occurrence traceability, dependencies, format/type discussion, and a source-label description, but no rule resolving equal source dates. The shared SAP remains pending_review and is not imported into this study-specific extraction."
       ],
-      "assessment": "The two source names and the executable event-date source are documented. The non-DEATH DS fallback does not carry its actual source-domain label. The retained text does not completely identify provenance of fixed published ADT independently of the upstream ADT threshold choice, particularly when both candidate sources have the same date.",
-      "question": "Which retained source explicitly identifies the branch used to populate published ADT, including equal candidate dates and any mismatch between the ADT and CNSR conditions; and how should a retained DS disposition-date fallback be labelled?",
+      "assessment": "The two source names are documented, and the specification labels each ADT branch with the domain it reads. The retained text does not completely identify provenance of fixed published ADT independently of the upstream ADT threshold choice, particularly when both candidate sources have the same date.",
+      "question": "Which retained source explicitly identifies the branch used to populate published ADT, including equal candidate dates and any mismatch between the ADT and CNSR conditions?",
       "not_probed_reason": "The method describes the source actually used for upstream ADT, but no retained statement independently identifies that chosen branch for the published REF.ADT. With REF.ADT fixed, both the selected ADAE.ASTDT and converted ADSL.RFENDTC can equal that date; equality alone cannot recover source lineage, and unmatched or missing candidates are also unspecified. Citations 7-9 document event/censor status and its description, but do not state that CNSR records the branch used to populate ADT. In particular, CNSR is assigned from TRTEMFL while the separate ADT method tests strictly after TRTSDT, so substituting REF.CNSR as a universal source indicator would add an undocumented synchronization rule. Replaying either ADT threshold reading would propagate an upstream ADT rule choice into this probe instead of tracing the fixed published ADT; copying REF.SRCDOM would copy the target. No complete literal probe is proposed without an independent documented source indicator or an explicit rule resolving these provenance choices."
     },
     {
@@ -581,21 +565,21 @@
           },
           "spec": {
             "element": "SRCVAR",
-            "quote": "    derivation:\n      case:\n        - when: _IS_EVENT = 1\n          then: \"'ASTDT'\"\n        - otherwise: \"'RFENDT'\""
+            "quote": "    derivation:\n      case:\n        - when: \"HAS_EVENT = 'Y'\"\n          then: \"'ASTDT'\"\n        - otherwise: \"'RFENDT'\""
           },
           "note": "The executable labels preserve the documented event and converted censor-date variable names."
         },
         {
-          "relation": "differs",
+          "relation": "same",
           "document": {
             "citation": 1,
             "quote": "The Source variable referred to in order to populate ADT"
           },
           "spec": {
-            "element": "_DSSTDT",
-            "quote": "    derivation:\n      to_date:\n        source: EOSDS.DSSTDTC"
+            "element": "ADT",
+            "quote": "- otherwise: ADSL.RFENDT"
           },
-          "note": "The non-DEATH executable date comes from EOSDS.DSSTDTC while SRCVAR labels that branch RFENDT."
+          "note": "The fallback branch of ADT reads ADSL.RFENDT, and SRCVAR labels that branch RFENDT under the same HAS_EVENT condition."
         }
       ],
       "interpretations": [
@@ -604,8 +588,8 @@
         "The RFENDTC reading names the raw field explicitly used in the ADT conversion. It remains separate from the literal RFENDT label and does not change either source dataset or a date value.",
         "An unsupported or missing upstream source domain yields unassigned character missing as an empty string. The probe does not guess a source from CNSR, matching dates, REF.SRCVAR, or the derived output."
       ],
-      "assessment": "The literal labels are stated; the raw-versus-converted field naming convention and executable disposition-date provenance need clarification.",
-      "question": "Should censor-date provenance name RFENDT or the RFENDTC conversion source, and how should DSSTDTC provenance be represented if the disposition-date fallback is retained?",
+      "assessment": "The literal labels are stated; the raw-versus-converted field naming convention needs clarification.",
+      "question": "Should censor-date provenance name RFENDT or the RFENDTC conversion source?",
       "probes": [
         {
           "column": "SRCVAR",
@@ -651,9 +635,9 @@
           },
           "spec": {
             "element": "SRCSEQ",
-            "quote": "    derivation:\n      case:\n        - when: _IS_EVENT = 1\n          then: DERM_EV.AESEQ"
+            "quote": "derivation: FIRST_DERM.AESEQ"
           },
-          "note": "The executable SRCDOM case assigns ADAE for the same _IS_EVENT condition that assigns DERM_EV.AESEQ here; an unmatched numeric case remains missing. This compares the local conditional copy, without accepting the independently derived upstream source-domain rule."
+          "note": "SRCSEQ copies FIRST_DERM.AESEQ without a condition; HAS_EVENT, and with it SRCDOM = 'ADAE', holds exactly when that value is not null, so SRCSEQ is null whenever SRCDOM is ADSL."
         },
         {
           "relation": "same",
@@ -662,18 +646,10 @@
             "quote": "Subset to CQ01NAM='DERMATOLOGIC EVENTS' and TRTEMFL='Y' and sort by Subject (USUBJID), Start Date (ASTDT), and Sequence Number (AESEQ) and flag the first record"
           },
           "spec": {
-            "element": "DERM_EV",
-            "quote": "filter: ADAE.AOCC01FL = 'Y' AND ADAE.CQ01NAM = 'DERMATOLOGIC EVENTS'"
+            "element": "FIRST_DERM",
+            "quote": "    filter: \"ADAE.AOCC01FL = 'Y'\"\n    order_by:\n      - variable: ADAE.ASTDT\n        nulls: last\n      - variable: ADAE.AESEQ\n        nulls: last\n    keep: first"
           },
-          "note": "The first-occurrence flag carries the documented treatment-emergent dermatologic cohort and ASTDT then AESEQ order into this source lookup; the ADRG separately repeats that first-occurrence provenance."
-        },
-        {
-          "relation": "absent_in_document",
-          "spec": {
-            "element": "DERM_EV",
-            "quote": "AND ADAE.SAFFL = 'Y'"
-          },
-          "note": "The retained source-event construction does not add a safety-flag restriction to the qualifying ADAE records."
+          "note": "The lookup reads the first-occurrence flag, whose documented construction carries the dermatologic and treatment-emergent subset, and keeps the first flagged record in the same ASTDT then AESEQ order."
         }
       ],
       "probes": [
@@ -692,8 +668,8 @@
         "Raw Define binds IT.ADTTE.SRCSEQ through its ItemRef to MT.ADTTE.SRCSEQ, and the original workbook Variables row binds the same variable to Methods ID ADTTE.SRCSEQ with the same method text. The variable is Derived, integer, with no attached codelist, significant-digits rule, comment, formal expression, or ADTTE value-level override. Integer storage supplies no rounding algorithm.",
         "The exact verifier-retained workbook text contains no citable sections, so its raw binding inspection supplies no invented workbook citation. The ADRG was independently searched for source, sequence, first-event, and ADTTE statements; its numeric transport comparison supplies no additional sequence-selection computation. The shared SAP remains pending_review and is not used."
       ],
-      "assessment": "The local conditional AESEQ copy follows the documented source-domain condition, and its event-row provenance is supplied by the retained first-occurrence construction. The executable source lookup adds a safety-flag condition absent from that construction.",
-      "question": "Which retained rule authorizes the additional ADAE safety-flag restriction on the source event?"
+      "assessment": "The local AESEQ copy follows the documented source-domain condition, and its event-row provenance is supplied by the retained first-occurrence construction.",
+      "question": ""
     }
   ]
 }
