@@ -61,7 +61,8 @@ class SyntheticPipelineTests(unittest.TestCase):
             stage('kn564', self.root)
 
     def evidence(self):
-        for name in ['synthetic_odm.py', 'synthetic_checks.py', 'synthetic_evidence.py', 'validate_synthetic.py']:
+        for name in ['synthetic_odm.py', 'synthetic_checks.py', 'synthetic_evidence.py', 'validate_synthetic.py',
+                     'study_dashboard/specifications.py']:
             path = self.root / '.github/scripts' / name
             path.parent.mkdir(parents=True, exist_ok=True)
             path.write_text('# fixture\n')

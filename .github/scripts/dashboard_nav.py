@@ -10,6 +10,8 @@ ROOT = Path(__file__).resolve().parents[2]
 def study_navigation(root, manual):
     entries = catalog(root)
     owned = {"studies/index.md", *(f"studies/{name}.md" for name in entries)}
+    entries = {name: entry for name, entry in entries.items()
+               if entry.get("category") != "synthetic"}
     tail = [item for item in manual if not any(path in owned for path in item.values())]
     return [
         {"Study report": "studies/index.md"},
@@ -19,11 +21,15 @@ def study_navigation(root, manual):
 
 
 def synthetic_navigation(root):
+    entries = {**synthetic_catalog(root), **{
+        name: entry for name, entry in catalog(root).items()
+        if entry.get("category") == "synthetic"
+    }}
     return [
         {"Synthetic report": "synthetic/index.md"},
         *(
             {entry["title"]: f"studies/{name}.md"}
-            for name, entry in synthetic_catalog(root).items()
+            for name, entry in entries.items()
         ),
     ]
 

@@ -1,6 +1,6 @@
 /** Validated shareable review state, including compared datasets and table sizes. */
 import { inputOptions, PAGE_SIZES } from "./review-model.js";
-export const sections = ["datasets", "overview", "findings", "materials"];
+export const sections = ["datasets", "overview", "findings", "materials", "development"];
 const fields = [
   "focus",
   "rowSearch",
@@ -26,9 +26,11 @@ export function readRoute(hash, model) {
   const requested = params.get("subjects");
   const state = {
     view:
-      view === "findings"
+      model.development && hash.startsWith("#finding-")
+        ? "development"
+      : view === "findings"
         ? "overview"
-        : sections.includes(view)
+        : sections.includes(view) && (view !== "development" || model.development)
           ? view
           : "datasets",
     dataset: dataset.name,

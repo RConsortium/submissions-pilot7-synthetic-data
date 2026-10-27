@@ -35,6 +35,7 @@ These outputs support eCTD submission package preparation.
 | --- | --- |
 | [KN189](studies/kn189.md) | Ongoing |
 | [KN564](studies/kn564.md) | Ongoing |
+| [CAR-T for ALL](studies/cart-t.md) | Ongoing |
 
 ## Agentic SDLC workflow
 

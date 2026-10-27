@@ -181,6 +181,11 @@ def materials(root, study, target, metadata):
         relative = path.relative_to(root).as_posix()
         if relative not in known:
             entries.append({"path": relative, "role": "published_metadata"})
+    for section in ('sdtm', 'adam'):
+        path = root / study / f'data/{section}/define.xml'
+        relative = path.relative_to(root).as_posix()
+        if path.is_file() and relative not in known:
+            entries.append({'path': relative, 'role': 'generated_draft_metadata'})
     for entry in entries:
         path = root / entry["path"]
         path.resolve().relative_to(root.resolve())
@@ -211,6 +216,12 @@ def materials(root, study, target, metadata):
         }
         if path.suffix.lower() == ".pdf":
             record.update(view=record["original"], view_label="Original PDF")
+        elif path.suffix.lower() == '.mmd':
+            view = original.with_name(original.name + '.html')
+            view.write_text(document_html(path.name,
+                '<p>Retained protocol/SAP conversion. Verify against the publisher PDF.</p><pre>'
+                + html.escape(path.read_text()) + '</pre>'), encoding='ascii', errors='xmlcharrefreplace')
+            record.update(view=view.relative_to(target).as_posix(), view_label='Retained protocol/SAP')
         elif path.suffix.lower() == ".xlsx":
             body, record["sections"] = workbook_body(path)
             view = original.with_name(original.name + ".table.html")
