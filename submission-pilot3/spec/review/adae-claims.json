@@ -1,0 +1,1208 @@
+{
+  "schema_version": 2,
+  "dataset": "ADAE",
+  "author": {
+    "kind": "agent",
+    "model": "Codex",
+    "instructions": ".automation/consistency_review/extract.md",
+    "date": "2026-10-26"
+  },
+  "claims": [
+    {
+      "variable": "ASTDT",
+      "rule": "Convert AE start date, supplying day 01 for a collected month and leaving year-only dates unimputed.",
+      "citations": [
+        {
+          "document": "spec/define/define-adam.xml",
+          "section": "ADAE.ASTDT",
+          "quote": "AE.AESTDTC, converted to a numeric SAS date. Some events with partial dates are imputed in a conservative manner. If the day component is missing, a value of '01' is used. If both the month and day are missing no imputation is performed as these dates clearly indicate a start prior to the beginning of treatment. There are no events with completely missing start dates."
+        },
+        {
+          "document": "spec/source/adrg.pdf",
+          "section": "page-8",
+          "quote": "For ASTDT in ADAE, this date was converted to numeric SAS date from AE.AESTDTC. If\nthe day component is missing, a value of \u201801\u2019 is used. If both the month and day are missing\nno imputation is performed. See define.xml."
+        },
+        {
+          "document": "spec/source/adrg.pdf",
+          "section": "page-43",
+          "quote": "#AE.AESTDTC, converted to a numeric SAS date. Some events with partial dates\n#are imputed in a conservative manner. If the day component is missing, a value\n#of '01' is used. If both the month and day are missing no imputation is\n#performed as these dates clearly indicate a start prior to the beginning of\n#treatment. There are no events with completely missing start dates."
+        }
+      ],
+      "clauses": [
+        {
+          "relation": "same",
+          "document": {
+            "citation": 1,
+            "quote": "If the day component is missing, a value of '01' is used. If both the month and day are missing no imputation is performed"
+          },
+          "spec": {
+            "element": "ASTDT",
+            "quote": "impute: type: date source: AE.AESTDTC day: 1 invalid:"
+          },
+          "note": "The impute expression supplies day only and declares no month completion."
+        },
+        {
+          "relation": "same",
+          "document": {
+            "citation": 2,
+            "quote": "If both the month and day are missing\nno imputation is performed."
+          },
+          "spec": {
+            "element": "ASTDT",
+            "quote": "day: 1 invalid:"
+          },
+          "note": "Without a declared month, the engine leaves a year-only date missing."
+        },
+        {
+          "relation": "same",
+          "document": {
+            "citation": 3,
+            "quote": "If the day component is missing, a value\n#of '01' is used."
+          },
+          "spec": {
+            "element": "ASTDT",
+            "quote": "day: 1"
+          },
+          "note": "The QC appendix repeats the day-only policy for the Pilot 3 approach."
+        }
+      ],
+      "probes": [
+        {
+          "column": "ASTDT",
+          "reading": "literal"
+        }
+      ],
+      "interpretations": [
+        "No month-imputation value is introduced.",
+        "Invalid date text is left missing; the retained rule describes incomplete collected dates rather than invalid date syntax."
+      ],
+      "assessment": "The implementation expresses the day-only imputation stated in both retained sources.",
+      "question": ""
+    },
+    {
+      "variable": "ASTDTF",
+      "rule": "Set D when the source day was imputed for the start date; leave other character flags unpopulated.",
+      "citations": [
+        {
+          "document": "spec/define/define-adam.xml",
+          "section": "ADAE.ASTDTF",
+          "quote": "ASTDTF='D' if the day value within the character date is imputed. Note that only day values needed to be imputed for this study."
+        },
+        {
+          "document": "spec/define/define-adam.xml",
+          "section": "ADAE.ASTDT",
+          "quote": "If the day component is missing, a value of '01' is used."
+        }
+      ],
+      "clauses": [
+        {
+          "relation": "same",
+          "document": {
+            "citation": 1,
+            "quote": "ASTDTF='D' if the day value within the character date is imputed."
+          },
+          "spec": {
+            "element": "ASTDTF",
+            "quote": "when: ASTDTPR = 'month' then: \"'D'\""
+          },
+          "note": "The collected precision carried by the imputed start date identifies a month-only source whose day was supplied."
+        }
+      ],
+      "probes": [
+        {
+          "column": "ASTDTF",
+          "reading": "literal"
+        }
+      ],
+      "interpretations": [
+        "Month-only collected precision identifies the documented day imputation.",
+        "An unpopulated SAS character flag is serialized as empty text; no extra month/year imputation category is added."
+      ],
+      "assessment": "The flag reflects the documented day-only start-date imputation.",
+      "question": ""
+    },
+    {
+      "variable": "ASTDY",
+      "rule": "Compute study day of ASTDT relative to TRTSDT with no day zero, requiring both dates.",
+      "citations": [
+        {
+          "document": "spec/define/define-adam.xml",
+          "section": "ADAE.ASTDY",
+          "quote": "IF ASTDT>=TRTSDT>MISSING then ASTDY=ASTDT-TRTSDT+1 Else if TRTSDT>ASTDT>MISSING then ASTDY=ASTDT-TRTSDT"
+        }
+      ],
+      "clauses": [
+        {
+          "relation": "same",
+          "document": {
+            "citation": 1,
+            "quote": "IF ASTDT>=TRTSDT>MISSING then ASTDY=ASTDT-TRTSDT+1 Else if TRTSDT>ASTDT>MISSING then ASTDY=ASTDT-TRTSDT"
+          },
+          "spec": {
+            "element": "ASTDY",
+            "quote": "study_day: source: ASTDT reference: TRTSDT"
+          },
+          "note": "The study_day operation applies the nonmissing-date conditions and adds one on or after treatment start."
+        }
+      ],
+      "probes": [
+        {
+          "column": "ASTDY",
+          "reading": "literal"
+        }
+      ],
+      "interpretations": [],
+      "assessment": "The implementation expresses the retained conditional relative-day formula.",
+      "question": ""
+    },
+    {
+      "variable": "AENDT",
+      "rule": "Convert the original AE end-date text to a numeric SAS date.",
+      "citations": [
+        {
+          "document": "spec/define/define-adam.xml",
+          "section": "ADAE.AENDT",
+          "quote": "AE.AEENDTC, converted to a numeric SAS date"
+        }
+      ],
+      "clauses": [
+        {
+          "relation": "same",
+          "document": {
+            "citation": 1,
+            "quote": "AE.AEENDTC"
+          },
+          "spec": {
+            "element": "AENDT",
+            "quote": "source: AE.AEENDTC"
+          }
+        },
+        {
+          "relation": "absent_in_document",
+          "spec": {
+            "element": "AENDT",
+            "quote": "day: last"
+          },
+          "note": "The specification completes a collected month to its last day; the retained end-date method only states conversion, and the ADRG imputation policy is specific to ASTDT."
+        }
+      ],
+      "probes": [
+        {
+          "column": "AENDT",
+          "reading": "literal"
+        }
+      ],
+      "interpretations": [
+        "Incomplete end-date text remains missing in the literal conversion because no end-date completion policy is stated."
+      ],
+      "assessment": "The implementation adds a last-day completion policy absent from the retained end-date rule.",
+      "question": "Document or remove the end-date partial-day completion policy."
+    },
+    {
+      "variable": "AENDY",
+      "rule": "Compute study day of AENDT relative to TRTSDT with no day zero, requiring both dates.",
+      "citations": [
+        {
+          "document": "spec/define/define-adam.xml",
+          "section": "ADAE.AENDY",
+          "quote": "IF AENDT>=TRTSDT>MISSING then AENDY=AENDT-TRTSDT+1 Else if TRTSDT>AENDT>MISSING then AENDY=AENDT-TRTSDT"
+        }
+      ],
+      "clauses": [
+        {
+          "relation": "same",
+          "document": {
+            "citation": 1,
+            "quote": "IF AENDT>=TRTSDT>MISSING then AENDY=AENDT-TRTSDT+1 Else if TRTSDT>AENDT>MISSING then AENDY=AENDT-TRTSDT"
+          },
+          "spec": {
+            "element": "AENDY",
+            "quote": "study_day: source: AENDT reference: TRTSDT"
+          },
+          "note": "The study_day operation applies the nonmissing-date conditions and adds one on or after treatment start."
+        }
+      ],
+      "probes": [
+        {
+          "column": "AENDY",
+          "reading": "literal"
+        }
+      ],
+      "interpretations": [],
+      "assessment": "The implementation expresses the retained conditional relative-day formula.",
+      "question": ""
+    },
+    {
+      "variable": "ADURN",
+      "rule": "Compute inclusive event duration from the analysis end date and imputed analysis start date.",
+      "citations": [
+        {
+          "document": "spec/define/define-adam.xml",
+          "section": "ADAE.ADURN",
+          "quote": "ADURN=AENDT-ASTDT+1"
+        },
+        {
+          "document": "spec/source/adrg.pdf",
+          "section": "page-42",
+          "quote": "original ADAE derivation for ADURN was probably using this date instead of the imputed\ndate. Because day is missing in AESTDTC, ADURN can\u2019t derive days."
+        },
+        {
+          "document": "spec/source/adrg.pdf",
+          "section": "page-43",
+          "quote": "but the same records, derived in the Pilot 3 dataset do show a calculation since we are using\nthe imputed ASTDT, per the define (ADURN=AENDT-ASTDT+1)."
+        },
+        {
+          "document": "spec/source/adrg.pdf",
+          "section": "page-44",
+          "quote": "ADURN values will be populated in Pilot 3 (i.e. under BASE), following the latter deriva-\ntion approach (i.e. ADURN=AENDT-ASTDT+1)"
+        }
+      ],
+      "clauses": [
+        {
+          "relation": "same",
+          "document": {
+            "citation": 1,
+            "quote": "ADURN=AENDT-ASTDT+1"
+          },
+          "spec": {
+            "element": "ADURN",
+            "quote": "start: ASTDT end: AENDT unit: day closed: both"
+          }
+        },
+        {
+          "relation": "same",
+          "document": {
+            "citation": 3,
+            "quote": "using\nthe imputed ASTDT, per the define (ADURN=AENDT-ASTDT+1)."
+          },
+          "spec": {
+            "element": "ADURN",
+            "quote": "start: ASTDT"
+          },
+          "note": "The current Pilot 3 rule uses the imputed analysis date, unlike the historical issue described on the preceding page."
+        },
+        {
+          "relation": "same",
+          "document": {
+            "citation": 4,
+            "quote": "ADURN=AENDT-ASTDT+1"
+          },
+          "spec": {
+            "element": "ADURN",
+            "quote": "start: ASTDT end: AENDT unit: day closed: both"
+          },
+          "note": "The subsequent QC summary repeats the same inclusive formula."
+        }
+      ],
+      "probes": [
+        {
+          "column": "ADURN",
+          "reading": "literal"
+        }
+      ],
+      "interpretations": [
+        "ADRG page-42 describes a suspected original-CDISC defect, not an alternative governing Pilot 3 rule.",
+        "Upstream imputed ASTDT is read from the published reference so this probe isolates the duration rule."
+      ],
+      "assessment": "The implementation follows the corrected Pilot 3 duration approach that the ADRG explicitly endorses.",
+      "question": ""
+    },
+    {
+      "variable": "ADURU",
+      "rule": "Set the duration unit to DAYS when ADURN is nonmissing.",
+      "citations": [
+        {
+          "document": "spec/define/define-adam.xml",
+          "section": "ADAE.ADURU",
+          "quote": "If ADURN is not missing then ADURU='DAYS'"
+        },
+        {
+          "document": "spec/define/define-adam.xml",
+          "section": "ADAE.ADURU",
+          "quote": "Codelist CL.ADURU: DAYS = DAYS"
+        },
+        {
+          "document": "spec/source/adrg.pdf",
+          "section": "page-44",
+          "quote": "ADURU should be set to \u2018DAYS\u2019 (i.e. under BASE) instead of \u2018DAY\u2019 when ADURN is\nnot missing. Updated in Pilot 3 define."
+        }
+      ],
+      "clauses": [
+        {
+          "relation": "same",
+          "document": {
+            "citation": 1,
+            "quote": "If ADURN is not missing then ADURU='DAYS'"
+          },
+          "spec": {
+            "element": "ADURU",
+            "quote": "when: ADURN IS NOT NULL then: \"'DAYS'\""
+          }
+        },
+        {
+          "relation": "same",
+          "document": {
+            "citation": 3,
+            "quote": "ADURU should be set to \u2018DAYS\u2019"
+          },
+          "spec": {
+            "element": "ADURU",
+            "quote": "then: \"'DAYS'\""
+          },
+          "note": "The QC appendix explicitly distinguishes the current Pilot 3 unit from the historical DAY value."
+        }
+      ],
+      "probes": [
+        {
+          "column": "ADURU",
+          "reading": "literal"
+        }
+      ],
+      "interpretations": [
+        "When ADURN is missing the unit flag is unpopulated, serialized as empty text.",
+        "The old DAY unit described in the QC comparison is not a second current Pilot 3 rule."
+      ],
+      "assessment": "The implementation and retained Pilot 3 documentation use the same duration unit.",
+      "question": ""
+    },
+    {
+      "variable": "TRTEMFL",
+      "rule": "Set Y when analysis start date is on or after a nonmissing treatment start; otherwise set N.",
+      "citations": [
+        {
+          "document": "spec/define/define-adam.xml",
+          "section": "ADAE.TRTEMFL",
+          "quote": "If ASTDT >= TRTSDT > . then TRTEMFL='Y'. Otherwise TRTEMFL='N'"
+        }
+      ],
+      "clauses": [
+        {
+          "relation": "same",
+          "document": {
+            "citation": 1,
+            "quote": "If ASTDT >= TRTSDT > . then TRTEMFL='Y'."
+          },
+          "spec": {
+            "element": "TRTEMFL",
+            "quote": "when: ASTDT IS NOT NULL AND TRTSDT IS NOT NULL AND ASTDT >= TRTSDT then: \"'Y'\""
+          }
+        },
+        {
+          "relation": "absent_in_spec",
+          "document": {
+            "citation": 1,
+            "quote": "Otherwise TRTEMFL='N'"
+          },
+          "note": "The specification contains only the true branch and otherwise leaves the flag unpopulated instead of assigning N."
+        }
+      ],
+      "probes": [
+        {
+          "column": "TRTEMFL",
+          "reading": "literal"
+        }
+      ],
+      "interpretations": [],
+      "assessment": "The true condition agrees, but the documented false value is absent from the specification.",
+      "question": "Decide whether non-treatment-emergent records should carry N or an unpopulated flag, and align the retained rule and implementation."
+    },
+    {
+      "variable": "CQ01NAM",
+      "rule": "Set DERMATOLOGIC EVENTS for a preferred term containing the named substrings, or for the exact documented SOC text with the named exact-term exclusions; otherwise set null.",
+      "citations": [
+        {
+          "document": "spec/define/define-adam.xml",
+          "section": "ADAE.CQ01NAM",
+          "quote": "If AEDECOD contains any of the character strings of ('APPLICATION', 'DERMATITIS', 'ERYTHEMA', 'BLISTER') OR if AEBODSYS='SKIN AND SUBC UTANEOUS TISSUE DISORDERS' but AEDECOD is not in ('COLD SWEAT', 'HYPERHIDROSIS', 'ALOPECIA') then CQ01NAM='DERMATOLOGIC EVENTS' Otherwise CQ01NAM=NULL"
+        },
+        {
+          "document": "spec/source/adrg.pdf",
+          "section": "page-11",
+          "quote": "Events of particular interest (dermatologic) are captured in the customized query\nvariable (CQ01NAM) in this dataset."
+        }
+      ],
+      "clauses": [
+        {
+          "relation": "same",
+          "document": {
+            "citation": 1,
+            "quote": "AEDECOD contains any of the character strings of ('APPLICATION', 'DERMATITIS', 'ERYTHEMA', 'BLISTER')"
+          },
+          "spec": {
+            "element": "CQ01_PT",
+            "quote": "str_extract: source: AE.AEDECOD pattern: APPLICATION|DERMATITIS|ERYTHEMA|BLISTER"
+          }
+        },
+        {
+          "relation": "differs",
+          "document": {
+            "citation": 1,
+            "quote": "AEBODSYS='SKIN AND SUBC UTANEOUS TISSUE DISORDERS'"
+          },
+          "spec": {
+            "element": "CQ01_SOC",
+            "quote": "str_extract: source: AE.AEBODSYS pattern: SKIN AND SUBCUTANEOUS TISSUE DISORDERS"
+          },
+          "note": "The documented condition is exact equality to a SOC string containing an embedded blank in SUBC UTANEOUS; the specification searches for a substring with that blank removed."
+        },
+        {
+          "relation": "differs",
+          "document": {
+            "citation": 1,
+            "quote": "AEDECOD is not in ('COLD SWEAT', 'HYPERHIDROSIS', 'ALOPECIA')"
+          },
+          "spec": {
+            "element": "CQ01_EXCL",
+            "quote": "str_extract: source: AE.AEDECOD pattern: COLD SWEAT|HYPERHIDROSIS|ALOPECIA"
+          },
+          "note": "The document excludes exact preferred-term members; the specification excludes preferred terms containing one of the listed substrings."
+        },
+        {
+          "relation": "same",
+          "document": {
+            "citation": 1,
+            "quote": "then CQ01NAM='DERMATOLOGIC EVENTS' Otherwise CQ01NAM=NULL"
+          },
+          "spec": {
+            "element": "CQ01NAM",
+            "quote": "case: - when: CQ01_PT IS NOT NULL OR (CQ01_SOC IS NOT NULL AND CQ01_EXCL IS NULL) then: \"'DERMATOLOGIC EVENTS'\""
+          },
+          "note": "The case assigns the documented query name for either qualifying branch and has an implicit null result otherwise; the source-condition differences are stated separately."
+        },
+        {
+          "relation": "same",
+          "document": {
+            "citation": 2,
+            "quote": "Events of particular interest (dermatologic) are captured in the customized query\nvariable (CQ01NAM)"
+          },
+          "spec": {
+            "element": "CQ01NAM",
+            "quote": "then: \"'DERMATOLOGIC EVENTS'\""
+          },
+          "note": "The ADRG identifies the dermatological-event purpose of the populated query variable."
+        }
+      ],
+      "probes": [
+        {
+          "column": "CQ01NAM",
+          "reading": "literal"
+        },
+        {
+          "column": "CQ01NAM__SOC_SPELLING",
+          "reading": "Read the embedded blank in citation 1's AEBODSYS='SKIN AND SUBC UTANEOUS TISSUE DISORDERS' as a spelling error and remove that blank. Citation 2 identifies this query as dermatologic; this alternative changes only the SOC spelling and retains exact equality, exact exclusions, and the null else branch."
+        }
+      ],
+      "interpretations": [
+        "The literal probe preserves the documented SOC spelling and exact exclusions, even though the specification uses another spelling and substring predicates.",
+        "The documented NULL else branch denotes an unpopulated SAS character value, serialized as empty text in both probe readings to match the retained Parquet representation; this does not add a query category.",
+        "The alternative treats only the internal SOC-word blank as a typographical error; it does not broaden equality to substring matching or exact exclusions to substring exclusions.",
+        "The rule does not prescribe case conversion, trimming, or matching beyond the stated character strings; the probe introduces none."
+      ],
+      "assessment": "The query label and Boolean branch structure agree; the SOC spelling/match and exclusion match differ from the literal retained rule.",
+      "question": "Confirm the intended SOC spelling and whether the SOC and exclusion predicates should use exact membership or substring matching."
+    },
+    {
+      "variable": "AOCCFL",
+      "rule": "Set Y on the first treatment-emergent event in each subject, ordered by ASTDT and AESEQ.",
+      "citations": [
+        {
+          "document": "spec/define/define-adam.xml",
+          "section": "ADAE.AOCCFL",
+          "quote": "Subset to TRTEMFL='Y' and sort by Subject (USUBJID), Start Date (ASTDT), and Sequence Number (AESEQ) and flag the first record (set AOCCFL=?Y?) within each Subject"
+        },
+        {
+          "document": "spec/source/adrg.pdf",
+          "section": "page-50",
+          "quote": "AOCCFL 1st Occurrence of Any AE\nFlag\n1st Occurrence within Subject\nFlag"
+        }
+      ],
+      "clauses": [
+        {
+          "relation": "same",
+          "document": {
+            "citation": 1,
+            "quote": "TRTEMFL='Y'"
+          },
+          "spec": {
+            "element": "SEQ_OCC",
+            "quote": "filter: TRTEMFL = 'Y'"
+          }
+        },
+        {
+          "relation": "same",
+          "document": {
+            "citation": 1,
+            "quote": "within each Subject"
+          },
+          "spec": {
+            "element": "SEQ_OCC",
+            "quote": "- USUBJID"
+          }
+        },
+        {
+          "relation": "same",
+          "document": {
+            "citation": 1,
+            "quote": "Start Date (ASTDT), and Sequence Number (AESEQ)"
+          },
+          "spec": {
+            "element": "SEQ_OCC",
+            "quote": "order_by: - variable: ASTDT nulls: last - variable: AESEQ nulls: last"
+          },
+          "note": "The specification orders the selected records by analysis start date and then sequence number; grouping supplies the preceding subject and event-term sort fields."
+        },
+        {
+          "relation": "same",
+          "document": {
+            "citation": 1,
+            "quote": "flag the first record (set AOCCFL=?Y?)"
+          },
+          "spec": {
+            "element": "AOCCFL",
+            "quote": "when: SEQ_OCC = 1 then: \"'Y'\""
+          },
+          "note": "The question-mark punctuation surrounding Y is read as delimiting the one-character flag value."
+        },
+        {
+          "relation": "absent_in_document",
+          "spec": {
+            "element": "SEQ_OCC",
+            "quote": "group_by: - STUDYID"
+          },
+          "note": "The method names subject USUBJID as the partition; it does not separately state the additional STUDYID partition present in the specification."
+        },
+        {
+          "relation": "absent_in_document",
+          "spec": {
+            "element": "SEQ_OCC",
+            "quote": "nulls: last"
+          },
+          "note": "The retained method gives sort variables but does not explicitly state placement of missing values."
+        },
+        {
+          "relation": "same",
+          "document": {
+            "citation": 2,
+            "quote": "1st Occurrence within Subject\nFlag"
+          },
+          "spec": {
+            "element": "AOCCFL",
+            "quote": "label: 1st Occurrence within Subject Flag"
+          },
+          "note": "The table identifies the current Pilot3 label after showing the historical CDISC label; this is a label change rather than a second occurrence algorithm."
+        }
+      ],
+      "probes": [
+        {
+          "column": "AOCCFL",
+          "reading": "literal"
+        }
+      ],
+      "interpretations": [
+        "The literal probe partitions by the documented subject identifier USUBJID.",
+        "Unqualified sort order is read as ascending. Missing-value placement is not stated; the probe uses nulls last, matching the specification.",
+        "The Y in the documented ?Y? punctuation is the assigned flag value. Records not selected as first occurrences remain unflagged, serialized as empty character text.",
+        "ADRG page-50 compares historical and current labels; it does not replace the current Pilot3 derivation."
+      ],
+      "assessment": "The specification states the documented subset, event-term partition, date/sequence ordering and first-record assignment, and adds study-qualified grouping and explicit null placement.",
+      "question": "Confirm the additional STUDYID partition and nulls-last ordering if these implementation choices are intended to govern future data."
+    },
+    {
+      "variable": "AOCCSFL",
+      "rule": "Set Y on the first treatment-emergent event in each subject/SOC, ordered by ASTDT and AESEQ.",
+      "citations": [
+        {
+          "document": "spec/define/define-adam.xml",
+          "section": "ADAE.AOCCSFL",
+          "quote": "Subset to TRTEMFL='Y' and sort by Subject (USUBJID), System Organ Class (AEBODSYS), Start Date (ASTDT), and Sequence Number (AESEQ) and flag the first record (set AOCCSFL=?Y?) within each Subject and SOC"
+        }
+      ],
+      "clauses": [
+        {
+          "relation": "same",
+          "document": {
+            "citation": 1,
+            "quote": "TRTEMFL='Y'"
+          },
+          "spec": {
+            "element": "SEQ_OCCS",
+            "quote": "filter: TRTEMFL = 'Y'"
+          }
+        },
+        {
+          "relation": "same",
+          "document": {
+            "citation": 1,
+            "quote": "within each Subject and SOC"
+          },
+          "spec": {
+            "element": "SEQ_OCCS",
+            "quote": "- USUBJID - AEBODSYS"
+          }
+        },
+        {
+          "relation": "same",
+          "document": {
+            "citation": 1,
+            "quote": "Start Date (ASTDT), and Sequence Number (AESEQ)"
+          },
+          "spec": {
+            "element": "SEQ_OCCS",
+            "quote": "order_by: - variable: ASTDT nulls: last - variable: AESEQ nulls: last"
+          },
+          "note": "The specification orders the selected records by analysis start date and then sequence number; grouping supplies the preceding subject and event-term sort fields."
+        },
+        {
+          "relation": "same",
+          "document": {
+            "citation": 1,
+            "quote": "flag the first record (set AOCCSFL=?Y?)"
+          },
+          "spec": {
+            "element": "AOCCSFL",
+            "quote": "when: SEQ_OCCS = 1 then: \"'Y'\""
+          },
+          "note": "The question-mark punctuation surrounding Y is read as delimiting the one-character flag value."
+        },
+        {
+          "relation": "absent_in_document",
+          "spec": {
+            "element": "SEQ_OCCS",
+            "quote": "group_by: - STUDYID"
+          },
+          "note": "The method names subject USUBJID as the partition; it does not separately state the additional STUDYID partition present in the specification."
+        },
+        {
+          "relation": "absent_in_document",
+          "spec": {
+            "element": "SEQ_OCCS",
+            "quote": "nulls: last"
+          },
+          "note": "The retained method gives sort variables but does not explicitly state placement of missing values."
+        }
+      ],
+      "probes": [
+        {
+          "column": "AOCCSFL",
+          "reading": "literal"
+        }
+      ],
+      "interpretations": [
+        "The literal probe partitions by the documented subject identifier USUBJID and the named event-term variables.",
+        "Unqualified sort order is read as ascending. Missing-value placement is not stated; the probe uses nulls last, matching the specification.",
+        "The Y in the documented ?Y? punctuation is the assigned flag value. Records not selected as first occurrences remain unflagged, serialized as empty character text."
+      ],
+      "assessment": "The specification states the documented subset, event-term partition, date/sequence ordering and first-record assignment, and adds study-qualified grouping and explicit null placement.",
+      "question": "Confirm the additional STUDYID partition and nulls-last ordering if these implementation choices are intended to govern future data."
+    },
+    {
+      "variable": "AOCCPFL",
+      "rule": "Set Y on the first treatment-emergent event in each subject/SOC/preferred-term, ordered by ASTDT and AESEQ.",
+      "citations": [
+        {
+          "document": "spec/define/define-adam.xml",
+          "section": "ADAE.AOCCPFL",
+          "quote": "Subset to TRTEMFL='Y' and sort by Subject (USUBJID), System Organ Class (AEBODSYS), Preferred Term (AEDECOD), Start Date (ASTDT), and Sequence Number (AESEQ) and flag the first record (set AOCCPFL=?Y?) within each Subject, SOC, and PT"
+        }
+      ],
+      "clauses": [
+        {
+          "relation": "same",
+          "document": {
+            "citation": 1,
+            "quote": "TRTEMFL='Y'"
+          },
+          "spec": {
+            "element": "SEQ_OCCP",
+            "quote": "filter: TRTEMFL = 'Y'"
+          }
+        },
+        {
+          "relation": "same",
+          "document": {
+            "citation": 1,
+            "quote": "within each Subject, SOC, and PT"
+          },
+          "spec": {
+            "element": "SEQ_OCCP",
+            "quote": "- USUBJID - AEBODSYS - AEDECOD"
+          }
+        },
+        {
+          "relation": "same",
+          "document": {
+            "citation": 1,
+            "quote": "Start Date (ASTDT), and Sequence Number (AESEQ)"
+          },
+          "spec": {
+            "element": "SEQ_OCCP",
+            "quote": "order_by: - variable: ASTDT nulls: last - variable: AESEQ nulls: last"
+          },
+          "note": "The specification orders the selected records by analysis start date and then sequence number; grouping supplies the preceding subject and event-term sort fields."
+        },
+        {
+          "relation": "same",
+          "document": {
+            "citation": 1,
+            "quote": "flag the first record (set AOCCPFL=?Y?)"
+          },
+          "spec": {
+            "element": "AOCCPFL",
+            "quote": "when: SEQ_OCCP = 1 then: \"'Y'\""
+          },
+          "note": "The question-mark punctuation surrounding Y is read as delimiting the one-character flag value."
+        },
+        {
+          "relation": "absent_in_document",
+          "spec": {
+            "element": "SEQ_OCCP",
+            "quote": "group_by: - STUDYID"
+          },
+          "note": "The method names subject USUBJID as the partition; it does not separately state the additional STUDYID partition present in the specification."
+        },
+        {
+          "relation": "absent_in_document",
+          "spec": {
+            "element": "SEQ_OCCP",
+            "quote": "nulls: last"
+          },
+          "note": "The retained method gives sort variables but does not explicitly state placement of missing values."
+        }
+      ],
+      "probes": [
+        {
+          "column": "AOCCPFL",
+          "reading": "literal"
+        }
+      ],
+      "interpretations": [
+        "The literal probe partitions by the documented subject identifier USUBJID and the named event-term variables.",
+        "Unqualified sort order is read as ascending. Missing-value placement is not stated; the probe uses nulls last, matching the specification.",
+        "The Y in the documented ?Y? punctuation is the assigned flag value. Records not selected as first occurrences remain unflagged, serialized as empty character text."
+      ],
+      "assessment": "The specification states the documented subset, event-term partition, date/sequence ordering and first-record assignment, and adds study-qualified grouping and explicit null placement.",
+      "question": "Confirm the additional STUDYID partition and nulls-last ordering if these implementation choices are intended to govern future data."
+    },
+    {
+      "variable": "AOCC02FL",
+      "rule": "Set Y on the first treatment-emergent serious event in each subject, ordered by ASTDT and AESEQ.",
+      "citations": [
+        {
+          "document": "spec/define/define-adam.xml",
+          "section": "ADAE.AOCC02FL",
+          "quote": "Subset to TRTEMFL='Y' and AESER='Y' and sort by Subject (USUBJID), Start Date (ASTDT), and Sequence Number (AESEQ) and flag the first record (set AOCC02FL=?Y?) within each Subject"
+        }
+      ],
+      "clauses": [
+        {
+          "relation": "same",
+          "document": {
+            "citation": 1,
+            "quote": "TRTEMFL='Y' and AESER='Y'"
+          },
+          "spec": {
+            "element": "SEQ_OCC02",
+            "quote": "filter: TRTEMFL = 'Y' AND AESER = 'Y'"
+          }
+        },
+        {
+          "relation": "same",
+          "document": {
+            "citation": 1,
+            "quote": "within each Subject"
+          },
+          "spec": {
+            "element": "SEQ_OCC02",
+            "quote": "- USUBJID"
+          }
+        },
+        {
+          "relation": "same",
+          "document": {
+            "citation": 1,
+            "quote": "Start Date (ASTDT), and Sequence Number (AESEQ)"
+          },
+          "spec": {
+            "element": "SEQ_OCC02",
+            "quote": "order_by: - variable: ASTDT nulls: last - variable: AESEQ nulls: last"
+          },
+          "note": "The specification orders the selected records by analysis start date and then sequence number; grouping supplies the preceding subject and event-term sort fields."
+        },
+        {
+          "relation": "same",
+          "document": {
+            "citation": 1,
+            "quote": "flag the first record (set AOCC02FL=?Y?)"
+          },
+          "spec": {
+            "element": "AOCC02FL",
+            "quote": "when: SEQ_OCC02 = 1 then: \"'Y'\""
+          },
+          "note": "The question-mark punctuation surrounding Y is read as delimiting the one-character flag value."
+        },
+        {
+          "relation": "absent_in_document",
+          "spec": {
+            "element": "SEQ_OCC02",
+            "quote": "group_by: - STUDYID"
+          },
+          "note": "The method names subject USUBJID as the partition; it does not separately state the additional STUDYID partition present in the specification."
+        },
+        {
+          "relation": "absent_in_document",
+          "spec": {
+            "element": "SEQ_OCC02",
+            "quote": "nulls: last"
+          },
+          "note": "The retained method gives sort variables but does not explicitly state placement of missing values."
+        }
+      ],
+      "probes": [
+        {
+          "column": "AOCC02FL",
+          "reading": "literal"
+        }
+      ],
+      "interpretations": [
+        "The literal probe partitions by the documented subject identifier USUBJID.",
+        "Unqualified sort order is read as ascending. Missing-value placement is not stated; the probe uses nulls last, matching the specification.",
+        "The Y in the documented ?Y? punctuation is the assigned flag value. Records not selected as first occurrences remain unflagged, serialized as empty character text."
+      ],
+      "assessment": "The specification states the documented subset, event-term partition, date/sequence ordering and first-record assignment, and adds study-qualified grouping and explicit null placement.",
+      "question": "Confirm the additional STUDYID partition and nulls-last ordering if these implementation choices are intended to govern future data."
+    },
+    {
+      "variable": "AOCC03FL",
+      "rule": "Set Y on the first treatment-emergent serious event in each subject/SOC, ordered by ASTDT and AESEQ.",
+      "citations": [
+        {
+          "document": "spec/define/define-adam.xml",
+          "section": "ADAE.AOCC03FL",
+          "quote": "Subset to TRTEMFL='Y' and AESER='Y' and sort by Subject (USUBJID), System Organ Class (AEBODSYS), Start Date (ASTDT), and Sequence Number (AESEQ) and flag the first record (set AOCC03FL=?Y?) within each Subject and SOC"
+        }
+      ],
+      "clauses": [
+        {
+          "relation": "same",
+          "document": {
+            "citation": 1,
+            "quote": "TRTEMFL='Y' and AESER='Y'"
+          },
+          "spec": {
+            "element": "SEQ_OCC03",
+            "quote": "filter: TRTEMFL = 'Y' AND AESER = 'Y'"
+          }
+        },
+        {
+          "relation": "same",
+          "document": {
+            "citation": 1,
+            "quote": "within each Subject and SOC"
+          },
+          "spec": {
+            "element": "SEQ_OCC03",
+            "quote": "- USUBJID - AEBODSYS"
+          }
+        },
+        {
+          "relation": "same",
+          "document": {
+            "citation": 1,
+            "quote": "Start Date (ASTDT), and Sequence Number (AESEQ)"
+          },
+          "spec": {
+            "element": "SEQ_OCC03",
+            "quote": "order_by: - variable: ASTDT nulls: last - variable: AESEQ nulls: last"
+          },
+          "note": "The specification orders the selected records by analysis start date and then sequence number; grouping supplies the preceding subject and event-term sort fields."
+        },
+        {
+          "relation": "same",
+          "document": {
+            "citation": 1,
+            "quote": "flag the first record (set AOCC03FL=?Y?)"
+          },
+          "spec": {
+            "element": "AOCC03FL",
+            "quote": "when: SEQ_OCC03 = 1 then: \"'Y'\""
+          },
+          "note": "The question-mark punctuation surrounding Y is read as delimiting the one-character flag value."
+        },
+        {
+          "relation": "absent_in_document",
+          "spec": {
+            "element": "SEQ_OCC03",
+            "quote": "group_by: - STUDYID"
+          },
+          "note": "The method names subject USUBJID as the partition; it does not separately state the additional STUDYID partition present in the specification."
+        },
+        {
+          "relation": "absent_in_document",
+          "spec": {
+            "element": "SEQ_OCC03",
+            "quote": "nulls: last"
+          },
+          "note": "The retained method gives sort variables but does not explicitly state placement of missing values."
+        }
+      ],
+      "probes": [
+        {
+          "column": "AOCC03FL",
+          "reading": "literal"
+        }
+      ],
+      "interpretations": [
+        "The literal probe partitions by the documented subject identifier USUBJID and the named event-term variables.",
+        "Unqualified sort order is read as ascending. Missing-value placement is not stated; the probe uses nulls last, matching the specification.",
+        "The Y in the documented ?Y? punctuation is the assigned flag value. Records not selected as first occurrences remain unflagged, serialized as empty character text."
+      ],
+      "assessment": "The specification states the documented subset, event-term partition, date/sequence ordering and first-record assignment, and adds study-qualified grouping and explicit null placement.",
+      "question": "Confirm the additional STUDYID partition and nulls-last ordering if these implementation choices are intended to govern future data."
+    },
+    {
+      "variable": "AOCC04FL",
+      "rule": "Set Y on the first treatment-emergent serious event in each subject/SOC/preferred-term, ordered by ASTDT and AESEQ.",
+      "citations": [
+        {
+          "document": "spec/define/define-adam.xml",
+          "section": "ADAE.AOCC04FL",
+          "quote": "Subset to TRTEMFL='Y' and AESER='Y' and sort by Subject (USUBJID), System Organ Class (AEBODSYS), Preferred Term (AEDECOD), Start Date (ASTDT), and Sequence Number (AESEQ) and flag the first record (set AOCC04FL=?Y?) within each Subject, SOC, and PT"
+        }
+      ],
+      "clauses": [
+        {
+          "relation": "same",
+          "document": {
+            "citation": 1,
+            "quote": "TRTEMFL='Y' and AESER='Y'"
+          },
+          "spec": {
+            "element": "SEQ_OCC04",
+            "quote": "filter: TRTEMFL = 'Y' AND AESER = 'Y'"
+          }
+        },
+        {
+          "relation": "same",
+          "document": {
+            "citation": 1,
+            "quote": "within each Subject, SOC, and PT"
+          },
+          "spec": {
+            "element": "SEQ_OCC04",
+            "quote": "- USUBJID - AEBODSYS - AEDECOD"
+          }
+        },
+        {
+          "relation": "same",
+          "document": {
+            "citation": 1,
+            "quote": "Start Date (ASTDT), and Sequence Number (AESEQ)"
+          },
+          "spec": {
+            "element": "SEQ_OCC04",
+            "quote": "order_by: - variable: ASTDT nulls: last - variable: AESEQ nulls: last"
+          },
+          "note": "The specification orders the selected records by analysis start date and then sequence number; grouping supplies the preceding subject and event-term sort fields."
+        },
+        {
+          "relation": "same",
+          "document": {
+            "citation": 1,
+            "quote": "flag the first record (set AOCC04FL=?Y?)"
+          },
+          "spec": {
+            "element": "AOCC04FL",
+            "quote": "when: SEQ_OCC04 = 1 then: \"'Y'\""
+          },
+          "note": "The question-mark punctuation surrounding Y is read as delimiting the one-character flag value."
+        },
+        {
+          "relation": "absent_in_document",
+          "spec": {
+            "element": "SEQ_OCC04",
+            "quote": "group_by: - STUDYID"
+          },
+          "note": "The method names subject USUBJID as the partition; it does not separately state the additional STUDYID partition present in the specification."
+        },
+        {
+          "relation": "absent_in_document",
+          "spec": {
+            "element": "SEQ_OCC04",
+            "quote": "nulls: last"
+          },
+          "note": "The retained method gives sort variables but does not explicitly state placement of missing values."
+        }
+      ],
+      "probes": [
+        {
+          "column": "AOCC04FL",
+          "reading": "literal"
+        }
+      ],
+      "interpretations": [
+        "The literal probe partitions by the documented subject identifier USUBJID and the named event-term variables.",
+        "Unqualified sort order is read as ascending. Missing-value placement is not stated; the probe uses nulls last, matching the specification.",
+        "The Y in the documented ?Y? punctuation is the assigned flag value. Records not selected as first occurrences remain unflagged, serialized as empty character text."
+      ],
+      "assessment": "The specification states the documented subset, event-term partition, date/sequence ordering and first-record assignment, and adds study-qualified grouping and explicit null placement.",
+      "question": "Confirm the additional STUDYID partition and nulls-last ordering if these implementation choices are intended to govern future data."
+    },
+    {
+      "variable": "AOCC01FL",
+      "rule": "Literally select treatment-emergent events with an empty CQ01NAM and flag the first event per subject by ASTDT and AESEQ; retain the separately documented dermatological-event reading.",
+      "citations": [
+        {
+          "document": "spec/define/define-adam.xml",
+          "section": "ADAE.AOCC01FL",
+          "quote": "Subset to CQ01NAM='' and TRTEMFL='Y' and sort by Subject (USUBJID), Start Date (ASTDT), and Sequence Number (AESEQ) and flag the first record (set AOCC01FL=?Y?) within each Subject (Flag First Treatment Emergent Dermatological Event for Time to Event Analysis)"
+        },
+        {
+          "document": "spec/source/adrg.pdf",
+          "section": "page-11",
+          "quote": "Since ADAE is a source for ADTTE, the first chrono-\nlogical occurrence based on the start dates (and sequence numbers) of the treatment emergent"
+        },
+        {
+          "document": "spec/source/adrg.pdf",
+          "section": "page-12",
+          "quote": "dermatological events are flagged (AOCC01FL) to facilitate traceability between these two\nanalysis datasets."
+        },
+        {
+          "document": "spec/define/define-adam.xml",
+          "section": "ADAE.CQ01NAM",
+          "quote": "If AEDECOD contains any of the character strings of ('APPLICATION', 'DERMATITIS', 'ERYTHEMA', 'BLISTER') OR if AEBODSYS='SKIN AND SUBC UTANEOUS TISSUE DISORDERS' but AEDECOD is not in ('COLD SWEAT', 'HYPERHIDROSIS', 'ALOPECIA') then CQ01NAM='DERMATOLOGIC EVENTS' Otherwise CQ01NAM=NULL"
+        }
+      ],
+      "clauses": [
+        {
+          "relation": "differs",
+          "document": {
+            "citation": 1,
+            "quote": "Subset to CQ01NAM='' and TRTEMFL='Y'"
+          },
+          "spec": {
+            "element": "SEQ_OCC01",
+            "quote": "filter: TRTEMFL = 'Y' AND CQ01NAM = 'DERMATOLOGIC EVENTS'"
+          },
+          "note": "Both require treatment emergence; the literal Define method selects an empty query name whereas the specification selects the populated dermatological query name."
+        },
+        {
+          "relation": "same",
+          "document": {
+            "citation": 1,
+            "quote": "within each Subject"
+          },
+          "spec": {
+            "element": "SEQ_OCC01",
+            "quote": "- USUBJID"
+          }
+        },
+        {
+          "relation": "same",
+          "document": {
+            "citation": 1,
+            "quote": "Start Date (ASTDT), and Sequence Number (AESEQ)"
+          },
+          "spec": {
+            "element": "SEQ_OCC01",
+            "quote": "order_by: - variable: ASTDT nulls: last - variable: AESEQ nulls: last"
+          }
+        },
+        {
+          "relation": "same",
+          "document": {
+            "citation": 1,
+            "quote": "flag the first record (set AOCC01FL=?Y?)"
+          },
+          "spec": {
+            "element": "AOCC01FL",
+            "quote": "when: SEQ_OCC01 = 1 then: \"'Y'\""
+          },
+          "note": "The Y inside the question-mark punctuation is interpreted as the one-character flag value."
+        },
+        {
+          "relation": "contradicts",
+          "document": {
+            "citation": 1,
+            "quote": "Subset to CQ01NAM=''"
+          },
+          "against": {
+            "citation": 1,
+            "quote": "Flag First Treatment Emergent Dermatological Event for Time to Event Analysis"
+          },
+          "note": "The method states both an empty-query subset and a dermatological-event purpose; the query method assigns the populated DERMATOLOGIC EVENTS name for qualifying events."
+        },
+        {
+          "relation": "same",
+          "document": {
+            "citation": 2,
+            "quote": "first chrono-\nlogical occurrence based on the start dates (and sequence numbers) of the treatment emergent"
+          },
+          "spec": {
+            "element": "SEQ_OCC01",
+            "quote": "order_by: - variable: ASTDT nulls: last - variable: AESEQ nulls: last filter: TRTEMFL = 'Y' AND CQ01NAM = 'DERMATOLOGIC EVENTS'"
+          },
+          "note": "The ADRG repeats the chronological start-date/sequence ordering and treatment-emergent requirement; its sentence continues with the dermatological qualifier on page-12."
+        },
+        {
+          "relation": "same",
+          "document": {
+            "citation": 3,
+            "quote": "dermatological events are flagged (AOCC01FL)"
+          },
+          "spec": {
+            "element": "SEQ_OCC01",
+            "quote": "filter: TRTEMFL = 'Y' AND CQ01NAM = 'DERMATOLOGIC EVENTS'"
+          },
+          "note": "The ADRG names dermatological events as the population for this flag, supporting the specification and the alternative reading."
+        },
+        {
+          "relation": "contradicts",
+          "document": {
+            "citation": 1,
+            "quote": "Subset to CQ01NAM=''"
+          },
+          "against": {
+            "citation": 3,
+            "quote": "dermatological events are flagged (AOCC01FL)"
+          },
+          "note": "The literal empty-query subset selects the complementary query category to the dermatological population named by the ADRG and the query derivation."
+        },
+        {
+          "relation": "absent_in_document",
+          "spec": {
+            "element": "SEQ_OCC01",
+            "quote": "group_by: - STUDYID"
+          },
+          "note": "The method names subject USUBJID as the partition but does not separately state STUDYID partitioning."
+        },
+        {
+          "relation": "absent_in_document",
+          "spec": {
+            "element": "SEQ_OCC01",
+            "quote": "nulls: last"
+          },
+          "note": "The retained method gives sort variables without explicitly stating missing-value placement."
+        }
+      ],
+      "probes": [
+        {
+          "column": "AOCC01FL",
+          "reading": "literal"
+        },
+        {
+          "column": "AOCC01FL__DERM_EVENTS",
+          "reading": "Replace citation 1's CQ01NAM='' with CQ01NAM='DERMATOLOGIC EVENTS'. The parenthetical in citation 1 and ADRG citations 2-3 say this flag identifies the first treatment-emergent dermatological event; citation 4 names the populated query. Preserve the treatment-emergent condition, subject grouping, chronological ordering, and first-record assignment."
+        }
+      ],
+      "interpretations": [
+        "The literal probe tests an empty character query name exactly as printed; it does not silently change the predicate to dermatological query membership.",
+        "The ADRG-supported reading uses the published upstream CQ01NAM, TRTEMFL, ASTDT and AESEQ, isolating the occurrence-selection rule from upstream query or treatment-emergence derivations.",
+        "The literal subject partition is USUBJID. The specification also partitions by STUDYID; the documents do not expressly define cross-study reuse of a subject identifier.",
+        "Unqualified sort order is read as ascending; null placement is not stated, and the probe uses nulls last. Unselected flags are serialized as empty text.",
+        "The full ADRG QC appendix discusses historical original-CDISC duration, unit and label differences; it does not override the Pilot3 dermatological-event description in pages 11-12."
+      ],
+      "assessment": "The literal query subset disagrees with both the specification and the dermatological-event purpose stated in Define and the ADRG. The separately retained dermatological reading follows that purpose without altering the literal test.",
+      "question": "Confirm whether AOCC01FL should select an empty CQ01NAM or the populated DERMATOLOGIC EVENTS query name, and align the rule statements. Confirm study-qualified grouping and null placement if those choices should be explicit."
+    }
+  ]
+}
