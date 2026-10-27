@@ -85,15 +85,20 @@ class CitationTests(unittest.TestCase):
                 self.assertEqual((side["verified"], side["lines"], side["reason"]), expected, label)
 
 
-    def test_a_layered_element_is_read_only_in_the_layer_that_defines_it(self):
+    def test_a_layered_element_is_read_only_where_the_composition_keeps_it(self):
         entry = "columns:\n  - name: TRTSDT\n    label: Treatment start\n    derivation: EX_MINDTC\n"
+        metadata = "columns:\n  - name: TRTSDT\n    submission:\n      comment: SV.SVSTDTC\n"
         layered = {**spec_file(), "path": "s/adsl.yaml", "lines": entry.splitlines(),
                    "spans": source_locations(entry)["spans"],
-                   "elements": {"TRTSDT": {"path": "spec/yamaa/adsl.yaml", "lines": SPEC.splitlines(),
-                                           "span": source_locations(SPEC)["spans"]["TRTSDT"]}}}
+                   "elements": {"TRTSDT": [
+                       {"path": "spec/yamaa/adsl.yaml", "lines": SPEC.splitlines(),
+                        "span": source_locations(SPEC)["spans"]["TRTSDT"]},
+                       {"path": "s/adsl.yaml", "lines": metadata.splitlines(),
+                        "span": vd.field_spans(metadata)["TRTSDT"]["submission"]}]}}
         cases = [
             ("rule in its defining layer", "month: 1 day: 1", (True, "spec/yamaa/adsl.yaml", [10, 11])),
-            ("text only in another layer", "derivation: EX_MINDTC", (False, "spec/yamaa/adsl.yaml", None)),
+            ("metadata another layer still writes", "comment: SV.SVSTDTC", (True, "s/adsl.yaml", [4, 4])),
+            ("overridden text in another layer", "derivation: EX_MINDTC", (False, "spec/yamaa/adsl.yaml", None)),
         ]
         for label, quote, expected in cases:
             with self.subTest(case=label):
@@ -181,6 +186,33 @@ class FindingTests(unittest.TestCase):
                 ["D"],
             ),
             "agreed, stale after a change, pending, and a decision for a removed finding",
+        )
+
+    def test_compact_decisions_bind_the_full_basis_and_do_not_trust_a_reported_fingerprint(self):
+        # SHA-256 of the UTF-8 text "a", independent of the production helper.
+        digest = "sha256:ca978112ca1bbdcafac231b39a23dc4da786eff8147c4e72b9807785afee48bb"
+        findings = [
+            {"id": "legacy", "basis": "a"},
+            {"id": "compact", "basis": "a"},
+            {"id": "changed", "basis": "b", "basis_fingerprint": digest},
+            {"id": "malformed", "basis": "a"},
+        ]
+        decisions = {
+            name: {"finding": name, "basis": value, "decision": "agree", "reason": "Checked the sources."}
+            for name, value in (
+                ("legacy", "a"), ("compact", digest),
+                ("changed", digest), ("malformed", digest[:-1]),
+            )
+        }
+        self.assertEqual(vd.fingerprint_basis("a"), digest)
+        self.assertEqual(vd.adjudicate(findings, {"decisions": decisions}), [])
+        self.assertEqual(
+            [finding["adjudication"]["decision"] for finding in findings],
+            ["agree", "agree", "stale", "stale"],
+        )
+        self.assertEqual(
+            [finding["adjudication"]["reason"] for finding in findings],
+            ["Checked the sources."] * 4,
         )
 
 
@@ -301,6 +333,15 @@ class RenderTests(unittest.TestCase):
         for label, context, quote, expected in cases:
             with self.subTest(case=label):
                 self.assertEqual(cr.highlight(context, quote), expected, label)
+
+    def test_a_quoted_element_the_specification_no_longer_declares_renders_as_not_found(self):
+        side = vd.spec_side(spec_file(), "EVTSRC", "ADAE.AOCC01FL = 'Y'")
+        self.assertEqual(cr.spec_block(side, None), [
+            "**Specification says** `ADAE.AOCC01FL = 'Y'` in `EVTSRC` (`s/adsl.yaml`)",
+            "",
+            "Not found: specification element EVTSRC not found.",
+            "",
+        ])
 
     def test_quoted_specification_lines_carry_a_mark(self):
         side = vd.spec_side(spec_file(), "TRTSDT", "month: 1 day: 1")

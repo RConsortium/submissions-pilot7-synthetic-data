@@ -108,3 +108,29 @@ def defining_sources(packet):
                     found.setdefault(item.get("name") or item.get("id"), origin["declaring_source"])
                     break
     return found
+
+
+def field_sources(packet):
+    """Name the source files that write each field a column keeps after composition.
+
+    A field written in several layers keeps the last one, so text an earlier
+    layer wrote for that field is no longer the column's. A class field such as
+    `submission` is located by the fields inside it, which may come from a
+    different layer than the class itself.
+    """
+    origins, found = packet.get("origins", {}), {}
+    for index, column in enumerate(packet["model"].get("columns", [])):
+        prefix, fields = f"/columns/{index}/", {}
+        for pointer, origin in origins.items():
+            source = origin.get("declaring_source")
+            if not pointer.startswith(prefix) or not source or origin.get("source_kind") == "schema_default":
+                continue
+            field, _, inner = pointer[len(prefix):].partition("/")
+            if field == "name" or origin.get("generated"):
+                continue
+            # A class field's own origin is its first writer; its members name the writers kept.
+            if not inner and any(p.startswith(f"{prefix}{field}/") for p in origins):
+                continue
+            fields.setdefault(field, set()).add(source)
+        found[column["name"]] = fields
+    return found

@@ -40,7 +40,7 @@ def shared_layers(root, study):
     root = Path(root).resolve()
     base = (root / study).resolve()
     directory = root / study / 'spec/yamaa'
-    pending = sorted(directory.rglob('*.yaml')) if directory.is_dir() else []
+    pending = sorted(p for p in directory.rglob('*') if p.suffix in {'.yaml', '.yml'}) if directory.is_dir() else []
     seen, found = set(), set()
     while pending:
         path = pending.pop().resolve()

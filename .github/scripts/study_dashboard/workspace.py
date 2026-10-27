@@ -13,6 +13,7 @@ from .lineage import build_lineage, source_locations
 from .specifications import defining_sources, inspection_specification, resource_path
 from .consistency import build_report
 from .domains import domain_labels, domain_keys
+from .define_comparison import export_comparison
 
 
 def build_workspace(root, destination, study, entry, validation, revision, verification=None):
@@ -186,6 +187,10 @@ def build_workspace(root, destination, study, entry, validation, revision, verif
         verification,
     )
     write_json(target / "report.json", report)
+    if entry.get("category") != "synthetic":
+        comparison = export_comparison(root, study, target, validation)
+        if comparison is not None:
+            record["define_comparison"] = comparison
     record.update(
         tables=exported,
         subjects=sorted(

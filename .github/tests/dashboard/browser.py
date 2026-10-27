@@ -109,11 +109,59 @@ def check(browser, base, site_dir, screenshots):
         study_report = json.loads((site_dir / f"evidence/dashboard/{name}/report.json").read_text())
         issues = study_report["review"]["issues"]
         checks = study_report["review"]["counts"]["checks"]
-        expect(page.locator(".metric-strip")).to_contain_text(f"Consistency: {len(issues)} issues")
-        page.get_by_role("button", name="Consistency findings", exact=True).click()
+        expect(page.locator(".consistency-summary")).to_contain_text(f"{len(issues)} findings awaiting review")
+        expect(page.locator(".reference-summary")).to_contain_text("100% of reference datasets matched")
+        expect(page.locator(".comparison-explanation")).to_contain_text("Findings can remain open even when reference agreement is 100%")
+        critical = sum(i["critical"]["status"] == "yes" for i in issues)
+        expect(page.locator(".consistency-summary .critical-counts")).to_contain_text(f"{critical} critical;")
+        page.get_by_role("button", name="View consistency findings", exact=True).click()
         expect(page.locator(".result-count")).to_have_text(f"{len(issues)} of {len(issues)} issues \u00b7 {checks} supporting checks")
         expect(page.locator(".consistency-table tbody tr[data-finding-id]")).to_have_count(len(issues))
+        expect(page.locator(".consistency-table thead th")).to_have_text([
+            "Dataset / variable", "Impact / review", "Issue", "Critical finding", "Status", "Evidence"
+        ])
+        expect(page.locator("#issue-review")).to_have_count(0)
+        for issue in issues:
+            row = page.locator(f'[data-finding-id="{issue["id"]}"]')
+            expect(row.locator(".issue-summary p")).to_have_text(issue["summary"])
+        assert page.locator(".issue-summary").evaluate_all(
+            "cells => cells.every(cell => getComputedStyle(cell).overflow === 'visible' "
+            "&& getComputedStyle(cell).whiteSpace === 'normal')"
+        )
+        assert page.locator(".issue-impact").evaluate_all(
+            "cells => cells.every(cell => getComputedStyle(cell).position === 'static')"
+        )
+        expect(page.get_by_role("columnheader", name="Status", exact=True)).to_be_visible()
+        expect(page.locator(".consistency-table .issue-status .status")).to_have_text(
+            ["Under Review"] * len(issues)
+        )
+        expect(page.locator(".consistency-table .finding-evidence")).to_have_count(0)
         expect(page.get_by_role("button", name="Copy review context", exact=True)).to_have_count(0)
+        page.get_by_role("button", name="Define-XML comparison", exact=True).click()
+        expect(page.locator('.define-comparison iframe')).to_have_count(2)
+        expect(page.locator('.define-status')).to_contain_text(
+            'Metadata matched' if study_model['validation']['define_xml']['comparison'] == 'matched' else 'Metadata differs')
+        expect(page.locator('.define-differences tbody tr')).to_have_count(
+            len(study_model['validation']['define_xml']['metadata']['differences']))
+        expect(page.get_by_role('link', name='Download XML', exact=True)).to_have_count(2)
+        for side, label in [('reference', 'Original'), ('candidate', 'yamaa-generated')]:
+            frame = page.frame_locator(f'iframe[title="{label} XML source"]')
+            expect(frame.locator('#L1')).to_be_visible()
+            expect(page.locator(f'iframe[title="{label} XML source"]')).to_have_attribute(
+                'src', base + f'/evidence/dashboard/{name}/define/{side}.html')
+        assert '/define/ADSL' in page.url
+        page.reload()
+        expect(page.locator('.define-comparison iframe')).to_have_count(2)
+        if name == 'cdiscpilot01':
+            if screenshots:
+                screenshots.mkdir(parents=True, exist_ok=True)
+                page.screenshot(path=str(screenshots / 'define-xml-comparison.png'))
+            page.set_viewport_size({'width': 600, 'height': 900})
+            panes = page.locator('.define-pane').all()
+            first, second = [pane.bounding_box() for pane in panes]
+            assert second['y'] >= first['y'] + first['height']
+            assert page.evaluate('document.documentElement.scrollWidth <= innerWidth')
+            page.set_viewport_size({'width': 1600, 'height': 1000})
     # A layered column opens the shared layer that writes its rule; its entry
     # keeps this package's historical metadata; the model resolves both.
     copied = json.loads((site_dir / "evidence/dashboard/cdiscpilot01/specs/adtte.json").read_text())
@@ -124,7 +172,7 @@ def check(browser, base, site_dir, screenshots):
     assert defining > 0
     expect(page.locator("#spec-view")).to_have_value(f"source:{defining}")
     rule = "\n".join(page.locator(".spec-line.node-selected code").all_text_contents())
-    assert "dataset: ADSL" in rule and "AGE" in rule
+    assert "derivation: ADSL.AGE" in rule
     assert page.locator(".spec-omission:visible").count() > 0
     page.get_by_role("button", name="Copy source file", exact=True).click()
     expect(page.get_by_role("button", name="Copied", exact=True)).to_be_visible()
@@ -321,13 +369,19 @@ def check(browser, base, site_dir, screenshots):
     shared.close()
     # Evidence and bottom-of-page comments retain the selected dataset context.
     page.locator("#dataset-select").select_option("ADAE")
+    cdisc_issues = json.loads(
+        (site_dir / "evidence/dashboard/cdiscpilot01/report.json").read_text()
+    )["review"]["issues"]
+    cdisc_issue_count = len(cdisc_issues)
     expect(page.locator('.review-tabs [data-view="datasets"]')).to_have_text("SDTM -> ADaM")
     expect(page.locator('.review-tabs [data-view="overview"]')).to_have_text("Consistency findings")
-    expect(page.locator('.metric-strip > span').last).to_have_text("Consistency: 30 issues")
-    expect(page.locator('.metric-strip button, .metric-strip a')).to_have_count(0)
+    expect(page.locator('.consistency-summary .summary-value')).to_have_text(
+        f"{cdisc_issue_count} findings awaiting review"
+    )
+    expect(page.locator('.consistency-summary [data-view="overview"]')).to_have_text("View consistency findings")
     page.locator('.review-tabs [data-view="overview"]').click()
     expect(page.locator(".consistency-table")).to_be_visible()
-    expect(page.locator(".consistency-table tbody tr[data-finding-id]")).to_have_count(30)
+    expect(page.locator(".consistency-table tbody tr[data-finding-id]")).to_have_count(cdisc_issue_count)
     expect(page.locator("#view-content h2, #view-content .uncited")).to_have_count(0)
     page.locator("#finding-comparison").select_option("input_output")
     expect(page.locator(".consistency-table tbody")).to_contain_text("No issues match")
@@ -336,6 +390,7 @@ def check(browser, base, site_dir, screenshots):
     page.locator("#finding-search").fill("imputation")
     expect(page.locator(".consistency-table tbody tr")).to_have_count(1)
     expect(page.locator(".consistency-table tbody")).to_contain_text("ADAE.ASTDT")
+    expect(page.locator(".finding-evidence")).to_have_count(0)
     page.locator(".finding-trace > summary").click()
     expect(page.locator(".finding-evidence")).to_be_visible()
     expect(page.locator(".consistency-table tbody")).to_contain_text("No issue-specific data comparison")
@@ -445,8 +500,8 @@ def check(browser, base, site_dir, screenshots):
     page.get_by_role("button", name="Clear filters", exact=True).click()
     page.locator("#finding-search").fill("BMIBLGR1")
     expect(rule).to_have_count(2)
-    expect(rule.filter(has_text="Missing BMI is assigned")).to_contain_text("1 subject with observed differences")
-    expect(rule.filter(has_text="Obese category differs")).to_contain_text("28 subjects with observed differences")
+    expect(rule.filter(has_text="Missing BMI is assigned")).to_contain_text("Alternative rule (BMIBLGR1__CODED_GE30) vs published reference: 1 subject differs")
+    expect(rule.filter(has_text="Obese category code differs")).to_contain_text("Documented codelist vs published reference: 28 subjects differ")
     capture(page, screenshots, "bmi-issues.png")
     missing = rule.filter(has_text="Missing BMI is assigned")
     missing.locator(".finding-trace > summary").click()
@@ -460,15 +515,20 @@ def check(browser, base, site_dir, screenshots):
     page.get_by_role("button", name="Clear filters", exact=True).click()
     page.locator("#finding-search").fill("VISNUMEN")
     expect(rule).to_have_count(2)
-    expect(rule.filter(has_text="Completion term is misspelled")).to_contain_text("Impact not measured")
-    expect(rule.filter(has_text="Completion-only rule")).to_contain_text("144 subjects with observed differences")
+    expect(rule.filter(has_text="Completion term is misspelled")).to_contain_text("No issue-specific data comparison")
+    expect(rule.filter(has_text="Completion-only rule")).to_contain_text("Alternative rule (VISNUMEN__PROTOCOL_SPELLING) vs published reference: 144 subjects differ")
     capture(page, screenshots, "visit-issues.png")
     page.get_by_role("button", name="Clear filters", exact=True).click()
-    page.locator("#issue-review").select_option("disputed")
-    expect(rule).to_have_count(3)
-    expect(page.locator(".consistency-table tbody")).not_to_contain_text("Agent review: agreed")
+    for status in ("yes", "no", "needs_review"):
+        page.locator("#finding-critical").select_option(status)
+        expect(rule).to_have_count(sum(issue["critical"]["status"] == status for issue in cdisc_issues))
+    page.locator("#finding-critical").select_option("yes")
     page.reload()
-    expect(page.locator("#issue-review")).to_have_value("disputed")
+    expect(page.locator("#finding-critical")).to_have_value("yes")
+    expect(rule).to_have_count(sum(issue["critical"]["status"] == "yes" for issue in cdisc_issues))
+    page.get_by_role("button", name="Clear filters", exact=True).click()
+    expect(page.locator("#finding-critical")).to_have_value("")
+    expect(rule).to_have_count(len(cdisc_issues))
     # Pilot and synthetic reports share summary metrics and study tables.
     page.get_by_role("link", name="All pilot studies", exact=True).click()
     report = page.locator(".study-report")
@@ -497,11 +557,32 @@ def check(browser, base, site_dir, screenshots):
     expect(report.locator("details")).to_have_count(0)
     expect(report.locator(".report-provenance, #reading, #review-items")).to_have_count(0)
     expect(report).to_contain_text("Subject-Level Analysis Dataset")
+    expect(report.locator(".reference-summary")).to_contain_text("100% of reference datasets matched")
+    expect(report.locator(".consistency-summary")).to_contain_text("findings awaiting review")
+    expect(report.locator(".comparison-explanation")).to_contain_text("Findings can remain open")
+    expect(report.locator("#dataset-results + .report-table .report-status.good").first).to_have_text("Reference matched")
     assert page.evaluate("document.documentElement.scrollWidth<=innerWidth")
     nav = page.locator(".md-nav--primary")
     expect(nav).to_contain_text("Pilot studies")
     expect(nav).to_contain_text("Synthetic data")
     capture(page, screenshots, "study-report.png")
+    page.goto(base + "/")
+    home = page.locator(".pilot-metrics")
+    expect(home).to_contain_text("Datasets matching reference")
+    expect(home).to_contain_text("Cells in matching datasets")
+    expect(home).to_contain_text("Consistency review")
+    expect(home).to_contain_text("needing assessment")
+    expect(home.locator("thead th")).to_have_text([
+        "Study", "Published ADaM reference agreement", "Consistency review"
+    ])
+    assert home.evaluate("region => region.scrollWidth <= region.clientWidth + 1")
+    capture(page, screenshots, "home-comparison-summary.png")
+    page.set_viewport_size({"width": 375, "height": 1000})
+    assert page.evaluate("document.documentElement.scrollWidth <= innerWidth")
+    assert home.evaluate("region => region.scrollWidth <= region.clientWidth + 1")
+    capture(page, screenshots, "home-comparison-phone.png")
+    page.set_viewport_size({"width": 1600, "height": 1000})
+    page.go_back()
     first_badge = matrix.locator("a.report-issues").first
     issue_count = int(first_badge.inner_text().split()[0])
     first_badge.click()
@@ -597,7 +678,7 @@ def check(browser, base, site_dir, screenshots):
         expect(page.locator("#synthetic-dashboard h1")).to_have_text("Synthetic data report")
     for width in [375, 768, 1600, 2560]:
         page.set_viewport_size({"width": width, "height": 1000})
-        for view in ["datasets", "findings", "materials"]:
+        for view in ["datasets", "findings", "materials", "define"]:
             page.goto(study + f"#cdiscpilot01/{view}/ADAE?focus=output.TRTSDT")
             if view == "datasets":
                 expect(page.locator("#dataset-select")).to_be_visible()
@@ -607,8 +688,10 @@ def check(browser, base, site_dir, screenshots):
                 expect(page.get_by_role("region", name="Consistency findings", exact=True)).to_be_visible()
                 page.locator(".finding-trace > summary").first.click()
                 expect(page.locator(".finding-evidence").first).to_be_visible()
-            else:
+            elif view == "materials":
                 expect(page.locator("#source-frame")).to_be_visible()
+            else:
+                expect(page.locator('.define-comparison iframe')).to_have_count(2)
             assert page.evaluate("document.documentElement.scrollWidth<=innerWidth"), (
                 width,
                 view,

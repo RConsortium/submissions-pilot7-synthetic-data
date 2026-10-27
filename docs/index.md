@@ -12,6 +12,11 @@ The yamaa engine executes these specifications to derive
 ADaM datasets from SDTM. We compare the yamaa outputs with the published
 ADaM datasets from the original submissions.
 
+**Published ADaM reference agreement** measures reproduction of the published
+datasets under each study's comparison rules. **Consistency review** checks
+agreement among documents, derivation rules, and data. Findings can remain open
+even when reference agreement is 100%.
+
 <div class="pilot-metrics" markdown="1" role="region" aria-label="Pilot study comparison metrics" tabindex="0">
 
 <!-- pilot-metrics:begin -->
@@ -20,8 +25,9 @@ ADaM datasets from the original submissions.
 
 </div>
 
-Values are **fully matched / reference total (percentage)**; **M**
-means one million.
+Reference values are **matching / reference total**. Column and cell counts
+come from datasets that pass the reference comparison; **M** means one million.
+Select a findings count to review its evidence.
 
 ## Synthetic studies
 

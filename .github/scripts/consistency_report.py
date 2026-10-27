@@ -98,6 +98,9 @@ def spec_block(spec, relation):
         heading = f"**Specification says** {code(normalize(spec['quote']))} in {code(spec['element'])}"
     else:
         heading = f"**Specification** element {code(spec['element'])}"
+    if spec["element_lines"] is None:
+        # A quoted element the specification no longer declares has no lines to show.
+        return [f"{heading} ({code(spec['path'])})", "", f"Not found: {text(spec['reason'])}.", ""]
     out = [f"{heading} ({code(spec['path'])}, {link(span(lines or spec['element_lines']), spec.get('url'))})", ""]
     out += excerpt(spec, lines)
     if not spec["verified"]:

@@ -1,0 +1,151 @@
+yamaa: '1.0'
+type: spec
+model: ADaM
+domain: ADVS
+keys:
+- STUDYID
+- USUBJID
+- VSSEQ
+- AVISIT
+input:
+  REF:
+    path: ../../data/adam/advs.parquet
+    empty_string: present
+  _VS1_VS_SOURCE:
+    path: ../../data/sdtm/vs.parquet
+    empty_string: present
+  _VS2_ADSL_SOURCE:
+    path: ../../data/adam/adsl.parquet
+    empty_string: present
+base: REF
+output:
+  path: ../../../.build/verification/cdiscpilot01/advs-probe.parquet
+  columns:
+  - STUDYID
+  - USUBJID
+  - VSSEQ
+  - AVISIT
+  - PARAM
+  - PARAMN
+  - ADT
+  - AVISITN
+  - PCHG
+  - STUDYID__LITERAL
+  - USUBJID__LITERAL
+intermediates:
+- id: _VS1_VS
+  dataset: _VS1_VS_SOURCE
+  key:
+  - STUDYID
+  - USUBJID
+  - VSSEQ
+- id: _VS2_ADSL
+  dataset: _VS2_ADSL_SOURCE
+  key:
+  - STUDYID
+  - USUBJID
+  columns:
+  - STUDYID
+  - USUBJID
+columns:
+- name: STUDYID
+  type: str
+  label: Study Identifier
+  derivation: REF.STUDYID
+- name: USUBJID
+  type: str
+  label: Unique Subject Identifier
+  derivation: REF.USUBJID
+- name: VSSEQ
+  type: float
+  label: Sequence Number
+  derivation: REF.VSSEQ
+- name: AVISIT
+  type: str
+  label: Analysis Visit
+  derivation: REF.AVISIT
+- name: PARAM
+  type: str
+  label: Documented parameter label
+  derivation:
+    mapping:
+      source: REF.PARAMCD
+      unmapped: null
+      dict:
+        SYSBP: Systolic Blood Pressure (mmHg)
+        DIABP: Diastolic Blood Pressure (mmHg)
+        PULSE: Pulse Rate (BEATS/MIN)
+        WEIGHT: Weight (kg)
+        HEIGHT: Height (cm)
+        TEMP: Temperature (C)
+- name: PARAMN
+  type: float
+  label: Documented parameter numeric code
+  derivation:
+    mapping:
+      source: REF.PARAM
+      unmapped: null
+      dict:
+        Systolic Blood Pressure (mmHg): 1
+        Diastolic Blood Pressure (mmHg): 2
+        Pulse Rate (BEATS/MIN): 3
+        Weight (kg): 4
+        Height (cm): 5
+        Temperature (C): 6
+- name: ADT
+  type: date
+  label: Documented date part
+  derivation:
+    to_date:
+      source: _VS1_VS.VSDTC
+- name: AVISITN
+  type: float
+  label: Documented analysis visit numeric code
+  derivation:
+    mapping:
+      source: REF.AVISIT
+      unmapped: null
+      dict:
+        Baseline: 0
+        Week 2: 2
+        Week 4: 4
+        Week 6: 6
+        Week 8: 8
+        Week 10: 10
+        Week 12: 12
+        Week 14: 14
+        Week 16: 16
+        Week 18: 18
+        Week 20: 20
+        Week 22: 22
+        Week 24: 24
+        Week 26: 26
+        Weeks 4-24: 98
+        End of Treatment: 99
+- name: _VS2_CHG
+  type: float
+  label: Published upstream change
+  derivation: REF.CHG
+- name: _VS2_BASE
+  type: float
+  label: Published upstream baseline
+  derivation: REF.BASE
+- name: _VS2_PCHG_RAW
+  type: float
+  label: Documented quotient with nullable undefined arithmetic
+  derivation: 100 * (_VS2_CHG / NULLIF(_VS2_BASE, 0))
+- name: PCHG
+  type: float
+  label: Documented percent change with declared precision
+  derivation:
+    round_half_away_from_zero:
+      source: _VS2_PCHG_RAW
+      digits: 1
+- name: STUDYID__LITERAL
+  type: str
+  label: Documented published ADSL study identifier
+  derivation: _VS2_ADSL.STUDYID
+- name: USUBJID__LITERAL
+  type: str
+  label: Documented published ADSL subject identifier
+  derivation: _VS2_ADSL.USUBJID

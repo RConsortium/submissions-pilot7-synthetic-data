@@ -1,0 +1,267 @@
+yamaa: '1.0'
+type: spec
+model: ADaM
+domain: ADTTE
+keys:
+- STUDYID
+- USUBJID
+input:
+  ADTTE_REF:
+    path: ../../data/adam/adtte.parquet
+    empty_string: present
+  ADSL_SRC:
+    path: ../../data/adam/adsl.parquet
+    empty_string: present
+  ADAE_SRC:
+    path: ../../data/adam/adae.parquet
+    empty_string: present
+base: ADTTE_REF
+output:
+  path: ../../../.build/verification/submission-pilot3/adtte-probe.parquet
+  columns:
+  - STUDYID
+  - USUBJID
+  - PARAM
+  - PARAMCD
+  - AVAL
+  - ADT
+  - ADT__INCLUSIVE
+  - ADT__FIRST_AFTER
+  - CNSR
+  - EVNTDESC
+  - SRCDOM
+  - SRCDOM__ADT_STRICT
+  - SRCDOM__INCLUSIVE
+  - SRCDOM__FIRST_AFTER
+  - SRCVAR
+  - SRCVAR__ADT_STRICT
+  - SRCVAR__INCLUSIVE
+  - SRCVAR__FIRST_AFTER
+  - SRCVAR__RFENDTC
+  - SRCSEQ
+  - SRCSEQ__BLANK_QUERY
+intermediates:
+- id: REF
+  dataset: ADTTE_REF
+  key:
+  - STUDYID
+  - USUBJID
+  order_by:
+  - variable: ADTTE_REF.USUBJID
+    nulls: last
+  keep: first
+- id: P_ADSL
+  dataset: ADSL_SRC
+  key:
+  - STUDYID
+  - USUBJID
+  order_by:
+  - variable: ADSL_SRC.USUBJID
+    nulls: last
+  keep: first
+- id: P_TTE_EVENT
+  dataset: ADAE_SRC
+  key:
+  - STUDYID
+  - USUBJID
+  filter: ADAE_SRC.AOCC01FL = 'Y' AND ADAE_SRC.CQ01NAM = 'DERMATOLOGIC EVENTS' AND ADAE_SRC.TRTEMFL =
+    'Y'
+  order_by:
+  - variable: ADAE_SRC.ASTDT
+    nulls: last
+  - variable: ADAE_SRC.AESEQ
+    nulls: last
+  keep: first
+- id: P_TTE_AFTER_EVENT
+  dataset: ADAE_SRC
+  key:
+  - STUDYID
+  - USUBJID
+  filter: ADAE_SRC.CQ01NAM = 'DERMATOLOGIC EVENTS' AND ADAE_SRC.TRTEMFL = 'Y' AND ADAE_SRC.ASTDT IS NOT
+    NULL AND ADAE_SRC.TRTSDT IS NOT NULL AND ADAE_SRC.ASTDT > ADAE_SRC.TRTSDT
+  order_by:
+  - variable: ADAE_SRC.ASTDT
+    nulls: last
+  - variable: ADAE_SRC.AESEQ
+    nulls: last
+  keep: first
+- id: _SRCSEQ_BLANK_EVENT
+  dataset: ADAE_SRC
+  key:
+  - STUDYID
+  - USUBJID
+  filter: ADAE_SRC.CQ01NAM = '' AND ADAE_SRC.TRTEMFL = 'Y'
+  order_by:
+  - variable: ADAE_SRC.ASTDT
+    nulls: last
+  - variable: ADAE_SRC.AESEQ
+    nulls: last
+  keep: first
+columns:
+- name: STUDYID
+  type: str
+  label: Study Identifier
+  derivation: ADTTE_REF.STUDYID
+- name: USUBJID
+  type: str
+  label: Unique Subject Identifier
+  derivation: ADTTE_REF.USUBJID
+- name: _TTE_RFENDT
+  type: date
+  label: _TTE_RFENDT
+  derivation:
+    impute:
+      type: date
+      source: P_ADSL.RFENDTC
+- name: PARAM
+  type: str
+  label: PARAM
+  derivation: '''Time to First Dermatologic Event'''
+- name: PARAMCD
+  type: str
+  label: PARAMCD
+  derivation: '''TTDE'''
+- name: AVAL
+  type: float
+  label: AVAL
+  derivation:
+    diff:
+      type: date
+      start: REF.STARTDT
+      end: REF.ADT
+      unit: day
+      closed: both
+- name: ADT
+  type: date
+  label: ADT
+  derivation:
+    case:
+    - when: P_TTE_EVENT.ASTDT IS NOT NULL AND REF.TRTSDT IS NOT NULL AND P_TTE_EVENT.ASTDT > REF.TRTSDT
+      then: P_TTE_EVENT.ASTDT
+    - otherwise: _TTE_RFENDT
+- name: ADT__INCLUSIVE
+  type: date
+  label: ADT__INCLUSIVE
+  derivation:
+    case:
+    - when: P_TTE_EVENT.ASTDT IS NOT NULL AND REF.TRTSDT IS NOT NULL AND P_TTE_EVENT.ASTDT >= REF.TRTSDT
+      then: P_TTE_EVENT.ASTDT
+    - otherwise: _TTE_RFENDT
+- name: ADT__FIRST_AFTER
+  type: date
+  label: ADT__FIRST_AFTER
+  derivation:
+    case:
+    - when: P_TTE_AFTER_EVENT.ASTDT IS NOT NULL
+      then: P_TTE_AFTER_EVENT.ASTDT
+    - otherwise: _TTE_RFENDT
+- name: CNSR
+  type: float
+  label: CNSR
+  derivation:
+    case:
+    - when: P_TTE_EVENT.TRTEMFL = 'Y'
+      then: 0
+    - otherwise: 1
+- name: EVNTDESC
+  type: str
+  label: EVNTDESC
+  derivation:
+    case:
+    - when: REF.CNSR = 0
+      then: '''Dematologic Event Occured'''
+    - when: REF.CNSR = 1
+      then: '''Study Completion Date'''
+    - otherwise: ''''''
+- name: SRCDOM
+  type: str
+  label: SRCDOM
+  derivation:
+    case:
+    - when: REF.CNSR = 0
+      then: '''ADAE'''
+    - when: REF.CNSR = 1
+      then: '''ADSL'''
+    - otherwise: ''''''
+- name: SRCDOM__ADT_STRICT
+  type: str
+  label: SRCDOM__ADT_STRICT
+  derivation:
+    case:
+    - when: P_TTE_EVENT.ASTDT IS NOT NULL AND REF.TRTSDT IS NOT NULL AND P_TTE_EVENT.ASTDT > REF.TRTSDT
+      then: '''ADAE'''
+    - otherwise: '''ADSL'''
+- name: SRCDOM__INCLUSIVE
+  type: str
+  label: SRCDOM__INCLUSIVE
+  derivation:
+    case:
+    - when: P_TTE_EVENT.ASTDT IS NOT NULL AND REF.TRTSDT IS NOT NULL AND P_TTE_EVENT.ASTDT >= REF.TRTSDT
+      then: '''ADAE'''
+    - otherwise: '''ADSL'''
+- name: SRCDOM__FIRST_AFTER
+  type: str
+  label: SRCDOM__FIRST_AFTER
+  derivation:
+    case:
+    - when: P_TTE_AFTER_EVENT.ASTDT IS NOT NULL
+      then: '''ADAE'''
+    - otherwise: '''ADSL'''
+- name: SRCVAR
+  type: str
+  label: SRCVAR
+  derivation:
+    case:
+    - when: REF.CNSR = 0
+      then: '''ASTDT'''
+    - when: REF.CNSR = 1
+      then: '''RFENDT'''
+    - otherwise: ''''''
+- name: SRCVAR__ADT_STRICT
+  type: str
+  label: SRCVAR__ADT_STRICT
+  derivation:
+    case:
+    - when: P_TTE_EVENT.ASTDT IS NOT NULL AND REF.TRTSDT IS NOT NULL AND P_TTE_EVENT.ASTDT > REF.TRTSDT
+      then: '''ASTDT'''
+    - otherwise: '''RFENDT'''
+- name: SRCVAR__INCLUSIVE
+  type: str
+  label: SRCVAR__INCLUSIVE
+  derivation:
+    case:
+    - when: P_TTE_EVENT.ASTDT IS NOT NULL AND REF.TRTSDT IS NOT NULL AND P_TTE_EVENT.ASTDT >= REF.TRTSDT
+      then: '''ASTDT'''
+    - otherwise: '''RFENDT'''
+- name: SRCVAR__FIRST_AFTER
+  type: str
+  label: SRCVAR__FIRST_AFTER
+  derivation:
+    case:
+    - when: P_TTE_AFTER_EVENT.ASTDT IS NOT NULL
+      then: '''ASTDT'''
+    - otherwise: '''RFENDT'''
+- name: SRCVAR__RFENDTC
+  type: str
+  label: SRCVAR__RFENDTC
+  derivation:
+    case:
+    - when: REF.CNSR = 0
+      then: '''ASTDT'''
+    - when: REF.CNSR = 1
+      then: '''RFENDTC'''
+    - otherwise: ''''''
+- name: SRCSEQ
+  type: float
+  label: SRCSEQ
+  derivation:
+    case:
+    - when: REF.SRCDOM = 'ADAE'
+      then: P_TTE_EVENT.AESEQ
+- name: SRCSEQ__BLANK_QUERY
+  type: float
+  label: SRCSEQ__BLANK_QUERY
+  derivation:
+    case:
+    - when: REF.SRCDOM = 'ADAE'
+      then: _SRCSEQ_BLANK_EVENT.AESEQ
