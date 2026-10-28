@@ -111,14 +111,16 @@ def build_workspace(root, destination, study, entry, validation, revision, verif
             )
         lineage = build_lineage(text, spec, schemas)
         lineage["resources"] = resources
-        resolved_text = yaml.safe_dump(spec, sort_keys=False, allow_unicode=False)
+        packet = results[domain].get("resolved_specification")
+        resolved_path = packet.get("snapshot", {}).get("path") if packet else None
+        resolved_text = ((root / resolved_path).read_text() if resolved_path else
+                         yaml.safe_dump(spec, sort_keys=False, allow_unicode=False))
         documents = [
             {**source, "lineage": {**lineage, **source_locations(source["text"])}}
             for source in sources
         ]
         # Review links open the layer that writes a variable's rule.
         spans = {d["path"]: d["lineage"]["spans"] for d in documents}
-        packet = results[domain].get("resolved_specification")
         lineage["definitions"] = {
             name: {"path": path, **spans[path][name]}
             for name, path in (defining_sources(packet) if packet else {}).items()
@@ -137,6 +139,7 @@ def build_workspace(root, destination, study, entry, validation, revision, verif
                 "lineage": lineage,
                 "documents": documents,
                 "resolved": {
+                    "path": resolved_path or spec_path.relative_to(root).as_posix(),
                     "text": resolved_text,
                     "lineage": {**lineage, **source_locations(resolved_text)},
                 },

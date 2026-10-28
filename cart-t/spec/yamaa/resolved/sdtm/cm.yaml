@@ -1,0 +1,717 @@
+yamaa: '1.0'
+type: spec
+model: SDTM
+domain: CM
+keys:
+- STUDYID
+- USUBJID
+- CMSEQ
+input:
+  ODM:
+    path: ../../../../data/odm/car-t-openclinica.xml
+    relative_to: declaring
+    empty_string: missing
+  RAW:
+    path: ../../../../data/odm/car-t-openclinica.xml
+    relative_to: declaring
+    empty_string: missing
+output:
+  path: ../../../../data/sdtm/cm.parquet
+  relative_to: declaring
+  columns:
+  - STUDYID
+  - DOMAIN
+  - USUBJID
+  - CMSEQ
+  - CMSPID
+  - CMTRT
+  - CMDECOD
+  - CMINDC
+  - CMDOSE
+  - CMDOSTXT
+  - CMDOSU
+  - CMDOSFRQ
+  - CMDOSFRM
+  - CMROUTE
+  - CMSTDTC
+  - CMENDTC
+  - CMENRTPT
+  - CMENTPT
+  - VISIT
+  report: ../../../../log/cm-report.parquet
+  order_by:
+  - variable: STUDYID
+    direction: asc
+    nulls: last
+  - variable: USUBJID
+    direction: asc
+    nulls: last
+  - variable: CMSEQ
+    direction: asc
+    nulls: last
+intermediates:
+- id: CONTEXT
+  dataset: RAW
+  key:
+    StudyOID: ODM.StudyOID
+    MetaDataVersionOID: ODM.MetaDataVersionOID
+    SubjectKey: ODM.SubjectKey
+    StudyEventOID: ODM.StudyEventOID
+    FormOID: ODM.FormOID
+    ItemGroupOID: ODM.ItemGroupOID
+  filter: (RAW.StudyEventRepeatKey = ODM.StudyEventRepeatKey OR (RAW.StudyEventRepeatKey
+    IS NULL AND ODM.StudyEventRepeatKey IS NULL)) AND (RAW.FormRepeatKey = ODM.FormRepeatKey
+    OR (RAW.FormRepeatKey IS NULL AND ODM.FormRepeatKey IS NULL)) AND (RAW.ItemGroupRepeatKey
+    = ODM.ItemGroupRepeatKey OR (RAW.ItemGroupRepeatKey IS NULL AND ODM.ItemGroupRepeatKey
+    IS NULL))
+  order_by:
+  - variable: RAW.SourceOrdinal
+    direction: asc
+  keep: first
+columns:
+- name: CRF_CMDOSE
+  type: str
+  label: CRF_CMDOSE
+- name: CRF_CMDOSFRM
+  type: str
+  label: CRF_CMDOSFRM
+- name: CRF_CMDOSFRQ
+  type: str
+  label: CRF_CMDOSFRQ
+- name: CRF_CMDOSU
+  type: str
+  label: CRF_CMDOSU
+- name: CRF_CMDOSUTXT
+  type: str
+  label: CRF_CMDOSUTXT
+- name: CRF_CMENDAT
+  type: str
+  label: CRF_CMENDAT
+- name: CRF_CMINDC
+  type: str
+  label: CRF_CMINDC
+- name: CRF_CMROUTE
+  type: str
+  label: CRF_CMROUTE
+- name: CRF_CMSTDAT
+  type: str
+  label: CRF_CMSTDAT
+- name: CRF_CMTRTL
+  type: str
+  label: CRF_CMTRTL
+- name: CRF_CMTRTLX
+  type: str
+  label: CRF_CMTRTLX
+- name: CRF_MEDNAME
+  type: str
+  label: CRF_MEDNAME
+- name: CRF_ONGOING
+  type: str
+  label: CRF_ONGOING
+- name: EVENTNAME
+  type: str
+  label: EVENTNAME
+  derivation: CONTEXT.EventName
+- name: SUBJECTKEY
+  type: str
+  label: SUBJECTKEY
+  derivation: ODM.SubjectKey
+- name: ROWID
+  type: int
+  label: ROWID
+  derivation: CONTEXT.SourceOrdinal
+- name: STUDYID
+  type: str
+  label: Study Identifier
+  derivation: '''CART-T-PILOT'''
+  verifications:
+  - max_length:
+      max: 12
+      severity: error
+  submission:
+    key_sequence: 1
+    core: Req
+    mandatory: true
+    role: Identifier
+    data_type: text
+    length: 12
+    origins:
+    - type: Assigned
+      source: Sponsor
+- name: DOMAIN
+  type: str
+  label: Domain Abbreviation
+  derivation: '''CM'''
+  verifications:
+  - max_length:
+      max: 2
+      severity: error
+  submission:
+    core: Req
+    mandatory: true
+    role: Identifier
+    data_type: text
+    length: 2
+    origins:
+    - type: Assigned
+      source: Sponsor
+- name: USUBJID
+  type: str
+  label: Unique Subject Identifier
+  derivation:
+    str_template: CART-T-PILOT-{SUBJECTKEY}
+  verifications:
+  - max_length:
+      max: 80
+      severity: error
+  submission:
+    key_sequence: 2
+    core: Req
+    mandatory: true
+    role: Identifier
+    data_type: text
+    length: 80
+    origins:
+    - type: Derived
+      source: Sponsor
+    method:
+      type: Computation
+      description: CART-T-PILOT followed by the globally unique ODM SubjectKey. Display
+        subject ID is retained in DM.SUBJID.
+    comment: CART-T-PILOT followed by the globally unique ODM SubjectKey. Display
+      subject ID is retained in DM.SUBJID.
+- name: CMSEQ
+  type: int
+  label: Sequence Number
+  derivation:
+    row_number:
+      window:
+        group_by:
+        - USUBJID
+        order_by:
+        - variable: ROWID
+          direction: asc
+          nulls: last
+  submission:
+    key_sequence: 3
+    core: Req
+    mandatory: true
+    role: Identifier
+    data_type: integer
+    length: 8
+    origins:
+    - type: Derived
+      source: Sponsor
+    method:
+      type: Computation
+      description: "Executable yamaa derivation: row_number:\n  window:\n    group_by:\n\
+        \    - USUBJID\n    order_by:\n    - variable: ROWID\n      nulls: last"
+- name: CMSPID
+  type: str
+  label: Source Group Ordinal
+  derivation: ROWID
+  verifications:
+  - max_length:
+      max: 20
+      severity: error
+  submission:
+    core: Perm
+    mandatory: false
+    role: Identifier
+    data_type: text
+    length: 20
+    origins:
+    - type: Predecessor
+      description: ROWID
+    comment: ODM SourceOrdinal (item), or first SourceOrdinal in the complete ODM
+      item-group instance. Trace to SourceOrdinal in data/odm/items.parquet and the
+      unchanged XML.
+- name: CMTRT
+  type: str
+  label: Reported Name of Drug, Med, or Therapy
+  derivation:
+    first_available:
+      sources:
+      - CRF_CMTRTL
+      - CRF_CMTRTLX
+  verifications:
+  - max_length:
+      max: 200
+      severity: error
+  submission:
+    core: Req
+    mandatory: true
+    role: Topic
+    data_type: text
+    length: 200
+    origins:
+    - type: Derived
+      source: Sponsor
+    method:
+      type: Computation
+      description: "Executable yamaa derivation: first_available:\n  sources:\n  -\
+        \ CRF_CMTRTL\n  - CRF_CMTRTLX"
+- name: CMDECOD
+  type: str
+  label: Standardized Medication Name
+  derivation: CRF_MEDNAME
+  verifications:
+  - max_length:
+      max: 200
+      severity: error
+  submission:
+    core: Exp
+    mandatory: false
+    role: Record Qualifier
+    data_type: text
+    length: 200
+    origins:
+    - type: Predecessor
+      description: CRF_MEDNAME
+    comment: Recorded MEDNAME only. No new WHO Drug or RxNorm coding is claimed.
+- name: CMINDC
+  type: str
+  label: Indication
+  derivation: CRF_CMINDC
+  verifications:
+  - max_length:
+      max: 200
+      severity: error
+  submission:
+    core: Perm
+    mandatory: false
+    role: Record Qualifier
+    data_type: text
+    length: 200
+    origins:
+    - type: Predecessor
+      description: CRF_CMINDC
+- name: CMDOSE
+  type: float
+  label: Dose per Administration
+  derivation:
+    value: CRF_CMDOSE
+    unconvertible: null
+  submission:
+    core: Perm
+    mandatory: false
+    role: Record Qualifier
+    data_type: float
+    length: 8
+    significant_digits: 6
+    origins:
+    - type: Derived
+      source: Sponsor
+    method:
+      type: Computation
+      description: 'Executable yamaa derivation: value: CRF_CMDOSE
+
+        unconvertible: null'
+- name: CMDOSTXT
+  type: str
+  label: Dose Description
+  derivation: CRF_CMDOSE
+  verifications:
+  - max_length:
+      max: 80
+      severity: error
+  submission:
+    core: Perm
+    mandatory: false
+    role: Record Qualifier
+    data_type: text
+    length: 80
+    origins:
+    - type: Predecessor
+      description: CRF_CMDOSE
+- name: CMDOSU
+  type: str
+  label: Dose Units
+  derivation:
+    case:
+    - when: CRF_CMDOSU = 'Other'
+      then:
+        mapping:
+          source: CRF_CMDOSUTXT
+          dict:
+            MG: mg
+            mg: mg
+            G: g
+            g: g
+            ML: mL
+            mL: mL
+            L: L
+            mcg: ug
+            ug: ug
+            Other: null
+            "\xB5g": ug
+            IU: IU
+            mg/m^2: mg/m2
+          case_sensitive: true
+          unmapped: null
+    - otherwise:
+        mapping:
+          source: CRF_CMDOSU
+          dict:
+            MG: mg
+            mg: mg
+            G: g
+            g: g
+            ML: mL
+            mL: mL
+            L: L
+            mcg: ug
+            ug: ug
+            Other: null
+            "\xB5g": ug
+            IU: IU
+            mg/m^2: mg/m2
+          case_sensitive: true
+          unmapped: null
+  verifications:
+  - max_length:
+      max: 40
+      severity: error
+  submission:
+    core: Perm
+    mandatory: false
+    role: Record Qualifier
+    data_type: text
+    length: 40
+    origins:
+    - type: Derived
+      source: Sponsor
+    method:
+      type: Computation
+      description: Decode CL_205 units; microgram spellings map to ug. When CMDOSU=Other,
+        use CMDOSUTXT (mg/m^2 -> mg/m2; mcg -> ug). No dose conversion.
+- name: CMDOSFRQ
+  type: str
+  label: Dosing Frequency per Interval
+  derivation:
+    mapping:
+      source: CRF_CMDOSFRQ
+      dict:
+        QD (once a day): QD
+        BID (twice a day): BID
+        TID (three times a day): TID
+        QID (four times a day): QID
+        QH (every hour): QH
+        QM (every month): QM
+        QOM (every other mo): QOM
+        QOD (every other day): QOD
+        PC (after meals): PC
+        AC (before meals): AC
+        PRN (as needed): PRN
+        '11': PRN
+        '1': QD
+        '2': BID
+        '3': TID
+        '4': QID
+        '5': QOD
+        '6': QM
+        '7': QOM
+        '8': QH
+        '9': AC
+        '10': PC
+      case_sensitive: true
+      unmapped: null
+  verifications:
+  - max_length:
+      max: 40
+      severity: error
+  submission:
+    core: Perm
+    mandatory: false
+    role: Record Qualifier
+    data_type: text
+    length: 40
+    origins:
+    - type: Derived
+      source: Sponsor
+    method:
+      type: Computation
+      description: Decode CL_209 text and numeric codes, then map the decoded frequency
+        to the explicit frequency abbreviation.
+- name: CMDOSFRM
+  type: str
+  label: Dose Form
+  derivation:
+    mapping:
+      source: CRF_CMDOSFRM
+      dict:
+        Implant: IMPLANT
+        Aerosol: AEROSOL
+        Cream: CREAM
+        Suspension: SUSPENSION
+        Capsule: CAPSULE
+        Ointment: OINTMENT
+        Spray: SPRAY
+        Powder: POWDER
+        Gel: GEL
+        Liquid: LIQUID
+        Gas: GAS
+        Tablet: TABLET
+        Chewable: CHEWABLE TABLET
+        Suppository: SUPPOSITORY
+        Patch: PATCH
+      case_sensitive: true
+      unmapped: null
+  verifications:
+  - max_length:
+      max: 40
+      severity: error
+  submission:
+    core: Perm
+    mandatory: false
+    role: Record Qualifier
+    data_type: text
+    length: 40
+    origins:
+    - type: Derived
+      source: Sponsor
+    method:
+      type: Computation
+      description: Decode CL_207. Chewable maps to CHEWABLE TABLET. Other without
+        an approved standard term remains missing for review.
+    comment: Uppercase collected term. Unmapped source terms remain visible for terminology
+      review; no dictionary certification is claimed.
+- name: CMROUTE
+  type: str
+  label: Route of Administration
+  derivation:
+    mapping:
+      source: CRF_CMROUTE
+      dict:
+        Rectal: RECTAL
+        Oral: ORAL
+        Intramuscular: INTRAMUSCULAR
+        Intravaneous: INTRAVENOUS
+        Intraperitoneal: INTRAPERITONEAL
+        Nasal: NASAL
+        Intradermal: INTRADERMAL
+        '10': INTRAPERITONEAL
+        '11': NASAL
+        '12': VAGINAL
+        '13': RECTAL
+        Subcutaneous: SUBCUTANEOUS
+        Introacular: INTRAOCULAR
+        Topical: TOPICAL
+        Transdermal: TRANSDERMAL
+        Inhalation: INHALATION
+        '1': ORAL
+        '2': TOPICAL
+        '3': SUBCUTANEOUS
+        '4': INTRADERMAL
+        '5': TRANSDERMAL
+        Vaginal: VAGINAL
+        '6': INTRAOCULAR
+        '7': INTRAMUSCULAR
+        '8': INHALATION
+        '9': INTRAVENOUS
+      case_sensitive: true
+      unmapped: null
+  verifications:
+  - max_length:
+      max: 40
+      severity: error
+  submission:
+    core: Perm
+    mandatory: false
+    role: Record Qualifier
+    data_type: text
+    length: 40
+    origins:
+    - type: Derived
+      source: Sponsor
+    method:
+      type: Computation
+      description: Decode CL_211 text and numeric values. Source spelling Intravaneous
+        means INTRAVENOUS; Introacular means INTRAOCULAR. Unspecified Other remains
+        missing.
+    comment: Uppercase collected term. Unmapped source terms remain visible for terminology
+      review; no dictionary certification is claimed.
+- name: CMSTDTC
+  type: str
+  label: Start Date/Time of Medication
+  derivation:
+    date_text:
+      source: CRF_CMSTDAT
+      forms:
+      - iso
+      - mdy_slash
+      invalid: null
+  verifications:
+  - max_length:
+      max: 25
+      severity: error
+  submission:
+    core: Perm
+    mandatory: false
+    role: Timing
+    data_type: text
+    length: 25
+    origins:
+    - type: Derived
+      source: Sponsor
+    method:
+      type: Computation
+      description: "Executable yamaa derivation: date_text:\n  source: CRF_CMSTDAT\n\
+        \  forms:\n  - iso\n  - mdy_slash\n  invalid: null"
+- name: CMENDTC
+  type: str
+  label: End Date/Time of Medication
+  derivation:
+    date_text:
+      source: CRF_CMENDAT
+      forms:
+      - iso
+      - mdy_slash
+      invalid: null
+  verifications:
+  - max_length:
+      max: 25
+      severity: error
+  submission:
+    core: Perm
+    mandatory: false
+    role: Timing
+    data_type: text
+    length: 25
+    origins:
+    - type: Derived
+      source: Sponsor
+    method:
+      type: Computation
+      description: "Executable yamaa derivation: date_text:\n  source: CRF_CMENDAT\n\
+        \  forms:\n  - iso\n  - mdy_slash\n  invalid: null"
+- name: CMENRTPT
+  type: str
+  label: End Relative to Reference Time Point
+  derivation:
+    case:
+    - when: CRF_ONGOING = 'Yes' OR CRF_ONGOING = '1'
+      then: '''ONGOING'''
+    - otherwise: null
+  verifications:
+  - max_length:
+      max: 12
+      severity: error
+  submission:
+    core: Perm
+    mandatory: false
+    role: Record Qualifier
+    data_type: text
+    length: 12
+    origins:
+    - type: Derived
+      source: Sponsor
+    method:
+      type: Computation
+      description: "Executable yamaa derivation: case:\n- when: CRF_ONGOING = 'Yes'\
+        \ OR CRF_ONGOING = '1'\n  then: '''ONGOING'''\n- otherwise: null"
+- name: CMENTPT
+  type: str
+  label: End Reference Time Point
+  derivation:
+    case:
+    - when: CMENRTPT = 'ONGOING'
+      then: '''CM FORM ASSESSMENT'''
+    - otherwise: null
+  verifications:
+  - max_length:
+      max: 40
+      severity: error
+  submission:
+    core: Perm
+    mandatory: false
+    role: Record Qualifier
+    data_type: text
+    length: 40
+    origins:
+    - type: Derived
+      source: Sponsor
+    method:
+      type: Computation
+      description: "Executable yamaa derivation: case:\n- when: CMENRTPT = 'ONGOING'\n\
+        \  then: '''CM FORM ASSESSMENT'''\n- otherwise: null"
+- name: VISIT
+  type: str
+  label: Visit Name
+  derivation: EVENTNAME
+  verifications:
+  - max_length:
+      max: 80
+      severity: error
+  submission:
+    core: Perm
+    mandatory: false
+    role: Timing
+    data_type: text
+    length: 80
+    origins:
+    - type: Predecessor
+      description: EVENTNAME
+- name: SOURCE_FORM
+  type: str
+  label: SOURCE_FORM
+rows:
+- id: collected
+  dataset: ODM
+  group_by:
+  - ODM.StudyOID
+  - ODM.MetaDataVersionOID
+  - ODM.SubjectKey
+  - ODM.StudyEventOID
+  - ODM.StudyEventRepeatKey
+  - ODM.FormOID
+  - ODM.FormRepeatKey
+  - ODM.ItemGroupOID
+  - ODM.ItemGroupRepeatKey
+  filter: SOURCE_FORM = 'F_CONMED' AND (CRF_CMTRTL IS NOT NULL OR CRF_CMTRTLX IS NOT
+    NULL)
+  derivations:
+    CRF_CMDOSE:
+      odm: ODM.I_CONME_CMDOSE
+    CRF_CMDOSFRM:
+      odm: ODM.I_CONME_CMDOSFRM
+    CRF_CMDOSFRQ:
+      odm: ODM.I_CONME_CMDOSFRQ
+    CRF_CMDOSU:
+      odm: ODM.I_CONME_CMDOSU
+    CRF_CMDOSUTXT:
+      odm: ODM.I_CONME_CMDOSUTXT
+    CRF_CMENDAT:
+      odm: ODM.I_CONME_CMENDAT
+    CRF_CMINDC:
+      odm: ODM.I_CONME_CMINDC
+    CRF_CMROUTE:
+      odm: ODM.I_CONME_CMROUTE
+    CRF_CMSTDAT:
+      odm: ODM.I_CONME_CMSTDAT
+    CRF_CMTRTL:
+      odm: ODM.I_CONME_CMTRTL
+    CRF_CMTRTLX:
+      odm: ODM.I_CONME_CMTRTLX
+    CRF_MEDNAME:
+      odm: ODM.I_CONME_MEDNAME
+    CRF_ONGOING:
+      odm: ODM.I_CONME_ONGOING
+    SOURCE_FORM: ODM.FormOID
+verifications:
+- assert:
+    id: cm_end_before_start
+    require: CMENDTC IS NULL OR CMSTDTC IS NULL OR CMENDTC >= CMSTDTC
+    severity: warning
+submission:
+  mode: historical
+  artifact: cm.xpt
+  has_no_data: false
+  label: Concomitant Medications
+  class: INTERVENTIONS
+  structure: One record per source observation per subject
+  repeating: true
+  reference_data: false
+  non_standard: false
+  comment: Review draft metadata. Historical mode keeps declarations separate from
+    incomplete data; this is not a validated submission. See spec/review/decisions.md.

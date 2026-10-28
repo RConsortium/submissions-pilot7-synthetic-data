@@ -1,0 +1,5425 @@
+yamaa: '1.0'
+type: spec
+model: ADaM
+domain: ADLBH
+keys:
+- STUDYID
+- USUBJID
+- PARAMCD
+- LBSEQ
+- AVISIT
+input:
+  LB:
+    path: ../../../data/sdtm/lb.parquet
+    relative_to: declaring
+    empty_string: present
+    key:
+    - STUDYID
+    - USUBJID
+  ADSL:
+    path: ../../../data/adam/adsl-yamaa.parquet
+    relative_to: declaring
+    schema: adsl.yaml
+    empty_string: present
+base: LB
+output:
+  path: ../../../data/adam/adlbh-yamaa.parquet
+  relative_to: declaring
+  columns:
+  - STUDYID
+  - SUBJID
+  - USUBJID
+  - TRTP
+  - TRTPN
+  - TRTA
+  - TRTAN
+  - TRTSDT
+  - TRTEDT
+  - AGE
+  - AGEGR1
+  - AGEGR1N
+  - RACE
+  - RACEN
+  - SEX
+  - COMP24FL
+  - DSRAEFL
+  - SAFFL
+  - AVISIT
+  - AVISITN
+  - ADY
+  - ADT
+  - VISIT
+  - VISITNUM
+  - PARAM
+  - PARAMCD
+  - PARAMN
+  - PARCAT1
+  - AVAL
+  - BASE
+  - CHG
+  - A1LO
+  - A1HI
+  - R2A1LO
+  - R2A1HI
+  - BR2A1LO
+  - BR2A1HI
+  - ANL01FL
+  - ALBTRVAL
+  - ANRIND
+  - BNRIND
+  - ABLFL
+  - AENTMTFL
+  - LBSEQ
+  - LBNRIND
+  - LBSTRESN
+  order_by:
+  - variable: USUBJID
+    direction: asc
+    nulls: last
+  - variable: ADY
+    direction: asc
+    nulls: last
+  - variable: PARAMN
+    direction: asc
+    nulls: last
+  - variable: AVISITN
+    direction: asc
+    nulls: last
+intermediates:
+- id: ADSL_SBJ
+  dataset: ADSL
+  key:
+  - USUBJID
+- id: PREV
+  dataset: LB
+  key:
+    USUBJID: USUBJID
+    LBTESTCD: _LBTESTCD
+    LBSEQ: LBSEQ
+  filter: LB.LBCAT = 'HEMATOLOGY' AND LB.VISIT NOT IN ('AMBUL ECG REMOVAL', 'BASELINE',
+    'RETRIEVAL') AND LB.VISIT NOT LIKE 'UNSCHEDULED%'
+  columns:
+  - PREV_AVAL
+  derivations:
+    _AVISITN:
+      case:
+      - when: LB.VISIT = 'SCREENING 1'
+        then: 0.0
+      - when: LB.VISIT = 'WEEK 2'
+        then: 2.0
+      - when: LB.VISIT = 'WEEK 4'
+        then: 4.0
+      - when: LB.VISIT = 'WEEK 6'
+        then: 6.0
+      - when: LB.VISIT = 'WEEK 8'
+        then: 8.0
+      - when: LB.VISIT = 'WEEK 12'
+        then: 12.0
+      - when: LB.VISIT = 'WEEK 16'
+        then: 16.0
+      - when: LB.VISIT = 'WEEK 20'
+        then: 20.0
+      - when: LB.VISIT = 'WEEK 24'
+        then: 24.0
+      - when: LB.VISIT = 'WEEK 26'
+        then: 26.0
+      - otherwise: null
+    PREV_AVAL:
+      row_value:
+        source: LB.LBSTRESN
+        offset: -1
+        window:
+          group_by:
+          - LB.USUBJID
+          - LB.LBTESTCD
+          order_by:
+          - variable: _AVISITN
+            direction: asc
+            nulls: last
+          - variable: LB.LBDTC
+            direction: asc
+            nulls: last
+          - variable: LB.LBSEQ
+            direction: asc
+            nulls: last
+          filter: LB.LBCAT = 'HEMATOLOGY' AND LB.VISIT NOT IN ('AMBUL ECG REMOVAL',
+            'BASELINE', 'RETRIEVAL') AND LB.VISIT NOT LIKE 'UNSCHEDULED%'
+columns:
+- name: STUDYID
+  type: str
+  label: Study Identifier
+  submission:
+    mandatory: false
+    data_type: text
+    length: 12
+    origins:
+    - type: Derived
+    comment: ADSL.STUDYID
+- name: SUBJID
+  type: str
+  label: Subject Identifier for the Study
+  derivation: ADSL_SBJ.SUBJID
+  submission:
+    mandatory: false
+    data_type: text
+    length: 4
+    origins:
+    - type: Derived
+    comment: ADSL.SUBJID
+- name: USUBJID
+  type: str
+  label: Unique Subject Identifier
+  submission:
+    key_sequence: 1
+    mandatory: false
+    data_type: text
+    length: 11
+    origins:
+    - type: Derived
+    comment: ADSL.USUBJID
+- name: TRTP
+  type: str
+  label: Planned Treatment
+  derivation: ADSL_SBJ.TRT01P
+  submission:
+    mandatory: false
+    data_type: text
+    length: 20
+    codelist: ARM
+    origins:
+    - type: Derived
+    comment: ADSL.TRT01P
+- name: TRTPN
+  type: float
+  label: Planned Treatment (N)
+  derivation: ADSL_SBJ.TRT01PN
+  submission:
+    mandatory: false
+    data_type: integer
+    length: 8
+    codelist: ARMN
+    origins:
+    - type: Derived
+    comment: ADSL.TRT01PN
+- name: TRTA
+  type: str
+  label: Actual Treatment
+  derivation: ADSL_SBJ.TRT01A
+  submission:
+    mandatory: false
+    data_type: text
+    length: 20
+    codelist: ARM
+    origins:
+    - type: Derived
+    comment: ADSL.TRT01A
+- name: TRTAN
+  type: float
+  label: Actual Treatment (N)
+  derivation: ADSL_SBJ.TRT01AN
+  submission:
+    mandatory: false
+    data_type: integer
+    length: 8
+    codelist: ARMN
+    origins:
+    - type: Derived
+    comment: ADSL.TRT01AN
+- name: TRTSDT
+  type: date
+  label: Date of First Exposure to Treatment
+  derivation: ADSL_SBJ.TRTSDT
+  submission:
+    mandatory: false
+    data_type: integer
+    length: 8
+    display_format: DATE9.
+    origins:
+    - type: Derived
+    comment: ADSL.TRTSDT
+- name: TRTEDT
+  type: date
+  label: Date of Last Exposure to Treatment
+  derivation: ADSL_SBJ.TRTEDT
+  submission:
+    mandatory: false
+    data_type: integer
+    length: 8
+    display_format: DATE9.
+    origins:
+    - type: Derived
+    comment: ADSL.TRTEDT
+- name: AGE
+  type: float
+  label: Age
+  derivation: ADSL_SBJ.AGE
+  submission:
+    mandatory: false
+    data_type: integer
+    length: 8
+    origins:
+    - type: Derived
+    comment: ADSL.AGE
+- name: AGEGR1
+  type: str
+  label: Pooled Age Group 1
+  derivation: ADSL_SBJ.AGEGR1
+  submission:
+    mandatory: false
+    data_type: text
+    length: 5
+    codelist: AGEGR1
+    origins:
+    - type: Derived
+    comment: ADSL.AGEGR1
+- name: AGEGR1N
+  type: float
+  label: Pooled Age Group 1 (N)
+  derivation: ADSL_SBJ.AGEGR1N
+  submission:
+    mandatory: false
+    data_type: integer
+    length: 8
+    codelist: AGEGR1N
+    origins:
+    - type: Derived
+    comment: ADSL.AGEGR1N
+- name: RACE
+  type: str
+  label: Race
+  derivation: ADSL_SBJ.RACE
+  submission:
+    mandatory: false
+    data_type: text
+    length: 32
+    codelist: RACE
+    origins:
+    - type: Derived
+    comment: ADSL.RACE
+- name: RACEN
+  type: float
+  label: Race (N)
+  derivation: ADSL_SBJ.RACEN
+  submission:
+    mandatory: false
+    data_type: integer
+    length: 8
+    codelist: RACEN
+    origins:
+    - type: Derived
+    comment: ADSL.RACEN
+- name: SEX
+  type: str
+  label: Sex
+  derivation: ADSL_SBJ.SEX
+  submission:
+    mandatory: false
+    data_type: text
+    length: 1
+    codelist: SEX
+    origins:
+    - type: Derived
+    comment: ADSL.SEX
+- name: COMP24FL
+  type: str
+  label: Completers of Week 24 Population Flag
+  derivation: ADSL_SBJ.COMP24FL
+  submission:
+    mandatory: false
+    data_type: text
+    length: 1
+    codelist: YN
+    origins:
+    - type: Derived
+    comment: ADSL.COMP24FL
+- name: DSRAEFL
+  type: str
+  label: Discontinued due to AE?
+  derivation: ADSL_SBJ.DSRAEFL
+  submission:
+    mandatory: false
+    data_type: text
+    length: 1
+    codelist: YN
+    origins:
+    - type: Derived
+    comment: ADSL.DSRAEFL
+- name: SAFFL
+  type: str
+  label: Safety Population Flag
+  derivation: ADSL_SBJ.SAFFL
+  submission:
+    mandatory: false
+    data_type: text
+    length: 1
+    codelist: YN
+    origins:
+    - type: Derived
+    comment: ADSL.SAFFL
+- name: _IS_UNDER
+  type: str
+  label: 'Working value: _IS_UNDER'
+- name: _IS_EOT
+  type: str
+  label: 'Working value: _IS_EOT'
+- name: _LBDTM_TXT
+  type: str
+  label: 'Working value: _LBDTM_TXT'
+- name: _LBDTM
+  type: datetime
+  label: 'Working value: _LBDTM'
+- name: _ADT_DATE
+  type: date
+  label: 'Working value: _ADT_DATE'
+- name: _PARAM_BASE
+  type: str
+  label: 'Working value: _PARAM_BASE'
+- name: _PARAMN_BASE
+  type: float
+  label: 'Working value: _PARAMN_BASE'
+- name: _EOT_A1LO_RAW
+  type: float
+  label: 'Working value: _EOT_A1LO_RAW'
+- name: _PARAM_UNDER_RAW
+  type: str
+  label: 'Working value: _PARAM_UNDER_RAW'
+  derivation:
+    case:
+    - when: _IS_UNDER = 'Y'
+      then:
+        str_template: '{_PARAM_BASE} change from previous visit, relative to normal
+          range'
+    - otherwise: null
+- name: _R2A1HI_R
+  type: float
+  label: 'Working value: _R2A1HI_R'
+- name: _R2A1LO_R
+  type: float
+  label: 'Working value: _R2A1LO_R'
+- name: _ANRIND_BASE
+  type: str
+  label: 'Working value: _ANRIND_BASE'
+- name: _BASELINE_ANRIND
+  type: str
+  label: 'Working value: _BASELINE_ANRIND'
+- name: _PNM_BNRIND
+  type: str
+  label: 'Working value: _PNM_BNRIND'
+- name: _BNRIND_VAL
+  type: str
+  label: 'Working value: _BNRIND_VAL'
+- name: _AVAL_BASE
+  type: float
+  label: 'Working value: _AVAL_BASE'
+- name: _BASE
+  type: float
+  label: 'Working value: _BASE'
+- name: _BASELINE_AVAL
+  type: float
+  label: 'Working value: _BASELINE_AVAL'
+- name: _PNM_BASE
+  type: float
+  label: 'Working value: _PNM_BASE'
+- name: _IS_LAST_ELIGIBLE
+  type: int
+  label: 'Working value: _IS_LAST_ELIGIBLE'
+- name: _RANK_AVISITN
+  type: float
+  label: 'Working value: _RANK_AVISITN'
+- name: _T1
+  type: float
+  label: 'Working value: _T1'
+- name: _T2
+  type: float
+  label: 'Working value: _T2'
+- name: _B_A1HI
+  type: float
+  label: 'Working value: _B_A1HI'
+- name: _B_A1LO
+  type: float
+  label: 'Working value: _B_A1LO'
+- name: _PARAMCD_BASE
+  type: str
+  label: 'Working value: _PARAMCD_BASE'
+- name: _SCHED
+  type: str
+  label: 'Working value: _SCHED'
+- name: _PREV_AVAL
+  type: float
+  label: 'Working value: _PREV_AVAL'
+- name: _U_RAW
+  type: float
+  label: 'Working value: _U_RAW'
+- name: _U_AVAL_ROUNDED
+  type: float
+  label: 'Working value: _U_AVAL_ROUNDED'
+  derivation:
+    round_half_away_from_zero:
+      source: _U_RAW
+      digits: 1
+- name: _U_AVAL
+  type: float
+  label: 'Working value: _U_AVAL'
+  derivation:
+    case:
+    - when: _IS_UNDER = 'Y' AND _SCHED = 'Y'
+      then: _U_AVAL_ROUNDED
+    - otherwise: null
+- name: _ABS_U_AVAL
+  type: float
+  label: 'Working value: _ABS_U_AVAL'
+  derivation: abs(_U_AVAL)
+- name: _LBCAT
+  type: str
+  label: 'Working value: _LBCAT'
+- name: _VISIT_RAW
+  type: str
+  label: 'Working value: _VISIT_RAW'
+- name: _LBBLFL
+  type: str
+  label: 'Working value: _LBBLFL'
+- name: _LBTESTCD
+  type: str
+  label: 'Working value: _LBTESTCD'
+- name: ABLFL
+  type: str
+  label: Baseline Record Flag
+  submission:
+    mandatory: false
+    data_type: text
+    length: 1
+    codelist: Y_BLANK
+    origins:
+    - type: Derived
+    value_level:
+    - id: ANISO
+      where:
+        PARAMCD:
+        - ANISO
+      label: Anisocytes
+      mandatory: false
+      data_type: text
+      length: 1
+      codelist: Y_BLANK
+      origins:
+      - type: Derived
+      comment: Y if VISITNUM=1, null otherwise
+    - id: BASO
+      where:
+        PARAMCD:
+        - BASO
+      label: Basophils (GI/L)
+      mandatory: false
+      data_type: text
+      length: 1
+      codelist: Y_BLANK
+      origins:
+      - type: Derived
+      comment: Y if VISITNUM=1, null otherwise
+    - id: EOS
+      where:
+        PARAMCD:
+        - EOS
+      label: Eosinophils (GI/L)
+      mandatory: false
+      data_type: text
+      length: 1
+      codelist: Y_BLANK
+      origins:
+      - type: Derived
+      comment: Y if VISITNUM=1, null otherwise
+    - id: MCHC
+      where:
+        PARAMCD:
+        - MCHC
+      label: Ery. Mean Corpuscular HGB Concentration (mmol/L)
+      mandatory: false
+      data_type: text
+      length: 1
+      codelist: Y_BLANK
+      origins:
+      - type: Derived
+      comment: Y if VISITNUM=1, null otherwise
+    - id: MCH
+      where:
+        PARAMCD:
+        - MCH
+      label: Ery. Mean Corpuscular Hemoglobin (fmol(Fe))
+      mandatory: false
+      data_type: text
+      length: 1
+      codelist: Y_BLANK
+      origins:
+      - type: Derived
+      comment: Y if VISITNUM=1, null otherwise
+    - id: MCV
+      where:
+        PARAMCD:
+        - MCV
+      label: Ery. Mean Corpuscular Volume (fL)
+      mandatory: false
+      data_type: text
+      length: 1
+      codelist: Y_BLANK
+      origins:
+      - type: Derived
+      comment: Y if VISITNUM=1, null otherwise
+    - id: RBC
+      where:
+        PARAMCD:
+        - RBC
+      label: Erythrocytes (TI/L)
+      mandatory: false
+      data_type: text
+      length: 1
+      codelist: Y_BLANK
+      origins:
+      - type: Derived
+      comment: Y if VISITNUM=1, null otherwise
+    - id: HCT
+      where:
+        PARAMCD:
+        - HCT
+      label: Hematocrit
+      mandatory: false
+      data_type: text
+      length: 1
+      codelist: Y_BLANK
+      origins:
+      - type: Derived
+      comment: Y if VISITNUM=1, null otherwise
+    - id: HGB
+      where:
+        PARAMCD:
+        - HGB
+      label: Hemoglobin (mmol/L)
+      mandatory: false
+      data_type: text
+      length: 1
+      codelist: Y_BLANK
+      origins:
+      - type: Derived
+      comment: Y if VISITNUM=1, null otherwise
+    - id: WBC
+      where:
+        PARAMCD:
+        - WBC
+      label: Leukocytes (GI/L)
+      mandatory: false
+      data_type: text
+      length: 1
+      codelist: Y_BLANK
+      origins:
+      - type: Derived
+      comment: Y if VISITNUM=1, null otherwise
+    - id: LYM
+      where:
+        PARAMCD:
+        - LYM
+      label: Lymphocytes (GI/L)
+      mandatory: false
+      data_type: text
+      length: 1
+      codelist: Y_BLANK
+      origins:
+      - type: Derived
+      comment: Y if VISITNUM=1, null otherwise
+    - id: MACROCY
+      where:
+        PARAMCD:
+        - MACROCY
+      label: Macrocytes
+      mandatory: false
+      data_type: text
+      length: 1
+      codelist: Y_BLANK
+      origins:
+      - type: Derived
+      comment: Y if VISITNUM=1, null otherwise
+    - id: MICROCY
+      where:
+        PARAMCD:
+        - MICROCY
+      label: Microcytes
+      mandatory: false
+      data_type: text
+      length: 1
+      codelist: Y_BLANK
+      origins:
+      - type: Derived
+      comment: Y if VISITNUM=1, null otherwise
+    - id: MONO
+      where:
+        PARAMCD:
+        - MONO
+      label: Monocytes (GI/L)
+      mandatory: false
+      data_type: text
+      length: 1
+      codelist: Y_BLANK
+      origins:
+      - type: Derived
+      comment: Y if VISITNUM=1, null otherwise
+    - id: PLAT
+      where:
+        PARAMCD:
+        - PLAT
+      label: Platelet (GI/L)
+      mandatory: false
+      data_type: text
+      length: 1
+      codelist: Y_BLANK
+      origins:
+      - type: Derived
+      comment: Y if VISITNUM=1, null otherwise
+    - id: POIKILO
+      where:
+        PARAMCD:
+        - POIKILO
+      label: Poikilocytes
+      mandatory: false
+      data_type: text
+      length: 1
+      codelist: Y_BLANK
+      origins:
+      - type: Derived
+      comment: Y if VISITNUM=1, null otherwise
+    - id: POLYCHR
+      where:
+        PARAMCD:
+        - POLYCHR
+      label: Polychromasia
+      mandatory: false
+      data_type: text
+      length: 1
+      codelist: Y_BLANK
+      origins:
+      - type: Derived
+      comment: Y if VISITNUM=1, null otherwise
+    - id: _ANISO
+      where:
+        PARAMCD:
+        - _ANISO
+      label: Anisocytes change from previous visit, relative to normal range
+      mandatory: false
+      data_type: text
+      length: 1
+      origins:
+      - type: Derived
+      comment: Set to missing
+    - id: _BASO
+      where:
+        PARAMCD:
+        - _BASO
+      label: Basophils (GI/L) change from previous visit, relative to normal range
+      mandatory: false
+      data_type: text
+      length: 1
+      origins:
+      - type: Derived
+      comment: Set to missing
+    - id: _EOS
+      where:
+        PARAMCD:
+        - _EOS
+      label: Eosinophils (GI/L) change from previous visit, relative to normal range
+      mandatory: false
+      data_type: text
+      length: 1
+      origins:
+      - type: Derived
+      comment: Set to missing
+    - id: _MCHC
+      where:
+        PARAMCD:
+        - _MCHC
+      label: Ery. Mean Corpuscular HGB Concentration (mmol/L) change from previous
+        visit, relative to normal rang
+      mandatory: false
+      data_type: text
+      length: 1
+      origins:
+      - type: Derived
+      comment: Set to missing
+    - id: _MCH
+      where:
+        PARAMCD:
+        - _MCH
+      label: Ery. Mean Corpuscular Hemoglobin (fmol(Fe)) change from previous visit,
+        relative to normal range
+      mandatory: false
+      data_type: text
+      length: 1
+      origins:
+      - type: Derived
+      comment: Set to missing
+    - id: _MCV
+      where:
+        PARAMCD:
+        - _MCV
+      label: Ery. Mean Corpuscular Volume (fL) change from previous visit, relative
+        to normal range
+      mandatory: false
+      data_type: text
+      length: 1
+      origins:
+      - type: Derived
+      comment: Set to missing
+    - id: _RBC
+      where:
+        PARAMCD:
+        - _RBC
+      label: Erythrocytes (TI/L) change from previous visit, relative to normal range
+      mandatory: false
+      data_type: text
+      length: 1
+      origins:
+      - type: Derived
+      comment: Set to missing
+    - id: _HCT
+      where:
+        PARAMCD:
+        - _HCT
+      label: Hematocrit change from previous visit, relative to normal range
+      mandatory: false
+      data_type: text
+      length: 1
+      origins:
+      - type: Derived
+      comment: Set to missing
+    - id: _HGB
+      where:
+        PARAMCD:
+        - _HGB
+      label: Hemoglobin (mmol/L) change from previous visit, relative to normal range
+      mandatory: false
+      data_type: text
+      length: 1
+      origins:
+      - type: Derived
+      comment: Set to missing
+    - id: _WBC
+      where:
+        PARAMCD:
+        - _WBC
+      label: Leukocytes (GI/L) change from previous visit, relative to normal range
+      mandatory: false
+      data_type: text
+      length: 1
+      origins:
+      - type: Derived
+      comment: Set to missing
+    - id: _LYM
+      where:
+        PARAMCD:
+        - _LYM
+      label: Lymphocytes (GI/L) change from previous visit, relative to normal range
+      mandatory: false
+      data_type: text
+      length: 1
+      origins:
+      - type: Derived
+      comment: Set to missing
+    - id: _MACROCY
+      where:
+        PARAMCD:
+        - _MACROCY
+      label: Macrocytes change from previous visit, relative to normal range
+      mandatory: false
+      data_type: text
+      length: 1
+      origins:
+      - type: Derived
+      comment: Set to missing
+    - id: _MICROCY
+      where:
+        PARAMCD:
+        - _MICROCY
+      label: Microcytes change from previous visit, relative to normal range
+      mandatory: false
+      data_type: text
+      length: 1
+      origins:
+      - type: Derived
+      comment: Set to missing
+    - id: _MONO
+      where:
+        PARAMCD:
+        - _MONO
+      label: Monocytes (GI/L) change from previous visit, relative to normal range
+      mandatory: false
+      data_type: text
+      length: 1
+      origins:
+      - type: Derived
+      comment: Set to missing
+    - id: _PLAT
+      where:
+        PARAMCD:
+        - _PLAT
+      label: Platelet (GI/L) change from previous visit, relative to normal range
+      mandatory: false
+      data_type: text
+      length: 1
+      origins:
+      - type: Derived
+      comment: Set to missing
+    - id: _POIKILO
+      where:
+        PARAMCD:
+        - _POIKILO
+      label: Poikilocytes change from previous visit, relative to normal range
+      mandatory: false
+      data_type: text
+      length: 1
+      origins:
+      - type: Derived
+      comment: Set to missing
+    - id: _POLYCHR
+      where:
+        PARAMCD:
+        - _POLYCHR
+      label: Polychromasia change from previous visit, relative to normal range
+      mandatory: false
+      data_type: text
+      length: 1
+      origins:
+      - type: Derived
+      comment: Set to missing
+- name: ALBTRVAL
+  type: float
+  label: Amount Threshold Range
+  submission:
+    mandatory: false
+    data_type: float
+    length: 8
+    significant_digits: 3
+    origins:
+    - type: Derived
+    comment: Maximum of [LBSTRESN-(1.5*ULN)] and [(.5*LLN) - LBSTRESN]
+- name: _RANK_VAL
+  type: float
+  label: 'Working value: _RANK_VAL'
+  derivation:
+    case:
+    - when: _IS_UNDER = 'Y'
+      then: _ABS_U_AVAL
+    - otherwise: ALBTRVAL
+- name: _ANL01_RANK
+  type: int
+  label: 'Working value: _ANL01_RANK'
+  derivation:
+    rank:
+      method: competition
+      window:
+        group_by:
+        - USUBJID
+        - PARAMCD
+        order_by:
+        - variable: _RANK_VAL
+          direction: desc
+          nulls: last
+        - variable: _RANK_AVISITN
+          direction: asc
+          nulls: last
+        - variable: _ADT_DATE
+          direction: asc
+          nulls: last
+        - variable: LBSEQ
+          direction: asc
+          nulls: last
+        filter: _RANK_AVISITN >= 2 AND _RANK_AVISITN <= 24
+- name: AVISIT
+  type: str
+  label: Analysis Visit
+  submission:
+    key_sequence: 3
+    mandatory: false
+    data_type: text
+    length: 16
+    codelist: AVISIT
+    origins:
+    - type: Derived
+    comment: Analysis Visit
+- name: AVISITN
+  type: float
+  label: Analysis Visit (N)
+  submission:
+    mandatory: false
+    data_type: integer
+    length: 8
+    codelist: AVISITN
+    origins:
+    - type: Derived
+    comment: Numeric code for AVISIT
+- name: ADY
+  type: float
+  label: Analysis Relative Day
+  derivation:
+    study_day:
+      source: _ADT_DATE
+      reference: TRTSDT
+  submission:
+    mandatory: false
+    data_type: integer
+    length: 8
+    origins:
+    - type: Derived
+    comment: LB.LBDY
+- name: ADT
+  type: date
+  label: Analysis Date
+  derivation: _ADT_DATE
+  submission:
+    mandatory: false
+    data_type: integer
+    length: 8
+    display_format: DATE9.
+    origins:
+    - type: Derived
+    comment: LB.LBDTC converted to SAS date
+- name: VISIT
+  type: str
+  label: Visit Name
+  submission:
+    mandatory: false
+    data_type: text
+    length: 19
+    codelist: VISIT
+    origins:
+    - type: Derived
+    comment: LB.VISIT
+- name: VISITNUM
+  type: float
+  label: Visit Number
+  submission:
+    mandatory: false
+    data_type: float
+    length: 8
+    significant_digits: 1
+    codelist: VISITNUM
+    origins:
+    - type: Derived
+    comment: LB.VISITNUM
+- name: PARAM
+  type: str
+  label: Parameter
+  derivation:
+    case:
+    - when: _IS_UNDER = 'Y'
+      then:
+        str_extract:
+          source: _PARAM_UNDER_RAW
+          pattern: ^.{1,100}
+          group: 0
+    - otherwise: _PARAM_BASE
+  submission:
+    mandatory: false
+    data_type: text
+    length: 100
+    codelist: PARAM_ADLBH
+    origins:
+    - type: Derived
+    comment: 'For PARAMN<100: same as LBTEST concatenated with LBSTRESU For PARAMN>100:
+      LBTEST concatenated with LB.LBSTRESU concatenated with "change from previous
+      visit, relative to normal range"'
+- name: PARAMCD
+  type: str
+  label: Parameter Code
+  submission:
+    key_sequence: 2
+    mandatory: false
+    data_type: text
+    length: 8
+    codelist: PARAMCD_ADLBH
+    origins:
+    - type: Derived
+    comment: 'For PARAMN<100: same as LBTESTCD For PARAMN>100: _ + LBTESTCD'
+- name: PARAMN
+  type: float
+  label: Parameter (N)
+  derivation:
+    case:
+    - when: _IS_UNDER = 'Y'
+      then: _PARAMN_BASE + 100
+    - otherwise: _PARAMN_BASE
+  submission:
+    mandatory: false
+    data_type: integer
+    length: 8
+    codelist: PARAMN_ADLBH
+    origins:
+    - type: Derived
+    comment: Numeric code for Parameter
+- name: PARCAT1
+  type: str
+  label: Parameter Category 1
+  derivation: '''HEM'''
+  submission:
+    mandatory: false
+    data_type: text
+    length: 5
+    codelist: ADLBCAT
+    origins:
+    - type: Derived
+    comment: harcoded to 'HEM'
+- name: AVAL
+  type: float
+  label: Analysis Value
+  derivation:
+    case:
+    - when: _IS_UNDER = 'Y'
+      then: _U_AVAL
+    - otherwise: _AVAL_BASE
+  submission:
+    mandatory: false
+    data_type: float
+    length: 8
+    significant_digits: 5
+    origins:
+    - type: Derived
+    value_level:
+    - id: ANISO
+      where:
+        PARAMCD:
+        - ANISO
+      label: Anisocytes
+      mandatory: false
+      data_type: integer
+      length: 8
+      origins:
+      - type: Derived
+      comment: LB.LBSTRESN
+    - id: BASO
+      where:
+        PARAMCD:
+        - BASO
+      label: Basophils (GI/L)
+      mandatory: false
+      data_type: float
+      length: 8
+      significant_digits: 2
+      display_format: '4.2'
+      origins:
+      - type: Derived
+      comment: LB.LBSTRESN
+    - id: EOS
+      where:
+        PARAMCD:
+        - EOS
+      label: Eosinophils (GI/L)
+      mandatory: false
+      data_type: float
+      length: 8
+      significant_digits: 2
+      display_format: '4.2'
+      origins:
+      - type: Derived
+      comment: LB.LBSTRESN
+    - id: MCHC
+      where:
+        PARAMCD:
+        - MCHC
+      label: Ery. Mean Corpuscular HGB Concentration (mmol/L)
+      mandatory: false
+      data_type: float
+      length: 8
+      significant_digits: 4
+      display_format: '7.4'
+      origins:
+      - type: Derived
+      comment: LB.LBSTRESN
+    - id: MCH
+      where:
+        PARAMCD:
+        - MCH
+      label: Ery. Mean Corpuscular Hemoglobin (fmol(Fe))
+      mandatory: false
+      data_type: float
+      length: 8
+      significant_digits: 5
+      display_format: '7.5'
+      origins:
+      - type: Derived
+      comment: LB.LBSTRESN
+    - id: MCV
+      where:
+        PARAMCD:
+        - MCV
+      label: Ery. Mean Corpuscular Volume (fL)
+      mandatory: false
+      data_type: integer
+      length: 8
+      origins:
+      - type: Derived
+      comment: LB.LBSTRESN
+    - id: RBC
+      where:
+        PARAMCD:
+        - RBC
+      label: Erythrocytes (TI/L)
+      mandatory: false
+      data_type: float
+      length: 8
+      significant_digits: 1
+      display_format: '3.1'
+      origins:
+      - type: Derived
+      comment: LB.LBSTRESN
+    - id: HCT
+      where:
+        PARAMCD:
+        - HCT
+      label: Hematocrit
+      mandatory: false
+      data_type: float
+      length: 8
+      significant_digits: 2
+      display_format: '4.2'
+      origins:
+      - type: Derived
+      comment: LB.LBSTRESN
+    - id: HGB
+      where:
+        PARAMCD:
+        - HGB
+      label: Hemoglobin (mmol/L)
+      mandatory: false
+      data_type: float
+      length: 8
+      significant_digits: 5
+      display_format: '8.5'
+      origins:
+      - type: Derived
+      comment: LB.LBSTRESN
+    - id: WBC
+      where:
+        PARAMCD:
+        - WBC
+      label: Leukocytes (GI/L)
+      mandatory: false
+      data_type: float
+      length: 8
+      significant_digits: 2
+      display_format: '5.2'
+      origins:
+      - type: Derived
+      comment: LB.LBSTRESN
+    - id: LYM
+      where:
+        PARAMCD:
+        - LYM
+      label: Lymphocytes (GI/L)
+      mandatory: false
+      data_type: float
+      length: 8
+      significant_digits: 2
+      display_format: '4.2'
+      origins:
+      - type: Derived
+      comment: LB.LBSTRESN
+    - id: MACROCY
+      where:
+        PARAMCD:
+        - MACROCY
+      label: Macrocytes
+      mandatory: false
+      data_type: integer
+      length: 8
+      origins:
+      - type: Derived
+      comment: LB.LBSTRESN
+    - id: MICROCY
+      where:
+        PARAMCD:
+        - MICROCY
+      label: Microcytes
+      mandatory: false
+      data_type: integer
+      length: 8
+      origins:
+      - type: Derived
+      comment: LB.LBSTRESN
+    - id: MONO
+      where:
+        PARAMCD:
+        - MONO
+      label: Monocytes (GI/L)
+      mandatory: false
+      data_type: float
+      length: 8
+      significant_digits: 2
+      display_format: '4.2'
+      origins:
+      - type: Derived
+      comment: LB.LBSTRESN
+    - id: PLAT
+      where:
+        PARAMCD:
+        - PLAT
+      label: Platelet (GI/L)
+      mandatory: false
+      data_type: integer
+      length: 8
+      origins:
+      - type: Derived
+      comment: LB.LBSTRESN
+    - id: POIKILO
+      where:
+        PARAMCD:
+        - POIKILO
+      label: Poikilocytes
+      mandatory: false
+      data_type: integer
+      length: 8
+      origins:
+      - type: Derived
+      comment: LB.LBSTRESN
+    - id: POLYCHR
+      where:
+        PARAMCD:
+        - POLYCHR
+      label: Polychromasia
+      mandatory: false
+      data_type: integer
+      length: 8
+      origins:
+      - type: Derived
+      comment: LB.LBSTRESN
+    - id: _ANISO
+      where:
+        PARAMCD:
+        - _ANISO
+      label: Anisocytes change from previous visit, relative to normal range
+      mandatory: false
+      data_type: float
+      length: 8
+      significant_digits: 1
+      display_format: '4.1'
+      origins:
+      - type: Derived
+      comment: (LBSTRESN - previous LBSTRESN)/(.5*(LBSTNRHI-LBSTNRLO)); null if LBBLFL=Y
+    - id: _BASO
+      where:
+        PARAMCD:
+        - _BASO
+      label: Basophils (GI/L) change from previous visit, relative to normal range
+      mandatory: false
+      data_type: float
+      length: 8
+      significant_digits: 1
+      display_format: '4.1'
+      origins:
+      - type: Derived
+      comment: (LBSTRESN - previous LBSTRESN)/(.5*(LBSTNRHI-LBSTNRLO)); null if LBBLFL=Y
+    - id: _EOS
+      where:
+        PARAMCD:
+        - _EOS
+      label: Eosinophils (GI/L) change from previous visit, relative to normal range
+      mandatory: false
+      data_type: float
+      length: 8
+      significant_digits: 1
+      display_format: '4.1'
+      origins:
+      - type: Derived
+      comment: (LBSTRESN - previous LBSTRESN)/(.5*(LBSTNRHI-LBSTNRLO)); null if LBBLFL=Y
+    - id: _MCHC
+      where:
+        PARAMCD:
+        - _MCHC
+      label: Ery. Mean Corpuscular HGB Concentration (mmol/L) change from previous
+        visit, relative to normal rang
+      mandatory: false
+      data_type: float
+      length: 8
+      significant_digits: 1
+      display_format: '4.1'
+      origins:
+      - type: Derived
+      comment: (LBSTRESN - previous LBSTRESN)/(.5*(LBSTNRHI-LBSTNRLO)); null if LBBLFL=Y
+    - id: _MCH
+      where:
+        PARAMCD:
+        - _MCH
+      label: Ery. Mean Corpuscular Hemoglobin (fmol(Fe)) change from previous visit,
+        relative to normal range
+      mandatory: false
+      data_type: float
+      length: 8
+      significant_digits: 1
+      display_format: '4.1'
+      origins:
+      - type: Derived
+      comment: (LBSTRESN - previous LBSTRESN)/(.5*(LBSTNRHI-LBSTNRLO)); null if LBBLFL=Y
+    - id: _MCV
+      where:
+        PARAMCD:
+        - _MCV
+      label: Ery. Mean Corpuscular Volume (fL) change from previous visit, relative
+        to normal range
+      mandatory: false
+      data_type: float
+      length: 8
+      significant_digits: 1
+      display_format: '4.1'
+      origins:
+      - type: Derived
+      comment: (LBSTRESN - previous LBSTRESN)/(.5*(LBSTNRHI-LBSTNRLO)); null if LBBLFL=Y
+    - id: _RBC
+      where:
+        PARAMCD:
+        - _RBC
+      label: Erythrocytes (TI/L) change from previous visit, relative to normal range
+      mandatory: false
+      data_type: float
+      length: 8
+      significant_digits: 1
+      display_format: '4.1'
+      origins:
+      - type: Derived
+      comment: (LBSTRESN - previous LBSTRESN)/(.5*(LBSTNRHI-LBSTNRLO)); null if LBBLFL=Y
+    - id: _HCT
+      where:
+        PARAMCD:
+        - _HCT
+      label: Hematocrit change from previous visit, relative to normal range
+      mandatory: false
+      data_type: float
+      length: 8
+      significant_digits: 1
+      display_format: '4.1'
+      origins:
+      - type: Derived
+      comment: (LBSTRESN - previous LBSTRESN)/(.5*(LBSTNRHI-LBSTNRLO)); null if LBBLFL=Y
+    - id: _HGB
+      where:
+        PARAMCD:
+        - _HGB
+      label: Hemoglobin (mmol/L) change from previous visit, relative to normal range
+      mandatory: false
+      data_type: float
+      length: 8
+      significant_digits: 1
+      display_format: '4.1'
+      origins:
+      - type: Derived
+      comment: (LBSTRESN - previous LBSTRESN)/(.5*(LBSTNRHI-LBSTNRLO)); null if LBBLFL=Y
+    - id: _WBC
+      where:
+        PARAMCD:
+        - _WBC
+      label: Leukocytes (GI/L) change from previous visit, relative to normal range
+      mandatory: false
+      data_type: float
+      length: 8
+      significant_digits: 1
+      display_format: '4.1'
+      origins:
+      - type: Derived
+      comment: (LBSTRESN - previous LBSTRESN)/(.5*(LBSTNRHI-LBSTNRLO)); null if LBBLFL=Y
+    - id: _LYM
+      where:
+        PARAMCD:
+        - _LYM
+      label: Lymphocytes (GI/L) change from previous visit, relative to normal range
+      mandatory: false
+      data_type: float
+      length: 8
+      significant_digits: 1
+      display_format: '4.1'
+      origins:
+      - type: Derived
+      comment: (LBSTRESN - previous LBSTRESN)/(.5*(LBSTNRHI-LBSTNRLO)); null if LBBLFL=Y
+    - id: _MACROCY
+      where:
+        PARAMCD:
+        - _MACROCY
+      label: Macrocytes change from previous visit, relative to normal range
+      mandatory: false
+      data_type: float
+      length: 8
+      significant_digits: 1
+      display_format: '4.1'
+      origins:
+      - type: Derived
+      comment: (LBSTRESN - previous LBSTRESN)/(.5*(LBSTNRHI-LBSTNRLO)); null if LBBLFL=Y
+    - id: _MICROCY
+      where:
+        PARAMCD:
+        - _MICROCY
+      label: Microcytes change from previous visit, relative to normal range
+      mandatory: false
+      data_type: float
+      length: 8
+      significant_digits: 1
+      display_format: '4.1'
+      origins:
+      - type: Derived
+      comment: (LBSTRESN - previous LBSTRESN)/(.5*(LBSTNRHI-LBSTNRLO)); null if LBBLFL=Y
+    - id: _MONO
+      where:
+        PARAMCD:
+        - _MONO
+      label: Monocytes (GI/L) change from previous visit, relative to normal range
+      mandatory: false
+      data_type: float
+      length: 8
+      significant_digits: 1
+      display_format: '4.1'
+      origins:
+      - type: Derived
+      comment: (LBSTRESN - previous LBSTRESN)/(.5*(LBSTNRHI-LBSTNRLO)); null if LBBLFL=Y
+    - id: _PLAT
+      where:
+        PARAMCD:
+        - _PLAT
+      label: Platelet (GI/L) change from previous visit, relative to normal range
+      mandatory: false
+      data_type: float
+      length: 8
+      significant_digits: 1
+      display_format: '4.1'
+      origins:
+      - type: Derived
+      comment: (LBSTRESN - previous LBSTRESN)/(.5*(LBSTNRHI-LBSTNRLO)); null if LBBLFL=Y
+    - id: _POIKILO
+      where:
+        PARAMCD:
+        - _POIKILO
+      label: Poikilocytes change from previous visit, relative to normal range
+      mandatory: false
+      data_type: float
+      length: 8
+      significant_digits: 1
+      display_format: '4.1'
+      origins:
+      - type: Derived
+      comment: (LBSTRESN - previous LBSTRESN)/(.5*(LBSTNRHI-LBSTNRLO)); null if LBBLFL=Y
+    - id: _POLYCHR
+      where:
+        PARAMCD:
+        - _POLYCHR
+      label: Polychromasia change from previous visit, relative to normal range
+      mandatory: false
+      data_type: float
+      length: 8
+      significant_digits: 1
+      display_format: '4.1'
+      origins:
+      - type: Derived
+      comment: (LBSTRESN - previous LBSTRESN)/(.5*(LBSTNRHI-LBSTNRLO)); null if LBBLFL=Y
+- name: BASE
+  type: float
+  label: Baseline Value
+  derivation: _BASE
+  submission:
+    mandatory: false
+    data_type: float
+    length: 8
+    significant_digits: 5
+    origins:
+    - type: Derived
+    value_level:
+    - id: ANISO
+      where:
+        PARAMCD:
+        - ANISO
+      label: Anisocytes
+      mandatory: false
+      data_type: integer
+      length: 8
+      origins:
+      - type: Derived
+      comment: LBSTRESN when ADLBC.ABLFL=Y
+    - id: BASO
+      where:
+        PARAMCD:
+        - BASO
+      label: Basophils (GI/L)
+      mandatory: false
+      data_type: float
+      length: 8
+      significant_digits: 2
+      display_format: '4.2'
+      origins:
+      - type: Derived
+      comment: LBSTRESN when ADLBC.ABLFL=Y
+    - id: EOS
+      where:
+        PARAMCD:
+        - EOS
+      label: Eosinophils (GI/L)
+      mandatory: false
+      data_type: float
+      length: 8
+      significant_digits: 2
+      display_format: '4.2'
+      origins:
+      - type: Derived
+      comment: LBSTRESN when ADLBC.ABLFL=Y
+    - id: MCHC
+      where:
+        PARAMCD:
+        - MCHC
+      label: Ery. Mean Corpuscular HGB Concentration (mmol/L)
+      mandatory: false
+      data_type: float
+      length: 8
+      significant_digits: 4
+      display_format: '7.4'
+      origins:
+      - type: Derived
+      comment: LBSTRESN when ADLBC.ABLFL=Y
+    - id: MCH
+      where:
+        PARAMCD:
+        - MCH
+      label: Ery. Mean Corpuscular Hemoglobin (fmol(Fe))
+      mandatory: false
+      data_type: float
+      length: 8
+      significant_digits: 5
+      display_format: '7.5'
+      origins:
+      - type: Derived
+      comment: LBSTRESN when ADLBC.ABLFL=Y
+    - id: MCV
+      where:
+        PARAMCD:
+        - MCV
+      label: Ery. Mean Corpuscular Volume (fL)
+      mandatory: false
+      data_type: integer
+      length: 8
+      origins:
+      - type: Derived
+      comment: LBSTRESN when ADLBC.ABLFL=Y
+    - id: RBC
+      where:
+        PARAMCD:
+        - RBC
+      label: Erythrocytes (TI/L)
+      mandatory: false
+      data_type: float
+      length: 8
+      significant_digits: 1
+      display_format: '3.1'
+      origins:
+      - type: Derived
+      comment: LBSTRESN when ADLBC.ABLFL=Y
+    - id: HCT
+      where:
+        PARAMCD:
+        - HCT
+      label: Hematocrit
+      mandatory: false
+      data_type: float
+      length: 8
+      significant_digits: 2
+      display_format: '4.2'
+      origins:
+      - type: Derived
+      comment: LBSTRESN when ADLBC.ABLFL=Y
+    - id: HGB
+      where:
+        PARAMCD:
+        - HGB
+      label: Hemoglobin (mmol/L)
+      mandatory: false
+      data_type: float
+      length: 8
+      significant_digits: 5
+      display_format: '8.5'
+      origins:
+      - type: Derived
+      comment: LBSTRESN when ADLBC.ABLFL=Y
+    - id: WBC
+      where:
+        PARAMCD:
+        - WBC
+      label: Leukocytes (GI/L)
+      mandatory: false
+      data_type: float
+      length: 8
+      significant_digits: 2
+      display_format: '5.2'
+      origins:
+      - type: Derived
+      comment: LBSTRESN when ADLBC.ABLFL=Y
+    - id: LYM
+      where:
+        PARAMCD:
+        - LYM
+      label: Lymphocytes (GI/L)
+      mandatory: false
+      data_type: float
+      length: 8
+      significant_digits: 2
+      display_format: '4.2'
+      origins:
+      - type: Derived
+      comment: LBSTRESN when ADLBC.ABLFL=Y
+    - id: MACROCY
+      where:
+        PARAMCD:
+        - MACROCY
+      label: Macrocytes
+      mandatory: false
+      data_type: integer
+      length: 8
+      origins:
+      - type: Derived
+      comment: LBSTRESN when ADLBC.ABLFL=Y
+    - id: MICROCY
+      where:
+        PARAMCD:
+        - MICROCY
+      label: Microcytes
+      mandatory: false
+      data_type: integer
+      length: 8
+      origins:
+      - type: Derived
+      comment: LBSTRESN when ADLBC.ABLFL=Y
+    - id: MONO
+      where:
+        PARAMCD:
+        - MONO
+      label: Monocytes (GI/L)
+      mandatory: false
+      data_type: float
+      length: 8
+      significant_digits: 2
+      display_format: '4.2'
+      origins:
+      - type: Derived
+      comment: LBSTRESN when ADLBC.ABLFL=Y
+    - id: PLAT
+      where:
+        PARAMCD:
+        - PLAT
+      label: Platelet (GI/L)
+      mandatory: false
+      data_type: integer
+      length: 8
+      origins:
+      - type: Derived
+      comment: LBSTRESN when ADLBC.ABLFL=Y
+    - id: POIKILO
+      where:
+        PARAMCD:
+        - POIKILO
+      label: Poikilocytes
+      mandatory: false
+      data_type: integer
+      length: 8
+      origins:
+      - type: Derived
+      comment: LBSTRESN when ADLBC.ABLFL=Y
+    - id: POLYCHR
+      where:
+        PARAMCD:
+        - POLYCHR
+      label: Polychromasia
+      mandatory: false
+      data_type: integer
+      length: 8
+      origins:
+      - type: Derived
+      comment: LBSTRESN when ADLBC.ABLFL=Y
+    - id: _ANISO
+      where:
+        PARAMCD:
+        - _ANISO
+      label: Anisocytes change from previous visit, relative to normal range
+      mandatory: false
+      data_type: integer
+      length: 8
+      origins:
+      - type: Derived
+      comment: Set to missing
+    - id: _BASO
+      where:
+        PARAMCD:
+        - _BASO
+      label: Basophils (GI/L) change from previous visit, relative to normal range
+      mandatory: false
+      data_type: integer
+      length: 8
+      origins:
+      - type: Derived
+      comment: Set to missing
+    - id: _EOS
+      where:
+        PARAMCD:
+        - _EOS
+      label: Eosinophils (GI/L) change from previous visit, relative to normal range
+      mandatory: false
+      data_type: integer
+      length: 8
+      origins:
+      - type: Derived
+      comment: Set to missing
+    - id: _MCHC
+      where:
+        PARAMCD:
+        - _MCHC
+      label: Ery. Mean Corpuscular HGB Concentration (mmol/L) change from previous
+        visit, relative to normal rang
+      mandatory: false
+      data_type: integer
+      length: 8
+      origins:
+      - type: Derived
+      comment: Set to missing
+    - id: _MCH
+      where:
+        PARAMCD:
+        - _MCH
+      label: Ery. Mean Corpuscular Hemoglobin (fmol(Fe)) change from previous visit,
+        relative to normal range
+      mandatory: false
+      data_type: integer
+      length: 8
+      origins:
+      - type: Derived
+      comment: Set to missing
+    - id: _MCV
+      where:
+        PARAMCD:
+        - _MCV
+      label: Ery. Mean Corpuscular Volume (fL) change from previous visit, relative
+        to normal range
+      mandatory: false
+      data_type: integer
+      length: 8
+      origins:
+      - type: Derived
+      comment: Set to missing
+    - id: _RBC
+      where:
+        PARAMCD:
+        - _RBC
+      label: Erythrocytes (TI/L) change from previous visit, relative to normal range
+      mandatory: false
+      data_type: integer
+      length: 8
+      origins:
+      - type: Derived
+      comment: Set to missing
+    - id: _HCT
+      where:
+        PARAMCD:
+        - _HCT
+      label: Hematocrit change from previous visit, relative to normal range
+      mandatory: false
+      data_type: integer
+      length: 8
+      origins:
+      - type: Derived
+      comment: Set to missing
+    - id: _HGB
+      where:
+        PARAMCD:
+        - _HGB
+      label: Hemoglobin (mmol/L) change from previous visit, relative to normal range
+      mandatory: false
+      data_type: integer
+      length: 8
+      origins:
+      - type: Derived
+      comment: Set to missing
+    - id: _WBC
+      where:
+        PARAMCD:
+        - _WBC
+      label: Leukocytes (GI/L) change from previous visit, relative to normal range
+      mandatory: false
+      data_type: integer
+      length: 8
+      origins:
+      - type: Derived
+      comment: Set to missing
+    - id: _LYM
+      where:
+        PARAMCD:
+        - _LYM
+      label: Lymphocytes (GI/L) change from previous visit, relative to normal range
+      mandatory: false
+      data_type: integer
+      length: 8
+      origins:
+      - type: Derived
+      comment: Set to missing
+    - id: _MACROCY
+      where:
+        PARAMCD:
+        - _MACROCY
+      label: Macrocytes change from previous visit, relative to normal range
+      mandatory: false
+      data_type: integer
+      length: 8
+      origins:
+      - type: Derived
+      comment: Set to missing
+    - id: _MICROCY
+      where:
+        PARAMCD:
+        - _MICROCY
+      label: Microcytes change from previous visit, relative to normal range
+      mandatory: false
+      data_type: integer
+      length: 8
+      origins:
+      - type: Derived
+      comment: Set to missing
+    - id: _MONO
+      where:
+        PARAMCD:
+        - _MONO
+      label: Monocytes (GI/L) change from previous visit, relative to normal range
+      mandatory: false
+      data_type: integer
+      length: 8
+      origins:
+      - type: Derived
+      comment: Set to missing
+    - id: _PLAT
+      where:
+        PARAMCD:
+        - _PLAT
+      label: Platelet (GI/L) change from previous visit, relative to normal range
+      mandatory: false
+      data_type: integer
+      length: 8
+      origins:
+      - type: Derived
+      comment: Set to missing
+    - id: _POIKILO
+      where:
+        PARAMCD:
+        - _POIKILO
+      label: Poikilocytes change from previous visit, relative to normal range
+      mandatory: false
+      data_type: integer
+      length: 8
+      origins:
+      - type: Derived
+      comment: Set to missing
+    - id: _POLYCHR
+      where:
+        PARAMCD:
+        - _POLYCHR
+      label: Polychromasia change from previous visit, relative to normal range
+      mandatory: false
+      data_type: integer
+      length: 8
+      origins:
+      - type: Derived
+      comment: Set to missing
+- name: CHG
+  type: float
+  label: Change from Baseline
+  derivation:
+    case:
+    - when: _IS_UNDER = 'Y'
+      then: null
+    - when: ABLFL = 'Y'
+      then: null
+    - otherwise: _AVAL_BASE - _BASE
+  submission:
+    mandatory: false
+    data_type: float
+    length: 8
+    significant_digits: 5
+    origins:
+    - type: Derived
+    value_level:
+    - id: ANISO
+      where:
+        PARAMCD:
+        - ANISO
+      label: Anisocytes
+      mandatory: false
+      data_type: integer
+      length: 8
+      origins:
+      - type: Derived
+      comment: AVAL - BASE
+    - id: BASO
+      where:
+        PARAMCD:
+        - BASO
+      label: Basophils (GI/L)
+      mandatory: false
+      data_type: float
+      length: 8
+      significant_digits: 2
+      display_format: '4.2'
+      origins:
+      - type: Derived
+      comment: AVAL - BASE
+    - id: EOS
+      where:
+        PARAMCD:
+        - EOS
+      label: Eosinophils (GI/L)
+      mandatory: false
+      data_type: float
+      length: 8
+      significant_digits: 2
+      display_format: '4.2'
+      origins:
+      - type: Derived
+      comment: AVAL - BASE
+    - id: MCHC
+      where:
+        PARAMCD:
+        - MCHC
+      label: Ery. Mean Corpuscular HGB Concentration (mmol/L)
+      mandatory: false
+      data_type: float
+      length: 8
+      significant_digits: 4
+      display_format: '7.4'
+      origins:
+      - type: Derived
+      comment: AVAL - BASE
+    - id: MCH
+      where:
+        PARAMCD:
+        - MCH
+      label: Ery. Mean Corpuscular Hemoglobin (fmol(Fe))
+      mandatory: false
+      data_type: float
+      length: 8
+      significant_digits: 5
+      display_format: '7.5'
+      origins:
+      - type: Derived
+      comment: AVAL - BASE
+    - id: MCV
+      where:
+        PARAMCD:
+        - MCV
+      label: Ery. Mean Corpuscular Volume (fL)
+      mandatory: false
+      data_type: integer
+      length: 8
+      origins:
+      - type: Derived
+      comment: AVAL - BASE
+    - id: RBC
+      where:
+        PARAMCD:
+        - RBC
+      label: Erythrocytes (TI/L)
+      mandatory: false
+      data_type: float
+      length: 8
+      significant_digits: 1
+      display_format: '3.1'
+      origins:
+      - type: Derived
+      comment: AVAL - BASE
+    - id: HCT
+      where:
+        PARAMCD:
+        - HCT
+      label: Hematocrit
+      mandatory: false
+      data_type: float
+      length: 8
+      significant_digits: 2
+      display_format: '4.2'
+      origins:
+      - type: Derived
+      comment: AVAL - BASE
+    - id: HGB
+      where:
+        PARAMCD:
+        - HGB
+      label: Hemoglobin (mmol/L)
+      mandatory: false
+      data_type: float
+      length: 8
+      significant_digits: 5
+      display_format: '8.5'
+      origins:
+      - type: Derived
+      comment: AVAL - BASE
+    - id: WBC
+      where:
+        PARAMCD:
+        - WBC
+      label: Leukocytes (GI/L)
+      mandatory: false
+      data_type: float
+      length: 8
+      significant_digits: 2
+      display_format: '5.2'
+      origins:
+      - type: Derived
+      comment: AVAL - BASE
+    - id: LYM
+      where:
+        PARAMCD:
+        - LYM
+      label: Lymphocytes (GI/L)
+      mandatory: false
+      data_type: float
+      length: 8
+      significant_digits: 2
+      display_format: '4.2'
+      origins:
+      - type: Derived
+      comment: AVAL - BASE
+    - id: MACROCY
+      where:
+        PARAMCD:
+        - MACROCY
+      label: Macrocytes
+      mandatory: false
+      data_type: integer
+      length: 8
+      origins:
+      - type: Derived
+      comment: AVAL - BASE
+    - id: MICROCY
+      where:
+        PARAMCD:
+        - MICROCY
+      label: Microcytes
+      mandatory: false
+      data_type: integer
+      length: 8
+      origins:
+      - type: Derived
+      comment: AVAL - BASE
+    - id: MONO
+      where:
+        PARAMCD:
+        - MONO
+      label: Monocytes (GI/L)
+      mandatory: false
+      data_type: float
+      length: 8
+      significant_digits: 2
+      display_format: '4.2'
+      origins:
+      - type: Derived
+      comment: AVAL - BASE
+    - id: PLAT
+      where:
+        PARAMCD:
+        - PLAT
+      label: Platelet (GI/L)
+      mandatory: false
+      data_type: integer
+      length: 8
+      origins:
+      - type: Derived
+      comment: AVAL - BASE
+    - id: POIKILO
+      where:
+        PARAMCD:
+        - POIKILO
+      label: Poikilocytes
+      mandatory: false
+      data_type: integer
+      length: 8
+      origins:
+      - type: Derived
+      comment: AVAL - BASE
+    - id: POLYCHR
+      where:
+        PARAMCD:
+        - POLYCHR
+      label: Polychromasia
+      mandatory: false
+      data_type: integer
+      length: 8
+      origins:
+      - type: Derived
+      comment: AVAL - BASE
+    - id: _ANISO
+      where:
+        PARAMCD:
+        - _ANISO
+      label: Anisocytes change from previous visit, relative to normal range
+      mandatory: false
+      data_type: integer
+      length: 8
+      origins:
+      - type: Derived
+      comment: Set to missing
+    - id: _BASO
+      where:
+        PARAMCD:
+        - _BASO
+      label: Basophils (GI/L) change from previous visit, relative to normal range
+      mandatory: false
+      data_type: integer
+      length: 8
+      origins:
+      - type: Derived
+      comment: Set to missing
+    - id: _EOS
+      where:
+        PARAMCD:
+        - _EOS
+      label: Eosinophils (GI/L) change from previous visit, relative to normal range
+      mandatory: false
+      data_type: integer
+      length: 8
+      origins:
+      - type: Derived
+      comment: Set to missing
+    - id: _MCHC
+      where:
+        PARAMCD:
+        - _MCHC
+      label: Ery. Mean Corpuscular HGB Concentration (mmol/L) change from previous
+        visit, relative to normal rang
+      mandatory: false
+      data_type: integer
+      length: 8
+      origins:
+      - type: Derived
+      comment: Set to missing
+    - id: _MCH
+      where:
+        PARAMCD:
+        - _MCH
+      label: Ery. Mean Corpuscular Hemoglobin (fmol(Fe)) change from previous visit,
+        relative to normal range
+      mandatory: false
+      data_type: integer
+      length: 8
+      origins:
+      - type: Derived
+      comment: Set to missing
+    - id: _MCV
+      where:
+        PARAMCD:
+        - _MCV
+      label: Ery. Mean Corpuscular Volume (fL) change from previous visit, relative
+        to normal range
+      mandatory: false
+      data_type: integer
+      length: 8
+      origins:
+      - type: Derived
+      comment: Set to missing
+    - id: _RBC
+      where:
+        PARAMCD:
+        - _RBC
+      label: Erythrocytes (TI/L) change from previous visit, relative to normal range
+      mandatory: false
+      data_type: integer
+      length: 8
+      origins:
+      - type: Derived
+      comment: Set to missing
+    - id: _HCT
+      where:
+        PARAMCD:
+        - _HCT
+      label: Hematocrit change from previous visit, relative to normal range
+      mandatory: false
+      data_type: integer
+      length: 8
+      origins:
+      - type: Derived
+      comment: Set to missing
+    - id: _HGB
+      where:
+        PARAMCD:
+        - _HGB
+      label: Hemoglobin (mmol/L) change from previous visit, relative to normal range
+      mandatory: false
+      data_type: integer
+      length: 8
+      origins:
+      - type: Derived
+      comment: Set to missing
+    - id: _WBC
+      where:
+        PARAMCD:
+        - _WBC
+      label: Leukocytes (GI/L) change from previous visit, relative to normal range
+      mandatory: false
+      data_type: integer
+      length: 8
+      origins:
+      - type: Derived
+      comment: Set to missing
+    - id: _LYM
+      where:
+        PARAMCD:
+        - _LYM
+      label: Lymphocytes (GI/L) change from previous visit, relative to normal range
+      mandatory: false
+      data_type: integer
+      length: 8
+      origins:
+      - type: Derived
+      comment: Set to missing
+    - id: _MACROCY
+      where:
+        PARAMCD:
+        - _MACROCY
+      label: Macrocytes change from previous visit, relative to normal range
+      mandatory: false
+      data_type: integer
+      length: 8
+      origins:
+      - type: Derived
+      comment: Set to missing
+    - id: _MICROCY
+      where:
+        PARAMCD:
+        - _MICROCY
+      label: Microcytes change from previous visit, relative to normal range
+      mandatory: false
+      data_type: integer
+      length: 8
+      origins:
+      - type: Derived
+      comment: Set to missing
+    - id: _MONO
+      where:
+        PARAMCD:
+        - _MONO
+      label: Monocytes (GI/L) change from previous visit, relative to normal range
+      mandatory: false
+      data_type: integer
+      length: 8
+      origins:
+      - type: Derived
+      comment: Set to missing
+    - id: _PLAT
+      where:
+        PARAMCD:
+        - _PLAT
+      label: Platelet (GI/L) change from previous visit, relative to normal range
+      mandatory: false
+      data_type: integer
+      length: 8
+      origins:
+      - type: Derived
+      comment: Set to missing
+    - id: _POIKILO
+      where:
+        PARAMCD:
+        - _POIKILO
+      label: Poikilocytes change from previous visit, relative to normal range
+      mandatory: false
+      data_type: integer
+      length: 8
+      origins:
+      - type: Derived
+      comment: Set to missing
+    - id: _POLYCHR
+      where:
+        PARAMCD:
+        - _POLYCHR
+      label: Polychromasia change from previous visit, relative to normal range
+      mandatory: false
+      data_type: integer
+      length: 8
+      origins:
+      - type: Derived
+      comment: Set to missing
+- name: A1LO
+  type: float
+  label: Analysis Range 1 Lower Limit
+  submission:
+    mandatory: false
+    data_type: float
+    length: 8
+    significant_digits: 5
+    origins:
+    - type: Derived
+    value_level:
+    - id: ANISO
+      where:
+        PARAMCD:
+        - ANISO
+      label: Anisocytes
+      mandatory: false
+      data_type: integer
+      length: 8
+      origins:
+      - type: Derived
+      comment: LB.LBSTNRLO
+    - id: BASO
+      where:
+        PARAMCD:
+        - BASO
+      label: Basophils (GI/L)
+      mandatory: false
+      data_type: float
+      length: 8
+      significant_digits: 2
+      display_format: '4.2'
+      origins:
+      - type: Derived
+      comment: LB.LBSTNRLO
+    - id: EOS
+      where:
+        PARAMCD:
+        - EOS
+      label: Eosinophils (GI/L)
+      mandatory: false
+      data_type: float
+      length: 8
+      significant_digits: 2
+      display_format: '4.2'
+      origins:
+      - type: Derived
+      comment: LB.LBSTNRLO
+    - id: MCHC
+      where:
+        PARAMCD:
+        - MCHC
+      label: Ery. Mean Corpuscular HGB Concentration (mmol/L)
+      mandatory: false
+      data_type: float
+      length: 8
+      significant_digits: 4
+      display_format: '7.4'
+      origins:
+      - type: Derived
+      comment: LB.LBSTNRLO
+    - id: MCH
+      where:
+        PARAMCD:
+        - MCH
+      label: Ery. Mean Corpuscular Hemoglobin (fmol(Fe))
+      mandatory: false
+      data_type: float
+      length: 8
+      significant_digits: 5
+      display_format: '7.5'
+      origins:
+      - type: Derived
+      comment: LB.LBSTNRLO
+    - id: MCV
+      where:
+        PARAMCD:
+        - MCV
+      label: Ery. Mean Corpuscular Volume (fL)
+      mandatory: false
+      data_type: integer
+      length: 8
+      origins:
+      - type: Derived
+      comment: LB.LBSTNRLO
+    - id: RBC
+      where:
+        PARAMCD:
+        - RBC
+      label: Erythrocytes (TI/L)
+      mandatory: false
+      data_type: float
+      length: 8
+      significant_digits: 1
+      display_format: '3.1'
+      origins:
+      - type: Derived
+      comment: LB.LBSTNRLO
+    - id: HCT
+      where:
+        PARAMCD:
+        - HCT
+      label: Hematocrit
+      mandatory: false
+      data_type: float
+      length: 8
+      significant_digits: 2
+      display_format: '4.2'
+      origins:
+      - type: Derived
+      comment: LB.LBSTNRLO
+    - id: HGB
+      where:
+        PARAMCD:
+        - HGB
+      label: Hemoglobin (mmol/L)
+      mandatory: false
+      data_type: float
+      length: 8
+      significant_digits: 5
+      display_format: '8.5'
+      origins:
+      - type: Derived
+      comment: LB.LBSTNRLO
+    - id: WBC
+      where:
+        PARAMCD:
+        - WBC
+      label: Leukocytes (GI/L)
+      mandatory: false
+      data_type: float
+      length: 8
+      significant_digits: 2
+      display_format: '5.2'
+      origins:
+      - type: Derived
+      comment: LB.LBSTNRLO
+    - id: LYM
+      where:
+        PARAMCD:
+        - LYM
+      label: Lymphocytes (GI/L)
+      mandatory: false
+      data_type: float
+      length: 8
+      significant_digits: 2
+      display_format: '4.2'
+      origins:
+      - type: Derived
+      comment: LB.LBSTNRLO
+    - id: MACROCY
+      where:
+        PARAMCD:
+        - MACROCY
+      label: Macrocytes
+      mandatory: false
+      data_type: integer
+      length: 8
+      origins:
+      - type: Derived
+      comment: LB.LBSTNRLO
+    - id: MICROCY
+      where:
+        PARAMCD:
+        - MICROCY
+      label: Microcytes
+      mandatory: false
+      data_type: integer
+      length: 8
+      origins:
+      - type: Derived
+      comment: LB.LBSTNRLO
+    - id: MONO
+      where:
+        PARAMCD:
+        - MONO
+      label: Monocytes (GI/L)
+      mandatory: false
+      data_type: float
+      length: 8
+      significant_digits: 2
+      display_format: '4.2'
+      origins:
+      - type: Derived
+      comment: LB.LBSTNRLO
+    - id: PLAT
+      where:
+        PARAMCD:
+        - PLAT
+      label: Platelet (GI/L)
+      mandatory: false
+      data_type: integer
+      length: 8
+      origins:
+      - type: Derived
+      comment: LB.LBSTNRLO
+    - id: POIKILO
+      where:
+        PARAMCD:
+        - POIKILO
+      label: Poikilocytes
+      mandatory: false
+      data_type: integer
+      length: 8
+      origins:
+      - type: Derived
+      comment: LB.LBSTNRLO
+    - id: POLYCHR
+      where:
+        PARAMCD:
+        - POLYCHR
+      label: Polychromasia
+      mandatory: false
+      data_type: integer
+      length: 8
+      origins:
+      - type: Derived
+      comment: LB.LBSTNRLO
+    - id: _ANISO
+      where:
+        PARAMCD:
+        - _ANISO
+      label: Anisocytes change from previous visit, relative to normal range
+      mandatory: false
+      data_type: integer
+      length: 8
+      origins:
+      - type: Derived
+      comment: Set to missing
+    - id: _BASO
+      where:
+        PARAMCD:
+        - _BASO
+      label: Basophils (GI/L) change from previous visit, relative to normal range
+      mandatory: false
+      data_type: integer
+      length: 8
+      origins:
+      - type: Derived
+      comment: Set to missing
+    - id: _EOS
+      where:
+        PARAMCD:
+        - _EOS
+      label: Eosinophils (GI/L) change from previous visit, relative to normal range
+      mandatory: false
+      data_type: integer
+      length: 8
+      origins:
+      - type: Derived
+      comment: Set to missing
+    - id: _MCHC
+      where:
+        PARAMCD:
+        - _MCHC
+      label: Ery. Mean Corpuscular HGB Concentration (mmol/L) change from previous
+        visit, relative to normal rang
+      mandatory: false
+      data_type: integer
+      length: 8
+      origins:
+      - type: Derived
+      comment: Set to missing
+    - id: _MCH
+      where:
+        PARAMCD:
+        - _MCH
+      label: Ery. Mean Corpuscular Hemoglobin (fmol(Fe)) change from previous visit,
+        relative to normal range
+      mandatory: false
+      data_type: integer
+      length: 8
+      origins:
+      - type: Derived
+      comment: Set to missing
+    - id: _MCV
+      where:
+        PARAMCD:
+        - _MCV
+      label: Ery. Mean Corpuscular Volume (fL) change from previous visit, relative
+        to normal range
+      mandatory: false
+      data_type: integer
+      length: 8
+      origins:
+      - type: Derived
+      comment: Set to missing
+    - id: _RBC
+      where:
+        PARAMCD:
+        - _RBC
+      label: Erythrocytes (TI/L) change from previous visit, relative to normal range
+      mandatory: false
+      data_type: integer
+      length: 8
+      origins:
+      - type: Derived
+      comment: Set to missing
+    - id: _HCT
+      where:
+        PARAMCD:
+        - _HCT
+      label: Hematocrit change from previous visit, relative to normal range
+      mandatory: false
+      data_type: integer
+      length: 8
+      origins:
+      - type: Derived
+      comment: Set to missing
+    - id: _HGB
+      where:
+        PARAMCD:
+        - _HGB
+      label: Hemoglobin (mmol/L) change from previous visit, relative to normal range
+      mandatory: false
+      data_type: integer
+      length: 8
+      origins:
+      - type: Derived
+      comment: Set to missing
+    - id: _WBC
+      where:
+        PARAMCD:
+        - _WBC
+      label: Leukocytes (GI/L) change from previous visit, relative to normal range
+      mandatory: false
+      data_type: integer
+      length: 8
+      origins:
+      - type: Derived
+      comment: Set to missing
+    - id: _LYM
+      where:
+        PARAMCD:
+        - _LYM
+      label: Lymphocytes (GI/L) change from previous visit, relative to normal range
+      mandatory: false
+      data_type: integer
+      length: 8
+      origins:
+      - type: Derived
+      comment: Set to missing
+    - id: _MACROCY
+      where:
+        PARAMCD:
+        - _MACROCY
+      label: Macrocytes change from previous visit, relative to normal range
+      mandatory: false
+      data_type: integer
+      length: 8
+      origins:
+      - type: Derived
+      comment: Set to missing
+    - id: _MICROCY
+      where:
+        PARAMCD:
+        - _MICROCY
+      label: Microcytes change from previous visit, relative to normal range
+      mandatory: false
+      data_type: integer
+      length: 8
+      origins:
+      - type: Derived
+      comment: Set to missing
+    - id: _MONO
+      where:
+        PARAMCD:
+        - _MONO
+      label: Monocytes (GI/L) change from previous visit, relative to normal range
+      mandatory: false
+      data_type: integer
+      length: 8
+      origins:
+      - type: Derived
+      comment: Set to missing
+    - id: _PLAT
+      where:
+        PARAMCD:
+        - _PLAT
+      label: Platelet (GI/L) change from previous visit, relative to normal range
+      mandatory: false
+      data_type: integer
+      length: 8
+      origins:
+      - type: Derived
+      comment: Set to missing
+    - id: _POIKILO
+      where:
+        PARAMCD:
+        - _POIKILO
+      label: Poikilocytes change from previous visit, relative to normal range
+      mandatory: false
+      data_type: integer
+      length: 8
+      origins:
+      - type: Derived
+      comment: Set to missing
+    - id: _POLYCHR
+      where:
+        PARAMCD:
+        - _POLYCHR
+      label: Polychromasia change from previous visit, relative to normal range
+      mandatory: false
+      data_type: integer
+      length: 8
+      origins:
+      - type: Derived
+      comment: Set to missing
+- name: A1HI
+  type: float
+  label: Analysis Range 1 Upper Limit
+  submission:
+    mandatory: false
+    data_type: float
+    length: 8
+    significant_digits: 5
+    origins:
+    - type: Derived
+    comment: LB.LBSTNRHI
+    value_level:
+    - id: ANISO
+      where:
+        PARAMCD:
+        - ANISO
+      label: Anisocytes
+      mandatory: false
+      data_type: integer
+      length: 8
+      origins:
+      - type: Derived
+      comment: LB.LBSTNRHI
+    - id: BASO
+      where:
+        PARAMCD:
+        - BASO
+      label: Basophils (GI/L)
+      mandatory: false
+      data_type: float
+      length: 8
+      significant_digits: 2
+      display_format: '4.2'
+      origins:
+      - type: Derived
+      comment: LB.LBSTNRHI
+    - id: EOS
+      where:
+        PARAMCD:
+        - EOS
+      label: Eosinophils (GI/L)
+      mandatory: false
+      data_type: float
+      length: 8
+      significant_digits: 2
+      display_format: '4.2'
+      origins:
+      - type: Derived
+      comment: LB.LBSTNRHI
+    - id: MCHC
+      where:
+        PARAMCD:
+        - MCHC
+      label: Ery. Mean Corpuscular HGB Concentration (mmol/L)
+      mandatory: false
+      data_type: float
+      length: 8
+      significant_digits: 4
+      display_format: '7.4'
+      origins:
+      - type: Derived
+      comment: LB.LBSTNRHI
+    - id: MCH
+      where:
+        PARAMCD:
+        - MCH
+      label: Ery. Mean Corpuscular Hemoglobin (fmol(Fe))
+      mandatory: false
+      data_type: float
+      length: 8
+      significant_digits: 5
+      display_format: '7.5'
+      origins:
+      - type: Derived
+      comment: LB.LBSTNRHI
+    - id: MCV
+      where:
+        PARAMCD:
+        - MCV
+      label: Ery. Mean Corpuscular Volume (fL)
+      mandatory: false
+      data_type: integer
+      length: 8
+      origins:
+      - type: Derived
+      comment: LB.LBSTNRHI
+    - id: RBC
+      where:
+        PARAMCD:
+        - RBC
+      label: Erythrocytes (TI/L)
+      mandatory: false
+      data_type: float
+      length: 8
+      significant_digits: 1
+      display_format: '3.1'
+      origins:
+      - type: Derived
+      comment: LB.LBSTNRHI
+    - id: HCT
+      where:
+        PARAMCD:
+        - HCT
+      label: Hematocrit
+      mandatory: false
+      data_type: float
+      length: 8
+      significant_digits: 2
+      display_format: '4.2'
+      origins:
+      - type: Derived
+      comment: LB.LBSTNRHI
+    - id: HGB
+      where:
+        PARAMCD:
+        - HGB
+      label: Hemoglobin (mmol/L)
+      mandatory: false
+      data_type: float
+      length: 8
+      significant_digits: 5
+      display_format: '8.5'
+      origins:
+      - type: Derived
+      comment: LB.LBSTNRHI
+    - id: WBC
+      where:
+        PARAMCD:
+        - WBC
+      label: Leukocytes (GI/L)
+      mandatory: false
+      data_type: float
+      length: 8
+      significant_digits: 2
+      display_format: '5.2'
+      origins:
+      - type: Derived
+      comment: LB.LBSTNRHI
+    - id: LYM
+      where:
+        PARAMCD:
+        - LYM
+      label: Lymphocytes (GI/L)
+      mandatory: false
+      data_type: float
+      length: 8
+      significant_digits: 2
+      display_format: '4.2'
+      origins:
+      - type: Derived
+      comment: LB.LBSTNRHI
+    - id: MACROCY
+      where:
+        PARAMCD:
+        - MACROCY
+      label: Macrocytes
+      mandatory: false
+      data_type: integer
+      length: 8
+      origins:
+      - type: Derived
+      comment: LB.LBSTNRHI
+    - id: MICROCY
+      where:
+        PARAMCD:
+        - MICROCY
+      label: Microcytes
+      mandatory: false
+      data_type: integer
+      length: 8
+      origins:
+      - type: Derived
+      comment: LB.LBSTNRHI
+    - id: MONO
+      where:
+        PARAMCD:
+        - MONO
+      label: Monocytes (GI/L)
+      mandatory: false
+      data_type: float
+      length: 8
+      significant_digits: 2
+      display_format: '4.2'
+      origins:
+      - type: Derived
+      comment: LB.LBSTNRHI
+    - id: PLAT
+      where:
+        PARAMCD:
+        - PLAT
+      label: Platelet (GI/L)
+      mandatory: false
+      data_type: integer
+      length: 8
+      origins:
+      - type: Derived
+      comment: LB.LBSTNRHI
+    - id: POIKILO
+      where:
+        PARAMCD:
+        - POIKILO
+      label: Poikilocytes
+      mandatory: false
+      data_type: integer
+      length: 8
+      origins:
+      - type: Derived
+      comment: LB.LBSTNRHI
+    - id: POLYCHR
+      where:
+        PARAMCD:
+        - POLYCHR
+      label: Polychromasia
+      mandatory: false
+      data_type: integer
+      length: 8
+      origins:
+      - type: Derived
+      comment: LB.LBSTNRHI
+    - id: _ANISO
+      where:
+        PARAMCD:
+        - _ANISO
+      label: Anisocytes change from previous visit, relative to normal range
+      mandatory: false
+      data_type: integer
+      length: 8
+      origins:
+      - type: Derived
+      comment: Set to missing
+    - id: _BASO
+      where:
+        PARAMCD:
+        - _BASO
+      label: Basophils (GI/L) change from previous visit, relative to normal range
+      mandatory: false
+      data_type: integer
+      length: 8
+      origins:
+      - type: Derived
+      comment: Set to missing
+    - id: _EOS
+      where:
+        PARAMCD:
+        - _EOS
+      label: Eosinophils (GI/L) change from previous visit, relative to normal range
+      mandatory: false
+      data_type: integer
+      length: 8
+      origins:
+      - type: Derived
+      comment: Set to missing
+    - id: _MCHC
+      where:
+        PARAMCD:
+        - _MCHC
+      label: Ery. Mean Corpuscular HGB Concentration (mmol/L) change from previous
+        visit, relative to normal rang
+      mandatory: false
+      data_type: integer
+      length: 8
+      origins:
+      - type: Derived
+      comment: Set to missing
+    - id: _MCH
+      where:
+        PARAMCD:
+        - _MCH
+      label: Ery. Mean Corpuscular Hemoglobin (fmol(Fe)) change from previous visit,
+        relative to normal range
+      mandatory: false
+      data_type: integer
+      length: 8
+      origins:
+      - type: Derived
+      comment: Set to missing
+    - id: _MCV
+      where:
+        PARAMCD:
+        - _MCV
+      label: Ery. Mean Corpuscular Volume (fL) change from previous visit, relative
+        to normal range
+      mandatory: false
+      data_type: integer
+      length: 8
+      origins:
+      - type: Derived
+      comment: Set to missing
+    - id: _RBC
+      where:
+        PARAMCD:
+        - _RBC
+      label: Erythrocytes (TI/L) change from previous visit, relative to normal range
+      mandatory: false
+      data_type: integer
+      length: 8
+      origins:
+      - type: Derived
+      comment: Set to missing
+    - id: _HCT
+      where:
+        PARAMCD:
+        - _HCT
+      label: Hematocrit change from previous visit, relative to normal range
+      mandatory: false
+      data_type: integer
+      length: 8
+      origins:
+      - type: Derived
+      comment: Set to missing
+    - id: _HGB
+      where:
+        PARAMCD:
+        - _HGB
+      label: Hemoglobin (mmol/L) change from previous visit, relative to normal range
+      mandatory: false
+      data_type: integer
+      length: 8
+      origins:
+      - type: Derived
+      comment: Set to missing
+    - id: _WBC
+      where:
+        PARAMCD:
+        - _WBC
+      label: Leukocytes (GI/L) change from previous visit, relative to normal range
+      mandatory: false
+      data_type: integer
+      length: 8
+      origins:
+      - type: Derived
+      comment: Set to missing
+    - id: _LYM
+      where:
+        PARAMCD:
+        - _LYM
+      label: Lymphocytes (GI/L) change from previous visit, relative to normal range
+      mandatory: false
+      data_type: integer
+      length: 8
+      origins:
+      - type: Derived
+      comment: Set to missing
+    - id: _MACROCY
+      where:
+        PARAMCD:
+        - _MACROCY
+      label: Macrocytes change from previous visit, relative to normal range
+      mandatory: false
+      data_type: integer
+      length: 8
+      origins:
+      - type: Derived
+      comment: Set to missing
+    - id: _MICROCY
+      where:
+        PARAMCD:
+        - _MICROCY
+      label: Microcytes change from previous visit, relative to normal range
+      mandatory: false
+      data_type: integer
+      length: 8
+      origins:
+      - type: Derived
+      comment: Set to missing
+    - id: _MONO
+      where:
+        PARAMCD:
+        - _MONO
+      label: Monocytes (GI/L) change from previous visit, relative to normal range
+      mandatory: false
+      data_type: integer
+      length: 8
+      origins:
+      - type: Derived
+      comment: Set to missing
+    - id: _PLAT
+      where:
+        PARAMCD:
+        - _PLAT
+      label: Platelet (GI/L) change from previous visit, relative to normal range
+      mandatory: false
+      data_type: integer
+      length: 8
+      origins:
+      - type: Derived
+      comment: Set to missing
+    - id: _POIKILO
+      where:
+        PARAMCD:
+        - _POIKILO
+      label: Poikilocytes change from previous visit, relative to normal range
+      mandatory: false
+      data_type: integer
+      length: 8
+      origins:
+      - type: Derived
+      comment: Set to missing
+    - id: _POLYCHR
+      where:
+        PARAMCD:
+        - _POLYCHR
+      label: Polychromasia change from previous visit, relative to normal range
+      mandatory: false
+      data_type: integer
+      length: 8
+      origins:
+      - type: Derived
+      comment: Set to missing
+- name: R2A1LO
+  type: float
+  label: Ratio to Analysis Range 1 Lower Limit
+  derivation: _AVAL_BASE / A1LO
+  submission:
+    mandatory: false
+    data_type: float
+    length: 8
+    significant_digits: 1
+    origins:
+    - type: Derived
+    comment: AVAL / A1HI
+- name: R2A1HI
+  type: float
+  label: Ratio to Analysis Range 1 Upper Limit
+  derivation: _AVAL_BASE / A1HI
+  submission:
+    mandatory: false
+    data_type: float
+    length: 8
+    significant_digits: 1
+    origins:
+    - type: Derived
+    comment: AVAL / A1LO
+- name: BR2A1LO
+  type: float
+  label: Base Ratio to Analysis Range 1 Lower Lim
+  derivation:
+    case:
+    - when: _IS_UNDER = 'Y'
+      then: null
+    - otherwise: _BASE / A1LO
+  submission:
+    mandatory: false
+    data_type: float
+    length: 8
+    significant_digits: 1
+    origins:
+    - type: Derived
+    comment: AVAL / A1HI at baseline
+- name: BR2A1HI
+  type: float
+  label: Base Ratio to Analysis Range 1 Upper Lim
+  derivation:
+    case:
+    - when: _IS_UNDER = 'Y'
+      then: null
+    - otherwise: _BASE / A1HI
+  submission:
+    mandatory: false
+    data_type: float
+    length: 8
+    significant_digits: 1
+    origins:
+    - type: Derived
+    comment: AVAL / A1LO at baseline
+- name: ANL01FL
+  type: str
+  label: Analysis Record Flag 1
+  derivation:
+    case:
+    - when: _ANL01_RANK = 1 AND _RANK_VAL IS NOT NULL
+      then: '''Y'''
+    - otherwise: ''''''
+  submission:
+    mandatory: false
+    data_type: text
+    length: 1
+    codelist: Y_BLANK
+    origins:
+    - type: Derived
+    value_level:
+    - id: ANISO
+      where:
+        PARAMCD:
+        - ANISO
+      label: Anisocytes
+      mandatory: false
+      data_type: text
+      length: 1
+      codelist: Y_BLANK
+      origins:
+      - type: Derived
+      comment: Y if this ALBTRVAL is the largest for the subject in Visits 4-12 inclusive,
+        null otherwise (if this value of ALBTRVAL occurs more than once, the first
+        one is flagged)
+    - id: BASO
+      where:
+        PARAMCD:
+        - BASO
+      label: Basophils (GI/L)
+      mandatory: false
+      data_type: text
+      length: 1
+      codelist: Y_BLANK
+      origins:
+      - type: Derived
+      comment: Y if this ALBTRVAL is the largest for the subject in Visits 4-12 inclusive,
+        null otherwise (if this value of ALBTRVAL occurs more than once, the first
+        one is flagged)
+    - id: EOS
+      where:
+        PARAMCD:
+        - EOS
+      label: Eosinophils (GI/L)
+      mandatory: false
+      data_type: text
+      length: 1
+      codelist: Y_BLANK
+      origins:
+      - type: Derived
+      comment: Y if this ALBTRVAL is the largest for the subject in Visits 4-12 inclusive,
+        null otherwise (if this value of ALBTRVAL occurs more than once, the first
+        one is flagged)
+    - id: MCHC
+      where:
+        PARAMCD:
+        - MCHC
+      label: Ery. Mean Corpuscular HGB Concentration (mmol/L)
+      mandatory: false
+      data_type: text
+      length: 1
+      codelist: Y_BLANK
+      origins:
+      - type: Derived
+      comment: Y if this ALBTRVAL is the largest for the subject in Visits 4-12 inclusive,
+        null otherwise (if this value of ALBTRVAL occurs more than once, the first
+        one is flagged)
+    - id: MCH
+      where:
+        PARAMCD:
+        - MCH
+      label: Ery. Mean Corpuscular Hemoglobin (fmol(Fe))
+      mandatory: false
+      data_type: text
+      length: 1
+      codelist: Y_BLANK
+      origins:
+      - type: Derived
+      comment: Y if this ALBTRVAL is the largest for the subject in Visits 4-12 inclusive,
+        null otherwise (if this value of ALBTRVAL occurs more than once, the first
+        one is flagged)
+    - id: MCV
+      where:
+        PARAMCD:
+        - MCV
+      label: Ery. Mean Corpuscular Volume (fL)
+      mandatory: false
+      data_type: text
+      length: 1
+      codelist: Y_BLANK
+      origins:
+      - type: Derived
+      comment: Y if this ALBTRVAL is the largest for the subject in Visits 4-12 inclusive,
+        null otherwise (if this value of ALBTRVAL occurs more than once, the first
+        one is flagged)
+    - id: RBC
+      where:
+        PARAMCD:
+        - RBC
+      label: Erythrocytes (TI/L)
+      mandatory: false
+      data_type: text
+      length: 1
+      codelist: Y_BLANK
+      origins:
+      - type: Derived
+      comment: Y if this ALBTRVAL is the largest for the subject in Visits 4-12 inclusive,
+        null otherwise (if this value of ALBTRVAL occurs more than once, the first
+        one is flagged)
+    - id: HCT
+      where:
+        PARAMCD:
+        - HCT
+      label: Hematocrit
+      mandatory: false
+      data_type: text
+      length: 1
+      codelist: Y_BLANK
+      origins:
+      - type: Derived
+      comment: Y if this ALBTRVAL is the largest for the subject in Visits 4-12 inclusive,
+        null otherwise (if this value of ALBTRVAL occurs more than once, the first
+        one is flagged)
+    - id: HGB
+      where:
+        PARAMCD:
+        - HGB
+      label: Hemoglobin (mmol/L)
+      mandatory: false
+      data_type: text
+      length: 1
+      codelist: Y_BLANK
+      origins:
+      - type: Derived
+      comment: Y if this ALBTRVAL is the largest for the subject in Visits 4-12 inclusive,
+        null otherwise (if this value of ALBTRVAL occurs more than once, the first
+        one is flagged)
+    - id: WBC
+      where:
+        PARAMCD:
+        - WBC
+      label: Leukocytes (GI/L)
+      mandatory: false
+      data_type: text
+      length: 1
+      codelist: Y_BLANK
+      origins:
+      - type: Derived
+      comment: Y if this ALBTRVAL is the largest for the subject in Visits 4-12 inclusive,
+        null otherwise (if this value of ALBTRVAL occurs more than once, the first
+        one is flagged)
+    - id: LYM
+      where:
+        PARAMCD:
+        - LYM
+      label: Lymphocytes (GI/L)
+      mandatory: false
+      data_type: text
+      length: 1
+      codelist: Y_BLANK
+      origins:
+      - type: Derived
+      comment: Y if this ALBTRVAL is the largest for the subject in Visits 4-12 inclusive,
+        null otherwise (if this value of ALBTRVAL occurs more than once, the first
+        one is flagged)
+    - id: MACROCY
+      where:
+        PARAMCD:
+        - MACROCY
+      label: Macrocytes
+      mandatory: false
+      data_type: text
+      length: 1
+      codelist: Y_BLANK
+      origins:
+      - type: Derived
+      comment: Y if this ALBTRVAL is the largest for the subject in Visits 4-12 inclusive,
+        null otherwise (if this value of ALBTRVAL occurs more than once, the first
+        one is flagged)
+    - id: MICROCY
+      where:
+        PARAMCD:
+        - MICROCY
+      label: Microcytes
+      mandatory: false
+      data_type: text
+      length: 1
+      codelist: Y_BLANK
+      origins:
+      - type: Derived
+      comment: Y if this ALBTRVAL is the largest for the subject in Visits 4-12 inclusive,
+        null otherwise (if this value of ALBTRVAL occurs more than once, the first
+        one is flagged)
+    - id: MONO
+      where:
+        PARAMCD:
+        - MONO
+      label: Monocytes (GI/L)
+      mandatory: false
+      data_type: text
+      length: 1
+      codelist: Y_BLANK
+      origins:
+      - type: Derived
+      comment: Y if this ALBTRVAL is the largest for the subject in Visits 4-12 inclusive,
+        null otherwise (if this value of ALBTRVAL occurs more than once, the first
+        one is flagged)
+    - id: PLAT
+      where:
+        PARAMCD:
+        - PLAT
+      label: Platelet (GI/L)
+      mandatory: false
+      data_type: text
+      length: 1
+      codelist: Y_BLANK
+      origins:
+      - type: Derived
+      comment: Y if this ALBTRVAL is the largest for the subject in Visits 4-12 inclusive,
+        null otherwise (if this value of ALBTRVAL occurs more than once, the first
+        one is flagged)
+    - id: POIKILO
+      where:
+        PARAMCD:
+        - POIKILO
+      label: Poikilocytes
+      mandatory: false
+      data_type: text
+      length: 1
+      codelist: Y_BLANK
+      origins:
+      - type: Derived
+      comment: Y if this ALBTRVAL is the largest for the subject in Visits 4-12 inclusive,
+        null otherwise (if this value of ALBTRVAL occurs more than once, the first
+        one is flagged)
+    - id: POLYCHR
+      where:
+        PARAMCD:
+        - POLYCHR
+      label: Polychromasia
+      mandatory: false
+      data_type: text
+      length: 1
+      codelist: Y_BLANK
+      origins:
+      - type: Derived
+      comment: Y if this ALBTRVAL is the largest for the subject in Visits 4-12 inclusive,
+        null otherwise (if this value of ALBTRVAL occurs more than once, the first
+        one is flagged)
+    - id: _ANISO
+      where:
+        PARAMCD:
+        - _ANISO
+      label: Anisocytes change from previous visit, relative to normal range
+      mandatory: false
+      data_type: text
+      length: 1
+      codelist: Y_BLANK
+      origins:
+      - type: Derived
+      comment: Y if the absolute value of this AVAL is the largest for the subject
+        for VISITS 4-12 inclusive, null otherwise; only the first on-treatment AVAL
+        that has absolute val equal to the max is flagged
+    - id: _BASO
+      where:
+        PARAMCD:
+        - _BASO
+      label: Basophils (GI/L) change from previous visit, relative to normal range
+      mandatory: false
+      data_type: text
+      length: 1
+      codelist: Y_BLANK
+      origins:
+      - type: Derived
+      comment: Y if the absolute value of this AVAL is the largest for the subject
+        for VISITS 4-12 inclusive, null otherwise; only the first on-treatment AVAL
+        that has absolute val equal to the max is flagged
+    - id: _EOS
+      where:
+        PARAMCD:
+        - _EOS
+      label: Eosinophils (GI/L) change from previous visit, relative to normal range
+      mandatory: false
+      data_type: text
+      length: 1
+      codelist: Y_BLANK
+      origins:
+      - type: Derived
+      comment: Y if the absolute value of this AVAL is the largest for the subject
+        for VISITS 4-12 inclusive, null otherwise; only the first on-treatment AVAL
+        that has absolute val equal to the max is flagged
+    - id: _MCHC
+      where:
+        PARAMCD:
+        - _MCHC
+      label: Ery. Mean Corpuscular HGB Concentration (mmol/L) change from previous
+        visit, relative to normal rang
+      mandatory: false
+      data_type: text
+      length: 1
+      codelist: Y_BLANK
+      origins:
+      - type: Derived
+      comment: Y if the absolute value of this AVAL is the largest for the subject
+        for VISITS 4-12 inclusive, null otherwise; only the first on-treatment AVAL
+        that has absolute val equal to the max is flagged
+    - id: _MCH
+      where:
+        PARAMCD:
+        - _MCH
+      label: Ery. Mean Corpuscular Hemoglobin (fmol(Fe)) change from previous visit,
+        relative to normal range
+      mandatory: false
+      data_type: text
+      length: 1
+      codelist: Y_BLANK
+      origins:
+      - type: Derived
+      comment: Y if the absolute value of this AVAL is the largest for the subject
+        for VISITS 4-12 inclusive, null otherwise; only the first on-treatment AVAL
+        that has absolute val equal to the max is flagged
+    - id: _MCV
+      where:
+        PARAMCD:
+        - _MCV
+      label: Ery. Mean Corpuscular Volume (fL) change from previous visit, relative
+        to normal range
+      mandatory: false
+      data_type: text
+      length: 1
+      codelist: Y_BLANK
+      origins:
+      - type: Derived
+      comment: Y if the absolute value of this AVAL is the largest for the subject
+        for VISITS 4-12 inclusive, null otherwise; only the first on-treatment AVAL
+        that has absolute val equal to the max is flagged
+    - id: _RBC
+      where:
+        PARAMCD:
+        - _RBC
+      label: Erythrocytes (TI/L) change from previous visit, relative to normal range
+      mandatory: false
+      data_type: text
+      length: 1
+      codelist: Y_BLANK
+      origins:
+      - type: Derived
+      comment: Y if the absolute value of this AVAL is the largest for the subject
+        for VISITS 4-12 inclusive, null otherwise; only the first on-treatment AVAL
+        that has absolute val equal to the max is flagged
+    - id: _HCT
+      where:
+        PARAMCD:
+        - _HCT
+      label: Hematocrit change from previous visit, relative to normal range
+      mandatory: false
+      data_type: text
+      length: 1
+      codelist: Y_BLANK
+      origins:
+      - type: Derived
+      comment: Y if the absolute value of this AVAL is the largest for the subject
+        for VISITS 4-12 inclusive, null otherwise; only the first on-treatment AVAL
+        that has absolute val equal to the max is flagged
+    - id: _HGB
+      where:
+        PARAMCD:
+        - _HGB
+      label: Hemoglobin (mmol/L) change from previous visit, relative to normal range
+      mandatory: false
+      data_type: text
+      length: 1
+      codelist: Y_BLANK
+      origins:
+      - type: Derived
+      comment: Y if the absolute value of this AVAL is the largest for the subject
+        for VISITS 4-12 inclusive, null otherwise; only the first on-treatment AVAL
+        that has absolute val equal to the max is flagged
+    - id: _WBC
+      where:
+        PARAMCD:
+        - _WBC
+      label: Leukocytes (GI/L) change from previous visit, relative to normal range
+      mandatory: false
+      data_type: text
+      length: 1
+      codelist: Y_BLANK
+      origins:
+      - type: Derived
+      comment: Y if the absolute value of this AVAL is the largest for the subject
+        for VISITS 4-12 inclusive, null otherwise; only the first on-treatment AVAL
+        that has absolute val equal to the max is flagged
+    - id: _LYM
+      where:
+        PARAMCD:
+        - _LYM
+      label: Lymphocytes (GI/L) change from previous visit, relative to normal range
+      mandatory: false
+      data_type: text
+      length: 1
+      codelist: Y_BLANK
+      origins:
+      - type: Derived
+      comment: Y if the absolute value of this AVAL is the largest for the subject
+        for VISITS 4-12 inclusive, null otherwise; only the first on-treatment AVAL
+        that has absolute val equal to the max is flagged
+    - id: _MACROCY
+      where:
+        PARAMCD:
+        - _MACROCY
+      label: Macrocytes change from previous visit, relative to normal range
+      mandatory: false
+      data_type: text
+      length: 1
+      codelist: Y_BLANK
+      origins:
+      - type: Derived
+      comment: Y if the absolute value of this AVAL is the largest for the subject
+        for VISITS 4-12 inclusive, null otherwise; only the first on-treatment AVAL
+        that has absolute val equal to the max is flagged
+    - id: _MICROCY
+      where:
+        PARAMCD:
+        - _MICROCY
+      label: Microcytes change from previous visit, relative to normal range
+      mandatory: false
+      data_type: text
+      length: 1
+      codelist: Y_BLANK
+      origins:
+      - type: Derived
+      comment: Y if the absolute value of this AVAL is the largest for the subject
+        for VISITS 4-12 inclusive, null otherwise; only the first on-treatment AVAL
+        that has absolute val equal to the max is flagged
+    - id: _MONO
+      where:
+        PARAMCD:
+        - _MONO
+      label: Monocytes (GI/L) change from previous visit, relative to normal range
+      mandatory: false
+      data_type: text
+      length: 1
+      codelist: Y_BLANK
+      origins:
+      - type: Derived
+      comment: Y if the absolute value of this AVAL is the largest for the subject
+        for VISITS 4-12 inclusive, null otherwise; only the first on-treatment AVAL
+        that has absolute val equal to the max is flagged
+    - id: _PLAT
+      where:
+        PARAMCD:
+        - _PLAT
+      label: Platelet (GI/L) change from previous visit, relative to normal range
+      mandatory: false
+      data_type: text
+      length: 1
+      codelist: Y_BLANK
+      origins:
+      - type: Derived
+      comment: Y if the absolute value of this AVAL is the largest for the subject
+        for VISITS 4-12 inclusive, null otherwise; only the first on-treatment AVAL
+        that has absolute val equal to the max is flagged
+    - id: _POIKILO
+      where:
+        PARAMCD:
+        - _POIKILO
+      label: Poikilocytes change from previous visit, relative to normal range
+      mandatory: false
+      data_type: text
+      length: 1
+      codelist: Y_BLANK
+      origins:
+      - type: Derived
+      comment: Y if the absolute value of this AVAL is the largest for the subject
+        for VISITS 4-12 inclusive, null otherwise; only the first on-treatment AVAL
+        that has absolute val equal to the max is flagged
+    - id: _POLYCHR
+      where:
+        PARAMCD:
+        - _POLYCHR
+      label: Polychromasia change from previous visit, relative to normal range
+      mandatory: false
+      data_type: text
+      length: 1
+      codelist: Y_BLANK
+      origins:
+      - type: Derived
+      comment: Y if the absolute value of this AVAL is the largest for the subject
+        for VISITS 4-12 inclusive, null otherwise; only the first on-treatment AVAL
+        that has absolute val equal to the max is flagged
+- name: ANRIND
+  type: str
+  label: Analysis Reference Range Indicator
+  derivation:
+    case:
+    - when: _IS_UNDER = 'Y' AND _U_AVAL IS NULL
+      then: ''''''
+    - when: _IS_UNDER = 'Y' AND _U_AVAL > 1.0
+      then: '''H'''
+    - when: _IS_UNDER = 'Y' AND _U_AVAL < -1.0
+      then: '''L'''
+    - when: _IS_UNDER = 'Y'
+      then: '''N'''
+    - otherwise: _ANRIND_BASE
+  submission:
+    mandatory: false
+    data_type: text
+    length: 1
+    codelist: LNH
+    origins:
+    - type: Derived
+    value_level:
+    - id: ANISO
+      where:
+        PARAMCD:
+        - ANISO
+      label: Anisocytes
+      mandatory: false
+      data_type: text
+      length: 1
+      codelist: LNH
+      origins:
+      - type: Derived
+      comment: if AVAL < (0.5*LBSTNRLO) then ANRIND='L'; if LAVAL > 1.5* LBSTNRHI
+        then ANRIND='H'; ANRIND='N' otherwise. Used for shift tables
+    - id: BASO
+      where:
+        PARAMCD:
+        - BASO
+      label: Basophils (GI/L)
+      mandatory: false
+      data_type: text
+      length: 1
+      codelist: LNH
+      origins:
+      - type: Derived
+      comment: if AVAL < (0.5*LBSTNRLO) then ANRIND='L'; if LAVAL > 1.5* LBSTNRHI
+        then ANRIND='H'; ANRIND='N' otherwise. Used for shift tables
+    - id: EOS
+      where:
+        PARAMCD:
+        - EOS
+      label: Eosinophils (GI/L)
+      mandatory: false
+      data_type: text
+      length: 1
+      codelist: LNH
+      origins:
+      - type: Derived
+      comment: if AVAL < (0.5*LBSTNRLO) then ANRIND='L'; if LAVAL > 1.5* LBSTNRHI
+        then ANRIND='H'; ANRIND='N' otherwise. Used for shift tables
+    - id: MCHC
+      where:
+        PARAMCD:
+        - MCHC
+      label: Ery. Mean Corpuscular HGB Concentration (mmol/L)
+      mandatory: false
+      data_type: text
+      length: 1
+      codelist: LNH
+      origins:
+      - type: Derived
+      comment: if AVAL < (0.5*LBSTNRLO) then ANRIND='L'; if LAVAL > 1.5* LBSTNRHI
+        then ANRIND='H'; ANRIND='N' otherwise. Used for shift tables
+    - id: MCH
+      where:
+        PARAMCD:
+        - MCH
+      label: Ery. Mean Corpuscular Hemoglobin (fmol(Fe))
+      mandatory: false
+      data_type: text
+      length: 1
+      codelist: LNH
+      origins:
+      - type: Derived
+      comment: if AVAL < (0.5*LBSTNRLO) then ANRIND='L'; if LAVAL > 1.5* LBSTNRHI
+        then ANRIND='H'; ANRIND='N' otherwise. Used for shift tables
+    - id: MCV
+      where:
+        PARAMCD:
+        - MCV
+      label: Ery. Mean Corpuscular Volume (fL)
+      mandatory: false
+      data_type: text
+      length: 1
+      codelist: LNH
+      origins:
+      - type: Derived
+      comment: if AVAL < (0.5*LBSTNRLO) then ANRIND='L'; if LAVAL > 1.5* LBSTNRHI
+        then ANRIND='H'; ANRIND='N' otherwise. Used for shift tables
+    - id: RBC
+      where:
+        PARAMCD:
+        - RBC
+      label: Erythrocytes (TI/L)
+      mandatory: false
+      data_type: text
+      length: 1
+      codelist: LNH
+      origins:
+      - type: Derived
+      comment: if AVAL < (0.5*LBSTNRLO) then ANRIND='L'; if LAVAL > 1.5* LBSTNRHI
+        then ANRIND='H'; ANRIND='N' otherwise. Used for shift tables
+    - id: HCT
+      where:
+        PARAMCD:
+        - HCT
+      label: Hematocrit
+      mandatory: false
+      data_type: text
+      length: 1
+      codelist: LNH
+      origins:
+      - type: Derived
+      comment: if AVAL < (0.5*LBSTNRLO) then ANRIND='L'; if LAVAL > 1.5* LBSTNRHI
+        then ANRIND='H'; ANRIND='N' otherwise. Used for shift tables
+    - id: HGB
+      where:
+        PARAMCD:
+        - HGB
+      label: Hemoglobin (mmol/L)
+      mandatory: false
+      data_type: text
+      length: 1
+      codelist: LNH
+      origins:
+      - type: Derived
+      comment: if AVAL < (0.5*LBSTNRLO) then ANRIND='L'; if LAVAL > 1.5* LBSTNRHI
+        then ANRIND='H'; ANRIND='N' otherwise. Used for shift tables
+    - id: WBC
+      where:
+        PARAMCD:
+        - WBC
+      label: Leukocytes (GI/L)
+      mandatory: false
+      data_type: text
+      length: 1
+      codelist: LNH
+      origins:
+      - type: Derived
+      comment: if AVAL < (0.5*LBSTNRLO) then ANRIND='L'; if LAVAL > 1.5* LBSTNRHI
+        then ANRIND='H'; ANRIND='N' otherwise. Used for shift tables
+    - id: LYM
+      where:
+        PARAMCD:
+        - LYM
+      label: Lymphocytes (GI/L)
+      mandatory: false
+      data_type: text
+      length: 1
+      codelist: LNH
+      origins:
+      - type: Derived
+      comment: if AVAL < (0.5*LBSTNRLO) then ANRIND='L'; if LAVAL > 1.5* LBSTNRHI
+        then ANRIND='H'; ANRIND='N' otherwise. Used for shift tables
+    - id: MACROCY
+      where:
+        PARAMCD:
+        - MACROCY
+      label: Macrocytes
+      mandatory: false
+      data_type: text
+      length: 1
+      codelist: LNH
+      origins:
+      - type: Derived
+      comment: if AVAL < (0.5*LBSTNRLO) then ANRIND='L'; if LAVAL > 1.5* LBSTNRHI
+        then ANRIND='H'; ANRIND='N' otherwise. Used for shift tables
+    - id: MICROCY
+      where:
+        PARAMCD:
+        - MICROCY
+      label: Microcytes
+      mandatory: false
+      data_type: text
+      length: 1
+      codelist: LNH
+      origins:
+      - type: Derived
+      comment: if AVAL < (0.5*LBSTNRLO) then ANRIND='L'; if LAVAL > 1.5* LBSTNRHI
+        then ANRIND='H'; ANRIND='N' otherwise. Used for shift tables
+    - id: MONO
+      where:
+        PARAMCD:
+        - MONO
+      label: Monocytes (GI/L)
+      mandatory: false
+      data_type: text
+      length: 1
+      codelist: LNH
+      origins:
+      - type: Derived
+      comment: if AVAL < (0.5*LBSTNRLO) then ANRIND='L'; if LAVAL > 1.5* LBSTNRHI
+        then ANRIND='H'; ANRIND='N' otherwise. Used for shift tables
+    - id: PLAT
+      where:
+        PARAMCD:
+        - PLAT
+      label: Platelet (GI/L)
+      mandatory: false
+      data_type: text
+      length: 1
+      codelist: LNH
+      origins:
+      - type: Derived
+      comment: if AVAL < (0.5*LBSTNRLO) then ANRIND='L'; if LAVAL > 1.5* LBSTNRHI
+        then ANRIND='H'; ANRIND='N' otherwise. Used for shift tables
+    - id: POIKILO
+      where:
+        PARAMCD:
+        - POIKILO
+      label: Poikilocytes
+      mandatory: false
+      data_type: text
+      length: 1
+      codelist: LNH
+      origins:
+      - type: Derived
+      comment: if AVAL < (0.5*LBSTNRLO) then ANRIND='L'; if LAVAL > 1.5* LBSTNRHI
+        then ANRIND='H'; ANRIND='N' otherwise. Used for shift tables
+    - id: POLYCHR
+      where:
+        PARAMCD:
+        - POLYCHR
+      label: Polychromasia
+      mandatory: false
+      data_type: text
+      length: 1
+      codelist: LNH
+      origins:
+      - type: Derived
+      comment: if AVAL < (0.5*LBSTNRLO) then ANRIND='L'; if LAVAL > 1.5* LBSTNRHI
+        then ANRIND='H'; ANRIND='N' otherwise. Used for shift tables
+    - id: _ANISO
+      where:
+        PARAMCD:
+        - _ANISO
+      label: Anisocytes change from previous visit, relative to normal range
+      mandatory: false
+      data_type: text
+      length: 1
+      origins:
+      - type: Derived
+      comment: if AVAL < -1 then ANRIND='L'; if AVAL > 1 then ANRIND='H'; ANRIND='N'
+        otherwise; null if LBBLFL=Y or AVAL=null
+    - id: _BASO
+      where:
+        PARAMCD:
+        - _BASO
+      label: Basophils (GI/L) change from previous visit, relative to normal range
+      mandatory: false
+      data_type: text
+      length: 1
+      origins:
+      - type: Derived
+      comment: if AVAL < -1 then ANRIND='L'; if AVAL > 1 then ANRIND='H'; ANRIND='N'
+        otherwise; null if LBBLFL=Y or AVAL=null
+    - id: _EOS
+      where:
+        PARAMCD:
+        - _EOS
+      label: Eosinophils (GI/L) change from previous visit, relative to normal range
+      mandatory: false
+      data_type: text
+      length: 1
+      origins:
+      - type: Derived
+      comment: if AVAL < -1 then ANRIND='L'; if AVAL > 1 then ANRIND='H'; ANRIND='N'
+        otherwise; null if LBBLFL=Y or AVAL=null
+    - id: _MCHC
+      where:
+        PARAMCD:
+        - _MCHC
+      label: Ery. Mean Corpuscular HGB Concentration (mmol/L) change from previous
+        visit, relative to normal rang
+      mandatory: false
+      data_type: text
+      length: 1
+      origins:
+      - type: Derived
+      comment: if AVAL < -1 then ANRIND='L'; if AVAL > 1 then ANRIND='H'; ANRIND='N'
+        otherwise; null if LBBLFL=Y or AVAL=null
+    - id: _MCH
+      where:
+        PARAMCD:
+        - _MCH
+      label: Ery. Mean Corpuscular Hemoglobin (fmol(Fe)) change from previous visit,
+        relative to normal range
+      mandatory: false
+      data_type: text
+      length: 1
+      origins:
+      - type: Derived
+      comment: if AVAL < -1 then ANRIND='L'; if AVAL > 1 then ANRIND='H'; ANRIND='N'
+        otherwise; null if LBBLFL=Y or AVAL=null
+    - id: _MCV
+      where:
+        PARAMCD:
+        - _MCV
+      label: Ery. Mean Corpuscular Volume (fL) change from previous visit, relative
+        to normal range
+      mandatory: false
+      data_type: text
+      length: 1
+      origins:
+      - type: Derived
+      comment: if AVAL < -1 then ANRIND='L'; if AVAL > 1 then ANRIND='H'; ANRIND='N'
+        otherwise; null if LBBLFL=Y or AVAL=null
+    - id: _RBC
+      where:
+        PARAMCD:
+        - _RBC
+      label: Erythrocytes (TI/L) change from previous visit, relative to normal range
+      mandatory: false
+      data_type: text
+      length: 1
+      origins:
+      - type: Derived
+      comment: if AVAL < -1 then ANRIND='L'; if AVAL > 1 then ANRIND='H'; ANRIND='N'
+        otherwise; null if LBBLFL=Y or AVAL=null
+    - id: _HCT
+      where:
+        PARAMCD:
+        - _HCT
+      label: Hematocrit change from previous visit, relative to normal range
+      mandatory: false
+      data_type: text
+      length: 1
+      origins:
+      - type: Derived
+      comment: if AVAL < -1 then ANRIND='L'; if AVAL > 1 then ANRIND='H'; ANRIND='N'
+        otherwise; null if LBBLFL=Y or AVAL=null
+    - id: _HGB
+      where:
+        PARAMCD:
+        - _HGB
+      label: Hemoglobin (mmol/L) change from previous visit, relative to normal range
+      mandatory: false
+      data_type: text
+      length: 1
+      origins:
+      - type: Derived
+      comment: if AVAL < -1 then ANRIND='L'; if AVAL > 1 then ANRIND='H'; ANRIND='N'
+        otherwise; null if LBBLFL=Y or AVAL=null
+    - id: _WBC
+      where:
+        PARAMCD:
+        - _WBC
+      label: Leukocytes (GI/L) change from previous visit, relative to normal range
+      mandatory: false
+      data_type: text
+      length: 1
+      origins:
+      - type: Derived
+      comment: if AVAL < -1 then ANRIND='L'; if AVAL > 1 then ANRIND='H'; ANRIND='N'
+        otherwise; null if LBBLFL=Y or AVAL=null
+    - id: _LYM
+      where:
+        PARAMCD:
+        - _LYM
+      label: Lymphocytes (GI/L) change from previous visit, relative to normal range
+      mandatory: false
+      data_type: text
+      length: 1
+      origins:
+      - type: Derived
+      comment: if AVAL < -1 then ANRIND='L'; if AVAL > 1 then ANRIND='H'; ANRIND='N'
+        otherwise; null if LBBLFL=Y or AVAL=null
+    - id: _MACROCY
+      where:
+        PARAMCD:
+        - _MACROCY
+      label: Macrocytes change from previous visit, relative to normal range
+      mandatory: false
+      data_type: text
+      length: 1
+      origins:
+      - type: Derived
+      comment: if AVAL < -1 then ANRIND='L'; if AVAL > 1 then ANRIND='H'; ANRIND='N'
+        otherwise; null if LBBLFL=Y or AVAL=null
+    - id: _MICROCY
+      where:
+        PARAMCD:
+        - _MICROCY
+      label: Microcytes change from previous visit, relative to normal range
+      mandatory: false
+      data_type: text
+      length: 1
+      origins:
+      - type: Derived
+      comment: if AVAL < -1 then ANRIND='L'; if AVAL > 1 then ANRIND='H'; ANRIND='N'
+        otherwise; null if LBBLFL=Y or AVAL=null
+    - id: _MONO
+      where:
+        PARAMCD:
+        - _MONO
+      label: Monocytes (GI/L) change from previous visit, relative to normal range
+      mandatory: false
+      data_type: text
+      length: 1
+      origins:
+      - type: Derived
+      comment: if AVAL < -1 then ANRIND='L'; if AVAL > 1 then ANRIND='H'; ANRIND='N'
+        otherwise; null if LBBLFL=Y or AVAL=null
+    - id: _PLAT
+      where:
+        PARAMCD:
+        - _PLAT
+      label: Platelet (GI/L) change from previous visit, relative to normal range
+      mandatory: false
+      data_type: text
+      length: 1
+      origins:
+      - type: Derived
+      comment: if AVAL < -1 then ANRIND='L'; if AVAL > 1 then ANRIND='H'; ANRIND='N'
+        otherwise; null if LBBLFL=Y or AVAL=null
+    - id: _POIKILO
+      where:
+        PARAMCD:
+        - _POIKILO
+      label: Poikilocytes change from previous visit, relative to normal range
+      mandatory: false
+      data_type: text
+      length: 1
+      origins:
+      - type: Derived
+      comment: if AVAL < -1 then ANRIND='L'; if AVAL > 1 then ANRIND='H'; ANRIND='N'
+        otherwise; null if LBBLFL=Y or AVAL=null
+    - id: _POLYCHR
+      where:
+        PARAMCD:
+        - _POLYCHR
+      label: Polychromasia change from previous visit, relative to normal range
+      mandatory: false
+      data_type: text
+      length: 1
+      origins:
+      - type: Derived
+      comment: if AVAL < -1 then ANRIND='L'; if AVAL > 1 then ANRIND='H'; ANRIND='N'
+        otherwise; null if LBBLFL=Y or AVAL=null
+- name: BNRIND
+  type: str
+  label: Baseline Reference Range Indicator
+  derivation:
+    case:
+    - when: _IS_UNDER = 'Y'
+      then: ''''''
+    - when: _BNRIND_VAL IS NULL
+      then: ''''''
+    - otherwise: _BNRIND_VAL
+  submission:
+    mandatory: false
+    data_type: text
+    length: 1
+    codelist: LNH
+    origins:
+    - type: Derived
+    value_level:
+    - id: ANISO
+      where:
+        PARAMCD:
+        - ANISO
+      label: Anisocytes
+      mandatory: false
+      data_type: text
+      length: 1
+      codelist: LNH
+      origins:
+      - type: Derived
+      comment: ADLBH.ANRIND when ADLBH.ABLFL=Y
+    - id: BASO
+      where:
+        PARAMCD:
+        - BASO
+      label: Basophils (GI/L)
+      mandatory: false
+      data_type: text
+      length: 1
+      codelist: LNH
+      origins:
+      - type: Derived
+      comment: ADLBH.ANRIND when ADLBH.ABLFL=Y
+    - id: EOS
+      where:
+        PARAMCD:
+        - EOS
+      label: Eosinophils (GI/L)
+      mandatory: false
+      data_type: text
+      length: 1
+      codelist: LNH
+      origins:
+      - type: Derived
+      comment: ADLBH.ANRIND when ADLBH.ABLFL=Y
+    - id: MCHC
+      where:
+        PARAMCD:
+        - MCHC
+      label: Ery. Mean Corpuscular HGB Concentration (mmol/L)
+      mandatory: false
+      data_type: text
+      length: 1
+      codelist: LNH
+      origins:
+      - type: Derived
+      comment: ADLBH.ANRIND when ADLBH.ABLFL=Y
+    - id: MCH
+      where:
+        PARAMCD:
+        - MCH
+      label: Ery. Mean Corpuscular Hemoglobin (fmol(Fe))
+      mandatory: false
+      data_type: text
+      length: 1
+      codelist: LNH
+      origins:
+      - type: Derived
+      comment: ADLBH.ANRIND when ADLBH.ABLFL=Y
+    - id: MCV
+      where:
+        PARAMCD:
+        - MCV
+      label: Ery. Mean Corpuscular Volume (fL)
+      mandatory: false
+      data_type: text
+      length: 1
+      codelist: LNH
+      origins:
+      - type: Derived
+      comment: ADLBH.ANRIND when ADLBH.ABLFL=Y
+    - id: RBC
+      where:
+        PARAMCD:
+        - RBC
+      label: Erythrocytes (TI/L)
+      mandatory: false
+      data_type: text
+      length: 1
+      codelist: LNH
+      origins:
+      - type: Derived
+      comment: ADLBH.ANRIND when ADLBH.ABLFL=Y
+    - id: HCT
+      where:
+        PARAMCD:
+        - HCT
+      label: Hematocrit
+      mandatory: false
+      data_type: text
+      length: 1
+      codelist: LNH
+      origins:
+      - type: Derived
+      comment: ADLBH.ANRIND when ADLBH.ABLFL=Y
+    - id: HGB
+      where:
+        PARAMCD:
+        - HGB
+      label: Hemoglobin (mmol/L)
+      mandatory: false
+      data_type: text
+      length: 1
+      codelist: LNH
+      origins:
+      - type: Derived
+      comment: ADLBH.ANRIND when ADLBH.ABLFL=Y
+    - id: WBC
+      where:
+        PARAMCD:
+        - WBC
+      label: Leukocytes (GI/L)
+      mandatory: false
+      data_type: text
+      length: 1
+      codelist: LNH
+      origins:
+      - type: Derived
+      comment: ADLBH.ANRIND when ADLBH.ABLFL=Y
+    - id: LYM
+      where:
+        PARAMCD:
+        - LYM
+      label: Lymphocytes (GI/L)
+      mandatory: false
+      data_type: text
+      length: 1
+      codelist: LNH
+      origins:
+      - type: Derived
+      comment: ADLBH.ANRIND when ADLBH.ABLFL=Y
+    - id: MACROCY
+      where:
+        PARAMCD:
+        - MACROCY
+      label: Macrocytes
+      mandatory: false
+      data_type: text
+      length: 1
+      codelist: LNH
+      origins:
+      - type: Derived
+      comment: ADLBH.ANRIND when ADLBH.ABLFL=Y
+    - id: MICROCY
+      where:
+        PARAMCD:
+        - MICROCY
+      label: Microcytes
+      mandatory: false
+      data_type: text
+      length: 1
+      codelist: LNH
+      origins:
+      - type: Derived
+      comment: ADLBH.ANRIND when ADLBH.ABLFL=Y
+    - id: MONO
+      where:
+        PARAMCD:
+        - MONO
+      label: Monocytes (GI/L)
+      mandatory: false
+      data_type: text
+      length: 1
+      codelist: LNH
+      origins:
+      - type: Derived
+      comment: ADLBH.ANRIND when ADLBH.ABLFL=Y
+    - id: PLAT
+      where:
+        PARAMCD:
+        - PLAT
+      label: Platelet (GI/L)
+      mandatory: false
+      data_type: text
+      length: 1
+      codelist: LNH
+      origins:
+      - type: Derived
+      comment: ADLBH.ANRIND when ADLBH.ABLFL=Y
+    - id: POIKILO
+      where:
+        PARAMCD:
+        - POIKILO
+      label: Poikilocytes
+      mandatory: false
+      data_type: text
+      length: 1
+      codelist: LNH
+      origins:
+      - type: Derived
+      comment: ADLBH.ANRIND when ADLBH.ABLFL=Y
+    - id: POLYCHR
+      where:
+        PARAMCD:
+        - POLYCHR
+      label: Polychromasia
+      mandatory: false
+      data_type: text
+      length: 1
+      codelist: LNH
+      origins:
+      - type: Derived
+      comment: ADLBH.ANRIND when ADLBH.ABLFL=Y
+    - id: _ANISO
+      where:
+        PARAMCD:
+        - _ANISO
+      label: Anisocytes change from previous visit, relative to normal range
+      mandatory: false
+      data_type: text
+      length: 1
+      origins:
+      - type: Derived
+      comment: Set to missing
+    - id: _BASO
+      where:
+        PARAMCD:
+        - _BASO
+      label: Basophils (GI/L) change from previous visit, relative to normal range
+      mandatory: false
+      data_type: text
+      length: 1
+      origins:
+      - type: Derived
+      comment: Set to missing
+    - id: _EOS
+      where:
+        PARAMCD:
+        - _EOS
+      label: Eosinophils (GI/L) change from previous visit, relative to normal range
+      mandatory: false
+      data_type: text
+      length: 1
+      origins:
+      - type: Derived
+      comment: Set to missing
+    - id: _MCHC
+      where:
+        PARAMCD:
+        - _MCHC
+      label: Ery. Mean Corpuscular HGB Concentration (mmol/L) change from previous
+        visit, relative to normal rang
+      mandatory: false
+      data_type: text
+      length: 1
+      origins:
+      - type: Derived
+      comment: Set to missing
+    - id: _MCH
+      where:
+        PARAMCD:
+        - _MCH
+      label: Ery. Mean Corpuscular Hemoglobin (fmol(Fe)) change from previous visit,
+        relative to normal range
+      mandatory: false
+      data_type: text
+      length: 1
+      origins:
+      - type: Derived
+      comment: Set to missing
+    - id: _MCV
+      where:
+        PARAMCD:
+        - _MCV
+      label: Ery. Mean Corpuscular Volume (fL) change from previous visit, relative
+        to normal range
+      mandatory: false
+      data_type: text
+      length: 1
+      origins:
+      - type: Derived
+      comment: Set to missing
+    - id: _RBC
+      where:
+        PARAMCD:
+        - _RBC
+      label: Erythrocytes (TI/L) change from previous visit, relative to normal range
+      mandatory: false
+      data_type: text
+      length: 1
+      origins:
+      - type: Derived
+      comment: Set to missing
+    - id: _HCT
+      where:
+        PARAMCD:
+        - _HCT
+      label: Hematocrit change from previous visit, relative to normal range
+      mandatory: false
+      data_type: text
+      length: 1
+      origins:
+      - type: Derived
+      comment: Set to missing
+    - id: _HGB
+      where:
+        PARAMCD:
+        - _HGB
+      label: Hemoglobin (mmol/L) change from previous visit, relative to normal range
+      mandatory: false
+      data_type: text
+      length: 1
+      origins:
+      - type: Derived
+      comment: Set to missing
+    - id: _WBC
+      where:
+        PARAMCD:
+        - _WBC
+      label: Leukocytes (GI/L) change from previous visit, relative to normal range
+      mandatory: false
+      data_type: text
+      length: 1
+      origins:
+      - type: Derived
+      comment: Set to missing
+    - id: _LYM
+      where:
+        PARAMCD:
+        - _LYM
+      label: Lymphocytes (GI/L) change from previous visit, relative to normal range
+      mandatory: false
+      data_type: text
+      length: 1
+      origins:
+      - type: Derived
+      comment: Set to missing
+    - id: _MACROCY
+      where:
+        PARAMCD:
+        - _MACROCY
+      label: Macrocytes change from previous visit, relative to normal range
+      mandatory: false
+      data_type: text
+      length: 1
+      origins:
+      - type: Derived
+      comment: Set to missing
+    - id: _MICROCY
+      where:
+        PARAMCD:
+        - _MICROCY
+      label: Microcytes change from previous visit, relative to normal range
+      mandatory: false
+      data_type: text
+      length: 1
+      origins:
+      - type: Derived
+      comment: Set to missing
+    - id: _MONO
+      where:
+        PARAMCD:
+        - _MONO
+      label: Monocytes (GI/L) change from previous visit, relative to normal range
+      mandatory: false
+      data_type: text
+      length: 1
+      origins:
+      - type: Derived
+      comment: Set to missing
+    - id: _PLAT
+      where:
+        PARAMCD:
+        - _PLAT
+      label: Platelet (GI/L) change from previous visit, relative to normal range
+      mandatory: false
+      data_type: text
+      length: 1
+      origins:
+      - type: Derived
+      comment: Set to missing
+    - id: _POIKILO
+      where:
+        PARAMCD:
+        - _POIKILO
+      label: Poikilocytes change from previous visit, relative to normal range
+      mandatory: false
+      data_type: text
+      length: 1
+      origins:
+      - type: Derived
+      comment: Set to missing
+    - id: _POLYCHR
+      where:
+        PARAMCD:
+        - _POLYCHR
+      label: Polychromasia change from previous visit, relative to normal range
+      mandatory: false
+      data_type: text
+      length: 1
+      origins:
+      - type: Derived
+      comment: Set to missing
+- name: AENTMTFL
+  type: str
+  label: Last value in treatment visit
+  derivation:
+    case:
+    - when: _IS_EOT = 'Y'
+      then: '''Y'''
+    - when: _IS_LAST_ELIGIBLE = 1
+      then: '''Y'''
+    - otherwise: ''''''
+  submission:
+    mandatory: false
+    data_type: text
+    length: 1
+    codelist: Y_BLANK
+    origins:
+    - type: Derived
+    comment: 'Last observed value for this lab test during treatment phase: ''Y''
+      if VISITNUM=12, if subject discontinues prior to VISIT 12, then this variable
+      is set to ''Y'' if this is the last assessment of this analyte for the subject'
+- name: LBSEQ
+  type: float
+  label: Sequence Number
+  submission:
+    key_sequence: 4
+    mandatory: false
+    data_type: integer
+    length: 8
+    origins:
+    - type: Derived
+    comment: LB.LBSEQ
+- name: LBNRIND
+  type: str
+  label: Reference Range Indicator
+  submission:
+    mandatory: false
+    data_type: text
+    length: 8
+    codelist: LBNRIND
+    origins:
+    - type: Derived
+    comment: LB.LBNRIND
+- name: LBSTRESN
+  type: float
+  label: Numeric Result/Finding in Standard Units
+  submission:
+    mandatory: false
+    data_type: float
+    length: 8
+    significant_digits: 5
+    origins:
+    - type: Derived
+    comment: LB.LBSTRESN
+rows:
+- id: base-ord
+  dataset: LB
+  filter: LB.LBCAT = 'HEMATOLOGY' AND LB.VISIT NOT IN ('RETRIEVAL', 'AMBUL ECG REMOVAL',
+    'BASELINE')
+  derivations:
+    STUDYID: LB.STUDYID
+    USUBJID: LB.USUBJID
+    PARAMCD: LB.LBTESTCD
+    _IS_UNDER: ''''''
+    _IS_EOT: ''''''
+    VISIT: LB.VISIT
+    VISITNUM: LB.VISITNUM
+    LBSEQ: LB.LBSEQ
+    LBNRIND: LB.LBNRIND
+    LBSTRESN: LB.LBSTRESN
+    A1LO:
+      case:
+      - when: LB.LBSTNRLO = 0
+        then: null
+      - otherwise: LB.LBSTNRLO
+    A1HI: LB.LBSTNRHI
+    _LBDTM_TXT: LB.LBDTC
+    _LBDTM:
+      impute:
+        type: datetime
+        source: _LBDTM_TXT
+        time: first
+        invalid: null
+    _ADT_DATE:
+      to_date:
+        source: _LBDTM
+    AVISIT:
+      case:
+      - when: LB.VISIT = 'SCREENING 1'
+        then: '''        Baseline'''
+      - when: LB.VISIT = 'WEEK 2'
+        then: '''          Week 2'''
+      - when: LB.VISIT = 'WEEK 4'
+        then: '''          Week 4'''
+      - when: LB.VISIT = 'WEEK 6'
+        then: '''          Week 6'''
+      - when: LB.VISIT = 'WEEK 8'
+        then: '''          Week 8'''
+      - when: LB.VISIT = 'WEEK 12'
+        then: '''         Week 12'''
+      - when: LB.VISIT = 'WEEK 16'
+        then: '''         Week 16'''
+      - when: LB.VISIT = 'WEEK 20'
+        then: '''         Week 20'''
+      - when: LB.VISIT = 'WEEK 24'
+        then: '''         Week 24'''
+      - when: LB.VISIT = 'WEEK 26'
+        then: '''         Week 26'''
+      - otherwise: '''               .'''
+    AVISITN:
+      case:
+      - when: LB.VISIT = 'SCREENING 1'
+        then: 0.0
+      - when: LB.VISIT = 'WEEK 2'
+        then: 2.0
+      - when: LB.VISIT = 'WEEK 4'
+        then: 4.0
+      - when: LB.VISIT = 'WEEK 6'
+        then: 6.0
+      - when: LB.VISIT = 'WEEK 8'
+        then: 8.0
+      - when: LB.VISIT = 'WEEK 12'
+        then: 12.0
+      - when: LB.VISIT = 'WEEK 16'
+        then: 16.0
+      - when: LB.VISIT = 'WEEK 20'
+        then: 20.0
+      - when: LB.VISIT = 'WEEK 24'
+        then: 24.0
+      - when: LB.VISIT = 'WEEK 26'
+        then: 26.0
+      - otherwise: null
+    ABLFL:
+      case:
+      - when: LB.LBBLFL = 'Y'
+        then: '''Y'''
+      - otherwise: ''''''
+    _PARAM_BASE:
+      mapping:
+        source: LB.LBTESTCD
+        dict:
+          HGB: Hemoglobin (mmol/L)
+          HCT: Hematocrit
+          MCV: Ery. Mean Corpuscular Volume (fL)
+          MCH: Ery. Mean Corpuscular Hemoglobin (fmol(Fe))
+          MCHC: Ery. Mean Corpuscular HGB Concentration (mmol/L)
+          WBC: Leukocytes (GI/L)
+          LYM: Lymphocytes (GI/L)
+          MONO: Monocytes (GI/L)
+          EOS: Eosinophils (GI/L)
+          BASO: Basophils (GI/L)
+          PLAT: Platelet (GI/L)
+          RBC: Erythrocytes (TI/L)
+          ANISO: Anisocytes
+          MACROCY: Macrocytes
+          MICROCY: Microcytes
+          POIKILO: Poikilocytes
+          POLYCHR: Polychromasia
+        case_sensitive: true
+        unmapped: null
+    _PARAMN_BASE:
+      mapping:
+        source: LB.LBTESTCD
+        dict:
+          HGB: 1.0
+          HCT: 2.0
+          MCV: 3.0
+          MCH: 4.0
+          MCHC: 5.0
+          WBC: 6.0
+          LYM: 7.0
+          MONO: 8.0
+          EOS: 9.0
+          BASO: 10.0
+          PLAT: 11.0
+          RBC: 12.0
+          ANISO: 13.0
+          MACROCY: 14.0
+          MICROCY: 15.0
+          POIKILO: 16.0
+          POLYCHR: 17.0
+        case_sensitive: true
+        unmapped: null
+    _AVAL_BASE: LB.LBSTRESN
+    _BASELINE_AVAL:
+      case:
+      - when: ABLFL = 'Y'
+        then: _AVAL_BASE
+      - otherwise: null
+    _PNM_BASE:
+      locf:
+        source: _BASELINE_AVAL
+        include_current: true
+        window:
+          group_by:
+          - USUBJID
+          - PARAMCD
+          order_by:
+          - variable: LBSEQ
+            direction: asc
+            nulls: last
+    _BASE:
+      first_available:
+        sources:
+        - _BASELINE_AVAL
+        - _PNM_BASE
+    _IS_LAST_ELIGIBLE:
+      row_number:
+        window:
+          group_by:
+          - USUBJID
+          - PARAMCD
+          order_by:
+          - variable: LBSEQ
+            direction: desc
+            nulls: last
+          filter: VISIT IN ('WEEK 2', 'WEEK 4', 'WEEK 6', 'WEEK 8', 'WEEK 12', 'WEEK
+            16', 'WEEK 20', 'WEEK 24')
+    _RANK_AVISITN: AVISITN
+    _B_A1HI: null
+    _B_A1LO: null
+    _EOT_A1LO_RAW: null
+    _T1: 1.5 * A1HI - _AVAL_BASE
+    _T2: _AVAL_BASE - 0.5 * A1LO
+    ALBTRVAL:
+      case:
+      - when: A1LO IS NULL AND A1HI IS NULL
+        then: null
+      - when: A1LO IS NULL
+        then:
+          greatest:
+            sources:
+            - _T1
+            - _AVAL_BASE
+      - when: A1HI IS NULL
+        then: _T2
+      - otherwise:
+          greatest:
+            sources:
+            - _T1
+            - _T2
+    _R2A1HI_R: _AVAL_BASE / A1HI
+    _R2A1LO_R: _AVAL_BASE / A1LO
+    _ANRIND_BASE:
+      case:
+      - when: _R2A1HI_R > 1.5
+        then: '''H'''
+      - when: _R2A1LO_R < 0.5
+        then: '''L'''
+      - when: A1LO IS NULL AND A1HI IS NULL AND _AVAL_BASE IS NOT NULL
+        then: '''H'''
+      - otherwise: '''N'''
+    _BASELINE_ANRIND:
+      case:
+      - when: ABLFL = 'Y'
+        then: _ANRIND_BASE
+      - otherwise: null
+    _PNM_BNRIND:
+      locf:
+        source: _BASELINE_ANRIND
+        include_current: true
+        window:
+          group_by:
+          - USUBJID
+          - PARAMCD
+          order_by:
+          - variable: LBSEQ
+            direction: asc
+            nulls: last
+    _BNRIND_VAL:
+      first_available:
+        sources:
+        - _BASELINE_ANRIND
+        - _PNM_BNRIND
+    _LBCAT: null
+    _VISIT_RAW: null
+    _LBBLFL: null
+    _LBTESTCD: LB.LBTESTCD
+    _PARAMCD_BASE: null
+    _SCHED: null
+    _PREV_AVAL: null
+    _U_RAW: null
+- id: base-eot
+  dataset: LB
+  group_by:
+  - LB.USUBJID
+  - LB.LBTESTCD
+  - LB.LBSEQ
+  filter: _IS_LAST_ELIGIBLE = 1
+  derivations:
+    STUDYID:
+      aggregate: ONLY(LB.STUDYID)
+    USUBJID: LB.USUBJID
+    PARAMCD: LB.LBTESTCD
+    LBSEQ: LB.LBSEQ
+    _IS_UNDER: ''''''
+    _IS_EOT: '''Y'''
+    _LBCAT:
+      aggregate: ONLY(LB.LBCAT)
+    _VISIT_RAW:
+      aggregate: ONLY(LB.VISIT)
+    VISIT:
+      aggregate: ONLY(LB.VISIT)
+    VISITNUM:
+      aggregate: ONLY(LB.VISITNUM)
+    LBNRIND:
+      aggregate: ONLY(LB.LBNRIND)
+    LBSTRESN:
+      aggregate: ONLY(LB.LBSTRESN)
+    _EOT_A1LO_RAW:
+      aggregate: ONLY(LB.LBSTNRLO)
+    A1LO:
+      case:
+      - when: _EOT_A1LO_RAW = 0
+        then: null
+      - otherwise: _EOT_A1LO_RAW
+    A1HI:
+      aggregate: ONLY(LB.LBSTNRHI)
+    _LBDTM_TXT:
+      aggregate: ONLY(LB.LBDTC)
+    _LBDTM:
+      impute:
+        type: datetime
+        source: _LBDTM_TXT
+        time: first
+        invalid: null
+    _ADT_DATE:
+      to_date:
+        source: _LBDTM
+    _LBBLFL:
+      aggregate: ONLY(LB.LBBLFL)
+    _LBTESTCD:
+      aggregate: ONLY(LB.LBTESTCD)
+    AVISIT: '''End of Treatment'''
+    AVISITN: 99.0
+    ABLFL: ''''''
+    _PARAM_BASE:
+      mapping:
+        source: LB.LBTESTCD
+        dict:
+          HGB: Hemoglobin (mmol/L)
+          HCT: Hematocrit
+          MCV: Ery. Mean Corpuscular Volume (fL)
+          MCH: Ery. Mean Corpuscular Hemoglobin (fmol(Fe))
+          MCHC: Ery. Mean Corpuscular HGB Concentration (mmol/L)
+          WBC: Leukocytes (GI/L)
+          LYM: Lymphocytes (GI/L)
+          MONO: Monocytes (GI/L)
+          EOS: Eosinophils (GI/L)
+          BASO: Basophils (GI/L)
+          PLAT: Platelet (GI/L)
+          RBC: Erythrocytes (TI/L)
+          ANISO: Anisocytes
+          MACROCY: Macrocytes
+          MICROCY: Microcytes
+          POIKILO: Poikilocytes
+          POLYCHR: Polychromasia
+        case_sensitive: true
+        unmapped: null
+    _PARAMN_BASE:
+      mapping:
+        source: LB.LBTESTCD
+        dict:
+          HGB: 1.0
+          HCT: 2.0
+          MCV: 3.0
+          MCH: 4.0
+          MCHC: 5.0
+          WBC: 6.0
+          LYM: 7.0
+          MONO: 8.0
+          EOS: 9.0
+          BASO: 10.0
+          PLAT: 11.0
+          RBC: 12.0
+          ANISO: 13.0
+          MACROCY: 14.0
+          MICROCY: 15.0
+          POIKILO: 16.0
+          POLYCHR: 17.0
+        case_sensitive: true
+        unmapped: null
+    _AVAL_BASE:
+      aggregate: ONLY(LB.LBSTRESN)
+    _BASELINE_AVAL:
+      case:
+      - when: _LBBLFL = 'Y'
+        then: _AVAL_BASE
+      - otherwise: null
+    _PNM_BASE:
+      locf:
+        source: _BASELINE_AVAL
+        include_current: true
+        window:
+          group_by:
+          - USUBJID
+          - PARAMCD
+          order_by:
+          - variable: LBSEQ
+            direction: asc
+            nulls: last
+    _BASE:
+      first_available:
+        sources:
+        - _BASELINE_AVAL
+        - _PNM_BASE
+    _IS_LAST_ELIGIBLE:
+      row_number:
+        window:
+          group_by:
+          - USUBJID
+          - PARAMCD
+          order_by:
+          - variable: LBSEQ
+            direction: desc
+            nulls: last
+          filter: _LBCAT = 'HEMATOLOGY' AND _VISIT_RAW NOT IN ('RETRIEVAL', 'AMBUL
+            ECG REMOVAL') AND _VISIT_RAW IN ('WEEK 2', 'WEEK 4', 'WEEK 6', 'WEEK 8',
+            'WEEK 12', 'WEEK 16', 'WEEK 20', 'WEEK 24')
+    _RANK_AVISITN:
+      case:
+      - when: _VISIT_RAW = 'SCREENING 1'
+        then: 0.0
+      - when: _VISIT_RAW = 'WEEK 2'
+        then: 2.0
+      - when: _VISIT_RAW = 'WEEK 4'
+        then: 4.0
+      - when: _VISIT_RAW = 'WEEK 6'
+        then: 6.0
+      - when: _VISIT_RAW = 'WEEK 8'
+        then: 8.0
+      - when: _VISIT_RAW = 'WEEK 12'
+        then: 12.0
+      - when: _VISIT_RAW = 'WEEK 16'
+        then: 16.0
+      - when: _VISIT_RAW = 'WEEK 20'
+        then: 20.0
+      - when: _VISIT_RAW = 'WEEK 24'
+        then: 24.0
+      - when: _VISIT_RAW = 'WEEK 26'
+        then: 26.0
+      - otherwise: null
+    _B_A1HI: null
+    _B_A1LO: null
+    _T1: 1.5 * A1HI - _AVAL_BASE
+    _T2: _AVAL_BASE - 0.5 * A1LO
+    ALBTRVAL:
+      case:
+      - when: A1LO IS NULL AND A1HI IS NULL
+        then: null
+      - when: A1LO IS NULL
+        then:
+          greatest:
+            sources:
+            - _T1
+            - _AVAL_BASE
+      - when: A1HI IS NULL
+        then: _T2
+      - otherwise:
+          greatest:
+            sources:
+            - _T1
+            - _T2
+    _R2A1HI_R: _AVAL_BASE / A1HI
+    _R2A1LO_R: _AVAL_BASE / A1LO
+    _ANRIND_BASE:
+      case:
+      - when: _R2A1HI_R > 1.5
+        then: '''H'''
+      - when: _R2A1LO_R < 0.5
+        then: '''L'''
+      - when: A1LO IS NULL AND A1HI IS NULL AND _AVAL_BASE IS NOT NULL
+        then: '''H'''
+      - otherwise: '''N'''
+    _BASELINE_ANRIND:
+      case:
+      - when: _LBBLFL = 'Y'
+        then: _ANRIND_BASE
+      - otherwise: null
+    _PNM_BNRIND:
+      locf:
+        source: _BASELINE_ANRIND
+        include_current: true
+        window:
+          group_by:
+          - USUBJID
+          - PARAMCD
+          order_by:
+          - variable: LBSEQ
+            direction: asc
+            nulls: last
+    _BNRIND_VAL:
+      first_available:
+        sources:
+        - _BASELINE_ANRIND
+        - _PNM_BNRIND
+    _PARAMCD_BASE: null
+    _SCHED: null
+    _PREV_AVAL: null
+    _U_RAW: null
+- id: under-ord
+  dataset: LB
+  filter: LB.LBCAT = 'HEMATOLOGY' AND LB.VISIT NOT IN ('RETRIEVAL', 'AMBUL ECG REMOVAL',
+    'BASELINE')
+  derivations:
+    STUDYID: LB.STUDYID
+    USUBJID: LB.USUBJID
+    _IS_UNDER: '''Y'''
+    _IS_EOT: ''''''
+    VISIT: LB.VISIT
+    VISITNUM: LB.VISITNUM
+    LBSEQ: LB.LBSEQ
+    LBNRIND: LB.LBNRIND
+    LBSTRESN: LB.LBSTRESN
+    A1LO: null
+    A1HI: null
+    _LBDTM_TXT: LB.LBDTC
+    _LBDTM:
+      impute:
+        type: datetime
+        source: _LBDTM_TXT
+        time: first
+        invalid: null
+    _ADT_DATE:
+      to_date:
+        source: _LBDTM
+    PARAMCD:
+      str_template: _{LB.LBTESTCD}
+    AVISIT:
+      case:
+      - when: LB.VISIT = 'SCREENING 1'
+        then: '''        Baseline'''
+      - when: LB.VISIT = 'WEEK 2'
+        then: '''          Week 2'''
+      - when: LB.VISIT = 'WEEK 4'
+        then: '''          Week 4'''
+      - when: LB.VISIT = 'WEEK 6'
+        then: '''          Week 6'''
+      - when: LB.VISIT = 'WEEK 8'
+        then: '''          Week 8'''
+      - when: LB.VISIT = 'WEEK 12'
+        then: '''         Week 12'''
+      - when: LB.VISIT = 'WEEK 16'
+        then: '''         Week 16'''
+      - when: LB.VISIT = 'WEEK 20'
+        then: '''         Week 20'''
+      - when: LB.VISIT = 'WEEK 24'
+        then: '''         Week 24'''
+      - when: LB.VISIT = 'WEEK 26'
+        then: '''         Week 26'''
+      - otherwise: '''               .'''
+    AVISITN:
+      case:
+      - when: LB.VISIT = 'SCREENING 1'
+        then: 0.0
+      - when: LB.VISIT = 'WEEK 2'
+        then: 2.0
+      - when: LB.VISIT = 'WEEK 4'
+        then: 4.0
+      - when: LB.VISIT = 'WEEK 6'
+        then: 6.0
+      - when: LB.VISIT = 'WEEK 8'
+        then: 8.0
+      - when: LB.VISIT = 'WEEK 12'
+        then: 12.0
+      - when: LB.VISIT = 'WEEK 16'
+        then: 16.0
+      - when: LB.VISIT = 'WEEK 20'
+        then: 20.0
+      - when: LB.VISIT = 'WEEK 24'
+        then: 24.0
+      - when: LB.VISIT = 'WEEK 26'
+        then: 26.0
+      - otherwise: null
+    ABLFL: ''''''
+    _PARAM_BASE:
+      mapping:
+        source: LB.LBTESTCD
+        dict:
+          HGB: Hemoglobin (mmol/L)
+          HCT: Hematocrit
+          MCV: Ery. Mean Corpuscular Volume (fL)
+          MCH: Ery. Mean Corpuscular Hemoglobin (fmol(Fe))
+          MCHC: Ery. Mean Corpuscular HGB Concentration (mmol/L)
+          WBC: Leukocytes (GI/L)
+          LYM: Lymphocytes (GI/L)
+          MONO: Monocytes (GI/L)
+          EOS: Eosinophils (GI/L)
+          BASO: Basophils (GI/L)
+          PLAT: Platelet (GI/L)
+          RBC: Erythrocytes (TI/L)
+          ANISO: Anisocytes
+          MACROCY: Macrocytes
+          MICROCY: Microcytes
+          POIKILO: Poikilocytes
+          POLYCHR: Polychromasia
+        case_sensitive: true
+        unmapped: null
+    _PARAMN_BASE:
+      mapping:
+        source: LB.LBTESTCD
+        dict:
+          HGB: 1.0
+          HCT: 2.0
+          MCV: 3.0
+          MCH: 4.0
+          MCHC: 5.0
+          WBC: 6.0
+          LYM: 7.0
+          MONO: 8.0
+          EOS: 9.0
+          BASO: 10.0
+          PLAT: 11.0
+          RBC: 12.0
+          ANISO: 13.0
+          MACROCY: 14.0
+          MICROCY: 15.0
+          POIKILO: 16.0
+          POLYCHR: 17.0
+        case_sensitive: true
+        unmapped: null
+    _AVAL_BASE: LB.LBSTRESN
+    _BASE:
+      first_available:
+        sources:
+        - _BASELINE_AVAL
+        - _PNM_BASE
+    _BASELINE_AVAL: null
+    _PNM_BASE: null
+    _PARAMCD_BASE: LB.LBTESTCD
+    _SCHED:
+      case:
+      - when: AVISIT = '               .' OR AVISIT = 'End of Treatment' OR AVISIT
+          = '        Baseline'
+        then: ''''''
+      - otherwise: '''Y'''
+    _PREV_AVAL: PREV.PREV_AVAL
+    _U_RAW: (_AVAL_BASE - _PREV_AVAL) / (0.5 * (_B_A1HI - _B_A1LO))
+    _IS_LAST_ELIGIBLE:
+      row_number:
+        window:
+          group_by:
+          - USUBJID
+          - _PARAMCD_BASE
+          order_by:
+          - variable: LBSEQ
+            direction: desc
+            nulls: last
+          filter: VISIT IN ('WEEK 2', 'WEEK 4', 'WEEK 6', 'WEEK 8', 'WEEK 12', 'WEEK
+            16', 'WEEK 20', 'WEEK 24')
+    _RANK_AVISITN: AVISITN
+    _B_A1HI: LB.LBSTNRHI
+    _B_A1LO: LB.LBSTNRLO
+    _EOT_A1LO_RAW: null
+    _T1: 1.5 * _B_A1HI - _AVAL_BASE
+    _T2: _AVAL_BASE - 0.5 * _B_A1LO
+    ALBTRVAL:
+      case:
+      - when: _B_A1LO IS NULL AND _B_A1HI IS NULL
+        then: null
+      - when: _B_A1LO IS NULL
+        then: _T1
+      - when: _B_A1HI IS NULL
+        then: _T2
+      - otherwise:
+          greatest:
+            sources:
+            - _T1
+            - _T2
+    _R2A1HI_R: null
+    _R2A1LO_R: null
+    _BASELINE_ANRIND: null
+    _PNM_BNRIND: null
+    _BNRIND_VAL: null
+    _ANRIND_BASE: null
+    _LBCAT: null
+    _VISIT_RAW: null
+    _LBBLFL: null
+    _LBTESTCD: LB.LBTESTCD
+- id: under-eot
+  dataset: LB
+  group_by:
+  - LB.USUBJID
+  - LB.LBTESTCD
+  - LB.LBSEQ
+  filter: _IS_LAST_ELIGIBLE = 1
+  derivations:
+    STUDYID:
+      aggregate: ONLY(LB.STUDYID)
+    USUBJID: LB.USUBJID
+    LBSEQ: LB.LBSEQ
+    _IS_UNDER: '''Y'''
+    _IS_EOT: '''Y'''
+    _LBCAT:
+      aggregate: ONLY(LB.LBCAT)
+    _VISIT_RAW:
+      aggregate: ONLY(LB.VISIT)
+    VISIT:
+      aggregate: ONLY(LB.VISIT)
+    VISITNUM:
+      aggregate: ONLY(LB.VISITNUM)
+    LBNRIND:
+      aggregate: ONLY(LB.LBNRIND)
+    LBSTRESN:
+      aggregate: ONLY(LB.LBSTRESN)
+    A1LO: null
+    A1HI: null
+    _LBDTM_TXT:
+      aggregate: ONLY(LB.LBDTC)
+    _LBDTM:
+      impute:
+        type: datetime
+        source: _LBDTM_TXT
+        time: first
+        invalid: null
+    _ADT_DATE:
+      to_date:
+        source: _LBDTM
+    _LBTESTCD:
+      aggregate: ONLY(LB.LBTESTCD)
+    _LBBLFL:
+      aggregate: ONLY(LB.LBBLFL)
+    PARAMCD:
+      str_template: _{_LBTESTCD}
+    AVISIT: '''End of Treatment'''
+    AVISITN: 99.0
+    ABLFL: ''''''
+    _PARAM_BASE:
+      mapping:
+        source: LB.LBTESTCD
+        dict:
+          HGB: Hemoglobin (mmol/L)
+          HCT: Hematocrit
+          MCV: Ery. Mean Corpuscular Volume (fL)
+          MCH: Ery. Mean Corpuscular Hemoglobin (fmol(Fe))
+          MCHC: Ery. Mean Corpuscular HGB Concentration (mmol/L)
+          WBC: Leukocytes (GI/L)
+          LYM: Lymphocytes (GI/L)
+          MONO: Monocytes (GI/L)
+          EOS: Eosinophils (GI/L)
+          BASO: Basophils (GI/L)
+          PLAT: Platelet (GI/L)
+          RBC: Erythrocytes (TI/L)
+          ANISO: Anisocytes
+          MACROCY: Macrocytes
+          MICROCY: Microcytes
+          POIKILO: Poikilocytes
+          POLYCHR: Polychromasia
+        case_sensitive: true
+        unmapped: null
+    _PARAMN_BASE:
+      mapping:
+        source: LB.LBTESTCD
+        dict:
+          HGB: 1.0
+          HCT: 2.0
+          MCV: 3.0
+          MCH: 4.0
+          MCHC: 5.0
+          WBC: 6.0
+          LYM: 7.0
+          MONO: 8.0
+          EOS: 9.0
+          BASO: 10.0
+          PLAT: 11.0
+          RBC: 12.0
+          ANISO: 13.0
+          MACROCY: 14.0
+          MICROCY: 15.0
+          POIKILO: 16.0
+          POLYCHR: 17.0
+        case_sensitive: true
+        unmapped: null
+    _AVAL_BASE:
+      aggregate: ONLY(LB.LBSTRESN)
+    _BASE: null
+    _BASELINE_AVAL: null
+    _PNM_BASE: null
+    _PARAMCD_BASE:
+      aggregate: ONLY(LB.LBTESTCD)
+    _SCHED:
+      case:
+      - when: _VISIT_RAW IN ('SCREENING 1', 'WEEK 2', 'WEEK 4', 'WEEK 6', 'WEEK 8',
+          'WEEK 12', 'WEEK 16', 'WEEK 20', 'WEEK 24', 'WEEK 26')
+        then: '''Y'''
+      - otherwise: ''''''
+    _PREV_AVAL: PREV.PREV_AVAL
+    _U_RAW: (_AVAL_BASE - _PREV_AVAL) / (0.5 * (_B_A1HI - _B_A1LO))
+    _IS_LAST_ELIGIBLE:
+      row_number:
+        window:
+          group_by:
+          - USUBJID
+          - _PARAMCD_BASE
+          order_by:
+          - variable: LBSEQ
+            direction: desc
+            nulls: last
+          filter: _LBCAT = 'HEMATOLOGY' AND _VISIT_RAW NOT IN ('RETRIEVAL', 'AMBUL
+            ECG REMOVAL') AND _VISIT_RAW IN ('WEEK 2', 'WEEK 4', 'WEEK 6', 'WEEK 8',
+            'WEEK 12', 'WEEK 16', 'WEEK 20', 'WEEK 24')
+    _RANK_AVISITN:
+      case:
+      - when: _VISIT_RAW = 'SCREENING 1'
+        then: 0.0
+      - when: _VISIT_RAW = 'WEEK 2'
+        then: 2.0
+      - when: _VISIT_RAW = 'WEEK 4'
+        then: 4.0
+      - when: _VISIT_RAW = 'WEEK 6'
+        then: 6.0
+      - when: _VISIT_RAW = 'WEEK 8'
+        then: 8.0
+      - when: _VISIT_RAW = 'WEEK 12'
+        then: 12.0
+      - when: _VISIT_RAW = 'WEEK 16'
+        then: 16.0
+      - when: _VISIT_RAW = 'WEEK 20'
+        then: 20.0
+      - when: _VISIT_RAW = 'WEEK 24'
+        then: 24.0
+      - when: _VISIT_RAW = 'WEEK 26'
+        then: 26.0
+      - otherwise: null
+    _B_A1HI:
+      aggregate: ONLY(LB.LBSTNRHI)
+    _B_A1LO:
+      aggregate: ONLY(LB.LBSTNRLO)
+    _EOT_A1LO_RAW: null
+    _T1: 1.5 * _B_A1HI - _AVAL_BASE
+    _T2: _AVAL_BASE - 0.5 * _B_A1LO
+    ALBTRVAL:
+      case:
+      - when: _B_A1LO IS NULL AND _B_A1HI IS NULL
+        then: null
+      - when: _B_A1LO IS NULL
+        then: _T1
+      - when: _B_A1HI IS NULL
+        then: _T2
+      - otherwise:
+          greatest:
+            sources:
+            - _T1
+            - _T2
+    _R2A1HI_R: null
+    _R2A1LO_R: null
+    _BASELINE_ANRIND: null
+    _PNM_BNRIND: null
+    _BNRIND_VAL: null
+    _ANRIND_BASE: null
+submission:
+  mode: historical
+  artifact: adlbh.xpt
+  has_no_data: false
+  label: Analysis Dataset Lab Hematology
+  class: BASIC DATA STRUCTURE
+  structure: one record per subject per parameter per analysis visit
+  repeating: true
+  reference_data: false
+  non_standard: false

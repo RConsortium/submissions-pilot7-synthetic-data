@@ -15,7 +15,7 @@ import yaml
 from synthetic_odm import stage
 from synthetic_checks import check_datasets, check_define, check_source_trace, clinical_observations, frame
 from synthetic_evidence import artifact_inventory
-from study_dashboard.specifications import capture_specification
+from resolved_specs import execution_project, process_study, specification_packet
 
 ROOT = Path(__file__).resolve().parents[2]
 ENGINE_PIN = '5976b74fddfbcbcad4d53ba550cb1e3773e07a5b'
@@ -113,13 +113,14 @@ def validate(study, root=ROOT):
     try:
         if '1.0' not in yamaa.info()['language_versions']:
             raise ValueError('The installed yamaa does not support the required 1.0 language')
+        process_study(root, study, check=True)
         inventory=stage(study,root)
         report['source_subjects']=inventory['subjects']
         for section in ['sdtm', 'adam']:
             (base / 'data' / section).mkdir(parents=True, exist_ok=True)
         project_file=base/'spec/yamaa/project.yaml'
         declaration=yaml.safe_load(project_file.read_text())
-        project=yamaa.project(project_file)
+        project=yamaa.project(execution_project(root, study))
         checked=project.check()
         if checked.status!='succeeded':raise ValueError(checked.issues.to_pylist())
         for section in ['sdtm','adam']:
@@ -134,8 +135,7 @@ def validate(study, root=ROOT):
         for dataset in report['datasets']:
             if dataset['section'] == 'adam':
                 path = root / dataset['spec']
-                dataset['resolved_specification'] = capture_specification(
-                    root, path, project.spec(dataset['domain']).resolve())
+                dataset['resolved_specification'] = specification_packet(root, path)
         report['source_trace_checks']=check_source_trace(base)
         report['define_xml']={section:check_define(root,base,section,
             [d['domain'] for d in report['datasets'] if d['section']==section]) for section in ['sdtm','adam']}

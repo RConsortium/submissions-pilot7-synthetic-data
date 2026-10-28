@@ -1,0 +1,754 @@
+yamaa: '1.0'
+type: spec
+model: ADaM
+domain: ADLBHY
+keys:
+- STUDYID
+- USUBJID
+- AVISITN
+- PARAMN
+input:
+  REF:
+    path: ../../data/adam/adlbhy.parquet
+    empty_string: present
+  _LBHY2_ADLBC:
+    path: ../../data/adam/adlbc.parquet
+    empty_string: present
+  _LBHY3_ADSL_SOURCE:
+    path: ../../data/adam/adsl.parquet
+    empty_string: present
+base: REF
+output:
+  path: ../../../.build/verification/cdiscpilot01/adlbhy-documented-rules.parquet
+  columns:
+  - STUDYID
+  - USUBJID
+  - AVISITN
+  - PARAMN
+  - AVISITN__LITERAL
+  - PARAMCD
+  - PARAMN__LITERAL
+  - PARAM__CODELIST
+  - AVAL__NATIVE_DIAGNOSTIC
+  - AVAL__NATIVE_BILIHY_CODE
+  - AVAL__SAP_ULN
+  - AVAL__SAP_SHELL_2X
+  - BASE__NATIVE_DIAGNOSTIC
+  - BASE__SAP_VISIT1
+  - A1LO__NATIVE_DIAGNOSTIC
+  - A1HI__NATIVE_DIAGNOSTIC
+  - R2A1LO__NATIVE_DIAGNOSTIC
+  - R2A1HI__NATIVE_DIAGNOSTIC
+  - BR2A1LO__NATIVE_DIAGNOSTIC
+  - BR2A1HI__NATIVE_DIAGNOSTIC
+  - SHIFT1__NATIVE_DIAGNOSTIC
+  - SHIFT1N__CODELIST_DIAGNOSTIC
+  - SHIFT1N__NATIVE_DIAGNOSTIC
+  - CRIT1__NATIVE_DIAGNOSTIC
+  - CRIT1FL__R2A1HI_DIAGNOSTIC
+  - CRIT1FN
+  - STUDYID__LITERAL
+  - USUBJID__LITERAL
+intermediates:
+- id: _LBHY2_REF
+  dataset: REF
+  key:
+  - STUDYID
+  - USUBJID
+  - AVISITN
+  - PARAMN
+- id: _LBHY2_CHEM
+  dataset: _LBHY2_ADLBC
+  key:
+    STUDYID: STUDYID
+    USUBJID: USUBJID
+    AVISITN: AVISITN
+    PARAMCD: _LBHY2_PARAMCD
+    ADT: _LBHY2_ADT
+- id: _LBHY2_BASE
+  dataset: _LBHY2_ADLBC
+  key:
+    STUDYID: STUDYID
+    USUBJID: USUBJID
+    PARAMCD: _LBHY2_PARAMCD
+  filter: _LBHY2_ADLBC.ABLFL = 'Y'
+- id: _LBHY2_VISIT1
+  dataset: _LBHY2_ADLBC
+  key:
+    STUDYID: STUDYID
+    USUBJID: USUBJID
+    PARAMCD: _LBHY2_PARAMCD
+  filter: _LBHY2_ADLBC.VISITNUM = 1
+- id: _LBHY2_ALT
+  dataset: REF
+  key:
+    STUDYID: STUDYID
+    USUBJID: USUBJID
+    AVISITN: AVISITN
+    PARAMCD: '''ALT'''
+- id: _LBHY2_AST
+  dataset: REF
+  key:
+    STUDYID: STUDYID
+    USUBJID: USUBJID
+    AVISITN: AVISITN
+    PARAMCD: '''AST'''
+- id: _LBHY2_BILI
+  dataset: REF
+  key:
+    STUDYID: STUDYID
+    USUBJID: USUBJID
+    AVISITN: AVISITN
+    PARAMCD: '''BILI'''
+- id: _LBHY2_BILHY
+  dataset: REF
+  key:
+    STUDYID: STUDYID
+    USUBJID: USUBJID
+    AVISITN: AVISITN
+    PARAMCD: '''BILHY'''
+- id: _LBHY2_BILIHY
+  dataset: REF
+  key:
+    STUDYID: STUDYID
+    USUBJID: USUBJID
+    AVISITN: AVISITN
+    PARAMCD: '''BILIHY'''
+- id: _LBHY2_TRANSHY
+  dataset: REF
+  key:
+    STUDYID: STUDYID
+    USUBJID: USUBJID
+    AVISITN: AVISITN
+    PARAMCD: '''TRANSHY'''
+- id: _LBHY2_VISIT1_ALT
+  dataset: _LBHY2_ADLBC
+  key:
+    STUDYID: STUDYID
+    USUBJID: USUBJID
+    PARAMCD: '''ALT'''
+  filter: _LBHY2_ADLBC.VISITNUM = 1
+- id: _LBHY2_VISIT1_AST
+  dataset: _LBHY2_ADLBC
+  key:
+    STUDYID: STUDYID
+    USUBJID: USUBJID
+    PARAMCD: '''AST'''
+  filter: _LBHY2_ADLBC.VISITNUM = 1
+- id: _LBHY2_VISIT1_BILI
+  dataset: _LBHY2_ADLBC
+  key:
+    STUDYID: STUDYID
+    USUBJID: USUBJID
+    PARAMCD: '''BILI'''
+  filter: _LBHY2_ADLBC.VISITNUM = 1
+- id: _LBHY3_ADSL
+  dataset: _LBHY3_ADSL_SOURCE
+  key:
+  - STUDYID
+  - USUBJID
+columns:
+- name: STUDYID
+  type: str
+  label: Study Identifier
+  derivation: REF.STUDYID
+- name: USUBJID
+  type: str
+  label: Unique Subject Identifier
+  derivation: REF.USUBJID
+- name: AVISITN
+  type: float
+  label: Analysis Visit (N)
+  derivation: REF.AVISITN
+- name: PARAMN
+  type: float
+  label: Parameter (N)
+  derivation: REF.PARAMN
+- name: _LBHY1_AVISIT
+  type: str
+  label: Analysis visit without storage padding
+  derivation:
+    str_replace:
+      source: REF.AVISIT
+      pattern: ^\s+|\s+$
+      replacement: ''
+- name: AVISITN__LITERAL
+  type: float
+  label: Documented analysis visit numeric code
+  derivation:
+    mapping:
+      source: _LBHY1_AVISIT
+      unmapped: null
+      dict:
+        Baseline: 0.0
+        Week 2: 2.0
+        Week 4: 4.0
+        Week 6: 6.0
+        Week 8: 8.0
+        Week 10: 10.0
+        Week 12: 12.0
+        Week 14: 14.0
+        Week 16: 16.0
+        Week 18: 18.0
+        Week 20: 20.0
+        Week 22: 22.0
+        Week 24: 24.0
+        Week 26: 26.0
+        Weeks 4-24: 98.0
+        End of Treatment: 99.0
+- name: _LBHY1_PARAM
+  type: str
+  label: Parameter label without storage padding
+  derivation:
+    str_replace:
+      source: REF.PARAM
+      pattern: ^\s+|\s+$
+      replacement: ''
+- name: PARAMCD
+  type: str
+  label: Documented parameter code
+  derivation:
+    mapping:
+      source: _LBHY1_PARAM
+      unmapped: null
+      dict:
+        Alanine Aminotransferase (U/L): ALT
+        Aspartate Aminotransferase (U/L): AST
+        Bilirubin (umol/L): BILI
+        Bilirubin 1.5 x ULN: BILIHY
+        Transaminase 1.5 x ULN: TRANSHY
+        Total Bili 1.5 x ULN and Transaminase 1.5 x ULN: HYLAW
+- name: PARAMN__LITERAL
+  type: float
+  label: Documented parameter numeric code
+  derivation:
+    mapping:
+      source: _LBHY1_PARAM
+      unmapped: null
+      dict:
+        Alanine Aminotransferase (U/L): 1.0
+        Aspartate Aminotransferase (U/L): 2.0
+        Bilirubin (umol/L): 3.0
+        Bilirubin 1.5 x ULN: 4.0
+        Transaminase 1.5 x ULN: 5.0
+        Total Bili 1.5 x ULN and Transaminase 1.5 x ULN: 6.0
+- name: _LBHY1_PARAMCD
+  type: str
+  label: Upstream parameter code without storage padding
+  derivation:
+    str_replace:
+      source: REF.PARAMCD
+      pattern: ^\s+|\s+$
+      replacement: ''
+- name: PARAM__CODELIST
+  type: str
+  label: Unused diagnostic of enumerated parameter labels
+  derivation:
+    mapping:
+      source: _LBHY1_PARAMCD
+      unmapped: null
+      dict:
+        ALT: Alanine Aminotransferase (U/L)
+        AST: Aspartate Aminotransferase (U/L)
+        BILI: Bilirubin (umol/L)
+        BILIHY: Bilirubin 1.5 x ULN
+        TRANSHY: Transaminase 1.5 x ULN
+        HYLAW: Total Bili 1.5 x ULN and Transaminase 1.5 x ULN
+- name: _LBHY2_PARAMCD
+  type: str
+  label: Upstream source parameter identity
+  derivation: _LBHY2_REF.PARAMCD
+- name: _LBHY2_ADT
+  type: date
+  label: Upstream sample date identity
+  derivation: _LBHY2_REF.ADT
+- name: _LBHY2_BILI_LITERAL
+  type: float
+  label: _LBHY2_BILI_LITERAL
+  derivation:
+    case:
+    - when: _LBHY2_BILI.USUBJID IS NULL
+      then: null
+    - when: _LBHY2_BILI.R2A1HI > 1.5
+      then: 1.0
+    - otherwise: 0.0
+- name: _LBHY2_TRANS_LITERAL
+  type: float
+  label: _LBHY2_TRANS_LITERAL
+  derivation:
+    case:
+    - when: _LBHY2_ALT.USUBJID IS NULL AND _LBHY2_AST.USUBJID IS NULL
+      then: null
+    - when: _LBHY2_ALT.R2A1HI > 1.5 OR _LBHY2_AST.R2A1HI > 1.5
+      then: 1.0
+    - otherwise: 0.0
+- name: _LBHY2_HYLAW_LITERAL
+  type: float
+  label: _LBHY2_HYLAW_LITERAL
+  derivation:
+    case:
+    - when: _LBHY2_BILHY.AVAL = 1 AND _LBHY2_TRANSHY.AVAL = 1
+      then: 1.0
+    - when: _LBHY2_BILHY.USUBJID IS NOT NULL OR _LBHY2_TRANSHY.USUBJID IS NOT NULL
+      then: 0.0
+    - otherwise: null
+- name: _LBHY2_HYLAW_CODE
+  type: float
+  label: _LBHY2_HYLAW_CODE
+  derivation:
+    case:
+    - when: _LBHY2_BILIHY.AVAL = 1 AND _LBHY2_TRANSHY.AVAL = 1
+      then: 1.0
+    - when: _LBHY2_BILIHY.USUBJID IS NOT NULL OR _LBHY2_TRANSHY.USUBJID IS NOT NULL
+      then: 0.0
+    - otherwise: null
+- name: _LBHY2_SAP_ALT
+  type: float
+  label: _LBHY2_SAP_ALT
+  derivation:
+    case:
+    - when: _LBHY2_ALT.AVAL IS NULL OR _LBHY2_ALT.A1HI IS NULL
+      then: null
+    - when: _LBHY2_ALT.AVAL > 1.5 * _LBHY2_ALT.A1HI
+      then: 1.0
+    - otherwise: 0.0
+- name: _LBHY2_SAP_AST
+  type: float
+  label: _LBHY2_SAP_AST
+  derivation:
+    case:
+    - when: _LBHY2_AST.AVAL IS NULL OR _LBHY2_AST.A1HI IS NULL
+      then: null
+    - when: _LBHY2_AST.AVAL > 1.5 * _LBHY2_AST.A1HI
+      then: 1.0
+    - otherwise: 0.0
+- name: _LBHY2_SAP_BILI
+  type: float
+  label: _LBHY2_SAP_BILI
+  derivation:
+    case:
+    - when: _LBHY2_BILI.AVAL IS NULL OR _LBHY2_BILI.A1HI IS NULL
+      then: null
+    - when: _LBHY2_BILI.AVAL > 1.5 * _LBHY2_BILI.A1HI
+      then: 1.0
+    - otherwise: 0.0
+- name: _LBHY2_SAP_TRANS
+  type: float
+  label: _LBHY2_SAP_TRANS
+  derivation:
+    case:
+    - when: _LBHY2_SAP_ALT = 1 OR _LBHY2_SAP_AST = 1
+      then: 1.0
+    - when: _LBHY2_SAP_ALT IS NULL AND _LBHY2_SAP_AST IS NULL
+      then: null
+    - otherwise: 0.0
+- name: _LBHY2_SAP_HYLAW
+  type: float
+  label: _LBHY2_SAP_HYLAW
+  derivation:
+    case:
+    - when: _LBHY2_SAP_BILI IS NULL OR _LBHY2_SAP_TRANS IS NULL
+      then: null
+    - when: _LBHY2_SAP_BILI = 1 AND _LBHY2_SAP_TRANS = 1
+      then: 1.0
+    - otherwise: 0.0
+- name: _LBHY2_BASESAP_ALT
+  type: float
+  label: _LBHY2_BASESAP_ALT
+  derivation:
+    case:
+    - when: _LBHY2_VISIT1_ALT.AVAL IS NULL OR _LBHY2_VISIT1_ALT.A1HI IS NULL
+      then: null
+    - when: _LBHY2_VISIT1_ALT.AVAL > 1.5 * _LBHY2_VISIT1_ALT.A1HI
+      then: 1.0
+    - otherwise: 0.0
+- name: _LBHY2_BASESAP_AST
+  type: float
+  label: _LBHY2_BASESAP_AST
+  derivation:
+    case:
+    - when: _LBHY2_VISIT1_AST.AVAL IS NULL OR _LBHY2_VISIT1_AST.A1HI IS NULL
+      then: null
+    - when: _LBHY2_VISIT1_AST.AVAL > 1.5 * _LBHY2_VISIT1_AST.A1HI
+      then: 1.0
+    - otherwise: 0.0
+- name: _LBHY2_BASESAP_BILI
+  type: float
+  label: _LBHY2_BASESAP_BILI
+  derivation:
+    case:
+    - when: _LBHY2_VISIT1_BILI.AVAL IS NULL OR _LBHY2_VISIT1_BILI.A1HI IS NULL
+      then: null
+    - when: _LBHY2_VISIT1_BILI.AVAL > 1.5 * _LBHY2_VISIT1_BILI.A1HI
+      then: 1.0
+    - otherwise: 0.0
+- name: _LBHY2_BASESAP_TRANS
+  type: float
+  label: _LBHY2_BASESAP_TRANS
+  derivation:
+    case:
+    - when: _LBHY2_BASESAP_ALT = 1 OR _LBHY2_BASESAP_AST = 1
+      then: 1.0
+    - when: _LBHY2_BASESAP_ALT IS NULL AND _LBHY2_BASESAP_AST IS NULL
+      then: null
+    - otherwise: 0.0
+- name: _LBHY2_BASESAP_HYLAW
+  type: float
+  label: _LBHY2_BASESAP_HYLAW
+  derivation:
+    case:
+    - when: _LBHY2_BASESAP_BILI IS NULL OR _LBHY2_BASESAP_TRANS IS NULL
+      then: null
+    - when: _LBHY2_BASESAP_BILI = 1 AND _LBHY2_BASESAP_TRANS = 1
+      then: 1.0
+    - otherwise: 0.0
+- name: _LBHY2_SHELL_BILI
+  type: float
+  label: _LBHY2_SHELL_BILI
+  derivation:
+    case:
+    - when: _LBHY2_BILI.AVAL IS NULL OR _LBHY2_BILI.A1HI IS NULL
+      then: null
+    - when: _LBHY2_BILI.AVAL > 2 * _LBHY2_BILI.A1HI
+      then: 1.0
+    - otherwise: 0.0
+- name: _LBHY2_SHELL_HYLAW
+  type: float
+  label: _LBHY2_SHELL_HYLAW
+  derivation:
+    case:
+    - when: _LBHY2_SHELL_BILI IS NULL OR _LBHY2_SAP_TRANS IS NULL
+      then: null
+    - when: _LBHY2_SHELL_BILI = 1 AND _LBHY2_SAP_TRANS = 1
+      then: 1.0
+    - otherwise: 0.0
+- name: AVAL__NATIVE_DIAGNOSTIC
+  type: float
+  label: Native literal analysis value
+  derivation:
+    case:
+    - when: _LBHY2_REF.PARAMCD IN ('ALT', 'AST', 'BILI')
+      then:
+        case:
+        - when: _LBHY2_REF.PARAMCD = 'BILI'
+          then:
+            round_half_away_from_zero:
+              source: _LBHY2_CHEM.AVAL
+              digits: 2
+        - when: _LBHY2_REF.PARAMCD IN ('ALT', 'AST')
+          then:
+            round_half_away_from_zero:
+              source: _LBHY2_CHEM.AVAL
+              digits: 0
+        - otherwise: null
+    - when: _LBHY2_REF.PARAMCD = 'BILIHY'
+      then: _LBHY2_BILI_LITERAL
+    - when: _LBHY2_REF.PARAMCD = 'TRANSHY'
+      then: _LBHY2_TRANS_LITERAL
+    - when: _LBHY2_REF.PARAMCD = 'HYLAW'
+      then: _LBHY2_HYLAW_LITERAL
+    - otherwise: null
+- name: AVAL__NATIVE_BILIHY_CODE
+  type: float
+  label: Native AVAL with enumerated component spelling
+  derivation:
+    case:
+    - when: _LBHY2_REF.PARAMCD IN ('ALT', 'AST', 'BILI')
+      then:
+        case:
+        - when: _LBHY2_REF.PARAMCD = 'BILI'
+          then:
+            round_half_away_from_zero:
+              source: _LBHY2_CHEM.AVAL
+              digits: 2
+        - when: _LBHY2_REF.PARAMCD IN ('ALT', 'AST')
+          then:
+            round_half_away_from_zero:
+              source: _LBHY2_CHEM.AVAL
+              digits: 0
+        - otherwise: null
+    - when: _LBHY2_REF.PARAMCD = 'BILIHY'
+      then: _LBHY2_BILI_LITERAL
+    - when: _LBHY2_REF.PARAMCD = 'TRANSHY'
+      then: _LBHY2_TRANS_LITERAL
+    - when: _LBHY2_REF.PARAMCD = 'HYLAW'
+      then: _LBHY2_HYLAW_CODE
+    - otherwise: null
+- name: AVAL__SAP_ULN
+  type: float
+  label: SAP narrative direct upper-limit reading
+  derivation:
+    case:
+    - when: _LBHY2_REF.PARAMCD IN ('ALT', 'AST', 'BILI')
+      then:
+        case:
+        - when: _LBHY2_REF.PARAMCD = 'BILI'
+          then:
+            round_half_away_from_zero:
+              source: _LBHY2_CHEM.AVAL
+              digits: 2
+        - when: _LBHY2_REF.PARAMCD IN ('ALT', 'AST')
+          then:
+            round_half_away_from_zero:
+              source: _LBHY2_CHEM.AVAL
+              digits: 0
+        - otherwise: null
+    - when: _LBHY2_REF.PARAMCD = 'BILIHY'
+      then: _LBHY2_SAP_BILI
+    - when: _LBHY2_REF.PARAMCD = 'TRANSHY'
+      then: _LBHY2_SAP_TRANS
+    - when: _LBHY2_REF.PARAMCD = 'HYLAW'
+      then: _LBHY2_SAP_HYLAW
+    - otherwise: null
+- name: AVAL__SAP_SHELL_2X
+  type: float
+  label: SAP shell combined bilirubin reading
+  derivation:
+    case:
+    - when: _LBHY2_REF.PARAMCD IN ('ALT', 'AST', 'BILI')
+      then:
+        case:
+        - when: _LBHY2_REF.PARAMCD = 'BILI'
+          then:
+            round_half_away_from_zero:
+              source: _LBHY2_CHEM.AVAL
+              digits: 2
+        - when: _LBHY2_REF.PARAMCD IN ('ALT', 'AST')
+          then:
+            round_half_away_from_zero:
+              source: _LBHY2_CHEM.AVAL
+              digits: 0
+        - otherwise: null
+    - when: _LBHY2_REF.PARAMCD = 'BILIHY'
+      then: _LBHY2_SAP_BILI
+    - when: _LBHY2_REF.PARAMCD = 'TRANSHY'
+      then: _LBHY2_SAP_TRANS
+    - when: _LBHY2_REF.PARAMCD = 'HYLAW'
+      then: _LBHY2_SHELL_HYLAW
+    - otherwise: null
+- name: BASE__NATIVE_DIAGNOSTIC
+  type: float
+  label: Native literal flagged ADLBC baseline value
+  derivation:
+    case:
+    - when: _LBHY2_REF.PARAMCD = 'BILI'
+      then:
+        round_half_away_from_zero:
+          source: _LBHY2_BASE.AVAL
+          digits: 2
+    - when: _LBHY2_REF.PARAMCD IN ('ALT', 'AST', 'BILIHY', 'TRANSHY', 'HYLAW')
+      then:
+        round_half_away_from_zero:
+          source: _LBHY2_BASE.AVAL
+          digits: 0
+    - otherwise: null
+- name: BASE__SAP_VISIT1
+  type: float
+  label: SAP Visit 1 baseline and derived baseline categories
+  derivation:
+    case:
+    - when: _LBHY2_REF.PARAMCD IN ('ALT', 'AST', 'BILI')
+      then:
+        case:
+        - when: _LBHY2_REF.PARAMCD = 'BILI'
+          then:
+            round_half_away_from_zero:
+              source: _LBHY2_VISIT1.AVAL
+              digits: 2
+        - when: _LBHY2_REF.PARAMCD IN ('ALT', 'AST')
+          then:
+            round_half_away_from_zero:
+              source: _LBHY2_VISIT1.AVAL
+              digits: 0
+        - otherwise: null
+    - when: _LBHY2_REF.PARAMCD = 'BILIHY'
+      then: _LBHY2_BASESAP_BILI
+    - when: _LBHY2_REF.PARAMCD = 'TRANSHY'
+      then: _LBHY2_BASESAP_TRANS
+    - when: _LBHY2_REF.PARAMCD = 'HYLAW'
+      then: _LBHY2_BASESAP_HYLAW
+    - otherwise: null
+- name: A1LO__NATIVE_DIAGNOSTIC
+  type: float
+  label: Native literal A1LO source copy or missing
+  derivation:
+    case:
+    - when: _LBHY2_REF.PARAMCD = 'BILI'
+      then:
+        round_half_away_from_zero:
+          source: _LBHY2_CHEM.A1LO
+          digits: 1
+    - when: _LBHY2_REF.PARAMCD IN ('ALT', 'AST')
+      then:
+        round_half_away_from_zero:
+          source: _LBHY2_CHEM.A1LO
+          digits: 0
+    - otherwise: null
+- name: A1HI__NATIVE_DIAGNOSTIC
+  type: float
+  label: Native literal A1HI source copy or missing
+  derivation:
+    case:
+    - when: _LBHY2_REF.PARAMCD = 'BILI'
+      then:
+        round_half_away_from_zero:
+          source: _LBHY2_CHEM.A1HI
+          digits: 1
+    - when: _LBHY2_REF.PARAMCD IN ('ALT', 'AST')
+      then:
+        round_half_away_from_zero:
+          source: _LBHY2_CHEM.A1HI
+          digits: 0
+    - otherwise: null
+- name: R2A1LO__NATIVE_DIAGNOSTIC
+  type: float
+  label: Native literal R2A1LO source copy or missing
+  derivation:
+    case:
+    - when: _LBHY2_REF.PARAMCD IN ('ALT', 'AST', 'BILI')
+      then:
+        round_half_away_from_zero:
+          source: _LBHY2_CHEM.R2A1LO
+          digits: 1
+    - otherwise: null
+- name: R2A1HI__NATIVE_DIAGNOSTIC
+  type: float
+  label: Native literal R2A1HI source copy or missing
+  derivation:
+    case:
+    - when: _LBHY2_REF.PARAMCD IN ('ALT', 'AST', 'BILI')
+      then:
+        round_half_away_from_zero:
+          source: _LBHY2_CHEM.R2A1HI
+          digits: 1
+    - otherwise: null
+- name: BR2A1LO__NATIVE_DIAGNOSTIC
+  type: float
+  label: Native literal BR2A1LO source copy or missing
+  derivation:
+    case:
+    - when: _LBHY2_REF.PARAMCD IN ('ALT', 'AST', 'BILI')
+      then:
+        round_half_away_from_zero:
+          source: _LBHY2_CHEM.BR2A1LO
+          digits: 1
+    - otherwise: null
+- name: BR2A1HI__NATIVE_DIAGNOSTIC
+  type: float
+  label: Native literal BR2A1HI source copy or missing
+  derivation:
+    case:
+    - when: _LBHY2_REF.PARAMCD IN ('ALT', 'AST', 'BILI')
+      then:
+        round_half_away_from_zero:
+          source: _LBHY2_CHEM.BR2A1HI
+          digits: 1
+    - otherwise: null
+- name: _LBHY3_PARAMCD
+  type: str
+  label: _LBHY3_PARAMCD
+  derivation:
+    str_replace:
+      source: REF.PARAMCD
+      pattern: ^\s+|\s+$
+      replacement: ''
+- name: _LBHY3_SHIFT1
+  type: str
+  label: _LBHY3_SHIFT1
+  derivation:
+    str_replace:
+      source: REF.SHIFT1
+      pattern: ^\s+|\s+$
+      replacement: ''
+- name: _LBHY3_CRIT1FL
+  type: str
+  label: _LBHY3_CRIT1FL
+  derivation:
+    str_replace:
+      source: REF.CRIT1FL
+      pattern: ^\s+|\s+$
+      replacement: ''
+- name: SHIFT1__NATIVE_DIAGNOSTIC
+  type: str
+  label: Unclaimed native shift diagnostic
+  derivation:
+    case:
+    - when: _LBHY3_PARAMCD IN ('ALT', 'AST', 'BILI')
+      then: null
+    - when: _LBHY3_PARAMCD IN ('BILIHY', 'TRANSHY', 'HYLAW')
+      then:
+        case:
+        - when: REF.BASE = 1 AND REF.AVAL = 0
+          then: '''High to Normal'''
+        - when: REF.BASE = 0 AND REF.AVAL = 0
+          then: '''Normal to Normal'''
+        - when: REF.BASE = 0 AND REF.AVAL = 1
+          then: '''Normal to High'''
+        - otherwise: null
+    - otherwise: null
+- name: SHIFT1N__CODELIST_DIAGNOSTIC
+  type: float
+  label: Unclaimed top-level shift-code mapping diagnostic
+  derivation:
+    mapping:
+      source: _LBHY3_SHIFT1
+      unmapped: null
+      dict:
+        High to Normal: 0.0
+        Normal to Normal: 1.0
+        Normal to High: 2.0
+- name: SHIFT1N__NATIVE_DIAGNOSTIC
+  type: float
+  label: Unclaimed native parameter-scoped shift-code diagnostic
+  derivation:
+    case:
+    - when: _LBHY3_PARAMCD IN ('BILIHY', 'TRANSHY', 'HYLAW')
+      then:
+        mapping:
+          source: _LBHY3_SHIFT1
+          unmapped: null
+          dict:
+            High to Normal: 0.0
+            Normal to Normal: 1.0
+            Normal to High: 2.0
+    - otherwise: null
+- name: CRIT1__NATIVE_DIAGNOSTIC
+  type: str
+  label: Unclaimed native criterion-text placement diagnostic
+  derivation:
+    case:
+    - when: _LBHY3_PARAMCD IN ('BILIHY', 'TRANSHY', 'HYLAW')
+      then: '''R2A1HI > 1.5'''
+    - otherwise: null
+- name: CRIT1FL__R2A1HI_DIAGNOSTIC
+  type: str
+  label: Unclaimed source-spelling diagnostic
+  derivation:
+    case:
+    - when: _LBHY3_PARAMCD IN ('ALT', 'AST', 'BILI')
+      then:
+        case:
+        - when: REF.R2A1HI IS NULL
+          then: null
+        - when: REF.R2A1HI > 1.5
+          then: '''Y'''
+        - otherwise: '''N'''
+    - otherwise: null
+- name: CRIT1FN
+  type: float
+  label: Documented numeric criterion flag crosswalk
+  derivation:
+    mapping:
+      source: _LBHY3_CRIT1FL
+      unmapped: null
+      dict:
+        N: 0.0
+        Y: 1.0
+- name: STUDYID__LITERAL
+  type: str
+  label: Documented ADSL STUDYID copy
+  derivation: _LBHY3_ADSL.STUDYID
+- name: USUBJID__LITERAL
+  type: str
+  label: Documented ADSL USUBJID copy
+  derivation: _LBHY3_ADSL.USUBJID

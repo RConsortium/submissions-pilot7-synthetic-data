@@ -75,17 +75,13 @@ def _labels(source):
 
 
 def _spec_labels(spec):
-    """Declared labels after the pinned engine expands copies and inheritance."""
-    import yamaa
+    """Labels from the checked, saved engine resolution used by review and export."""
+    sys.path.insert(0, str(STUDY.parent / ".github/scripts"))
+    from resolved_specs import specification_packet
 
-    path = Path(spec).resolve()
-    project = STUDY / "spec/yamaa/project.yaml"
-    handle = (yamaa.project(project).spec(path.stem.upper())
-              if path.parent == project.parent.resolve() else yamaa.spec(path))
-    resolved = handle.resolve()
-    entry = next(e for e in resolved["entries"] if e["entry"] == resolved["entry"])
+    packet = specification_packet(STUDY.parent, Path(spec).resolve())
     return {column["name"]: column.get("label")
-            for column in entry["specification"]["columns"]}
+            for column in packet["model"]["columns"]}
 
 
 def compare(output, reference, name, spec=None):

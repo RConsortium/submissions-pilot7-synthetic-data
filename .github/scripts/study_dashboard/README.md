@@ -268,7 +268,7 @@ resolution. Standalone verifier `report.md` remains the complete check audit.
 Agents propose and the script decides. The extraction agent writes
 `<study>/spec/review/<dataset>-claims.json` (verbatim citations, and clauses
 that quote both the document and a specification element) and
-`<dataset>-probe.yaml`, a yamaa specification that states each documented rule
+`<dataset>-documented-rules.yaml`, a yamaa specification that states each documented rule
 literally. An independent adjudicator writes `<dataset>-adjudication.json`. The
 script accepts a quote only when it is found where it is cited: a section that
 `documents.py` extracts, the text the dashboard's reading copy shows, or a
@@ -316,14 +316,19 @@ output sort references are recorded as `output_order`, separately from column
 value dependencies. This remains a conservative static index across declared
 branches, not contributing-row provenance.
 
-Validation records `resolved_specification` inspection packets with the pinned
+Each study saves executable composed specifications and `project.yaml` under
+`spec/yamaa/resolved/`, with provenance in separate `*.inspection.json` records.
+Validation checks them against fresh resolution and executes the composed
+project. It records both YAML and inspection-record paths and SHA-256 hashes.
+Downstream readers load that saved evidence. Validation records
+`resolved_specification` inspection packets with the pinned
 engine's normalized model, mapping order, original sources, origins and resolved
 resource locations. Publication checks source text against the artifact inventory
 and uses those facts without installing the engine. Copies, includes, inheritance
 and named windows require fresh resolved evidence; they are never approximated
 from authored YAML. Resolved dataset resources must be in the study's artifact
 inventory. Schema-default origins name engine schema modules, not study files.
-The browser can select each original file or a rendered inspection model.
+The browser can select each original file or the exact executable composed YAML.
 Focused views mark omitted lines, and clipboard actions retain the complete text.
 
 `domains.py` reads dataset descriptions from retained Define-XML, with browser

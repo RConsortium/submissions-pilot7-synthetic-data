@@ -1,0 +1,306 @@
+yamaa: '1.0'
+type: spec
+model: SDTM
+domain: DM
+keys:
+- STUDYID
+- USUBJID
+input:
+  RAW:
+    path: ../../../../data/odm/extracted/dm.csv
+    relative_to: declaring
+    types:
+      SRCSEQ: int
+      VISITNUM: int
+    empty_string: missing
+  DSRAW:
+    path: ../../../../data/odm/extracted/ds.csv
+    relative_to: declaring
+    types:
+      SRCSEQ: int
+      VISITNUM: int
+    empty_string: missing
+base: RAW
+output:
+  path: ../../../../data/sdtm/dm-yamaa.parquet
+  relative_to: declaring
+  columns:
+  - DOMAIN
+  - STUDYID
+  - USUBJID
+  - SUBJID
+  - SITEID
+  - RFSTDTC
+  - AGE
+  - AGEU
+  - SEX
+  - RACE
+  - ETHNIC
+  - COUNTRY
+  - ARMCD
+  - ARM
+  report: ../../../../data/sdtm/dm-report.parquet
+  order_by:
+  - variable: STUDYID
+    direction: asc
+  - variable: USUBJID
+    direction: asc
+intermediates:
+- id: RAND
+  dataset: DSRAW
+  key:
+  - STUDYID
+  - USUBJID
+  filter: DSRAW.DSDECOD = 'RANDOMIZED'
+  require_match: true
+columns:
+- name: DOMAIN
+  type: str
+  label: DOMAIN
+  derivation: '''DM'''
+  submission:
+    core: Req
+    mandatory: true
+    role: Identifier
+    length: 2
+    origins:
+    - type: Assigned
+      source: Sponsor
+    method:
+      type: Computation
+      description: 'Executable derivation in the retained yamaa specification: ''''''DM'''''''
+- name: STUDYID
+  type: str
+  label: Study Identifier
+  derivation: RAW.STUDYID
+  submission:
+    core: Req
+    mandatory: true
+    role: Identifier
+    length: 12
+    origins:
+    - type: Collected
+      source: Vendor
+    method:
+      type: Computation
+      description: 'Executable derivation in the retained yamaa specification: RAW.STUDYID
+
+        ...'
+- name: USUBJID
+  type: str
+  label: Unique Subject Identifier
+  derivation: RAW.USUBJID
+  submission:
+    core: Req
+    mandatory: true
+    role: Identifier
+    length: 40
+    origins:
+    - type: Collected
+      source: Vendor
+    method:
+      type: Computation
+      description: 'Executable derivation in the retained yamaa specification: RAW.USUBJID
+
+        ...'
+- name: SUBJID
+  type: str
+  label: Subject Identifier for the Study
+  derivation:
+    str_extract:
+      source: RAW.USUBJID
+      pattern: ([0-9]+)$
+      group: 1
+  submission:
+    core: Perm
+    mandatory: false
+    role: Record Qualifier
+    length: 12
+    origins:
+    - type: Derived
+      source: Sponsor
+    method:
+      type: Computation
+      description: "Executable derivation in the retained yamaa specification: str_extract:\n\
+        \  group: 1\n  pattern: ([0-9]+)$\n  source: RAW.USUBJID"
+- name: SITEID
+  type: str
+  label: Study Site Identifier
+  derivation: RAW.SITEID
+  submission:
+    core: Perm
+    mandatory: false
+    role: Record Qualifier
+    length: 12
+    origins:
+    - type: Collected
+      source: Vendor
+    method:
+      type: Computation
+      description: 'Executable derivation in the retained yamaa specification: RAW.SITEID
+
+        ...'
+- name: RFSTDTC
+  type: str
+  label: Subject Reference Start Date/Time
+  derivation: RAND.DSSTDTC
+  submission:
+    core: Perm
+    mandatory: false
+    role: Timing
+    length: 10
+    origins:
+    - type: Collected
+      source: Vendor
+    method:
+      type: Computation
+      description: 'Executable derivation in the retained yamaa specification: RAND.DSSTDTC
+
+        ...'
+- name: AGE
+  type: int
+  label: Age
+  derivation: RAW.AGE
+  submission:
+    core: Perm
+    mandatory: false
+    role: Record Qualifier
+    length: 8
+    origins:
+    - type: Collected
+      source: Vendor
+    method:
+      type: Computation
+      description: 'Executable derivation in the retained yamaa specification: RAW.AGE
+
+        ...'
+- name: AGEU
+  type: str
+  label: Age Units
+  derivation: '''YEARS'''
+  submission:
+    core: Perm
+    mandatory: false
+    role: Record Qualifier
+    length: 100
+    origins:
+    - type: Assigned
+      source: Sponsor
+    method:
+      type: Computation
+      description: 'Executable derivation in the retained yamaa specification: ''''''YEARS'''''''
+- name: SEX
+  type: str
+  label: Sex
+  derivation: RAW.SEX
+  submission:
+    core: Perm
+    mandatory: false
+    role: Record Qualifier
+    length: 1
+    origins:
+    - type: Collected
+      source: Vendor
+    method:
+      type: Computation
+      description: 'Executable derivation in the retained yamaa specification: RAW.SEX
+
+        ...'
+- name: RACE
+  type: str
+  label: Race
+  derivation:
+    case:
+    - when: RAW.RACE = 'BLACK'
+      then: '''BLACK OR AFRICAN AMERICAN'''
+    - otherwise: RAW.RACE
+  submission:
+    core: Perm
+    mandatory: false
+    role: Record Qualifier
+    length: 100
+    origins:
+    - type: Derived
+      source: Sponsor
+    method:
+      type: Computation
+      description: "Executable derivation in the retained yamaa specification: case:\n\
+        - then: '''BLACK OR AFRICAN AMERICAN'''\n  when: RAW.RACE = 'BLACK'\n- otherwise:\
+        \ RAW.RACE"
+- name: ETHNIC
+  type: str
+  label: Ethnicity
+  derivation: RAW.ETHNIC
+  submission:
+    core: Perm
+    mandatory: false
+    role: Record Qualifier
+    length: 100
+    origins:
+    - type: Collected
+      source: Vendor
+    method:
+      type: Computation
+      description: 'Executable derivation in the retained yamaa specification: RAW.ETHNIC
+
+        ...'
+- name: COUNTRY
+  type: str
+  label: Country
+  derivation: RAW.COUNTRY
+  submission:
+    core: Perm
+    mandatory: false
+    role: Record Qualifier
+    length: 3
+    origins:
+    - type: Collected
+      source: Vendor
+    method:
+      type: Computation
+      description: 'Executable derivation in the retained yamaa specification: RAW.COUNTRY
+
+        ...'
+- name: ARMCD
+  type: str
+  label: Planned Arm Code
+  derivation: RAW.ARMCD
+  submission:
+    core: Perm
+    mandatory: false
+    role: Record Qualifier
+    length: 8
+    origins:
+    - type: Collected
+      source: Vendor
+    method:
+      type: Computation
+      description: 'Executable derivation in the retained yamaa specification: RAW.ARMCD
+
+        ...'
+- name: ARM
+  type: str
+  label: Description of Planned Arm
+  derivation: RAW.ARM
+  submission:
+    core: Perm
+    mandatory: false
+    role: Record Qualifier
+    length: 80
+    origins:
+    - type: Collected
+      source: Vendor
+    method:
+      type: Computation
+      description: 'Executable derivation in the retained yamaa specification: RAW.ARM
+
+        ...'
+submission:
+  has_no_data: false
+  label: Demographics
+  class: SPECIAL PURPOSE
+  structure: One record per subject
+  repeating: false
+  reference_data: false
+  non_standard: false
+  comment: Synthetic development output. Review findings before analysis use.

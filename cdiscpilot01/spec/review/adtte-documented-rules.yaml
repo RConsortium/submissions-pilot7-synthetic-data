@@ -1,0 +1,207 @@
+# SRCDOM and SRCVAR below are retired, unclaimed ADT-propagation diagnostics.
+# Their current claims are explicitly not_probed; these outputs do not establish
+# literal provenance agreement or disagreement. Other claimed literals are
+# identified by column in adtte-claims.json.
+yamaa: '1.0'
+type: spec
+model: ADaM
+domain: ADTTE
+keys:
+- STUDYID
+- USUBJID
+input:
+  REF:
+    path: ../../data/adam/adtte.parquet
+    empty_string: present
+  _TTE1_ADSL:
+    path: ../../data/adam/adsl.parquet
+    empty_string: present
+  _TTE1_ADAE:
+    path: ../../data/adam/adae.parquet
+    empty_string: present
+  _TTE2_ADAE:
+    path: ../../data/adam/adae.parquet
+    empty_string: present
+base: REF
+output:
+  path: ../../../.build/verification/cdiscpilot01/adtte-documented-rules.parquet
+  columns:
+  - STUDYID
+  - USUBJID
+  - PARAM
+  - PARAMCD
+  - AVAL
+  - ADT
+  - CNSR
+  - EVNTDESC
+  - SRCDOM
+  - SRCVAR
+  - SRCSEQ
+  - STUDYID__ADSL_MERGE
+  - SITEID
+  - USUBJID__ADSL_MERGE
+  - TRTSDT
+  - TRTEDT
+  - AGE
+  - AGEGR1
+  - AGEGR1N
+  - RACE
+  - RACEN
+  - SEX
+  - TRTAN
+  - SAFFL
+intermediates:
+- id: _TTE1_SUBJECT
+  dataset: _TTE1_ADSL
+  key:
+  - STUDYID
+  - USUBJID
+- id: _TTE1_FIRST_DERM
+  dataset: _TTE1_ADAE
+  key:
+  - STUDYID
+  - USUBJID
+  filter: _TTE1_ADAE.AOCC01FL = 'Y'
+  order_by:
+  - variable: _TTE1_ADAE.ASTDT
+    nulls: last
+  - variable: _TTE1_ADAE.AESEQ
+    nulls: last
+  keep: first
+- id: _TTE2_FIRST_DERM
+  dataset: _TTE2_ADAE
+  key:
+  - STUDYID
+  - USUBJID
+  filter: _TTE2_ADAE.AOCC01FL = 'Y'
+  order_by:
+  - variable: _TTE2_ADAE.ASTDT
+    nulls: last
+  - variable: _TTE2_ADAE.AESEQ
+    nulls: last
+  keep: first
+columns:
+- name: STUDYID
+  type: str
+  label: Study Identifier
+  derivation: REF.STUDYID
+- name: USUBJID
+  type: str
+  label: Unique Subject Identifier
+  derivation: REF.USUBJID
+- name: _TTE1_RFENDTC
+  type: str
+  derivation: _TTE1_SUBJECT.RFENDTC
+- name: _TTE1_RFENDTC_DATE
+  type: date
+  derivation:
+    impute:
+      type: date
+      source: _TTE1_RFENDTC
+      invalid: null
+- name: _TTE1_USE_ASTDT
+  type: float
+  derivation:
+    case:
+    - when: _TTE1_FIRST_DERM.ASTDT IS NOT NULL AND _TTE1_FIRST_DERM.ASTDT > _TTE1_SUBJECT.TRTSDT
+      then: 1
+    - otherwise: 0
+- name: PARAM
+  type: str
+  derivation: '''Time to First Dermatologic Event'''
+- name: PARAMCD
+  type: str
+  derivation: '''TTDE'''
+- name: AVAL
+  type: float
+  derivation:
+    diff:
+      type: date
+      start: REF.STARTDT
+      end: REF.ADT
+      unit: day
+      closed: both
+- name: ADT
+  type: date
+  derivation:
+    case:
+    - when: _TTE1_USE_ASTDT = 1
+      then: _TTE1_FIRST_DERM.ASTDT
+    - otherwise: _TTE1_RFENDTC_DATE
+- name: CNSR
+  type: float
+  derivation:
+    case:
+    - when: _TTE1_FIRST_DERM.TRTEMFL = 'Y'
+      then: 0
+    - otherwise: 1
+- name: EVNTDESC
+  type: str
+  derivation:
+    case:
+    - when: REF.CNSR = 0
+      then: '''Dematologic Event Occured'''
+    - when: REF.CNSR = 1
+      then: '''Study Completion Date'''
+    - otherwise: null
+- name: SRCDOM
+  type: str
+  derivation:
+    case:
+    - when: _TTE1_USE_ASTDT = 1
+      then: '''ADAE'''
+    - otherwise: '''ADSL'''
+- name: SRCVAR
+  type: str
+  derivation:
+    case:
+    - when: _TTE1_USE_ASTDT = 1
+      then: '''ASTDT'''
+    - otherwise: '''RFENDT'''
+- name: SRCSEQ
+  type: float
+  label: Source Sequence Number
+  derivation:
+    case:
+    - when: REF.SRCDOM = 'ADAE'
+      then: _TTE2_FIRST_DERM.AESEQ
+    - otherwise: null
+- name: STUDYID__ADSL_MERGE
+  type: str
+  derivation: _TTE1_SUBJECT.STUDYID
+- name: SITEID
+  type: str
+  derivation: _TTE1_SUBJECT.SITEID
+- name: USUBJID__ADSL_MERGE
+  type: str
+  derivation: _TTE1_SUBJECT.USUBJID
+- name: TRTSDT
+  type: date
+  derivation: _TTE1_SUBJECT.TRTSDT
+- name: TRTEDT
+  type: date
+  derivation: _TTE1_SUBJECT.TRTEDT
+- name: AGE
+  type: float
+  derivation: _TTE1_SUBJECT.AGE
+- name: AGEGR1
+  type: str
+  derivation: _TTE1_SUBJECT.AGEGR1
+- name: AGEGR1N
+  type: float
+  derivation: _TTE1_SUBJECT.AGEGR1N
+- name: RACE
+  type: str
+  derivation: _TTE1_SUBJECT.RACE
+- name: RACEN
+  type: float
+  derivation: _TTE1_SUBJECT.RACEN
+- name: SEX
+  type: str
+  derivation: _TTE1_SUBJECT.SEX
+- name: TRTAN
+  type: float
+  derivation: _TTE1_SUBJECT.TRT01AN
+- name: SAFFL
+  type: str
+  derivation: _TTE1_SUBJECT.SAFFL

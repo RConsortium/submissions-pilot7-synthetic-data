@@ -139,14 +139,14 @@ def evidence_block(evidence):
         result = probe["reference"]
         reading = "literal reading" if probe["reading"] == "literal" else f"reading: {text(probe['reading'])}"
         if result["differ"]:
-            out += [f"**Data:** probe {code(probe['column'])} ({reading}) differs from the reference on {result['differ']} of {result['compared']} records.", ""]
+            out += [f"**Data:** documented rule {code(probe['column'])} ({reading}) differs from the reference on {result['differ']} of {result['compared']} records.", ""]
             out += pattern_table(result["patterns"], "Documented rule")
         else:
-            out += [f"**Data:** probe {code(probe['column'])} ({reading}) reproduces the reference on all {result['compared']} records.", ""]
+            out += [f"**Data:** documented rule {code(probe['column'])} ({reading}) reproduces the reference on all {result['compared']} records.", ""]
         definition = probe.get("definition") or {}
         if definition.get("excerpt"):
             where = link(span(definition["element_lines"]), definition.get("url"))
-            out += ["<details>", f"<summary>How probe {code(probe['column'])} states the rule</summary>", ""]
+            out += ["<details>", f"<summary>How documented rule {code(probe['column'])} states the rule</summary>", ""]
             out += [f"{code(definition['path'])}, {where}", ""] + excerpt(definition) + ["", "</details>", ""]
     copy = evidence.get("copy")
     if copy:
@@ -165,7 +165,7 @@ def evidence_block(evidence):
                 out += [f"**Data:** {side} values outside codelist {code(codelist['oid'])}.", "", "| Value | Records | Subjects |", "| --- | ---: | --- |"]
                 out += [f"| {value(v['value'])} | {v['count']} | {subjects(v['subjects'])} |" for v in codelist[side]] + [""]
     if evidence.get("not_probed_reason"):
-        out += [f"**Not probed:** {text(evidence['not_probed_reason'])}", ""]
+        out += [f"**Documented rule not checked:** {text(evidence['not_probed_reason'])}", ""]
     return out
 
 

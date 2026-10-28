@@ -1,0 +1,183 @@
+yamaa: '1.0'
+type: spec
+model: ADaM
+domain: ADTTE
+keys:
+- STUDYID
+- USUBJID
+- PARAMCD
+input:
+  ADTTE_REF:
+    path: ../../data/adam/adtte.parquet
+    empty_string: present
+  ADSL:
+    path: ../../data/adam/adsl.parquet
+    empty_string: present
+  ADAE:
+    path: ../../data/adam/adae.parquet
+    empty_string: present
+base: ADTTE_REF
+output:
+  path: ../../../.build/verification/submission-pilot5/adtte-documented-rules.parquet
+  columns:
+  - STUDYID
+  - USUBJID
+  - PARAMCD
+  - PARAM
+  - PARAMCD__LITERAL
+  - AVAL
+  - ADT
+  - ADT__TREATMENT_EMERGENT
+  - CNSR
+  - EVNTDESC
+  - SRCVAR
+  - SRCVAR__RFENDTC
+  - SRCSEQ
+intermediates:
+- id: REF
+  dataset: ADTTE_REF
+  key:
+    STUDYID: ADTTE_REF.STUDYID
+    USUBJID: ADTTE_REF.USUBJID
+    PARAMCD: ADTTE_REF.PARAMCD
+  order_by:
+  - variable: ADTTE_REF.PARAMCD
+    nulls: last
+  keep: first
+  require_match: true
+- id: _T1_TE_DERM
+  dataset: ADAE
+  key:
+    STUDYID: ADTTE_REF.STUDYID
+    USUBJID: ADTTE_REF.USUBJID
+  filter: ADAE.CQ01NAM = 'DERMATOLOGIC EVENTS' AND ADAE.TRTEMFL = 'Y'
+  order_by:
+  - variable: ADAE.ASTDT
+    nulls: last
+  - variable: ADAE.AESEQ
+    nulls: last
+  keep: first
+columns:
+- name: STUDYID
+  type: str
+  label: STUDYID
+  derivation: ADTTE_REF.STUDYID
+- name: USUBJID
+  type: str
+  label: USUBJID
+  derivation: ADTTE_REF.USUBJID
+- name: PARAMCD
+  type: str
+  label: PARAMCD
+  derivation: ADTTE_REF.PARAMCD
+- name: _T1_RFENDTC
+  type: str
+  label: ' T1 RFENDTC'
+  derivation:
+    aggregate:
+      key:
+        STUDYID: STUDYID
+        USUBJID: USUBJID
+      expr: ONLY(ADSL.RFENDTC)
+- name: _T1_CENSOR_DATE
+  type: date
+  label: ' T1 CENSOR DATE'
+  derivation:
+    to_date:
+      source: _T1_RFENDTC
+- name: _T1_TE_EVENT_DATE
+  type: date
+  label: ' T1 TE EVENT DATE'
+  derivation: _T1_TE_DERM.ASTDT
+- name: _T1_SOURCE_TRTEMFL
+  type: str
+  label: ' T1 SOURCE TRTEMFL'
+  derivation: _T1_TE_DERM.TRTEMFL
+- name: _T1_REF_TRTSDT
+  type: date
+  label: ' T1 REF TRTSDT'
+  derivation: REF.TRTSDT
+- name: PARAM
+  type: str
+  label: PARAM
+  derivation: '''Time to First Dermatologic Event'''
+- name: PARAMCD__LITERAL
+  type: str
+  label: PARAMCD  LITERAL
+  derivation: '''TTDE'''
+- name: AVAL
+  type: float
+  label: AVAL
+  derivation:
+    case:
+    - when: REF.STARTDT IS NOT NULL AND REF.ADT IS NOT NULL
+      then:
+        diff:
+          type: date
+          start: REF.STARTDT
+          end: REF.ADT
+          unit: day
+          closed: both
+    - otherwise: null
+- name: ADT
+  type: date
+  label: ADT
+  derivation:
+    case:
+    - when: _T1_TE_EVENT_DATE IS NOT NULL AND _T1_TE_EVENT_DATE > _T1_REF_TRTSDT
+      then: _T1_TE_EVENT_DATE
+    - otherwise: _T1_CENSOR_DATE
+- name: ADT__TREATMENT_EMERGENT
+  type: date
+  label: ADT  TREATMENT EMERGENT
+  derivation:
+    case:
+    - when: _T1_TE_EVENT_DATE IS NOT NULL
+      then: _T1_TE_EVENT_DATE
+    - otherwise: _T1_CENSOR_DATE
+- name: CNSR
+  type: float
+  label: CNSR
+  derivation:
+    case:
+    - when: _T1_SOURCE_TRTEMFL = 'Y'
+      then: 0
+    - otherwise: 1
+- name: EVNTDESC
+  type: str
+  label: EVNTDESC
+  derivation:
+    case:
+    - when: REF.CNSR = 0
+      then: '''Dematologic Event Occured'''
+    - when: REF.CNSR = 1
+      then: '''Study Completion Date'''
+    - otherwise: ''''''
+- name: SRCVAR
+  type: str
+  label: SRCVAR
+  derivation:
+    case:
+    - when: REF.SRCDOM = 'ADAE'
+      then: '''ASTDT'''
+    - when: REF.SRCDOM = 'ADSL'
+      then: '''RFENDT'''
+    - otherwise: ''''''
+- name: SRCVAR__RFENDTC
+  type: str
+  label: SRCVAR  RFENDTC
+  derivation:
+    case:
+    - when: REF.SRCDOM = 'ADAE'
+      then: '''ASTDT'''
+    - when: REF.SRCDOM = 'ADSL'
+      then: '''RFENDTC'''
+    - otherwise: ''''''
+- name: SRCSEQ
+  type: float
+  label: Source Sequence Number
+  derivation:
+    case:
+    - when: REF.SRCDOM = 'ADAE'
+      then: _T1_TE_DERM.AESEQ
+    - otherwise: null

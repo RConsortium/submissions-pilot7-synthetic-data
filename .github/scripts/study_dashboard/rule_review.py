@@ -115,7 +115,7 @@ def data_summary(raw):
     for probe in raw.get("probes", []):
         result = probe["reference"]
         name = "literal rule" if probe["reading"] == "literal" else "reading"
-        parts.append(f'Probe {probe["column"]} ({name}): {result["differ"]} of {result["compared"]} records differ from the reference.')
+        parts.append(f'Documented rule {probe["column"]} ({name}): {result["differ"]} of {result["compared"]} records differ from the reference.')
     copy = raw.get("copy")
     if copy and copy.get("reference"):
         parts.append(f'Reference against {copy["source"]}: {copy["reference"]["differ"]} of {copy["reference"]["compared"]} records differ.')
@@ -126,7 +126,7 @@ def data_summary(raw):
         values = ", ".join(f'{v["value"]} ({v["count"]} records)' for v in codelist.get("reference", []))
         parts.append(f'Reference values outside codelist {codelist["oid"]}: {values}.')
     if raw.get("not_probed_reason"):
-        parts.append(f'Not probed: {raw["not_probed_reason"]}')
+        parts.append(f'Documented rule not checked: {raw["not_probed_reason"]}')
     return " ".join(parts) or "No data comparison; the finding compares document and specification text."
 
 

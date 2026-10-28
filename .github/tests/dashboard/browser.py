@@ -188,8 +188,8 @@ def check(browser, base, site_dir, screenshots):
     assert selected == [line or " " for line in authored]
     assert "data_type: integer" in "\n".join(selected)
     page.locator("#spec-view").select_option("resolved")
-    expect(page.locator("#spec-caption")).to_contain_text("model lines")
-    expect(page.locator(".spec-pane .pane-footer")).to_contain_text("Engine-resolved model for inspection")
+    expect(page.locator("#spec-caption")).to_contain_text("composed lines")
+    expect(page.locator(".spec-pane .pane-footer")).to_contain_text("Generated composed specification")
     assert "ADSL.AGE" in "\n".join(page.locator(".spec-line.node-selected code").all_text_contents())
     capture(page, screenshots, "resolved-copy-specification.png")
     page.reload()

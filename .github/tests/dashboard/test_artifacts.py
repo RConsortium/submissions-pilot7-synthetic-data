@@ -291,7 +291,7 @@ intermediates:
                 "title": "CR-5 A documented rule reproduces the reference",
                 "source": {"path": "study/spec/source/SAP.pdf", "section": "Page 13", "excerpt": side["context"], "url": "documents/study/spec/source/SAP.pdf.html#page-13"},
                 "spec": {"path": "study/spec/yamaa/adsl.yaml", "line": 7, "url": "https://example/adsl.yaml#L7-L9", "excerpt": "- name: BMIBLGR1"},
-                "data": {"path": "", "summary": "Probe BMIBLGR1 (literal rule): 1 of 2 records differ from the reference."},
+                "data": {"path": "", "summary": "Documented rule BMIBLGR1 (literal rule): 1 of 2 records differ from the reference."},
                 "recommendation": "Which group?",
                 "subjects": ["01-702-1082"],
                 "adjudication": {"decision": "agree", "reason": "Right."},

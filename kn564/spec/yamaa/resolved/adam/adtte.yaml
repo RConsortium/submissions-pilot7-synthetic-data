@@ -1,0 +1,518 @@
+yamaa: '1.0'
+type: spec
+model: ADaM
+domain: ADTTE
+keys:
+- STUDYID
+- USUBJID
+- PARAMCD
+input:
+  ADSL:
+    path: ../../../../data/adam/adsl-yamaa.parquet
+    relative_to: declaring
+    schema: adsl.yaml
+    empty_string: missing
+  ZX:
+    path: ../../../../data/sdtm/zx-yamaa.parquet
+    relative_to: declaring
+    schema: ../sdtm/zx.yaml
+    empty_string: missing
+  ADRS:
+    path: ../../../../data/adam/adrs-yamaa.parquet
+    relative_to: declaring
+    schema: adrs.yaml
+    empty_string: missing
+output:
+  path: ../../../../data/adam/adtte-yamaa.parquet
+  relative_to: declaring
+  columns:
+  - STUDYID
+  - USUBJID
+  - PARAMCD
+  - PARAM
+  - STARTDT
+  - AVAL
+  - CNSR
+  - DTYPE
+  - EVNTDESC
+  - SRCDOM
+  - SRCVAR
+  - SRCSEQ
+  - ADT
+  - TRT01P
+  - TRT01PN
+  - ITTFL
+  - STRATA
+  - ANL01FL
+  - ANL02FL
+  - APPRFL
+  report: ../../../../data/adam/adtte-report.parquet
+  order_by:
+  - variable: STUDYID
+    direction: asc
+  - variable: USUBJID
+    direction: asc
+  - variable: PARAMCD
+    direction: asc
+intermediates:
+- id: ENDDAY
+  dataset: ZX
+  key:
+  - STUDYID
+  - USUBJID
+  filter: ZX.ZXTESTCD = 'DFSDY'
+- id: ENDCEN
+  dataset: ZX
+  key:
+  - STUDYID
+  - USUBJID
+  filter: ZX.ZXTESTCD = 'DFSCNSR'
+- id: OSDAY
+  dataset: ZX
+  key:
+  - STUDYID
+  - USUBJID
+  filter: ZX.ZXTESTCD = 'OSDY'
+- id: OSCEN
+  dataset: ZX
+  key:
+  - STUDYID
+  - USUBJID
+  filter: ZX.ZXTESTCD = 'OSCNSR'
+- id: FIRSTEV
+  dataset: ADRS
+  key:
+  - STUDYID
+  - USUBJID
+  filter: ADRS.PARAMCD = 'RECUR' AND ADRS.AVALC = 'Recurrence'
+  order_by:
+  - variable: ADRS.ADT
+    direction: asc
+  - variable: ADRS.ASEQ
+    direction: asc
+  keep: first
+- id: LASTADEQ
+  dataset: ADRS
+  key:
+  - STUDYID
+  - USUBJID
+  filter: ADRS.PARAMCD = 'RECUR' AND ADRS.AVALC = 'No recurrence'
+  order_by:
+  - variable: ADRS.ADT
+    direction: asc
+  - variable: ADRS.ASEQ
+    direction: asc
+  keep: last
+columns:
+- name: STUDYID
+  type: str
+  label: Study Identifier
+  derivation: ADSL.STUDYID
+  submission:
+    core: Req
+    mandatory: true
+    length: 12
+    origins:
+    - type: Derived
+    method:
+      type: Computation
+      description: 'Executable derivation in the retained yamaa specification: ADSL.STUDYID
+
+        ...'
+- name: USUBJID
+  type: str
+  label: Unique Subject Identifier
+  derivation: ADSL.USUBJID
+  submission:
+    core: Req
+    mandatory: true
+    length: 40
+    origins:
+    - type: Derived
+    method:
+      type: Computation
+      description: 'Executable derivation in the retained yamaa specification: ADSL.USUBJID
+
+        ...'
+- name: PARAMCD
+  type: str
+  label: Parameter Code
+  derivation: null
+  submission:
+    core: Req
+    mandatory: true
+    length: 8
+    origins:
+    - type: Assigned
+    method:
+      type: Computation
+      description: 'Executable derivation in the retained yamaa specification: null
+
+        ...'
+- name: PARAM
+  type: str
+  label: Parameter
+  derivation: null
+  submission:
+    core: Perm
+    mandatory: false
+    length: 80
+    origins:
+    - type: Assigned
+    method:
+      type: Computation
+      description: 'Executable derivation in the retained yamaa specification: null
+
+        ...'
+- name: STARTDT
+  type: date
+  label: Time-to-Event Origin Date
+  derivation: ADSL.RANDDT
+  submission:
+    core: Perm
+    mandatory: false
+    origins:
+    - type: Derived
+    method:
+      type: Computation
+      description: 'Executable derivation in the retained yamaa specification: ADSL.RANDDT
+
+        ...'
+- name: _EVENTDT
+  type: date
+  label: Internal First Event Date
+  derivation:
+    case:
+    - when: FIRSTEV.ADT IS NOT NULL AND (ADSL.DTHDT IS NULL OR FIRSTEV.ADT <= ADSL.DTHDT)
+      then: FIRSTEV.ADT
+    - otherwise: ADSL.DTHDT
+- name: _CANDDT
+  type: date
+  label: Internal Candidate End Date
+  derivation:
+    case:
+    - when: _EVENTDT IS NOT NULL
+      then: _EVENTDT
+    - when: LASTADEQ.ADT IS NOT NULL
+      then: LASTADEQ.ADT
+    - otherwise: STARTDT
+- name: _CANDDY
+  type: int
+  label: Internal Candidate Event Days
+  derivation:
+    diff:
+      type: date
+      start: STARTDT
+      end: _CANDDT
+      unit: day
+      closed: both
+- name: AVAL
+  type: int
+  label: Analysis Value in Days
+  derivation: null
+  submission:
+    core: Perm
+    mandatory: false
+    length: 8
+    origins:
+    - type: Derived
+    method:
+      type: Computation
+      description: 'Executable derivation in the retained yamaa specification: null
+
+        ...'
+    comment: Primary use blocked pending cutoff, source reconciliation, and findings
+      review.
+- name: CNSR
+  type: int
+  label: 'Censor: 0 Event, 1 Censored'
+  derivation: null
+  submission:
+    core: Perm
+    mandatory: false
+    length: 8
+    origins:
+    - type: Derived
+    method:
+      type: Computation
+      description: 'Executable derivation in the retained yamaa specification: null
+
+        ...'
+    comment: Primary use blocked pending cutoff, source reconciliation, and findings
+      review.
+- name: DTYPE
+  type: str
+  label: Derivation Type
+  derivation: null
+  submission:
+    core: Perm
+    mandatory: false
+    length: 24
+    origins:
+    - type: Assigned
+    method:
+      type: Computation
+      description: 'Executable derivation in the retained yamaa specification: null
+
+        ...'
+- name: EVNTDESC
+  type: str
+  label: Event / Censor Description
+  derivation: null
+  submission:
+    core: Perm
+    mandatory: false
+    length: 100
+    origins:
+    - type: Assigned
+    method:
+      type: Computation
+      description: 'Executable derivation in the retained yamaa specification: null
+
+        ...'
+- name: SRCDOM
+  type: str
+  label: Source Domain
+  derivation: null
+  submission:
+    core: Perm
+    mandatory: false
+    length: 8
+    origins:
+    - type: Assigned
+    method:
+      type: Computation
+      description: 'Executable derivation in the retained yamaa specification: null
+
+        ...'
+- name: SRCVAR
+  type: str
+  label: Source Variable
+  derivation: null
+  submission:
+    core: Perm
+    mandatory: false
+    length: 12
+    origins:
+    - type: Assigned
+    method:
+      type: Computation
+      description: 'Executable derivation in the retained yamaa specification: null
+
+        ...'
+- name: SRCSEQ
+  type: int
+  label: Source Sequence
+  derivation: null
+  submission:
+    core: Perm
+    mandatory: false
+    length: 8
+    origins:
+    - type: Derived
+    method:
+      type: Computation
+      description: 'Executable derivation in the retained yamaa specification: null
+
+        ...'
+- name: _OFFSET
+  type: int
+  label: Internal Inclusive Day Offset
+  derivation: AVAL - 1
+- name: ADT
+  type: date
+  label: Analysis Date
+  derivation:
+    shift:
+      type: date
+      source: STARTDT
+      days: _OFFSET
+  submission:
+    core: Perm
+    mandatory: false
+    origins:
+    - type: Derived
+    method:
+      type: Computation
+      description: "Executable derivation in the retained yamaa specification: shift:\n\
+        \  days: _OFFSET\n  source: STARTDT\n  type: date"
+    comment: Primary use blocked pending cutoff, source reconciliation, and findings
+      review.
+- name: TRT01P
+  type: str
+  label: Planned Treatment
+  derivation: ADSL.TRT01P
+  submission:
+    core: Perm
+    mandatory: false
+    length: 80
+    origins:
+    - type: Derived
+    method:
+      type: Computation
+      description: 'Executable derivation in the retained yamaa specification: ADSL.TRT01P
+
+        ...'
+- name: TRT01PN
+  type: int
+  label: Planned Treatment Code
+  derivation: ADSL.TRT01PN
+  submission:
+    core: Perm
+    mandatory: false
+    length: 8
+    origins:
+    - type: Derived
+    method:
+      type: Computation
+      description: 'Executable derivation in the retained yamaa specification: ADSL.TRT01PN
+
+        ...'
+- name: ITTFL
+  type: str
+  label: ITT Population Flag
+  derivation: ADSL.ITTFL
+  submission:
+    core: Perm
+    mandatory: false
+    length: 1
+    origins:
+    - type: Derived
+    method:
+      type: Computation
+      description: 'Executable derivation in the retained yamaa specification: ADSL.ITTFL
+
+        ...'
+- name: STRATA
+  type: str
+  label: Reconstructed Randomization Stratum
+  derivation: ADSL.STRATA
+  submission:
+    core: Perm
+    mandatory: false
+    length: 80
+    origins:
+    - type: Derived
+    method:
+      type: Computation
+      description: 'Executable derivation in the retained yamaa specification: ADSL.STRATA
+
+        ...'
+- name: ANL01FL
+  type: str
+  label: Approved Primary Analysis Record
+  derivation: null
+  submission:
+    core: Perm
+    mandatory: false
+    length: 1
+    origins:
+    - type: Other
+      description: Not collected or not established from these synthetic sources.
+    method:
+      type: Computation
+      description: 'Executable derivation in the retained yamaa specification: null
+
+        ...'
+- name: ANL02FL
+  type: str
+  label: Development / Descriptive Record
+  derivation: '''Y'''
+  submission:
+    core: Perm
+    mandatory: false
+    length: 1
+    origins:
+    - type: Assigned
+    method:
+      type: Computation
+      description: 'Executable derivation in the retained yamaa specification: ''''''Y'''''''
+- name: APPRFL
+  type: str
+  label: Human Analysis Approval Flag
+  derivation: '''N'''
+  submission:
+    core: Perm
+    mandatory: false
+    length: 1
+    origins:
+    - type: Assigned
+    method:
+      type: Computation
+      description: 'Executable derivation in the retained yamaa specification: ''''''N'''''''
+rows:
+- id: os_summary
+  dataset: ADSL
+  derivations:
+    PARAMCD: '''OS'''
+    PARAM: '''Overall Survival - Source Summary'''
+    AVAL: OSDAY.ZXSTRESN
+    CNSR: OSCEN.ZXSTRESN
+    DTYPE: '''SOURCE SUMMARY'''
+    EVNTDESC: '''Source-coded event / censor status'''
+    SRCDOM: '''ZX'''
+    SRCVAR: '''ZXSTRESN'''
+    SRCSEQ: OSDAY.ZXSEQ
+- id: dfs_summary
+  dataset: ADSL
+  derivations:
+    PARAMCD: '''DFS'''
+    PARAM: '''Disease-Free Survival - Source Summary'''
+    AVAL: ENDDAY.ZXSTRESN
+    CNSR: ENDCEN.ZXSTRESN
+    DTYPE: '''SOURCE SUMMARY'''
+    EVNTDESC: '''Source-coded event / censor status'''
+    SRCDOM: '''ZX'''
+    SRCVAR: '''ZXSTRESN'''
+    SRCSEQ: ENDDAY.ZXSEQ
+- id: dfs_candidate
+  dataset: ADSL
+  derivations:
+    PARAMCD: '''DFSCAND'''
+    PARAM: '''DFS - Assessment-Based Candidate'''
+    AVAL: _CANDDY
+    CNSR:
+      case:
+      - when: _EVENTDT IS NOT NULL
+        then: 0
+      - otherwise: 1
+    DTYPE: '''RECORD CANDIDATE'''
+    EVNTDESC:
+      case:
+      - when: _EVENTDT IS NOT NULL
+        then: '''First recorded recurrence/PD or source-implied death'''
+      - otherwise: '''Last adequate recorded disease assessment'''
+    SRCDOM:
+      case:
+      - when: FIRSTEV.ADT = _EVENTDT
+        then: '''ADRS'''
+      - when: _EVENTDT IS NULL AND LASTADEQ.ADT IS NOT NULL
+        then: '''ADRS'''
+      - otherwise: '''ADSL'''
+    SRCVAR:
+      case:
+      - when: FIRSTEV.ADT = _EVENTDT
+        then: '''ADT'''
+      - when: _EVENTDT IS NULL AND LASTADEQ.ADT IS NOT NULL
+        then: '''ADT'''
+      - when: _EVENTDT IS NOT NULL
+        then: '''DTHDT'''
+      - otherwise: '''RANDDT'''
+    SRCSEQ:
+      case:
+      - when: FIRSTEV.ADT = _EVENTDT
+        then: FIRSTEV.ASEQ
+      - when: _EVENTDT IS NULL AND LASTADEQ.ADT IS NOT NULL
+        then: LASTADEQ.ASEQ
+      - otherwise: null
+submission:
+  has_no_data: false
+  label: Time-to-Event Development Analysis
+  class: BASIC DATA STRUCTURE
+  structure: One record per subject and declared keys
+  repeating: true
+  reference_data: false
+  non_standard: false
+  comment: Source summary and assessment candidate records are distinct. ANL01FL is
+    missing and APPRFL=N. No confirmatory analysis is approved. Candidate does not
+    implement missing-scan or subsequent-therapy sensitivity rules.

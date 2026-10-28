@@ -56,7 +56,7 @@ columns. Return them to the orchestrator; it writes the files.
    that share one specification quote; do not split one difference into
    several clauses.
 4. **Write the literal probe.** Add a column to
-   `<study>/spec/review/<dataset>-probe.yaml`, named after the variable, that
+   `<study>/spec/review/<dataset>-documented-rules.yaml`, named after the variable, that
    states the rule exactly as written, even when it looks wrong. Read
    upstream analysis variables from the `REF` intermediate, the published
    reference, so the probe tests this rule alone. Apply documented precision

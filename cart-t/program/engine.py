@@ -3,6 +3,7 @@
 import json
 import os
 from pathlib import Path
+import sys
 
 import pandas as pd
 import pyarrow.parquet as pq
@@ -12,6 +13,9 @@ import yamaa
 from lxml import etree
 
 STUDY = Path(__file__).resolve().parents[1]
+sys.path.insert(0, str(STUDY.parent / ".github/scripts"))
+from resolved_specs import execution_project, process_study, specification_packet
+
 PROJECT = STUDY / "spec/yamaa/project.yaml"
 SCHEMAS = Path(os.environ.get("YAMAA_XML_SCHEMAS", str(
     STUDY.parent / ".build/define-engine/rust/tests/schemas"))).resolve()
@@ -27,14 +31,11 @@ def declaration():
 def specifications(section):
     # Let the engine expand copy entries and producer contracts. Export and
     # review must not implement a second interpretation of the YAML language.
-    project = yamaa.project(PROJECT)
     result = []
     for relative in declaration()[section]["specs"]:
         path = (PROJECT.parent / relative).resolve()
-        domain = yaml.safe_load(path.read_text())["domain"]
-        resolved = project.spec(domain).resolve()
-        entry = next(e for e in resolved["entries"] if Path(e["entry"]) == path)
-        result.append((path, entry["specification"]))
+        packet = specification_packet(STUDY.parent, path)
+        result.append((STUDY.parent / packet["snapshot"]["path"], packet["model"]))
     return result
 
 
@@ -44,7 +45,8 @@ def require_success(result):
 
 
 def run_section(section):
-    project = yamaa.project(PROJECT)
+    process_study(STUDY.parent, STUDY.name, check=True)
+    project = yamaa.project(execution_project(STUDY.parent, STUDY.name))
     check = project.check()
     require_success(check)
     runs = project.run(section)
@@ -127,7 +129,7 @@ def export_xpt(path, spec):
 
 def export_definitions():
     records = []
-    project = yamaa.project(PROJECT)
+    project = yamaa.project(execution_project(STUDY.parent, STUDY.name))
     parser = etree.XMLParser(no_network=True, resolve_entities=False)
     schema_path = SCHEMAS / "define/2.0/define2-0-0.xsd"
     if not schema_path.is_file():

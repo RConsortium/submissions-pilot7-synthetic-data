@@ -1,0 +1,804 @@
+yamaa: '1.0'
+type: spec
+model: SDTM
+domain: AE
+keys:
+- STUDYID
+- USUBJID
+- AESEQ
+input:
+  ODM:
+    path: ../../../../data/odm/car-t-openclinica.xml
+    relative_to: declaring
+    empty_string: missing
+  RAW:
+    path: ../../../../data/odm/car-t-openclinica.xml
+    relative_to: declaring
+    empty_string: missing
+output:
+  path: ../../../../data/sdtm/ae.parquet
+  relative_to: declaring
+  columns:
+  - STUDYID
+  - DOMAIN
+  - USUBJID
+  - AESEQ
+  - AESPID
+  - AETERM
+  - AEDECOD
+  - AEBODSYS
+  - AESEV
+  - AESER
+  - AEACN
+  - AEREL
+  - AESCONG
+  - AESDISAB
+  - AESDTH
+  - AESHOSP
+  - AESLIFE
+  - AESMIE
+  - AEOUT
+  - AESTDTC
+  - AEENDTC
+  - AEENRTPT
+  - AEENTPT
+  - VISIT
+  report: ../../../../log/ae-report.parquet
+  order_by:
+  - variable: STUDYID
+    direction: asc
+    nulls: last
+  - variable: USUBJID
+    direction: asc
+    nulls: last
+  - variable: AESEQ
+    direction: asc
+    nulls: last
+intermediates:
+- id: CONTEXT
+  dataset: RAW
+  key:
+    StudyOID: ODM.StudyOID
+    MetaDataVersionOID: ODM.MetaDataVersionOID
+    SubjectKey: ODM.SubjectKey
+    StudyEventOID: ODM.StudyEventOID
+    FormOID: ODM.FormOID
+    ItemGroupOID: ODM.ItemGroupOID
+  filter: (RAW.StudyEventRepeatKey = ODM.StudyEventRepeatKey OR (RAW.StudyEventRepeatKey
+    IS NULL AND ODM.StudyEventRepeatKey IS NULL)) AND (RAW.FormRepeatKey = ODM.FormRepeatKey
+    OR (RAW.FormRepeatKey IS NULL AND ODM.FormRepeatKey IS NULL)) AND (RAW.ItemGroupRepeatKey
+    = ODM.ItemGroupRepeatKey OR (RAW.ItemGroupRepeatKey IS NULL AND ODM.ItemGroupRepeatKey
+    IS NULL))
+  order_by:
+  - variable: RAW.SourceOrdinal
+    direction: asc
+  keep: first
+columns:
+- name: CRF_AEACN
+  type: str
+  label: CRF_AEACN
+- name: CRF_AEENDDAT
+  type: str
+  label: CRF_AEENDDAT
+- name: CRF_AEONGO
+  type: str
+  label: CRF_AEONGO
+- name: CRF_AEOUT
+  type: str
+  label: CRF_AEOUT
+- name: CRF_AEREL
+  type: str
+  label: CRF_AEREL
+- name: CRF_AESCONG
+  type: str
+  label: CRF_AESCONG
+- name: CRF_AESDISAB
+  type: str
+  label: CRF_AESDISAB
+- name: CRF_AESDTH
+  type: str
+  label: CRF_AESDTH
+- name: CRF_AESER
+  type: str
+  label: CRF_AESER
+- name: CRF_AESEV
+  type: str
+  label: CRF_AESEV
+- name: CRF_AESHOSP
+  type: str
+  label: CRF_AESHOSP
+- name: CRF_AESIMIE
+  type: str
+  label: CRF_AESIMIE
+- name: CRF_AESLIFE
+  type: str
+  label: CRF_AESLIFE
+- name: CRF_AESTDAT
+  type: str
+  label: CRF_AESTDAT
+- name: CRF_AETERM
+  type: str
+  label: CRF_AETERM
+- name: EVENTNAME
+  type: str
+  label: EVENTNAME
+  derivation: CONTEXT.EventName
+- name: SUBJECTKEY
+  type: str
+  label: SUBJECTKEY
+  derivation: ODM.SubjectKey
+- name: ROWID
+  type: int
+  label: ROWID
+  derivation: CONTEXT.SourceOrdinal
+- name: STUDYID
+  type: str
+  label: Study Identifier
+  derivation: '''CART-T-PILOT'''
+  verifications:
+  - max_length:
+      max: 12
+      severity: error
+  submission:
+    key_sequence: 1
+    core: Req
+    mandatory: true
+    role: Identifier
+    data_type: text
+    length: 12
+    origins:
+    - type: Assigned
+      source: Sponsor
+- name: DOMAIN
+  type: str
+  label: Domain Abbreviation
+  derivation: '''AE'''
+  verifications:
+  - max_length:
+      max: 2
+      severity: error
+  submission:
+    core: Req
+    mandatory: true
+    role: Identifier
+    data_type: text
+    length: 2
+    origins:
+    - type: Assigned
+      source: Sponsor
+- name: USUBJID
+  type: str
+  label: Unique Subject Identifier
+  derivation:
+    str_template: CART-T-PILOT-{SUBJECTKEY}
+  verifications:
+  - max_length:
+      max: 80
+      severity: error
+  submission:
+    key_sequence: 2
+    core: Req
+    mandatory: true
+    role: Identifier
+    data_type: text
+    length: 80
+    origins:
+    - type: Derived
+      source: Sponsor
+    method:
+      type: Computation
+      description: CART-T-PILOT followed by the globally unique ODM SubjectKey. Display
+        subject ID is retained in DM.SUBJID.
+    comment: CART-T-PILOT followed by the globally unique ODM SubjectKey. Display
+      subject ID is retained in DM.SUBJID.
+- name: AESEQ
+  type: int
+  label: Sequence Number
+  derivation:
+    row_number:
+      window:
+        group_by:
+        - USUBJID
+        order_by:
+        - variable: ROWID
+          direction: asc
+          nulls: last
+  submission:
+    key_sequence: 3
+    core: Req
+    mandatory: true
+    role: Identifier
+    data_type: integer
+    length: 8
+    origins:
+    - type: Derived
+      source: Sponsor
+    method:
+      type: Computation
+      description: "Executable yamaa derivation: row_number:\n  window:\n    group_by:\n\
+        \    - USUBJID\n    order_by:\n    - variable: ROWID\n      nulls: last"
+- name: AESPID
+  type: str
+  label: Source Group Ordinal
+  derivation: ROWID
+  verifications:
+  - max_length:
+      max: 20
+      severity: error
+  submission:
+    core: Perm
+    mandatory: false
+    role: Identifier
+    data_type: text
+    length: 20
+    origins:
+    - type: Predecessor
+      description: ROWID
+    comment: ODM SourceOrdinal (item), or first SourceOrdinal in the complete ODM
+      item-group instance. Trace to SourceOrdinal in data/odm/items.parquet and the
+      unchanged XML.
+- name: AETERM
+  type: str
+  label: Reported Term for the Adverse Event
+  derivation: CRF_AETERM
+  verifications:
+  - max_length:
+      max: 200
+      severity: error
+  submission:
+    core: Req
+    mandatory: true
+    role: Topic
+    data_type: text
+    length: 200
+    origins:
+    - type: Predecessor
+      description: CRF_AETERM
+- name: AEDECOD
+  type: str
+  label: Dictionary-Derived Term
+  derivation: null
+  verifications:
+  - max_length:
+      max: 200
+      severity: error
+  submission:
+    core: Req
+    mandatory: true
+    role: Record Qualifier
+    data_type: text
+    length: 200
+    origins:
+    - type: Derived
+      source: Sponsor
+    method:
+      type: Computation
+      description: No MedDRA preferred term is supplied. Verbatim text is not represented
+        as dictionary coding.
+    comment: No MedDRA preferred term is supplied. Verbatim text is not represented
+      as dictionary coding.
+- name: AEBODSYS
+  type: str
+  label: Body System or Organ Class
+  derivation: null
+  verifications:
+  - max_length:
+      max: 200
+      severity: error
+  submission:
+    core: Exp
+    mandatory: false
+    role: Record Qualifier
+    data_type: text
+    length: 200
+    origins:
+    - type: Derived
+      source: Sponsor
+    method:
+      type: Computation
+      description: Not derivable; the output remains missing.
+- name: AESEV
+  type: str
+  label: Severity/Intensity
+  derivation:
+    str_case:
+      source: CRF_AESEV
+      to: upper
+  verifications:
+  - max_length:
+      max: 12
+      severity: error
+  submission:
+    core: Perm
+    mandatory: false
+    role: Record Qualifier
+    data_type: text
+    length: 12
+    origins:
+    - type: Derived
+      source: Sponsor
+    method:
+      type: Computation
+      description: "Executable yamaa derivation: str_case:\n  source: CRF_AESEV\n\
+        \  to: upper"
+- name: AESER
+  type: str
+  label: Serious Event
+  derivation:
+    str_case:
+      source: CRF_AESER
+      to: upper
+  verifications:
+  - max_length:
+      max: 12
+      severity: error
+  - allowed_values:
+      values:
+      - N
+      - Y
+      severity: error
+  submission:
+    core: Exp
+    mandatory: false
+    role: Record Qualifier
+    data_type: text
+    length: 12
+    codelist: NY
+    origins:
+    - type: Derived
+      source: Sponsor
+    method:
+      type: Computation
+      description: "Executable yamaa derivation: str_case:\n  source: CRF_AESER\n\
+        \  to: upper"
+- name: AEACN
+  type: str
+  label: Action Taken with Study Treatment
+  derivation:
+    str_case:
+      source: CRF_AEACN
+      to: upper
+  verifications:
+  - max_length:
+      max: 40
+      severity: error
+  submission:
+    core: Exp
+    mandatory: false
+    role: Record Qualifier
+    data_type: text
+    length: 40
+    origins:
+    - type: Derived
+      source: Sponsor
+    method:
+      type: Computation
+      description: "Executable yamaa derivation: str_case:\n  source: CRF_AEACN\n\
+        \  to: upper"
+- name: AEREL
+  type: str
+  label: Causality
+  derivation:
+    str_case:
+      source: CRF_AEREL
+      to: upper
+  verifications:
+  - max_length:
+      max: 40
+      severity: error
+  submission:
+    core: Exp
+    mandatory: false
+    role: Record Qualifier
+    data_type: text
+    length: 40
+    origins:
+    - type: Derived
+      source: Sponsor
+    method:
+      type: Computation
+      description: "Executable yamaa derivation: str_case:\n  source: CRF_AEREL\n\
+        \  to: upper"
+- name: AESCONG
+  type: str
+  label: Congenital Anomaly or Birth Defect
+  derivation:
+    str_case:
+      source: CRF_AESCONG
+      to: upper
+  verifications:
+  - max_length:
+      max: 12
+      severity: error
+  - allowed_values:
+      values:
+      - N
+      - Y
+      severity: error
+  submission:
+    core: Perm
+    mandatory: false
+    role: Record Qualifier
+    data_type: text
+    length: 12
+    codelist: NY
+    origins:
+    - type: Derived
+      source: Sponsor
+    method:
+      type: Computation
+      description: "Executable yamaa derivation: str_case:\n  source: CRF_AESCONG\n\
+        \  to: upper"
+- name: AESDISAB
+  type: str
+  label: Persist/Significant Disability/Incapacit
+  derivation:
+    str_case:
+      source: CRF_AESDISAB
+      to: upper
+  verifications:
+  - max_length:
+      max: 12
+      severity: error
+  - allowed_values:
+      values:
+      - N
+      - Y
+      severity: error
+  submission:
+    core: Perm
+    mandatory: false
+    role: Record Qualifier
+    data_type: text
+    length: 12
+    codelist: NY
+    origins:
+    - type: Derived
+      source: Sponsor
+    method:
+      type: Computation
+      description: "Executable yamaa derivation: str_case:\n  source: CRF_AESDISAB\n\
+        \  to: upper"
+- name: AESDTH
+  type: str
+  label: Results in Death
+  derivation:
+    str_case:
+      source: CRF_AESDTH
+      to: upper
+  verifications:
+  - max_length:
+      max: 12
+      severity: error
+  - allowed_values:
+      values:
+      - N
+      - Y
+      severity: error
+  submission:
+    core: Perm
+    mandatory: false
+    role: Record Qualifier
+    data_type: text
+    length: 12
+    codelist: NY
+    origins:
+    - type: Derived
+      source: Sponsor
+    method:
+      type: Computation
+      description: "Executable yamaa derivation: str_case:\n  source: CRF_AESDTH\n\
+        \  to: upper"
+- name: AESHOSP
+  type: str
+  label: Requires or Prolongs Hospitalization
+  derivation:
+    str_case:
+      source: CRF_AESHOSP
+      to: upper
+  verifications:
+  - max_length:
+      max: 12
+      severity: error
+  - allowed_values:
+      values:
+      - N
+      - Y
+      severity: error
+  submission:
+    core: Perm
+    mandatory: false
+    role: Record Qualifier
+    data_type: text
+    length: 12
+    codelist: NY
+    origins:
+    - type: Derived
+      source: Sponsor
+    method:
+      type: Computation
+      description: "Executable yamaa derivation: str_case:\n  source: CRF_AESHOSP\n\
+        \  to: upper"
+- name: AESLIFE
+  type: str
+  label: Is Life Threatening
+  derivation:
+    str_case:
+      source: CRF_AESLIFE
+      to: upper
+  verifications:
+  - max_length:
+      max: 12
+      severity: error
+  - allowed_values:
+      values:
+      - N
+      - Y
+      severity: error
+  submission:
+    core: Perm
+    mandatory: false
+    role: Record Qualifier
+    data_type: text
+    length: 12
+    codelist: NY
+    origins:
+    - type: Derived
+      source: Sponsor
+    method:
+      type: Computation
+      description: "Executable yamaa derivation: str_case:\n  source: CRF_AESLIFE\n\
+        \  to: upper"
+- name: AESMIE
+  type: str
+  label: Other Medically Important Serious Event
+  derivation: CRF_AESIMIE
+  verifications:
+  - max_length:
+      max: 1
+      severity: error
+  - allowed_values:
+      values:
+      - N
+      - Y
+      severity: error
+  submission:
+    core: Perm
+    mandatory: false
+    role: Record Qualifier
+    data_type: text
+    length: 1
+    codelist: NY
+    origins:
+    - type: Predecessor
+      description: CRF_AESIMIE
+- name: AEOUT
+  type: str
+  label: Outcome of Adverse Event
+  derivation:
+    mapping:
+      source: CRF_AEOUT
+      dict:
+        RECOVERED_RESOLVED: RECOVERED/RESOLVED
+        RECOVERING_RESOLVING: RECOVERING/RESOLVING
+        NOT_RECOVERED_NOT_RESOLVED: NOT RECOVERED/NOT RESOLVED
+        RECOVERED_RESOLVED_WITH_SEQUELAE: RECOVERED/RESOLVED WITH SEQUELAE
+        FATAL: FATAL
+        UNKNOWN: UNKNOWN
+        NOT RECOVERED_NOT_RESOLVED: NOT RECOVERED/NOT RESOLVED
+      case_sensitive: true
+      unmapped: null
+  verifications:
+  - max_length:
+      max: 40
+      severity: error
+  submission:
+    core: Perm
+    mandatory: false
+    role: Record Qualifier
+    data_type: text
+    length: 40
+    origins:
+    - type: Derived
+      source: Sponsor
+    method:
+      type: Computation
+      description: Decode OpenClinica CL_195, including the literal mixed-space token
+        NOT RECOVERED_NOT_RESOLVED, into outcome submission terms. Do not alter seriousness
+        criteria.
+- name: AESTDTC
+  type: str
+  label: Start Date/Time of Adverse Event
+  derivation:
+    date_text:
+      source: CRF_AESTDAT
+      forms:
+      - iso
+      - mdy_slash
+      invalid: null
+  verifications:
+  - max_length:
+      max: 25
+      severity: error
+  submission:
+    core: Exp
+    mandatory: false
+    role: Timing
+    data_type: text
+    length: 25
+    origins:
+    - type: Derived
+      source: Sponsor
+    method:
+      type: Computation
+      description: "Executable yamaa derivation: date_text:\n  source: CRF_AESTDAT\n\
+        \  forms:\n  - iso\n  - mdy_slash\n  invalid: null"
+- name: AEENDTC
+  type: str
+  label: End Date/Time of Adverse Event
+  derivation:
+    date_text:
+      source: CRF_AEENDDAT
+      forms:
+      - iso
+      - mdy_slash
+      invalid: null
+  verifications:
+  - max_length:
+      max: 25
+      severity: error
+  submission:
+    core: Exp
+    mandatory: false
+    role: Timing
+    data_type: text
+    length: 25
+    origins:
+    - type: Derived
+      source: Sponsor
+    method:
+      type: Computation
+      description: "Executable yamaa derivation: date_text:\n  source: CRF_AEENDDAT\n\
+        \  forms:\n  - iso\n  - mdy_slash\n  invalid: null"
+- name: AEENRTPT
+  type: str
+  label: End Relative to Reference Time Point
+  derivation:
+    case:
+    - when: CRF_AEONGO = 'Y'
+      then: '''ONGOING'''
+    - otherwise: null
+  verifications:
+  - max_length:
+      max: 12
+      severity: error
+  submission:
+    core: Perm
+    mandatory: false
+    role: Record Qualifier
+    data_type: text
+    length: 12
+    origins:
+    - type: Derived
+      source: Sponsor
+    method:
+      type: Computation
+      description: "Executable yamaa derivation: case:\n- when: CRF_AEONGO = 'Y'\n\
+        \  then: '''ONGOING'''\n- otherwise: null"
+- name: AEENTPT
+  type: str
+  label: End Reference Time Point
+  derivation:
+    case:
+    - when: CRF_AEONGO = 'Y'
+      then: '''AE FORM ASSESSMENT'''
+    - otherwise: null
+  verifications:
+  - max_length:
+      max: 40
+      severity: error
+  submission:
+    core: Perm
+    mandatory: false
+    role: Record Qualifier
+    data_type: text
+    length: 40
+    origins:
+    - type: Derived
+      source: Sponsor
+    method:
+      type: Computation
+      description: "Executable yamaa derivation: case:\n- when: CRF_AEONGO = 'Y'\n\
+        \  then: '''AE FORM ASSESSMENT'''\n- otherwise: null"
+- name: VISIT
+  type: str
+  label: Visit Name
+  derivation: EVENTNAME
+  verifications:
+  - max_length:
+      max: 80
+      severity: error
+  submission:
+    core: Perm
+    mandatory: false
+    role: Timing
+    data_type: text
+    length: 80
+    origins:
+    - type: Predecessor
+      description: EVENTNAME
+- name: SOURCE_GROUP
+  type: str
+  label: SOURCE_GROUP
+- name: SOURCE_FORM
+  type: str
+  label: SOURCE_FORM
+rows:
+- id: collected
+  dataset: ODM
+  group_by:
+  - ODM.StudyOID
+  - ODM.MetaDataVersionOID
+  - ODM.SubjectKey
+  - ODM.StudyEventOID
+  - ODM.StudyEventRepeatKey
+  - ODM.FormOID
+  - ODM.FormRepeatKey
+  - ODM.ItemGroupOID
+  - ODM.ItemGroupRepeatKey
+  filter: SOURCE_FORM = 'F_ADVERSEEVENT' AND (SOURCE_GROUP = 'IG_ADVER_AE' AND CRF_AETERM
+    IS NOT NULL)
+  derivations:
+    SOURCE_GROUP: ODM.ItemGroupOID
+    CRF_AEACN:
+      odm: ODM.I_ADVER_AEACN
+    CRF_AEENDDAT:
+      odm: ODM.I_ADVER_AEENDDAT
+    CRF_AEONGO:
+      odm: ODM.I_ADVER_AEONGO
+    CRF_AEOUT:
+      odm: ODM.I_ADVER_AEOUT
+    CRF_AEREL:
+      odm: ODM.I_ADVER_AEREL
+    CRF_AESCONG:
+      odm: ODM.I_ADVER_AESCONG
+    CRF_AESDISAB:
+      odm: ODM.I_ADVER_AESDISAB
+    CRF_AESDTH:
+      odm: ODM.I_ADVER_AESDTH
+    CRF_AESER:
+      odm: ODM.I_ADVER_AESER
+    CRF_AESEV:
+      odm: ODM.I_ADVER_AESEV
+    CRF_AESHOSP:
+      odm: ODM.I_ADVER_AESHOSP
+    CRF_AESIMIE:
+      odm: ODM.I_ADVER_AESIMIE
+    CRF_AESLIFE:
+      odm: ODM.I_ADVER_AESLIFE
+    CRF_AESTDAT:
+      odm: ODM.I_ADVER_AESTDAT
+    CRF_AETERM:
+      odm: ODM.I_ADVER_AETERM
+    SOURCE_FORM: ODM.FormOID
+verifications:
+- assert:
+    id: ae_end_before_start
+    require: AEENDTC IS NULL OR AESTDTC IS NULL OR AEENDTC >= AESTDTC
+    severity: warning
+- assert:
+    id: ae_fatal_disagreement
+    require: (AEOUT <> 'FATAL' OR AESDTH = 'Y') AND (AESDTH <> 'Y' OR AEOUT = 'FATAL')
+    severity: warning
+submission:
+  mode: historical
+  artifact: ae.xpt
+  has_no_data: false
+  label: Adverse Events
+  class: EVENTS
+  structure: One record per source observation per subject
+  repeating: true
+  reference_data: false
+  non_standard: false
+  comment: Review draft metadata. Historical mode keeps declarations separate from
+    incomplete data; this is not a validated submission. See spec/review/decisions.md.
