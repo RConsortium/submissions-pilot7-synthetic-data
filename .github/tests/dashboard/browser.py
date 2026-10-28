@@ -628,6 +628,14 @@ def check(browser, base, site_dir, screenshots):
     expect(
         page.frame_locator("#source-frame").locator("#sheet-1-row-1")
     ).to_be_visible()
+    workbook = page.frame_locator("#source-frame")
+    assert workbook.locator("body").evaluate("""body =>
+      getComputedStyle(body).maxWidth === 'none' &&
+      body.getBoundingClientRect().width >= innerWidth - 64
+    """), "Workbook tables should use the available viewer width"
+    assert workbook.locator("tbody tr").evaluate_all("""rows => rows.every(row =>
+      [...row.querySelectorAll('td')].some(cell => cell.textContent.trim())
+    )"""), "Workbook tables should omit blank rows"
     capture(page, screenshots, "excel-source-tables.png")
     page.get_by_role("tablist", name="Document 1 files", exact=True).get_by_role("tab", name="define-adam.xml", exact=True).click()
     expect(page.frame_locator("#source-frame").locator("table").first).to_be_visible()
