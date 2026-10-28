@@ -13,6 +13,7 @@ import { createShell } from "./shell.js";
 import { createWorkspace } from "./workspace.js";
 import { createReport } from "./report.js";
 import { findIssue } from "./issues.js";
+import { createTraceReview } from "./trace-review.js";
 import { createSourceDocuments } from "./source-documents.js";
 import { defineComparisonView } from "./define-comparison.js";
 import { createComments } from "./comments.js";
@@ -50,6 +51,7 @@ import { developmentReport, mountDevelopment } from "./synthetic-development.js"
     if (model) history.replaceState(null, "", formatRoute(state, model));
   }
   function navigate(view) {
+    traceReview.close(false);
     state.view = view;
     location.hash = formatRoute(state, model);
   }
@@ -106,8 +108,9 @@ import { developmentReport, mountDevelopment } from "./synthetic-development.js"
   const { frame } = createShell(ctx),
     { workspace, applyHighlight, paintTables, fitWorkbench, copySpecification } =
       createWorkspace(ctx);
-  const { findingRows, findingsView, expandTrace, drawer } = createReport(ctx),
+  const { findingRows, findingsView, drawer } = createReport(ctx),
     { commentsView, loadComments } = createComments(ctx);
+  const traceReview = createTraceReview(ctx);
   const sourceDocuments = createSourceDocuments(ctx),
     { materialsView } = sourceDocuments;
   const resizing = createResizing(ctx, fitWorkbench);
@@ -162,6 +165,7 @@ import { developmentReport, mountDevelopment } from "./synthetic-development.js"
     }
   }
   async function renderView() {
+    traceReview.close(false);
     resizing.rememberPanels();
     const token = ++ticket;
     specification = specifications[state.dataset];
@@ -182,6 +186,7 @@ import { developmentReport, mountDevelopment } from "./synthetic-development.js"
       mountDevelopment(byId("view-content"), development);
     byId("review-comments").innerHTML = commentsView();
     loadComments();
+    traceReview.refreshRows();
     if (state.view === "datasets") {
       await refreshRows();
       if (token === ticket) {
@@ -191,6 +196,7 @@ import { developmentReport, mountDevelopment } from "./synthetic-development.js"
     }
   }
   async function mount() {
+    traceReview.close(false);
     const token = ++mount.token;
     ++ticket;
     ++refreshRows.token;
@@ -288,6 +294,7 @@ import { developmentReport, mountDevelopment } from "./synthetic-development.js"
   });
   document.addEventListener("keydown", (event) => {
     if (!root()) return;
+    if (traceReview.isOpen) return;
     if (event.key === "Escape") {
       const opened = [...root().querySelectorAll("[data-popover][open]")];
       for (const picker of opened) picker.open = false;
@@ -311,14 +318,6 @@ import { developmentReport, mountDevelopment } from "./synthetic-development.js"
       el.checked = state.subjects.includes(el.dataset.subject);
     await refreshRows();
   }
-  document.addEventListener(
-    "toggle",
-    (event) => {
-      if (root()?.contains(event.target) && event.target.matches(".finding-trace"))
-        expandTrace(event.target);
-    },
-    true,
-  );
   document.addEventListener("click", async (event) => {
     if (event.target.closest("#reload-synthetic")) {
       mount();
@@ -326,6 +325,10 @@ import { developmentReport, mountDevelopment } from "./synthetic-development.js"
     }
     const target = event.target.closest("button,[data-line-node]");
     if (!target || !root()?.contains(target)) return;
+    if (target.dataset.traceIssue) {
+      traceReview.open(target.dataset.traceIssue, target);
+      return;
+    }
     if (sourceDocuments.click(target)) return;
     if (target.id === "copy-specification") {
       await copySpecification();
@@ -452,6 +455,7 @@ import { developmentReport, mountDevelopment } from "./synthetic-development.js"
       byId("finding-comparison").value = "";
       byId("finding-critical").value = "";
       byId("finding-results").innerHTML = findingRows();
+      traceReview.refreshRows();
       return;
     }
     if (target.id === "close-evidence") {
@@ -549,6 +553,7 @@ import { developmentReport, mountDevelopment } from "./synthetic-development.js"
       ] = el.value;
       save();
       byId("finding-results").innerHTML = findingRows();
+      traceReview.refreshRows();
     }
   });
   document.addEventListener("input", (event) => {
@@ -569,6 +574,7 @@ import { developmentReport, mountDevelopment } from "./synthetic-development.js"
       state.findingSearch = el.value;
       save();
       byId("finding-results").innerHTML = findingRows();
+      traceReview.refreshRows();
     }
   });
   window.addEventListener("hashchange", mount);

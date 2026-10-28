@@ -48,6 +48,8 @@ docs/assets/dashboard/
   define-comparison.js                   original/generated XML and metadata differences
   report.js, comments.js, ui.js           evidence, discussions, and shared primitives
   issues.js                              concise issues, progressive traces and check aliases
+  trace-review.js                        expanded evidence and per-finding human review
+  review-drafts.js                       browser-local assessments bound to reviewed evidence
 docs/stylesheets/dashboard.css           responsive layout and light/dark themes
 .github/tests/dashboard/                 artifact, extension, module, and browser checks
 <study>/spec/review/questions.json        optional authored review questions
@@ -245,9 +247,28 @@ clauses without authored grouping share a row only for the same variable and
 exact source-file pair; all supporting checks and quotations remain available.
 Both the metric and the static study
 report count issues. The table separately counts unique supporting checks.
-Closed trace panels keep their full evidence out of the initial DOM. Opening a
-panel renders its complete trace once, including source context and check audit;
-the workspace evidence drawer uses the same trace renderer.
+Trace evidence opens an expanded dialog, keeping complete evidence out of the
+initial listing DOM. It separates the finding, source comparison, actual subject
+examples, recommended fix, and human review. Related issues for the same variable
+are independently selectable; source context and the full check audit remain
+expandable. The data workspace links back to the same dialog.
+
+Human agreement, criticality and comments are browser-local assessments. Neither
+decision is preselected. Saving an assessment does not resolve the finding or
+replace agent adjudication or automated criticality. Drafts are scoped to the
+study and issue and bound to its current evidence; changed evidence returns an
+earlier assessment as a draft. JSON export retains source revision and check IDs.
+No review is posted to GitHub automatically. Use the existing discussion tools
+to share an exported assessment.
+
+The verifier retains row-aligned examples from the actual reference, yamaa and
+probe tables. It chooses complementary subjects from measured differences where
+available, preserves missing/blank/absent distinctions, and labels abbreviated
+subject records. The browser shows at most two subjects. Examples do not supply
+impact counts, and an unavailable example never becomes invented data. Optional
+claim `example_columns` adds reference context such as an event term; dependencies
+read from REF are included automatically. Alternate calculations use their
+plain-language `reading` descriptions; VARIABLE__READING names remain in the audit.
 
 Author `<study>/spec/review/<dataset>-issues.json` to group related checks.
 Inventory every check and its basis hash, then write short issue titles,

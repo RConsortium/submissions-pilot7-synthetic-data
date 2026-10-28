@@ -65,6 +65,11 @@ columns. Return them to the orchestrator; it writes the files.
    typo or omission, or a second document states the rule differently, add a
    column `<VARIABLE>__<READING>` and a probe entry whose `reading` says what
    changed and why, citing the quote that justifies it.
+   Write `reading` in plain language: the review page uses it to explain the
+   alternative, while the technical column name remains in calculation details.
+   Optional `example_columns` lists reference columns that help interpret the
+   subject records, such as `AEDECOD`. The verifier generates actual row-aligned
+   subject examples; do not invent example records or author measured counts.
 6. **Record open choices.** Every choice the documents leave open goes in
    `interpretations`. A decision for the reviewer goes in `question`.
 7. **When the rule cannot be stated in yamaa**, give `not_probed_reason`

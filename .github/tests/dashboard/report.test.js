@@ -193,38 +193,10 @@ test("trace shows selected quotes and comparisons once, with full context and ch
   assert.match(primary, /Documented rule vs published reference: 2 subjects differ/);
 });
 
-test("closed finding rows defer evidence and an opened trace is populated only once", () => {
+test("finding rows open a separate evidence page without rendering complete evidence", () => {
   const row = issueRow(issue, report);
-  assert.match(row, /Partial-date rule differs/);
-  assert.ok(!row.includes("finding-evidence"));
-  assert.ok(!row.includes("Use &lt;first&gt; day"));
-  let html = "",
-    writes = 0;
-  const host = {
-    dataset: {},
-    set innerHTML(value) {
-      html = value;
-      writes++;
-    },
-  };
-  const details = {
-    open: false,
-    querySelector: () => host,
-    closest: () => ({ dataset: { findingId: issue.id } }),
-  };
-  const view = createReport({ report, state: state(), esc });
-  view.expandTrace(details);
-  assert.equal(writes, 0);
-  details.open = true;
-  view.expandTrace(details);
-  assert.equal(writes, 1);
-  assert.match(html, /Use &lt;first&gt; day/);
-  assert.match(html, /2 \/ 3 records differ/);
-  details.open = false;
-  view.expandTrace(details);
-  details.open = true;
-  view.expandTrace(details);
-  assert.equal(writes, 1);
+  assert.match(row, /data-trace-issue="study:ADX.DATE.partial-date"/);
+  assert.doesNotMatch(row, /finding-evidence|Use &lt;first&gt; day|finding-trace/);
 });
 
 test("an empty finding search does not serialize complete evidence", () => {
@@ -285,10 +257,10 @@ test("workspace drawer resolves old check links to the issue and uses the same e
     state: s,
     esc,
     byId: () => host,
-    root: () => ({ classList: { toggle() {} } }),
+    root: () => ({ classList: { remove() {} } }),
   }).drawer();
   assert.match(host.innerHTML, /Partial-date rule differs/);
-  assert.match(host.innerHTML, /Use &lt;first&gt; day/);
+  assert.match(host.innerHTML, /data-trace-issue="study:ADX.DATE.partial-date"/);
   assert.match(host.innerHTML, /Documented rule vs published reference: 2 subjects differ/);
 });
 
@@ -300,10 +272,10 @@ test("former issue links resolve to the combined source-pair row and trace", () 
   const host = { innerHTML: "" };
   createReport({
     report: data, state: { ...state(), evidence: "former-issue" }, esc,
-    byId: () => host, root: () => ({ classList: { toggle() {} } }),
+    byId: () => host, root: () => ({ classList: { remove() {} } }),
   }).drawer();
-  assert.match(host.innerHTML, /2 supporting checks and agent review/);
-  assert.match(host.innerHTML, /The date derivation differs/);
+  assert.match(host.innerHTML, /data-trace-issue="study:ADX.DATE.partial-date"/);
+  assert.doesNotMatch(host.innerHTML, /finding-evidence/);
 });
 
 test("an exact variable search excludes mentions in another variable's source context", () => {
@@ -356,7 +328,7 @@ test("impact names each compared pair, deduplicates subjects and excludes contex
   assert.equal(impactText(item, data), "Documented rule vs published reference: 3 subjects differ; Documented rule vs yamaa output: 1 subject differs");
   assert.equal(comparisonLabel({ ...comparison, method: "copy" }), "Documented source vs published reference");
   assert.equal(comparisonLabel({ ...comparison, type: "codelist", target: "derived" }), "Documented codelist vs yamaa output");
-  assert.match(comparisonLabel({ ...comparison, reading: "corrected" }), /Alternative rule \(DATE_LITERAL\) vs published reference/);
+  assert.match(comparisonLabel({ ...comparison, reading: "corrected" }), /Alternative interpretation: corrected vs published reference/);
 });
 
 test("summary retains unassessed findings, zero findings and unavailable references", () => {

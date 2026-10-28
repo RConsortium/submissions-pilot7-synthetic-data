@@ -297,6 +297,7 @@ def make_issue(study, definition, checks, data, pool, citations=None):
     trace.update(selected)
     return {
         "id": f'{study}:{checks[0]["dataset"]}.{definition["variable"]}.{definition["id"]}',
+        **({"aliases": definition["aliases"]} if definition.get("aliases") else {}),
         "dataset": checks[0]["dataset"],
         "variable": definition["variable"],
         "kind": min((c["kind"] for c in checks), key=KINDS.index),
@@ -387,7 +388,7 @@ def declaration_issues(path, study, checks, selectors, pool):
             data.append({"evidence_id": evidence_id, "role": selection["role"]})
         found.append(make_issue(study, item, linked, data, pool, citations))
         covered.update(item["checks"])
-    if covered != set(actual):
+    if covered != set(actual) and not declaration.get("allow_ungrouped", False):
         raise ValueError(
             f"{path}: checks missing from issues: {sorted(set(actual) - covered)}"
         )
