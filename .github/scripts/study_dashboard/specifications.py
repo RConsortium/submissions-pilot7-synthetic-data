@@ -62,7 +62,8 @@ def inspection_specification(root, path, record, inventory):
 
         current = specification_packet(root, path)
         relative = current["snapshot"]["path"]
-        if relative not in inventory or packet != current:
+        if (relative not in inventory or current["snapshot"]["inspection_path"] not in inventory
+                or packet != current):
             raise ValueError(f"{path}: resolved snapshot changed after validation")
         packet = current
     if packet is None:

@@ -85,14 +85,22 @@ specifications reach the changed file through `parent` or `include`.
 
 ## Saved resolved specifications
 
-Each active study keeps one generated YAML snapshot per project dataset in
+Each active study keeps one generated yamaa specification per project dataset in
 `<study>/spec/yamaa/resolved/`, preserving any `sdtm/` or `adam/` subfolder.
 For example, Pilot 01's ADAE is
-`cdiscpilot01/spec/yamaa/resolved/adae.yaml`. The snapshot retains the full
-engine resolution: the composed model, mapping order, origins, layers and
-resource locations. Paths are repository-relative, and the header records
-the exact engine revision and hashes of its specification inputs, including
-the project, shared templates, producer schemas and project codelists.
+`cdiscpilot01/spec/yamaa/resolved/adae.yaml`. It starts with `yamaa` and
+`type: spec`, combines all parent layers and includes, and retains the final
+column rules and metadata. It has no `parent` or `include` directives.
+Input/output paths are rebased to its location, and producer schemas point
+to the corresponding composed files. `resolved/project.yaml` preserves the
+project settings and points to these generated specifications.
+
+Each YAML file has a separate `<dataset>.inspection.json` record containing
+the engine's full resolution, mapping order, origins, layers and resource
+locations. The record also holds the exact engine revision, hashes of the
+generated YAML and project, and hashes of the source inputs, including shared
+templates, producer schemas and project codelists. The JSON inspection record
+is not itself a yamaa specification.
 
 Install the study's pinned engine, then regenerate after a specification,
 project or engine-pin change:
@@ -107,21 +115,27 @@ snapshots with the source change. Validation checks them against fresh engine
 resolution before execution; missing, changed or obsolete snapshots fail the
 check. Resolving reads no clinical data and runs no project code.
 
-These files are the saved specification used by downstream label comparisons,
-document-rule review, transport metadata readers and dashboard publication.
+Dataset execution and native Define-XML generation use `resolved/project.yaml`.
+Downstream label comparisons, document-rule review, transport metadata readers
+and dashboard publication use the saved model and its inspection record.
 Validation evidence identifies each snapshot by path and SHA-256, and
 publication refuses changes after validation. Downstream readers verify source
 hashes and do not compose the YAML language themselves.
 
-The engine declares its resolved artifact `replay: inspection_only`: its
-normalized model is not executable authoring YAML. Dataset execution and native
-Define-XML generation therefore use the original project with the same pinned
-engine, after the snapshot check. Edit the source layers, then regenerate;
-never edit or execute a snapshot as a derivation specification.
+The generator calls `project.spec(name).resolve()` to compose the source
+layers; it does not merge parents itself. That API returns an inspection
+envelope. The generator writes its composed `specification` as ordinary YAML,
+rebases the engine-recorded resource paths and uses engine diagnostics to
+restore the mandatory shorthand that normalization expanded (SCHEMA-15).
+Every generated project must pass the pinned engine's `check()` before its
+files are saved. The inspection envelope stays in the JSON record.
 
-## Why review probes are separate
+Edit the source layers and regenerate, then commit both the YAML and JSON.
+Do not edit the generated files directly.
 
-`<study>/spec/review/adae-probe.yaml` is an executable check of the rules
+## Why documented-rule specifications are separate
+
+`<study>/spec/review/adae-documented-rules.yaml` is an executable check of the rules
 cited in `adae-claims.json`, not the production ADAE specification. It starts
 from published reference rows and recomputes selected variables using the
 documented inputs and rules. For ADAE, these include analysis dates, inclusive
@@ -129,11 +143,11 @@ duration, treatment emergence, first-occurrence flags and the dermatologic
 query. Alternative readings have separate output columns, such as the
 corrected SOC spelling used by `CQ01NAM`.
 
-`verify_derivations.py` checks the citations, runs the probe with the pinned
+`verify_derivations.py` checks the citations, runs the documented rules with the pinned
 engine, and compares its results with both the independent published reference
 and the production output. This can reveal a documented rule that disagrees
 with the reference even when production reproduces every reference value.
-Reference values used for other variables keep a probe focused on the selected
+Reference values used for other variables keep each check focused on the selected
 rule; it is not an independent end-to-end derivation. Claims and adjudication
-record the reading and remaining review decisions. Keep probes independent of
+record the reading and remaining review decisions. Keep these checks independent of
 the production specification and its resolved snapshot.

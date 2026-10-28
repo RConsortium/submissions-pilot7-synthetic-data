@@ -1,0 +1,295 @@
+yamaa: '1.0'
+type: spec
+model: ADaM
+domain: ADQSCIBC
+keys:
+- STUDYID
+- USUBJID
+- PARAMCD
+- AVISITN
+- QSSEQ
+input:
+  REF:
+    path: ../../data/adam/adqscibc.parquet
+    empty_string: present
+  _CIBC1_QS_SOURCE:
+    path: ../../data/sdtm/qs.parquet
+    empty_string: present
+  _CIBC3_ADSL_SOURCE:
+    path: ../../data/adam/adsl.parquet
+    empty_string: present
+base: REF
+output:
+  path: ../../../.build/verification/cdiscpilot01/adqscibc-documented-rules.parquet
+  columns:
+  - STUDYID
+  - USUBJID
+  - PARAMCD
+  - AVISITN
+  - QSSEQ
+  - AVISIT__LITERAL
+  - AVISITN__LITERAL
+  - ADY__LITERAL
+  - ADT__LITERAL
+  - PARAMCD__LITERAL
+  - PARAM__LITERAL
+  - PARAMN__LITERAL
+  - AVAL__LITERAL
+  - AVAL__TARGETED_LOCF
+  - AWTARGET__LITERAL
+  - AWTDIFF__LITERAL
+  - AWU__LITERAL
+  - STUDYID__LITERAL
+  - USUBJID__LITERAL
+  - AVISITN__SAP_DATE_WINDOW
+intermediates:
+- id: _CIBC1_QS
+  dataset: _CIBC1_QS_SOURCE
+  key:
+  - STUDYID
+  - USUBJID
+  - QSSEQ
+  filter: _CIBC1_QS_SOURCE.QSTESTCD = 'CIBIC'
+- id: _CIBC1_SCORE8
+  dataset: REF
+  key:
+    STUDYID: STUDYID
+    USUBJID: USUBJID
+    ADT: _CIBC1_LASTDT8
+  filter: REF.PARAMCD = 'CIBICVAL' AND REF.AVISITN < 8 AND REF.ANL01FL = 'Y' AND (REF.DTYPE
+    IS NULL OR REF.DTYPE = '') AND REF.AVAL IS NOT NULL
+  columns:
+  - AVAL
+- id: _CIBC1_SCORE16
+  dataset: REF
+  key:
+    STUDYID: STUDYID
+    USUBJID: USUBJID
+    ADT: _CIBC1_LASTDT16
+  filter: REF.PARAMCD = 'CIBICVAL' AND REF.AVISITN < 16 AND REF.ANL01FL = 'Y' AND
+    (REF.DTYPE IS NULL OR REF.DTYPE = '') AND REF.AVAL IS NOT NULL
+  columns:
+  - AVAL
+- id: _CIBC1_SCORE24
+  dataset: REF
+  key:
+    STUDYID: STUDYID
+    USUBJID: USUBJID
+    ADT: _CIBC1_LASTDT24
+  filter: REF.PARAMCD = 'CIBICVAL' AND REF.AVISITN < 24 AND REF.ANL01FL = 'Y' AND
+    (REF.DTYPE IS NULL OR REF.DTYPE = '') AND REF.AVAL IS NOT NULL
+  columns:
+  - AVAL
+- id: _CIBC3_ADSL
+  dataset: _CIBC3_ADSL_SOURCE
+  key:
+  - STUDYID
+  - USUBJID
+columns:
+- name: STUDYID
+  type: str
+  label: Study Identifier
+  derivation: REF.STUDYID
+- name: USUBJID
+  type: str
+  label: Unique Subject Identifier
+  derivation: REF.USUBJID
+- name: PARAMCD
+  type: str
+  label: Parameter Code
+  derivation: REF.PARAMCD
+- name: AVISITN
+  type: float
+  label: Analysis Visit (N)
+  derivation: REF.AVISITN
+- name: QSSEQ
+  type: float
+  label: Sequence Number
+  derivation: REF.QSSEQ
+- name: _CIBC1_LASTDT8
+  type: date
+  label: ' CIBC1 LASTDT8'
+  derivation:
+    aggregate:
+      expr: MAX(REF.ADT)
+      key:
+      - STUDYID
+      - USUBJID
+      filter: REF.PARAMCD = 'CIBICVAL' AND REF.AVISITN < 8 AND REF.ANL01FL = 'Y' AND
+        (REF.DTYPE IS NULL OR REF.DTYPE = '') AND REF.AVAL IS NOT NULL
+- name: _CIBC1_LASTDT16
+  type: date
+  label: ' CIBC1 LASTDT16'
+  derivation:
+    aggregate:
+      expr: MAX(REF.ADT)
+      key:
+      - STUDYID
+      - USUBJID
+      filter: REF.PARAMCD = 'CIBICVAL' AND REF.AVISITN < 16 AND REF.ANL01FL = 'Y'
+        AND (REF.DTYPE IS NULL OR REF.DTYPE = '') AND REF.AVAL IS NOT NULL
+- name: _CIBC1_LASTDT24
+  type: date
+  label: ' CIBC1 LASTDT24'
+  derivation:
+    aggregate:
+      expr: MAX(REF.ADT)
+      key:
+      - STUDYID
+      - USUBJID
+      filter: REF.PARAMCD = 'CIBICVAL' AND REF.AVISITN < 24 AND REF.ANL01FL = 'Y'
+        AND (REF.DTYPE IS NULL OR REF.DTYPE = '') AND REF.AVAL IS NOT NULL
+- name: AVISIT__LITERAL
+  type: str
+  label: AVISIT  LITERAL
+  derivation:
+    case:
+    - when: REF.AVISITN = 0
+      then: '''Baseline'''
+    - when: REF.AVISITN = 2
+      then: '''Week 2'''
+    - when: REF.AVISITN = 4
+      then: '''Week 4'''
+    - when: REF.AVISITN = 6
+      then: '''Week 6'''
+    - when: REF.AVISITN = 8
+      then: '''Week 8'''
+    - when: REF.AVISITN = 10
+      then: '''Week 10'''
+    - when: REF.AVISITN = 12
+      then: '''Week 12'''
+    - when: REF.AVISITN = 14
+      then: '''Week 14'''
+    - when: REF.AVISITN = 16
+      then: '''Week 16'''
+    - when: REF.AVISITN = 18
+      then: '''Week 18'''
+    - when: REF.AVISITN = 20
+      then: '''Week 20'''
+    - when: REF.AVISITN = 22
+      then: '''Week 22'''
+    - when: REF.AVISITN = 24
+      then: '''Week 24'''
+    - when: REF.AVISITN = 26
+      then: '''Week 26'''
+    - when: REF.AVISITN = 98
+      then: '''Weeks 4-24'''
+    - when: REF.AVISITN = 99
+      then: '''End of Treatment'''
+    - otherwise: null
+- name: AVISITN__LITERAL
+  type: float
+  label: AVISITN  LITERAL
+  derivation:
+    case:
+    - when: REF.ADY <= 1
+      then: 0.0
+    - when: REF.ADY >= 2 AND REF.ADY <= 84
+      then: 8.0
+    - when: REF.ADY >= 85 AND REF.ADY <= 140
+      then: 16.0
+    - when: REF.ADY > 140
+      then: 24.0
+    - otherwise: null
+- name: ADY__LITERAL
+  type: float
+  label: ADY  LITERAL
+  derivation:
+    study_day:
+      source: REF.ADT
+      reference: REF.TRTSDT
+- name: ADT__LITERAL
+  type: date
+  label: ADT  LITERAL
+  derivation:
+    to_date:
+      source: _CIBC1_QS.QSDTC
+- name: PARAMCD__LITERAL
+  type: str
+  label: PARAMCD  LITERAL
+  derivation: '''CIBICVAL'''
+- name: PARAM__LITERAL
+  type: str
+  label: PARAM  LITERAL
+  derivation: '''CIBIC Score'''
+- name: PARAMN__LITERAL
+  type: float
+  label: PARAMN  LITERAL
+  derivation: 1.0
+- name: AVAL__LITERAL
+  type: float
+  label: AVAL  LITERAL
+  derivation: _CIBC1_QS.QSSTRESN
+- name: AVAL__TARGETED_LOCF
+  type: float
+  label: AVAL  TARGETED LOCF
+  derivation:
+    case:
+    - when: REF.DTYPE = 'LOCF' AND REF.AVISITN = 8
+      then: _CIBC1_SCORE8.AVAL
+    - when: REF.DTYPE = 'LOCF' AND REF.AVISITN = 16
+      then: _CIBC1_SCORE16.AVAL
+    - when: REF.DTYPE = 'LOCF' AND REF.AVISITN = 24
+      then: _CIBC1_SCORE24.AVAL
+    - when: REF.DTYPE = 'LOCF'
+      then: null
+    - otherwise: _CIBC1_QS.QSSTRESN
+- name: _CIBC2_AWTARGET_SOURCE
+  type: float
+  label: Published upstream target day
+  derivation: REF.AWTARGET
+- name: _CIBC2_ADY_SOURCE
+  type: float
+  label: Published upstream analysis day
+  derivation: REF.ADY
+- name: AWTARGET__LITERAL
+  type: float
+  label: AWTARGET LITERAL
+  derivation:
+    mapping:
+      source: REF.AVISIT
+      dict:
+        Baseline: 1.0
+        Week 8: 56.0
+        Week 16: 112.0
+        Week 24: 168.0
+- name: AWTDIFF__LITERAL
+  type: float
+  label: AWTDIFF LITERAL
+  derivation: ABS(_CIBC2_AWTARGET_SOURCE - _CIBC2_ADY_SOURCE)
+- name: AWU__LITERAL
+  type: str
+  label: AWU LITERAL
+  derivation: '''DAYS'''
+- name: STUDYID__LITERAL
+  type: str
+  label: STUDYID LITERAL
+  derivation: _CIBC3_ADSL.STUDYID
+- name: USUBJID__LITERAL
+  type: str
+  label: USUBJID LITERAL
+  derivation: _CIBC3_ADSL.USUBJID
+- name: _CIBC_FU_SAP_DAY
+  type: float
+  label: SAP date subtraction day
+  derivation:
+    diff:
+      type: date
+      start: REF.TRTSDT
+      end: REF.ADT
+      unit: day
+      closed: right
+- name: AVISITN__SAP_DATE_WINDOW
+  type: float
+  label: AVISITN SAP date window
+  derivation:
+    case:
+    - when: _CIBC_FU_SAP_DAY <= 1
+      then: 0.0
+    - when: _CIBC_FU_SAP_DAY >= 2 AND _CIBC_FU_SAP_DAY <= 84
+      then: 8.0
+    - when: _CIBC_FU_SAP_DAY >= 85 AND _CIBC_FU_SAP_DAY <= 140
+      then: 16.0
+    - when: _CIBC_FU_SAP_DAY > 140
+      then: 24.0
+    - otherwise: null

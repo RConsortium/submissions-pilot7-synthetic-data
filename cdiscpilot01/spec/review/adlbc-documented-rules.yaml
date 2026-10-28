@@ -1,0 +1,352 @@
+yamaa: '1.0'
+type: spec
+model: ADaM
+domain: ADLBC
+keys:
+- STUDYID
+- USUBJID
+- PARAMCD
+- LBSEQ
+- AVISIT
+input:
+  REF:
+    path: ../../data/adam/adlbc.parquet
+    empty_string: present
+  LB:
+    path: ../../data/sdtm/lb.parquet
+    empty_string: present
+  ADSL:
+    path: ../../data/adam/adsl.parquet
+    empty_string: present
+base: REF
+output:
+  path: ../../../.build/verification/cdiscpilot01/adlbc-documented-rules.parquet
+  columns:
+  - STUDYID
+  - USUBJID
+  - PARAMCD
+  - LBSEQ
+  - AVISIT
+  - AVISITN
+  - ADT
+  - PARAM
+  - PARAMCD__LITERAL
+  - PARAMN
+  - PARCAT1
+  - R2A1LO
+  - R2A1LO__SAP_LIMIT
+  - R2A1HI
+  - R2A1HI__SAP_LIMIT
+  - BR2A1LO
+  - BR2A1LO__SAP_LIMIT
+  - BR2A1HI
+  - BR2A1HI__SAP_LIMIT
+  - ALBTRVAL
+  - STUDYID__LITERAL
+  - USUBJID__LITERAL
+intermediates:
+- id: _LBC1_LB
+  dataset: LB
+  key:
+  - STUDYID
+  - USUBJID
+  - LBSEQ
+  order_by:
+  - variable: LB.LBSEQ
+    nulls: last
+  keep: first
+- id: _LBC2_REF
+  dataset: REF
+  key:
+  - STUDYID
+  - USUBJID
+  - PARAMCD
+  - LBSEQ
+  - AVISIT
+  order_by:
+  - variable: REF.LBSEQ
+    nulls: last
+  keep: first
+- id: _LBC2_BL
+  dataset: REF
+  key:
+  - STUDYID
+  - USUBJID
+  - PARAMCD
+  filter: REF.ABLFL = 'Y'
+  order_by:
+  - variable: REF.LBSEQ
+    nulls: last
+  keep: first
+- id: _LBC3_ADSL
+  dataset: ADSL
+  key:
+  - STUDYID
+  - USUBJID
+  order_by:
+  - variable: ADSL.USUBJID
+    nulls: last
+  keep: first
+columns:
+- name: STUDYID
+  type: str
+  label: Study Identifier
+  derivation: REF.STUDYID
+- name: USUBJID
+  type: str
+  label: Unique Subject Identifier
+  derivation: REF.USUBJID
+- name: PARAMCD
+  type: str
+  label: Parameter Code
+  derivation: REF.PARAMCD
+- name: LBSEQ
+  type: float
+  label: Sequence Number
+  derivation: REF.LBSEQ
+- name: AVISIT
+  type: str
+  label: Analysis Visit
+  derivation: REF.AVISIT
+- name: _LBC1_AVISIT
+  type: str
+  label: Analysis visit without storage padding
+  derivation:
+    str_replace:
+      source: REF.AVISIT
+      pattern: ^\s+|\s+$
+      replacement: ''
+- name: AVISITN
+  type: float
+  label: Documented analysis visit numeric code
+  derivation:
+    mapping:
+      source: _LBC1_AVISIT
+      unmapped: null
+      dict:
+        Baseline: 0.0
+        Week 2: 2.0
+        Week 4: 4.0
+        Week 6: 6.0
+        Week 8: 8.0
+        Week 10: 10.0
+        Week 12: 12.0
+        Week 14: 14.0
+        Week 16: 16.0
+        Week 18: 18.0
+        Week 20: 20.0
+        Week 22: 22.0
+        Week 24: 24.0
+        Week 26: 26.0
+        Weeks 4-24: 98.0
+        End of Treatment: 99.0
+- name: _LBC1_LBDTM
+  type: datetime
+  label: Laboratory collection datetime
+  derivation:
+    impute:
+      type: datetime
+      source: _LBC1_LB.LBDTC
+      time: first
+      invalid: null
+- name: ADT
+  type: date
+  label: Documented laboratory analysis date
+  derivation:
+    to_date:
+      source: _LBC1_LBDTM
+- name: _LBC1_PARAM_BASE
+  type: str
+  label: Source test name and standard unit
+  derivation:
+    str_template: '{_LBC1_LB.LBTEST} ({_LBC1_LB.LBSTRESU})'
+- name: PARAM
+  type: str
+  label: Documented laboratory parameter
+  derivation:
+    case:
+    - when: REF.PARAMN < 100
+      then: _LBC1_PARAM_BASE
+    - when: REF.PARAMN > 100
+      then:
+        str_template: '{_LBC1_PARAM_BASE} change from previous visit, relative to
+          normal range'
+    - otherwise: null
+- name: PARAMCD__LITERAL
+  type: str
+  label: Documented parameter code
+  derivation:
+    case:
+    - when: REF.PARAMN < 100
+      then: _LBC1_LB.LBTESTCD
+    - when: REF.PARAMN > 100
+      then:
+        str_template: _{_LBC1_LB.LBTESTCD}
+    - otherwise: null
+- name: PARAMN
+  type: float
+  label: Documented parameter numeric code
+  derivation:
+    mapping:
+      source: REF.PARAM
+      unmapped: null
+      dict:
+        Sodium (mmol/L): 18.0
+        Potassium (mmol/L): 19.0
+        Chloride (mmol/L): 20.0
+        Bilirubin (umol/L): 21.0
+        Alkaline Phosphatase (U/L): 22.0
+        Gamma Glutamyl Transferase (U/L): 23.0
+        Alanine Aminotransferase (U/L): 24.0
+        Aspartate Aminotransferase (U/L): 25.0
+        Blood Urea Nitrogen (mmol/L): 26.0
+        Creatinine (umol/L): 27.0
+        Urate (umol/L): 28.0
+        Phosphate (mmol/L): 29.0
+        Calcium (mmol/L): 30.0
+        Glucose (mmol/L): 31.0
+        Protein (g/L): 32.0
+        Albumin (g/L): 33.0
+        Cholesterol (mmol/L): 34.0
+        Creatine Kinase (U/L): 35.0
+        Sodium (mmol/L) change from previous visit, relative to normal range: 118.0
+        Potassium (mmol/L) change from previous visit, relative to normal range: 119.0
+        Chloride (mmol/L) change from previous visit, relative to normal range: 120.0
+        Bilirubin (umol/L) change from previous visit, relative to normal range: 121.0
+        Alkaline Phosphatase (U/L) change from previous visit, relative to normal range: 122.0
+        Gamma Glutamyl Transferase (U/L) change from previous visit, relative to normal range: 123.0
+        Alanine Aminotransferase (U/L) change from previous visit, relative to normal range: 124.0
+        Aspartate Aminotransferase (U/L) change from previous visit, relative to normal range: 125.0
+        Blood Urea Nitrogen (mmol/L) change from previous visit, relative to normal range: 126.0
+        Creatinine (umol/L) change from previous visit, relative to normal range: 127.0
+        Urate (umol/L) change from previous visit, relative to normal range: 128.0
+        Phosphate (mmol/L) change from previous visit, relative to normal range: 129.0
+        Calcium (mmol/L) change from previous visit, relative to normal range: 130.0
+        Glucose (mmol/L) change from previous visit, relative to normal range: 131.0
+        Protein (g/L) change from previous visit, relative to normal range: 132.0
+        Albumin (g/L) change from previous visit, relative to normal range: 133.0
+        Cholesterol (mmol/L) change from previous visit, relative to normal range: 134.0
+        Creatine Kinase (U/L) change from previous visit, relative to normal range: 135.0
+- name: PARCAT1
+  type: str
+  label: Documented parameter category
+  derivation: '''CHEM'''
+- name: _LBC2_R2A1LO_RAW
+  type: float
+  label: Unrounded documented ratio
+  derivation: _LBC2_REF.AVAL / _LBC2_REF.A1HI
+- name: _LBC2_R2A1LO_SAP_RAW
+  type: float
+  label: Unrounded SAP ratio reading
+  derivation: _LBC2_REF.AVAL / _LBC2_REF.A1LO
+- name: R2A1LO
+  type: float
+  label: Documented R2A1LO rule
+  derivation:
+    round_half_away_from_zero:
+      source: _LBC2_R2A1LO_RAW
+      digits: 1
+- name: R2A1LO__SAP_LIMIT
+  type: float
+  label: Documented R2A1LO__SAP_LIMIT rule
+  derivation:
+    round_half_away_from_zero:
+      source: _LBC2_R2A1LO_SAP_RAW
+      digits: 1
+- name: _LBC2_R2A1HI_RAW
+  type: float
+  label: Unrounded documented ratio
+  derivation: _LBC2_REF.AVAL / _LBC2_REF.A1LO
+- name: _LBC2_R2A1HI_SAP_RAW
+  type: float
+  label: Unrounded SAP ratio reading
+  derivation: _LBC2_REF.AVAL / _LBC2_REF.A1HI
+- name: R2A1HI
+  type: float
+  label: Documented R2A1HI rule
+  derivation:
+    round_half_away_from_zero:
+      source: _LBC2_R2A1HI_RAW
+      digits: 1
+- name: R2A1HI__SAP_LIMIT
+  type: float
+  label: Documented R2A1HI__SAP_LIMIT rule
+  derivation:
+    round_half_away_from_zero:
+      source: _LBC2_R2A1HI_SAP_RAW
+      digits: 1
+- name: _LBC2_BR2A1LO_RAW
+  type: float
+  label: Unrounded documented ratio
+  derivation: _LBC2_BL.AVAL / _LBC2_BL.A1HI
+- name: _LBC2_BR2A1LO_SAP_RAW
+  type: float
+  label: Unrounded SAP ratio reading
+  derivation: _LBC2_BL.AVAL / _LBC2_BL.A1LO
+- name: BR2A1LO
+  type: float
+  label: Documented BR2A1LO rule
+  derivation:
+    round_half_away_from_zero:
+      source: _LBC2_BR2A1LO_RAW
+      digits: 1
+- name: BR2A1LO__SAP_LIMIT
+  type: float
+  label: Documented BR2A1LO__SAP_LIMIT rule
+  derivation:
+    round_half_away_from_zero:
+      source: _LBC2_BR2A1LO_SAP_RAW
+      digits: 1
+- name: _LBC2_BR2A1HI_RAW
+  type: float
+  label: Unrounded documented ratio
+  derivation: _LBC2_BL.AVAL / _LBC2_BL.A1LO
+- name: _LBC2_BR2A1HI_SAP_RAW
+  type: float
+  label: Unrounded SAP ratio reading
+  derivation: _LBC2_BL.AVAL / _LBC2_BL.A1HI
+- name: BR2A1HI
+  type: float
+  label: Documented BR2A1HI rule
+  derivation:
+    round_half_away_from_zero:
+      source: _LBC2_BR2A1HI_RAW
+      digits: 1
+- name: BR2A1HI__SAP_LIMIT
+  type: float
+  label: Documented BR2A1HI__SAP_LIMIT rule
+  derivation:
+    round_half_away_from_zero:
+      source: _LBC2_BR2A1HI_SAP_RAW
+      digits: 1
+- name: _LBC2_HIGH_EXCESS
+  type: float
+  label: Amount above upper laboratory threshold
+  derivation: _LBC2_REF.LBSTRESN - 1.5 * _LBC1_LB.LBSTNRHI
+- name: _LBC2_LOW_EXCESS
+  type: float
+  label: Amount below lower laboratory threshold
+  derivation: 0.5 * _LBC1_LB.LBSTNRLO - _LBC2_REF.LBSTRESN
+- name: _LBC2_THRESHOLD
+  type: float
+  label: Signed distance beyond laboratory threshold
+  derivation:
+    greatest:
+      sources:
+      - _LBC2_HIGH_EXCESS
+      - _LBC2_LOW_EXCESS
+- name: ALBTRVAL
+  type: float
+  label: Documented ALBTRVAL rule
+  derivation:
+    round_half_away_from_zero:
+      source: _LBC2_THRESHOLD
+      digits: 3
+- name: STUDYID__LITERAL
+  type: str
+  label: Documented ADSL identifier copy
+  derivation: _LBC3_ADSL.STUDYID
+- name: USUBJID__LITERAL
+  type: str
+  label: Documented ADSL identifier copy
+  derivation: _LBC3_ADSL.USUBJID

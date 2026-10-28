@@ -120,13 +120,13 @@ def str_numeric(value):
 
 
 def generate(study_name, schema_root):
-    from resolved_specs import process_study, specification_packet
+    from resolved_specs import execution_project, process_study, specification_packet
 
     study = ROOT / study_name
     project_file = study / "spec/yamaa/project.yaml"
     declaration = yaml.safe_load(project_file.read_text())
     process_study(ROOT, study_name, check=True)
-    project = yamaa.project(project_file)
+    project = yamaa.project(execution_project(ROOT, study_name))
     check = project.check()
     if check.status != "succeeded":
         raise ValueError(str(check.issues.to_pylist()))

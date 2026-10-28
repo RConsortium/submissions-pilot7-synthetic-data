@@ -13,7 +13,7 @@ import sys
 from study_evidence import catalog, engine_revision, project_specs
 from study_artifacts import artifact_snapshot
 from study_define import check_define
-from resolved_specs import process_study, specification_packet
+from resolved_specs import execution_project, process_study, specification_packet
 
 ROOT = Path(__file__).resolve().parents[2]
 
@@ -40,7 +40,7 @@ def validate(study_name, entry, report):
         report['source_pipeline'] = True
     report.update(yamaa_revision=engine_revision(ROOT, study_name),
                   yamaa_version=yamaa.__version__)
-    project = yamaa.project(project_file)
+    project = yamaa.project(execution_project(ROOT, study_name))
     check = project.check()
     print(check, flush=True)
     if check.status != 'succeeded':

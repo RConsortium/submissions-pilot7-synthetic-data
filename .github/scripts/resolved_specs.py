@@ -8,6 +8,7 @@ import importlib.metadata
 import json
 from pathlib import Path
 import subprocess
+import tempfile
 from urllib.parse import unquote, urlparse
 
 import yaml
@@ -122,12 +123,20 @@ def load_snapshot(root, path):
     target = snapshot_path(root, path)
     if not target.is_file():
         raise ValueError(f"{target}: missing resolved snapshot; run resolved_specs.py {path.relative_to(root).parts[0]}")
-    record = yaml.safe_load(target.read_text())
+    inspection = target.with_suffix(".inspection.json")
+    if not inspection.is_file():
+        raise ValueError(f"{inspection}: missing resolved inspection record; regenerate snapshots")
+    record = json.loads(inspection.read_text())
     if (record.get("format"), record.get("artifact_version")) != (FORMAT, 1):
         raise ValueError(f"{target}: unsupported resolved snapshot")
     study = path.relative_to(root).parts[0]
     if record["yamaa_revision"] != engine_revision(root, study):
         raise ValueError(f"{target}: resolved snapshot uses a different engine pin")
+    for relative, expected in record["files"].items():
+        generated = (root / relative).resolve()
+        generated.relative_to(root)
+        if not generated.is_file() or digest(generated) != expected:
+            raise ValueError(f"{target}: composed specification or project changed: {relative}; regenerate snapshots")
     for relative, expected in record["inputs"].items():
         source = (root / relative).resolve()
         source.relative_to(root)
@@ -146,28 +155,63 @@ def specification_packet(root, path):
 
     packet = capture_specification(root, path, load_snapshot(root, path))
     target = snapshot_path(root, path)
-    packet["snapshot"] = {"path": target.relative_to(root).as_posix(), "sha256": digest(target)}
+    # The executable YAML is the specification used by downstream readers.
+    # The engine record contributes original-source locations and provenance.
+    packet["model"] = yaml.safe_load(target.read_text())
+    inspection = target.with_suffix(".inspection.json")
+    packet["snapshot"] = {"path": target.relative_to(root).as_posix(), "sha256": digest(target),
+                          "inspection_path": inspection.relative_to(root).as_posix(),
+                          "inspection_sha256": digest(inspection)}
     return packet
+
+
+def execution_project(root, study):
+    return Path(root) / study / "spec/yamaa/resolved/project.yaml"
 
 
 def process_study(root, study, check=False):
     """Resolve every declared section; never read clinical data or run project code."""
     import yamaa
+    from composed_specs import admit, project as composed_project, specification, write_yaml
 
     root = Path(root).resolve()
     revision = assert_engine_pin(root, study)
     project_file = root / study / "spec/yamaa/project.yaml"
     declaration = yaml.safe_load(project_file.read_text())
     project = yamaa.project(project_file)
-    expected = {}
+    records = {}
     for section in ("sdtm", "adam", "send"):
         for relative in declaration.get(section, {}).get("specs", []):
             path = (project_file.parent / relative).resolve()
             domain = yaml.safe_load(path.read_text())["domain"]
             record = snapshot(root, study, project.spec(domain).resolve(), revision, yamaa.__version__)
-            expected[snapshot_path(root, path)] = yaml.safe_dump(record, sort_keys=False, allow_unicode=False)
+            records[path] = record
     directory = project_file.parent / "resolved"
-    existing = set(directory.rglob("*.yaml")) if directory.exists() else set()
+    producers = {path: snapshot_path(root, path) for path in records}
+    expected = {}
+    # A sibling directory has the same relative paths to study data, codelists
+    # and functions. Check every generated file before promoting any of them.
+    with tempfile.TemporaryDirectory(prefix=".resolved-", dir=project_file.parent) as temporary:
+        stage = Path(temporary)
+        write_yaml(stage / "project.yaml", composed_project(
+            declaration, project_file, execution_project(root, study)))
+        for path, record in records.items():
+            entry = next(e for e in record["resolved"]["entries"]
+                         if e["entry"] == path.relative_to(root).as_posix())
+            target = producers[path]
+            write_yaml(stage / target.relative_to(directory), specification(root, entry, target, producers))
+        admit(stage)
+        project_hash = digest(stage / "project.yaml")
+        for path, record in records.items():
+            target = producers[path]
+            relative = target.relative_to(directory)
+            record["files"] = {target.relative_to(root).as_posix(): digest(stage / relative),
+                               execution_project(root, study).relative_to(root).as_posix(): project_hash}
+            inspection = stage / relative.with_suffix(".inspection.json")
+            inspection.write_text(json.dumps(record, sort_keys=True, ensure_ascii=True, separators=(",", ":")) + "\n")
+        expected = {directory / p.relative_to(stage): p.read_text()
+                    for p in stage.rglob("*") if p.is_file()}
+    existing = {p for p in directory.rglob("*") if p.is_file()} if directory.exists() else set()
     if check:
         changed = existing ^ set(expected)
         changed.update(p for p, text in expected.items() if p.is_file() and p.read_text() != text)
@@ -181,7 +225,7 @@ def process_study(root, study, check=False):
             target.write_text(text, encoding="ascii")
         for obsolete in existing - set(expected):
             obsolete.unlink()
-    return len(expected)
+    return len(records)
 
 
 def main():

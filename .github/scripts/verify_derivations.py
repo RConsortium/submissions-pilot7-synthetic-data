@@ -4,7 +4,7 @@
 Agents propose and this script decides; .automation/consistency_review/
 describes the workflow. The extraction agent writes
 <study>/spec/review/<dataset>-claims.json (verbatim citations, and clauses that
-quote both the document and the specification) and <dataset>-probe.yaml, a
+quote both the document and the specification) and <dataset>-documented-rules.yaml, a
 yamaa specification stating each documented rule. The adjudicator writes
 <dataset>-adjudication.json. This script trusts none of it: it checks every
 quote at its cited location, runs the probes with the pinned engine, compares
@@ -824,7 +824,7 @@ def variable_findings(record, rules, spec_file, define_citation):
     return findings
 
 
-def run_probe(path):
+def run_documented_rules(path):
     import polars as pl
     import yamaa
 
@@ -863,12 +863,12 @@ def dataset_report(context, domain, spec_path, derived, reference):
     columns = {c["name"]: c for c in spec["columns"]}
     tables = {"reference": reference, "derived": derived}
     review = base / "spec/review"
-    probe_path = review / f"{domain.lower()}-probe.yaml"
+    probe_path = review / f"{domain.lower()}-documented-rules.yaml"
     claims_path = review / f"{domain.lower()}-claims.json"
     adjudication_path = review / f"{domain.lower()}-adjudication.json"
     probe = None
     if probe_path.is_file():
-        probe_spec, probe_output, probe = run_probe(probe_path)
+        probe_spec, probe_output, probe = run_documented_rules(probe_path)
         probe_text = probe_path.read_text()
         probe_file = {
             "path": probe_path.relative_to(root).as_posix(),

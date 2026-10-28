@@ -24,7 +24,7 @@ State lives in three committed files under `<study>/spec/review/`, with the
 dataset name in lowercase:
 
 - `<dataset>-claims.json`: the extraction agent's citations, clauses and readings.
-- `<dataset>-probe.yaml`: the documented rules as yamaa columns.
+- `<dataset>-documented-rules.yaml`: the documented rules as yamaa columns.
 - `<dataset>-adjudication.json`: the adjudicator's decisions.
 
 Generated reports stay under `.build/` and are never committed. If an open PR
@@ -64,13 +64,13 @@ Split the work list into batches of at most eight variables. For each batch,
 start an extraction subagent with `extract.md`, the study, the dataset, the
 batch and the paths above. Batches may run in parallel. Subagents return claims
 and probe columns; you alone write `<dataset>-claims.json` and
-`<dataset>-probe.yaml`, merging in the specification's variable order. Keep
+`<dataset>-documented-rules.yaml`, merging in the specification's variable order. Keep
 existing claims for variables outside the work list unchanged.
 
 Check the probe specification before going on:
 
 ```bash
-python -c "import yamaa; c = yamaa.spec('<study>/spec/review/<dataset>-probe.yaml').check(); print(c.status, c.issues.to_pylist())"
+python -c "import yamaa; c = yamaa.spec('<study>/spec/review/<dataset>-documented-rules.yaml').check(); print(c.status, c.issues.to_pylist())"
 ```
 
 ## 3. Verify

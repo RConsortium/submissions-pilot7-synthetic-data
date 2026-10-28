@@ -60,19 +60,21 @@ fields. **All columns** or **Clear highlight** restores the complete original
 specification.
 
 The specification's **View** control switches between the original source files
-and the engine's **Resolved model (inspection)**. The resolved model expands
-inherited declarations, copied producer columns and named windows. Source files
-retain their original text and line numbers; the resolved model is an inspection
-artifact with its own line numbers. Its normalized representation is not an
-authoring template. **Open source** opens the selected original file.
+and the generated **Composed specification**. The composed YAML combines
+inherited declarations, copied producer columns and named windows and passes
+the pinned engine's checks. Its file is under the study's `spec/yamaa/resolved/`;
+the full engine inspection record is kept separately as `*.inspection.json`.
+Each view retains its own text and line numbers. **Open source** opens the
+selected original or generated file. Edit the original layers and regenerate
+the composed files when changing a rule.
 Until you choose a view, a layered specification shows the source file that
 writes the selected variable's rule, such as a pilot program template under
 `spec/yamaa/`. Selecting another variable returns to that source unless the
-resolved model is shown.
+composed specification is shown.
 
 Focused views mark omitted line ranges. **Copy source file** copies the complete
-selected file, including hidden lines. **Copy model** copies the complete
-inspection model. The selected view is retained in the shared review URL.
+selected file, including hidden lines. **Copy composed YAML** copies the complete
+generated specification. The selected view is retained in the shared review URL.
 For authoring conventions and verification examples, see
 [Writing specifications](yaml-authoring.md).
 

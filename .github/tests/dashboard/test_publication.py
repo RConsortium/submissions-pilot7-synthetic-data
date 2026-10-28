@@ -288,7 +288,7 @@ columns:
             'dashboard': entry['dashboard'], 'build_required': True,
         }}))
         for name in ['synthetic_odm.py', 'synthetic_checks.py', 'synthetic_evidence.py',
-                     'validate_synthetic.py', 'resolved_specs.py', 'study_evidence.py',
+                     'validate_synthetic.py', 'resolved_specs.py', 'composed_specs.py', 'study_evidence.py',
                      'study_dashboard/specifications.py']:
             self.write('.github/scripts/' + name, '# execution fixture\n')
         self.write('.github/schemas/synthetic-review.schema.json', '{}')

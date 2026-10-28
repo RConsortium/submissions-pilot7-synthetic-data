@@ -16,6 +16,7 @@ CORE_CODE = {'.github/scripts/run_core.py', '.github/scripts/parquet_to_xpt.py',
              '.github/scripts/core_render_block.sh', '.github/scripts/core_block.jq'}
 YAMAA_CODE = {'.github/scripts/validate_yamaa.py', '.github/scripts/study_evidence.py',
               '.github/scripts/resolved_specs.py',
+              '.github/scripts/composed_specs.py',
               '.github/scripts/generate_define.py', '.github/scripts/define_metadata.py',
               '.github/scripts/legacy_define.py', '.github/scripts/compare_legacy_define.py',
               '.github/scripts/define_report.py',
@@ -24,6 +25,7 @@ YAMAA_CODE = {'.github/scripts/validate_yamaa.py', '.github/scripts/study_eviden
               '.github/workflows/yamaa-site.yml', 'requirements.txt'}
 PUBLICATION_CODE = {'.github/scripts/build_study_docs.py', '.github/scripts/build_index_table.py',
                     '.github/scripts/resolved_specs.py',
+                    '.github/scripts/composed_specs.py',
                     '.github/scripts/synthetic_odm.py', '.github/scripts/synthetic_checks.py',
                     '.github/scripts/synthetic_evidence.py', '.github/scripts/validate_synthetic.py',
                     '.github/workflows/synthetic-check.yml',

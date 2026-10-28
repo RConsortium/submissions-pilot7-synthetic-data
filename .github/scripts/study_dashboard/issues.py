@@ -260,7 +260,7 @@ def check_record(f, pool):
         add(key)
         selectors[("codelist", None, target)] = key
     for title, note in (
-        ("Probe unavailable", e.get("not_probed_reason")),
+        ("Documented rule check unavailable", e.get("not_probed_reason")),
         ("Copy source", copy.get("reason")),
     ):
         if note:

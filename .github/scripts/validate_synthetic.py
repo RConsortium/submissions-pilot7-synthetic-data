@@ -15,7 +15,7 @@ import yaml
 from synthetic_odm import stage
 from synthetic_checks import check_datasets, check_define, check_source_trace, clinical_observations, frame
 from synthetic_evidence import artifact_inventory
-from resolved_specs import process_study, specification_packet
+from resolved_specs import execution_project, process_study, specification_packet
 
 ROOT = Path(__file__).resolve().parents[2]
 ENGINE_PIN = '5976b74fddfbcbcad4d53ba550cb1e3773e07a5b'
@@ -120,7 +120,7 @@ def validate(study, root=ROOT):
             (base / 'data' / section).mkdir(parents=True, exist_ok=True)
         project_file=base/'spec/yamaa/project.yaml'
         declaration=yaml.safe_load(project_file.read_text())
-        project=yamaa.project(project_file)
+        project=yamaa.project(execution_project(root, study))
         checked=project.check()
         if checked.status!='succeeded':raise ValueError(checked.issues.to_pylist())
         for section in ['sdtm','adam']:

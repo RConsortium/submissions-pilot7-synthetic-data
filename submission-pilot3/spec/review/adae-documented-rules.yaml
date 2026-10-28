@@ -1,0 +1,379 @@
+yamaa: '1.0'
+type: spec
+model: ADaM
+domain: ADAE
+keys:
+- STUDYID
+- USUBJID
+- AESEQ
+input:
+  ADAE_REF:
+    path: ../../data/adam/adae.parquet
+    empty_string: present
+  AE:
+    path: ../../data/sdtm/ae.parquet
+    empty_string: present
+base: ADAE_REF
+output:
+  path: ../../../.build/verification/submission-pilot3/adae-documented-rules.parquet
+  columns:
+  - STUDYID
+  - USUBJID
+  - AESEQ
+  - ASTDT
+  - ASTDTF
+  - ASTDY
+  - AENDT
+  - AENDY
+  - ADURN
+  - ADURU
+  - TRTEMFL
+  - AOCCFL
+  - AOCCSFL
+  - AOCCPFL
+  - AOCC02FL
+  - AOCC03FL
+  - AOCC04FL
+  - CQ01NAM
+  - CQ01NAM__SOC_SPELLING
+  - AOCC01FL
+  - AOCC01FL__DERM_EVENTS
+intermediates:
+- id: REF
+  dataset: ADAE_REF
+  key:
+  - STUDYID
+  - USUBJID
+  - AESEQ
+  order_by:
+  - variable: ADAE_REF.AESEQ
+    nulls: last
+  keep: first
+- id: P_AE
+  dataset: AE
+  key:
+  - STUDYID
+  - USUBJID
+  - AESEQ
+  order_by:
+  - variable: AE.AESEQ
+    nulls: last
+  keep: first
+columns:
+- name: STUDYID
+  type: str
+  label: Study Identifier
+  derivation: ADAE_REF.STUDYID
+- name: USUBJID
+  type: str
+  label: Unique Subject Identifier
+  derivation: ADAE_REF.USUBJID
+- name: AESEQ
+  type: float
+  label: Sequence Number
+  derivation: ADAE_REF.AESEQ
+- name: ASTDT
+  type: date
+  label: ASTDT
+  derivation:
+    impute:
+      type: date
+      source: P_AE.AESTDTC
+      day: 1
+      invalid: null
+- name: _PE1_AESTPR
+  type: str
+  label: _PE1_AESTPR
+  derivation:
+    precision:
+      type: date
+      source: P_AE.AESTDTC
+      invalid: null
+- name: ASTDTF
+  type: str
+  label: ASTDTF
+  derivation:
+    case:
+    - when: _PE1_AESTPR = 'month' AND REF.ASTDT IS NOT NULL
+      then: '''D'''
+    - otherwise: ''''''
+- name: ASTDY
+  type: float
+  label: ASTDY
+  derivation:
+    study_day:
+      source: REF.ASTDT
+      reference: REF.TRTSDT
+- name: AENDY
+  type: float
+  label: AENDY
+  derivation:
+    study_day:
+      source: REF.AENDT
+      reference: REF.TRTSDT
+- name: AENDT
+  type: date
+  label: AENDT
+  derivation:
+    impute:
+      type: date
+      source: P_AE.AEENDTC
+      invalid: null
+- name: ADURN
+  type: float
+  label: ADURN
+  derivation:
+    diff:
+      type: date
+      start: REF.ASTDT
+      end: REF.AENDT
+      unit: day
+      closed: both
+- name: ADURU
+  type: str
+  label: ADURU
+  derivation:
+    case:
+    - when: REF.ADURN IS NOT NULL
+      then: '''DAYS'''
+    - otherwise: ''''''
+- name: TRTEMFL
+  type: str
+  label: TRTEMFL
+  derivation:
+    case:
+    - when: REF.ASTDT IS NOT NULL AND REF.TRTSDT IS NOT NULL AND REF.ASTDT >= REF.TRTSDT
+      then: '''Y'''
+    - otherwise: '''N'''
+- name: _P2_ASTDT
+  type: date
+  label: _P2_ASTDT
+  derivation: REF.ASTDT
+- name: _P2_TRTEMFL
+  type: str
+  label: _P2_TRTEMFL
+  derivation: REF.TRTEMFL
+- name: _P2_AESER
+  type: str
+  label: _P2_AESER
+  derivation: REF.AESER
+- name: _P2_SOC
+  type: str
+  label: _P2_SOC
+  derivation: REF.AEBODSYS
+- name: _P2_PT
+  type: str
+  label: _P2_PT
+  derivation: REF.AEDECOD
+- name: _P2_CQ01NAM
+  type: str
+  label: _P2_CQ01NAM
+  derivation: REF.CQ01NAM
+- name: _P2_OCC
+  type: int
+  label: _P2_OCC
+  derivation:
+    row_number:
+      window:
+        group_by:
+        - USUBJID
+        order_by:
+        - variable: _P2_ASTDT
+          nulls: last
+        - variable: AESEQ
+          nulls: last
+        filter: _P2_TRTEMFL = 'Y'
+- name: AOCCFL
+  type: str
+  label: AOCCFL
+  derivation:
+    case:
+    - when: _P2_OCC = 1
+      then: '''Y'''
+    - otherwise: ''''''
+- name: _P2_OCCS
+  type: int
+  label: _P2_OCCS
+  derivation:
+    row_number:
+      window:
+        group_by:
+        - USUBJID
+        - _P2_SOC
+        order_by:
+        - variable: _P2_ASTDT
+          nulls: last
+        - variable: AESEQ
+          nulls: last
+        filter: _P2_TRTEMFL = 'Y'
+- name: AOCCSFL
+  type: str
+  label: AOCCSFL
+  derivation:
+    case:
+    - when: _P2_OCCS = 1
+      then: '''Y'''
+    - otherwise: ''''''
+- name: _P2_OCCP
+  type: int
+  label: _P2_OCCP
+  derivation:
+    row_number:
+      window:
+        group_by:
+        - USUBJID
+        - _P2_SOC
+        - _P2_PT
+        order_by:
+        - variable: _P2_ASTDT
+          nulls: last
+        - variable: AESEQ
+          nulls: last
+        filter: _P2_TRTEMFL = 'Y'
+- name: AOCCPFL
+  type: str
+  label: AOCCPFL
+  derivation:
+    case:
+    - when: _P2_OCCP = 1
+      then: '''Y'''
+    - otherwise: ''''''
+- name: _P2_OCC02
+  type: int
+  label: _P2_OCC02
+  derivation:
+    row_number:
+      window:
+        group_by:
+        - USUBJID
+        order_by:
+        - variable: _P2_ASTDT
+          nulls: last
+        - variable: AESEQ
+          nulls: last
+        filter: _P2_TRTEMFL = 'Y' AND _P2_AESER = 'Y'
+- name: AOCC02FL
+  type: str
+  label: AOCC02FL
+  derivation:
+    case:
+    - when: _P2_OCC02 = 1
+      then: '''Y'''
+    - otherwise: ''''''
+- name: _P2_OCC03
+  type: int
+  label: _P2_OCC03
+  derivation:
+    row_number:
+      window:
+        group_by:
+        - USUBJID
+        - _P2_SOC
+        order_by:
+        - variable: _P2_ASTDT
+          nulls: last
+        - variable: AESEQ
+          nulls: last
+        filter: _P2_TRTEMFL = 'Y' AND _P2_AESER = 'Y'
+- name: AOCC03FL
+  type: str
+  label: AOCC03FL
+  derivation:
+    case:
+    - when: _P2_OCC03 = 1
+      then: '''Y'''
+    - otherwise: ''''''
+- name: _P2_OCC04
+  type: int
+  label: _P2_OCC04
+  derivation:
+    row_number:
+      window:
+        group_by:
+        - USUBJID
+        - _P2_SOC
+        - _P2_PT
+        order_by:
+        - variable: _P2_ASTDT
+          nulls: last
+        - variable: AESEQ
+          nulls: last
+        filter: _P2_TRTEMFL = 'Y' AND _P2_AESER = 'Y'
+- name: AOCC04FL
+  type: str
+  label: AOCC04FL
+  derivation:
+    case:
+    - when: _P2_OCC04 = 1
+      then: '''Y'''
+    - otherwise: ''''''
+- name: _P2_CQ_PT
+  type: str
+  label: _P2_CQ_PT
+  derivation:
+    str_extract:
+      source: P_AE.AEDECOD
+      pattern: APPLICATION|DERMATITIS|ERYTHEMA|BLISTER
+      no_match: null
+- name: CQ01NAM
+  type: str
+  label: CQ01NAM
+  derivation:
+    case:
+    - when: _P2_CQ_PT IS NOT NULL OR (P_AE.AEBODSYS = 'SKIN AND SUBC UTANEOUS TISSUE DISORDERS' AND P_AE.AEDECOD
+        NOT IN ('COLD SWEAT', 'HYPERHIDROSIS', 'ALOPECIA'))
+      then: '''DERMATOLOGIC EVENTS'''
+    - otherwise: ''''''
+- name: CQ01NAM__SOC_SPELLING
+  type: str
+  label: CQ01NAM__SOC_SPELLING
+  derivation:
+    case:
+    - when: _P2_CQ_PT IS NOT NULL OR (P_AE.AEBODSYS = 'SKIN AND SUBCUTANEOUS TISSUE DISORDERS' AND P_AE.AEDECOD
+        NOT IN ('COLD SWEAT', 'HYPERHIDROSIS', 'ALOPECIA'))
+      then: '''DERMATOLOGIC EVENTS'''
+    - otherwise: ''''''
+- name: _P2_OCC01
+  type: int
+  label: _P2_OCC01
+  derivation:
+    row_number:
+      window:
+        group_by:
+        - USUBJID
+        order_by:
+        - variable: _P2_ASTDT
+          nulls: last
+        - variable: AESEQ
+          nulls: last
+        filter: _P2_TRTEMFL = 'Y' AND _P2_CQ01NAM = ''
+- name: AOCC01FL
+  type: str
+  label: AOCC01FL
+  derivation:
+    case:
+    - when: _P2_OCC01 = 1
+      then: '''Y'''
+    - otherwise: ''''''
+- name: _P2_OCC01_DERM
+  type: int
+  label: _P2_OCC01_DERM
+  derivation:
+    row_number:
+      window:
+        group_by:
+        - USUBJID
+        order_by:
+        - variable: _P2_ASTDT
+          nulls: last
+        - variable: AESEQ
+          nulls: last
+        filter: _P2_TRTEMFL = 'Y' AND _P2_CQ01NAM = 'DERMATOLOGIC EVENTS'
+- name: AOCC01FL__DERM_EVENTS
+  type: str
+  label: AOCC01FL__DERM_EVENTS
+  derivation:
+    case:
+    - when: _P2_OCC01_DERM = 1
+      then: '''Y'''
+    - otherwise: ''''''

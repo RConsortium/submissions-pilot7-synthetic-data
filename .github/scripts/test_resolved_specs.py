@@ -1,6 +1,7 @@
 """Saved resolutions remain portable and reject source, pin and model drift."""
 
 from copy import deepcopy
+import json
 from pathlib import Path
 import shutil
 import sys
@@ -11,7 +12,8 @@ from unittest.mock import patch
 
 import yaml
 
-from resolved_specs import load_snapshot, process_study, snapshot, snapshot_path, specification_packet
+from composed_specs import project as composed_project, specification, write_yaml
+from resolved_specs import digest, execution_project, load_snapshot, process_study, snapshot, snapshot_path, specification_packet
 from study_dashboard.specifications import inspection_specification
 
 PIN = "a" * 40
@@ -60,6 +62,7 @@ class ResolvedSnapshotTests(unittest.TestCase):
         self.resolved["entries"][0]["resources"].append({
             "role": "producer_schema", "spec_path": "input.ADSL.schema",
             "location": {"kind": "local", "path": str(producer)}})
+        self.model["input"] = {"ADSL": {"schema": "adsl.yaml"}}
         self.write_snapshot()
         self.parent.write_text("columns: [{name: CHANGED}]\n")
         with self.assertRaisesRegex(ValueError, "input changed: spec/yamaa/base.yaml"):
@@ -67,8 +70,14 @@ class ResolvedSnapshotTests(unittest.TestCase):
 
     def write_snapshot(self):
         target = snapshot_path(self.root, self.path)
-        target.parent.mkdir(parents=True, exist_ok=True)
-        target.write_text(yaml.safe_dump(snapshot(self.root, "study", self.resolved, PIN, "test"), sort_keys=False))
+        record = snapshot(self.root, "study", self.resolved, PIN, "test")
+        write_yaml(target, specification(self.root, record["resolved"]["entries"][0], target, {}))
+        project = execution_project(self.root, "study")
+        write_yaml(project, composed_project(yaml.safe_load(self.project.read_text()), self.project, project))
+        record["files"] = {target.relative_to(self.root).as_posix(): digest(target),
+                           project.relative_to(self.root).as_posix(): digest(project)}
+        target.with_suffix(".inspection.json").write_text(
+            json.dumps(record, sort_keys=True, ensure_ascii=True, separators=(",", ":")) + "\n")
 
     def test_relocation_preserves_the_complete_artifact_and_written_paths(self):
         other = self.root / "another-checkout"
@@ -119,15 +128,38 @@ class ResolvedSnapshotTests(unittest.TestCase):
         packet = specification_packet(self.root, self.path)
         record = {"domain": "ADAE", "resolved_specification": packet}
         inventory = {p.relative_to(self.root).as_posix(): "hash" for p in self.root.rglob("*") if p.is_file()}
-        self.assertEqual(inspection_specification(self.root, self.path, record, inventory)[0], self.model)
+        saved = yaml.safe_load(snapshot_path(self.root, self.path).read_text())
+        self.assertEqual(inspection_specification(self.root, self.path, record, inventory)[0], saved)
         target = snapshot_path(self.root, self.path)
         target.write_text(target.read_text() + "# changed after validation\n")
-        with self.assertRaisesRegex(ValueError, "snapshot changed"):
+        with self.assertRaisesRegex(ValueError, "specification or project changed"):
             inspection_specification(self.root, self.path, record, inventory)
+
+    def test_inspection_record_and_composed_project_cannot_change_after_validation(self):
+        output = self.root / "study/data/adam/adae.parquet"
+        output.parent.mkdir(parents=True)
+        output.write_bytes(b"validated output")
+        packet = specification_packet(self.root, self.path)
+        record = {"domain": "ADAE", "resolved_specification": packet}
+        inventory = {p.relative_to(self.root).as_posix(): "hash" for p in self.root.rglob("*") if p.is_file()}
+        inspection = snapshot_path(self.root, self.path).with_suffix(".inspection.json")
+        for path in [inspection, execution_project(self.root, "study")]:
+            with self.subTest(path=path.name):
+                original = path.read_text()
+                if path == inspection:
+                    changed = json.loads(original)
+                    changed["yamaa_version"] = "changed after validation"
+                    path.write_text(json.dumps(changed))
+                else:
+                    path.write_text(original + "# changed after validation\n")
+                with self.assertRaisesRegex(ValueError, "changed"):
+                    inspection_specification(self.root, self.path, record, inventory)
+                path.write_text(original)
 
     def test_engine_comparison_refuses_model_drift_and_obsolete_specs(self):
         engine = SimpleNamespace(__version__="test", project=lambda _: SimpleNamespace(
-            spec=lambda _: SimpleNamespace(resolve=lambda: self.resolved)))
+            spec=lambda _: SimpleNamespace(resolve=lambda: self.resolved),
+            check=lambda: SimpleNamespace(status="succeeded")))
         with patch.dict(sys.modules, yamaa=engine), patch("resolved_specs.assert_engine_pin", return_value=PIN):
             self.assertEqual(process_study(self.root, "study", check=True), 1)
             target = snapshot_path(self.root, self.path)
