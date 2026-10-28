@@ -42,9 +42,9 @@
           },
           "spec": {
             "element": "ASTDT",
-            "quote": "impute: type: date source: AE.AESTDTC day: 1"
+            "quote": "- when: \"AE.AESTDTC LIKE '%-%'\" then: impute: type: date source: AE.AESTDTC month: 1 day: 1 invalid: - otherwise:"
           },
-          "note": "The imputation supplies only the day; omitting a month completion leaves a year-only source without a complete date."
+          "note": "The case imputes only a source that holds a month, supplying day 01; a year-only source takes the otherwise branch and stays missing."
         },
         {
           "relation": "same",
@@ -54,7 +54,7 @@
           },
           "spec": {
             "element": "ASTDT",
-            "quote": "impute: type: date source: AE.AESTDTC day: 1"
+            "quote": "- when: \"AE.AESTDTC LIKE '%-%'\" then: impute: type: date source: AE.AESTDTC month: 1 day: 1 invalid: - otherwise:"
           }
         },
         {
@@ -65,7 +65,7 @@
           },
           "spec": {
             "element": "ASTDT",
-            "quote": "impute: type: date source: AE.AESTDTC day: 1"
+            "quote": "- when: \"AE.AESTDTC LIKE '%-%'\" then: impute: type: date source: AE.AESTDTC month: 1 day: 1 invalid: - otherwise:"
           },
           "note": "The appendix repeats the same start-date rule while explaining the historical duration comparison; it does not prescribe a different current start-date algorithm."
         }
@@ -113,9 +113,9 @@
           },
           "spec": {
             "element": "ASTDTF",
-            "quote": "condition: ASTDT IS NOT NULL AND ASTDTPR = 'month' true_value: D"
+            "quote": "- when: \"AE.AESTDTC LIKE '%-%' AND AE.AESTDTC NOT LIKE '%-%-%'\" then: \"'D'\""
           },
-          "note": "ASTDTPR reads the collected precision retained by the ASTDT imputation; a nonmissing month-precision date has had its day supplied."
+          "note": "The flag is D exactly when the source holds a year and month but no day, the case in which ASTDT supplies day 01."
         },
         {
           "relation": "same",
@@ -125,7 +125,7 @@
           },
           "spec": {
             "element": "ASTDT",
-            "quote": "impute: type: date source: AE.AESTDTC day: 1"
+            "quote": "- when: \"AE.AESTDTC LIKE '%-%'\" then: impute: type: date source: AE.AESTDTC month: 1 day: 1 invalid: - otherwise:"
           },
           "note": "This upstream rule identifies the character source and the only date component that the flag can report as imputed."
         },
@@ -137,14 +137,14 @@
           },
           "spec": {
             "element": "ASTDT",
-            "quote": "impute: type: date source: AE.AESTDTC day: 1"
+            "quote": "- when: \"AE.AESTDTC LIKE '%-%'\" then: impute: type: date source: AE.AESTDTC month: 1 day: 1 invalid: - otherwise:"
           }
         },
         {
           "relation": "absent_in_document",
           "spec": {
             "element": "ASTDTF",
-            "quote": "false_value: '' missing: ''"
+            "quote": "- otherwise: \"''\""
           },
           "note": "The method specifies the populated imputation code but leaves the otherwise assignment unstated; empty text is an explicit unpopulated-character interpretation, and physical null is retained separately."
         }
@@ -185,10 +185,10 @@
             "quote": "IF ASTDT>=TRTSDT>MISSING then ASTDY=ASTDT-TRTSDT+1 Else if TRTSDT>ASTDT>MISSING then ASTDY=ASTDT-TRTSDT"
           },
           "spec": {
-            "element": "ASTDY",
-            "quote": "study_day: source: ASTDT reference: TRTSDT"
+            "element": "ASTDY_RAW",
+            "quote": "- when: \"ASTDT >= TRTSDT\" then: diff: type: date start: TRTSDT end: ASTDT unit: day closed: both - otherwise: diff: type: date start: TRTSDT end: ASTDT unit: day"
           },
-          "note": "The study_day operation uses treatment start as day one, has no day zero, and returns missing when a required date is unavailable."
+          "note": "ASTDY copies ASTDY_RAW, which counts both endpoints on or after treatment start, takes the plain difference before it, and is missing when either date is missing."
         }
       ],
       "probes": [
@@ -272,9 +272,9 @@
           },
           "spec": {
             "element": "AENDY",
-            "quote": "study_day: source: AENDT reference: TRTSDT"
+            "quote": "derivation: study_day: source: AENDT reference: TRTSDT"
           },
-          "note": "The study_day operation uses treatment start as day one, has no day zero, and returns missing when a required date is unavailable."
+          "note": "The specification computes the study day of AENDT against TRTSDT, which counts the reference date as day 1 with no day zero and is missing when either date is missing, matching both branches of the method."
         }
       ],
       "probes": [
@@ -287,7 +287,7 @@
         "The probe reads published REF.AENDT and REF.TRTSDT, isolating this relative-day computation from start/end-date and treatment-date derivations.",
         "The chained SAS comparisons mean that the dates participating in the selected arithmetic branch must be nonmissing. No rounding precision beyond the documented integer day calculation is imposed."
       ],
-      "assessment": "The executable relative-day operation represents both documented date-order branches and their nonmissing requirements.",
+      "assessment": "The executable study-day operation computes AENDY from AENDT and TRTSDT, representing both documented date-order branches and their nonmissing requirements.",
       "question": ""
     },
     {
@@ -400,8 +400,9 @@
           },
           "spec": {
             "element": "ADURU",
-            "quote": "condition: ADURN IS NOT NULL true_value: DAYS"
-          }
+            "quote": "- when: \"ADURN IS NOT NULL\" then: \"'DAYS'\""
+          },
+          "note": "The case has no otherwise branch, so ADURU stays missing when ADURN is missing, a branch the method leaves unstated."
         },
         {
           "relation": "same",
@@ -411,7 +412,7 @@
           },
           "spec": {
             "element": "ADURU",
-            "quote": "condition: ADURN IS NOT NULL true_value: DAYS"
+            "quote": "- when: \"ADURN IS NOT NULL\" then: \"'DAYS'\""
           },
           "note": "The appendix corrects the historical singular unit to the plural code stated in the current method; historical DAY displays are not an alternative current codelist."
         },
@@ -423,16 +424,8 @@
           },
           "spec": {
             "element": "ADURU",
-            "quote": "true_value: DAYS"
+            "quote": "then: \"'DAYS'\""
           }
-        },
-        {
-          "relation": "absent_in_document",
-          "spec": {
-            "element": "ADURU",
-            "quote": "false_value: '' missing: ''"
-          },
-          "note": "The method and appendix state the nonmissing-duration assignment but do not state an otherwise assignment; empty text is explicitly interpreted as unpopulated character storage, with physical null retained separately."
         }
       ],
       "probes": [
@@ -472,9 +465,9 @@
           },
           "spec": {
             "element": "TRTEMFL",
-            "quote": "condition: ASTDT IS NOT NULL AND ASTDT >= TRTSDT"
+            "quote": "- when: \"ASTDT IS NOT NULL AND TRTSDT IS NOT NULL AND ASTDT >= TRTSDT\" then: \"'Y'\""
           },
-          "note": "The flag operation returns its default Y only when the predicate is true; the comparison cannot be true for a missing treatment date."
+          "note": "The condition states the nonmissing treatment start that TRTSDT > . requires."
         },
         {
           "relation": "differs",
@@ -484,9 +477,9 @@
           },
           "spec": {
             "element": "TRTEMFL",
-            "quote": "false_value: '' missing: ''"
+            "quote": "- otherwise: \"''\""
           },
-          "note": "The executable false and unknown branches assign empty text, whereas the retained method explicitly assigns the nonmissing N code."
+          "note": "The executable otherwise branch assigns empty text, whereas the retained method explicitly assigns the nonmissing N code."
         }
       ],
       "probes": [
@@ -521,8 +514,8 @@
             "quote": "Subset to TRTEMFL='Y'"
           },
           "spec": {
-            "element": "_AOCCSEQ",
-            "quote": "filter: TRTEMFL = 'Y'"
+            "element": "TE_RN",
+            "quote": "filter: \"TRTEMFL = 'Y'\""
           },
           "note": "The probe uses this documented cohort before row numbering and reads the upstream flags from the published reference."
         },
@@ -533,7 +526,7 @@
             "quote": "within each Subject"
           },
           "spec": {
-            "element": "_AOCCSEQ",
+            "element": "TE_RN",
             "quote": "group_by: - STUDYID - USUBJID"
           },
           "note": "The stated Subject/SOC/PT partition variables are present. The additional executable STUDYID grouping is recorded separately as unstated."
@@ -545,10 +538,10 @@
             "quote": "sort by Subject (USUBJID), Start Date (ASTDT), and Sequence Number (AESEQ)"
           },
           "spec": {
-            "element": "_AOCCSEQ",
+            "element": "TE_RN",
             "quote": "order_by: - variable: ASTDT nulls: last - variable: AESEQ nulls: last"
           },
-          "note": "The documented keys are in ascending chronological/sequence order within each partition. The executable missing-last policy is recorded separately because the method does not state it."
+          "note": "The sort's subject key is the window's partition, within which the specification ranks eligible records by ASTDT, then AESEQ, as the method sorts."
         },
         {
           "relation": "same",
@@ -558,14 +551,14 @@
           },
           "spec": {
             "element": "AOCCFL",
-            "quote": "flag: condition: _AOCCSEQ = 1 false_value: '' missing: ''"
+            "quote": "- when: \"TE_RN = 1\" then: \"'Y'\""
           },
-          "note": "The first ranked eligible record is the flagged record; the executable flag operation has the default true_value Y. The primary probe reads ?Y? as damaged quotation delimiters around the one-character Y token: both raw ItemDef and original workbook declare text length one, a Flag label, and no codelist or distinct assigned code. The surface-token reading is retained separately rather than asserted as an established code."
+          "note": "The first ranked eligible record is the flagged record, and the executable case assigns it Y. The primary probe reads ?Y? as damaged quotation delimiters around the one-character Y token: both raw ItemDef and original workbook declare text length one, a Flag label, and no codelist or distinct assigned code. The surface-token reading is retained separately rather than asserted as an established code."
         },
         {
           "relation": "absent_in_document",
           "spec": {
-            "element": "_AOCCSEQ",
+            "element": "TE_RN",
             "quote": "- STUDYID"
           },
           "note": "The occurrence method partitions by Subject USUBJID and the stated SOC/PT keys; no retained statement explicitly adds STUDYID to this occurrence partition. Full reference keys are still preserved for record identity."
@@ -573,16 +566,16 @@
         {
           "relation": "absent_in_document",
           "spec": {
-            "element": "_AOCCSEQ",
+            "element": "TE_RN",
             "quote": "nulls: last"
           },
-          "note": "The retained method gives the sort variables but no missing-placement policy. The executable orders missing dates and sequence values last; the primary probe uses ascending missing-low order and retains a separate missing-last reading."
+          "note": "The retained method gives the sort variables but no missing-placement policy. The executable orders missing start dates and sequence numbers last; the primary probe uses ascending missing-low order and retains a separate missing-last reading."
         },
         {
           "relation": "absent_in_document",
           "spec": {
             "element": "AOCCFL",
-            "quote": "false_value: '' missing: ''"
+            "quote": "- otherwise: \"''\""
           },
           "note": "Only the first eligible record receives an assignment in the method. Empty text for other records is an explicit unpopulated SAS-character interpretation; physical null remains a distinct reading."
         }
@@ -615,8 +608,8 @@
         "Raw Define ItemRef/MethodDef/origin and workbook bindings were inspected independently. The raw method text and workbook description agree, have no formal expression or external derivation document reference, and supply no alternate value-level rule. The workbook citable section is empty; no fabricated workbook citation is supplied.",
         "Only this study's retained Define-XML, original workbook, and ADRG are used. The shared SAP remains pending applicability review and contributes no governing rule."
       ],
-      "assessment": "The executable helper uses the documented eligibility, chronological order and first-record selection, with added STUDYID and missing-last policies. Damaged populated-token punctuation and the unassigned character representation remain explicit source limitations.",
-      "question": "Should the first-record assignment be documented with valid Y quotation delimiters, the unassigned flag representation specified, and the additional STUDYID and missing-sort policies made explicit?"
+      "assessment": "The executable helper uses the documented eligibility, subject partition, start-date-then-sequence order and first-record selection, with added STUDYID and missing-last policies. Damaged populated-token punctuation and the unassigned character representation remain explicit source limitations.",
+      "question": "Should the Y quotation delimiters, the unassigned flag representation, and the STUDYID and missing-sort policies be documented?"
     },
     {
       "variable": "AOCCSFL",
@@ -636,8 +629,8 @@
             "quote": "Subset to TRTEMFL='Y'"
           },
           "spec": {
-            "element": "_AOCCSSEQ",
-            "quote": "filter: TRTEMFL = 'Y'"
+            "element": "TE_SOC_RN",
+            "quote": "filter: \"TRTEMFL = 'Y'\""
           },
           "note": "The probe uses this documented cohort before row numbering and reads the upstream flags from the published reference."
         },
@@ -648,10 +641,10 @@
             "quote": "within each Subject and SOC"
           },
           "spec": {
-            "element": "_AOCCSSEQ",
+            "element": "TE_SOC_RN",
             "quote": "group_by: - STUDYID - USUBJID - AEBODSYS"
           },
-          "note": "The stated Subject/SOC/PT partition variables are present. The additional executable STUDYID grouping is recorded separately as unstated."
+          "note": "The specification partitions by subject and the SOC AEBODSYS that the method's sort names; the additional STUDYID grouping is recorded separately as unstated."
         },
         {
           "relation": "same",
@@ -660,10 +653,10 @@
             "quote": "sort by Subject (USUBJID), System Organ Class (AEBODSYS), Start Date (ASTDT), and Sequence Number (AESEQ)"
           },
           "spec": {
-            "element": "_AOCCSSEQ",
+            "element": "TE_SOC_RN",
             "quote": "order_by: - variable: ASTDT nulls: last - variable: AESEQ nulls: last"
           },
-          "note": "The documented keys are in ascending chronological/sequence order within each partition. The executable missing-last policy is recorded separately because the method does not state it."
+          "note": "The sort's subject and SOC keys are the window's partition, within which the specification ranks eligible records by ASTDT, then AESEQ, as the method sorts."
         },
         {
           "relation": "same",
@@ -673,14 +666,14 @@
           },
           "spec": {
             "element": "AOCCSFL",
-            "quote": "flag: condition: _AOCCSSEQ = 1 false_value: '' missing: ''"
+            "quote": "- when: \"TE_SOC_RN = 1\" then: \"'Y'\""
           },
-          "note": "The first ranked eligible record is the flagged record; the executable flag operation has the default true_value Y. The primary probe reads ?Y? as damaged quotation delimiters around the one-character Y token: both raw ItemDef and original workbook declare text length one, a Flag label, and no codelist or distinct assigned code. The surface-token reading is retained separately rather than asserted as an established code."
+          "note": "The first ranked eligible record is the flagged record, and the executable case assigns it Y. The primary probe reads ?Y? as damaged quotation delimiters around the one-character Y token: both raw ItemDef and original workbook declare text length one, a Flag label, and no codelist or distinct assigned code. The surface-token reading is retained separately rather than asserted as an established code."
         },
         {
           "relation": "absent_in_document",
           "spec": {
-            "element": "_AOCCSSEQ",
+            "element": "TE_SOC_RN",
             "quote": "- STUDYID"
           },
           "note": "The occurrence method partitions by Subject USUBJID and the stated SOC/PT keys; no retained statement explicitly adds STUDYID to this occurrence partition. Full reference keys are still preserved for record identity."
@@ -688,16 +681,16 @@
         {
           "relation": "absent_in_document",
           "spec": {
-            "element": "_AOCCSSEQ",
+            "element": "TE_SOC_RN",
             "quote": "nulls: last"
           },
-          "note": "The retained method gives the sort variables but no missing-placement policy. The executable orders missing dates and sequence values last; the primary probe uses ascending missing-low order and retains a separate missing-last reading."
+          "note": "The retained method gives the sort variables but no missing-placement policy. The executable orders missing start dates and sequence numbers last; the primary probe uses ascending missing-low order and retains a separate missing-last reading."
         },
         {
           "relation": "absent_in_document",
           "spec": {
             "element": "AOCCSFL",
-            "quote": "false_value: '' missing: ''"
+            "quote": "- otherwise: \"''\""
           },
           "note": "Only the first eligible record receives an assignment in the method. Empty text for other records is an explicit unpopulated SAS-character interpretation; physical null remains a distinct reading."
         }
@@ -730,8 +723,8 @@
         "Raw Define ItemRef/MethodDef/origin and workbook bindings were inspected independently. The raw method text and workbook description agree, have no formal expression or external derivation document reference, and supply no alternate value-level rule. The workbook citable section is empty; no fabricated workbook citation is supplied.",
         "Only this study's retained Define-XML, original workbook, and ADRG are used. The shared SAP remains pending applicability review and contributes no governing rule."
       ],
-      "assessment": "The executable helper uses the documented eligibility, chronological order and first-record selection, with added STUDYID and missing-last policies. Damaged populated-token punctuation and the unassigned character representation remain explicit source limitations.",
-      "question": "Should the first-record assignment be documented with valid Y quotation delimiters, the unassigned flag representation specified, and the additional STUDYID and missing-sort policies made explicit?"
+      "assessment": "The executable helper uses the documented eligibility, subject and AEBODSYS partition, start-date-then-sequence order and first-record selection, with added STUDYID and missing-last policies. Damaged populated-token punctuation and the unassigned character representation remain explicit source limitations.",
+      "question": "Should the Y quotation delimiters, the unassigned flag representation, and the STUDYID and missing-sort policies be documented?"
     },
     {
       "variable": "AOCCPFL",
@@ -751,8 +744,8 @@
             "quote": "Subset to TRTEMFL='Y'"
           },
           "spec": {
-            "element": "_AOCCPSEQ",
-            "quote": "filter: TRTEMFL = 'Y'"
+            "element": "TE_PT_RN",
+            "quote": "filter: \"TRTEMFL = 'Y'\""
           },
           "note": "The probe uses this documented cohort before row numbering and reads the upstream flags from the published reference."
         },
@@ -763,10 +756,10 @@
             "quote": "within each Subject, SOC, and PT"
           },
           "spec": {
-            "element": "_AOCCPSEQ",
+            "element": "TE_PT_RN",
             "quote": "group_by: - STUDYID - USUBJID - AEBODSYS - AEDECOD"
           },
-          "note": "The stated Subject/SOC/PT partition variables are present. The additional executable STUDYID grouping is recorded separately as unstated."
+          "note": "The specification partitions by subject, the SOC AEBODSYS and the preferred term AEDECOD that the method's sort names; the additional STUDYID grouping is recorded separately as unstated."
         },
         {
           "relation": "same",
@@ -775,10 +768,10 @@
             "quote": "sort by Subject (USUBJID), System Organ Class (AEBODSYS), Preferred Term (AEDECOD), Start Date (ASTDT), and Sequence Number (AESEQ)"
           },
           "spec": {
-            "element": "_AOCCPSEQ",
+            "element": "TE_PT_RN",
             "quote": "order_by: - variable: ASTDT nulls: last - variable: AESEQ nulls: last"
           },
-          "note": "The documented keys are in ascending chronological/sequence order within each partition. The executable missing-last policy is recorded separately because the method does not state it."
+          "note": "The sort's subject, SOC and PT keys are the window's partition, within which the specification ranks eligible records by ASTDT, then AESEQ, as the method sorts."
         },
         {
           "relation": "same",
@@ -788,14 +781,14 @@
           },
           "spec": {
             "element": "AOCCPFL",
-            "quote": "flag: condition: _AOCCPSEQ = 1 false_value: '' missing: ''"
+            "quote": "- when: \"TE_PT_RN = 1\" then: \"'Y'\""
           },
-          "note": "The first ranked eligible record is the flagged record; the executable flag operation has the default true_value Y. The primary probe reads ?Y? as damaged quotation delimiters around the one-character Y token: both raw ItemDef and original workbook declare text length one, a Flag label, and no codelist or distinct assigned code. The surface-token reading is retained separately rather than asserted as an established code."
+          "note": "The first ranked eligible record is the flagged record, and the executable case assigns it Y. The primary probe reads ?Y? as damaged quotation delimiters around the one-character Y token: both raw ItemDef and original workbook declare text length one, a Flag label, and no codelist or distinct assigned code. The surface-token reading is retained separately rather than asserted as an established code."
         },
         {
           "relation": "absent_in_document",
           "spec": {
-            "element": "_AOCCPSEQ",
+            "element": "TE_PT_RN",
             "quote": "- STUDYID"
           },
           "note": "The occurrence method partitions by Subject USUBJID and the stated SOC/PT keys; no retained statement explicitly adds STUDYID to this occurrence partition. Full reference keys are still preserved for record identity."
@@ -803,16 +796,16 @@
         {
           "relation": "absent_in_document",
           "spec": {
-            "element": "_AOCCPSEQ",
+            "element": "TE_PT_RN",
             "quote": "nulls: last"
           },
-          "note": "The retained method gives the sort variables but no missing-placement policy. The executable orders missing dates and sequence values last; the primary probe uses ascending missing-low order and retains a separate missing-last reading."
+          "note": "The retained method gives the sort variables but no missing-placement policy. The executable orders missing start dates and sequence numbers last; the primary probe uses ascending missing-low order and retains a separate missing-last reading."
         },
         {
           "relation": "absent_in_document",
           "spec": {
             "element": "AOCCPFL",
-            "quote": "false_value: '' missing: ''"
+            "quote": "- otherwise: \"''\""
           },
           "note": "Only the first eligible record receives an assignment in the method. Empty text for other records is an explicit unpopulated SAS-character interpretation; physical null remains a distinct reading."
         }
@@ -845,8 +838,8 @@
         "Raw Define ItemRef/MethodDef/origin and workbook bindings were inspected independently. The raw method text and workbook description agree, have no formal expression or external derivation document reference, and supply no alternate value-level rule. The workbook citable section is empty; no fabricated workbook citation is supplied.",
         "Only this study's retained Define-XML, original workbook, and ADRG are used. The shared SAP remains pending applicability review and contributes no governing rule."
       ],
-      "assessment": "The executable helper uses the documented eligibility, chronological order and first-record selection, with added STUDYID and missing-last policies. Damaged populated-token punctuation and the unassigned character representation remain explicit source limitations.",
-      "question": "Should the first-record assignment be documented with valid Y quotation delimiters, the unassigned flag representation specified, and the additional STUDYID and missing-sort policies made explicit?"
+      "assessment": "The executable helper uses the documented eligibility, subject, AEBODSYS and AEDECOD partition, start-date-then-sequence order and first-record selection, with added STUDYID and missing-last policies. Damaged populated-token punctuation and the unassigned character representation remain explicit source limitations.",
+      "question": "Should the Y quotation delimiters, the unassigned flag representation, and the STUDYID and missing-sort policies be documented?"
     },
     {
       "variable": "AOCC02FL",
@@ -866,10 +859,10 @@
             "quote": "Subset to TRTEMFL='Y' and AESER='Y'"
           },
           "spec": {
-            "element": "_AOCC02SEQ",
-            "quote": "filter: TRTEMFL = 'Y' AND AESER = 'Y'"
+            "element": "SER_RN",
+            "quote": "filter: \"TRTEMFL = 'Y' AND AE.AESER = 'Y'\""
           },
-          "note": "The probe uses this documented cohort before row numbering and reads the upstream flags from the published reference."
+          "note": "AE.AESER is the SDTM value that ADAE copies unchanged into AESER; the probe applies this cohort before row numbering and reads the upstream flags from the published reference."
         },
         {
           "relation": "same",
@@ -878,7 +871,7 @@
             "quote": "within each Subject"
           },
           "spec": {
-            "element": "_AOCC02SEQ",
+            "element": "SER_RN",
             "quote": "group_by: - STUDYID - USUBJID"
           },
           "note": "The stated Subject/SOC/PT partition variables are present. The additional executable STUDYID grouping is recorded separately as unstated."
@@ -890,10 +883,10 @@
             "quote": "sort by Subject (USUBJID), Start Date (ASTDT), and Sequence Number (AESEQ)"
           },
           "spec": {
-            "element": "_AOCC02SEQ",
+            "element": "SER_RN",
             "quote": "order_by: - variable: ASTDT nulls: last - variable: AESEQ nulls: last"
           },
-          "note": "The documented keys are in ascending chronological/sequence order within each partition. The executable missing-last policy is recorded separately because the method does not state it."
+          "note": "The sort's subject key is the window's partition, within which the specification ranks eligible records by ASTDT, then AESEQ, as the method sorts."
         },
         {
           "relation": "same",
@@ -903,14 +896,14 @@
           },
           "spec": {
             "element": "AOCC02FL",
-            "quote": "flag: condition: _AOCC02SEQ = 1 false_value: '' missing: ''"
+            "quote": "- when: \"SER_RN = 1\" then: \"'Y'\""
           },
-          "note": "The first ranked eligible record is the flagged record; the executable flag operation has the default true_value Y. The primary probe reads ?Y? as damaged quotation delimiters around the one-character Y token: both raw ItemDef and original workbook declare text length one, a Flag label, and no codelist or distinct assigned code. The surface-token reading is retained separately rather than asserted as an established code."
+          "note": "The first ranked eligible record is the flagged record, and the executable case assigns it Y. The primary probe reads ?Y? as damaged quotation delimiters around the one-character Y token: both raw ItemDef and original workbook declare text length one, a Flag label, and no codelist or distinct assigned code. The surface-token reading is retained separately rather than asserted as an established code."
         },
         {
           "relation": "absent_in_document",
           "spec": {
-            "element": "_AOCC02SEQ",
+            "element": "SER_RN",
             "quote": "- STUDYID"
           },
           "note": "The occurrence method partitions by Subject USUBJID and the stated SOC/PT keys; no retained statement explicitly adds STUDYID to this occurrence partition. Full reference keys are still preserved for record identity."
@@ -918,16 +911,16 @@
         {
           "relation": "absent_in_document",
           "spec": {
-            "element": "_AOCC02SEQ",
+            "element": "SER_RN",
             "quote": "nulls: last"
           },
-          "note": "The retained method gives the sort variables but no missing-placement policy. The executable orders missing dates and sequence values last; the primary probe uses ascending missing-low order and retains a separate missing-last reading."
+          "note": "The retained method gives the sort variables but no missing-placement policy. The executable orders missing start dates and sequence numbers last; the primary probe uses ascending missing-low order and retains a separate missing-last reading."
         },
         {
           "relation": "absent_in_document",
           "spec": {
             "element": "AOCC02FL",
-            "quote": "false_value: '' missing: ''"
+            "quote": "- otherwise: \"''\""
           },
           "note": "Only the first eligible record receives an assignment in the method. Empty text for other records is an explicit unpopulated SAS-character interpretation; physical null remains a distinct reading."
         }
@@ -960,8 +953,8 @@
         "Raw Define ItemRef/MethodDef/origin and workbook bindings were inspected independently. The raw method text and workbook description agree, have no formal expression or external derivation document reference, and supply no alternate value-level rule. The workbook citable section is empty; no fabricated workbook citation is supplied.",
         "Only this study's retained Define-XML, original workbook, and ADRG are used. The shared SAP remains pending applicability review and contributes no governing rule."
       ],
-      "assessment": "The executable helper uses the documented eligibility, chronological order and first-record selection, with added STUDYID and missing-last policies. Damaged populated-token punctuation and the unassigned character representation remain explicit source limitations.",
-      "question": "Should the first-record assignment be documented with valid Y quotation delimiters, the unassigned flag representation specified, and the additional STUDYID and missing-sort policies made explicit?"
+      "assessment": "The executable helper uses the documented eligibility, subject partition, start-date-then-sequence order and first-record selection, with added STUDYID and missing-last policies. Damaged populated-token punctuation and the unassigned character representation remain explicit source limitations.",
+      "question": "Should the Y quotation delimiters, the unassigned flag representation, and the STUDYID and missing-sort policies be documented?"
     },
     {
       "variable": "AOCC03FL",
@@ -981,10 +974,10 @@
             "quote": "Subset to TRTEMFL='Y' and AESER='Y'"
           },
           "spec": {
-            "element": "_AOCC03SEQ",
-            "quote": "filter: TRTEMFL = 'Y' AND AESER = 'Y'"
+            "element": "SER_SOC_RN",
+            "quote": "filter: \"TRTEMFL = 'Y' AND AE.AESER = 'Y'\""
           },
-          "note": "The probe uses this documented cohort before row numbering and reads the upstream flags from the published reference."
+          "note": "AE.AESER is the SDTM value that ADAE copies unchanged into AESER; the probe applies this cohort before row numbering and reads the upstream flags from the published reference."
         },
         {
           "relation": "same",
@@ -993,10 +986,10 @@
             "quote": "within each Subject and SOC"
           },
           "spec": {
-            "element": "_AOCC03SEQ",
+            "element": "SER_SOC_RN",
             "quote": "group_by: - STUDYID - USUBJID - AEBODSYS"
           },
-          "note": "The stated Subject/SOC/PT partition variables are present. The additional executable STUDYID grouping is recorded separately as unstated."
+          "note": "The specification partitions by subject and the SOC AEBODSYS that the method's sort names; the additional STUDYID grouping is recorded separately as unstated."
         },
         {
           "relation": "same",
@@ -1005,10 +998,10 @@
             "quote": "sort by Subject (USUBJID), System Organ Class (AEBODSYS), Start Date (ASTDT), and Sequence Number (AESEQ)"
           },
           "spec": {
-            "element": "_AOCC03SEQ",
+            "element": "SER_SOC_RN",
             "quote": "order_by: - variable: ASTDT nulls: last - variable: AESEQ nulls: last"
           },
-          "note": "The documented keys are in ascending chronological/sequence order within each partition. The executable missing-last policy is recorded separately because the method does not state it."
+          "note": "The sort's subject and SOC keys are the window's partition, within which the specification ranks eligible records by ASTDT, then AESEQ, as the method sorts."
         },
         {
           "relation": "same",
@@ -1018,14 +1011,14 @@
           },
           "spec": {
             "element": "AOCC03FL",
-            "quote": "flag: condition: _AOCC03SEQ = 1 false_value: '' missing: ''"
+            "quote": "- when: \"SER_SOC_RN = 1\" then: \"'Y'\""
           },
-          "note": "The first ranked eligible record is the flagged record; the executable flag operation has the default true_value Y. The primary probe reads ?Y? as damaged quotation delimiters around the one-character Y token: both raw ItemDef and original workbook declare text length one, a Flag label, and no codelist or distinct assigned code. The surface-token reading is retained separately rather than asserted as an established code."
+          "note": "The first ranked eligible record is the flagged record, and the executable case assigns it Y. The primary probe reads ?Y? as damaged quotation delimiters around the one-character Y token: both raw ItemDef and original workbook declare text length one, a Flag label, and no codelist or distinct assigned code. The surface-token reading is retained separately rather than asserted as an established code."
         },
         {
           "relation": "absent_in_document",
           "spec": {
-            "element": "_AOCC03SEQ",
+            "element": "SER_SOC_RN",
             "quote": "- STUDYID"
           },
           "note": "The occurrence method partitions by Subject USUBJID and the stated SOC/PT keys; no retained statement explicitly adds STUDYID to this occurrence partition. Full reference keys are still preserved for record identity."
@@ -1033,16 +1026,16 @@
         {
           "relation": "absent_in_document",
           "spec": {
-            "element": "_AOCC03SEQ",
+            "element": "SER_SOC_RN",
             "quote": "nulls: last"
           },
-          "note": "The retained method gives the sort variables but no missing-placement policy. The executable orders missing dates and sequence values last; the primary probe uses ascending missing-low order and retains a separate missing-last reading."
+          "note": "The retained method gives the sort variables but no missing-placement policy. The executable orders missing start dates and sequence numbers last; the primary probe uses ascending missing-low order and retains a separate missing-last reading."
         },
         {
           "relation": "absent_in_document",
           "spec": {
             "element": "AOCC03FL",
-            "quote": "false_value: '' missing: ''"
+            "quote": "- otherwise: \"''\""
           },
           "note": "Only the first eligible record receives an assignment in the method. Empty text for other records is an explicit unpopulated SAS-character interpretation; physical null remains a distinct reading."
         }
@@ -1075,8 +1068,8 @@
         "Raw Define ItemRef/MethodDef/origin and workbook bindings were inspected independently. The raw method text and workbook description agree, have no formal expression or external derivation document reference, and supply no alternate value-level rule. The workbook citable section is empty; no fabricated workbook citation is supplied.",
         "Only this study's retained Define-XML, original workbook, and ADRG are used. The shared SAP remains pending applicability review and contributes no governing rule."
       ],
-      "assessment": "The executable helper uses the documented eligibility, chronological order and first-record selection, with added STUDYID and missing-last policies. Damaged populated-token punctuation and the unassigned character representation remain explicit source limitations.",
-      "question": "Should the first-record assignment be documented with valid Y quotation delimiters, the unassigned flag representation specified, and the additional STUDYID and missing-sort policies made explicit?"
+      "assessment": "The executable helper uses the documented eligibility, subject and AEBODSYS partition, start-date-then-sequence order and first-record selection, with added STUDYID and missing-last policies. Damaged populated-token punctuation and the unassigned character representation remain explicit source limitations.",
+      "question": "Should the Y quotation delimiters, the unassigned flag representation, and the STUDYID and missing-sort policies be documented?"
     },
     {
       "variable": "AOCC04FL",
@@ -1096,10 +1089,10 @@
             "quote": "Subset to TRTEMFL='Y' and AESER='Y'"
           },
           "spec": {
-            "element": "_AOCC04SEQ",
-            "quote": "filter: TRTEMFL = 'Y' AND AESER = 'Y'"
+            "element": "SER_PT_RN",
+            "quote": "filter: \"TRTEMFL = 'Y' AND AE.AESER = 'Y'\""
           },
-          "note": "The probe uses this documented cohort before row numbering and reads the upstream flags from the published reference."
+          "note": "AE.AESER is the SDTM value that ADAE copies unchanged into AESER; the probe applies this cohort before row numbering and reads the upstream flags from the published reference."
         },
         {
           "relation": "same",
@@ -1108,10 +1101,10 @@
             "quote": "within each Subject, SOC, and PT"
           },
           "spec": {
-            "element": "_AOCC04SEQ",
+            "element": "SER_PT_RN",
             "quote": "group_by: - STUDYID - USUBJID - AEBODSYS - AEDECOD"
           },
-          "note": "The stated Subject/SOC/PT partition variables are present. The additional executable STUDYID grouping is recorded separately as unstated."
+          "note": "The specification partitions by subject, the SOC AEBODSYS and the preferred term AEDECOD that the method's sort names; the additional STUDYID grouping is recorded separately as unstated."
         },
         {
           "relation": "same",
@@ -1120,10 +1113,10 @@
             "quote": "sort by Subject (USUBJID), System Organ Class (AEBODSYS), Preferred Term (AEDECOD), Start Date (ASTDT), and Sequence Number (AESEQ)"
           },
           "spec": {
-            "element": "_AOCC04SEQ",
+            "element": "SER_PT_RN",
             "quote": "order_by: - variable: ASTDT nulls: last - variable: AESEQ nulls: last"
           },
-          "note": "The documented keys are in ascending chronological/sequence order within each partition. The executable missing-last policy is recorded separately because the method does not state it."
+          "note": "The sort's subject, SOC and PT keys are the window's partition, within which the specification ranks eligible records by ASTDT, then AESEQ, as the method sorts."
         },
         {
           "relation": "same",
@@ -1133,14 +1126,14 @@
           },
           "spec": {
             "element": "AOCC04FL",
-            "quote": "flag: condition: _AOCC04SEQ = 1 false_value: '' missing: ''"
+            "quote": "- when: \"SER_PT_RN = 1\" then: \"'Y'\""
           },
-          "note": "The first ranked eligible record is the flagged record; the executable flag operation has the default true_value Y. The primary probe reads ?Y? as damaged quotation delimiters around the one-character Y token: both raw ItemDef and original workbook declare text length one, a Flag label, and no codelist or distinct assigned code. The surface-token reading is retained separately rather than asserted as an established code."
+          "note": "The first ranked eligible record is the flagged record, and the executable case assigns it Y. The primary probe reads ?Y? as damaged quotation delimiters around the one-character Y token: both raw ItemDef and original workbook declare text length one, a Flag label, and no codelist or distinct assigned code. The surface-token reading is retained separately rather than asserted as an established code."
         },
         {
           "relation": "absent_in_document",
           "spec": {
-            "element": "_AOCC04SEQ",
+            "element": "SER_PT_RN",
             "quote": "- STUDYID"
           },
           "note": "The occurrence method partitions by Subject USUBJID and the stated SOC/PT keys; no retained statement explicitly adds STUDYID to this occurrence partition. Full reference keys are still preserved for record identity."
@@ -1148,16 +1141,16 @@
         {
           "relation": "absent_in_document",
           "spec": {
-            "element": "_AOCC04SEQ",
+            "element": "SER_PT_RN",
             "quote": "nulls: last"
           },
-          "note": "The retained method gives the sort variables but no missing-placement policy. The executable orders missing dates and sequence values last; the primary probe uses ascending missing-low order and retains a separate missing-last reading."
+          "note": "The retained method gives the sort variables but no missing-placement policy. The executable orders missing start dates and sequence numbers last; the primary probe uses ascending missing-low order and retains a separate missing-last reading."
         },
         {
           "relation": "absent_in_document",
           "spec": {
             "element": "AOCC04FL",
-            "quote": "false_value: '' missing: ''"
+            "quote": "- otherwise: \"''\""
           },
           "note": "Only the first eligible record receives an assignment in the method. Empty text for other records is an explicit unpopulated SAS-character interpretation; physical null remains a distinct reading."
         }
@@ -1190,8 +1183,8 @@
         "Raw Define ItemRef/MethodDef/origin and workbook bindings were inspected independently. The raw method text and workbook description agree, have no formal expression or external derivation document reference, and supply no alternate value-level rule. The workbook citable section is empty; no fabricated workbook citation is supplied.",
         "Only this study's retained Define-XML, original workbook, and ADRG are used. The shared SAP remains pending applicability review and contributes no governing rule."
       ],
-      "assessment": "The executable helper uses the documented eligibility, chronological order and first-record selection, with added STUDYID and missing-last policies. Damaged populated-token punctuation and the unassigned character representation remain explicit source limitations.",
-      "question": "Should the first-record assignment be documented with valid Y quotation delimiters, the unassigned flag representation specified, and the additional STUDYID and missing-sort policies made explicit?"
+      "assessment": "The executable helper uses the documented eligibility, subject, AEBODSYS and AEDECOD partition, start-date-then-sequence order and first-record selection, with added STUDYID and missing-last policies. Damaged populated-token punctuation and the unassigned character representation remain explicit source limitations.",
+      "question": "Should the Y quotation delimiters, the unassigned flag representation, and the STUDYID and missing-sort policies be documented?"
     },
     {
       "variable": "CQ01NAM",
@@ -1210,40 +1203,32 @@
       ],
       "clauses": [
         {
-          "relation": "same",
+          "relation": "differs",
           "document": {
             "citation": 1,
             "quote": "AEDECOD contains any of the character strings of ('APPLICATION', 'DERMATITIS', 'ERYTHEMA', 'BLISTER')"
           },
           "spec": {
-            "element": "_DERM_MATCH",
-            "quote": "str_extract: source: AE.AEDECOD pattern: APPLICATION|DERMATITIS|ERYTHEMA|BLISTER no_match:"
+            "element": "CQ01NAM",
+            "quote": "AE.AEDECOD IN ('ACTINIC KERATOSIS', 'APPLICATION SITE BLEEDING', 'APPLICATION SITE DERMATITIS', 'APPLICATION SITE DESQUAMATION', 'APPLICATION SITE DISCHARGE', 'APPLICATION SITE DISCOLOURATION', 'APPLICATION SITE ERYTHEMA', 'APPLICATION SITE INDURATION', 'APPLICATION SITE IRRITATION', 'APPLICATION SITE PAIN', 'APPLICATION SITE PERSPIRATION', 'APPLICATION SITE PRURITUS', 'APPLICATION SITE REACTION', 'APPLICATION SITE SWELLING', 'APPLICATION SITE URTICARIA', 'APPLICATION SITE VESICLES', 'APPLICATION SITE WARMTH', 'BLISTER', 'DERMATITIS ATOPIC', 'DERMATITIS CONTACT', 'DRUG ERUPTION', 'ERYTHEMA', 'PHARYNGEAL ERYTHEMA', 'PRURITUS', 'PRURITUS GENERALISED', 'RASH', 'RASH ERYTHEMATOUS', 'RASH MACULO-PAPULAR', 'RASH PAPULAR', 'RASH PRURITIC', 'SKIN EXFOLIATION', 'SKIN IRRITATION', 'SKIN ODOUR ABNORMAL', 'SKIN ULCER', 'URTICARIA')"
           },
-          "note": "Each listed alternative is a literal uppercase substring with no regex metacharacter, so substring extraction expresses the stated contains test."
+          "note": "The specification names a fixed list of preferred terms instead of testing the four substrings, so a term containing them that the list does not name is not flagged."
         },
         {
-          "relation": "differs",
+          "relation": "absent_in_spec",
           "document": {
             "citation": 1,
             "quote": "AEBODSYS='SKIN AND SUBC UTANEOUS TISSUE DISORDERS'"
           },
-          "spec": {
-            "element": "CQ01NAM",
-            "quote": "AEBODSYS = 'SKIN AND SUBCUTANEOUS TISSUE DISORDERS'"
-          },
-          "note": "The method contains a space inside SUBC UTANEOUS; the executable condition joins that word. The literal probe preserves the internal space and a distinct reading joins it."
+          "note": "The specification never tests the body system; skin terms qualify only when the fixed preferred-term list names them."
         },
         {
-          "relation": "differs",
+          "relation": "absent_in_spec",
           "document": {
             "citation": 1,
             "quote": "AEDECOD is not in ('COLD SWEAT', 'HYPERHIDROSIS', 'ALOPECIA')"
           },
-          "spec": {
-            "element": "_DERM_EXCL",
-            "quote": "str_extract: source: AE.AEDECOD pattern: COLD SWEAT|HYPERHIDROSIS|ALOPECIA no_match:"
-          },
-          "note": "The documented not-in list excludes complete preferred-term values; the executable substring search also excludes a longer term containing a listed string."
+          "note": "The specification has no exclusion test; COLD SWEAT, HYPERHIDROSIS and ALOPECIA stay unflagged only because the fixed list omits them."
         },
         {
           "relation": "same",
@@ -1253,7 +1238,7 @@
           },
           "spec": {
             "element": "CQ01NAM",
-            "quote": "true_value: DERMATOLOGIC EVENTS false_value: '' missing: ''"
+            "quote": "then: \"'DERMATOLOGIC EVENTS'\" - otherwise: \"''\""
           },
           "note": "NULL is read as an unpopulated SAS character field in the primary probe and serialized as empty text; a physical-null reading is retained because the method does not specify Parquet storage."
         },
@@ -1265,7 +1250,7 @@
           },
           "spec": {
             "element": "CQ01NAM",
-            "quote": "true_value: DERMATOLOGIC EVENTS"
+            "quote": "then: \"'DERMATOLOGIC EVENTS'\""
           },
           "note": "The guide independently states the query purpose, but supplies no replacement membership algorithm."
         }
@@ -1297,8 +1282,8 @@
         "Raw Define ItemDef and original workbook variable bindings have no codelist, significant digits, assigned value, comment, developer note or value-level algorithm for this variable. Its raw method and workbook description are identical. The retained workbook section text is empty, so no fabricated workbook citation is supplied.",
         "Only this study's retained Define-XML, original workbook, and ADRG are used. The shared SAP is pending applicability review and is not imported as governing evidence."
       ],
-      "assessment": "The query statements identify the same dermatologic purpose; the executable condition joins the documented internal SOC space and implements the exclusion list through substring extraction. The source does not resolve either correction or storage choice.",
-      "question": "Should the internal SOC space be corrected explicitly, should exclusions use complete preferred-term equality, and should the unpopulated name be specified as SAS empty text or physical null?"
+      "assessment": "The query statements identify the same dermatologic purpose; the specification replaces the documented substring, body-system and exclusion tests with a fixed list of preferred terms. The source does not resolve the SOC spelling or the storage choice.",
+      "question": "Should the specification apply the documented substring, body-system and exclusion tests instead of a fixed preferred-term list, and should the unpopulated name be specified as SAS empty text or physical null?"
     },
     {
       "variable": "AOCC01FL",
@@ -1323,8 +1308,8 @@
             "quote": "Subset to CQ01NAM='DERMATOLOGIC EVENTS' and TRTEMFL='Y'"
           },
           "spec": {
-            "element": "_AOCC01SEQ",
-            "quote": "filter: TRTEMFL = 'Y' AND CQ01NAM = 'DERMATOLOGIC EVENTS'"
+            "element": "DERM_RN",
+            "quote": "filter: \"TRTEMFL = 'Y' AND CQ01NAM = 'DERMATOLOGIC EVENTS'\""
           },
           "note": "The probe uses this documented cohort before row numbering and reads the upstream flags from the published reference."
         },
@@ -1335,7 +1320,7 @@
             "quote": "within each Subject"
           },
           "spec": {
-            "element": "_AOCC01SEQ",
+            "element": "DERM_RN",
             "quote": "group_by: - STUDYID - USUBJID"
           },
           "note": "The stated Subject/SOC/PT partition variables are present. The additional executable STUDYID grouping is recorded separately as unstated."
@@ -1347,10 +1332,10 @@
             "quote": "sort by Subject (USUBJID), Start Date (ASTDT), and Sequence Number (AESEQ)"
           },
           "spec": {
-            "element": "_AOCC01SEQ",
+            "element": "DERM_RN",
             "quote": "order_by: - variable: ASTDT nulls: last - variable: AESEQ nulls: last"
           },
-          "note": "The documented keys are in ascending chronological/sequence order within each partition. The executable missing-last policy is recorded separately because the method does not state it."
+          "note": "The sort's subject key is the window's partition, within which the specification ranks eligible records by ASTDT, then AESEQ, as the method sorts."
         },
         {
           "relation": "same",
@@ -1360,14 +1345,14 @@
           },
           "spec": {
             "element": "AOCC01FL",
-            "quote": "flag: condition: _AOCC01SEQ = 1 false_value: '' missing: ''"
+            "quote": "- when: \"DERM_RN = 1\" then: \"'Y'\""
           },
-          "note": "The first ranked eligible record is the flagged record; the executable flag operation has the default true_value Y. The primary probe reads ?Y? as damaged quotation delimiters around the one-character Y token: both raw ItemDef and original workbook declare text length one, a Flag label, and no codelist or distinct assigned code. The surface-token reading is retained separately rather than asserted as an established code."
+          "note": "The first ranked eligible record is the flagged record, and the executable case assigns it Y. The primary probe reads ?Y? as damaged quotation delimiters around the one-character Y token: both raw ItemDef and original workbook declare text length one, a Flag label, and no codelist or distinct assigned code. The surface-token reading is retained separately rather than asserted as an established code."
         },
         {
           "relation": "absent_in_document",
           "spec": {
-            "element": "_AOCC01SEQ",
+            "element": "DERM_RN",
             "quote": "- STUDYID"
           },
           "note": "The occurrence method partitions by Subject USUBJID and the stated SOC/PT keys; no retained statement explicitly adds STUDYID to this occurrence partition. Full reference keys are still preserved for record identity."
@@ -1375,16 +1360,16 @@
         {
           "relation": "absent_in_document",
           "spec": {
-            "element": "_AOCC01SEQ",
+            "element": "DERM_RN",
             "quote": "nulls: last"
           },
-          "note": "The retained method gives the sort variables but no missing-placement policy. The executable orders missing dates and sequence values last; the primary probe uses ascending missing-low order and retains a separate missing-last reading."
+          "note": "The retained method gives the sort variables but no missing-placement policy. The executable orders missing start dates and sequence numbers last; the primary probe uses ascending missing-low order and retains a separate missing-last reading."
         },
         {
           "relation": "absent_in_document",
           "spec": {
             "element": "AOCC01FL",
-            "quote": "false_value: '' missing: ''"
+            "quote": "- otherwise: \"''\""
           },
           "note": "Only the first eligible record receives an assignment in the method. Empty text for other records is an explicit unpopulated SAS-character interpretation; physical null remains a distinct reading."
         },
@@ -1395,10 +1380,10 @@
             "quote": "Since ADAE is a source for ADTTE, the first chrono-\nlogical occurrence based on the start dates (and sequence numbers) of the treatment emergent\ndermatological events are flagged (AOCC01FL) to facilitate traceability between these two\nanalysis datasets."
           },
           "spec": {
-            "element": "_AOCC01SEQ",
-            "quote": "row_number: window: group_by: - STUDYID - USUBJID order_by: - variable: ASTDT nulls: last - variable: AESEQ nulls: last filter: TRTEMFL = 'Y' AND CQ01NAM = 'DERMATOLOGIC EVENTS'"
+            "element": "DERM_RN",
+            "quote": "row_number: window: group_by: - STUDYID - USUBJID order_by: - variable: ASTDT nulls: last - variable: AESEQ nulls: last filter: \"TRTEMFL = 'Y' AND CQ01NAM = 'DERMATOLOGIC EVENTS'\""
           },
-          "note": "The guide independently repeats selection of the first treatment-emergent dermatologic event using start date and sequence number; it does not reverse the query subset or introduce another time ordering."
+          "note": "The guide selects the first treatment-emergent dermatologic event by start date and sequence number; the specification ranks the same cohort by ASTDT, then AESEQ, within each subject."
         }
       ],
       "probes": [
@@ -1429,8 +1414,8 @@
         "Raw Define ItemRef/MethodDef/origin and workbook bindings were inspected independently. The raw method text and workbook description agree, have no formal expression or external derivation document reference, and supply no alternate value-level rule. The workbook citable section is empty; no fabricated workbook citation is supplied.",
         "Only this study's retained Define-XML, original workbook, and ADRG are used. The shared SAP remains pending applicability review and contributes no governing rule."
       ],
-      "assessment": "The executable helper uses the documented eligibility, chronological order and first-record selection, with added STUDYID and missing-last policies. Damaged populated-token punctuation and the unassigned character representation remain explicit source limitations.",
-      "question": "Should the first-record assignment be documented with valid Y quotation delimiters, the unassigned flag representation specified, and the additional STUDYID and missing-sort policies made explicit?"
+      "assessment": "The executable helper uses the documented eligibility, subject partition, start-date-then-sequence order and first-record selection, with added STUDYID and missing-last policies. Damaged populated-token punctuation and the unassigned character representation remain explicit source limitations.",
+      "question": "Should the Y quotation delimiters, the unassigned flag representation, and the STUDYID and missing-sort policies be documented?"
     }
   ]
 }

@@ -104,7 +104,8 @@ def check(browser, base, site_dir, screenshots):
         page.goto(url + "TRTSDT")
         expect(page.locator('.input-group [data-domain="EX"]')).to_be_visible()
         expect(page.locator('.input-group [data-domain="EX"] .key-badge')).not_to_have_count(0)
-        assert_yaml_context(page, spec, {"DM", "EX"}, {"EX_FIRST"} if name == "submission-pilot3" else set())
+        # All three packages share the study layer's first-dose rule.
+        assert_yaml_context(page, spec, {"DM", "EX"}, set())
         # The merged findings UI applies to every published pilot study.
         study_report = json.loads((site_dir / f"evidence/dashboard/{name}/report.json").read_text())
         issues = study_report["review"]["issues"]
@@ -394,7 +395,9 @@ def check(browser, base, site_dir, screenshots):
     page.locator(".finding-trace > summary").click()
     expect(page.locator(".finding-evidence")).to_be_visible()
     expect(page.locator(".consistency-table tbody")).to_contain_text("No issue-specific data comparison")
-    expect(page.locator('.finding-evidence a[href*="adae.yaml"]').first).to_have_attribute("href", re.compile(r"adae\.yaml#L\d+$"))
+    # The ASTDT rule is written in the CDISC Pilot 01 version of the ADAE template.
+    expect(page.locator('.finding-evidence a[href*="pilot-program/adae_v1.yaml"]').first).to_have_attribute(
+        "href", re.compile(r"spec/yamaa/pilot-program/adae_v1\.yaml#L\d+$"))
     capture(page, screenshots, "consistency-review.png")
     page.get_by_role("button", name="Open evidence in workspace", exact=True).click()
     expect(page.locator(".evidence-drawer")).to_be_visible()

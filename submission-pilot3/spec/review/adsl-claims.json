@@ -201,18 +201,18 @@
             "quote": "SV.SVSTDTC when SV.VISITNUM=3"
           },
           "spec": {
-            "element": "EX_FIRST",
-            "quote": "dataset: EX"
+            "element": "EX_MINDTC",
+            "quote": "MIN(EX.EXSTDTC)"
           },
-          "note": "The specification obtains the first exposure record rather than the Visit 3 subject-visit record."
+          "note": "The specification takes the earliest EX start date rather than the Visit 3 subject-visit date."
         },
         {
           "relation": "absent_in_document",
           "spec": {
             "element": "TRTSDT",
-            "quote": "month: 1 day: last"
+            "quote": "month: 1 day: 1"
           },
-          "note": "The specification completes a missing month and day; the ADSL rule only states date conversion. The ADRG partial-date rule is specific to ADAE.ASTDT."
+          "note": "The specification completes a missing month and day with January and day 1; the ADSL rule only states date conversion. The ADRG partial-date rule is specific to ADAE.ASTDT."
         }
       ],
       "probes": [
@@ -240,40 +240,36 @@
       ],
       "clauses": [
         {
-          "relation": "differs",
+          "relation": "same",
           "document": {
             "citation": 1,
             "quote": "EX.EXENDTC on the subject's last EX record"
           },
           "spec": {
-            "element": "TRTEDT",
-            "quote": "expr: MAX(EXENDT_CAPPED)"
+            "element": "LAST_EXENDTC",
+            "quote": "derivation: LAST_EX.EXENDTC"
           },
-          "note": "The specification takes the maximum of capped exposure dates rather than the end date on the last exposure record."
+          "note": "LAST_EX keeps the subject's last EX record by EXSEQ, and TRTEDT converts its EXENDTC when present."
         },
         {
-          "relation": "absent_in_spec",
+          "relation": "differs",
           "document": {
             "citation": 1,
             "quote": "If the date of final dose is missing for the subject and the subject discontinued after visit 3"
           },
-          "note": "The aggregate does not condition use of discontinuation date on missing final dose and discontinuation after Visit 3."
+          "spec": {
+            "element": "TRTEDT",
+            "quote": "LAST_EXENDTC IS NULL OR LAST_EXENDTC = ''"
+          },
+          "note": "The specification falls back on DS_DISP.DSSTDTC, the first disposition event's date, whenever the last end date is missing, without requiring that the subject discontinued after Visit 3."
         },
         {
           "relation": "absent_in_document",
           "spec": {
             "element": "TRTEDT",
-            "quote": "least: sources: - EXENDT_RAW - EOSDT"
+            "quote": "source: LAST_EXENDTC month: 1 day: 1"
           },
-          "note": "The specification caps exposure end dates at disposition date; the documented rule uses discontinuation only as a conditional fallback."
-        },
-        {
-          "relation": "absent_in_document",
-          "spec": {
-            "element": "TRTEDT",
-            "quote": "source: EX.EXENDTC, month: 1, day: last"
-          },
-          "note": "The retained ADSL rule does not state partial-date completion for exposure end dates."
+          "note": "The specification completes partial end dates with January and day 1; the retained ADSL rule does not state partial-date completion for exposure end dates."
         }
       ],
       "probes": [
@@ -287,8 +283,8 @@
         "Discontinuation means a non-COMPLETED disposition event whose VISITNUM exceeds 3; the earliest disposition record is used when multiple events exist.",
         "Incomplete dates remain missing; no general treatment-date completion policy is stated."
       ],
-      "assessment": "The documented conditional fallback differs from the implemented maximum and per-exposure disposition-date capping.",
-      "question": "Confirm last-record ordering, the disposition event selection, and whether end dates are to be capped or replaced only under the documented fallback."
+      "assessment": "The specification reads the documented last-record end date, but falls back on the first disposition date whenever that date is missing, without the documented discontinued-after-Visit-3 condition.",
+      "question": "Confirm the disposition event selection and whether the fallback requires discontinuation after Visit 3."
     },
     {
       "variable": "TRTDURD",
@@ -308,9 +304,10 @@
             "quote": "TRTEDT-TRTSDT+1"
           },
           "spec": {
-            "element": "TRTDURD",
+            "element": "TRTDUR",
             "quote": "start: TRTSDT end: TRTEDT unit: day closed: both"
-          }
+          },
+          "note": "TRTDURD copies TRTDUR, the inclusive day difference from TRTSDT to TRTEDT."
         }
       ],
       "probes": [
@@ -346,26 +343,26 @@
             "quote": "For ARMN=0 or 1: CUMDOSE=TRT01PN*TRTDUR. --- For ARMN=2: CUMDOSE will be based on 54mg per day for the # of days subj was in 1st dosing interval (i.e., visit4date-TRTSTDT+1 if 1st interval completed, TRTEDT-TRTSTDT+1 if subj discontinued <=visit 4 and > visit 3), 81mg per day for the # of days subj was in 2nd dosing interval (i.e., visit12date-visit4date if 2nd interval completed, TRTEDT-visit4date if subj discontinued <= visit 12 and > visit 4), and 54mg per day for the # of days subj was in 3rd dosing interval (i.e., TRTEDT - visit12date if subj continued after visit 12)."
           },
           "spec": {
-            "element": "CUMDOSE",
-            "quote": "expr: SUM(EXDOSE_TOTAL)"
+            "element": "CUMDOSE_BASE",
+            "quote": "SUM(EX.EXDOSE * (EX.EXENDY - EX.EXSTDY + 1))"
           },
-          "note": "The retained rule uses treatment-arm groups and visit-defined intervals; the specification sums exposure-dose records."
+          "note": "The retained rule uses treatment-arm groups and visit-defined intervals; the specification sums dose times study-day span over the exposure records."
         },
         {
           "relation": "absent_in_document",
           "spec": {
-            "element": "CUMDOSE",
-            "quote": "least: sources: - EXENDT_RAW - EOSDT"
+            "element": "LAST_EX_DAYS",
+            "quote": "when: \"LAST_EXENDTC IS NULL OR LAST_EXENDTC = ''\" then: diff: type: date start: LAST_EXSTDTC_DT end: TRTEDT"
           },
-          "note": "The specification caps each exposure interval at disposition date, which is not stated by the visit-interval formula."
+          "note": "When the last EX record has no end date, the specification counts its dose through TRTEDT, which the visit-interval formula does not state."
         },
         {
           "relation": "absent_in_document",
           "spec": {
-            "element": "CUMDOSE",
-            "quote": "source: EX.EXSTDTC, month: 1, day: last"
+            "element": "LAST_EXSTDTC_DT",
+            "quote": "source: LAST_EXSTDTC month: 1 day: 1"
           },
-          "note": "The specification completes partial exposure dates before calculating interval lengths; the quoted dose formula states no such date completion."
+          "note": "The specification completes a partial start date of the last exposure record before counting its days; the quoted dose formula states no such date completion."
         }
       ],
       "not_probed_reason": "The literal rule requires ARMN values 0, 1 and 2, TRTDUR and TRTSTDT, none of which is a published ADSL variable in this study. The retained codelist instead assigns TRT01PN values 0, 54 and 81, and the dataset names duration TRTDURD and first-dose date TRTSDT; no supported document explicitly defines the required aliases or recoding.",
@@ -402,9 +399,9 @@
           },
           "spec": {
             "element": "AVGDD_RAW",
-            "quote": "CUMDOSE / NULLIF(TRTDURD, 0)"
+            "quote": "CUMDOSE / NULLIF(TRTDUR, 0)"
           },
-          "note": "The arithmetic agrees for nonzero duration."
+          "note": "The arithmetic agrees for nonzero duration; TRTDUR is the duration TRTDURD copies."
         },
         {
           "relation": "same",
@@ -414,15 +411,15 @@
           },
           "spec": {
             "element": "AVGDD",
-            "quote": "round_half_away_from_zero: source: AVGDD_RAW digits: 1"
+            "quote": "FLOOR(AVGDD_RAW * 10 + 0.5) / 10"
           },
-          "note": "The documented precision is read as one decimal place."
+          "note": "The documented precision is read as one decimal place; rounding half up equals half away from zero for a nonnegative dose."
         },
         {
           "relation": "absent_in_document",
           "spec": {
             "element": "AVGDD_RAW",
-            "quote": "NULLIF(TRTDURD, 0)"
+            "quote": "NULLIF(TRTDUR, 0)"
           },
           "note": "The implementation explicitly returns a missing denominator when duration is zero; the retained rule states only division."
         }
@@ -463,7 +460,7 @@
           },
           "spec": {
             "element": "AGEGR1",
-            "quote": "when: DM.AGE < 65"
+            "quote": "when: \"DM.AGE < 65\""
           },
           "note": "The specification computes the character group from age and then obtains its numeric code, reversing the documented source dependency."
         }
@@ -583,16 +580,16 @@
       ],
       "clauses": [
         {
-          "relation": "differs",
+          "relation": "same",
           "document": {
             "citation": 1,
             "quote": "ITTFL='Y' and TRTSDT ne missing"
           },
           "spec": {
             "element": "SAFFL",
-            "quote": "DM.ARMCD <> 'Scrnfail' AND DM.ARMCD <> '' AND TRTSDT IS NOT NULL"
+            "quote": "ITTFL = 'Y' AND TRTSDT IS NOT NULL"
           },
-          "note": "The specification directly tests ARMCD with an additional screen-failure exclusion instead of reading ITTFL."
+          "note": "The specification reads ITTFL and TRTSDT as documented."
         },
         {
           "relation": "same",
@@ -616,8 +613,8 @@
       "interpretations": [
         "The literal probe reads published ITTFL and TRTSDT, isolating the safety-flag rule from upstream derivation choices."
       ],
-      "assessment": "The population description is compatible with first exposure, while the implementation expands the ITTFL condition into its own ARMCD predicates.",
-      "question": "Confirm the ARMCD expansion and align the safety definition with the selected ITTFL rule."
+      "assessment": "The specification states the documented ITTFL and TRTSDT predicate, and first exposure is compatible with the ADRG population description.",
+      "question": ""
     },
     {
       "variable": "ITTFL",
@@ -636,16 +633,16 @@
       ],
       "clauses": [
         {
-          "relation": "differs",
+          "relation": "same",
           "document": {
             "citation": 1,
             "quote": "Y if ARMCD ne ' '. N otherwise"
           },
           "spec": {
             "element": "ITTFL",
-            "quote": "DM.ARMCD <> 'Scrnfail' AND DM.ARMCD <> ''"
+            "quote": "DM.ARMCD <> ''"
           },
-          "note": "The specification adds a screen-failure exclusion to the documented nonblank-arm predicate."
+          "note": "Both test for a nonblank ARMCD; a value of only spaces would be blank in SAS but not under the comparison with empty text."
         }
       ],
       "probes": [
@@ -657,10 +654,10 @@
       "interpretations": [
         "The literal probe treats empty ARMCD and a single SAS blank as blank.",
         "The ADRG describes the intended population as randomized patients but does not define an ARMCD-to-randomization mapping.",
-        "The dataset-level screen-failure filter limits which subjects can exhibit this predicate difference."
+        "The row filter DM.ACTARM <> 'Screen Failure' removes screen failures before this flag is derived."
       ],
-      "assessment": "The literal ARMCD predicate and implemented explicit screen-failure condition are stated differently; the ADRG gives a broader population description.",
-      "question": "Clarify how randomized status is identified and state the screen-failure condition explicitly if required."
+      "assessment": "The specification states the documented nonblank-ARMCD predicate; the ADRG gives a broader population description.",
+      "question": "Clarify how randomized status is identified."
     },
     {
       "variable": "EFFFL",
@@ -685,16 +682,16 @@
           }
         },
         {
-          "relation": "differs",
+          "relation": "same",
           "document": {
             "citation": 1,
             "quote": "at least one record in QS for ADAS-Cog with VISITNUM>3"
           },
           "spec": {
-            "element": "N_ACTOT",
-            "quote": "QS.VISITNUM > 3 AND QS.QSTESTCD = 'ACTOT'"
+            "element": "QS_ADAS",
+            "quote": "QS.QSCAT = 'ALZHEIMER''S DISEASE ASSESSMENT SCALE' AND QS.VISITNUM > 3"
           },
-          "note": "The implementation requires the ADAS-Cog total-score test rather than any record in the named questionnaire."
+          "note": "The specification requires any post-Visit-3 record in the ADAS-Cog questionnaire category."
         },
         {
           "relation": "same",
@@ -703,10 +700,10 @@
             "quote": "at least one record in QS for CIBIC+ with VISITNUM>3"
           },
           "spec": {
-            "element": "N_CIBIC",
-            "quote": "QS.VISITNUM > 3 AND QS.QSTESTCD = 'CIBIC'"
+            "element": "QS_CIBIC",
+            "quote": "QS.QSCAT = 'CLINICIAN''S INTERVIEW-BASED IMPRESSION OF CHANGE (CIBIC+)' AND QS.VISITNUM > 3"
           },
-          "note": "CIBIC identifies the stated questionnaire assessment in the implemented test-code selection."
+          "note": "The specification requires any post-Visit-3 record in the CIBIC+ questionnaire category."
         }
       ],
       "probes": [
@@ -719,8 +716,8 @@
         "The missing closing quote after SAFFL=Y is treated as a typographical omission.",
         "ADAS-Cog and CIBIC+ identify questionnaire categories in QSCAT; the probe requires a qualifying record from each category."
       ],
-      "assessment": "The implementation narrows the ADAS-Cog evidence to ACTOT, while the literal text names a questionnaire record.",
-      "question": "Confirm whether efficacy requires any ADAS-Cog questionnaire record or specifically its total score."
+      "assessment": "The specification requires a post-Visit-3 record in each named questionnaire category, as documented.",
+      "question": ""
     },
     {
       "variable": "COMP8FL",
@@ -740,17 +737,21 @@
             "quote": "SV.VISITNUM=8"
           },
           "spec": {
-            "element": "N_WK8",
-            "quote": "filter: SV.VISITNUM = 8"
+            "element": "SV8",
+            "quote": "SV.VISITNUM = 8"
           }
         },
         {
-          "relation": "absent_in_spec",
+          "relation": "differs",
           "document": {
             "citation": 1,
             "quote": "ENDDT >= date of visit 8"
           },
-          "note": "The flag checks visit existence only and does not compare any end date with the visit date."
+          "spec": {
+            "element": "COMP8FL",
+            "quote": "RFENDT >= SV8DT"
+          },
+          "note": "The specification compares RFENDT with the Visit 8 date; the document names ENDDT, which no supported section defines."
         }
       ],
       "not_probed_reason": "ENDDT is not a published ADSL variable or a defined identifier in the supported study sections. RFENDT and TRTEDT are distinct documented dates, and no supported statement identifies which, if either, ENDDT denotes.",
@@ -758,8 +759,8 @@
         "The retained workbook repeats ENDDT without defining its source.",
         "The shared SAP applicability is marked pending_review, so an external completer definition is not asserted as governing this study."
       ],
-      "assessment": "The specification omits the stated end-date condition; the documented condition itself lacks a defined date source.",
-      "question": "Define ENDDT and decide whether to add the stated end-date comparison to the completer flag."
+      "assessment": "The specification compares RFENDT with the visit date for the stated end-date condition; the document's ENDDT has no defined source.",
+      "question": "Define ENDDT and confirm whether it is the RFENDT the specification compares."
     },
     {
       "variable": "COMP16FL",
@@ -779,17 +780,21 @@
             "quote": "SV.VISITNUM=10"
           },
           "spec": {
-            "element": "N_WK16",
-            "quote": "filter: SV.VISITNUM = 10"
+            "element": "SV10",
+            "quote": "SV.VISITNUM = 10"
           }
         },
         {
-          "relation": "absent_in_spec",
+          "relation": "differs",
           "document": {
             "citation": 1,
             "quote": "ENDDT>=date of visit 10"
           },
-          "note": "The flag checks visit existence only and does not compare any end date with the visit date."
+          "spec": {
+            "element": "COMP16FL",
+            "quote": "RFENDT >= SV10DT"
+          },
+          "note": "The specification compares RFENDT with the Visit 10 date; the document names ENDDT, which no supported section defines."
         }
       ],
       "not_probed_reason": "ENDDT is not a published ADSL variable or a defined identifier in the supported study sections. RFENDT and TRTEDT are distinct documented dates, and no supported statement identifies which, if either, ENDDT denotes.",
@@ -797,8 +802,8 @@
         "The retained workbook repeats ENDDT without defining its source.",
         "The shared SAP applicability is marked pending_review, so an external completer definition is not asserted as governing this study."
       ],
-      "assessment": "The specification omits the stated end-date condition; the documented condition itself lacks a defined date source.",
-      "question": "Define ENDDT and decide whether to add the stated end-date comparison to the completer flag."
+      "assessment": "The specification compares RFENDT with the visit date for the stated end-date condition; the document's ENDDT has no defined source.",
+      "question": "Define ENDDT and confirm whether it is the RFENDT the specification compares."
     },
     {
       "variable": "COMP24FL",
@@ -818,17 +823,21 @@
             "quote": "SV.VISITNUM=12"
           },
           "spec": {
-            "element": "N_WK24",
-            "quote": "filter: SV.VISITNUM = 12"
+            "element": "SV12",
+            "quote": "SV.VISITNUM = 12"
           }
         },
         {
-          "relation": "absent_in_spec",
+          "relation": "differs",
           "document": {
             "citation": 1,
             "quote": "ENDDT>= date of visit 12"
           },
-          "note": "The flag checks visit existence only and does not compare any end date with the visit date."
+          "spec": {
+            "element": "COMP24FL",
+            "quote": "RFENDT >= SV12DT"
+          },
+          "note": "The specification compares RFENDT with the Visit 12 date; the document names ENDDT, which no supported section defines."
         }
       ],
       "not_probed_reason": "ENDDT is not a published ADSL variable or a defined identifier in the supported study sections. RFENDT and TRTEDT are distinct documented dates, and no supported statement identifies which, if either, ENDDT denotes.",
@@ -836,8 +845,8 @@
         "The retained workbook repeats ENDDT without defining its source.",
         "The shared SAP applicability is marked pending_review, so an external completer definition is not asserted as governing this study."
       ],
-      "assessment": "The specification omits the stated end-date condition; the documented condition itself lacks a defined date source.",
-      "question": "Define ENDDT and decide whether to add the stated end-date comparison to the completer flag."
+      "assessment": "The specification compares RFENDT with the visit date for the stated end-date condition; the document's ENDDT has no defined source.",
+      "question": "Define ENDDT and confirm whether it is the RFENDT the specification compares."
     },
     {
       "variable": "DISCONFL",
@@ -861,26 +870,26 @@
       ],
       "clauses": [
         {
-          "relation": "differs",
+          "relation": "same",
           "document": {
             "citation": 1,
             "quote": "DCREASCD ^= 'Completed'"
           },
           "spec": {
             "element": "DISCONFL",
-            "quote": "DS_EOS.DSSTDTC IS NOT NULL AND DS_EOS.DSDECOD <> 'COMPLETED'"
+            "quote": "DCREASCD <> 'Completed'"
           },
-          "note": "The retained metadata binds the legacy DCREASCD method to published DCSREAS. The documented flag reads that grouped reason, while the implementation directly tests a selected disposition event."
+          "note": "The specification tests its unpublished grouped reason DCREASCD, which keeps Completed before DCSREAS blanks it; a missing DCREASCD falls to the blank branch, where SAS ^= would give Y."
         }
       ],
       "interpretations": [
         "The old DCREASCD identifier is read as published DCSREAS because retained Define-XML ItemRef IT.ADSL.DCSREAS explicitly references MT.ADSL.DCREASCD, and workbook Variables row 190 makes the same variable-to-method association. The citable DCSREAS section carries that method and its grouped-reason codelist.",
-        "The specification also chooses the earliest non-screen-failure disposition event; the flag comment does not define record selection.",
+        "The specification takes the disposition event with the lowest DSSEQ; the flag comment does not define record selection.",
         "Null otherwise is represented as an unpopulated SAS character flag serialized as empty text.",
         "The comparison is preserved exactly against the documented Completed or Adverse Event label; the grouped source is read from REF to isolate this flag from upstream mapping choices."
       ],
       "assessment": "The legacy name can be linked to the published grouped reason through its retained method binding, making the documented predicate executable without substituting the implementation predicate.",
-      "question": "Confirm the legacy DCREASCD naming and whether the documented grouped-reason predicate should govern rather than the direct disposition-event predicate.",
+      "question": "Confirm that the legacy DCREASCD name denotes the grouped reason published as DCSREAS.",
       "probes": [
         {
           "column": "DISCONFL",
@@ -910,26 +919,26 @@
       ],
       "clauses": [
         {
-          "relation": "differs",
+          "relation": "same",
           "document": {
             "citation": 1,
             "quote": "DCREASCD='Adverse Event'"
           },
           "spec": {
             "element": "DSRAEFL",
-            "quote": "DS_EOS.DSDECOD = 'ADVERSE EVENT'"
+            "quote": "DCREASCD = 'Adverse Event'"
           },
-          "note": "The retained metadata binds the legacy DCREASCD method to published DCSREAS. The documented flag reads that grouped reason, while the implementation directly tests a selected disposition event."
+          "note": "The specification tests its unpublished grouped reason DCREASCD, as documented."
         }
       ],
       "interpretations": [
         "The old DCREASCD identifier is read as published DCSREAS because retained Define-XML ItemRef IT.ADSL.DCSREAS explicitly references MT.ADSL.DCREASCD, and workbook Variables row 190 makes the same variable-to-method association. The citable DCSREAS section carries that method and its grouped-reason codelist.",
-        "The specification also chooses the earliest non-screen-failure disposition event; the flag comment does not define record selection.",
+        "The specification takes the disposition event with the lowest DSSEQ; the flag comment does not define record selection.",
         "Null otherwise is represented as an unpopulated SAS character flag serialized as empty text.",
         "The comparison is preserved exactly against the documented Completed or Adverse Event label; the grouped source is read from REF to isolate this flag from upstream mapping choices."
       ],
       "assessment": "The legacy name can be linked to the published grouped reason through its retained method binding, making the documented predicate executable without substituting the implementation predicate.",
-      "question": "Confirm the legacy DCREASCD naming and whether the documented grouped-reason predicate should govern rather than the direct disposition-event predicate.",
+      "question": "Confirm that the legacy DCREASCD name denotes the grouped reason published as DCSREAS.",
       "probes": [
         {
           "column": "DSRAEFL",
@@ -960,8 +969,8 @@
             "quote": "VS.VSTESTCD='HEIGHT' and VS.VISITNUM=1"
           },
           "spec": {
-            "element": "VS_HT",
-            "quote": "filter: VS.VSTESTCD = 'HEIGHT' AND VS.VISITNUM = 1"
+            "element": "BASE_HT",
+            "quote": "VS.VSTESTCD = 'HEIGHT' AND VS.VISITNUM = 1"
           }
         },
         {
@@ -971,8 +980,8 @@
             "quote": "VSSTRESN"
           },
           "spec": {
-            "element": "HEIGHTBL_RAW",
-            "quote": "derivation: VS_HT.VSSTRESN"
+            "element": "HEIGHTBL",
+            "quote": "BASE_HT.VSSTRESN"
           }
         },
         {
@@ -983,17 +992,17 @@
           },
           "spec": {
             "element": "HEIGHTBL",
-            "quote": "round_half_away_from_zero: source: HEIGHTBL_RAW digits: 1"
+            "quote": "FLOOR(BASE_HT.VSSTRESN * 10 + 0.5) / 10"
           },
-          "note": "The precision field is read as one decimal place."
+          "note": "The precision field is read as one decimal place; rounding half up equals half away from zero for a positive height."
         },
         {
           "relation": "absent_in_document",
           "spec": {
-            "element": "VS_HT",
-            "quote": "order_by: - variable: VS.VSDTC nulls: last keep: first"
+            "element": "BASE_HT",
+            "quote": "order_by: - variable: VS.VISITNUM nulls: last keep: first"
           },
-          "note": "The specification chooses the earliest qualifying assessment when duplicates exist; the retained rule does not state a tie-break."
+          "note": "The specification keeps the first Visit 1 HEIGHT record in VISITNUM order when several exist; the retained rule does not state a tie-break."
         }
       ],
       "probes": [
@@ -1006,8 +1015,8 @@
         "Significant digits: 1 is interpreted as one decimal place, half away from zero.",
         "If multiple records meet the stated selection, the probe reads the earliest VSDTC; the selection is an open choice."
       ],
-      "assessment": "The source and visit conditions agree; the specification adds a record-order choice not stated by the method.",
-      "question": "Confirm which record should supply baseline when multiple assessments meet the stated condition."
+      "assessment": "The source and test code agree with the documented Visit 1 selection, with an additional record-order choice.",
+      "question": "Confirm which Visit 1 HEIGHT record should govern when several qualify."
     },
     {
       "variable": "WEIGHTBL",
@@ -1032,8 +1041,8 @@
             "quote": "VS.VSTESTCD='WEIGHT' and VS.VISITNUM=3"
           },
           "spec": {
-            "element": "VS_WT",
-            "quote": "filter: VS.VSTESTCD = 'WEIGHT' AND VS.VISITNUM = 3"
+            "element": "BASE_WT",
+            "quote": "VS.VSTESTCD = 'WEIGHT' AND VS.VISITNUM = 3"
           }
         },
         {
@@ -1043,8 +1052,8 @@
             "quote": "VSSTRESN"
           },
           "spec": {
-            "element": "WEIGHTBL_RAW",
-            "quote": "derivation: VS_WT.VSSTRESN"
+            "element": "WEIGHTBL",
+            "quote": "BASE_WT.VSSTRESN"
           }
         },
         {
@@ -1055,17 +1064,17 @@
           },
           "spec": {
             "element": "WEIGHTBL",
-            "quote": "round_half_away_from_zero: source: WEIGHTBL_RAW digits: 1"
+            "quote": "FLOOR(BASE_WT.VSSTRESN * 10 + 0.5) / 10"
           },
-          "note": "The precision field is read as one decimal place."
+          "note": "The precision field is read as one decimal place; rounding half up equals half away from zero for a positive weight."
         },
         {
           "relation": "absent_in_document",
           "spec": {
-            "element": "VS_WT",
-            "quote": "order_by: - variable: VS.VSDTC nulls: last keep: first"
+            "element": "BASE_WT",
+            "quote": "order_by: - variable: VS.VISITNUM nulls: last keep: first"
           },
-          "note": "The specification chooses the earliest qualifying assessment when duplicates exist; the retained rule does not state a tie-break."
+          "note": "The specification keeps the first Visit 3 WEIGHT record in VISITNUM order when several exist; the retained rule does not state a tie-break."
         }
       ],
       "probes": [
@@ -1078,8 +1087,8 @@
         "Significant digits: 1 is interpreted as one decimal place, half away from zero.",
         "If multiple records meet the stated selection, the probe reads the earliest VSDTC; the selection is an open choice."
       ],
-      "assessment": "The source and visit conditions agree; the specification adds a record-order choice not stated by the method.",
-      "question": "Confirm which record should supply baseline when multiple assessments meet the stated condition."
+      "assessment": "The source and test code agree with the documented Visit 3 selection, with an additional record-order choice.",
+      "question": "Confirm which Visit 3 WEIGHT record should govern when several qualify."
     },
     {
       "variable": "BMIBL",
@@ -1117,9 +1126,9 @@
           },
           "spec": {
             "element": "BMIBL",
-            "quote": "round_half_away_from_zero: source: BMIBL_RAW digits: 1"
+            "quote": "FLOOR(BMIBL_RAW * 10 + 0.5) / 10"
           },
-          "note": "The precision field is read as one decimal place."
+          "note": "The precision field is read as one decimal place; rounding half up equals half away from zero for a positive BMI."
         },
         {
           "relation": "absent_in_document",
@@ -1220,7 +1229,7 @@
           },
           "spec": {
             "element": "EDUCLVL",
-            "quote": "derivation: SC_ED.SCSTRESN"
+            "quote": "derivation: SC_EDU.SCSTRESN"
           }
         },
         {
@@ -1230,17 +1239,17 @@
             "quote": "SC.SCTESTCD=EDLEVEL"
           },
           "spec": {
-            "element": "SC_ED",
-            "quote": "filter: SC.SCTESTCD = 'EDLEVEL'"
+            "element": "SC_EDU",
+            "quote": "SC.SCTESTCD = 'EDLEVEL'"
           }
         },
         {
           "relation": "absent_in_document",
           "spec": {
-            "element": "SC_ED",
-            "quote": "order_by: - variable: SC.SCDTC nulls: last keep: first"
+            "element": "SC_EDU",
+            "quote": "order_by: - variable: SC.SCSEQ nulls: last keep: first"
           },
-          "note": "The specification chooses the earliest qualifying characteristic record; the retained rule does not select among repeats."
+          "note": "The specification keeps the lowest-SCSEQ qualifying characteristic record; the retained rule does not select among repeats."
         }
       ],
       "probes": [
@@ -1275,7 +1284,7 @@
           },
           "spec": {
             "element": "MH_DX",
-            "quote": "filter: MH.MHCAT = 'PRIMARY DIAGNOSIS'"
+            "quote": "MH.MHCAT = 'PRIMARY DIAGNOSIS'"
           }
         },
         {
@@ -1285,9 +1294,10 @@
             "quote": "MH.MHSTDTC"
           },
           "spec": {
-            "element": "DISONSDT",
-            "quote": "source: MH_DX.MHSTDTC"
-          }
+            "element": "MH_DTC",
+            "quote": "derivation: MH_DX.MHSTDTC"
+          },
+          "note": "DISONSDT converts MH_DTC, the primary-diagnosis MHSTDTC."
         },
         {
           "relation": "absent_in_document",
@@ -1301,9 +1311,9 @@
           "relation": "absent_in_document",
           "spec": {
             "element": "MH_DX",
-            "quote": "order_by: - variable: MH.MHSTDTC nulls: last keep: first"
+            "quote": "order_by: - variable: MH.MHSEQ nulls: last keep: first"
           },
-          "note": "The specification chooses the earliest primary-diagnosis record; the retained rule does not resolve multiple qualifying dates."
+          "note": "The specification keeps the lowest-MHSEQ primary-diagnosis record; the retained rule does not resolve multiple qualifying dates."
         }
       ],
       "probes": [
@@ -1337,8 +1347,8 @@
             "quote": "SV.VISITNUM=1"
           },
           "spec": {
-            "element": "SV_V1",
-            "quote": "filter: SV.VISITNUM = 1"
+            "element": "SV1",
+            "quote": "SV.VISITNUM = 1"
           }
         },
         {
@@ -1348,9 +1358,10 @@
             "quote": "SV.SVSTDTC"
           },
           "spec": {
-            "element": "VISIT1DT",
-            "quote": "source: SV_V1.SVSTDTC"
-          }
+            "element": "SV1_DTC",
+            "quote": "derivation: SV1.SVSTDTC"
+          },
+          "note": "VISIT1DT converts SV1_DTC, the Visit 1 SVSTDTC."
         },
         {
           "relation": "absent_in_document",
@@ -1363,10 +1374,10 @@
         {
           "relation": "absent_in_document",
           "spec": {
-            "element": "SV_V1",
-            "quote": "order_by: - variable: SV.SVSTDTC nulls: last keep: first"
+            "element": "SV1",
+            "quote": "order_by: - variable: SV.VISITNUM nulls: last keep: first"
           },
-          "note": "The specification chooses the earliest Visit 1 start date if records repeat; no tie-break is stated."
+          "note": "The specification keeps the first Visit 1 record, and ordering by VISITNUM does not distinguish repeated Visit 1 records; no tie-break is stated."
         }
       ],
       "probes": [
@@ -1405,7 +1416,7 @@
             "quote": "VISIT1DT and DISONSET"
           },
           "spec": {
-            "element": "DURDISD",
+            "element": "DURDIS_DAYS",
             "quote": "start: DISONSDT end: VISIT1DT"
           },
           "note": "The implementation reads DISONSDT rather than the undefined DISONSET identifier."
@@ -1413,7 +1424,7 @@
         {
           "relation": "absent_in_document",
           "spec": {
-            "element": "DURDISD",
+            "element": "DURDIS_DAYS",
             "quote": "unit: day closed: both"
           },
           "note": "The retained rule does not specify inclusive day counting."
@@ -1421,8 +1432,8 @@
         {
           "relation": "absent_in_document",
           "spec": {
-            "element": "DURDIS_RAW",
-            "quote": "derivation: DURDISD / 30.4375"
+            "element": "DURDIS",
+            "quote": "DURDIS_DAYS / 30.4375"
           },
           "note": "The retained rule does not define months using this average day divisor."
         },
@@ -1434,9 +1445,9 @@
           },
           "spec": {
             "element": "DURDIS",
-            "quote": "round_half_away_from_zero: source: DURDIS_RAW digits: 1"
+            "quote": "FLOOR(DURDIS_DAYS / 30.4375 * 10 + 0.5) / 10"
           },
-          "note": "The precision field is read as one decimal place."
+          "note": "The precision field is read as one decimal place; rounding half up equals half away from zero for a nonnegative duration."
         }
       ],
       "not_probed_reason": "The rule names DISONSET, which is not a published ADSL variable and is not explicitly equated to DISONSDT in the supported sections or inspected workbook. It also does not define month arithmetic, day-count inclusivity or the month-length convention.",
@@ -1472,8 +1483,16 @@
           },
           "spec": {
             "element": "DURDSGR1",
-            "quote": "source: DURDIS breaks: - 12 labels: - <12 - '>=12'"
+            "quote": "when: \"DURDIS < 12\" then: \"'<12'\" - otherwise: \"'>=12'\""
           }
+        },
+        {
+          "relation": "absent_in_document",
+          "spec": {
+            "element": "DURDSGR1",
+            "quote": "otherwise: \"'>=12'\""
+          },
+          "note": "The otherwise branch also assigns >=12 when DURDIS is missing; the document groups only DURDIS values."
         }
       ],
       "probes": [
@@ -1485,8 +1504,8 @@
       "interpretations": [
         "A missing duration is left without a group."
       ],
-      "assessment": "The cut threshold and labels match the documented groups.",
-      "question": ""
+      "assessment": "The threshold and labels match the documented groups; the specification also places a missing duration in >=12.",
+      "question": "Confirm how a missing disease duration should be grouped."
     },
     {
       "variable": "VISNUMEN",
@@ -1506,10 +1525,10 @@
             "quote": "DS.VISITNUM where DSTERM='PROTCOL COMPLETED'"
           },
           "spec": {
-            "element": "SV_LAST",
-            "quote": "dataset: SV"
+            "element": "DS_VISITNUM",
+            "quote": "derivation: DS_DISP.VISITNUM"
           },
-          "note": "The specification reads the latest qualifying SV record, rather than the named DS record and literal completion term."
+          "note": "The specification reads VISITNUM from the disposition event with the lowest DSSEQ, without the literal DSTERM condition."
         },
         {
           "relation": "same",
@@ -1519,25 +1538,9 @@
           },
           "spec": {
             "element": "VISNUMEN",
-            "quote": "when: VISNUMEN_ROUND = 13 then: 12"
+            "quote": "when: \"DS_VISITNUM = 13\" then: 12"
           },
-          "note": "Both remap the selected visit from 13 to 12."
-        },
-        {
-          "relation": "absent_in_document",
-          "spec": {
-            "element": "SV_LAST",
-            "quote": "filter: SV.VISITNUM < 100"
-          },
-          "note": "The specification excludes visits at or above 100; the retained method states no such cutoff."
-        },
-        {
-          "relation": "absent_in_document",
-          "spec": {
-            "element": "VISNUMEN_ROUND",
-            "quote": "round_half_away_from_zero: source: SV_LAST.VISITNUM digits: 0"
-          },
-          "note": "The specification rounds the selected visit number; the retained method states no rounding."
+          "note": "Both remap visit 13 to 12."
         }
       ],
       "probes": [
@@ -1550,8 +1553,8 @@
         "PROTCOL is preserved literally; the supported retained sections and workbook do not provide another spelling of the governing rule.",
         "If multiple matching completion records exist, the probe reads the greatest DSSEQ; the retained method leaves this choice open."
       ],
-      "assessment": "The documented disposition source, literal term and implemented visit-based selection are different.",
-      "question": "Correct or confirm the completion-term spelling and decide whether the end visit should come from DS or SV."
+      "assessment": "Both read the end visit from DS, but the specification takes the first disposition event rather than the record with the literal completion term.",
+      "question": "Correct or confirm the completion-term spelling and decide whether the end visit comes from the completion record or the first disposition event."
     },
     {
       "variable": "RFENDT",
@@ -1577,9 +1580,9 @@
           },
           "spec": {
             "element": "RFENDT",
-            "quote": "source: DM.RFENDTC"
+            "quote": "source: RFENDTC"
           },
-          "note": "The upstream RFENDTC copy is documented as DM.RFENDTC."
+          "note": "The specification converts its RFENDTC copy, which reads DM.RFENDTC as documented."
         },
         {
           "relation": "absent_in_document",
@@ -1621,7 +1624,7 @@
           },
           "spec": {
             "element": "DCDECOD",
-            "quote": "derivation: DS_EOS.DSDECOD"
+            "quote": "derivation: DS_DISP.DSDECOD"
           }
         },
         {
@@ -1631,25 +1634,17 @@
             "quote": "DSCAT='DISPOSITION EVENT'"
           },
           "spec": {
-            "element": "DS_EOS",
+            "element": "DS_DISP",
             "quote": "DS.DSCAT = 'DISPOSITION EVENT'"
           }
         },
         {
           "relation": "absent_in_document",
           "spec": {
-            "element": "DS_EOS",
-            "quote": "DS.DSDECOD <> 'SCREEN FAILURE'"
+            "element": "DS_DISP",
+            "quote": "order_by: - variable: DS.DSSEQ nulls: last keep: first"
           },
-          "note": "The implementation adds a source-record exclusion not stated by the variable method."
-        },
-        {
-          "relation": "absent_in_document",
-          "spec": {
-            "element": "DS_EOS",
-            "quote": "order_by: - variable: DS.DSSTDTC nulls: last keep: first"
-          },
-          "note": "The implementation chooses the earliest disposition record; the retained method does not select among repeats."
+          "note": "The implementation keeps the lowest-DSSEQ disposition event; the retained method does not select among repeats."
         }
       ],
       "probes": [
@@ -1659,11 +1654,10 @@
         }
       ],
       "interpretations": [
-        "If multiple disposition events qualify, the earliest DSSTDTC is used by the probe; the retained text leaves this choice open.",
-        "The official ADSL population and codelist can make the screen-failure exclusion redundant on the staged subjects; the condition is still not in the quoted method."
+        "If multiple disposition events qualify, the earliest DSSTDTC is used by the probe; the retained text leaves this choice open."
       ],
       "assessment": "The source and category match, with additional source-selection choices in the specification.",
-      "question": "Document which disposition record governs and confirm the screen-failure exclusion."
+      "question": "Document which disposition record governs when several qualify."
     },
     {
       "variable": "EOSSTT",
@@ -1689,9 +1683,9 @@
           },
           "spec": {
             "element": "EOSSTT",
-            "quote": "when: DS_EOS.DSDECOD = 'COMPLETED' then: \"'COMPLETED'\""
+            "quote": "when: DCDECOD = 'COMPLETED' then: \"'COMPLETED'\""
           },
-          "note": "The specification reads the same selected DSDECOD that supplies DCDECOD."
+          "note": "The specification reads DCDECOD, as documented."
         },
         {
           "relation": "same",
@@ -1737,23 +1731,23 @@
         {
           "relation": "absent_in_document",
           "spec": {
-            "element": "DCSREAS",
-            "quote": "DS_EOS.DSTERM = 'PROTOCOL ENTRY CRITERIA NOT MET'"
+            "element": "DCREASCD",
+            "quote": "DS_DSTERM = 'PROTOCOL ENTRY CRITERIA NOT MET'"
           },
-          "note": "The specification obtains I/E Not Met through DSTERM, although the retained rule only names grouping DCDECOD and gives no source condition for that category."
+          "note": "The specification obtains I/E Not Met through DSTERM in its DCREASCD grouping, although the retained rule only names grouping DCDECOD and gives no source condition for that category."
         },
         {
           "relation": "absent_in_document",
           "spec": {
             "element": "DCSREAS",
-            "quote": "when: DS_EOS.DSDECOD = 'COMPLETED' then: \"''\""
+            "quote": "when: DCREASCD = 'Completed' then: \"''\""
           },
           "note": "The implementation suppresses the completed group; the codelist permits Completed and no quoted mapping states this suppression."
         },
         {
           "relation": "absent_in_document",
           "spec": {
-            "element": "DCSREAS",
+            "element": "DC_REAS_MAP",
             "quote": "STUDY TERMINATED BY SPONSOR: Sponsor Decision WITHDRAWAL BY SUBJECT: Withdrew Consent"
           },
           "note": "The retained text enumerates target categories without explicitly pairing each source disposition term with its target label."
@@ -1786,7 +1780,7 @@
           },
           "spec": {
             "element": "MMSETOT",
-            "quote": "filter: QS.QSCAT = 'MINI-MENTAL STATE'"
+            "quote": "QS.QSCAT = 'MINI-MENTAL STATE'"
           }
         },
         {
@@ -1797,7 +1791,7 @@
           },
           "spec": {
             "element": "MMSETOT",
-            "quote": "expr: SUM(QS.QSSTRESN)"
+            "quote": "SUM(QS.QSSTRESN)"
           },
           "note": "The implementation sums standardized numeric results rather than the original-result field named by the method."
         }
