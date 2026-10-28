@@ -193,9 +193,11 @@ the review URL. Missing documents remain explicitly unavailable.
 ## Compare Define-XML
 
 Open **Define-XML comparison** in a pilot workspace to view the original ADaM
-Define-XML on the left and the yamaa-generated XML on the right. Both files have
-line numbers, an **Open source** link and a **Download XML** link for the unchanged
-file. The panes stack on smaller screens.
+Define-XML on the left and the yamaa-generated XML on the right. Both panes render
+the XML using retained stylesheets, as in **Source documents**. **Open source**
+shows the unchanged XML with line numbers; **Download XML** saves the original
+bytes. If no compatible stylesheet is retained, the pane is labeled **XML source**
+and shows the numbered XML instead. The panes stack on smaller screens.
 
 The metadata result and field differences come from study validation. Review
 the original and generated values below the XML panes, including any legacy

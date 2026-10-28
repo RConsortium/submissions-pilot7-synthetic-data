@@ -1,4 +1,4 @@
-"""Publish the exact compared XML bytes and escaped, line-numbered source views."""
+"""Publish compared XML with retained stylesheet HTML and numbered source views."""
 
 import hashlib
 import html
@@ -6,10 +6,11 @@ import shutil
 
 from lxml import etree
 
-from study_define import candidate_path
+from study_define import candidate_path, comparison_stylesheets
 
 from .datasets import write_json
 from .documents import document_html
+from .document_views import render_xml
 
 
 def export_comparison(root, study, target, validation):
@@ -49,5 +50,15 @@ def export_comparison(root, study, target, validation):
             f'<ol aria-label="XML source lines">{lines}</ol>',
         ), encoding="utf-8")
         record.update(available=True, original=original.relative_to(target).as_posix(),
-                      view=view.relative_to(target).as_posix())
+                      source=view.relative_to(target).as_posix())
+    if any(result[side]["available"] for side in ("reference", "candidate")):
+        stylesheets = comparison_stylesheets(root, study)
+        for side in ("reference", "candidate"):
+            record = result[side]
+            if not record["available"]:
+                continue
+            rendered = render_xml(root, root / record["path"], target / record["original"],
+                                  {"stylesheet": stylesheets[side]})
+            record.update(view=rendered.relative_to(target).as_posix() if rendered else record["source"],
+                          view_label="Rendered Define-XML" if rendered else "XML source")
     return result

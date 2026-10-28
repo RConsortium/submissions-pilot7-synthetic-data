@@ -18,9 +18,10 @@ export function defineComparisonView(model, resource) {
     return `<article class="source-pane define-pane"><h3>${label}</h3>
       <p>Define-XML ${esc(version || "version unavailable")}</p>
       <div class="source-viewer">${doc?.available ? `
-        <div class="source-viewer-heading">${link(resource(doc.view), "Open source", "button")}
+        <div class="source-viewer-heading"><span>${esc(doc.view_label || "XML source")}</span>
+          ${link(resource(doc.source || doc.view), "Open source", "button")}
           <a class="button" href="${esc(resource(doc.original))}" download>Download XML</a></div>
-        <iframe title="${label} XML source" src="${esc(resource(doc.view))}" sandbox=""></iframe>`
+        <iframe title="${label} Define-XML" src="${esc(resource(doc.view))}" sandbox="allow-scripts"></iframe>`
         : '<p class="empty-state">Compared XML is unavailable. Run study validation to generate current evidence.</p>'}
       </div></article>`;
   }
@@ -46,7 +47,7 @@ export function defineComparisonView(model, resource) {
   return `<section class="define-comparison" aria-labelledby="define-heading">
     <h2 id="define-heading">Define-XML comparison</h2><p class="define-status" role="status">${status}</p>
     <p>Compare the original published ADaM Define-XML with the yamaa-generated file.
-      Both panes show the exact XML source with line numbers.</p>
+      Review the rendered documents side by side, or open the XML source with line numbers.</p>
     ${metadata.full_reference_reproduced === false ? '<p class="coverage-note">The original legacy Define-XML is not fully reproduced. Version conversions, unsupported content and unresolved source declarations remain separate from matches.</p>' : ""}
     <div class="source-panes" data-count="2">${pane("reference", "Original", evidence.adam_version)}${pane("candidate", "yamaa-generated", evidence.candidate_version)}</div>
     <h3>Metadata differences (${differences.length})</h3>

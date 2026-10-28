@@ -182,11 +182,18 @@ Dataset result badges count `report.review.issues` for that dataset, separately
 from their supporting checks, and nonzero badges link to its filtered issue list.
 
 The pilot workspace's Define-XML comparison tab shows the original and generated
-ADaM XML side by side with line numbers and independent source and download links.
+ADaM XML side by side using the retained publisher stylesheets, with independent
+numbered source and download links. The source manifest selects the reference's
+stylesheet; matching generated versions reuse it. `define_stylesheets` in
+`.github/dashboard.json` maps other Define-XML versions to retained stylesheets,
+which join the study's artifact inventory. A version without a retained stylesheet
+shows its explicitly labeled numbered source view instead.
 It lists the validation job's metadata differences and retains unsupported legacy content,
 unresolved source declarations and version-mapping policies. Generated XML joins
 the artifact inventory and cross-job transfer; publication verifies both compared
-XML files against the recorded hashes before creating their escaped source views.
+XML files against the recorded hashes before rendering their HTML and creating
+their escaped source views. Rendering uses the Source documents XSLT adapter,
+with external resource access disabled; publisher scripts run in isolated iframes.
 The tab has a shareable `#<study>/define/<dataset>` route and stacks its panes on
 small screens. No XML comparison is recomputed in the browser.
 
