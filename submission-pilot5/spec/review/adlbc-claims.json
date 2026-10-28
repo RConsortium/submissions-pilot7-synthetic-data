@@ -3,9 +3,9 @@
   "dataset": "ADLBC",
   "author": {
     "kind": "agent",
-    "model": "gpt-6",
+    "model": "claude-opus-5-5",
     "instructions": ".automation/consistency_review/extract.md",
-    "date": "2026-10-26"
+    "date": "2026-10-27"
   },
   "claims": [
     {
@@ -41,10 +41,10 @@
             "quote": "'Y' if VISITNUM=12"
           },
           "spec": {
-            "element": "eot",
+            "element": "base-eot",
             "quote": "AVISIT: \"'End of Treatment'\""
           },
-          "note": "The attached method assigns a flag value at Visit 12 while the row rule assigns an analysis visit label."
+          "note": "The attached method assigns the flag value Y at Visit 12, while the base-eot row rule assigns the analysis visit label End of Treatment to the last chemistry record, by LBSEQ, among the Week 2 to Week 24 visits of each subject and parameter."
         },
         {
           "relation": "contradicts",
@@ -65,9 +65,18 @@
             "quote": "the derived end-of-treatment visit (A VISITN=99) is also presented."
           },
           "spec": {
-            "element": "eot",
+            "element": "base-eot",
             "quote": "AVISITN: 99.0"
-          }
+          },
+          "note": "This compares the code of the derived End of Treatment record only; the ADRG does not state how base-eot selects that record."
+        },
+        {
+          "relation": "absent_in_document",
+          "spec": {
+            "element": "base-ord",
+            "quote": "AVISIT: case: - when: \"LB.VISIT = 'SCREENING 1'\" then: \"'Baseline'\" - when: \"LB.VISIT = 'WEEK 2'\" then: \"'Week 2'\" - when: \"LB.VISIT = 'WEEK 4'\" then: \"'Week 4'\" - when: \"LB.VISIT = 'WEEK 6'\" then: \"'Week 6'\" - when: \"LB.VISIT = 'WEEK 8'\" then: \"'Week 8'\" - when: \"LB.VISIT = 'WEEK 12'\" then: \"'Week 12'\" - when: \"LB.VISIT = 'WEEK 16'\" then: \"'Week 16'\" - when: \"LB.VISIT = 'WEEK 20'\" then: \"'Week 20'\" - when: \"LB.VISIT = 'WEEK 24'\" then: \"'Week 24'\" - when: \"LB.VISIT = 'WEEK 26'\" then: \"'Week 26'\" - otherwise: \"''\""
+          },
+          "note": "No retained document maps a laboratory visit to an analysis visit label, takes Baseline from SCREENING 1, or leaves an unscheduled visit blank; the AVISIT codelist lists only the permitted labels and the attached method describes a flag."
         }
       ],
       "interpretations": [
@@ -101,10 +110,10 @@
             "quote": "Codelist CL.AVISITN: 0 = Baseline; 2 = Week 2; 4 = Week 4; 6 = Week 6; 8 = Week 8; 10 = Week 10; 12 = Week 12; 14 = Week 14; 16 = Week 16; 18 = Week 18; 20 = Week 20; 22 = Week 22; 24 = Week 24; 26 = Week 26; 98 = Weeks 4-24; 99 = End of Treatment"
           },
           "spec": {
-            "element": "main",
-            "quote": "AVISITN:\n        mapping:\n          source: AVISIT\n          unmapped:\n          dict:\n            Baseline: 0.0\n            Week 2: 2.0\n            Week 4: 4.0\n            Week 6: 6.0\n            Week 8: 8.0\n            Week 12: 12.0\n            Week 16: 16.0\n            Week 20: 20.0\n            Week 24: 24.0\n            Week 26: 26.0"
+            "element": "base-ord",
+            "quote": "AVISITN: case: - when: \"LB.VISIT = 'SCREENING 1'\" then: 0.0 - when: \"LB.VISIT = 'WEEK 2'\" then: 2.0 - when: \"LB.VISIT = 'WEEK 4'\" then: 4.0 - when: \"LB.VISIT = 'WEEK 6'\" then: 6.0 - when: \"LB.VISIT = 'WEEK 8'\" then: 8.0 - when: \"LB.VISIT = 'WEEK 12'\" then: 12.0 - when: \"LB.VISIT = 'WEEK 16'\" then: 16.0 - when: \"LB.VISIT = 'WEEK 20'\" then: 20.0 - when: \"LB.VISIT = 'WEEK 24'\" then: 24.0 - when: \"LB.VISIT = 'WEEK 26'\" then: 26.0 - otherwise:"
           },
-          "note": "Every label-to-code pair implemented in the main row template has the same binding in the enumerated codelist. The codelist also permits labels beyond those mapped by this row template; it does not specify when to generate those visits."
+          "note": "The base-ord row template assigns each code from LB.VISIT in step with the AVISIT label it gives the same visit (SCREENING 1 is Baseline, code 0); every code it assigns is the codelist code of that label, and any other visit gets no code. The codelist also permits labels this template never assigns; it does not specify when to generate those visits."
         },
         {
           "relation": "same",
@@ -113,8 +122,8 @@
             "quote": "the derived end-of-treatment visit\n(A VISITN=99)"
           },
           "spec": {
-            "element": "eot",
-            "quote": "AVISIT: \"'End of Treatment'\"\n      AVISITN: 99.0"
+            "element": "base-eot",
+            "quote": "AVISIT: \"'End of Treatment'\" AVISITN: 99.0"
           },
           "note": "This compares the assigned visit label and code only; the ADRG does not give the complete eligibility rule for creating the derived record."
         },
@@ -125,10 +134,10 @@
             "quote": "99 = End of Treatment"
           },
           "spec": {
-            "element": "eot2",
-            "quote": "AVISIT: \"'End of Treatment'\"\n      AVISITN: 99.0"
+            "element": "base-eot",
+            "quote": "AVISITN: 99.0"
           },
-          "note": "The fallback row template uses the same enumerated binding. Its record selection is not established by the codelist."
+          "note": "The single End of Treatment row template, base-eot, uses the same enumerated binding. Its record selection is not established by the codelist."
         }
       ],
       "probes": [
@@ -141,7 +150,7 @@
         "The original Define-XML and workbook give AVISITN Assigned origin, the Analysis Visit (N) label, and the numeric codelist, with no attached method or value-level rule. The probe explicitly binds each decoded analysis-visit label to same-record REF.AVISIT and returns its coded value; it does not derive AVISIT from source visit or dates.",
         "The probe includes every enumerated label-to-code pair and returns missing for a missing or unlisted REF.AVISIT. The documents do not specify a different assignment for such labels.",
         "The published reference keys STUDYID, USUBJID, PARAMCD, AVISIT, and LBSEQ remain unchanged. AVISITN is an output under test, not a key.",
-        "The main, eot, eot2, and EOTFB visit-selection and fallback algorithms are outside this conditional code-assignment probe. Neither the codelist nor the ADRG end-of-treatment statement supplies a complete analysis-visit windowing or record-generation algorithm."
+        "The base-ord and base-eot visit-selection algorithms are outside this conditional code-assignment probe. Neither the codelist nor the ADRG end-of-treatment statement supplies a complete analysis-visit windowing or record-generation algorithm."
       ],
       "assessment": "The retained enumeration supports analysis-visit code assignment conditional on an existing visit label; it does not establish all visit and row selection rules.",
       "question": "What is the intended complete ADLBC analysis-visit assignment and derived End of Treatment record-selection algorithm?"
@@ -174,10 +183,10 @@
             "quote": "LB.LBDTC"
           },
           "spec": {
-            "element": "_r_LBDTC",
-            "quote": "derivation: LB.LBDTC"
+            "element": "base-ord",
+            "quote": "_LBDTM_TXT: LB.LBDTC"
           },
-          "note": "The maintained date conversion reads the LB.LBDTC alias. The fallback row also carries LBDTC through EOTFB from the same LB domain."
+          "note": "ADT reads _ADT_DATE, which base-ord takes as the date of _LBDTM, the datetime read from _LBDTM_TXT = LB.LBDTC; base-eot reads the same LB.LBDTC through ONLY(LB.LBDTC)."
         },
         {
           "relation": "same",
@@ -199,9 +208,9 @@
           },
           "spec": {
             "element": "ADT",
-            "quote": "data_type: integer"
+            "quote": "type: date"
           },
-          "note": "The historical Define integer declaration is preserved in submission metadata while the ADRG explicitly retains the runtime date class."
+          "note": "Define-XML declares a SAS numeric date as integer: the shared version 3 metadata pairs data_type integer with display format DATE9., so the declared integer is the same calendar date stored as a day count, not a different value. The executable date type holds that date, and citation 2 records that the R-generated dataset keeps the date class; the difference is representation only."
         }
       ],
       "probes": [
@@ -242,16 +251,16 @@
       ],
       "clauses": [
         {
-          "relation": "same",
+          "relation": "differs",
           "document": {
             "citation": 1,
             "quote": "Concatenated LB.LBTEST, '(', LB.LBSTRESU and ')'"
           },
           "spec": {
-            "element": "PARAM",
-            "quote": "str_template: '{_r_LBTEST} ({_r_LBSTRESU})'"
+            "element": "base-ord",
+            "quote": "_PARAM_BASE:\n        mapping:\n          source: LB.LBTESTCD\n          unmapped:\n          dict:\n            SODIUM: 'Sodium (mmol/L)'\n            K: 'Potassium (mmol/L)'\n            CL: 'Chloride (mmol/L)'\n            BILI: 'Bilirubin (umol/L)'\n            ALP: 'Alkaline Phosphatase (U/L)'\n            GGT: 'Gamma Glutamyl Transferase (U/L)'\n            ALT: 'Alanine Aminotransferase (U/L)'\n            AST: 'Aspartate Aminotransferase (U/L)'\n            BUN: 'Blood Urea Nitrogen (mmol/L)'\n            CREAT: 'Creatinine (umol/L)'\n            URATE: 'Urate (umol/L)'\n            PHOS: 'Phosphate (mmol/L)'\n            CA: 'Calcium (mmol/L)'\n            GLUC: 'Glucose (mmol/L)'\n            PROT: 'Protein (g/L)'\n            ALB: 'Albumin (g/L)'\n            CHOL: 'Cholesterol (mmol/L)'\n            CK: 'Creatine Kinase (U/L)'"
           },
-          "note": "The same source fields and parentheses are used; the specification inserts a separator before the opening parenthesis, consistent with codelist formatting."
+          "note": "The specification looks up a fixed label, with a space before the opening parenthesis, for each LB.LBTESTCD instead of concatenating LB.LBTEST and LB.LBSTRESU; base-eot states the same labels as a case on _LBTESTCD."
         },
         {
           "relation": "same",
@@ -260,16 +269,16 @@
             "quote": "Codelist CL.PARAM_ADLBC: Albumin (g/L) = Albumin (g/L)"
           },
           "spec": {
-            "element": "PARAM",
-            "quote": "str_template: '{_r_LBTEST} ({_r_LBSTRESU})'"
+            "element": "base-ord",
+            "quote": "ALB: 'Albumin (g/L)'"
           },
-          "note": "The separator in the implemented label follows the codelist-format example."
+          "note": "The fixed label for ALB matches the codelist value, including the space before the opening parenthesis."
         }
       ],
       "interpretations": [
         "The literal probe concatenates exactly the quoted components without adding a separator. The codelist-format reading inserts the space shown in the codelist."
       ],
-      "assessment": "The concatenation wording leaves separator handling implicit, while the enumerated parameter values show it.",
+      "assessment": "The concatenation wording leaves separator handling implicit, while the enumerated parameter values show it. The specification does not concatenate the documented LB fields; it assigns a fixed label per test code.",
       "question": "Should the concatenation rule explicitly include the space before the opening parenthesis?",
       "probes": [
         {
@@ -305,9 +314,10 @@
             "quote": "Numeric code for Parameter"
           },
           "spec": {
-            "element": "PARAMN",
-            "quote": "source: PARAM"
-          }
+            "element": "base-ord",
+            "quote": "_PARAMN_BASE:\n        mapping:\n          source: LB.LBTESTCD"
+          },
+          "note": "The specification assigns the code from LB.LBTESTCD, the test code PARAMCD copies, which identifies the parameter one to one; base-eot states the same codes as a case on _LBTESTCD."
         },
         {
           "relation": "same",
@@ -316,9 +326,10 @@
             "quote": "18 = Sodium (mmol/L); 19 = Potassium (mmol/L)"
           },
           "spec": {
-            "element": "PARAMN",
-            "quote": "Sodium (mmol/L): 18 Potassium (mmol/L): 19"
-          }
+            "element": "base-ord",
+            "quote": "SODIUM: 18.0\n            K: 19.0"
+          },
+          "note": "The specification keys the codes on test codes; _PARAM_BASE labels SODIUM and K as Sodium (mmol/L) and Potassium (mmol/L)."
         }
       ],
       "interpretations": [
@@ -368,10 +379,10 @@
             "quote": "contains lab chemistry parameters and these data are derived from the SDTM LB (Laboratory\nTests) domain."
           },
           "spec": {
-            "element": "main",
-            "quote": "dataset: LB\n    filter: LB.LBCAT = 'CHEMISTRY' AND (LB.VISIT LIKE '%WEEK%' OR LB.VISIT LIKE '%SCREENING%' OR LB.VISIT LIKE '%UNSCHEDULED%')"
+            "element": "base-ord",
+            "quote": "dataset: LB\n    filter: \"LB.LBCAT = 'CHEMISTRY' AND LB.VISIT NOT IN ('RETRIEVAL',\n      'AMBUL ECG REMOVAL')\""
           },
-          "note": "This compares the LB source and chemistry scope only. The additional visit-selection conditions in this specification quote are not stated by the chemistry description."
+          "note": "This compares the LB source and chemistry scope only. The RETRIEVAL and AMBUL ECG REMOVAL visit exclusions in this specification quote are not stated by the chemistry description."
         }
       ],
       "probes": [
@@ -382,7 +393,7 @@
       ],
       "interpretations": [
         "The original Define-XML and workbook give PARCAT1 Assigned origin and the category codelist but no attached method, assigned value, or value-level rule. The probe explicitly binds the ADRG phrase lab chemistry parameters to the Chemistry decode and therefore its CHEM coded value for the described ADLBC records.",
-        "The literal probe assigns the dataset-level chemistry category without copying REF.PARCAT1 or inventing a row-level category source. The ADRG names LB as the domain source, while the retained main row template restricts LB.LBCAT to CHEMISTRY.",
+        "The literal probe assigns the dataset-level chemistry category without copying REF.PARCAT1 or inventing a row-level category source. The ADRG names LB as the domain source, while the base-ord row template restricts LB.LBCAT to CHEMISTRY.",
         "The HEM and HYLAW entries enumerate permitted category codes; they do not supply rules for creating Hematology or Hy's Law parameters in this lab chemistry dataset."
       ],
       "assessment": "The Chemistry decode and the ADRG dataset scope together support the implemented category assignment.",
@@ -407,16 +418,16 @@
           },
           "spec": {
             "element": "CHG",
-            "quote": "case: - when: VISITNUM = 1 then: - otherwise: AVAL - BASE"
+            "quote": "case: - when: \"ABLFL = 'Y'\" then: - otherwise: \"_AVAL_BASE - _BASE\""
           },
-          "note": "The implementation suppresses change on Visit 1 although the method states the subtraction without that exception."
+          "note": "The specification leaves change missing on baseline-flagged records (ABLFL = 'Y') although the method states the subtraction without that exception; _AVAL_BASE and _BASE are the values AVAL and BASE copy."
         }
       ],
       "interpretations": [
         "The literal probe applies the recorded precision. An alternative leaves the arithmetic unrounded when Significant digits is interpreted as display precision."
       ],
-      "assessment": "The subtraction agrees away from the additional Visit 1 suppression.",
-      "question": "Should the change method state the Visit 1 exception and clarify whether precision changes stored values?",
+      "assessment": "The subtraction agrees away from the additional suppression on baseline-flagged records.",
+      "question": "Should the change method state the baseline-record exception and clarify whether precision changes stored values?",
       "probes": [
         {
           "column": "CHG",
@@ -447,8 +458,9 @@
           },
           "spec": {
             "element": "R2A1LO",
-            "quote": "derivation: AVAL / A1LO"
-          }
+            "quote": "derivation: \"_AVAL_BASE / A1LO\""
+          },
+          "note": "_AVAL_BASE is the value AVAL copies (AVAL derivation: _AVAL_BASE)."
         }
       ],
       "interpretations": [
@@ -486,8 +498,9 @@
           },
           "spec": {
             "element": "R2A1HI",
-            "quote": "derivation: AVAL / A1HI"
-          }
+            "quote": "derivation: \"_AVAL_BASE / A1HI\""
+          },
+          "note": "_AVAL_BASE is the value AVAL copies (AVAL derivation: _AVAL_BASE)."
         }
       ],
       "interpretations": [
@@ -535,9 +548,9 @@
           },
           "spec": {
             "element": "BR2A1LO",
-            "quote": "derivation: BASE / A1LO"
+            "quote": "derivation: \"_BASE / A1LO\""
           },
-          "note": "The literal baseline reading evaluates both numerator and limit on baseline-flagged records; the specification uses the baseline numerator with the current record limit."
+          "note": "The literal baseline reading evaluates both numerator and limit on baseline-flagged records; the specification divides _BASE, the baseline-flagged value carried forward in LBSEQ order within subject and parameter that BASE copies, by the current record's A1LO."
         }
       ],
       "interpretations": [
@@ -595,9 +608,9 @@
           },
           "spec": {
             "element": "BR2A1HI",
-            "quote": "derivation: BASE / A1HI"
+            "quote": "derivation: \"_BASE / A1HI\""
           },
-          "note": "The literal baseline reading evaluates both numerator and limit on baseline-flagged records; the specification uses the baseline numerator with the current record limit."
+          "note": "The literal baseline reading evaluates both numerator and limit on baseline-flagged records; the specification divides the baseline value _BASE, carried forward from the baseline record, by the current record limit."
         }
       ],
       "interpretations": [
@@ -650,25 +663,25 @@
           },
           "spec": {
             "element": "ANL01FL",
-            "quote": "condition: LBSEQ = _WINLB"
+            "quote": "- when: \"_ANL01_RANK = 1 AND _RANK_VAL IS NOT NULL\" then: \"'Y'\""
           },
-          "note": "The document flags equality to a maximum, including tied values, whereas the specification flags the selected sequence number."
+          "note": "The document flags every record equal to the maximum, including tied values, whereas the specification flags the record or records ranked first by ALBTRVAL (_RANK_VAL) within subject and parameter after the tie-breaks of clause 3."
         },
         {
           "relation": "absent_in_document",
           "spec": {
-            "element": "_RN_ANL",
-            "quote": "filter: VISITNUM >= 4 AND VISITNUM <= 12 AND NOT (VISIT LIKE '%UN%') AND ALBTRVAL IS NOT NULL"
+            "element": "_ANL01_RANK",
+            "quote": "filter: \"_RANK_AVISITN >= 2 AND _RANK_AVISITN <= 24\""
           },
-          "note": "The retained maximum rule does not state these visit and unscheduled-record restrictions."
+          "note": "The retained maximum rule does not restrict the search to analysis visits Week 2 to Week 24, which excludes baseline, Week 26 and unscheduled records."
         },
         {
           "relation": "absent_in_document",
           "spec": {
-            "element": "_RN_ANL",
-            "quote": "- variable: LBSEQ nulls: last"
+            "element": "_ANL01_RANK",
+            "quote": "- {variable: _RANK_AVISITN, nulls: last} - {variable: _ADT_DATE, nulls: last} - {variable: LBSEQ, nulls: last}"
           },
-          "note": "The retained equality-to-maximum rule does not select one tied assessment by sequence number."
+          "note": "The retained equality-to-maximum rule does not break ALBTRVAL ties by earliest analysis visit, then date, then sequence number."
         }
       ],
       "probes": [
@@ -685,7 +698,7 @@
         "The maximum rule gives no grouping scope. The literal probe applies an ungrouped maximum; a separate reading supplies the subject/parameter scope suggested by the ADRG record structure.",
         "The documents state only the positive flag assignment; unflagged records are represented by an empty string."
       ],
-      "assessment": "The implementation restricts the maximum search and selects a sequence-number winner rather than directly flagging every maximum.",
+      "assessment": "The implementation restricts the maximum search to Week 2 to Week 24 and ranks one winner, breaking ties by visit, date and sequence number, rather than directly flagging every maximum.",
       "question": "What maximum-search scope, visit eligibility and tie policy should govern this flag?"
     },
     {
@@ -721,10 +734,10 @@
             "quote": "LBSTRESN-(1.5*ULN)"
           },
           "spec": {
-            "element": "_UPPER_DISTANCE",
-            "quote": "ABS(AVAL - 1.5 * A1HI)"
+            "element": "base-ord",
+            "quote": "_T1: \"1.5 * A1HI - _AVAL_BASE\""
           },
-          "note": "The implementation uses an absolute difference and AVAL instead of the signed difference from LBSTRESN."
+          "note": "The specification subtracts the value (_AVAL_BASE, read from LB.LBSTRESN) from 1.5 * A1HI, the reverse of the documented signed difference; base-eot repeats the same expression."
         },
         {
           "relation": "differs",
@@ -733,10 +746,10 @@
             "quote": "(.5*LLN) - LBSTRESN"
           },
           "spec": {
-            "element": "_LOWER_DISTANCE",
-            "quote": "ABS(0.5 * A1LO - AVAL)"
+            "element": "base-ord",
+            "quote": "_T2: \"_AVAL_BASE - 0.5 * A1LO\""
           },
-          "note": "The implementation uses an absolute difference and AVAL instead of the signed difference from LBSTRESN."
+          "note": "The specification subtracts 0.5 * A1LO from the value, the reverse of the documented signed difference; base-eot repeats the same expression."
         },
         {
           "relation": "same",
@@ -745,8 +758,8 @@
             "quote": "Maximum of"
           },
           "spec": {
-            "element": "ALBTRVAL",
-            "quote": "greatest: sources: - _UPPER_DISTANCE - _LOWER_DISTANCE"
+            "element": "base-ord",
+            "quote": "ALBTRVAL: greatest: sources: - _T1 - _T2"
           }
         }
       ],
@@ -764,8 +777,8 @@
         "ULN and LLN are interpreted as the published analysis upper and lower limits A1HI and A1LO, whose own methods identify the standard lab normal-range limits.",
         "LBSTRESN is read from the reference carry variable, rather than substituting the analysis value for derived parameters."
       ],
-      "assessment": "The specification takes absolute distances from AVAL; the documented formula takes signed differences from LBSTRESN.",
-      "question": "Should this be a signed threshold exceedance or an absolute distance, and which result variable governs derived parameters?"
+      "assessment": "The specification takes the maximum of the two documented differences with each sign reversed, which is not the documented maximum of the signed differences from LBSTRESN.",
+      "question": "Which sign convention is intended for the two threshold differences, and which result variable governs derived parameters?"
     },
     {
       "variable": "ANRIND",
@@ -790,10 +803,10 @@
             "quote": "AVAL < [0.5*LBSTNRLO) then ANRIND = 'Y'"
           },
           "spec": {
-            "element": "ANRIND",
-            "quote": "- when: AVAL < _LO_HALF then: \"'L'\""
+            "element": "base-ord",
+            "quote": "- when: \"_R2A1LO_R < 0.5\" then: \"'L'\""
           },
-          "note": "The documented low result is Y, while the executable result is L."
+          "note": "The documented low result is Y, while the specification assigns L when AVAL / A1LO is below 0.5, with A1LO read from LB.LBSTNRLO."
         },
         {
           "relation": "differs",
@@ -802,10 +815,10 @@
             "quote": "AVAL > [0.5*LBSTRNHI),'H','N'"
           },
           "spec": {
-            "element": "_HI_15",
-            "quote": "derivation: 1.5 * A1HI"
+            "element": "base-ord",
+            "quote": "- when: \"_R2A1HI_R > 1.5\" then: \"'H'\""
           },
-          "note": "The documented upper threshold is a half-limit expression with a transposed source name; the specification uses one-and-a-half times the analysis upper limit."
+          "note": "The documented upper threshold is a half-limit expression with a transposed source name; the specification assigns H when _R2A1HI_R = AVAL / A1HI exceeds 1.5, and tests it before the low threshold."
         },
         {
           "relation": "contradicts",
@@ -822,10 +835,18 @@
         {
           "relation": "absent_in_document",
           "spec": {
-            "element": "ANRIND",
-            "quote": "- when: AVAL IS NULL then: \"'N'\""
+            "element": "base-ord",
+            "quote": "- otherwise: \"'N'\""
           },
-          "note": "The retained rule does not state the special missing-analysis-value assignment."
+          "note": "The specification has no explicit missing-value branch: a missing AVAL leaves both ratio tests unmet and falls to N. The retained rule does not state how a missing analysis value is classified."
+        },
+        {
+          "relation": "absent_in_document",
+          "spec": {
+            "element": "base-ord",
+            "quote": "_R2A1LO_R: case: - when: \"A1LO IS NULL OR A1LO = 0\" then: - otherwise: \"_AVAL_BASE / A1LO\""
+          },
+          "note": "The retained rule does not state that a missing or zero lower limit leaves no low comparison, so such a record can only be classified H or N."
         }
       ],
       "not_probed_reason": "The rule names LBSTRNHI, which is not a retained LB variable; LBSTNRHI exists instead. A literal executable upper-threshold test cannot be constructed without repairing that source name and the malformed expression. The low code Y also conflicts with the enumerated L/N/H codelist, so a repaired reading needs an explicit reviewer decision.",
@@ -858,16 +879,16 @@
             "quote": "if BASE < [0.5*LBSTNRLO) then ANRIND = 'Y' else if BASE > [0.5*LBSTRNHI),'H','N'"
           },
           "spec": {
-            "element": "_BNRIND_RAW",
-            "quote": "aggregate: filter: ABLFL = 'Y' group_by: - STUDYID - USUBJID - PARAMCD expr: ONLY(ANRIND)"
+            "element": "base-ord",
+            "quote": "_BASELINE_ANRIND: case: - when: \"ABLFL = 'Y'\" then: _ANRIND_BASE - otherwise: _PNM_BNRIND: locf: source: _BASELINE_ANRIND window: group_by: - USUBJID - PARAMCD order_by: - {variable: LBSEQ, nulls: last} _BNRIND_VAL: first_available: sources: - _BASELINE_ANRIND - _PNM_BNRIND"
           },
-          "note": "The attached method compares BASE against row-level limits and names ANRIND; the implementation propagates the baseline record's ANRIND instead of stating that calculation."
+          "note": "The attached method compares BASE against row-level limits and names ANRIND; the specification instead carries the baseline record's own ANRIND forward in LBSEQ order within subject and parameter, so a record before the baseline record in LBSEQ order receives no indicator."
         },
         {
           "relation": "absent_in_document",
           "spec": {
             "element": "BNRIND",
-            "quote": "- when: _BNRIND_RAW IS NULL then: \"''\""
+            "quote": "- when: \"_BNRIND_VAL IS NULL\" then: \"''\""
           },
           "note": "The retained baseline-indicator method does not state replacement of a missing baseline indicator by an empty string."
         }
@@ -906,15 +927,15 @@
             "citation": 1,
             "quote": "if subject discontinues prior to VISIT 12"
           },
-          "note": "The executable flag and its maximum helper do not test whether the subject discontinued before Visit 12."
+          "note": "The executable flag and its _IS_LAST_ELIGIBLE helper do not test whether the subject discontinued before Visit 12."
         },
         {
           "relation": "absent_in_document",
           "spec": {
-            "element": "_AENT_MAX",
-            "quote": "filter: VISITNUM <= 12 AND AVISITN > 0 AND AVISITN < 99 AND NOT (VISIT LIKE '%UN%')"
+            "element": "base-ord",
+            "quote": "filter: \"VISIT IN ('WEEK 2', 'WEEK 4', 'WEEK 6', 'WEEK 8', 'WEEK 12', 'WEEK 16', 'WEEK 20', 'WEEK 24')\""
           },
-          "note": "The retained last-assessment rule does not specify this analysis-visit range or exclusion of unscheduled assessments."
+          "note": "The retained last-assessment rule does not restrict the candidates to the scheduled Week 2 to Week 24 visits, which excludes baseline, Week 26 and unscheduled assessments."
         },
         {
           "relation": "differs",
@@ -923,10 +944,22 @@
             "quote": "last assessment of this analyte for the subject"
           },
           "spec": {
-            "element": "_AENT_MAX",
-            "quote": "expr: MAX(AVISITN)"
+            "element": "base-ord",
+            "quote": "_IS_LAST_ELIGIBLE: row_number: window: group_by: - USUBJID - PARAMCD order_by: - {variable: LBSEQ, direction: desc, nulls: last}"
           },
-          "note": "The specification chooses the highest eligible analysis visit rather than explicitly ordering assessment dates."
+          "note": "The specification takes the eligible record with the highest LBSEQ as the last assessment, rather than ordering assessments by date."
+        },
+        {
+          "relation": "differs",
+          "document": {
+            "citation": 1,
+            "quote": "'Y' if VISITNUM=12"
+          },
+          "spec": {
+            "element": "AENTMTFL",
+            "quote": "case: - when: \"_IS_EOT = 'Y'\" then: \"'Y'\" - when: \"_IS_LAST_ELIGIBLE = 1\" then: \"'Y'\" - otherwise: \"''\""
+          },
+          "note": "The specification has no VISITNUM = 12 test: it flags every End of Treatment row and the one last eligible scheduled record per subject and parameter, which is the Visit 12 (Week 24) record only when that record has the highest LBSEQ among the eligible ones."
         }
       ],
       "probes": [
@@ -940,7 +973,7 @@
         "During treatment is interpreted as the closed TRTSDT-to-TRTEDT date interval. Last assessment uses the latest ADT within each subject and PARAMCD, retaining date ties; the method supplies no ordering or tie-break field.",
         "The reference record universe includes derived visit records; all rows carrying the selected assessment date receive the flag, since no retained method distinguishes their flag handling."
       ],
-      "assessment": "The implementation uses analysis-visit eligibility and end-of-treatment row markers without checking the documented early-discontinuation condition.",
+      "assessment": "The implementation flags the last scheduled Week 2 to Week 24 record by sequence number and every End of Treatment row, without testing Visit 12 directly or checking the documented early-discontinuation condition.",
       "question": "Confirm the discontinuation source, treatment-phase boundary, last-assessment ordering and treatment of unscheduled and derived visit records."
     }
   ]

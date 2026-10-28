@@ -1,0 +1,571 @@
+# Pilot program ADLBC, version 2: version 1 and the shift parameters that
+# only the CDISC Pilot 01 submission publishes. Each chemistry parameter
+# gains a parameter _<PARAMCD>: its change from the previous scheduled visit,
+# divided by half the width of the normal range.
+yamaa: "1.0"
+type: spec
+parent: adlbc_v1.yaml
+
+intermediates:
+  - id: PREV
+    dataset: LB
+    key:
+      - USUBJID
+      - LBTESTCD
+      - LBSEQ
+    filter: "LB.VISIT NOT LIKE 'UNSCHEDULED%'"
+    columns:
+      - PREV_AVAL
+    derivations:
+      PREV_AVAL:
+        row_value:
+          source: LB.LBSTRESN
+          offset: -1
+          window:
+            group_by:
+              - LB.USUBJID
+              - LB.LBTESTCD
+            order_by:
+              - {variable: LB.LBDTC, nulls: last}
+              - {variable: LB.LBSEQ, nulls: last}
+            filter: "LB.VISIT NOT LIKE 'UNSCHEDULED%'"
+
+columns:
+  # The working values of the shift parameters, then the column rules that
+  # CDISC Pilot 01 writes with a branch for them (_IS_UNDER = 'Y'). Each
+  # replaces version 1's rule whole: PARAM names a shift parameter after its
+  # chemistry parameter, PARAMN numbers it 100 after it, AVAL is its change
+  # from the previous visit divided by half the normal range, ANRIND is high
+  # or low when that exceeds 1, _RANK_VAL ranks its absolute value for
+  # ANL01FL, and CHG, BR2A1LO, BR2A1HI and BNRIND are missing or blank.
+  - name: _IS_UNDER
+    type: str
+    label: "Working value: _IS_UNDER"
+
+  - name: _B_A1HI
+    type: float
+    label: "Working value: _B_A1HI"
+
+  - name: _B_A1LO
+    type: float
+    label: "Working value: _B_A1LO"
+
+  - name: _PARAMCD_BASE
+    type: str
+    label: "Working value: _PARAMCD_BASE"
+
+  - name: _SCHED
+    type: str
+    label: "Working value: _SCHED"
+
+  - name: _PREV_AVAL
+    type: float
+    label: "Working value: _PREV_AVAL"
+
+  - name: _U_RAW
+    type: float
+    label: "Working value: _U_RAW"
+
+  - name: _U_AVAL_ROUNDED
+    type: float
+    label: "Working value: _U_AVAL_ROUNDED"
+    derivation:
+      round_half_away_from_zero:
+        source: _U_RAW
+        digits: 1
+
+  - name: _U_AVAL
+    type: float
+    label: "Working value: _U_AVAL"
+    derivation:
+      case:
+        - when: "_IS_UNDER = 'Y' AND _SCHED = 'Y'"
+          then: _U_AVAL_ROUNDED
+        - otherwise:
+
+  - name: _ABS_U_AVAL
+    type: float
+    label: "Working value: _ABS_U_AVAL"
+    derivation: "abs(_U_AVAL)"
+
+  - name: _RANK_VAL
+    type: float
+    label: "Working value: _RANK_VAL"
+    derivation:
+      case:
+        - when: "_IS_UNDER = 'Y'"
+          then: _ABS_U_AVAL
+        - otherwise: ALBTRVAL
+
+  - name: PARAM
+    type: str
+    label: Parameter
+    derivation:
+      case:
+        - when: "_IS_UNDER = 'Y'"
+          then:
+            str_template: "{_PARAM_BASE} change from previous visit,
+              relative to normal range"
+        - otherwise: _PARAM_BASE
+
+  - name: PARAMN
+    type: float
+    label: Parameter (N)
+    derivation:
+      case:
+        - when: "_IS_UNDER = 'Y'"
+          then: "_PARAMN_BASE + 100"
+        - otherwise: _PARAMN_BASE
+
+  - name: AVAL
+    type: float
+    label: Analysis Value
+    derivation:
+      case:
+        - when: "_IS_UNDER = 'Y'"
+          then: _U_AVAL
+        - otherwise: _AVAL_BASE
+
+  - name: CHG
+    type: float
+    label: Change from Baseline
+    derivation:
+      case:
+        - when: "_IS_UNDER = 'Y'"
+          then:
+        - when: "ABLFL = 'Y'"
+          then:
+        - otherwise: "_AVAL_BASE - _BASE"
+
+  - name: BR2A1LO
+    type: float
+    label: Base Ratio to Analysis Range 1 Lower Lim
+    derivation:
+      case:
+        - when: "_IS_UNDER = 'Y'"
+          then:
+        - otherwise: "_BASE / A1LO"
+
+  - name: BR2A1HI
+    type: float
+    label: Base Ratio to Analysis Range 1 Upper Lim
+    derivation:
+      case:
+        - when: "_IS_UNDER = 'Y'"
+          then:
+        - otherwise: "_BASE / A1HI"
+
+  - name: ANRIND
+    type: str
+    label: Analysis Reference Range Indicator
+    derivation:
+      case:
+        - when: "_IS_UNDER = 'Y' AND _U_AVAL IS NULL"
+          then: "''"
+        - when: "_IS_UNDER = 'Y' AND _U_AVAL > 1.0"
+          then: "'H'"
+        - when: "_IS_UNDER = 'Y' AND _U_AVAL < -1.0"
+          then: "'L'"
+        - when: "_IS_UNDER = 'Y'"
+          then: "'N'"
+        - otherwise: _ANRIND_BASE
+
+  - name: BNRIND
+    type: str
+    label: Baseline Reference Range Indicator
+    derivation:
+      case:
+        - when: "_IS_UNDER = 'Y'"
+          then: "''"
+        - when: "_BNRIND_VAL IS NULL"
+          then: "''"
+        - otherwise: _BNRIND_VAL
+
+rows:
+  # The working values of the shift parameters are missing on the chemistry
+  # rows of version 1.
+  - id: base-ord
+    derivations:
+      _IS_UNDER: "''"
+      _B_A1HI:
+      _B_A1LO:
+      _PARAMCD_BASE:
+      _SCHED:
+      _PREV_AVAL:
+      _U_RAW:
+
+  - id: base-eot
+    derivations:
+      _IS_UNDER: "''"
+      _B_A1HI:
+      _B_A1LO:
+      _PARAMCD_BASE:
+      _SCHED:
+      _PREV_AVAL:
+      _U_RAW:
+
+  - id: under-ord
+    dataset: LB
+    filter: "LB.LBCAT = 'CHEMISTRY' AND LB.VISIT NOT IN ('RETRIEVAL',
+      'AMBUL ECG REMOVAL')"
+    derivations:
+      STUDYID: LB.STUDYID
+      USUBJID: LB.USUBJID
+      _IS_UNDER: "'Y'"
+      _IS_EOT: "''"
+      VISIT: LB.VISIT
+      VISITNUM: LB.VISITNUM
+      LBSEQ: LB.LBSEQ
+      LBNRIND: LB.LBNRIND
+      LBSTRESN: LB.LBSTRESN
+      A1LO:
+      A1HI:
+      _LBDTM_TXT: LB.LBDTC
+      _LBDTM:
+        impute:
+          type: datetime
+          source: _LBDTM_TXT
+          time: first
+          invalid:
+      _ADT_DATE:
+        to_date:
+          source: _LBDTM
+      PARAMCD:
+        str_template: "_{LB.LBTESTCD}"
+      AVISIT:
+        case:
+          - when: "LB.VISIT = 'SCREENING 1'"
+            then: "'        Baseline'"
+          - when: "LB.VISIT = 'WEEK 2'"
+            then: "'          Week 2'"
+          - when: "LB.VISIT = 'WEEK 4'"
+            then: "'          Week 4'"
+          - when: "LB.VISIT = 'WEEK 6'"
+            then: "'          Week 6'"
+          - when: "LB.VISIT = 'WEEK 8'"
+            then: "'          Week 8'"
+          - when: "LB.VISIT = 'WEEK 12'"
+            then: "'         Week 12'"
+          - when: "LB.VISIT = 'WEEK 16'"
+            then: "'         Week 16'"
+          - when: "LB.VISIT = 'WEEK 20'"
+            then: "'         Week 20'"
+          - when: "LB.VISIT = 'WEEK 24'"
+            then: "'         Week 24'"
+          - when: "LB.VISIT = 'WEEK 26'"
+            then: "'         Week 26'"
+          - otherwise: "'               .'"
+      AVISITN:
+        case:
+          - when: "LB.VISIT = 'SCREENING 1'"
+            then: 0.0
+          - when: "LB.VISIT = 'WEEK 2'"
+            then: 2.0
+          - when: "LB.VISIT = 'WEEK 4'"
+            then: 4.0
+          - when: "LB.VISIT = 'WEEK 6'"
+            then: 6.0
+          - when: "LB.VISIT = 'WEEK 8'"
+            then: 8.0
+          - when: "LB.VISIT = 'WEEK 12'"
+            then: 12.0
+          - when: "LB.VISIT = 'WEEK 16'"
+            then: 16.0
+          - when: "LB.VISIT = 'WEEK 20'"
+            then: 20.0
+          - when: "LB.VISIT = 'WEEK 24'"
+            then: 24.0
+          - when: "LB.VISIT = 'WEEK 26'"
+            then: 26.0
+          - otherwise:
+      ABLFL: "''"
+      _PARAM_BASE:
+        mapping:
+          source: LB.LBTESTCD
+          unmapped:
+          dict:
+            SODIUM: 'Sodium (mmol/L)'
+            K: 'Potassium (mmol/L)'
+            CL: 'Chloride (mmol/L)'
+            BILI: 'Bilirubin (umol/L)'
+            ALP: 'Alkaline Phosphatase (U/L)'
+            GGT: 'Gamma Glutamyl Transferase (U/L)'
+            ALT: 'Alanine Aminotransferase (U/L)'
+            AST: 'Aspartate Aminotransferase (U/L)'
+            BUN: 'Blood Urea Nitrogen (mmol/L)'
+            CREAT: 'Creatinine (umol/L)'
+            URATE: 'Urate (umol/L)'
+            PHOS: 'Phosphate (mmol/L)'
+            CA: 'Calcium (mmol/L)'
+            GLUC: 'Glucose (mmol/L)'
+            PROT: 'Protein (g/L)'
+            ALB: 'Albumin (g/L)'
+            CHOL: 'Cholesterol (mmol/L)'
+            CK: 'Creatine Kinase (U/L)'
+      _PARAMN_BASE:
+        mapping:
+          source: LB.LBTESTCD
+          unmapped:
+          dict:
+            SODIUM: 18.0
+            K: 19.0
+            CL: 20.0
+            BILI: 21.0
+            ALP: 22.0
+            GGT: 23.0
+            ALT: 24.0
+            AST: 25.0
+            BUN: 26.0
+            CREAT: 27.0
+            URATE: 28.0
+            PHOS: 29.0
+            CA: 30.0
+            GLUC: 31.0
+            PROT: 32.0
+            ALB: 33.0
+            CHOL: 34.0
+            CK: 35.0
+      _AVAL_BASE: LB.LBSTRESN
+      _BASE:
+        first_available:
+          sources:
+            - _BASELINE_AVAL
+            - _PNM_BASE
+      _BASELINE_AVAL:
+      _PNM_BASE:
+      _PARAMCD_BASE: LB.LBTESTCD
+      LBTESTCD: LB.LBTESTCD
+      _SCHED:
+        case:
+          - when: "AVISIT = '               .' OR AVISIT = 'End of Treatment'"
+            then: "''"
+          - otherwise: "'Y'"
+      _PREV_AVAL: PREV.PREV_AVAL
+
+      _U_RAW: "(_AVAL_BASE - _PREV_AVAL) / (0.5 * (_B_A1HI - _B_A1LO))"
+      _IS_LAST_ELIGIBLE:
+        row_number:
+          window:
+            group_by:
+              - USUBJID
+              - _PARAMCD_BASE
+            order_by:
+              - {variable: LBSEQ, direction: desc, nulls: last}
+            filter: "VISIT IN ('WEEK 2', 'WEEK 4', 'WEEK 6', 'WEEK 8',
+              'WEEK 12', 'WEEK 16', 'WEEK 20', 'WEEK 24')"
+      _RANK_AVISITN: AVISITN
+      _B_A1HI: LB.LBSTNRHI
+      _B_A1LO: LB.LBSTNRLO
+      _T1: "1.5 * _B_A1HI - _AVAL_BASE"
+      _T2: "_AVAL_BASE - 0.5 * _B_A1LO"
+      ALBTRVAL:
+        greatest:
+          sources:
+            - _T1
+            - _T2
+      _R2A1HI_R:
+      _R2A1LO_R:
+      _BASELINE_ANRIND:
+      _PNM_BNRIND:
+      _BNRIND_VAL:
+      _ANRIND_BASE:
+      _LBCAT:
+      _VISIT_RAW:
+      _LBBLFL:
+      _LBTESTCD:
+
+  - id: under-eot
+    dataset: LB
+    group_by:
+      - LB.USUBJID
+      - LB.LBTESTCD
+      - LB.LBSEQ
+    filter: "_IS_LAST_ELIGIBLE = 1"
+    derivations:
+      STUDYID:
+        aggregate: "ONLY(LB.STUDYID)"
+      USUBJID: LB.USUBJID
+      LBSEQ: LB.LBSEQ
+      _IS_UNDER: "'Y'"
+      _IS_EOT: "'Y'"
+      _LBCAT:
+        aggregate: "ONLY(LB.LBCAT)"
+      _VISIT_RAW:
+        aggregate: "ONLY(LB.VISIT)"
+      VISIT:
+        aggregate: "ONLY(LB.VISIT)"
+      VISITNUM:
+        aggregate: "ONLY(LB.VISITNUM)"
+      LBNRIND:
+        aggregate: "ONLY(LB.LBNRIND)"
+      LBSTRESN:
+        aggregate: "ONLY(LB.LBSTRESN)"
+      A1LO:
+      A1HI:
+      _LBDTM_TXT:
+        aggregate: "ONLY(LB.LBDTC)"
+      _LBDTM:
+        impute:
+          type: datetime
+          source: _LBDTM_TXT
+          time: first
+          invalid:
+      _ADT_DATE:
+        to_date:
+          source: _LBDTM
+      _LBTESTCD:
+        aggregate: "ONLY(LB.LBTESTCD)"
+      _LBBLFL:
+        aggregate: "ONLY(LB.LBBLFL)"
+      PARAMCD:
+        str_template: "_{_LBTESTCD}"
+      AVISIT: "'End of Treatment'"
+      AVISITN: 99.0
+      ABLFL: "''"
+      _PARAM_BASE:
+        case:
+          - when: "_LBTESTCD = 'SODIUM'"
+            then: "'Sodium (mmol/L)'"
+          - when: "_LBTESTCD = 'K'"
+            then: "'Potassium (mmol/L)'"
+          - when: "_LBTESTCD = 'CL'"
+            then: "'Chloride (mmol/L)'"
+          - when: "_LBTESTCD = 'BILI'"
+            then: "'Bilirubin (umol/L)'"
+          - when: "_LBTESTCD = 'ALP'"
+            then: "'Alkaline Phosphatase (U/L)'"
+          - when: "_LBTESTCD = 'GGT'"
+            then: "'Gamma Glutamyl Transferase (U/L)'"
+          - when: "_LBTESTCD = 'ALT'"
+            then: "'Alanine Aminotransferase (U/L)'"
+          - when: "_LBTESTCD = 'AST'"
+            then: "'Aspartate Aminotransferase (U/L)'"
+          - when: "_LBTESTCD = 'BUN'"
+            then: "'Blood Urea Nitrogen (mmol/L)'"
+          - when: "_LBTESTCD = 'CREAT'"
+            then: "'Creatinine (umol/L)'"
+          - when: "_LBTESTCD = 'URATE'"
+            then: "'Urate (umol/L)'"
+          - when: "_LBTESTCD = 'PHOS'"
+            then: "'Phosphate (mmol/L)'"
+          - when: "_LBTESTCD = 'CA'"
+            then: "'Calcium (mmol/L)'"
+          - when: "_LBTESTCD = 'GLUC'"
+            then: "'Glucose (mmol/L)'"
+          - when: "_LBTESTCD = 'PROT'"
+            then: "'Protein (g/L)'"
+          - when: "_LBTESTCD = 'ALB'"
+            then: "'Albumin (g/L)'"
+          - when: "_LBTESTCD = 'CHOL'"
+            then: "'Cholesterol (mmol/L)'"
+          - when: "_LBTESTCD = 'CK'"
+            then: "'Creatine Kinase (U/L)'"
+          - otherwise:
+      _PARAMN_BASE:
+        case:
+          - when: "_LBTESTCD = 'SODIUM'"
+            then: 18.0
+          - when: "_LBTESTCD = 'K'"
+            then: 19.0
+          - when: "_LBTESTCD = 'CL'"
+            then: 20.0
+          - when: "_LBTESTCD = 'BILI'"
+            then: 21.0
+          - when: "_LBTESTCD = 'ALP'"
+            then: 22.0
+          - when: "_LBTESTCD = 'GGT'"
+            then: 23.0
+          - when: "_LBTESTCD = 'ALT'"
+            then: 24.0
+          - when: "_LBTESTCD = 'AST'"
+            then: 25.0
+          - when: "_LBTESTCD = 'BUN'"
+            then: 26.0
+          - when: "_LBTESTCD = 'CREAT'"
+            then: 27.0
+          - when: "_LBTESTCD = 'URATE'"
+            then: 28.0
+          - when: "_LBTESTCD = 'PHOS'"
+            then: 29.0
+          - when: "_LBTESTCD = 'CA'"
+            then: 30.0
+          - when: "_LBTESTCD = 'GLUC'"
+            then: 31.0
+          - when: "_LBTESTCD = 'PROT'"
+            then: 32.0
+          - when: "_LBTESTCD = 'ALB'"
+            then: 33.0
+          - when: "_LBTESTCD = 'CHOL'"
+            then: 34.0
+          - when: "_LBTESTCD = 'CK'"
+            then: 35.0
+          - otherwise:
+      _AVAL_BASE:
+        aggregate: "ONLY(LB.LBSTRESN)"
+      _BASE:
+      _BASELINE_AVAL:
+      _PNM_BASE:
+      _PARAMCD_BASE:
+        aggregate: "ONLY(LB.LBTESTCD)"
+      LBTESTCD:
+        aggregate: "ONLY(LB.LBTESTCD)"
+      _SCHED:
+        case:
+          - when: "_VISIT_RAW IN ('SCREENING 1', 'WEEK 2', 'WEEK 4', 'WEEK 6',
+              'WEEK 8', 'WEEK 12', 'WEEK 16', 'WEEK 20', 'WEEK 24', 'WEEK 26')"
+            then: "'Y'"
+          - otherwise: "''"
+      _PREV_AVAL: PREV.PREV_AVAL
+
+      _U_RAW: "(_AVAL_BASE - _PREV_AVAL) / (0.5 * (_B_A1HI - _B_A1LO))"
+      _IS_LAST_ELIGIBLE:
+        row_number:
+          window:
+            group_by:
+              - USUBJID
+              - _PARAMCD_BASE
+            order_by:
+              - {variable: LBSEQ, direction: desc, nulls: last}
+            filter: "_LBCAT = 'CHEMISTRY' AND _VISIT_RAW NOT IN ('RETRIEVAL',
+              'AMBUL ECG REMOVAL') AND _VISIT_RAW IN ('WEEK 2', 'WEEK 4',
+              'WEEK 6', 'WEEK 8', 'WEEK 12', 'WEEK 16', 'WEEK 20', 'WEEK 24')"
+      _RANK_AVISITN:
+        case:
+          - when: "_VISIT_RAW = 'SCREENING 1'"
+            then: 0.0
+          - when: "_VISIT_RAW = 'WEEK 2'"
+            then: 2.0
+          - when: "_VISIT_RAW = 'WEEK 4'"
+            then: 4.0
+          - when: "_VISIT_RAW = 'WEEK 6'"
+            then: 6.0
+          - when: "_VISIT_RAW = 'WEEK 8'"
+            then: 8.0
+          - when: "_VISIT_RAW = 'WEEK 12'"
+            then: 12.0
+          - when: "_VISIT_RAW = 'WEEK 16'"
+            then: 16.0
+          - when: "_VISIT_RAW = 'WEEK 20'"
+            then: 20.0
+          - when: "_VISIT_RAW = 'WEEK 24'"
+            then: 24.0
+          - when: "_VISIT_RAW = 'WEEK 26'"
+            then: 26.0
+          - otherwise:
+      _B_A1HI:
+        aggregate: "ONLY(LB.LBSTNRHI)"
+      _B_A1LO:
+        aggregate: "ONLY(LB.LBSTNRLO)"
+      _T1: "1.5 * _B_A1HI - _AVAL_BASE"
+      _T2: "_AVAL_BASE - 0.5 * _B_A1LO"
+      ALBTRVAL:
+        greatest:
+          sources:
+            - _T1
+            - _T2
+      _R2A1HI_R:
+      _R2A1LO_R:
+      _BASELINE_ANRIND:
+      _PNM_BNRIND:
+      _BNRIND_VAL:
+      _ANRIND_BASE:
