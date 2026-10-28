@@ -1,6 +1,7 @@
 """Record native Define-XML metadata agreement with the retained reference."""
 
 import hashlib
+import json
 from pathlib import Path
 import xml.etree.ElementTree as ET
 
@@ -35,6 +36,26 @@ def candidate_path(root, study):
     if candidate == (root / study / "spec/define/define-adam.xml").resolve():
         raise ValueError("Generated Define-XML must be separate from the reference")
     return candidate
+
+
+def comparison_stylesheets(root, study):
+    """Prefer the reference's publisher view; select other views by XML version."""
+    root = Path(root).resolve()
+    reference = root / study / "spec/define/define-adam.xml"
+    manifest = root / study / "spec/source/manifest.json"
+    entries = json.loads(manifest.read_text()).get("files", []) if manifest.is_file() else []
+    retained = next((entry.get("stylesheet") for entry in entries
+                     if entry["path"] == reference.relative_to(root).as_posix()), None)
+    config = root / ".github/dashboard.json"
+    stylesheets = json.loads(config.read_text()).get("define_stylesheets", {}) if config.is_file() else {}
+    reference_version = version(reference)
+    candidate = candidate_path(root, study)
+    versions = {"reference": reference_version,
+                "candidate": version(candidate) if candidate else None}
+    return {
+        side: retained if retained and xml_version and xml_version == reference_version else stylesheets.get(xml_version)
+        for side, xml_version in versions.items()
+    }
 
 
 def check_define(root, study, project):

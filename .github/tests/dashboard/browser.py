@@ -149,10 +149,14 @@ def check(browser, base, site_dir, screenshots):
             len(study_model['validation']['define_xml']['metadata']['differences']))
         expect(page.get_by_role('link', name='Download XML', exact=True)).to_have_count(2)
         for side, label in [('reference', 'Original'), ('candidate', 'yamaa-generated')]:
-            frame = page.frame_locator(f'iframe[title="{label} XML source"]')
-            expect(frame.locator('#L1')).to_be_visible()
-            expect(page.locator(f'iframe[title="{label} XML source"]')).to_have_attribute(
-                'src', base + f'/evidence/dashboard/{name}/define/{side}.html')
+            frame = page.frame_locator(f'iframe[title="{label} Define-XML"]')
+            expect(frame.locator('table').first).to_be_visible()
+            expect(frame.locator('body')).to_contain_text('USUBJID')
+            expect(page.locator(f'iframe[title="{label} Define-XML"]')).to_have_attribute(
+                'src', base + f'/evidence/dashboard/{name}/define/{side}.xml.original.html')
+            expect(page.locator('.define-pane').nth(0 if side == 'reference' else 1)
+                   .get_by_role('link', name='Open source', exact=True)).to_have_attribute(
+                'href', base + f'/evidence/dashboard/{name}/define/{side}.html')
         assert '/define/ADSL' in page.url
         page.reload()
         expect(page.locator('.define-comparison iframe')).to_have_count(2)

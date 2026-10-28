@@ -4,7 +4,7 @@ import hashlib
 import json
 from pathlib import Path
 
-from study_define import candidate_path
+from study_define import candidate_path, comparison_stylesheets
 from study_evidence import shared_layers
 
 
@@ -21,6 +21,11 @@ def artifact_snapshot(root, study):
     candidate = candidate_path(root, study)
     if candidate is not None and candidate.is_file():
         files.add(candidate)
+        for relative in comparison_stylesheets(root, study).values():
+            if relative:
+                stylesheet = (root / relative).resolve()
+                stylesheet.relative_to(root)
+                files.add(stylesheet)
     catalog_file = root / ".github/yamaa-studies.json"
     source_pipeline = (json.loads(catalog_file.read_text()).get(study, {}).get("prepare")
                        if catalog_file.is_file() else False)

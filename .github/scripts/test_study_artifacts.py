@@ -22,6 +22,7 @@ class ArtifactTests(unittest.TestCase):
             path = self.root / name
             path.parent.mkdir(parents=True, exist_ok=True)
             path.write_bytes(b'validated bytes')
+        (self.root / '.github/dashboard.json').write_text('{}')
         # The study inherits one shared layer; an unrelated layer is not its evidence.
         (self.root / self.files[0]).write_text('parent: ../../../spec/yamaa/study/adsl.yaml\n')
         (self.root / 'spec/yamaa/other/adsl.yaml').parent.mkdir(parents=True)

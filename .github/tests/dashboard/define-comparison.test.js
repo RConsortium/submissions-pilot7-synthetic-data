@@ -9,8 +9,8 @@ const model = {
   id: "study", subjects: [], tables: {}, datasets: [{ name: "ADSL", inputs: [] }],
   define_comparison: {
     evidence: "define/comparison.json",
-    reference: { available: true, original: "define/reference.xml", view: "define/reference.html" },
-    candidate: { available: true, original: "define/candidate.xml", view: "define/candidate.html" },
+    reference: { available: true, original: "define/reference.xml", source: "define/reference.html", view: "define/reference.xml.original.html", view_label: "Rendered Define-XML" },
+    candidate: { available: true, original: "define/candidate.xml", source: "define/candidate.html", view: "define/candidate.xml.original.html", view_label: "Rendered Define-XML" },
   },
   validation: { define_xml: { comparison: "matched", adam_version: "2.0.0", candidate_version: "2.1.0", metadata: {} } },
 };
@@ -24,9 +24,21 @@ test("independent XML panes use bundle URLs and retain version and comparison st
   assert.match(html, /Metadata matched/);
   assert.match(html, /Define-XML 2.0.0/);
   assert.match(html, /Define-XML 2.1.0/);
-  assert.match(html, /src="https:\/\/example.test\/project\/study\/define\/reference.html" sandbox=""/);
-  assert.match(html, /src="https:\/\/example.test\/project\/study\/define\/candidate.html" sandbox=""/);
+  for (const side of ["reference", "candidate"]) {
+    assert.ok(html.includes(`src="${resource(`define/${side}.xml.original.html`)}" sandbox="allow-scripts"`));
+    assert.ok(html.includes(`href="${resource(`define/${side}.html`)}" target="_blank"`));
+    assert.ok(html.includes(`href="${resource(`define/${side}.xml`)}" download`));
+  }
+  assert.match(html, /Rendered Define-XML/);
   assert.match(html, /No metadata differences were found/);
+});
+test("a missing retained stylesheet keeps the numbered source view explicit", () => {
+  const fallback = structuredClone(model);
+  fallback.define_comparison.candidate.view = "define/candidate.html";
+  fallback.define_comparison.candidate.view_label = "XML source";
+  const html = defineComparisonView(fallback, resource);
+  assert.ok(html.includes(`src="${resource("define/candidate.html")}"`));
+  assert.match(html, /<span>XML source<\/span>/);
 });
 test("legacy gaps and unequal values remain visible and escaped", () => {
   const legacy = structuredClone(model);
