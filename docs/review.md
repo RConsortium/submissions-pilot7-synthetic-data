@@ -1,29 +1,29 @@
 # Community review guide
 
-**Goal:** Help us assess whether the generated specifications and outputs follow
-the study documents, and whether the reported findings and proposed actions are
-justified.
+**Goal:** Help us assess whether the generated Pilot 5 specifications and
+outputs follow the study documents, and whether the reported findings and
+proposed actions are justified.
 
 These results are **draft / dry run, pending human review**. We welcome
 statistical programmers and biostatisticians to review one finding, variable,
 or rule. You do not need to install software or review an entire study to help.
 
-## 1. Choose a study and finding
+## Co-authorship opportunity
 
-Open the [pilot study report](studies/index.md), choose a study and dataset,
-and open **Consistency findings**. Start with critical findings or items marked
-**Needs review**, then documentation gaps. You can also report a problem that
-the automated checks missed.
+Contributors who review **more than 10% of the findings in Pilot 5** have the
+opportunity to co-author a paper about this work. Share your completed reviews
+through the channels below so your contribution can be attributed to you.
 
-For KN189, KN564, and CAR-T for ALL, start with the
-[synthetic data report](synthetic/index.md). In KN189 and KN564, open
-**Analysis development** and **Findings for review**. Focus on whether the
-protocol/SAP, available data, and proposed analysis support the intended use.
-Check partial or unsupported analyses and pending decisions.
+## 1. Choose a Pilot 5 finding
+
+Open the [Pilot 5 review dashboard](https://rconsortium.github.io/submissions-pilot7-synthetic-data/studies/submission-pilot5/#submission-pilot5/overview/ADSL),
+which starts at ADSL. Select a dataset and open **Consistency findings**.
+Start with critical findings or items marked **Needs review**, then documentation
+gaps. You can also report a problem that the automated checks missed.
 
 ## 2. Check the evidence
 
-For a pilot finding, open **Trace evidence**. The expanded review page keeps
+For a finding, open **Trace evidence**. The expanded review page keeps
 related findings separate and follows this structure:
 
 | Step | Review question |
@@ -36,8 +36,6 @@ related findings separate and follows this structure:
 Use **Full context** or **View source** to check a citation. Use
 **Open evidence in workspace** to inspect the relevant subjects, specification,
 and linked inputs. Select an output column to follow its source dependencies.
-For synthetic findings, expand the finding and check its cited rule, measured
-records, and proposed action in the same way.
 
 **A 100% published-reference match does not establish correctness or human
 approval.** Documents, specifications, and data can still disagree. A reference
@@ -70,17 +68,14 @@ Observed behavior or affected records:
 Suggested correction or evidence needed:
 ```
 
-For pilot datasets, post under **Review comments** in the workspace; GitHub
+For Pilot 5 datasets, post under **Review comments** in the workspace; GitHub
 sign-in is required. Copy the browser URL to preserve your selected subjects,
 variable, and evidence. If comments are unavailable, use the review-issue link
 or [open a GitHub issue](https://github.com/RConsortium/submissions-pilot7-synthetic-data/issues/new).
-Use a GitHub issue for synthetic-study feedback too.
 
 **One evidence-backed recommendation is a useful completed contribution.**
 Maintainers assess feedback, record the human decision, and apply agreed
-changes before rebuilding. A comment does not approve a dataset. Synthetic
-**Export review draft** saves a local draft; it must be shared to contribute
-feedback and does not resolve a finding.
+changes before rebuilding. A comment does not approve a dataset.
 
 For controls, filters, source viewers, and sharing details, see the
 [dashboard reference](dashboard-reference.md).
