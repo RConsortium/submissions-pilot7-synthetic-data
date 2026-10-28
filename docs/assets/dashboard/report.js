@@ -6,7 +6,6 @@ import {
   impactText,
   issueRow,
   issueSearchText,
-  issueTrace,
   readReview,
 } from "./issues.js";
 
@@ -61,36 +60,23 @@ export function createReport(ctx) {
     const entries = (values) => values.map((v) => [v, v.replaceAll("_", " ")]);
     return `<div class="report-filters"><label class="search-field"><span class="field-label">Search issues</span><input id="finding-search" type="search" value="${esc(state.findingSearch)}" placeholder="Variable, issue, document or rule..."></label>${select("finding-comparison", "Comparison", Object.entries(comparisons), state.comparison)}${select("finding-kind", "Issue type", entries(KINDS), state.kind)}${select("finding-critical", "Critical finding", Object.entries(CRITICAL_LABELS), state.critical)}<button class="button" id="clear-findings">Clear filters</button></div><div id="finding-results">${findingRows()}</div>`;
   }
-  function expandTrace(details) {
-    if (!details.open) return;
-    const host = details.querySelector("[data-issue-trace]");
-    if (!host || host.dataset.loaded === "true") return;
-    const issue = findIssue(
-      ctx.report,
-      details.closest("[data-finding-id]")?.dataset.findingId,
-    );
-    if (!issue) return;
-    host.innerHTML = issueTrace(issue, ctx.report);
-    host.dataset.loaded = "true";
-  }
   function drawer() {
     const { state, esc, byId, root, report } = ctx;
     const issue = findIssue(report, state.evidence),
       host = byId("evidence-drawer");
     if (!host) return;
-    root().classList.toggle("evidence-open", Boolean(issue));
+    root().classList.remove("evidence-open");
     if (!issue) {
       host.innerHTML = "";
       return;
     }
-    host.innerHTML = `<aside class="evidence-drawer" aria-label="Source evidence"><header><div><span class="eyebrow">CONSISTENCY ISSUE</span><h2>${esc(issue.dataset + (issue.variable ? "." + issue.variable : ""))}</h2></div><button class="button" id="close-evidence" aria-label="Close source evidence">Close</button></header><h3>${esc(issue.title)}</h3><p>${esc(issue.summary)}</p><p>${esc(impactText(issue, report))}</p>${issueTrace(issue, report)}<button class="button" data-comment>Comment on this issue</button></aside>`;
+    host.innerHTML = `<aside class="trace-workspace-note" aria-label="Source evidence"><div><strong>${esc(issue.title)}</strong><p>${esc(impactText(issue, report))}</p></div><button class="button" data-trace-issue="${esc(issue.id)}">Trace evidence</button><button class="text-link" id="close-evidence" aria-label="Close source evidence">Clear finding</button></aside>`;
   }
   return {
     allFindings,
     findingItems,
     findingRows,
     findingsView,
-    expandTrace,
     drawer,
   };
 }

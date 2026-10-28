@@ -23,13 +23,15 @@ Check partial or unsupported analyses and pending decisions.
 
 ## 2. Check the evidence
 
-For a pilot finding, expand **Trace evidence** and follow its three steps:
+For a pilot finding, open **Trace evidence**. The expanded review page keeps
+related findings separate and follows this structure:
 
 | Step | Review question |
 | --- | --- |
-| Rule comparison | What does the cited protocol, SAP, or Define-XML require? Does the specification express that rule? |
-| Data comparison | Do the relevant records support the reported difference and measured impact? |
-| Proposed action | Is the suggested correction or decision justified? Is more evidence needed? |
+| The finding | What concrete difference is being reported, and what impact was measured? |
+| What the sources say | What does the cited protocol, SAP, or Define-XML require? Does the specification express that rule? |
+| Subject examples | Do actual records support the explanation? Examples illustrate the calculations; full comparisons determine impact. |
+| Recommended fix | Is the suggested correction or decision justified? Is more evidence needed? |
 
 Use **Full context** or **View source** to check a citation. Use
 **Open evidence in workspace** to inspect the relevant subjects, specification,
@@ -44,6 +46,17 @@ and agent assessments support your review; they do not resolve findings.
 See the [verification policy](verification.md) for comparison scope and limits.
 
 ## 3. Leave a recommendation
+
+At the end of the trace page, assess **Agree**, **Disagree**, or **Need
+clarification**, then choose **Critical**, **Not critical**, or **Unsure**.
+Add comments explaining your assessment. **Save draft** retains unfinished work;
+**Save review** requires both decisions. These choices are stored in your browser
+and remain separate from automated assessments and finding resolution. If the
+evidence changes, an earlier review becomes a draft for reassessment.
+
+Use **Download review** to keep or share your decisions and comments, with the
+finding IDs and source revision. Share feedback through the discussion tools
+below; a browser-local assessment is not posted automatically.
 
 State **Agree with the proposed action**, **Suggest a correction**, or
 **Need more evidence**, and explain why. Use this template:

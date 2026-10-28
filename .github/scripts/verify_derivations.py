@@ -881,6 +881,8 @@ def dataset_report(context, domain, spec_path, derived, reference):
             "spans": source_locations(probe_text)["spans"],
             "revision": revision,
         }
+        from study_dashboard.trace_examples import TraceExamples
+        examples = TraceExamples(reference, derived, probe, probe_spec, probe_text, subject_key)
     claims, declaration = {}, None
     if claims_path.is_file():
         declaration, claims = load_claims(claims_path, set(probe.columns) if probe is not None else set())
@@ -943,6 +945,10 @@ def dataset_report(context, domain, spec_path, derived, reference):
                 }
                 for p in claim.get("probes", [])
             ]
+            if probe is not None and record["probes"]:
+                record["examples"] = examples.variable(
+                    name, record["probes"], claim.get("example_columns", [])
+                )
         elif record["check"] == "rule":
             record["citations"] = []
             record["documented"] = bool(documented)
