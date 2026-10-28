@@ -6,6 +6,7 @@ from pathlib import Path
 import sys
 import tempfile
 import unittest
+from unittest.mock import patch
 
 import yaml
 
@@ -143,7 +144,8 @@ columns:
                 module = importlib.util.spec_from_file_location("study_comparison", script)
                 comparator = importlib.util.module_from_spec(module)
                 module.loader.exec_module(comparator)
-                self.assertEqual(comparator._spec_labels(path)["AGE"], "Age", study)
+                with patch("resolved_specs.specification_packet", return_value=packet):
+                    self.assertEqual(comparator._spec_labels(path)["AGE"], "Age", study)
             from verify_derivations import resolve_source
             age = next(c for c in model["columns"] if c["name"] == "AGE")
             self.assertEqual(resolve_source(model, age["derivation"]), "ADSL.AGE")

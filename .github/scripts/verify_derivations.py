@@ -32,6 +32,7 @@ from consistency_report import render
 from study_dashboard.config import reference_path, settings
 from study_dashboard.lineage import source_locations
 from study_evidence import catalog, engine_revision, project_specs, reviewed_datasets
+from resolved_specs import specification_packet
 
 # polars, yamaa, lxml and the document readers are imported where they are
 # used, so the citation, finding and verdict logic stays testable with PyYAML.
@@ -847,15 +848,9 @@ def dataset_report(context, domain, spec_path, derived, reference):
     )
     base = root / study
     text = spec_path.read_text()
-    spec = yaml.safe_load(text)
-    elements = {}
-    if spec.get("parent") or spec.get("include") or any("copy" in c for c in spec.get("columns", [])):
-        import yamaa
-        from study_dashboard.specifications import capture_specification
-
-        packet = capture_specification(root, spec_path, yamaa.spec(spec_path).resolve())
-        spec = packet["model"]
-        elements = layered_elements(packet)
+    packet = specification_packet(root, spec_path)
+    spec = packet["model"]
+    elements = layered_elements(packet)
     spans = source_locations(text)["spans"]
     spec_file = {
         "path": spec_path.relative_to(root).as_posix(),

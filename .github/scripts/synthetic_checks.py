@@ -90,11 +90,11 @@ def check_datasets(root, study, declaration):
     subjects = set(dm['USUBJID'].to_list())
     records = []
     for section in ['sdtm', 'adam']:
-        import yaml
+        from resolved_specs import specification_packet
 
         for relative in declaration[section]['specs']:
             path = base / 'spec/yamaa' / relative
-            spec = yaml.safe_load(path.read_text())
+            spec = specification_packet(root, path)['model']
             domain = spec['domain']
             parquet = base / 'data' / section / f'{domain.lower()}-yamaa.parquet'
             data = pl.read_parquet(parquet)

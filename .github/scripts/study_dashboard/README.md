@@ -309,7 +309,9 @@ output sort references are recorded as `output_order`, separately from column
 value dependencies. This remains a conservative static index across declared
 branches, not contributing-row provenance.
 
-Validation records `resolved_specification` inspection packets with the pinned
+Each study saves the full pinned-engine resolution under `spec/yamaa/resolved/`.
+Validation checks it against fresh resolution and records its path and SHA-256.
+Downstream readers load that snapshot. Validation records `resolved_specification` inspection packets with the pinned
 engine's normalized model, mapping order, original sources, origins and resolved
 resource locations. Publication checks source text against the artifact inventory
 and uses those facts without installing the engine. Copies, includes, inheritance

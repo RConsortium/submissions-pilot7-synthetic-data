@@ -82,3 +82,58 @@ and its resolved-model view shows the composed specification. In Python,
 each value. A change to a template affects every study that inherits it, so
 validate each of them; pull request CI selects the studies whose
 specifications reach the changed file through `parent` or `include`.
+
+## Saved resolved specifications
+
+Each active study keeps one generated YAML snapshot per project dataset in
+`<study>/spec/yamaa/resolved/`, preserving any `sdtm/` or `adam/` subfolder.
+For example, Pilot 01's ADAE is
+`cdiscpilot01/spec/yamaa/resolved/adae.yaml`. The snapshot retains the full
+engine resolution: the composed model, mapping order, origins, layers and
+resource locations. Paths are repository-relative, and the header records
+the exact engine revision and hashes of its specification inputs, including
+the project, shared templates, producer schemas and project codelists.
+
+Install the study's pinned engine, then regenerate after a specification,
+project or engine-pin change:
+
+```bash
+python .github/scripts/resolved_specs.py cdiscpilot01
+python .github/scripts/resolved_specs.py cdiscpilot01 --check
+```
+
+Omit the study argument to process every active project. Commit the generated
+snapshots with the source change. Validation checks them against fresh engine
+resolution before execution; missing, changed or obsolete snapshots fail the
+check. Resolving reads no clinical data and runs no project code.
+
+These files are the saved specification used by downstream label comparisons,
+document-rule review, transport metadata readers and dashboard publication.
+Validation evidence identifies each snapshot by path and SHA-256, and
+publication refuses changes after validation. Downstream readers verify source
+hashes and do not compose the YAML language themselves.
+
+The engine declares its resolved artifact `replay: inspection_only`: its
+normalized model is not executable authoring YAML. Dataset execution and native
+Define-XML generation therefore use the original project with the same pinned
+engine, after the snapshot check. Edit the source layers, then regenerate;
+never edit or execute a snapshot as a derivation specification.
+
+## Why review probes are separate
+
+`<study>/spec/review/adae-probe.yaml` is an executable check of the rules
+cited in `adae-claims.json`, not the production ADAE specification. It starts
+from published reference rows and recomputes selected variables using the
+documented inputs and rules. For ADAE, these include analysis dates, inclusive
+duration, treatment emergence, first-occurrence flags and the dermatologic
+query. Alternative readings have separate output columns, such as the
+corrected SOC spelling used by `CQ01NAM`.
+
+`verify_derivations.py` checks the citations, runs the probe with the pinned
+engine, and compares its results with both the independent published reference
+and the production output. This can reveal a documented rule that disagrees
+with the reference even when production reproduces every reference value.
+Reference values used for other variables keep a probe focused on the selected
+rule; it is not an independent end-to-end derivation. Claims and adjudication
+record the reading and remaining review decisions. Keep probes independent of
+the production specification and its resolved snapshot.
