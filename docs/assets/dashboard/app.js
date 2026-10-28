@@ -188,6 +188,7 @@ import { developmentReport, mountDevelopment } from "./synthetic-development.js"
     byId("review-comments").innerHTML = commentsView();
     loadComments();
     traceReview.refreshRows();
+    traceReview.resumeComments();
     if (state.view === "datasets") {
       await refreshRows();
       if (token === ticket) {

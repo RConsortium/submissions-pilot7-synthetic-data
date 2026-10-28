@@ -146,6 +146,8 @@ Copying or saving locally never reports a successful GitHub post. Clipboard
 failure leaves selectable review text, and the repository link remains available
 when the embed cannot load. Browser checks intercept giscus; they do not exercise
 GitHub sign-in or post real comments.
+The open finding is kept in session storage so the sign-in round trip restores
+its discussion and the review draft. Closing the dialog clears that return state.
 
 ## Build and verify
 
