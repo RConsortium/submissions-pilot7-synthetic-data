@@ -29,7 +29,10 @@ export function createSourceDocuments(ctx) {
         : "#" + encodeURIComponent(section)
       : "";
     const frame = slot === 0 ? "source-frame" : "source-frame-compare";
-    return `<article class="source-pane" data-source-path="${esc(doc.path)}">${tabs(slot, chosen)}<section class="source-viewer" id="source-panel-${slot}" role="tabpanel" aria-labelledby="source-tab-${slot}-${chosen[slot]}">${doc.available ? `<div class="source-viewer-heading">${link(sourceUrl(doc.path), "Source", "button")}</div>` : ""}${doc.available && (doc.view || doc.original) ? `<iframe id="${frame}" title="${esc((doc.view_label || "Original file") + ": " + doc.name)}" src="${esc(resource(doc.view || doc.original) + fragment)}" ${doc.name.toLowerCase().endsWith(".pdf") ? "" : 'sandbox="allow-scripts"'}></iframe>` : '<p class="empty-state">Source unavailable. This file is not retained in the package.</p>'}</section></article>`;
+    const theme = doc.name.toLowerCase().endsWith(".xlsx")
+      ? "?theme=" + encodeURIComponent(document.body.dataset.mdColorScheme || "default")
+      : "";
+    return `<article class="source-pane" data-source-path="${esc(doc.path)}">${tabs(slot, chosen)}<section class="source-viewer" id="source-panel-${slot}" role="tabpanel" aria-labelledby="source-tab-${slot}-${chosen[slot]}">${doc.available ? `<div class="source-viewer-heading">${link(sourceUrl(doc.path), "Source", "button")}</div>` : ""}${doc.available && (doc.view || doc.original) ? `<iframe id="${frame}" title="${esc((doc.view_label || "Original file") + ": " + doc.name)}" src="${esc(resource(doc.view || doc.original) + theme + fragment)}" ${doc.name.toLowerCase().endsWith(".pdf") ? "" : 'sandbox="allow-scripts"'}></iframe>` : '<p class="empty-state">Source unavailable. This file is not retained in the package.</p>'}</section></article>`;
   }
   function materialsView() {
     const { report } = ctx;

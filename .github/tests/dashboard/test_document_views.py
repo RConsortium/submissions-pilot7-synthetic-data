@@ -63,6 +63,10 @@ class DocumentViewTests(unittest.TestCase):
                 tree.xpath("//caption/text()"), ["Rules & inputs", "Output"]
             )
             self.assertEqual(tree.xpath('//tbody/tr/@id'), [s['id'] for s in sections])
+            self.assertEqual(tree.xpath('//button[@role="tab"]/text()'), ['Rules & inputs', 'Output'])
+            self.assertEqual(tree.xpath('//button[@aria-selected="true"]/@aria-controls'), ['sheet-1'])
+            self.assertEqual(tree.xpath('//section[@role="tabpanel" and not(@hidden)]/@id'), ['sheet-1'])
+            self.assertEqual(tree.xpath('//section[@role="tabpanel"]//table/@class'), ['review-table', 'review-table'])
 
     def test_workbook_omits_blank_rows_and_keeps_merges_aligned(self):
         with tempfile.TemporaryDirectory() as tmp:
@@ -96,6 +100,20 @@ class DocumentViewTests(unittest.TestCase):
             self.assertEqual(tree.xpath('//tr[@id="sheet-1-row-7"]/td/@rowspan'), ['2', '1', '1', '1'])
             self.assertEqual(tree.xpath('//tr[@id="sheet-1-row-9"]/td/text()'), ['last empty merged row'])
             self.assertEqual((target / document['original']).read_bytes(), source.read_bytes())
+            self.assertEqual(tree.xpath('//button[@id="compare-worksheets"]'), [])
+            self.assertEqual(len(tree.xpath('//script')), 1)
+
+    def test_empty_worksheet_remains_selectable_and_sheet_titles_are_escaped(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            path = Path(tmp) / 'empty.xlsx'
+            book = Workbook()
+            book.active.title = 'Empty <&>'
+            book.save(path)
+            body, sections = workbook_body(path)
+            tree = etree.HTML(body)
+            self.assertEqual(sections, [])
+            self.assertEqual(tree.xpath('//button[@role="tab"]/text()'), ['Empty <&>'])
+            self.assertEqual(tree.xpath('//section[@id="sheet-1"]//p/text()'), ['This worksheet is empty.'])
 
     def test_xml_uses_retained_publisher_html_and_denies_external_document_reads(self):
         with tempfile.TemporaryDirectory() as tmp:

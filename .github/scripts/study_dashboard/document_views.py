@@ -1,6 +1,7 @@
 """Browser views of retained workbooks and original Define-XML stylesheets."""
 
 import html
+from pathlib import Path
 import shutil
 
 from lxml import etree
@@ -14,12 +15,14 @@ def workbook_body(path):
     sections, tables = [], []
     try:
         navigation = (
-            "<nav>"
-            + " | ".join(
-                f'<a href="#sheet-{n}">{html.escape(sheet.title)}</a>'
+            '<div class="source-file-tabs workbook-tabs" role="tablist" aria-label="Worksheets">'
+            + "".join(
+                f'<button type="button" role="tab" id="sheet-tab-{n}" '
+                f'aria-controls="sheet-{n}" aria-selected="{str(n == 1).lower()}" '
+                f'tabindex="{0 if n == 1 else -1}">{html.escape(sheet.title)}</button>'
                 for n, sheet in enumerate(book, 1)
             )
-            + "</nav>"
+            + "</div>"
         )
         for n, sheet in enumerate(book, 1):
             populated_rows = {}
@@ -60,25 +63,56 @@ def workbook_body(path):
                     if (number, column) in covered:
                         continue
                     rowspan, colspan = merged.get((number, column), (1, 1))
-                    style = "white-space:pre-wrap;min-width:100px;max-width:600px;"
-                    if cell.font.bold:
-                        style += "font-weight:bold;"
+                    classes = ' class="workbook-bold"' if cell.font.bold else ""
                     cells.append(
-                        f'<td rowspan="{rowspan}" colspan="{colspan}" style="{style}">{html.escape(values[column - 1])}</td>'
+                        f'<td rowspan="{rowspan}" colspan="{colspan}"{classes}>{html.escape(values[column - 1])}</td>'
                     )
                 rows.append(
-                    f'<tr id="{anchor}"><th scope="row">{number}</th>{"".join(cells)}</tr>'
+                    f'<tr id="{anchor}"><th scope="row" class="row-number">{number}</th>{"".join(cells)}</tr>'
                 )
             headings = "".join(
                 f'<th scope="col">{get_column_letter(c)}</th>'
                 for c in range(1, sheet.max_column + 1)
             )
             tables.append(
-                f'<section id="sheet-{n}"><h2>{html.escape(sheet.title)}</h2><div style="overflow:auto"><table style="min-width:100%"><caption>{html.escape(sheet.title)}</caption><thead><tr><th scope="col">Row</th>{headings}</tr></thead><tbody>{"".join(rows)}</tbody></table></div></section>'
+                f'<section class="workbook-sheet" id="sheet-{n}" role="tabpanel" '
+                f'aria-labelledby="sheet-tab-{n}" tabindex="0"{" hidden" if n != 1 else ""}>'
+                f'<header class="pane-header"><h2>{html.escape(sheet.title)}</h2>'
+                f'<span>{len(rows)} rows / {sheet.max_column} columns</span></header>'
+                '<div class="workbook-table" role="region" '
+                f'aria-label="{html.escape(sheet.title)} worksheet table" tabindex="0">'
+                f'<table class="review-table"><caption class="sr-only">{html.escape(sheet.title)}</caption>'
+                f'<thead><tr><th scope="col" class="row-number">Row</th>{headings}</tr></thead>'
+                f'<tbody>{"".join(rows)}</tbody></table>'
+                + ('<p class="empty-state">This worksheet is empty.</p>' if not rows else '')
+                + '</div></section>'
             )
-        return navigation + "".join(tables), sections
+        controls = (
+            '<div class="workbook-toolbar"><p id="workbook-status" role="status"></p>'
+            + ('<button type="button" class="button" id="compare-worksheets" '
+               'aria-pressed="false">Compare worksheets</button>' if len(tables) > 1 else '')
+            + '</div>'
+        )
+        return controls + navigation + '<div class="workbook-panes">' + "".join(tables) + '</div>', sections
     finally:
         book.close()
+
+
+def workbook_html(title, body):
+    """Reuse dashboard table styles in a portable, sandboxed worksheet viewer."""
+    docs = Path(__file__).resolve().parents[3] / "docs"
+    css = (docs / "stylesheets/dashboard.css").read_text()
+    script = (docs / "assets/dashboard/workbook.js").read_text()
+    return (
+        '<!doctype html><html lang="en"><head><meta charset="utf-8">'
+        '<meta name="viewport" content="width=device-width, initial-scale=1">'
+        f'<title>{html.escape(title)}</title><style>{css}</style></head>'
+        '<body class="study-dashboard workbook-viewer">'
+        f'<h1>{html.escape(title)}</h1>'
+        '<p class="workbook-note">Blank rows are omitted; original sheet, row and column '
+        'references are preserved. Formulas are shown as entered.</p>'
+        f'{body}<script>{script}</script></body></html>'
+    )
 
 
 def render_xml(root, path, original, entry):

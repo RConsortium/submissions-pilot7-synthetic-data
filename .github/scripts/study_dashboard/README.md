@@ -45,6 +45,7 @@ docs/assets/dashboard/
   resize.js, synthetic.js                 sizing and synthetic-development views
   shell.js, workspace.js                 study layout and linked review panels
   source-documents.js                    independent file tabs and two original viewers
+  workbook.js                            worksheet tabs and multi-sheet comparison
   define-comparison.js                   original/generated XML and metadata differences
   report.js, comments.js, ui.js           evidence, discussions, and shared primitives
   issues.js                              concise issues, progressive traces and check aliases
@@ -115,7 +116,10 @@ official pilot results explicitly omitted when their evidence is unavailable.
    disabled. PDF originals are embedded directly; workbook HTML preserves sheet,
    row and column positions and merged cells. No source document is fetched
    during publication. Workbook tables use the full viewer width and omit blank
-   rows while retaining original row numbers and citation anchors.
+   rows while retaining original row numbers and citation anchors. Each worksheet
+   has its own tab and uses the dashboard's shared review-table styles. Compare
+   worksheets selects multiple tabs for independently scrollable tables; narrow
+   screens stack them. Row citations reveal their worksheet automatically.
    Source documents use the original views only, with one or
    two independent tabbed panes; extracted text is kept for consistency checks.
 5. Optionally add `spec/review/questions.json`, with `schema_version: 1` and a

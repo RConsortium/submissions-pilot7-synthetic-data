@@ -7,7 +7,7 @@ import xml.etree.ElementTree as ET
 
 from pypdf import PdfReader
 
-from .document_views import render_xml, workbook_body
+from .document_views import render_xml, workbook_body, workbook_html
 
 
 def save_json(path, data):
@@ -229,12 +229,7 @@ def materials(root, study, target, metadata):
             body, record["sections"] = workbook_body(path)
             view = original.with_name(original.name + ".table.html")
             view.write_text(
-                document_html(
-                    path.name,
-                    "<p>Blank rows are omitted; original sheet, row and column references are preserved. Formulas are shown as entered. The original Excel file is retained.</p>"
-                    + body,
-                    wide=True,
-                ),
+                workbook_html(path.name, body),
                 encoding="utf-8",
             )
             record.update(
