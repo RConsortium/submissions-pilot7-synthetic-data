@@ -109,8 +109,9 @@ import { developmentReport, mountDevelopment } from "./synthetic-development.js"
     { workspace, applyHighlight, paintTables, fitWorkbench, copySpecification } =
       createWorkspace(ctx);
   const { findingRows, findingsView, drawer } = createReport(ctx),
-    { commentsView, loadComments } = createComments(ctx);
-  const traceReview = createTraceReview(ctx);
+    comments = createComments(ctx),
+    { commentsView, loadComments } = comments;
+  const traceReview = createTraceReview(ctx, comments);
   const sourceDocuments = createSourceDocuments(ctx),
     { materialsView } = sourceDocuments;
   const resizing = createResizing(ctx, fitWorkbench);

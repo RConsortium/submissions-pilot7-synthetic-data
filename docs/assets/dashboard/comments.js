@@ -44,8 +44,47 @@ export function createComments(ctx) {
       loading: "lazy",
     }))
       script.setAttribute("data-" + key, value);
+    script.addEventListener("error", () => {
+      const message = document.createElement("p");
+      message.textContent = "GitHub comments could not load. Use the GitHub Discussions link to publish your review.";
+      host.append(message);
+    });
     host.append(script);
+    // Reapply the current term after lazy loading or moving the widget.
+    host.addEventListener("load", () => syncComments(host), true);
   }
 
-  return { commentsView, issueUrl, loadComments };
+  function syncComments(host) {
+    const script = host.querySelector("script[data-term]"),
+      frame = host.querySelector("iframe.giscus-frame");
+    if (script && frame?.contentWindow) frame.contentWindow.postMessage({ giscus: { setConfig: {
+      term: script.dataset.term,
+      theme: document.body.dataset.mdColorScheme === "slate" ? "dark" : "light",
+    } } }, "https://giscus.app");
+  }
+
+  function attachComments(target, dataset) {
+    const host = ctx.byId("comments-host");
+    if (!host) {
+      target.textContent = "The comment widget is unavailable. Use the GitHub Discussions link below.";
+      return () => {};
+    }
+    const placeholder = document.createElement("p"),
+      script = host.querySelector("script[data-term]"),
+      originalTerm = script?.dataset.term;
+    placeholder.textContent = "GitHub comments are open in Trace evidence. Close it to return to this discussion.";
+    host.before(placeholder);
+    if (script) script.dataset.term = ctx.index.comments.term_prefix + ctx.model.id + "/" + dataset;
+    // giscus supports one container per page. Reuse it instead of a second embed.
+    target.append(host);
+    syncComments(host);
+    return () => {
+      if (script) script.dataset.term = originalTerm;
+      if (placeholder.isConnected) placeholder.replaceWith(host);
+      else host.remove();
+      syncComments(host);
+    };
+  }
+
+  return { commentsView, issueUrl, loadComments, attachComments };
 }

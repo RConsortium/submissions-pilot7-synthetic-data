@@ -138,6 +138,15 @@ Keep the existing `term_prefix` and study/dataset IDs to retain discussion threa
 Current comments use the yamaa Discussions repository, with separate Pilot 7
 terms, as Pilot 7 does not have Discussions enabled.
 
+Trace evidence can copy a structured reviewer assessment and open the same dataset
+discussion inside the dialog. Reviewers paste it into giscus and select Comment
+to publish with their GitHub identity. The widget is moved from the workspace
+and restored on close; a second giscus embed would replace the first container.
+Copying or saving locally never reports a successful GitHub post. Clipboard
+failure leaves selectable review text, and the repository link remains available
+when the embed cannot load. Browser checks intercept giscus; they do not exercise
+GitHub sign-in or post real comments.
+
 ## Build and verify
 
 Install each study's pinned requirements and `docs/requirements.txt`, then:
