@@ -509,7 +509,28 @@ def check(browser, base, site_dir, screenshots):
     trace.locator(".trace-technical > summary").click()
     trace.locator(".trace-source-grid .issue-citation").filter(has=page.locator("pre.spec-lines")).first.locator("summary").click()
     expect(trace.locator("pre.spec-lines mark").first).to_be_visible()
+    code_context = trace.locator(".trace-source-grid pre.spec-lines").first
+
+    def assert_context_layout():
+        assert code_context.evaluate("""(pre) => {
+          const rows = [...pre.querySelectorAll('.context-line')];
+          const bounds = pre.getBoundingClientRect();
+          return rows.length > 1 && rows.every(row => {
+            const number = row.querySelector('.context-line-number').getBoundingClientRect();
+            const text = row.querySelector('.context-line-text').getBoundingClientRect();
+            return Math.abs(number.top - text.top) < 1 && text.left >= number.right;
+          }) && getComputedStyle(rows[0]).whiteSpace === 'pre'
+            && bounds.right <= pre.closest('.issue-citation').getBoundingClientRect().right;
+        }""")
+
+    assert_context_layout()
     capture(page, screenshots, "documented-rules.png")
+    page.set_viewport_size({"width": 390, "height": 844})
+    assert_context_layout()
+    code_context.focus()
+    page.keyboard.press("ArrowRight")
+    capture(page, screenshots, "full-context-mobile.png")
+    page.set_viewport_size({"width": 1600, "height": 1000})
     trace.get_by_role("button", name="View source", exact=True).first.click()
     expect(page.locator("#source-panel-0 iframe")).to_have_attribute(
         "src", re.compile(r"define-adam\.xml.*#ADSL\.BMIBL$"))
