@@ -690,6 +690,7 @@ def check(browser, base, site_dir, screenshots):
     expect(trace.locator("#trace-github-comment")).to_have_value(re.compile("blank query"))
     expect(trace.locator("#comments-host script")).to_have_attribute("data-term", "pilot7/studies/cdiscpilot01/ADAE")
     original_term = "pilot7/studies/cdiscpilot01/ADSL"
+    page.evaluate("window.originalCommentsHost=document.querySelector('#comments-host')")
     trace.get_by_role("button", name="Next finding", exact=False).click()
     expect(trace.locator("#trace-review-title")).to_contain_text("Sequence-only ordering")
     expect(page.locator("#review-comments #comments-host script")).to_have_attribute("data-term", original_term)

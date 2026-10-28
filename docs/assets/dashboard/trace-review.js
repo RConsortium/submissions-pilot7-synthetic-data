@@ -109,7 +109,9 @@ export function createTraceReview(ctx, comments) {
     catch { return; }
     if (pending?.study !== ctx.model.id) return;
     if (!findIssue(ctx.report, pending.issue)) { forgetComments(); return; }
-    open(pending.issue, null);
+    const trigger = [...(ctx.root()?.querySelectorAll("[data-trace-issue]") || [])]
+      .find((button) => button.dataset.traceIssue === pending.issue);
+    open(pending.issue, trigger);
     if (currentDraft().stale) {
       jump("trace-your-review");
       feedback("The evidence changed. Review the current finding before preparing a GitHub comment.", true);
