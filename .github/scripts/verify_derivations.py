@@ -205,12 +205,12 @@ def locate_quote(lines, span, quote):
 
 
 def field_spans(text):
-    """Line spans of each field of every column and row template in one YAML file.
+    """Line spans of each field of every column, intermediate and row template in one YAML file.
 
     A row template's derivations are spanned one variable at a time, as
     `derivations/<variable>`, the fields field_sources names. Each span also
-    holds the character range of every leaf the field writes, under the
-    pointer element_leaves names it by.
+    holds the field's character range and that of every leaf it writes,
+    under the pointer element_leaves names it by.
     """
     root = yaml.compose(text)
     found = {}
@@ -226,12 +226,13 @@ def field_spans(text):
             yield from leaves(child, f"{pointer}/{name}")
 
     def span(key, value, field=None):
-        start = key.start_mark.line + 1
-        end = start + text[key.start_mark.index:value.end_mark.index].rstrip().count("\n")
-        return {"start": start, "end": end, "leaves": dict(leaves(value, field or key.value))}
+        start, written = key.start_mark.line + 1, text[key.start_mark.index:value.end_mark.index].rstrip()
+        return {"start": start, "end": start + written.count("\n"),
+                "range": (key.start_mark.index, key.start_mark.index + len(written)),
+                "leaves": dict(leaves(value, field or key.value))}
 
     for key, value in root.value if isinstance(root, yaml.MappingNode) else []:
-        label = {"columns": "name", "rows": "id"}.get(key.value)
+        label = {"columns": "name", "intermediates": "id", "rows": "id"}.get(key.value)
         if label is None or not isinstance(value, yaml.SequenceNode):
             continue
         for item in value.value:
@@ -253,23 +254,30 @@ def field_spans(text):
 def kept_text(text, path, own, written, leaves):
     """One layer's lines of an element, with the text the composition replaced blanked.
 
-    A field another layer overrode or cleared is blanked whole. Inside a field
+    A field another layer overrode or cleared is blanked where it stands, even
+    on a line it shares with a field this layer still writes, such as
+    `label: Old` in `- {name: X, label: Old, derivation: A.X}`. Inside a field
     several layers write, a leaf is kept only when the composed leaf at, under
     or above it is this layer's, so a later layer that rewrites one part of a
     rule, such as an `impute` day, blanks this layer's text for that part.
     """
-    current = {f: f in {"name", "id"} or path in written.get(f, ()) for f in own}
     characters = list(text)
+
+    def blank(start, end):
+        characters[start:end] = [c if c in "\r\n" else " " for c in characters[start:end]]
+
     for field, span in own.items():
-        if not current[field] or len(written.get(field, ())) < 2:
+        writers = written.get(field, set())
+        if field in {"name", "id"} or writers == {path}:
+            continue
+        if path not in writers:
+            blank(*span["range"])
             continue
         for pointer, (start, end) in span["leaves"].items():
             related = {s for p, s in leaves.items() if p == pointer or p.startswith(f"{pointer}/") or pointer.startswith(f"{p}/")}
             if path not in related:
-                characters[start:end] = [c if c in "\r\n" else " " for c in characters[start:end]]
-    live = {n for f, s in own.items() if current[f] for n in range(s["start"], s["end"] + 1)}
-    stale = {n for f, s in own.items() if not current[f] for n in range(s["start"], s["end"] + 1)} - live
-    return ["" if number in stale else line for number, line in enumerate("".join(characters).splitlines(), 1)]
+                blank(start, end)
+    return "".join(characters).splitlines()
 
 
 def layered_elements(packet):

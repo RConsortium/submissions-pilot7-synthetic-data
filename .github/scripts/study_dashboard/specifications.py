@@ -130,7 +130,7 @@ def defining_sources(packet):
 
 
 def element_leaves(packet):
-    """The source file that wrote each leaf of every column and row template.
+    """The source file that wrote each leaf of every column, intermediate and row template.
 
     Pointers are relative to the element and follow the authored YAML: the
     engine wraps a column's or row template's rule in `value`, which no layer
@@ -138,7 +138,7 @@ def element_leaves(packet):
     `derivation: {impute: {day: 15}}` writes.
     """
     leaves, found = leaf_writers(packet), {}
-    for key, label in (("columns", "name"), ("rows", "id")):
+    for key, label in (("columns", "name"), ("intermediates", "id"), ("rows", "id")):
         for index, item in enumerate(packet["model"].get(key, [])):
             prefix, written = f"/{key}/{index}/", {}
             for pointer, source in leaves.items():
@@ -154,7 +154,7 @@ def element_leaves(packet):
 
 
 def field_sources(packet):
-    """Name the source files that write each field a column or row template keeps.
+    """Name the source files that write each field a column, intermediate or row template keeps.
 
     A field written in several layers keeps the last one, so text an earlier
     layer wrote for that field is no longer the element's. Each derivation of

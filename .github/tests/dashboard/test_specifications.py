@@ -162,7 +162,14 @@ type: spec
 keys: [USUBJID]
 input:
   DM: {path: dm.csv, relative_to: entry}
-output: {path: out.csv, relative_to: entry, columns: [USUBJID, AGEGR, SEXN, TRTSDT, AVISIT, VISITNUM]}
+output: {path: out.csv, relative_to: entry, columns: [USUBJID, AGEGR, SEXN, TRTSDT, FIRSTSEX, AVISIT, VISITNUM]}
+intermediates:
+  - id: FIRST
+    dataset: DM
+    key: [USUBJID]
+    filter: "DM.SEX = 'M'"
+    order_by: [{variable: DM.AGE, nulls: last}]
+    keep: first
 columns:
   - {name: USUBJID, type: str, label: Subject, derivation: DM.USUBJID}
   - {name: AGEGR, type: str, label: Age group, derivation: "'ALL'"}
@@ -178,6 +185,7 @@ columns:
     label: Start
     derivation:
       impute: {type: date, source: DM.DT, month: 1, day: 1}
+  - {name: FIRSTSEX, type: str, label: First sex, derivation: FIRST.SEX}
   - {name: AVISIT, type: str, label: Visit}
   - {name: VISITNUM, type: str, label: Visit number}
 rows:
@@ -195,6 +203,8 @@ rows:
 type: spec
 parent: ../shared/base.yaml
 domain: ADSL
+intermediates:
+  - {id: FIRST, filter: "DM.SEX = 'F'"}
 columns:
   - {name: AGEGR, derivation: "'65+'"}
   - name: SEXN
@@ -215,15 +225,16 @@ rows:
             packet = capture_specification(root, path, yamaa.spec(path).resolve())
             base, entry = "shared/base.yaml", "study/entry.yaml"
             self.assertEqual(
-                (defining_sources(packet), field_sources(packet)["SEXN"], field_sources(packet)["base"],
-                 element_leaves(packet)["TRTSDT"]),
-                ({"USUBJID": base, "AGEGR": entry, "SEXN": entry, "TRTSDT": base, "AVISIT": base, "VISITNUM": base,
-                  "base": base},
+                (defining_sources(packet), field_sources(packet)["SEXN"], field_sources(packet)["FIRST"],
+                 field_sources(packet)["base"], element_leaves(packet)["TRTSDT"]),
+                ({"USUBJID": base, "AGEGR": entry, "SEXN": entry, "TRTSDT": base, "FIRSTSEX": base, "FIRST": base,
+                  "AVISIT": base, "VISITNUM": base, "base": base},
                  {"type": {base}, "label": {entry}, "derivation": {entry}},
+                 {"dataset": {base}, "key": {base}, "filter": {entry}, "order_by": {base}, "keep": {base}},
                  {"dataset": {base}, "derivations/AVISIT": {entry}, "derivations/VISITNUM": {base}},
                  {"name": entry, "type": base, "label": base, "derivation/impute/type": base,
                   "derivation/impute/source": entry, "derivation/impute/month": base, "derivation/impute/day": base}),
-                "a rule a later layer rewrites belongs to that layer, in a column or a row template, "
+                "a rule a later layer rewrites belongs to that layer, in a column, an intermediate or a row template, "
                 "and one part it rewrites belongs to it leaf by leaf")
 
 

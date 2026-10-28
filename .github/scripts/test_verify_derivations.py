@@ -93,6 +93,12 @@ class CitationTests(unittest.TestCase):
     label: Treatment start
     derivation:
       impute: {type: date, source: EX_MINDTC}
+  - {name: AGE, type: int, label: Age at screening, derivation: ADSL.AGE}
+intermediates:
+  - id: FIRST_DERM
+    dataset: ADAE
+    filter: "ADAE.AOCC01FL = 'Y'"
+    keep: first
 rows:
   - id: base-ord
     dataset: LB
@@ -104,6 +110,9 @@ rows:
   - name: TRTSDT
     label: Date of First Exposure to Treatment
     derivation: {impute: {source: EX_STDTC}}
+  - {name: AGE, label: Age}
+intermediates:
+  - {id: FIRST_DERM, filter: "ADAE.AOCCIFL = 'Y'"}
 rows:
   - id: base-ord
     derivations:
@@ -121,15 +130,21 @@ rows:
             "/columns/0/derivation/value": v1, "/columns/0/derivation/value/impute": v1,
             "/columns/0/derivation/value/impute/type": v1, "/columns/0/derivation/value/impute/source": v2,
             "/columns/0/submission": entry, "/columns/0/submission/comment": entry,
+            "/columns/1": v1, "/columns/1/name": v2, "/columns/1/type": v1, "/columns/1/label": v2,
+            "/columns/1/derivation/value": v1,
+            "/intermediates/0": v1, "/intermediates/0/id": v2, "/intermediates/0/dataset": v1,
+            "/intermediates/0/filter": v2, "/intermediates/0/keep": v1,
             "/rows/0": v1, "/rows/0/id": v2, "/rows/0/dataset": v1, "/rows/0/derivations": v1,
             "/rows/0/derivations/AVISIT/value": v2, "/rows/0/derivations/VISITNUM/value": v1,
         }
         origins = {pointer: {"declaring_source": source, "source_kind": "authored", "generated": False}
                    for pointer, source in written.items()}
-        for pointer in ("/columns/0/derivation", "/rows/0/derivations/AVISIT", "/rows/0/derivations/VISITNUM"):
+        for pointer in ("/columns/0/derivation", "/columns/1/derivation", "/rows/0/derivations/AVISIT",
+                        "/rows/0/derivations/VISITNUM"):
             origins[pointer] = {"declaring_source": v1, "source_kind": "authored", "generated": True}
         packet = {
-            "model": {"columns": [{"name": "TRTSDT"}], "rows": [{"id": "base-ord"}]},
+            "model": {"columns": [{"name": "TRTSDT"}, {"name": "AGE"}], "intermediates": [{"id": "FIRST_DERM"}],
+                      "rows": [{"id": "base-ord"}]},
             "sources": [{"path": path, "text": text} for path, text in layers.items()],
             "origins": origins,
         }
@@ -141,8 +156,12 @@ rows:
             ("metadata another layer still writes", "TRTSDT", "comment: SV.SVSTDTC", (True, entry, [4, 4])),
             ("label a later layer writes", "TRTSDT", "Date of First Exposure", (True, v2, [3, 3])),
             ("label a later layer overrode", "TRTSDT", "label: Treatment start", (False, v1, None)),
-            ("row rule the declaring layer keeps", "base-ord", "VISITNUM: LB.VISITNUM", (True, v1, [11, 11])),
-            ("row rule a later layer replaces", "base-ord", "AVISIT: \"'Baseline'\"", (True, v2, [8, 8])),
+            ("rule on a line that also holds an overridden label", "AGE", "derivation: ADSL.AGE", (True, v1, [6, 6])),
+            ("label a later layer overrode on a shared line", "AGE", "label: Age at screening", (False, v1, None)),
+            ("intermediate rule a later layer writes", "FIRST_DERM", "ADAE.AOCCIFL = 'Y'", (True, v2, [7, 7])),
+            ("intermediate rule a later layer overrode", "FIRST_DERM", "ADAE.AOCC01FL = 'Y'", (False, v1, None)),
+            ("row rule the declaring layer keeps", "base-ord", "VISITNUM: LB.VISITNUM", (True, v1, [17, 17])),
+            ("row rule a later layer replaces", "base-ord", "AVISIT: \"'Baseline'\"", (True, v2, [11, 11])),
             ("row rule a later layer replaced", "base-ord", "'  Baseline'", (False, v1, None)),
         ]
         for label, element, quote, expected in cases:
