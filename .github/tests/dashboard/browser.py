@@ -119,17 +119,20 @@ def check(browser, base, site_dir, screenshots):
         expect(page.locator(".result-count")).to_have_text(f"{len(issues)} of {len(issues)} issues \u00b7 {checks} supporting checks")
         expect(page.locator(".consistency-table tbody tr[data-finding-id]")).to_have_count(len(issues))
         expect(page.locator(".consistency-table thead th")).to_have_text([
-            "Dataset / variable", "Impact / review", "Issue", "Critical finding", "Status", "Evidence"
+            "Dataset / variable", "Status", "Critical finding", "Type", "Issue", "Evidence"
         ])
         expect(page.locator("#issue-review")).to_have_count(0)
         for issue in issues:
             row = page.locator(f'[data-finding-id="{issue["id"]}"]')
             expect(row.locator(".issue-summary p")).to_have_text(issue["summary"])
+            for cell_class in ("issue-critical", "issue-type"):
+                expect(row.locator(f".{cell_class} .status")).to_have_count(1)
+                expect(row.locator(f".{cell_class} p, .{cell_class} small")).to_have_count(0)
         assert page.locator(".issue-summary").evaluate_all(
             "cells => cells.every(cell => getComputedStyle(cell).overflow === 'visible' "
             "&& getComputedStyle(cell).whiteSpace === 'normal')"
         )
-        assert page.locator(".issue-impact").evaluate_all(
+        assert page.locator(".issue-status").evaluate_all(
             "cells => cells.every(cell => getComputedStyle(cell).position === 'static')"
         )
         expect(page.get_by_role("columnheader", name="Status", exact=True)).to_be_visible()
@@ -503,11 +506,13 @@ def check(browser, base, site_dir, screenshots):
     page.get_by_role("button", name="Clear filters", exact=True).click()
     page.locator("#finding-search").fill("BMIBLGR1")
     expect(rule).to_have_count(2)
+    expect(rule.locator(".finding-evidence")).to_have_count(0)
+    for row in rule.all():
+        row.locator(".finding-trace > summary").click()
     expect(rule.filter(has_text="Missing BMI is assigned")).to_contain_text("Alternative rule (BMIBLGR1__CODED_GE30) vs published reference: 1 subject differs")
     expect(rule.filter(has_text="Obese category code differs")).to_contain_text("Documented codelist vs published reference: 28 subjects differ")
     capture(page, screenshots, "bmi-issues.png")
     missing = rule.filter(has_text="Missing BMI is assigned")
-    missing.locator(".finding-trace > summary").click()
     expect(missing.locator(".finding-evidence")).to_be_visible()
     capture(page, screenshots, "missing-bmi-trace.png")
     missing.get_by_role("button", name="Open evidence in workspace (1 subject)", exact=True).click()
@@ -518,6 +523,8 @@ def check(browser, base, site_dir, screenshots):
     page.get_by_role("button", name="Clear filters", exact=True).click()
     page.locator("#finding-search").fill("VISNUMEN")
     expect(rule).to_have_count(2)
+    for row in rule.all():
+        row.locator(".finding-trace > summary").click()
     expect(rule.filter(has_text="Completion term is misspelled")).to_contain_text("No issue-specific data comparison")
     expect(rule.filter(has_text="Completion-only rule")).to_contain_text("Alternative rule (VISNUMEN__PROTOCOL_SPELLING) vs published reference: 144 subjects differ")
     capture(page, screenshots, "visit-issues.png")
@@ -532,6 +539,16 @@ def check(browser, base, site_dir, screenshots):
     page.get_by_role("button", name="Clear filters", exact=True).click()
     expect(page.locator("#finding-critical")).to_have_value("")
     expect(rule).to_have_count(len(cdisc_issues))
+    page.locator("#finding-search").fill("ADAE.TRTEMFL")
+    combined = next(i for i in cdisc_issues if i["variable"] == "TRTEMFL"
+                    and any(".CR-8." in key for key in i["check_ids"]))
+    assert len(combined["check_ids"]) == 4
+    row = page.locator(f'[data-finding-id="{combined["id"]}"]')
+    expect(row).to_have_count(1)
+    row.locator(".finding-trace > summary").click()
+    expect(row.locator(".issue-checks > summary")).to_have_text("4 supporting checks and agent review")
+    capture(page, screenshots, "combined-trtemfl-trace.png")
+    page.get_by_role("button", name="Clear filters", exact=True).click()
     # Pilot and synthetic reports share summary metrics and study tables.
     page.get_by_role("link", name="All pilot studies", exact=True).click()
     report = page.locator(".study-report")

@@ -8,7 +8,7 @@ import tempfile
 import unittest
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[2] / "scripts"))
-from study_dashboard.issues import build_review, validate_review, validate_shape
+from study_dashboard.issues import build_review, digest, validate_review, validate_shape
 
 
 def check(suffix, subjects, decision="agree"):
@@ -127,6 +127,70 @@ class IssueSchemaTests(unittest.TestCase):
         finding["observation"] = "Complete observation. " * 40 + "Final detail."
         result = build_review(self.root, "study", "revision", [finding])
         self.assertEqual(result["issues"][0]["summary"], finding["observation"])
+
+    def test_trtemfl_clauses_share_one_source_pair_and_retain_all_checks(self):
+        # Grouping is by compared files, independently of page and clause text.
+        findings = []
+        for n, page in enumerate((16, 16, 32, 33), 1):
+            finding = check(str(n), ["A", "B"] if n < 3 else ["B", "C"])
+            finding.update(
+                id=f"study:ADAE.TRTEMFL.CR-8.{n}", dataset="ADAE", variable="TRTEMFL",
+                assessment="Define-XML uses start date; the SAP also includes worsening and recurrence.",
+                observation=f"Clause {n} states a different treatment-emergent condition.",
+                documents=[
+                    {"path": "study/define-adam.xml", "section": "ADAE.TRTEMFL",
+                     "quote": "Use start date.", "verified": True},
+                    {"path": "study/SAP.pdf", "section": f"page-{page}",
+                     "quote": f"SAP condition {n}.", "verified": True},
+                ],
+            )
+            finding["rule"]["id"] = "CR-8"
+            if n == 4:
+                finding["adjudication"]["decision"] = "dispute"
+            findings.append(finding)
+        result = build_review(self.root, "study", "revision", findings)
+        self.assertEqual(result["counts"]["issues"], 1)
+        self.assertEqual(result["counts"]["checks"], 4)
+        issue = result["issues"][0]
+        self.assertEqual(issue["check_ids"], [f["id"] for f in findings])
+        self.assertIn("SAP.pdf vs define-adam.xml", issue["title"])
+        self.assertEqual(issue["summary"], findings[0]["assessment"])
+        self.assertEqual(issue["impact"]["subjects"], ["A", "B", "C"])
+        self.assertEqual(issue["review"], "mixed")
+        self.assertEqual(issue["critical"]["status"], "yes")
+        self.assertEqual(len(issue["aliases"]), 3)
+        self.assertEqual(issue["aliases"], [
+            f'study:ADAE.TRTEMFL.check-{digest(f["id"])[:16]}' for f in findings[1:]
+        ])
+        quoted = [e for e in result["evidence"] if e["type"] == "document"]
+        self.assertEqual(len(quoted), 5)
+        self.assertTrue(all(e["id"] in {t["evidence_id"] for t in issue["trace"]} for e in quoted))
+        self.assertEqual([c["summary"] for c in result["checks"]], [f["observation"] for f in findings])
+        self.assertEqual(build_review(self.root, "study", "revision", findings[::-1])["issues"], [issue])
+
+    def test_clause_grouping_keeps_other_pairs_variables_and_comparisons_separate(self):
+        findings = []
+        for n in range(6):
+            finding = check(str(n), [])
+            finding["rule"]["id"] = "CR-6"
+            finding["spec_quote"] = {"path": "study/spec.yaml", "element": "V", "quote": f"rule {n}"}
+            findings.append(finding)
+        findings[2]["documents"][0]["path"] = "study/guide.pdf"
+        findings[3]["variable"] = "OTHER"
+        findings[4]["comparison"] = "source_documents"
+        findings[5]["documents"][0]["verified"] = False
+        result = build_review(self.root, "study", "revision", findings)
+        self.assertEqual(result["counts"]["issues"], 5)
+        self.assertEqual(sorted(len(i["check_ids"]) for i in result["issues"]), [1, 1, 1, 1, 2])
+
+    def test_group_aliases_cannot_shadow_other_issues_or_aliases(self):
+        original = self.build()
+        for alias in (original["issues"][0]["id"], "shared-alias"):
+            result = deepcopy(original)
+            result["issues"][0]["aliases"] = [alias]
+            result["issues"][1]["aliases"] = [alias]
+            with self.assertRaisesRegex(ValueError, "duplicate issue alias"):
+                validate_review(result)
 
     def test_precision_only_is_noncritical_but_wrong_bmi_logic_is_critical(self):
         precision = check("precision", list("ABCDEFG"))

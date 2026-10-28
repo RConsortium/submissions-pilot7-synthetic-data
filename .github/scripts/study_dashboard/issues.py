@@ -394,8 +394,70 @@ def declaration_issues(path, study, checks, selectors, pool):
     return found, {actual[k]["id"] for k in covered}
 
 
+def source_pair(finding):
+    """The two files a verified clause compares, excluding supporting evidence."""
+    rule = (finding.get("rule") or {}).get("id")
+    documents = finding.get("documents", [])
+    if any(not d.get("verified", True) for d in documents):
+        return None
+    if rule == "CR-8" and len(documents) == 2:
+        sides = [("document", d.get("path")) for d in documents]
+    elif rule in {"CR-6", "CR-7"} and len(documents) == 1:
+        spec = finding.get("spec_quote") or {}
+        if not spec.get("verified", True):
+            return None
+        sides = [("document", documents[0].get("path")),
+                 ("specification", spec.get("path"))]
+    else:
+        return None
+    return tuple(sorted(sides)) if all(path for _, path in sides) else None
+
+
+def fallback_issues(study, checks, originals, pool):
+    """Combine clauses only for the same variable and exact source-file pair."""
+    groups = {}
+    for check in sorted(checks, key=lambda c: c["id"]):
+        pair = source_pair(originals[check["id"]])
+        key = (check["dataset"], check["variable"], check["comparison"], pair) if pair else check["id"]
+        groups.setdefault(key, []).append(check)
+    issues = []
+    for linked in groups.values():
+        findings = [originals[c["id"]] for c in linked]
+        first = findings[0]
+        definition = {
+            "id": "check-" + digest(linked[0]["id"])[:16],
+            "variable": linked[0]["variable"],
+            "title": CHECK_TITLES.get((first.get("rule") or {}).get("id"), first["title"]),
+            "summary": first["observation"],
+            "expected": "",
+            "observed": "",
+            "action": " ".join(dict.fromkeys(f.get("recommendation", "") for f in findings)),
+        }
+        if len(linked) > 1:
+            pair = source_pair(first)
+            definition["title"] += ": " + " vs ".join(Path(path).name for _, path in pair)
+            assessments = {f.get("assessment", "") for f in findings}
+            definition["summary"] = (
+                next(iter(assessments)) if len(assessments) == 1 and "" not in assessments
+                else " ".join(dict.fromkeys(f.get("note") or f["observation"] for f in findings))
+            )
+        selected = dict.fromkeys(
+            key for c in linked for key in c["evidence_ids"]
+            if pool.items[key]["type"] in {"comparison", "codelist"}
+        )
+        data = [{"evidence_id": key, "role": "impact"} for key in selected]
+        issue = make_issue(study, definition, linked, data, pool)
+        if len(linked) > 1:
+            issue["aliases"] = [
+                f'{study}:{c["dataset"]}.{c["variable"]}.check-{digest(c["id"])[:16]}'
+                for c in linked[1:]
+            ]
+        issues.append(issue)
+    return issues
+
+
 def build_review(root, study, revision, findings):
-    """Explicit grouping when authored; conservative single-check issues elsewhere."""
+    """Honor authored decisions; otherwise group verified clauses by source pair."""
     pool, checks, selectors = Evidence(), [], {}
     for f in findings:
         if f["kind"] == "executed":
@@ -412,25 +474,9 @@ def build_review(root, study, revision, findings):
         issues.extend(found)
         covered.update(assigned)
     originals = {f["id"]: f for f in findings}
-    for check in checks:
-        if check["id"] in covered:
-            continue
-        f = originals[check["id"]]
-        definition = {
-            "id": "check-" + digest(check["id"])[:16],
-            "variable": check["variable"],
-            "title": CHECK_TITLES.get((f.get("rule") or {}).get("id"), f["title"]),
-            "summary": f["observation"],
-            "expected": "",
-            "observed": "",
-            "action": f.get("recommendation", ""),
-        }
-        data = [
-            {"evidence_id": key, "role": "impact"}
-            for key in check["evidence_ids"]
-            if pool.items[key]["type"] in {"comparison", "codelist"}
-        ]
-        issues.append(make_issue(study, definition, [check], data, pool))
+    issues.extend(fallback_issues(
+        study, [c for c in checks if c["id"] not in covered], originals, pool
+    ))
     issues.sort(
         key=lambda i: (KINDS.index(i["kind"]), i["dataset"], i["variable"], i["id"])
     )
@@ -462,6 +508,8 @@ def validate_review(review):
             raise ValueError(f"review: duplicate identity or wrong count in {name}")
     checks, evidence = indexes["checks"], indexes["evidence"]
     referenced = set()
+    issue_ids = set(indexes["issues"])
+    aliases = set()
     for e in evidence.values():
         if e["id"] != "e-" + digest(
             {k: v for k, v in e.items() if k not in {"id", "url"}}
@@ -491,6 +539,10 @@ def validate_review(review):
         if any(key not in evidence for key in check["evidence_ids"]):
             raise ValueError(f"review: dangling check evidence in {check['id']}")
     for issue in review["issues"]:
+        for alias in issue.get("aliases", []):
+            if alias in issue_ids or alias in aliases:
+                raise ValueError(f"review: duplicate issue alias {alias}")
+            aliases.add(alias)
         if any(key not in checks for key in issue["check_ids"]):
             raise ValueError(f"review: dangling issue check in {issue['id']}")
         linked = [checks[key] for key in issue["check_ids"]]

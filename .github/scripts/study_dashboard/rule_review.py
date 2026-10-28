@@ -154,6 +154,8 @@ def rule_findings(study, verification, documents):
                     "status": f'{finding["severity"].capitalize()}: {rule["id"]}',
                     "title": f'{rule["id"]} {rule["title"]}',
                     "observation": finding["summary"] + note,
+                    "assessment": finding.get("assessment", ""),
+                    "note": finding.get("note", ""),
                     "source": {
                         "path": primary["path"] if primary else "",
                         "section": primary["section_title"] if primary else "",

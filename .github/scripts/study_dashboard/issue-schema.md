@@ -42,9 +42,12 @@ and exact quote when needed. They keep a shared check's unrelated quotations
 out of an issue's primary trace. Missing or ambiguous selections fail publication;
 the check audit always retains the complete evidence.
 
-Datasets without an authored grouping file retain one issue per check. They
-remain visible; a missing declaration must not silently suppress observations.
-Successful execution is a metric and does not create an issue.
+Without an authored grouping, verified clause discrepancies (CR-6, CR-7 and
+CR-8) for the same dataset, variable, comparison and exact pair of source files
+share one issue. Page numbers and quotations remain separate evidence within
+that issue. Other source pairs, variables, unverified quotes, data comparisons,
+and checks without two identified sources remain separate. Authored grouping
+always takes precedence. Successful execution does not create an issue.
 
 ## Generated contract
 
@@ -54,6 +57,8 @@ reference their complete evidence. Shared quotations and comparisons appear
 once in the evidence registry. A trace includes only its selected data evidence
 and its supporting source/specification quotations, deduplicated by content.
 Full specification context and check-level adjudication remain expandable.
+Grouped issues retain former generated issue IDs in optional `aliases`, so
+existing issue links and raw check links still resolve to the combined issue.
 
 Issue type is derived from the supporting checks. Agent review is a separate
 field: agreed, disputed, mixed, stale, pending, or not reviewed. Agreement is

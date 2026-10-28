@@ -141,12 +141,23 @@ test("the metric and listing count issues separately from supporting checks", ()
   assert.match(listing, /1 of 1 issue &middot; 2 supporting checks/);
   assert.equal((listing.match(/<tr class="review-issue"/g) || []).length, 1);
   assert.ok(listing.includes("Issue type"));
-  assert.ok(listing.includes("Agent review"));
+  assert.ok(!listing.includes("Agent review"));
   assert.ok(!listing.includes('id="issue-review"'));
-  assert.match(listing, /Dataset \/ variable<\/th><th scope="col">Impact \/ review<\/th><th scope="col">Issue/);
-  assert.match(listing, /<th scope="col">Critical finding<\/th>/);
+  assert.deepEqual([...listing.matchAll(/<th scope="col">([^<]+)<\/th>/g)].map((m) => m[1]), [
+    "Dataset / variable", "Status", "Critical finding", "Type", "Issue", "Evidence",
+  ]);
   assert.ok(listing.includes('<th scope="col">Status</th>'));
   assert.match(listing, /class="issue-status"[^]*?class="status attention">Under Review<\/span>/);
+  assert.deepEqual([...issueRow(issue, report).matchAll(/<td class="([^"]+)"/g)].map((m) => m[1]), [
+    "issue-status", "issue-critical", "issue-type", "issue-summary",
+  ]);
+  for (const name of ["issue-critical", "issue-type"]) {
+    const cell = listing.match(new RegExp(`<td class="${name}">([^]*?)</td>`))[1];
+    assert.equal((cell.match(/class="status /g) || []).length, 1);
+    assert.doesNotMatch(cell, /<p|<small/);
+  }
+  assert.ok(!listing.includes(issue.critical.reason));
+  assert.ok(!listing.includes("2 subjects differ"));
 });
 
 test("trace shows selected quotes and comparisons once, with full context and check audit expandable", () => {
@@ -167,6 +178,8 @@ test("trace shows selected quotes and comparisons once, with full context and ch
     "Proposed action",
     "Complete check evidence",
     "Source lines 3-3",
+    "The date derivation differs.",
+    "Agent review: agreed",
   ])
     assert.ok(html.includes(fragment), fragment);
   const primary = html.slice(0, html.indexOf('<details class="issue-checks">'));
@@ -277,6 +290,20 @@ test("workspace drawer resolves old check links to the issue and uses the same e
   assert.match(host.innerHTML, /Partial-date rule differs/);
   assert.match(host.innerHTML, /Use &lt;first&gt; day/);
   assert.match(host.innerHTML, /Documented rule vs published reference: 2 subjects differ/);
+});
+
+test("former issue links resolve to the combined source-pair row and trace", () => {
+  const combined = { ...issue, aliases: ["former-issue"], check_ids: checks.map((c) => c.id) };
+  const data = { ...report, review: { ...report.review, issues: [combined] } };
+  for (const id of [combined.id, "former-issue", ...combined.check_ids])
+    assert.equal(findIssue(data, id), combined);
+  const host = { innerHTML: "" };
+  createReport({
+    report: data, state: { ...state(), evidence: "former-issue" }, esc,
+    byId: () => host, root: () => ({ classList: { toggle() {} } }),
+  }).drawer();
+  assert.match(host.innerHTML, /2 supporting checks and agent review/);
+  assert.match(host.innerHTML, /The date derivation differs/);
 });
 
 test("an exact variable search excludes mentions in another variable's source context", () => {
