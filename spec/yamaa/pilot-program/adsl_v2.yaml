@@ -1,0 +1,697 @@
+# Pilot program ADSL, version 2: what R Submission Pilot 3 changed from version
+# 1, and the Define-XML 2.0 metadata that Pilots 3 and 5 share. Pilot 5
+# resubmitted the Pilot 3 ADaM datasets as Dataset-JSON.
+yamaa: "1.0"
+type: spec
+parent: adsl_v1.yaml
+
+# Pilot 3 outputs TRTDURD for TRTDUR, and EOSSTT and DCSREAS for DCREASCD.
+output:
+  path: ../../data/adam/adsl-yamaa.parquet
+  relative_to: entry
+  columns:
+    - STUDYID
+    - USUBJID
+    - SUBJID
+    - SITEID
+    - SITEGR1
+    - ARM
+    - TRT01P
+    - TRT01PN
+    - TRT01A
+    - TRT01AN
+    - TRTSDT
+    - TRTEDT
+    - TRTDURD
+    - AVGDD
+    - CUMDOSE
+    - AGE
+    - AGEGR1
+    - AGEGR1N
+    - AGEU
+    - RACE
+    - RACEN
+    - SEX
+    - ETHNIC
+    - SAFFL
+    - ITTFL
+    - EFFFL
+    - COMP8FL
+    - COMP16FL
+    - COMP24FL
+    - DISCONFL
+    - DSRAEFL
+    - DTHFL
+    - BMIBL
+    - BMIBLGR1
+    - HEIGHTBL
+    - WEIGHTBL
+    - EDUCLVL
+    - DISONSDT
+    - DURDIS
+    - DURDSGR1
+    - VISIT1DT
+    - RFSTDTC
+    - RFENDTC
+    - VISNUMEN
+    - RFENDT
+    - DCDECOD
+    - EOSSTT
+    - DCSREAS
+    - MMSETOT
+
+  order_by:
+    - variable: USUBJID
+      nulls: last
+
+columns:
+  - name: STUDYID
+    submission:
+      data_type: text
+      mandatory: false
+      length: 12
+      origins:
+        - type: Predecessor
+          description: DM.STUDYID
+
+  - name: USUBJID
+    submission:
+      data_type: text
+      mandatory: false
+      key_sequence: 1
+      length: 11
+      origins:
+        - type: Predecessor
+          description: DM.USUBJID
+
+  - name: SUBJID
+    submission:
+      data_type: text
+      mandatory: false
+      length: 4
+      origins:
+        - type: Derived
+      method:
+        name: Algorithm to derive ADSL.SUBJID
+        description: DM.SUBJID
+
+  - name: SITEID
+    submission:
+      data_type: text
+      mandatory: false
+      length: 3
+      origins:
+        - type: Derived
+      method:
+        name: Algorithm to derive ADSL.SITEID
+        description: DM.SITEID
+
+  - name: SITEGR1
+    submission:
+      data_type: text
+      mandatory: false
+      length: 3
+      origins:
+        - type: Derived
+      method:
+        name: Algorithm to derive ADSL.SITEGR1
+        description: refer to SAP, Section 7.1 - if not pooled then
+          SITEGR1=SITEID. If pooled, SITEGR1 will be 900
+
+  - name: ARM
+    submission:
+      data_type: text
+      mandatory: false
+      length: 20
+      codelist: ARM
+      origins:
+        - type: Derived
+      method:
+        name: Algorithm to derive ADSL.ARM
+        description: DM.ARM
+
+  - name: TRT01P
+    submission:
+      data_type: text
+      mandatory: false
+      length: 20
+      codelist: ARM
+      origins:
+        - type: Derived
+      method:
+        name: Algorithm to derive ADSL.TRT01P
+        description: DM.ARM
+
+  - name: TRT01PN
+    submission:
+      data_type: integer
+      mandatory: false
+      length: 8
+      codelist: ARMN
+      origins:
+        - type: Derived
+      method:
+        name: Algorithm to derive ADSL.TRT01PN
+        description: Numeric code for TRT01P which
+          corresponds to the randomized dose
+
+  - name: TRT01A
+    submission:
+      data_type: text
+      mandatory: false
+      length: 20
+      codelist: ARM
+      origins:
+        - type: Derived
+      method:
+        name: Algorithm to derive ADSL.TRT01A
+        description: TRT01A=TRT01P, i.e., no difference between
+          actual and randomized treatment in this study.
+
+  - name: TRT01AN
+    submission:
+      data_type: integer
+      mandatory: false
+      length: 8
+      codelist: ARMN
+      origins:
+        - type: Derived
+      method:
+        name: Algorithm to derive ADSL.TRT01AN
+        description: Numeric code for TRT01A which
+          corresponds to the randomized dose
+
+  - name: TRTSDT
+    submission:
+      data_type: integer
+      mandatory: false
+      length: 8
+      display_format: DATE9.
+      origins:
+        - type: Derived
+      method:
+        name: Algorithm to derive ADSL.TRTSDT
+        description: SV.SVSTDTC when SV.VISITNUM=3, converted to SAS date
+
+  - name: TRTEDT
+    submission:
+      data_type: integer
+      mandatory: false
+      length: 8
+      display_format: DATE9.
+      origins:
+        - type: Derived
+      method:
+        name: Algorithm to derive ADSL.TRTEDT
+        description: The date of final dose (from the CRF) is EX.EXENDTC on the
+          subject's last EX record. If the date of final dose is missing for
+          the subject and the subject discontinued after visit 3,
+          use the date of discontinuation as the date
+          of last dose. Convert the date to a SAS date.
+
+  # Pilot 3 names the study's treatment duration TRTDURD.
+  - name: TRTDURD
+    type: float
+    label: Total Treatment Duration (Days)
+    derivation: TRTDUR
+    submission:
+      data_type: integer
+      mandatory: false
+      length: 8
+      origins:
+        - type: Derived
+      method:
+        name: Algorithm to derive ADSL.TRTDUR
+        description: TRTEDT-TRTSDT+1
+
+  - name: CUMDOSE
+    submission:
+      data_type: float
+      mandatory: false
+      length: 8
+      significant_digits: 1
+      origins:
+        - type: Derived
+      method:
+        name: Algorithm to derive ADSL.CUMDOSE
+        description: 'For ARMN=0 or 1: CUMDOSE=TRT01PN*TRTDUR. --- For ARMN=2:
+          CUMDOSE will be based on 54mg per day for the # of days subj was in
+          1st dosing interval (i.e., visit4date-TRTSTDT+1 if 1st interval
+          completed, TRTEDT-TRTSTDT+1 if subj discontinued <=visit 4 and >
+          visit 3), 81mg per day for the # of days subj was in 2nd dosing
+          interval (i.e., visit12date-visit4date if 2nd interval completed,
+          TRTEDT-visit4date if subj discontinued <= visit 12 and > visit 4),
+          and 54mg per day for the # of days subj was in 3rd dosing interval
+          (i.e., TRTEDT - visit12date if subj continued after visit 12).'
+
+  - name: AVGDD
+    submission:
+      data_type: float
+      mandatory: false
+      length: 8
+      significant_digits: 1
+      origins:
+        - type: Derived
+      method:
+        name: Algorithm to derive ADSL.AVGDD
+        description: CUMDOSE/TRTDURD
+
+  - name: AGE
+    submission:
+      data_type: integer
+      mandatory: false
+      length: 8
+      origins:
+        - type: Derived
+      method:
+        name: Algorithm to derive ADSL.AGE
+        description: DM.AGE
+
+  - name: AGEGR1
+    submission:
+      data_type: text
+      mandatory: false
+      length: 5
+      codelist: AGEGR1
+      origins:
+        - type: Derived
+      method:
+        name: Algorithm to derive ADSL.AGEGR1
+        description: Character variable derived from ADSL.AGEGR1N
+
+  - name: AGEGR1N
+    submission:
+      data_type: integer
+      mandatory: false
+      length: 8
+      codelist: AGEGR1N
+      origins:
+        - type: Derived
+      method:
+        name: Algorithm to derive ADSL.AGEGR1N
+        description: AGEGR1 = 1 if AGE <65. AGEGR1 = 2
+          if AGE 65-80. AGEGR1 = 3 if AGE >80.
+
+  - name: AGEU
+    submission:
+      data_type: text
+      mandatory: false
+      length: 5
+      codelist: AGEU
+      origins:
+        - type: Derived
+      method:
+        name: Algorithm to derive ADSL.AGEU
+        description: DM.AGEU
+
+  - name: RACE
+    submission:
+      data_type: text
+      mandatory: false
+      length: 32
+      codelist: RACE
+      origins:
+        - type: Derived
+      method:
+        name: Algorithm to derive ADSL.RACE
+        description: DM.RACE
+
+  - name: RACEN
+    submission:
+      data_type: integer
+      mandatory: false
+      length: 8
+      codelist: RACEN
+      origins:
+        - type: Derived
+      method:
+        name: Algorithm to derive ADSL.RACEN
+        description: Numeric code for RACE
+
+  - name: SEX
+    submission:
+      data_type: text
+      mandatory: false
+      length: 1
+      codelist: SEX
+      origins:
+        - type: Derived
+      method:
+        name: Algorithm to derive ADSL.SEX
+        description: DM.SEX
+
+  - name: ETHNIC
+    submission:
+      data_type: text
+      mandatory: false
+      length: 22
+      codelist: ETHNIC
+      origins:
+        - type: Derived
+      method:
+        name: Algorithm to derive ADSL.ETHNIC
+        description: DM.ETHNIC
+
+  - name: SAFFL
+    submission:
+      data_type: text
+      mandatory: false
+      length: 1
+      codelist: YN
+      origins:
+        - type: Derived
+      method:
+        name: Algorithm to derive ADSL.SAFFL
+        description: Y if ITTFL='Y' and TRTSDT ne missing. N otherwise
+
+  - name: ITTFL
+    submission:
+      data_type: text
+      mandatory: false
+      length: 1
+      codelist: YN
+      origins:
+        - type: Derived
+      method:
+        name: Algorithm to derive ADSL.ITTFL
+        description: Y if ARMCD ne ' '. N otherwise
+
+  - name: EFFFL
+    submission:
+      data_type: text
+      mandatory: false
+      length: 1
+      codelist: YN
+      origins:
+        - type: Derived
+      method:
+        name: Algorithm to derive ADSL.EFFFL
+        description: Y if SAFFL='Y AND subject has at least one record in QS
+          for ADAS-Cog with VISITNUM>3 AND at least one
+          record in QS for CIBIC+ with VISITNUM>3, N otherwise
+
+  - name: COMP8FL
+    submission:
+      data_type: text
+      mandatory: false
+      length: 1
+      codelist: YN
+      origins:
+        - type: Derived
+      method:
+        name: Algorithm to derive ADSL.COMP8FL
+        description: Y if subject has a SV.VISITNUM=8 and
+          ENDDT >= date of visit 8, N otherwise
+
+  - name: COMP16FL
+    submission:
+      data_type: text
+      mandatory: false
+      length: 1
+      codelist: YN
+      origins:
+        - type: Derived
+      method:
+        name: Algorithm to derive ADSL.COMP16FL
+        description: Y if subject has a SV.VISITNUM=10 and
+          ENDDT>=date of visit 10, N otherwise
+
+  - name: COMP24FL
+    submission:
+      data_type: text
+      mandatory: false
+      length: 1
+      codelist: YN
+      origins:
+        - type: Derived
+      method:
+        name: Algorithm to derive ADSL.COMP24FL
+        description: Y if subject has a SV.VISITNUM=12 and
+          ENDDT>= date of visit 12 , N otherwise
+
+  - name: DISCONFL
+    submission:
+      data_type: text
+      mandatory: false
+      length: 1
+      origins:
+        - type: Derived
+      method:
+        name: Algorithm to derive ADSL.DISCONFL
+        description: Y if DCREASCD ^= 'Completed'. Null otherwise
+
+  - name: DSRAEFL
+    submission:
+      data_type: text
+      mandatory: false
+      length: 1
+      origins:
+        - type: Derived
+      method:
+        name: Algorithm to derive ADSL.DSRAEFL
+        description: Y if DCREASCD='Adverse Event'. Null otherwise
+
+  - name: DTHFL
+    submission:
+      data_type: text
+      mandatory: false
+      length: 1
+      origins:
+        - type: Derived
+      method:
+        name: Algorithm to derive ADSL.DTHFL
+        description: DM.DTHFL
+
+  - name: HEIGHTBL
+    submission:
+      data_type: float
+      mandatory: false
+      length: 8
+      significant_digits: 1
+      origins:
+        - type: Derived
+      method:
+        name: Algorithm to derive ADSL.HEIGHTBL
+        description: VSSTRESN when VS.VSTESTCD='HEIGHT' and VS.VISITNUM=1
+
+  - name: WEIGHTBL
+    submission:
+      data_type: float
+      mandatory: false
+      length: 8
+      significant_digits: 1
+      origins:
+        - type: Derived
+      method:
+        name: Algorithm to derive ADSL.WEIGHTBL
+        description: VSSTRESN when VS.VSTESTCD='WEIGHT' and VS.VISITNUM=3
+
+  - name: BMIBL
+    submission:
+      data_type: float
+      mandatory: false
+      length: 8
+      significant_digits: 1
+      origins:
+        - type: Derived
+      method:
+        name: Algorithm to derive ADSL.BMIBL
+        description: WEIGHTBL / ((HEIGHTBL/100)**2)
+
+  # Pilot 3 leaves a missing baseline BMI ungrouped; CDISC Pilot 01 groups
+  # it as <25, as SAS compares a missing value below every number.
+  - name: BMIBLGR1
+    derivation:
+      cut:
+        source: BMIBL
+        breaks:
+          - 25
+          - 30
+        labels:
+          - <25
+          - 25-<30
+          - '>=30'
+
+    submission:
+      data_type: text
+      mandatory: false
+      length: 6
+      codelist: BMICAT
+      origins:
+        - type: Derived
+      method:
+        name: Algorithm to derive ADSL.BMIBLGR1
+        description: BMIBLGR1="<25" if . < BMIBL <25. BMIBLGR1="25-<30"
+          if 25 <=BMIBL <30. BMIBLGR1=">=30"if BMIBL >=30.
+
+  - name: EDUCLVL
+    submission:
+      data_type: integer
+      mandatory: false
+      length: 8
+      origins:
+        - type: Derived
+      method:
+        name: Algorithm to derive ADSL.EDUCLVL
+        description: SC.SCSTRESN where SC.SCTESTCD=EDLEVEL
+
+  - name: DISONSDT
+    submission:
+      data_type: integer
+      mandatory: false
+      length: 8
+      display_format: DATE9.
+      origins:
+        - type: Derived
+      method:
+        name: Algorithm to derive ADSL.DISONSDT
+        description: MH.MHSTDTC where MHCAT='PRIMARY
+          DIAGNOSIS' converted to SAS date
+
+  - name: VISIT1DT
+    submission:
+      data_type: integer
+      mandatory: false
+      length: 8
+      display_format: DATE9.
+      origins:
+        - type: Derived
+      method:
+        name: Algorithm to derive ADSL.VISIT1DT
+        description: SV.SVSTDTC when SV.VISITNUM=1, converted to SAS date
+
+  - name: DURDIS
+    submission:
+      data_type: float
+      mandatory: false
+      length: 8
+      significant_digits: 1
+      origins:
+        - type: Derived
+      method:
+        name: Algorithm to derive ADSL.DURDIS
+        description: number of months between VISIT1DT and DISONSET
+
+  - name: DURDSGR1
+    submission:
+      data_type: text
+      mandatory: false
+      length: 4
+      codelist: DURDISC
+      origins:
+        - type: Derived
+      method:
+        name: Algorithm to derive ADSL.DURDSGR1
+        description: grouping DURDIS values as <12 and >=12
+
+  - name: RFSTDTC
+    submission:
+      data_type: text
+      mandatory: false
+      length: 20
+      origins:
+        - type: Derived
+      method:
+        name: Algorithm to derive ADSL.RFSTDTC
+        description: DM.RFSTDTC
+
+  - name: RFENDTC
+    submission:
+      data_type: text
+      mandatory: false
+      length: 20
+      origins:
+        - type: Derived
+      method:
+        name: Algorithm to derive ADSL.RFENDTC
+        description: DM.RFENDTC
+
+  - name: VISNUMEN
+    submission:
+      data_type: integer
+      mandatory: false
+      length: 8
+      origins:
+        - type: Derived
+      method:
+        name: Algorithm to derive ADSL.VISNUMEN
+        description: if DS.VISITNUM=13 where DSTERM='PROTCOL COMPLETED' then
+          VISNUMEN=12, otherwise VISNUMEN=DS.VISITNUM
+          where DSTERM='PROTCOL COMPLETED'
+
+  - name: RFENDT
+    submission:
+      data_type: integer
+      mandatory: false
+      length: 8
+      display_format: DATE9.
+      origins:
+        - type: Derived
+      method:
+        name: Algorithm to derive ADSL.RFENDT
+        description: RFENDTC converted to SAS date
+
+  - name: DCDECOD
+    submission:
+      data_type: text
+      mandatory: false
+      length: 27
+      codelist: DISCCD
+      origins:
+        - type: Derived
+      method:
+        name: Algorithm to derive ADSL.DCDECOD
+        description: DS.DSDECOD where DSCAT='DISPOSITION EVENT'
+
+  # Pilot 3 adds the end of study status and replaces DCREASCD with DCSREAS,
+  # which is blank for subjects who completed.
+  - name: EOSSTT
+    type: str
+    label: End of Study Status
+    derivation:
+      case:
+        - when: DCDECOD = 'COMPLETED'
+          then: "'COMPLETED'"
+        - otherwise: "'DISCONTINUED'"
+    submission:
+      data_type: text
+      mandatory: false
+      length: 12
+      origins:
+        - type: Derived
+      method:
+        name: Algorithm to derive ADSL.EOSSTT
+        description: COMPLETED if ADSL.DCDECOD='COMPLETED'. DISCONTINUED
+          if ADSL.DCDECOD not equal to COMPLETED.
+
+  - name: DCSREAS
+    type: str
+    label: Reason for Discontinuation from Study
+    derivation:
+      case:
+        - when: DCREASCD = 'Completed'
+          then: "''"
+        - otherwise: DCREASCD
+    submission:
+      data_type: text
+      mandatory: false
+      length: 18
+      codelist: DISCREAS
+      origins:
+        - type: Derived
+      method:
+        name: Algorithm to derive ADSL.DCREASCD
+        description: Grouping of DCDECOD values to support summarizing
+          study completion status and reason for discontinuation
+
+  - name: MMSETOT
+    submission:
+      data_type: integer
+      mandatory: false
+      length: 8
+      origins:
+        - type: Derived
+      method:
+        name: Algorithm to derive ADSL.MMSETOT
+        description: sum of QS.QSORRES values for the
+          subject when QSCAT = MINI-MENTAL STATE
