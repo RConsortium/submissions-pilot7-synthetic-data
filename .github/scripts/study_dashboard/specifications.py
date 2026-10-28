@@ -57,6 +57,15 @@ def capture_specification(root, path, resolved):
 def inspection_specification(root, path, record, inventory):
     """Refuse stale or uninventoried sources before using recorded engine facts."""
     packet = record.get("resolved_specification")
+    if packet and packet.get("snapshot"):
+        from resolved_specs import specification_packet
+
+        current = specification_packet(root, path)
+        relative = current["snapshot"]["path"]
+        if (relative not in inventory or current["snapshot"]["inspection_path"] not in inventory
+                or packet != current):
+            raise ValueError(f"{path}: resolved snapshot changed after validation")
+        packet = current
     if packet is None:
         # Older standalone evidence remains readable. Reusable declarations need
         # fresh engine facts; never approximate inheritance or copy expansion.

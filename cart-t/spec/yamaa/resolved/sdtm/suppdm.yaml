@@ -1,0 +1,273 @@
+yamaa: '1.0'
+type: spec
+model: SDTM
+domain: SUPPDM
+keys:
+- STUDYID
+- USUBJID
+- QNAM
+input:
+  ODM:
+    path: ../../../../data/odm/car-t-openclinica.xml
+    relative_to: declaring
+    empty_string: missing
+output:
+  path: ../../../../data/sdtm/suppdm.parquet
+  relative_to: declaring
+  columns:
+  - STUDYID
+  - RDOMAIN
+  - USUBJID
+  - IDVAR
+  - IDVARVAL
+  - QNAM
+  - QLABEL
+  - QVAL
+  - QORIG
+  - QEVAL
+  report: ../../../../log/suppdm-report.parquet
+  order_by:
+  - variable: STUDYID
+    direction: asc
+    nulls: last
+  - variable: USUBJID
+    direction: asc
+    nulls: last
+  - variable: QNAM
+    direction: asc
+    nulls: last
+columns:
+- name: CRF_PROFILE
+  type: str
+  label: CRF_PROFILE
+- name: SUBJECTKEY
+  type: str
+  label: SUBJECTKEY
+  derivation: ODM.SubjectKey
+- name: STUDYID
+  type: str
+  label: Study Identifier
+  derivation: '''CART-T-PILOT'''
+  verifications:
+  - max_length:
+      max: 12
+      severity: error
+  submission:
+    key_sequence: 1
+    core: Req
+    mandatory: true
+    role: Identifier
+    data_type: text
+    length: 12
+    origins:
+    - type: Assigned
+      source: Sponsor
+- name: RDOMAIN
+  type: str
+  label: RDOMAIN
+  derivation: '''DM'''
+  verifications:
+  - max_length:
+      max: 2
+      severity: error
+  submission:
+    core: Perm
+    mandatory: false
+    role: Identifier
+    data_type: text
+    length: 2
+    origins:
+    - type: Assigned
+      source: Sponsor
+- name: USUBJID
+  type: str
+  label: Unique Subject Identifier
+  derivation:
+    str_template: CART-T-PILOT-{SUBJECTKEY}
+  verifications:
+  - max_length:
+      max: 80
+      severity: error
+  submission:
+    key_sequence: 2
+    core: Req
+    mandatory: true
+    role: Identifier
+    data_type: text
+    length: 80
+    origins:
+    - type: Derived
+      source: Sponsor
+    method:
+      type: Computation
+      description: 'Executable yamaa derivation: str_template: CART-T-PILOT-{SUBJECTKEY}'
+- name: IDVAR
+  type: str
+  label: IDVAR
+  derivation: null
+  verifications:
+  - max_length:
+      max: 8
+      severity: error
+  submission:
+    core: Perm
+    mandatory: false
+    role: Identifier
+    data_type: text
+    length: 8
+    origins:
+    - type: Derived
+      source: Sponsor
+    method:
+      type: Computation
+      description: Not derivable; the output remains missing.
+- name: IDVARVAL
+  type: str
+  label: IDVARVAL
+  derivation: null
+  verifications:
+  - max_length:
+      max: 40
+      severity: error
+  submission:
+    core: Perm
+    mandatory: false
+    role: Identifier
+    data_type: text
+    length: 40
+    origins:
+    - type: Derived
+      source: Sponsor
+    method:
+      type: Computation
+      description: Not derivable; the output remains missing.
+- name: QNAM
+  type: str
+  label: QNAM
+  derivation: '''RANDPROF'''
+  verifications:
+  - max_length:
+      max: 8
+      severity: error
+  submission:
+    key_sequence: 3
+    core: Req
+    mandatory: true
+    role: Identifier
+    data_type: text
+    length: 8
+    origins:
+    - type: Assigned
+      source: Sponsor
+- name: QLABEL
+  type: str
+  label: QLABEL
+  derivation: '''Recorded Randomization Phenotype'''
+  verifications:
+  - max_length:
+      max: 40
+      severity: error
+  submission:
+    core: Perm
+    mandatory: false
+    role: Record Qualifier
+    data_type: text
+    length: 40
+    origins:
+    - type: Assigned
+      source: Sponsor
+- name: QVAL
+  type: str
+  label: QVAL
+  derivation:
+    str_replace:
+      source: CRF_PROFILE
+      pattern: ^\s+|\s+$
+      replacement: ''
+  verifications:
+  - max_length:
+      max: 80
+      severity: error
+  submission:
+    core: Perm
+    mandatory: false
+    role: Record Qualifier
+    data_type: text
+    length: 80
+    origins:
+    - type: Derived
+      source: Sponsor
+    method:
+      type: Computation
+      description: "Executable yamaa derivation: str_replace:\n  source: CRF_PROFILE\n\
+        \  pattern: ^\\s+|\\s+$\n  replacement: ''"
+- name: QORIG
+  type: str
+  label: QORIG
+  derivation: '''CRF'''
+  verifications:
+  - max_length:
+      max: 8
+      severity: error
+  submission:
+    core: Perm
+    mandatory: false
+    role: Record Qualifier
+    data_type: text
+    length: 8
+    origins:
+    - type: Assigned
+      source: Sponsor
+- name: QEVAL
+  type: str
+  label: QEVAL
+  derivation: null
+  verifications:
+  - max_length:
+      max: 40
+      severity: error
+  submission:
+    core: Perm
+    mandatory: false
+    role: Record Qualifier
+    data_type: text
+    length: 40
+    origins:
+    - type: Derived
+      source: Sponsor
+    method:
+      type: Computation
+      description: Not derivable; the output remains missing.
+- name: SOURCE_FORM
+  type: str
+  label: SOURCE_FORM
+rows:
+- id: collected
+  dataset: ODM
+  group_by:
+  - ODM.StudyOID
+  - ODM.MetaDataVersionOID
+  - ODM.SubjectKey
+  - ODM.StudyEventOID
+  - ODM.StudyEventRepeatKey
+  - ODM.FormOID
+  - ODM.FormRepeatKey
+  - ODM.ItemGroupOID
+  - ODM.ItemGroupRepeatKey
+  filter: SOURCE_FORM = 'F_3RANDOMIZE' AND (CRF_PROFILE IS NOT NULL)
+  derivations:
+    CRF_PROFILE:
+      odm: ODM.I_3RAND_PROFILE
+    SOURCE_FORM: ODM.FormOID
+submission:
+  mode: historical
+  artifact: suppdm.xpt
+  has_no_data: false
+  label: Supplemental Demographics
+  class: RELATIONSHIP
+  structure: One record per source observation per subject
+  repeating: true
+  reference_data: false
+  non_standard: false
+  comment: Review draft metadata. Historical mode keeps declarations separate from
+    incomplete data; this is not a validated submission. See spec/review/decisions.md.

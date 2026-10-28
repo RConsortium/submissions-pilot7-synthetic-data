@@ -316,6 +316,20 @@ class IssueSchemaTests(unittest.TestCase):
         with self.assertRaisesRegex(ValueError, "inventory"):
             self.build()
 
+    def test_focused_grouping_preserves_unassigned_checks_and_old_issue_aliases(self):
+        declaration = deepcopy(self.declaration)
+        declaration["allow_ungrouped"] = True
+        declaration["issues"] = declaration["issues"][:1]
+        declaration["issues"][0]["aliases"] = ["previous-issue"]
+        result = self.build(declaration)
+        self.assertEqual(len(result["issues"]), 2)
+        self.assertTrue(any(issue.get("aliases") == ["previous-issue"] for issue in result["issues"]))
+        self.assertEqual({key for issue in result["issues"] for key in issue["check_ids"]},
+                         {check["id"] for check in self.checks})
+        declaration["checks"]["ADSL.V.three"] = "b" * 64
+        with self.assertRaisesRegex(ValueError, "basis"):
+            self.build(declaration)
+
     def test_missing_coverage_wrong_scope_and_invalid_selectors_are_rejected(self):
         for label in (
             "coverage",

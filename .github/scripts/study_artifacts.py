@@ -46,6 +46,8 @@ def artifact_snapshot(root, study):
         ".github/scripts/legacy_define.py",
         ".github/scripts/compare_legacy_define.py",
         ".github/scripts/study_evidence.py",
+        ".github/scripts/resolved_specs.py",
+        ".github/scripts/composed_specs.py",
         ".github/scripts/study_dashboard/specifications.py",
         ".github/scripts/compare_adam.py",
     ):

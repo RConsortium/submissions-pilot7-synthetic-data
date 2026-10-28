@@ -1,0 +1,937 @@
+# ADSL review probes and diagnostics; not in project.yaml.
+#
+# Only outputs registered in adsl-claims.json are claimed probes.
+# Claimed probes state documented rules and cited alternative readings.
+# Upstream analysis values come from the published reference (REF).
+# MMSETOT__* and DURDIS__* remain unclaimed diagnostic calculations:
+# original-result conversion and month conventions are unspecified.
+# Diagnostics do not establish literal agreement or measured impact.
+yamaa: "1.0"
+type: spec
+model: ADaM
+domain: ADSL
+keys:
+  - STUDYID
+  - USUBJID
+input:
+  DM:
+    path: ../../data/sdtm/dm.parquet
+    empty_string: present
+  EX:
+    path: ../../data/sdtm/ex.parquet
+    empty_string: present
+    key:
+      - STUDYID
+      - USUBJID
+  VS:
+    path: ../../data/sdtm/vs.parquet
+    empty_string: present
+  SV:
+    path: ../../data/sdtm/sv.parquet
+    empty_string: present
+  DS:
+    path: ../../data/sdtm/ds.parquet
+    empty_string: present
+  QS:
+    path: ../../data/sdtm/qs.parquet
+    empty_string: present
+    key:
+      - STUDYID
+      - USUBJID
+  SC:
+    path: ../../data/sdtm/sc.parquet
+    empty_string: present
+  MH:
+    path: ../../data/sdtm/mh.parquet
+    empty_string: present
+  ADSL_REF:
+    path: ../../data/adam/adsl.parquet
+    empty_string: present
+
+base: DM
+
+output:
+  path: ../../../.build/verification/cdiscpilot01/adsl-documented-rules.parquet
+  columns:
+    - STUDYID
+    - USUBJID
+    - SITEGR1
+    - TRT01PN
+    - TRT01A
+    - TRT01AN
+    - TRTSDT
+    - TRTEDT
+    - TRTDUR
+    - AVGDD
+    - CUMDOSE
+    - AGEGR1
+    - AGEGR1N
+    - RACEN
+    - SAFFL
+    - ITTFL
+    - EFFFL
+    - COMP8FL
+    - COMP16FL
+    - COMP24FL
+    - COMP24FL__EFFICACY_POPULATION
+    - DISCONFL
+    - DSRAEFL
+    - BMIBL
+    - BMIBL__HEIGHT_IN_METRES
+    - BMIBLGR1
+    - BMIBLGR1__CODED_GE30
+    - HEIGHTBL
+    - WEIGHTBL
+    - EDUCLVL
+    - EDUCLVL__EDLEVEL
+    - DISONSDT
+    - DURDIS__WHOLE_MONTHS
+    - DURDIS__AVERAGE_MONTH
+    - DURDIS__ENROLLMENT
+    - DURDSGR1
+    - VISIT1DT
+    - VISNUMEN
+    - VISNUMEN__PROTOCOL_SPELLING
+    - RFENDT
+    - DCDECOD
+    - MMSETOT__NUMERIC_QSORRES
+    - MMSETOT__MMSE_ORIGINAL_ONLY
+    - VISNUMEN__END_OF_TREATMENT
+    - VISNUMEN__ON_OR_BEFORE_WEEK24
+  order_by:
+    - variable: USUBJID
+      nulls: last
+
+intermediates:
+  # The published reference ADSL, one record per subject.
+  - id: REF
+    dataset: ADSL_REF
+    key: [STUDYID, USUBJID]
+    order_by:
+      - variable: ADSL_REF.USUBJID
+        nulls: last
+    keep: first
+
+  - id: SV1
+    dataset: SV
+    key: [STUDYID, USUBJID]
+    filter: "SV.VISITNUM = 1"
+    order_by:
+      - variable: SV.SVSTDTC
+        nulls: last
+    keep: first
+
+  - id: SV3
+    dataset: SV
+    key: [STUDYID, USUBJID]
+    filter: "SV.VISITNUM = 3"
+    order_by:
+      - variable: SV.SVSTDTC
+        nulls: last
+    keep: first
+
+  - id: SV4
+    dataset: SV
+    key: [STUDYID, USUBJID]
+    filter: "SV.VISITNUM = 4"
+    order_by:
+      - variable: SV.SVSTDTC
+        nulls: last
+    keep: first
+
+  - id: SV8
+    dataset: SV
+    key: [STUDYID, USUBJID]
+    filter: "SV.VISITNUM = 8"
+    order_by:
+      - variable: SV.SVSTDTC
+        nulls: last
+    keep: first
+
+  - id: SV10
+    dataset: SV
+    key: [STUDYID, USUBJID]
+    filter: "SV.VISITNUM = 10"
+    order_by:
+      - variable: SV.SVSTDTC
+        nulls: last
+    keep: first
+
+  - id: SV12
+    dataset: SV
+    key: [STUDYID, USUBJID]
+    filter: "SV.VISITNUM = 12"
+    order_by:
+      - variable: SV.SVSTDTC
+        nulls: last
+    keep: first
+
+  - id: LAST_EX
+    dataset: EX
+    key: [STUDYID, USUBJID]
+    order_by:
+      - variable: EX.EXSEQ
+        nulls: last
+    keep: last
+
+  - id: DS_DISP
+    dataset: DS
+    key: [STUDYID, USUBJID]
+    filter: "DS.DSCAT = 'DISPOSITION EVENT'"
+    order_by:
+      - variable: DS.DSSEQ
+        nulls: last
+    keep: first
+
+  # Define-XML spells this term PROTCOL; the SDTM data spell PROTOCOL.
+  - id: DS_PROTCOL
+    dataset: DS
+    key: [STUDYID, USUBJID]
+    filter: "DS.DSTERM = 'PROTCOL COMPLETED'"
+    order_by:
+      - variable: DS.DSSEQ
+        nulls: last
+    keep: first
+
+  - id: DS_PROTOCOL
+    dataset: DS
+    key: [STUDYID, USUBJID]
+    filter: "DS.DSTERM = 'PROTOCOL COMPLETED'"
+    order_by:
+      - variable: DS.DSSEQ
+        nulls: last
+    keep: first
+
+  - id: HT_V1
+    dataset: VS
+    key: [STUDYID, USUBJID]
+    filter: "VS.VSTESTCD = 'HEIGHT' AND VS.VISITNUM = 1"
+    order_by:
+      - variable: VS.VSSEQ
+        nulls: last
+    keep: first
+
+  - id: WT_V3
+    dataset: VS
+    key: [STUDYID, USUBJID]
+    filter: "VS.VSTESTCD = 'WEIGHT' AND VS.VISITNUM = 3"
+    order_by:
+      - variable: VS.VSSEQ
+        nulls: last
+    keep: first
+
+  - id: SC_YEARSEDU
+    dataset: SC
+    key: [STUDYID, USUBJID]
+    filter: "SC.SCTESTCD = 'YEARSEDU'"
+    order_by:
+      - variable: SC.SCSEQ
+        nulls: last
+    keep: first
+
+  - id: SC_EDLEVEL
+    dataset: SC
+    key: [STUDYID, USUBJID]
+    filter: "SC.SCTESTCD = 'EDLEVEL'"
+    order_by:
+      - variable: SC.SCSEQ
+        nulls: last
+    keep: first
+
+  - id: MH_DX
+    dataset: MH
+    key: [STUDYID, USUBJID]
+    filter: "MH.MHCAT = 'PRIMARY DIAGNOSIS'"
+    order_by:
+      - variable: MH.MHSEQ
+        nulls: last
+    keep: first
+
+columns:
+  - name: STUDYID
+    type: str
+    label: Study Identifier
+    derivation: DM.STUDYID
+
+  - name: USUBJID
+    type: str
+    label: Unique Subject Identifier
+    derivation: DM.USUBJID
+
+  # SITEGR1 -- SAP 7.1: pool sites with fewer than 3 subjects in any arm.
+  - name: _SITEID
+    type: str
+    label: Site (helper)
+    derivation: DM.SITEID
+
+  - name: _ARM
+    type: str
+    label: Arm (helper)
+    derivation: DM.ARM
+
+  - name: _SITE_ARM_N
+    type: float
+    label: Subjects in site and arm (helper)
+    derivation:
+      aggregate:
+        expr: "COUNT(USUBJID)"
+        group_by: [_SITEID, _ARM]
+
+  - name: _SITE_MIN_N
+    type: float
+    label: Fewest subjects in any enrolled arm of the site (helper)
+    derivation:
+      aggregate:
+        expr: "MIN(_SITE_ARM_N)"
+        group_by: [_SITEID]
+
+  - name: _SITE_ARMS
+    type: float
+    label: Arms enrolled at the site (helper)
+    derivation:
+      aggregate:
+        expr: "COUNT(_ARM)"
+        distinct: true
+        group_by: [_SITEID]
+
+  - name: SITEGR1
+    type: str
+    label: Pooled Site Group 1
+    derivation:
+      case:
+        - when: "_SITE_ARMS < 3 OR _SITE_MIN_N < 3"
+          then: "'900'"
+        - otherwise: _SITEID
+
+  # Treatment codes -- codelist ARMN.
+  - name: TRT01PN
+    type: float
+    label: Planned Treatment for Period 01 (N)
+    derivation:
+      mapping:
+        source: REF.TRT01P
+        dict:
+          Placebo: 0
+          Xanomeline Low Dose: 54
+          Xanomeline High Dose: 81
+
+  - name: TRT01A
+    type: str
+    label: Actual Treatment for Period 01
+    derivation: REF.TRT01P
+
+  - name: TRT01AN
+    type: float
+    label: Actual Treatment for Period 01 (N)
+    derivation:
+      mapping:
+        source: REF.TRT01A
+        dict:
+          Placebo: 0
+          Xanomeline Low Dose: 54
+          Xanomeline High Dose: 81
+
+  # Treatment dates and dose.
+  - name: TRTSDT
+    type: date
+    label: Date of First Exposure to Treatment
+    derivation:
+      impute:
+        type: date
+        source: SV3.SVSTDTC
+        invalid:
+
+  - name: _LAST_EXENDT
+    type: date
+    label: Final dose date from the last EX record (helper)
+    derivation:
+      impute:
+        type: date
+        source: LAST_EX.EXENDTC
+        invalid:
+
+  - name: _DISCDT
+    type: date
+    label: Date of discontinuation (helper)
+    derivation:
+      impute:
+        type: date
+        source: DS_DISP.DSSTDTC
+        invalid:
+
+  - name: TRTEDT
+    type: date
+    label: Date of Last Exposure to Treatment
+    derivation:
+      case:
+        - when: "_LAST_EXENDT IS NOT NULL"
+          then: _LAST_EXENDT
+        - when: "DS_DISP.DSDECOD <> 'COMPLETED' AND DS_DISP.VISITNUM > 3"
+          then: _DISCDT
+
+  - name: TRTDUR
+    type: float
+    label: Duration of Treatment (days)
+    derivation:
+      diff:
+        type: date
+        start: REF.TRTSDT
+        end: REF.TRTEDT
+        unit: day
+        closed: both
+
+  - name: _AVGDD_RAW
+    type: float
+    label: Average daily dose before rounding (helper)
+    derivation: "REF.CUMDOSE / REF.TRTDUR"
+
+  - name: AVGDD
+    type: float
+    label: Avg Daily Dose (as planned)
+    derivation:
+      round_half_away_from_zero:
+        source: _AVGDD_RAW
+        digits: 1
+
+  # CUMDOSE -- ARMN 0 and 1 read as Placebo and Low Dose, 2 as High Dose.
+  - name: _V4DT
+    type: date
+    label: Visit 4 date (helper)
+    derivation:
+      impute:
+        type: date
+        source: SV4.SVSTDTC
+        invalid:
+
+  - name: _V12DT
+    type: date
+    label: Visit 12 date (helper)
+    derivation:
+      impute:
+        type: date
+        source: SV12.SVSTDTC
+        invalid:
+
+  - name: _D1_TO_V4
+    type: float
+    label: visit4date-TRTSDT+1 (helper)
+    derivation:
+      diff:
+        type: date
+        start: REF.TRTSDT
+        end: _V4DT
+        unit: day
+        closed: both
+
+  - name: _D1_TO_END
+    type: float
+    label: TRTEDT-TRTSDT+1 (helper)
+    derivation:
+      diff:
+        type: date
+        start: REF.TRTSDT
+        end: REF.TRTEDT
+        unit: day
+        closed: both
+
+  - name: _D2_TO_V12
+    type: float
+    label: visit12date-visit4date (helper)
+    derivation:
+      diff:
+        type: date
+        start: _V4DT
+        end: _V12DT
+        unit: day
+        closed: right
+
+  - name: _D2_TO_END
+    type: float
+    label: TRTEDT-visit4date (helper)
+    derivation:
+      diff:
+        type: date
+        start: _V4DT
+        end: REF.TRTEDT
+        unit: day
+        closed: right
+
+  - name: _D3_TO_END
+    type: float
+    label: TRTEDT-visit12date (helper)
+    derivation:
+      diff:
+        type: date
+        start: _V12DT
+        end: REF.TRTEDT
+        unit: day
+        closed: right
+
+  - name: _DAYS1
+    type: float
+    label: Days in the first dosing interval (helper)
+    derivation:
+      case:
+        - when: "_V4DT IS NOT NULL AND REF.TRTEDT >= _V4DT"
+          then: _D1_TO_V4
+        - otherwise: _D1_TO_END
+
+  - name: _DAYS2
+    type: float
+    label: Days in the second dosing interval (helper)
+    derivation:
+      case:
+        - when: "_V4DT IS NULL OR REF.TRTEDT < _V4DT"
+          then: 0
+        - when: "_V12DT IS NOT NULL AND REF.TRTEDT >= _V12DT"
+          then: _D2_TO_V12
+        - otherwise: _D2_TO_END
+
+  - name: _DAYS3
+    type: float
+    label: Days in the third dosing interval (helper)
+    derivation:
+      case:
+        - when: "_V12DT IS NOT NULL AND REF.TRTEDT > _V12DT"
+          then: _D3_TO_END
+        - otherwise: 0
+
+  - name: CUMDOSE
+    type: float
+    label: Cumulative Dose (as planned)
+    derivation:
+      case:
+        - when: "REF.TRT01PN = 81"
+          then: "54 * _DAYS1 + 81 * _DAYS2 + 54 * _DAYS3"
+        - otherwise: "REF.TRT01PN * REF.TRTDUR"
+
+  # Age, race and population flags.
+  - name: AGEGR1
+    type: str
+    label: Pooled Age Group 1
+    derivation:
+      case:
+        - when: "REF.AGEGR1N = 1"
+          then: "'<65'"
+        - when: "REF.AGEGR1N = 2"
+          then: "'65-80'"
+        - when: "REF.AGEGR1N = 3"
+          then: "'>80'"
+
+  - name: AGEGR1N
+    type: float
+    label: Pooled Age Group 1 (N)
+    derivation:
+      case:
+        - when: "DM.AGE < 65"
+          then: 1
+        - when: "DM.AGE >= 65 AND DM.AGE <= 80"
+          then: 2
+        - when: "DM.AGE > 80"
+          then: 3
+
+  - name: RACEN
+    type: float
+    label: Race (N)
+    derivation:
+      mapping:
+        source: REF.RACE
+        dict:
+          WHITE: 1
+          BLACK OR AFRICAN AMERICAN: 2
+          AMERICAN INDIAN OR ALASKA NATIVE: 6
+          ASIAN: 7
+
+  - name: SAFFL
+    type: str
+    label: Safety Population Flag
+    derivation:
+      case:
+        - when: "REF.ITTFL = 'Y' AND REF.TRTSDT IS NOT NULL"
+          then: "'Y'"
+        - otherwise: "'N'"
+
+  - name: ITTFL
+    type: str
+    label: Intent-To-Treat Population Flag
+    derivation:
+      case:
+        - when: "DM.ARMCD <> ''"
+          then: "'Y'"
+        - otherwise: "'N'"
+
+  - name: _ADAS_N
+    type: float
+    label: ADAS-Cog records after visit 3 (helper)
+    derivation:
+      aggregate:
+        expr: "COUNT(QS.*)"
+        filter: "QS.QSCAT = 'ALZHEIMER''S DISEASE ASSESSMENT SCALE' AND
+          QS.VISITNUM > 3"
+        key: [STUDYID, USUBJID]
+
+  - name: _CIBIC_N
+    type: float
+    label: CIBIC+ records after visit 3 (helper)
+    derivation:
+      aggregate:
+        expr: "COUNT(QS.*)"
+        filter: "QS.QSCAT = 'CLINICIAN''S INTERVIEW-BASED IMPRESSION OF
+          CHANGE (CIBIC+)' AND QS.VISITNUM > 3"
+        key: [STUDYID, USUBJID]
+
+  - name: EFFFL
+    type: str
+    label: Efficacy Population Flag
+    derivation:
+      case:
+        - when: "REF.SAFFL = 'Y' AND _ADAS_N >= 1 AND _CIBIC_N >= 1"
+          then: "'Y'"
+        - otherwise: "'N'"
+
+  # Completer flags -- ENDDT is read as RFENDT.
+  - name: _V8DT
+    type: date
+    label: Visit 8 date (helper)
+    derivation:
+      impute:
+        type: date
+        source: SV8.SVSTDTC
+        invalid:
+
+  - name: _V10DT
+    type: date
+    label: Visit 10 date (helper)
+    derivation:
+      impute:
+        type: date
+        source: SV10.SVSTDTC
+        invalid:
+
+  - name: COMP8FL
+    type: str
+    label: Completers of Week 8 Population Flag
+    derivation:
+      case:
+        - when: "SV8.VISITNUM IS NOT NULL AND REF.RFENDT >= _V8DT"
+          then: "'Y'"
+        - otherwise: "'N'"
+
+  - name: COMP16FL
+    type: str
+    label: Completers of Week 16 Population Flag
+    derivation:
+      case:
+        - when: "SV10.VISITNUM IS NOT NULL AND REF.RFENDT >= _V10DT"
+          then: "'Y'"
+        - otherwise: "'N'"
+
+  - name: COMP24FL
+    type: str
+    label: Completers of Week 24 Population Flag
+    derivation:
+      case:
+        - when: "SV12.VISITNUM IS NOT NULL AND REF.RFENDT >= _V12DT"
+          then: "'Y'"
+        - otherwise: "'N'"
+
+  # SAP population definitions: completers come from the efficacy population.
+  - name: COMP24FL__EFFICACY_POPULATION
+    type: str
+    label: Completers of Week 24, efficacy population only
+    derivation:
+      case:
+        - when: "REF.EFFFL = 'Y' AND SV12.VISITNUM IS NOT NULL AND REF.RFENDT >= _V12DT"
+          then: "'Y'"
+        - otherwise: "'N'"
+
+  # "Null otherwise" is a SAS blank, stored as empty text in the reference.
+  - name: DISCONFL
+    type: str
+    label: Did the Subject Discontinue the Study?
+    derivation:
+      case:
+        - when: "REF.DCREASCD <> 'Completed'"
+          then: "'Y'"
+        - otherwise: "''"
+
+  - name: DSRAEFL
+    type: str
+    label: Discontinued due to AE?
+    derivation:
+      case:
+        - when: "REF.DCREASCD = 'Adverse Event'"
+          then: "'Y'"
+        - otherwise: "''"
+
+  # Baseline body measurements -- SignificantDigits 1, half away from zero.
+  - name: _BMIBL_RAW
+    type: float
+    label: BMI as written in Define-XML, before rounding (helper)
+    derivation: "REF.WEIGHTBL / POWER(REF.HEIGHTBL * 100, 2)"
+
+  - name: BMIBL
+    type: float
+    label: Baseline BMI (kg/m^2)
+    derivation:
+      round_half_away_from_zero:
+        source: _BMIBL_RAW
+        digits: 1
+
+  - name: _BMIBL_M_RAW
+    type: float
+    label: BMI with height in metres, before rounding (helper)
+    derivation: "REF.WEIGHTBL / POWER(REF.HEIGHTBL / 100, 2)"
+
+  - name: BMIBL__HEIGHT_IN_METRES
+    type: float
+    label: Baseline BMI, height converted to metres
+    derivation:
+      round_half_away_from_zero:
+        source: _BMIBL_M_RAW
+        digits: 1
+
+  # SAS ". < BMIBL" excludes a missing BMIBL from every group.
+  - name: BMIBLGR1
+    type: str
+    label: Pooled Baseline BMI Group 1
+    derivation:
+      case:
+        - when: "REF.BMIBL IS NOT NULL AND REF.BMIBL < 25"
+          then: "'<25'"
+        - when: "REF.BMIBL >= 25 AND REF.BMIBL < 30"
+          then: "'25-<30'"
+        - when: "REF.BMIBL >= 30"
+          then: "'>30'"
+
+  - name: BMIBLGR1__CODED_GE30
+    type: str
+    label: Pooled Baseline BMI Group 1, obese coded as >=30
+    derivation:
+      case:
+        - when: "REF.BMIBL IS NOT NULL AND REF.BMIBL < 25"
+          then: "'<25'"
+        - when: "REF.BMIBL >= 25 AND REF.BMIBL < 30"
+          then: "'25-<30'"
+        - when: "REF.BMIBL >= 30"
+          then: "'>=30'"
+
+  - name: _HT_RAW
+    type: float
+    label: Visit 1 height before rounding (helper)
+    derivation: HT_V1.VSSTRESN
+
+  - name: HEIGHTBL
+    type: float
+    label: Baseline Height (cm)
+    derivation:
+      round_half_away_from_zero:
+        source: _HT_RAW
+        digits: 1
+
+  - name: _WT_RAW
+    type: float
+    label: Visit 3 weight before rounding (helper)
+    derivation: WT_V3.VSSTRESN
+
+  - name: WEIGHTBL
+    type: float
+    label: Baseline Weight (kg)
+    derivation:
+      round_half_away_from_zero:
+        source: _WT_RAW
+        digits: 1
+
+  # Subject characteristics.
+  - name: EDUCLVL
+    type: float
+    label: Years of Education
+    derivation: SC_YEARSEDU.SCSTRESN
+
+  - name: EDUCLVL__EDLEVEL
+    type: float
+    label: Years of Education, test code EDLEVEL
+    derivation: SC_EDLEVEL.SCSTRESN
+
+  - name: DISONSDT
+    type: date
+    label: Date of Onset of Disease
+    derivation:
+      impute:
+        type: date
+        source: MH_DX.MHSTDTC
+        invalid:
+
+  # DURDIS -- Unused diagnostic readings; no literal month convention is documented.
+  - name: DURDIS__WHOLE_MONTHS
+    type: float
+    label: Diagnostic disease duration, whole calendar months to visit 1
+    derivation:
+      diff:
+        type: date
+        start: REF.DISONSDT
+        end: REF.VISIT1DT
+        unit: month
+
+  - name: _DURDIS_DAYS
+    type: float
+    label: Days from onset to visit 1, both counted (helper)
+    derivation:
+      diff:
+        type: date
+        start: REF.DISONSDT
+        end: REF.VISIT1DT
+        unit: day
+        closed: both
+
+  - name: _DURDIS_AVG
+    type: float
+    label: Average months from onset to visit 1 before rounding (helper)
+    derivation: "_DURDIS_DAYS / 30.4375"
+
+  - name: DURDIS__AVERAGE_MONTH
+    type: float
+    label: Diagnostic disease duration, average months to visit 1
+    derivation:
+      round_half_away_from_zero:
+        source: _DURDIS_AVG
+        digits: 1
+
+  - name: _DURDIS_ENROL_DAYS
+    type: float
+    label: Days from onset to enrollment (visit 3), both counted (helper)
+    derivation:
+      diff:
+        type: date
+        start: REF.DISONSDT
+        end: TRTSDT
+        unit: day
+        closed: both
+
+  - name: _DURDIS_ENROL_AVG
+    type: float
+    label: Average months from onset to enrollment before rounding (helper)
+    derivation: "_DURDIS_ENROL_DAYS / 30.4375"
+
+  - name: DURDIS__ENROLLMENT
+    type: float
+    label: Diagnostic disease duration, average months to enrollment
+    derivation:
+      round_half_away_from_zero:
+        source: _DURDIS_ENROL_AVG
+        digits: 1
+
+  - name: DURDSGR1
+    type: str
+    label: Pooled Disease Duration Group 1
+    derivation:
+      case:
+        - when: "REF.DURDIS < 12"
+          then: "'<12'"
+        - when: "REF.DURDIS >= 12"
+          then: "'>=12'"
+
+  - name: VISIT1DT
+    type: date
+    label: Date of Visit 1
+    derivation:
+      impute:
+        type: date
+        source: SV1.SVSTDTC
+        invalid:
+
+  # Disposition.
+  - name: VISNUMEN
+    type: float
+    label: End of Trt Visit (Vis 12 or Early Term.)
+    derivation:
+      case:
+        - when: "DS_PROTCOL.VISITNUM = 13"
+          then: 12
+        - otherwise: DS_PROTCOL.VISITNUM
+
+  - name: VISNUMEN__PROTOCOL_SPELLING
+    type: float
+    label: End of Trt Visit, DSTERM spelled PROTOCOL COMPLETED
+    derivation:
+      case:
+        - when: "DS_PROTOCOL.VISITNUM = 13"
+          then: 12
+        - otherwise: DS_PROTOCOL.VISITNUM
+
+  - name: RFENDT
+    type: date
+    label: Date of Discontinuation/Completion
+    derivation:
+      impute:
+        type: date
+        source: DM.RFENDTC
+        invalid:
+
+  - name: DCDECOD
+    type: str
+    label: Standardized Disposition Term
+    derivation: DS_DISP.DSDECOD
+
+  # Exploratory original-result readings; no literal probe is claimed.
+  - name: MMSETOT__NUMERIC_QSORRES
+    type: float
+    label: Diagnostic original-result sum, invalid text missing
+    derivation:
+      aggregate:
+        expr: SUM(_MM_ORRES)
+        derivations:
+          _MM_ORRES:
+            type: float
+            derivation:
+              value: QS.QSORRES
+              unconvertible: null
+        key:
+        - STUDYID
+        - USUBJID
+  - name: MMSETOT__MMSE_ORIGINAL_ONLY
+    type: float
+    label: Diagnostic MMSE original-result sum, invalid text missing
+    derivation:
+      aggregate:
+        expr: SUM(_MM_ONLY_ORRES)
+        derivations:
+          _MM_ONLY_ORRES:
+            type: float
+            derivation:
+              value: QS.QSORRES
+              unconvertible: null
+        filter: QS.QSCAT = 'MINI-MENTAL STATE'
+        key:
+        - STUDYID
+        - USUBJID
+
+  # SAP page 10: end of treatment is the Week 24 visit or the early
+  # termination visit. Week 24 is Vis 12, as the label writes it; the early
+  # termination visit is read as the disposition visit of a non-completer.
+  - name: VISNUMEN__END_OF_TREATMENT
+    type: float
+    label: End of Trt Visit, Week 24 or early termination visit
+    derivation:
+      case:
+        - when: "DS_DISP.DSTERM = 'PROTOCOL COMPLETED'"
+          then: 12
+        - otherwise: DS_DISP.VISITNUM
+
+  # SAP pages 17 and 40: end of treatment is the last visit on or before the
+  # Week 24 visit. The disposition visit is read as the last visit, capped at
+  # Vis 12.
+  - name: VISNUMEN__ON_OR_BEFORE_WEEK24
+    type: float
+    label: End of Trt Visit, last visit on or before Week 24
+    derivation:
+      case:
+        - when: "DS_DISP.VISITNUM > 12"
+          then: 12
+        - otherwise: DS_DISP.VISITNUM
+
+rows:
+  - id: treated-subjects
+    dataset: DM
+    filter: "DM.ACTARM <> 'Screen Failure'"
+    derivations: {}

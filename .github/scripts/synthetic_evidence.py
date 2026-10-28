@@ -17,7 +17,8 @@ def artifact_inventory(root, study):
     for folder in ['spec', 'program', 'data/odm', 'data/sdtm', 'data/adam']:
         paths.extend(p for p in (base / folder).rglob('*') if p.is_file() and
                      '__pycache__' not in p.parts and p.name != '.gitkeep')
-    for name in ['synthetic_odm.py', 'synthetic_checks.py', 'synthetic_evidence.py', 'validate_synthetic.py']:
+    for name in ['synthetic_odm.py', 'synthetic_checks.py', 'synthetic_evidence.py', 'validate_synthetic.py',
+                 'resolved_specs.py', 'composed_specs.py', 'study_evidence.py']:
         paths.append(root / '.github/scripts' / name)
     paths.extend(p for p in (root / '.github/schemas/cdisc').rglob('*') if p.is_file())
     paths.append(root / '.github/schemas/synthetic-review.schema.json')

@@ -1,0 +1,429 @@
+yamaa: '1.0'
+type: spec
+model: SDTM
+domain: IE
+keys:
+- STUDYID
+- USUBJID
+- IESEQ
+input:
+  ODM:
+    path: ../../../../data/odm/car-t-openclinica.xml
+    relative_to: declaring
+    empty_string: missing
+  RAW:
+    path: ../../../../data/odm/car-t-openclinica.xml
+    relative_to: declaring
+    empty_string: missing
+output:
+  path: ../../../../data/sdtm/ie.parquet
+  relative_to: declaring
+  columns:
+  - STUDYID
+  - DOMAIN
+  - USUBJID
+  - IESEQ
+  - IESPID
+  - IETESTCD
+  - IETEST
+  - IECAT
+  - IEORRES
+  - IESTRESC
+  - IEDTC
+  - EPOCH
+  report: ../../../../log/ie-report.parquet
+  order_by:
+  - variable: STUDYID
+    direction: asc
+    nulls: last
+  - variable: USUBJID
+    direction: asc
+    nulls: last
+  - variable: IESEQ
+    direction: asc
+    nulls: last
+intermediates:
+- id: CONTEXT
+  dataset: RAW
+  key:
+    StudyOID: ODM.StudyOID
+    MetaDataVersionOID: ODM.MetaDataVersionOID
+    SubjectKey: ODM.SubjectKey
+    StudyEventOID: ODM.StudyEventOID
+    FormOID: ODM.FormOID
+    ItemGroupOID: ODM.ItemGroupOID
+  filter: (RAW.StudyEventRepeatKey = ODM.StudyEventRepeatKey OR (RAW.StudyEventRepeatKey
+    IS NULL AND ODM.StudyEventRepeatKey IS NULL)) AND (RAW.FormRepeatKey = ODM.FormRepeatKey
+    OR (RAW.FormRepeatKey IS NULL AND ODM.FormRepeatKey IS NULL)) AND (RAW.ItemGroupRepeatKey
+    = ODM.ItemGroupRepeatKey OR (RAW.ItemGroupRepeatKey IS NULL AND ODM.ItemGroupRepeatKey
+    IS NULL))
+  order_by:
+  - variable: RAW.SourceOrdinal
+    direction: asc
+  keep: first
+columns:
+- name: CRF_EXCEVAL
+  type: str
+  label: CRF_EXCEVAL
+- name: CRF_INC1EVAL
+  type: str
+  label: CRF_INC1EVAL
+- name: CRF_INC2EVAL
+  type: str
+  label: CRF_INC2EVAL
+- name: STARTDATE
+  type: str
+  label: STARTDATE
+  derivation: CONTEXT.StartDate
+- name: SUBJECTKEY
+  type: str
+  label: SUBJECTKEY
+  derivation: ODM.SubjectKey
+- name: ROWID
+  type: int
+  label: ROWID
+  derivation: CONTEXT.SourceOrdinal
+- name: STUDYID
+  type: str
+  label: Study Identifier
+  derivation: '''CART-T-PILOT'''
+  verifications:
+  - max_length:
+      max: 12
+      severity: error
+  submission:
+    key_sequence: 1
+    core: Req
+    mandatory: true
+    role: Identifier
+    data_type: text
+    length: 12
+    origins:
+    - type: Assigned
+      source: Sponsor
+- name: DOMAIN
+  type: str
+  label: Domain Abbreviation
+  derivation: '''IE'''
+  verifications:
+  - max_length:
+      max: 2
+      severity: error
+  submission:
+    core: Req
+    mandatory: true
+    role: Identifier
+    data_type: text
+    length: 2
+    origins:
+    - type: Assigned
+      source: Sponsor
+- name: USUBJID
+  type: str
+  label: Unique Subject Identifier
+  derivation:
+    str_template: CART-T-PILOT-{SUBJECTKEY}
+  verifications:
+  - max_length:
+      max: 80
+      severity: error
+  submission:
+    key_sequence: 2
+    core: Req
+    mandatory: true
+    role: Identifier
+    data_type: text
+    length: 80
+    origins:
+    - type: Derived
+      source: Sponsor
+    method:
+      type: Computation
+      description: CART-T-PILOT followed by the globally unique ODM SubjectKey. Display
+        subject ID is retained in DM.SUBJID.
+    comment: CART-T-PILOT followed by the globally unique ODM SubjectKey. Display
+      subject ID is retained in DM.SUBJID.
+- name: IESEQ
+  type: int
+  label: Sequence Number
+  derivation:
+    row_number:
+      window:
+        group_by:
+        - USUBJID
+        order_by:
+        - variable: ROWID
+          direction: asc
+          nulls: last
+  submission:
+    key_sequence: 3
+    core: Req
+    mandatory: true
+    role: Identifier
+    data_type: integer
+    length: 8
+    origins:
+    - type: Derived
+      source: Sponsor
+    method:
+      type: Computation
+      description: "Executable yamaa derivation: row_number:\n  window:\n    group_by:\n\
+        \    - USUBJID\n    order_by:\n    - variable: ROWID\n      nulls: last"
+- name: IESPID
+  type: str
+  label: Source Group Ordinal
+  derivation: ROWID
+  verifications:
+  - max_length:
+      max: 20
+      severity: error
+  submission:
+    core: Perm
+    mandatory: false
+    role: Identifier
+    data_type: text
+    length: 20
+    origins:
+    - type: Predecessor
+      description: ROWID
+    comment: ODM SourceOrdinal (item), or first SourceOrdinal in the complete ODM
+      item-group instance. Trace to SourceOrdinal in data/odm/items.parquet and the
+      unchanged XML.
+- name: IETESTCD
+  type: str
+  label: Inclusion/Exclusion Criterion Short Name
+  derivation: null
+  verifications:
+  - max_length:
+      max: 8
+      severity: error
+  submission:
+    core: Req
+    mandatory: true
+    role: Topic
+    data_type: text
+    length: 8
+    origins:
+    - type: Derived
+      source: Sponsor
+    method:
+      type: Computation
+      description: Not derivable; the output remains missing.
+- name: IETEST
+  type: str
+  label: Inclusion/Exclusion Criterion
+  derivation: null
+  verifications:
+  - max_length:
+      max: 200
+      severity: error
+  submission:
+    core: Req
+    mandatory: true
+    role: Record Qualifier
+    data_type: text
+    length: 200
+    origins:
+    - type: Derived
+      source: Sponsor
+    method:
+      type: Computation
+      description: Not derivable; the output remains missing.
+- name: IECAT
+  type: str
+  label: Inclusion/Exclusion Category
+  derivation: null
+  verifications:
+  - max_length:
+      max: 20
+      severity: error
+  submission:
+    core: Req
+    mandatory: true
+    role: Record Qualifier
+    data_type: text
+    length: 20
+    origins:
+    - type: Derived
+      source: Sponsor
+    method:
+      type: Computation
+      description: Not derivable; the output remains missing.
+- name: IEORRES
+  type: str
+  label: I/E Criterion Original Result
+  derivation: null
+  verifications:
+  - max_length:
+      max: 1
+      severity: error
+  submission:
+    core: Req
+    mandatory: true
+    role: Record Qualifier
+    data_type: text
+    length: 1
+    origins:
+    - type: Derived
+      source: Sponsor
+    method:
+      type: Computation
+      description: Not derivable; the output remains missing.
+- name: IESTRESC
+  type: str
+  label: Standardized Character Result
+  derivation: null
+  verifications:
+  - max_length:
+      max: 1
+      severity: error
+  submission:
+    core: Req
+    mandatory: true
+    role: Record Qualifier
+    data_type: text
+    length: 1
+    origins:
+    - type: Derived
+      source: Sponsor
+    method:
+      type: Computation
+      description: Not derivable; the output remains missing.
+- name: IEDTC
+  type: str
+  label: Date/Time of Collection
+  derivation:
+    date_text:
+      source: STARTDATE
+      forms:
+      - iso
+      - mdy_slash
+      invalid: null
+  verifications:
+  - max_length:
+      max: 25
+      severity: error
+  submission:
+    core: Exp
+    mandatory: false
+    role: Timing
+    data_type: text
+    length: 25
+    origins:
+    - type: Derived
+      source: Sponsor
+    method:
+      type: Computation
+      description: Eligibility event date; assessment date proxy only.
+    comment: Eligibility event date; assessment date proxy only.
+- name: EPOCH
+  type: str
+  label: Epoch
+  derivation: '''SCREENING'''
+  verifications:
+  - max_length:
+      max: 20
+      severity: error
+  submission:
+    core: Exp
+    mandatory: false
+    role: Timing
+    data_type: text
+    length: 20
+    origins:
+    - type: Assigned
+      source: Sponsor
+- name: SOURCE_FORM
+  type: str
+  label: SOURCE_FORM
+rows:
+- id: inc1
+  dataset: ODM
+  group_by:
+  - ODM.StudyOID
+  - ODM.MetaDataVersionOID
+  - ODM.SubjectKey
+  - ODM.StudyEventOID
+  - ODM.StudyEventRepeatKey
+  - ODM.FormOID
+  - ODM.FormRepeatKey
+  - ODM.ItemGroupOID
+  - ODM.ItemGroupRepeatKey
+  filter: SOURCE_FORM = 'F_ELIGIBILITY' AND (CRF_INC1EVAL = 'fail')
+  derivations:
+    IETESTCD: '''INC1'''
+    IETEST: '''Disease history inclusion evaluation'''
+    IECAT: '''INCLUSION'''
+    IEORRES: '''N'''
+    IESTRESC: '''N'''
+    CRF_EXCEVAL:
+      odm: ODM.I_ELIGI_EXCEVAL
+    CRF_INC1EVAL:
+      odm: ODM.I_ELIGI_INC1EVAL
+    CRF_INC2EVAL:
+      odm: ODM.I_ELIGI_INC2EVAL
+    SOURCE_FORM: ODM.FormOID
+- id: inc2
+  dataset: ODM
+  group_by:
+  - ODM.StudyOID
+  - ODM.MetaDataVersionOID
+  - ODM.SubjectKey
+  - ODM.StudyEventOID
+  - ODM.StudyEventRepeatKey
+  - ODM.FormOID
+  - ODM.FormRepeatKey
+  - ODM.ItemGroupOID
+  - ODM.ItemGroupRepeatKey
+  filter: SOURCE_FORM = 'F_ELIGIBILITY' AND (CRF_INC2EVAL = 'fail')
+  derivations:
+    IETESTCD: '''INC2'''
+    IETEST: '''Organ function inclusion evaluation'''
+    IECAT: '''INCLUSION'''
+    IEORRES: '''N'''
+    IESTRESC: '''N'''
+    CRF_EXCEVAL:
+      odm: ODM.I_ELIGI_EXCEVAL
+    CRF_INC1EVAL:
+      odm: ODM.I_ELIGI_INC1EVAL
+    CRF_INC2EVAL:
+      odm: ODM.I_ELIGI_INC2EVAL
+    SOURCE_FORM: ODM.FormOID
+- id: exc
+  dataset: ODM
+  group_by:
+  - ODM.StudyOID
+  - ODM.MetaDataVersionOID
+  - ODM.SubjectKey
+  - ODM.StudyEventOID
+  - ODM.StudyEventRepeatKey
+  - ODM.FormOID
+  - ODM.FormRepeatKey
+  - ODM.ItemGroupOID
+  - ODM.ItemGroupRepeatKey
+  filter: SOURCE_FORM = 'F_ELIGIBILITY' AND (CRF_EXCEVAL = 'fail')
+  derivations:
+    IETESTCD: '''EXC'''
+    IETEST: '''Safety exclusion evaluation'''
+    IECAT: '''EXCLUSION'''
+    IEORRES: '''Y'''
+    IESTRESC: '''Y'''
+    CRF_EXCEVAL:
+      odm: ODM.I_ELIGI_EXCEVAL
+    CRF_INC1EVAL:
+      odm: ODM.I_ELIGI_INC1EVAL
+    CRF_INC2EVAL:
+      odm: ODM.I_ELIGI_INC2EVAL
+    SOURCE_FORM: ODM.FormOID
+submission:
+  mode: historical
+  artifact: ie.xpt
+  has_no_data: false
+  label: Inclusion Exclusion Exceptions
+  class: FINDINGS
+  structure: One record per source observation per subject
+  repeating: true
+  reference_data: false
+  non_standard: false
+  comment: Review draft metadata. Historical mode keeps declarations separate from
+    incomplete data; this is not a validated submission. See spec/review/decisions.md.

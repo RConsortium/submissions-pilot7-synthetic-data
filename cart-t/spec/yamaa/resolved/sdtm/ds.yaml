@@ -1,0 +1,424 @@
+yamaa: '1.0'
+type: spec
+model: SDTM
+domain: DS
+keys:
+- STUDYID
+- USUBJID
+- DSSEQ
+input:
+  ODM:
+    path: ../../../../data/odm/car-t-openclinica.xml
+    relative_to: declaring
+    empty_string: missing
+  RAW:
+    path: ../../../../data/odm/car-t-openclinica.xml
+    relative_to: declaring
+    empty_string: missing
+output:
+  path: ../../../../data/sdtm/ds.parquet
+  relative_to: declaring
+  columns:
+  - STUDYID
+  - DOMAIN
+  - USUBJID
+  - DSSEQ
+  - DSSPID
+  - DSTERM
+  - DSDECOD
+  - DSCAT
+  - DSSTDTC
+  report: ../../../../log/ds-report.parquet
+  order_by:
+  - variable: STUDYID
+    direction: asc
+    nulls: last
+  - variable: USUBJID
+    direction: asc
+    nulls: last
+  - variable: DSSEQ
+    direction: asc
+    nulls: last
+intermediates:
+- id: CONTEXT
+  dataset: RAW
+  key:
+    StudyOID: ODM.StudyOID
+    MetaDataVersionOID: ODM.MetaDataVersionOID
+    SubjectKey: ODM.SubjectKey
+    StudyEventOID: ODM.StudyEventOID
+    FormOID: ODM.FormOID
+    ItemGroupOID: ODM.ItemGroupOID
+  filter: (RAW.StudyEventRepeatKey = ODM.StudyEventRepeatKey OR (RAW.StudyEventRepeatKey
+    IS NULL AND ODM.StudyEventRepeatKey IS NULL)) AND (RAW.FormRepeatKey = ODM.FormRepeatKey
+    OR (RAW.FormRepeatKey IS NULL AND ODM.FormRepeatKey IS NULL)) AND (RAW.ItemGroupRepeatKey
+    = ODM.ItemGroupRepeatKey OR (RAW.ItemGroupRepeatKey IS NULL AND ODM.ItemGroupRepeatKey
+    IS NULL))
+  order_by:
+  - variable: RAW.SourceOrdinal
+    direction: asc
+  keep: first
+columns:
+- name: CRF_CONSENTEDDT
+  type: str
+  label: CRF_CONSENTEDDT
+- name: CRF_EARLYTERMINATIONDATE
+  type: str
+  label: CRF_EARLYTERMINATIONDATE
+  derivation:
+    odm: ODM.I_DISPO_EARLYTERMINATIONDATE
+- name: CRF_EARLYTERMINATIONREASON
+  type: str
+  label: CRF_EARLYTERMINATIONREASON
+- name: CRF_ELIGIBLE
+  type: str
+  label: CRF_ELIGIBLE
+- name: CRF_PROFILE
+  type: str
+  label: CRF_PROFILE
+- name: STARTDATE
+  type: str
+  label: STARTDATE
+  derivation: CONTEXT.StartDate
+- name: SUBJECTKEY
+  type: str
+  label: SUBJECTKEY
+  derivation: ODM.SubjectKey
+- name: ROWID
+  type: int
+  label: ROWID
+  derivation: CONTEXT.SourceOrdinal
+- name: STUDYID
+  type: str
+  label: Study Identifier
+  derivation: '''CART-T-PILOT'''
+  verifications:
+  - max_length:
+      max: 12
+      severity: error
+  submission:
+    key_sequence: 1
+    core: Req
+    mandatory: true
+    role: Identifier
+    data_type: text
+    length: 12
+    origins:
+    - type: Assigned
+      source: Sponsor
+- name: DOMAIN
+  type: str
+  label: Domain Abbreviation
+  derivation: '''DS'''
+  verifications:
+  - max_length:
+      max: 2
+      severity: error
+  submission:
+    core: Req
+    mandatory: true
+    role: Identifier
+    data_type: text
+    length: 2
+    origins:
+    - type: Assigned
+      source: Sponsor
+- name: USUBJID
+  type: str
+  label: Unique Subject Identifier
+  derivation:
+    str_template: CART-T-PILOT-{SUBJECTKEY}
+  verifications:
+  - max_length:
+      max: 80
+      severity: error
+  submission:
+    key_sequence: 2
+    core: Req
+    mandatory: true
+    role: Identifier
+    data_type: text
+    length: 80
+    origins:
+    - type: Derived
+      source: Sponsor
+    method:
+      type: Computation
+      description: 'Executable yamaa derivation: str_template: CART-T-PILOT-{SUBJECTKEY}'
+- name: DSSEQ
+  type: int
+  label: Sequence Number
+  derivation:
+    row_number:
+      window:
+        group_by:
+        - USUBJID
+        order_by:
+        - variable: ROWID
+          direction: asc
+          nulls: last
+  submission:
+    key_sequence: 3
+    core: Req
+    mandatory: true
+    role: Identifier
+    data_type: integer
+    length: 8
+    origins:
+    - type: Derived
+      source: Sponsor
+    method:
+      type: Computation
+      description: "Executable yamaa derivation: row_number:\n  window:\n    group_by:\n\
+        \    - USUBJID\n    order_by:\n    - variable: ROWID\n      nulls: last"
+- name: DSSPID
+  type: str
+  label: Source Group Ordinal
+  derivation: ROWID
+  verifications:
+  - max_length:
+      max: 20
+      severity: error
+  submission:
+    core: Perm
+    mandatory: false
+    role: Identifier
+    data_type: text
+    length: 20
+    origins:
+    - type: Derived
+      source: Sponsor
+    method:
+      type: Computation
+      description: 'Executable yamaa derivation: ROWID
+
+        ...'
+- name: DSTERM
+  type: str
+  label: Reported Term for the Disposition Event
+  derivation: null
+  verifications:
+  - max_length:
+      max: 200
+      severity: error
+  submission:
+    core: Req
+    mandatory: true
+    role: Topic
+    data_type: text
+    length: 200
+    origins:
+    - type: Derived
+      source: Sponsor
+    method:
+      type: Computation
+      description: Not derivable; the output remains missing.
+- name: DSDECOD
+  type: str
+  label: Standardized Disposition Term
+  derivation: null
+  verifications:
+  - max_length:
+      max: 80
+      severity: error
+  submission:
+    core: Req
+    mandatory: true
+    role: Record Qualifier
+    data_type: text
+    length: 80
+    origins:
+    - type: Derived
+      source: Sponsor
+    method:
+      type: Computation
+      description: Not derivable; the output remains missing.
+- name: DSCAT
+  type: str
+  label: Category for Disposition Event
+  derivation: null
+  verifications:
+  - max_length:
+      max: 40
+      severity: error
+  submission:
+    core: Req
+    mandatory: true
+    role: Record Qualifier
+    data_type: text
+    length: 40
+    origins:
+    - type: Derived
+      source: Sponsor
+    method:
+      type: Computation
+      description: Not derivable; the output remains missing.
+- name: DSSTDTC
+  type: str
+  label: Start Date/Time of Disposition Event
+  derivation: null
+  verifications:
+  - max_length:
+      max: 25
+      severity: error
+  submission:
+    core: Exp
+    mandatory: false
+    role: Timing
+    data_type: text
+    length: 25
+    origins:
+    - type: Derived
+      source: Sponsor
+    method:
+      type: Computation
+      description: Not derivable; the output remains missing.
+- name: SOURCE_GROUP
+  type: str
+  label: SOURCE_GROUP
+rows:
+- id: consent
+  dataset: ODM
+  group_by:
+  - ODM.StudyOID
+  - ODM.MetaDataVersionOID
+  - ODM.SubjectKey
+  - ODM.StudyEventOID
+  - ODM.StudyEventRepeatKey
+  - ODM.FormOID
+  - ODM.FormRepeatKey
+  - ODM.ItemGroupOID
+  - ODM.ItemGroupRepeatKey
+  filter: SOURCE_GROUP = 'IG_DISPO_PD' AND (CRF_CONSENTEDDT IS NOT NULL)
+  derivations:
+    DSTERM: '''Informed consent obtained'''
+    DSDECOD: '''INFORMED CONSENT OBTAINED'''
+    DSCAT: '''PROTOCOL MILESTONE'''
+    DSSTDTC:
+      date_text:
+        source: CRF_CONSENTEDDT
+        forms:
+        - iso
+        - mdy_slash
+        invalid: null
+    SOURCE_GROUP: ODM.ItemGroupOID
+    CRF_CONSENTEDDT:
+      odm: ODM.I_DISPO_CONSENTEDDT
+    CRF_EARLYTERMINATIONREASON:
+      odm: ODM.I_DISPO_EARLYTERMINATIONREASON
+    CRF_ELIGIBLE:
+      odm: ODM.I_DISPO_ELIGIBLE
+    CRF_PROFILE:
+      odm: ODM.I_3RAND_PROFILE
+- id: eligible
+  dataset: ODM
+  group_by:
+  - ODM.StudyOID
+  - ODM.MetaDataVersionOID
+  - ODM.SubjectKey
+  - ODM.StudyEventOID
+  - ODM.StudyEventRepeatKey
+  - ODM.FormOID
+  - ODM.FormRepeatKey
+  - ODM.ItemGroupOID
+  - ODM.ItemGroupRepeatKey
+  filter: SOURCE_GROUP = 'IG_DISPO_PD' AND (CRF_ELIGIBLE = 'Yes')
+  derivations:
+    DSTERM: '''Determined eligible'''
+    DSDECOD: '''ELIGIBILITY CRITERIA MET'''
+    DSCAT: '''PROTOCOL MILESTONE'''
+    DSSTDTC: null
+    SOURCE_GROUP: ODM.ItemGroupOID
+    CRF_CONSENTEDDT:
+      odm: ODM.I_DISPO_CONSENTEDDT
+    CRF_EARLYTERMINATIONREASON:
+      odm: ODM.I_DISPO_EARLYTERMINATIONREASON
+    CRF_ELIGIBLE:
+      odm: ODM.I_DISPO_ELIGIBLE
+    CRF_PROFILE:
+      odm: ODM.I_3RAND_PROFILE
+- id: discontinued
+  dataset: ODM
+  group_by:
+  - ODM.StudyOID
+  - ODM.MetaDataVersionOID
+  - ODM.SubjectKey
+  - ODM.StudyEventOID
+  - ODM.StudyEventRepeatKey
+  - ODM.FormOID
+  - ODM.FormRepeatKey
+  - ODM.ItemGroupOID
+  - ODM.ItemGroupRepeatKey
+  filter: SOURCE_GROUP = 'IG_DISPO_PD' AND (CRF_EARLYTERMINATIONREASON IS NOT NULL)
+  derivations:
+    DSTERM: CRF_EARLYTERMINATIONREASON
+    DSDECOD:
+      mapping:
+        source: CRF_EARLYTERMINATIONREASON
+        dict:
+          Withdrew Consent: WITHDRAWAL BY SUBJECT
+          Adverse Event: ADVERSE EVENT
+        case_sensitive: true
+        unmapped: null
+    DSCAT: '''DISPOSITION EVENT'''
+    DSSTDTC:
+      date_text:
+        source: CRF_EARLYTERMINATIONDATE
+        forms:
+        - iso
+        - mdy_slash
+        invalid: null
+    SOURCE_GROUP: ODM.ItemGroupOID
+    CRF_CONSENTEDDT:
+      odm: ODM.I_DISPO_CONSENTEDDT
+    CRF_EARLYTERMINATIONREASON:
+      odm: ODM.I_DISPO_EARLYTERMINATIONREASON
+    CRF_ELIGIBLE:
+      odm: ODM.I_DISPO_ELIGIBLE
+    CRF_PROFILE:
+      odm: ODM.I_3RAND_PROFILE
+- id: randomization_workflow
+  dataset: ODM
+  group_by:
+  - ODM.StudyOID
+  - ODM.MetaDataVersionOID
+  - ODM.SubjectKey
+  - ODM.StudyEventOID
+  - ODM.StudyEventRepeatKey
+  - ODM.FormOID
+  - ODM.FormRepeatKey
+  - ODM.ItemGroupOID
+  - ODM.ItemGroupRepeatKey
+  filter: SOURCE_GROUP = 'IG_3RAND_RAND1' AND (CRF_PROFILE IS NOT NULL)
+  derivations:
+    DSTERM: '''Randomization workflow record present'''
+    DSDECOD: '''RANDOMIZATION RECORD PRESENT'''
+    DSCAT: '''PROTOCOL MILESTONE'''
+    DSSTDTC:
+      date_text:
+        source: STARTDATE
+        forms:
+        - iso
+        - mdy_slash
+        invalid: null
+    SOURCE_GROUP: ODM.ItemGroupOID
+    CRF_CONSENTEDDT:
+      odm: ODM.I_DISPO_CONSENTEDDT
+    CRF_EARLYTERMINATIONREASON:
+      odm: ODM.I_DISPO_EARLYTERMINATIONREASON
+    CRF_ELIGIBLE:
+      odm: ODM.I_DISPO_ELIGIBLE
+    CRF_PROFILE:
+      odm: ODM.I_3RAND_PROFILE
+submission:
+  mode: historical
+  artifact: ds.xpt
+  has_no_data: false
+  label: Disposition
+  class: EVENTS
+  structure: One record per source observation per subject
+  repeating: true
+  reference_data: false
+  non_standard: false
+  comment: Review draft metadata. Historical mode keeps declarations separate from
+    incomplete data; this is not a validated submission. See spec/review/decisions.md.

@@ -12,7 +12,7 @@ import pyreadstat
 import yaml
 import yamaa
 
-from engine import export_xpt
+from engine import STUDY, export_xpt, specifications
 from odm.prepare import prepare
 import run
 
@@ -47,6 +47,16 @@ class NativeODMTests(unittest.TestCase):
         self.odm = self.study / "data/odm"
         self.odm.mkdir(parents=True)
         self.source = self.odm / "car-t-openclinica.xml"
+
+    def test_composed_specs_resolve_transport_paths_from_the_generated_file(self):
+        actual = {spec["domain"]: (path.parent / spec["output"]["path"]).resolve().relative_to(STUDY).as_posix()
+                  for path, spec in specifications("sdtm")}
+        self.assertEqual(actual, {
+            "DM": "data/sdtm/dm.parquet", "SUPPDM": "data/sdtm/suppdm.parquet",
+            "AE": "data/sdtm/ae.parquet", "CM": "data/sdtm/cm.parquet",
+            "LB": "data/sdtm/lb.parquet", "QS": "data/sdtm/qs.parquet",
+            "MH": "data/sdtm/mh.parquet", "IE": "data/sdtm/ie.parquet",
+            "CE": "data/sdtm/ce.parquet", "DS": "data/sdtm/ds.parquet"})
 
     def run_ae(self):
         # Execute the maintained clinical YAML against a small independent ODM.

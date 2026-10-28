@@ -22,30 +22,39 @@ def workbook_body(path):
             + "</nav>"
         )
         for n, sheet in enumerate(book, 1):
+            populated_rows = {}
+            for number, row in enumerate(sheet.iter_rows(), 1):
+                values = [str(c.value) if c.value is not None else "" for c in row]
+                if any(value.strip() for value in values):
+                    populated_rows[number] = (row, values)
             merged, covered = {}, set()
             for region in sheet.merged_cells.ranges:
-                merged[region.min_row, region.min_col] = (
-                    region.max_row - region.min_row + 1,
+                region_rows = [
+                    number for number in populated_rows
+                    if region.min_row <= number <= region.max_row
+                ]
+                if not region_rows:
+                    continue
+                merged[region_rows[0], region.min_col] = (
+                    len(region_rows),
                     region.max_col - region.min_col + 1,
                 )
                 covered.update(
                     (r, c)
-                    for r in range(region.min_row, region.max_row + 1)
+                    for r in region_rows
                     for c in range(region.min_col, region.max_col + 1)
-                    if (r, c) != (region.min_row, region.min_col)
+                    if (r, c) != (region_rows[0], region.min_col)
                 )
             rows = []
-            for number, row in enumerate(sheet.iter_rows(), 1):
-                values = [str(c.value) if c.value is not None else "" for c in row]
+            for number, (row, values) in populated_rows.items():
                 anchor = f"sheet-{n}-row-{number}"
-                if any(values):
-                    sections.append(
-                        {
-                            "id": anchor,
-                            "title": f"{sheet.title} / row {number}",
-                            "text": " | ".join(values),
-                        }
-                    )
+                sections.append(
+                    {
+                        "id": anchor,
+                        "title": f"{sheet.title} / row {number}",
+                        "text": " | ".join(values),
+                    }
+                )
                 cells = []
                 for column, cell in enumerate(row, 1):
                     if (number, column) in covered:
@@ -65,7 +74,7 @@ def workbook_body(path):
                 for c in range(1, sheet.max_column + 1)
             )
             tables.append(
-                f'<section id="sheet-{n}"><h2>{html.escape(sheet.title)}</h2><div style="overflow:auto"><table><caption>{html.escape(sheet.title)}</caption><thead><tr><th scope="col">Row</th>{headings}</tr></thead><tbody>{"".join(rows)}</tbody></table></div></section>'
+                f'<section id="sheet-{n}"><h2>{html.escape(sheet.title)}</h2><div style="overflow:auto"><table style="min-width:100%"><caption>{html.escape(sheet.title)}</caption><thead><tr><th scope="col">Row</th>{headings}</tr></thead><tbody>{"".join(rows)}</tbody></table></div></section>'
             )
         return navigation + "".join(tables), sections
     finally:

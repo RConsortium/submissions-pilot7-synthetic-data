@@ -15,7 +15,7 @@ wastes a reviewer's time, so check each one.
   complete `basis` string and its compact `basis_fingerprint`.
 - `.build/verification/<study>/sections/<document>.txt`: the exact text of
   every retained document, one `=== <section id>` block per section.
-- The specification under review and `<study>/spec/review/<dataset>-probe.yaml`.
+- The specification under review and `<study>/spec/review/<dataset>-documented-rules.yaml`.
 - `.automation/consistency_review/rules.yaml`.
 
 Do not edit claims, probes, specifications, data or documents. Write only

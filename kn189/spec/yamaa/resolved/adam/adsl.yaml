@@ -1,0 +1,895 @@
+yamaa: '1.0'
+type: spec
+model: ADaM
+domain: ADSL
+keys:
+- STUDYID
+- USUBJID
+input:
+  DM:
+    path: ../../../../data/sdtm/dm-yamaa.parquet
+    relative_to: declaring
+    schema: ../sdtm/dm.yaml
+    empty_string: missing
+  EX:
+    path: ../../../../data/sdtm/ex-yamaa.parquet
+    relative_to: declaring
+    schema: ../sdtm/ex.yaml
+    empty_string: missing
+  DS:
+    path: ../../../../data/sdtm/ds-yamaa.parquet
+    relative_to: declaring
+    schema: ../sdtm/ds.yaml
+    empty_string: missing
+  SC:
+    path: ../../../../data/sdtm/sc-yamaa.parquet
+    relative_to: declaring
+    schema: ../sdtm/sc.yaml
+    empty_string: missing
+  ZX:
+    path: ../../../../data/sdtm/zx-yamaa.parquet
+    relative_to: declaring
+    schema: ../sdtm/zx.yaml
+    empty_string: missing
+  XP:
+    path: ../../../../data/sdtm/xp-yamaa.parquet
+    relative_to: declaring
+    schema: ../sdtm/xp.yaml
+    empty_string: missing
+base: DM
+output:
+  path: ../../../../data/adam/adsl-yamaa.parquet
+  relative_to: declaring
+  columns:
+  - STUDYID
+  - USUBJID
+  - SUBJID
+  - SITEID
+  - AGE
+  - SEX
+  - RACE
+  - COUNTRY
+  - RANDDT
+  - TRTSDT
+  - TRTEDT
+  - TRT01P
+  - TRT01PN
+  - TRT01A
+  - TRT01AN
+  - ITTFL
+  - SAFFL
+  - TRTSWFL
+  - AGEGR1
+  - RACEGR1
+  - REGIONUS
+  - ECOG
+  - SMOKE
+  - PDL1
+  - CNSMET
+  - RISKGRP
+  - METSTAT
+  - PLATIN
+  - NXTTRDT
+  - DCSREAS
+  - EOSDT
+  - OSSRCDY
+  - DTHFL
+  - SRCOSDT
+  - DTHDT
+  - LSTALVDT
+  - STRAT1
+  - STRAT2
+  - STRAT3
+  - STRATA
+  - APPRFL
+  report: ../../../../data/adam/adsl-report.parquet
+  order_by:
+  - variable: STUDYID
+    direction: asc
+  - variable: USUBJID
+    direction: asc
+intermediates:
+- id: FIRSTEX
+  dataset: EX
+  key:
+  - STUDYID
+  - USUBJID
+  filter: EX.EXADJ NOT IN ('WITHDRAWN', 'DOSE INTERRUPTED', 'DRUG INTERRUPTED') OR
+    EX.EXADJ IS NULL
+  order_by:
+  - variable: EX.EXSTDTC
+    direction: asc
+  - variable: EX.EXSEQ
+    direction: asc
+  keep: first
+- id: LASTEX
+  dataset: EX
+  key:
+  - STUDYID
+  - USUBJID
+  filter: EX.EXADJ NOT IN ('WITHDRAWN', 'DOSE INTERRUPTED', 'DRUG INTERRUPTED') OR
+    EX.EXADJ IS NULL
+  order_by:
+  - variable: EX.EXSTDTC
+    direction: asc
+  - variable: EX.EXSEQ
+    direction: asc
+  keep: last
+- id: IMMFIRST
+  dataset: EX
+  key:
+  - STUDYID
+  - USUBJID
+  filter: EX.EXTRT IN ('Pembrolizumab','Placebo','Saline placebo') AND (EX.EXADJ NOT
+    IN ('WITHDRAWN', 'DOSE INTERRUPTED', 'DRUG INTERRUPTED') OR EX.EXADJ IS NULL)
+  order_by:
+  - variable: EX.EXSTDTC
+    direction: asc
+  - variable: EX.EXSEQ
+    direction: asc
+  keep: first
+- id: IMMLAST
+  dataset: EX
+  key:
+  - STUDYID
+  - USUBJID
+  filter: EX.EXTRT IN ('Pembrolizumab','Placebo','Saline placebo') AND (EX.EXADJ NOT
+    IN ('WITHDRAWN', 'DOSE INTERRUPTED', 'DRUG INTERRUPTED') OR EX.EXADJ IS NULL)
+  order_by:
+  - variable: EX.EXSTDTC
+    direction: asc
+  - variable: EX.EXSEQ
+    direction: asc
+  keep: last
+- id: PLAT
+  dataset: EX
+  key:
+  - STUDYID
+  - USUBJID
+  filter: EX.EXTRT IN ('Cisplatin','Carboplatin')
+  order_by:
+  - variable: EX.EXSTDTC
+    direction: asc
+  - variable: EX.EXSEQ
+    direction: asc
+  keep: first
+- id: DC
+  dataset: DS
+  key:
+  - STUDYID
+  - USUBJID
+  filter: DS.DSCAT = 'DISPOSITION EVENT'
+  order_by:
+  - variable: DS.DSSTDTC
+    direction: asc
+  - variable: DS.DSSEQ
+    direction: asc
+  keep: last
+- id: ECOGB
+  dataset: SC
+  key:
+  - STUDYID
+  - USUBJID
+  filter: SC.SCTESTCD = 'ECOG' AND SC.VISITNUM <= 2
+  order_by:
+  - variable: SC.VISITNUM
+    direction: asc
+  - variable: SC.SCSEQ
+    direction: asc
+  keep: first
+- id: SMOKEREC
+  dataset: SC
+  key:
+  - STUDYID
+  - USUBJID
+  filter: SC.SCTESTCD = 'SMOKING'
+- id: PDL1REC
+  dataset: SC
+  key:
+  - STUDYID
+  - USUBJID
+  filter: SC.SCTESTCD = 'PDL1TPS'
+- id: CNSMETREC
+  dataset: SC
+  key:
+  - STUDYID
+  - USUBJID
+  filter: SC.SCTESTCD = 'CNSMET'
+- id: RISKGRPREC
+  dataset: SC
+  key:
+  - STUDYID
+  - USUBJID
+  filter: SC.SCTESTCD = 'RISKGRP'
+- id: METSTATREC
+  dataset: SC
+  key:
+  - STUDYID
+  - USUBJID
+  filter: SC.SCTESTCD = 'METSTAT'
+- id: OSD
+  dataset: ZX
+  key:
+  - STUDYID
+  - USUBJID
+  filter: ZX.ZXTESTCD = 'OSDAY'
+- id: OSE
+  dataset: ZX
+  key:
+  - STUDYID
+  - USUBJID
+  filter: ZX.ZXTESTCD = 'OSEVT'
+- id: LCA
+  dataset: ZX
+  key:
+  - STUDYID
+  - USUBJID
+  filter: ZX.ZXTESTCD = 'LSTCONT'
+- id: NEXTTR
+  dataset: XP
+  key:
+  - STUDYID
+  - USUBJID
+  filter: XP.XPCAT = 'POSTSTUDY ANTICANCER'
+  order_by:
+  - variable: XP.XPSTDTC
+    direction: asc
+  keep: first
+columns:
+- name: STUDYID
+  type: str
+  label: Study Identifier
+  derivation: DM.STUDYID
+  submission:
+    core: Req
+    mandatory: true
+    length: 12
+    origins:
+    - type: Derived
+    method:
+      type: Computation
+      description: 'Executable derivation in the retained yamaa specification: DM.STUDYID
+
+        ...'
+- name: USUBJID
+  type: str
+  label: Unique Subject Identifier
+  derivation: DM.USUBJID
+  submission:
+    core: Req
+    mandatory: true
+    length: 40
+    origins:
+    - type: Derived
+    method:
+      type: Computation
+      description: 'Executable derivation in the retained yamaa specification: DM.USUBJID
+
+        ...'
+- name: SUBJID
+  type: str
+  label: Subject Identifier
+  derivation: DM.SUBJID
+  submission:
+    core: Perm
+    mandatory: false
+    length: 12
+    origins:
+    - type: Derived
+    method:
+      type: Computation
+      description: 'Executable derivation in the retained yamaa specification: DM.SUBJID
+
+        ...'
+- name: SITEID
+  type: str
+  label: Site Identifier
+  derivation: DM.SITEID
+  submission:
+    core: Perm
+    mandatory: false
+    length: 12
+    origins:
+    - type: Derived
+    method:
+      type: Computation
+      description: 'Executable derivation in the retained yamaa specification: DM.SITEID
+
+        ...'
+- name: AGE
+  type: int
+  label: Age
+  derivation: DM.AGE
+  submission:
+    core: Perm
+    mandatory: false
+    length: 8
+    origins:
+    - type: Derived
+    method:
+      type: Computation
+      description: 'Executable derivation in the retained yamaa specification: DM.AGE
+
+        ...'
+- name: SEX
+  type: str
+  label: Sex
+  derivation: DM.SEX
+  submission:
+    core: Perm
+    mandatory: false
+    length: 1
+    origins:
+    - type: Derived
+    method:
+      type: Computation
+      description: 'Executable derivation in the retained yamaa specification: DM.SEX
+
+        ...'
+- name: RACE
+  type: str
+  label: Race
+  derivation: DM.RACE
+  submission:
+    core: Perm
+    mandatory: false
+    length: 100
+    origins:
+    - type: Derived
+    method:
+      type: Computation
+      description: 'Executable derivation in the retained yamaa specification: DM.RACE
+
+        ...'
+- name: COUNTRY
+  type: str
+  label: Country
+  derivation: DM.COUNTRY
+  submission:
+    core: Perm
+    mandatory: false
+    length: 3
+    origins:
+    - type: Derived
+    method:
+      type: Computation
+      description: 'Executable derivation in the retained yamaa specification: DM.COUNTRY
+
+        ...'
+- name: RANDDT
+  type: date
+  label: Randomization / Reference Date
+  derivation: DM.RFSTDTC
+  submission:
+    core: Perm
+    mandatory: false
+    origins:
+    - type: Derived
+    method:
+      type: Computation
+      description: 'Executable derivation in the retained yamaa specification: DM.RFSTDTC
+
+        ...'
+- name: TRTSDT
+  type: date
+  label: Date of First Study Treatment
+  derivation: FIRSTEX.EXSTDTC
+  submission:
+    core: Perm
+    mandatory: false
+    origins:
+    - type: Derived
+    method:
+      type: Computation
+      description: 'Executable derivation in the retained yamaa specification: FIRSTEX.EXSTDTC
+
+        ...'
+- name: TRTEDT
+  type: date
+  label: Date of Last Recorded Study Dose
+  derivation: LASTEX.EXSTDTC
+  submission:
+    core: Perm
+    mandatory: false
+    origins:
+    - type: Derived
+    method:
+      type: Computation
+      description: 'Executable derivation in the retained yamaa specification: LASTEX.EXSTDTC
+
+        ...'
+- name: TRT01P
+  type: str
+  label: Planned Treatment for Period 01
+  derivation: DM.ARM
+  submission:
+    core: Perm
+    mandatory: false
+    length: 80
+    origins:
+    - type: Derived
+    method:
+      type: Computation
+      description: 'Executable derivation in the retained yamaa specification: DM.ARM
+
+        ...'
+- name: TRT01PN
+  type: int
+  label: Planned Treatment Code
+  derivation:
+    case:
+    - when: DM.ARMCD = 'PEMBRO'
+      then: 1
+    - otherwise: 2
+  submission:
+    core: Perm
+    mandatory: false
+    length: 8
+    origins:
+    - type: Assigned
+    method:
+      type: Computation
+      description: "Executable derivation in the retained yamaa specification: case:\n\
+        - then: 1\n  when: DM.ARMCD = 'PEMBRO'\n- otherwise: 2"
+- name: TRT01A
+  type: str
+  label: Actual Treatment for Period 01
+  derivation: IMMFIRST.EXTRT
+  submission:
+    core: Perm
+    mandatory: false
+    length: 80
+    origins:
+    - type: Derived
+    method:
+      type: Computation
+      description: 'Executable derivation in the retained yamaa specification: IMMFIRST.EXTRT
+
+        ...'
+- name: TRT01AN
+  type: int
+  label: Actual Treatment Code
+  derivation:
+    case:
+    - when: IMMFIRST.EXTRT = 'Pembrolizumab'
+      then: 1
+    - when: IMMFIRST.EXTRT IS NOT NULL
+      then: 2
+    - otherwise: null
+  submission:
+    core: Perm
+    mandatory: false
+    length: 8
+    origins:
+    - type: Assigned
+    method:
+      type: Computation
+      description: "Executable derivation in the retained yamaa specification: case:\n\
+        - then: 1\n  when: IMMFIRST.EXTRT = 'Pembrolizumab'\n- then: 2\n  when: IMMFIRST.EXTRT\
+        \ IS NOT NULL\n- otherwise: null"
+- name: ITTFL
+  type: str
+  label: Intent-to-Treat Population Flag
+  derivation: '''Y'''
+  submission:
+    core: Perm
+    mandatory: false
+    length: 1
+    origins:
+    - type: Assigned
+    method:
+      type: Computation
+      description: 'Executable derivation in the retained yamaa specification: ''''''Y'''''''
+- name: SAFFL
+  type: str
+  label: Safety Population Flag
+  derivation:
+    case:
+    - when: TRTSDT IS NOT NULL
+      then: '''Y'''
+    - otherwise: '''N'''
+  submission:
+    core: Perm
+    mandatory: false
+    length: 1
+    origins:
+    - type: Assigned
+    method:
+      type: Computation
+      description: "Executable derivation in the retained yamaa specification: case:\n\
+        - then: '''Y'''\n  when: TRTSDT IS NOT NULL\n- otherwise: '''N'''"
+- name: TRTSWFL
+  type: str
+  label: First vs Last Treatment Difference
+  derivation:
+    case:
+    - when: IMMFIRST.EXTRT <> IMMLAST.EXTRT
+      then: '''Y'''
+    - otherwise: '''N'''
+  submission:
+    core: Perm
+    mandatory: false
+    length: 1
+    origins:
+    - type: Assigned
+    method:
+      type: Computation
+      description: "Executable derivation in the retained yamaa specification: case:\n\
+        - then: '''Y'''\n  when: IMMFIRST.EXTRT <> IMMLAST.EXTRT\n- otherwise: '''N'''"
+- name: AGEGR1
+  type: str
+  label: Age Group 1
+  derivation:
+    case:
+    - when: AGE < 65
+      then: '''<65'''
+    - otherwise: '''>=65'''
+  submission:
+    core: Perm
+    mandatory: false
+    length: 100
+    origins:
+    - type: Assigned
+    method:
+      type: Computation
+      description: "Executable derivation in the retained yamaa specification: case:\n\
+        - then: '''<65'''\n  when: AGE < 65\n- otherwise: '''>=65'''"
+- name: RACEGR1
+  type: str
+  label: Race Group 1
+  derivation:
+    case:
+    - when: RACE = 'WHITE'
+      then: '''WHITE'''
+    - otherwise: '''NON-WHITE'''
+  submission:
+    core: Perm
+    mandatory: false
+    length: 100
+    origins:
+    - type: Assigned
+    method:
+      type: Computation
+      description: "Executable derivation in the retained yamaa specification: case:\n\
+        - then: '''WHITE'''\n  when: RACE = 'WHITE'\n- otherwise: '''NON-WHITE'''"
+- name: REGIONUS
+  type: str
+  label: US Region Flag
+  derivation:
+    case:
+    - when: COUNTRY = 'USA'
+      then: '''Y'''
+    - otherwise: '''N'''
+  submission:
+    core: Perm
+    mandatory: false
+    length: 100
+    origins:
+    - type: Assigned
+    method:
+      type: Computation
+      description: "Executable derivation in the retained yamaa specification: case:\n\
+        - then: '''Y'''\n  when: COUNTRY = 'USA'\n- otherwise: '''N'''"
+- name: ECOG
+  type: int
+  label: Baseline ECOG Performance Status
+  derivation: ECOGB.SCSTRESN
+  submission:
+    core: Perm
+    mandatory: false
+    length: 8
+    origins:
+    - type: Derived
+    method:
+      type: Computation
+      description: 'Executable derivation in the retained yamaa specification: ECOGB.SCSTRESN
+
+        ...'
+- name: SMOKE
+  type: str
+  label: SMOKE
+  derivation: SMOKEREC.SCSTRESC
+  submission:
+    core: Perm
+    mandatory: false
+    length: 100
+    origins:
+    - type: Derived
+    method:
+      type: Computation
+      description: 'Executable derivation in the retained yamaa specification: SMOKEREC.SCSTRESC
+
+        ...'
+- name: PDL1
+  type: str
+  label: PDL1
+  derivation: PDL1REC.SCSTRESC
+  submission:
+    core: Perm
+    mandatory: false
+    length: 100
+    origins:
+    - type: Derived
+    method:
+      type: Computation
+      description: 'Executable derivation in the retained yamaa specification: PDL1REC.SCSTRESC
+
+        ...'
+- name: CNSMET
+  type: str
+  label: CNSMET
+  derivation: CNSMETREC.SCSTRESC
+  submission:
+    core: Perm
+    mandatory: false
+    length: 100
+    origins:
+    - type: Derived
+    method:
+      type: Computation
+      description: 'Executable derivation in the retained yamaa specification: CNSMETREC.SCSTRESC
+
+        ...'
+- name: RISKGRP
+  type: str
+  label: RISKGRP
+  derivation: RISKGRPREC.SCSTRESC
+  submission:
+    core: Perm
+    mandatory: false
+    length: 100
+    origins:
+    - type: Derived
+    method:
+      type: Computation
+      description: 'Executable derivation in the retained yamaa specification: RISKGRPREC.SCSTRESC
+
+        ...'
+- name: METSTAT
+  type: str
+  label: METSTAT
+  derivation: METSTATREC.SCSTRESC
+  submission:
+    core: Perm
+    mandatory: false
+    length: 100
+    origins:
+    - type: Derived
+    method:
+      type: Computation
+      description: 'Executable derivation in the retained yamaa specification: METSTATREC.SCSTRESC
+
+        ...'
+- name: PLATIN
+  type: str
+  label: First Recorded Platinum Treatment
+  derivation: PLAT.EXTRT
+  submission:
+    core: Perm
+    mandatory: false
+    length: 100
+    origins:
+    - type: Derived
+    method:
+      type: Computation
+      description: 'Executable derivation in the retained yamaa specification: PLAT.EXTRT
+
+        ...'
+- name: NXTTRDT
+  type: date
+  label: Subsequent Anticancer Therapy Start
+  derivation: NEXTTR.XPSTDTC
+  submission:
+    core: Perm
+    mandatory: false
+    origins:
+    - type: Derived
+    method:
+      type: Computation
+      description: 'Executable derivation in the retained yamaa specification: NEXTTR.XPSTDTC
+
+        ...'
+- name: DCSREAS
+  type: str
+  label: Disposition Reason
+  derivation: DC.DSDECOD
+  submission:
+    core: Perm
+    mandatory: false
+    length: 100
+    origins:
+    - type: Derived
+    method:
+      type: Computation
+      description: 'Executable derivation in the retained yamaa specification: DC.DSDECOD
+
+        ...'
+- name: EOSDT
+  type: date
+  label: Disposition Date
+  derivation: DC.DSSTDTC
+  submission:
+    core: Perm
+    mandatory: false
+    origins:
+    - type: Derived
+    method:
+      type: Computation
+      description: 'Executable derivation in the retained yamaa specification: DC.DSSTDTC
+
+        ...'
+- name: OSSRCDY
+  type: int
+  label: Source Overall Survival Days
+  derivation: OSD.ZXSTRESC
+  submission:
+    core: Perm
+    mandatory: false
+    length: 8
+    origins:
+    - type: Derived
+    method:
+      type: Computation
+      description: 'Executable derivation in the retained yamaa specification: OSD.ZXSTRESC
+
+        ...'
+- name: DTHFL
+  type: str
+  label: Death Flag from Source Summary
+  derivation:
+    case:
+    - when: OSE.ZXSTRESC = '1'
+      then: '''Y'''
+    - otherwise: '''N'''
+  submission:
+    core: Perm
+    mandatory: false
+    length: 1
+    origins:
+    - type: Assigned
+    method:
+      type: Computation
+      description: "Executable derivation in the retained yamaa specification: case:\n\
+        - then: '''Y'''\n  when: OSE.ZXSTRESC = '1'\n- otherwise: '''N'''"
+- name: _OSOFF
+  type: int
+  label: Internal Source OS Day Offset
+  derivation: OSSRCDY - 1
+- name: SRCOSDT
+  type: date
+  label: Date Implied by Source OS Summary
+  derivation:
+    shift:
+      type: date
+      source: RANDDT
+      days: _OSOFF
+  submission:
+    core: Perm
+    mandatory: false
+    origins:
+    - type: Derived
+    method:
+      type: Computation
+      description: "Executable derivation in the retained yamaa specification: shift:\n\
+        \  days: _OSOFF\n  source: RANDDT\n  type: date"
+- name: DTHDT
+  type: date
+  label: Source-Implied Death Date
+  derivation:
+    case:
+    - when: DTHFL = 'Y'
+      then: SRCOSDT
+    - otherwise: null
+  submission:
+    core: Perm
+    mandatory: false
+    origins:
+    - type: Derived
+    method:
+      type: Computation
+      description: Derived from precomputed source OS days and reference date; not
+        an independently collected death date.
+- name: LSTALVDT
+  type: date
+  label: Source Last Known Alive Date
+  derivation:
+    to_date:
+      source: LCA.ZXSTRESC
+  submission:
+    core: Perm
+    mandatory: false
+    origins:
+    - type: Derived
+    method:
+      type: Computation
+      description: "Executable derivation in the retained yamaa specification: to_date:\n\
+        \  source: LCA.ZXSTRESC"
+- name: STRAT1
+  type: str
+  label: Primary Stratification Factor 1
+  derivation:
+    case:
+    - when: PDL1 IN ('1-49%', '>=50%')
+      then: '''TPS >=1%'''
+    - otherwise: '''TPS <1%'''
+  submission:
+    core: Perm
+    mandatory: false
+    length: 100
+    origins:
+    - type: Assigned
+    method:
+      type: Computation
+      description: "Executable derivation in the retained yamaa specification: case:\n\
+        - then: '''TPS >=1%'''\n  when: PDL1 IN ('1-49%', '>=50%')\n- otherwise: '''TPS\
+        \ <1%'''"
+- name: STRAT2
+  type: str
+  label: Primary Stratification Factor 2
+  derivation: PLATIN
+  submission:
+    core: Perm
+    mandatory: false
+    length: 100
+    origins:
+    - type: Derived
+    method:
+      type: Computation
+      description: 'Executable derivation in the retained yamaa specification: PLATIN
+
+        ...'
+- name: STRAT3
+  type: str
+  label: Primary Stratification Factor 3
+  derivation:
+    case:
+    - when: SMOKE = 'NEVER'
+      then: '''NEVER'''
+    - otherwise: '''FORMER/CURRENT'''
+  submission:
+    core: Perm
+    mandatory: false
+    length: 100
+    origins:
+    - type: Assigned
+    method:
+      type: Computation
+      description: "Executable derivation in the retained yamaa specification: case:\n\
+        - then: '''NEVER'''\n  when: SMOKE = 'NEVER'\n- otherwise: '''FORMER/CURRENT'''"
+- name: STRATA
+  type: str
+  label: Reconstructed Randomization Stratum
+  derivation:
+    str_template: '{STRAT1}|{STRAT2}|{STRAT3}'
+  submission:
+    core: Perm
+    mandatory: false
+    length: 80
+    origins:
+    - type: Derived
+    method:
+      type: Computation
+      description: 'Executable derivation in the retained yamaa specification: str_template:
+        ''{STRAT1}|{STRAT2}|{STRAT3}'''
+- name: APPRFL
+  type: str
+  label: Human Analysis Approval Flag
+  derivation: '''N'''
+  submission:
+    core: Perm
+    mandatory: false
+    length: 1
+    origins:
+    - type: Assigned
+    method:
+      type: Computation
+      description: 'Executable derivation in the retained yamaa specification: ''''''N'''''''
+submission:
+  has_no_data: false
+  label: Subject-Level Analysis
+  class: SUBJECT LEVEL ANALYSIS DATASET
+  structure: One record per subject
+  repeating: false
+  reference_data: false
+  non_standard: false
+  comment: Synthetic development output. Review findings before analysis use.

@@ -1,0 +1,893 @@
+yamaa: '1.0'
+type: spec
+model: SDTM
+domain: DM
+keys:
+- STUDYID
+- USUBJID
+input:
+  RAW:
+    path: ../../../../data/odm/car-t-openclinica.xml
+    relative_to: declaring
+    empty_string: missing
+  ITEMS:
+    path: ../../../../data/odm/car-t-openclinica.xml
+    relative_to: declaring
+    empty_string: missing
+    key:
+    - SubjectKey
+output:
+  path: ../../../../data/sdtm/dm.parquet
+  relative_to: declaring
+  columns:
+  - STUDYID
+  - DOMAIN
+  - USUBJID
+  - SUBJID
+  - SITEID
+  - RFSTDTC
+  - RFENDTC
+  - RFXSTDTC
+  - RFXENDTC
+  - RFPENDTC
+  - RFICDTC
+  - BRTHDTC
+  - AGE
+  - AGEU
+  - SEX
+  - RACE
+  - ETHNIC
+  - COUNTRY
+  - ARMCD
+  - ARM
+  - ACTARMCD
+  - ACTARM
+  - ARMNRS
+  - DTHFL
+  - DTHDTC
+  report: ../../../../log/dm-report.parquet
+  order_by:
+  - variable: STUDYID
+    direction: asc
+    nulls: last
+  - variable: USUBJID
+    direction: asc
+    nulls: last
+columns:
+- name: SITE
+  type: str
+  label: SITE
+  derivation:
+    mapping:
+      source: RAW.StudyOID
+      dict:
+        S_20204824(TEST): CART2020
+        S_DF(TEST): DF
+        S_1234(TEST): '1234'
+        S_MGH_6315(TEST): MGH
+        S_ABBOTT(TEST): Abbott
+        S_ZZ01_7109(TEST): ZZ01
+        S_CNH(TEST): CNH
+        S_SJ01(TEST): SJ01
+      case_sensitive: true
+      unmapped: null
+- name: SUBJECTID
+  type: str
+  label: SUBJECTID
+- name: SubjectKey
+  type: str
+  label: SubjectKey
+  derivation: RAW.SubjectKey
+- name: STUDYID
+  type: str
+  label: Study Identifier
+  derivation: '''CART-T-PILOT'''
+  verifications:
+  - max_length:
+      max: 12
+      severity: error
+  submission:
+    key_sequence: 1
+    core: Req
+    mandatory: true
+    role: Identifier
+    data_type: text
+    length: 12
+    origins:
+    - type: Assigned
+      source: Sponsor
+- name: DOMAIN
+  type: str
+  label: Domain Abbreviation
+  derivation: '''DM'''
+  verifications:
+  - max_length:
+      max: 2
+      severity: error
+  submission:
+    core: Req
+    mandatory: true
+    role: Identifier
+    data_type: text
+    length: 2
+    origins:
+    - type: Assigned
+      source: Sponsor
+- name: USUBJID
+  type: str
+  label: Unique Subject Identifier
+  derivation:
+    str_template: CART-T-PILOT-{RAW.SubjectKey}
+  verifications:
+  - max_length:
+      max: 80
+      severity: error
+  submission:
+    key_sequence: 2
+    core: Req
+    mandatory: true
+    role: Identifier
+    data_type: text
+    length: 80
+    origins:
+    - type: Derived
+      source: Sponsor
+    method:
+      type: Computation
+      description: CART-T-PILOT followed by native ODM SubjectKey; globally unique,
+        stable across site labels.
+    comment: CART-T-PILOT followed by native ODM SubjectKey; globally unique, stable
+      across site labels.
+- name: SUBJID
+  type: str
+  label: Subject Identifier for the Study
+  derivation: SUBJECTID
+  verifications:
+  - max_length:
+      max: 40
+      severity: error
+  submission:
+    core: Req
+    mandatory: true
+    role: Record Qualifier
+    data_type: text
+    length: 40
+    origins:
+    - type: Predecessor
+      description: SUBJECTID
+- name: SITEID
+  type: str
+  label: Study Site Identifier
+  derivation: SITE
+  verifications:
+  - max_length:
+      max: 20
+      severity: error
+  submission:
+    core: Req
+    mandatory: true
+    role: Record Qualifier
+    data_type: text
+    length: 20
+    origins:
+    - type: Predecessor
+      description: SITE
+- name: RFSTDTC
+  type: str
+  label: Subject Reference Start Date/Time
+  derivation: null
+  verifications:
+  - max_length:
+      max: 25
+      severity: error
+  submission:
+    core: Exp
+    mandatory: false
+    role: Timing
+    data_type: text
+    length: 25
+    origins:
+    - type: Derived
+      source: Sponsor
+    method:
+      type: Computation
+      description: No documented exposure or complete participation period. No reference
+        date is inferred from an administrative event date.
+    comment: No documented exposure or complete participation period. No reference
+      date is inferred from an administrative event date.
+- name: RFENDTC
+  type: str
+  label: Subject Reference End Date/Time
+  derivation: null
+  verifications:
+  - max_length:
+      max: 25
+      severity: error
+  submission:
+    core: Exp
+    mandatory: false
+    role: Timing
+    data_type: text
+    length: 25
+    origins:
+    - type: Derived
+      source: Sponsor
+    method:
+      type: Computation
+      description: No documented exposure or complete participation period. No reference
+        date is inferred from an administrative event date.
+    comment: No documented exposure or complete participation period. No reference
+      date is inferred from an administrative event date.
+- name: RFXSTDTC
+  type: str
+  label: Date/Time of First Study Treatment
+  derivation: null
+  verifications:
+  - max_length:
+      max: 25
+      severity: error
+  submission:
+    core: Exp
+    mandatory: false
+    role: Timing
+    data_type: text
+    length: 25
+    origins:
+    - type: Derived
+      source: Sponsor
+    method:
+      type: Computation
+      description: No documented exposure or complete participation period. No reference
+        date is inferred from an administrative event date.
+    comment: No documented exposure or complete participation period. No reference
+      date is inferred from an administrative event date.
+- name: RFXENDTC
+  type: str
+  label: Date/Time of Last Study Treatment
+  derivation: null
+  verifications:
+  - max_length:
+      max: 25
+      severity: error
+  submission:
+    core: Exp
+    mandatory: false
+    role: Timing
+    data_type: text
+    length: 25
+    origins:
+    - type: Derived
+      source: Sponsor
+    method:
+      type: Computation
+      description: No documented exposure or complete participation period. No reference
+        date is inferred from an administrative event date.
+    comment: No documented exposure or complete participation period. No reference
+      date is inferred from an administrative event date.
+- name: RFPENDTC
+  type: str
+  label: Date/Time of End of Participation
+  derivation: null
+  verifications:
+  - max_length:
+      max: 25
+      severity: error
+  submission:
+    core: Exp
+    mandatory: false
+    role: Timing
+    data_type: text
+    length: 25
+    origins:
+    - type: Derived
+      source: Sponsor
+    method:
+      type: Computation
+      description: No documented exposure or complete participation period. No reference
+        date is inferred from an administrative event date.
+    comment: No documented exposure or complete participation period. No reference
+      date is inferred from an administrative event date.
+- name: CONSENT
+  type: str
+  label: CONSENT
+  derivation:
+    source:
+      variable: ITEMS.Value
+      filter: ITEMS.ItemOID = 'I_DISPO_CONSENTEDDT' AND ITEMS.Value IS NOT NULL
+      order_by:
+      - variable: ITEMS.SourceOrdinal
+        direction: asc
+      keep: first
+- name: RFICDTC
+  type: str
+  label: Date/Time of Informed Consent
+  derivation:
+    date_text:
+      source: CONSENT
+      forms:
+      - iso
+      - mdy_slash
+      invalid: null
+  verifications:
+  - max_length:
+      max: 25
+      severity: error
+  submission:
+    core: Exp
+    mandatory: false
+    role: Timing
+    data_type: text
+    length: 25
+    origins:
+    - type: Derived
+      source: Sponsor
+    method:
+      type: Computation
+      description: Only Disposition.CONSENTEDDT. No proxy consent date and no clamping
+        to other event dates.
+    comment: Only Disposition.CONSENTEDDT. No proxy consent date and no clamping to
+      other event dates.
+- name: BYEAR
+  type: str
+  label: BYEAR
+  derivation:
+    source:
+      variable: ITEMS.Value
+      filter: ITEMS.ItemOID = 'I_ELIGI_PTBYEAR' AND ITEMS.Value IS NOT NULL
+      order_by:
+      - variable: ITEMS.SourceOrdinal
+        direction: asc
+      keep: first
+- name: BRTHDTC
+  type: str
+  label: Date/Time of Birth
+  derivation:
+    date_text:
+      source: BYEAR
+      forms:
+      - iso
+      - mdy_slash
+      invalid: null
+  verifications:
+  - max_length:
+      max: 10
+      severity: error
+  submission:
+    core: Perm
+    mandatory: false
+    role: Timing
+    data_type: text
+    length: 10
+    origins:
+    - type: Derived
+      source: Sponsor
+    method:
+      type: Computation
+      description: Eligibility.PTBYEAR, retaining year precision. BDAY is a binary
+        item, not a birth date.
+    comment: Eligibility.PTBYEAR, retaining year precision. BDAY is a binary item,
+      not a birth date.
+- name: AGE_RAW
+  type: str
+  label: AGE_RAW
+  derivation:
+    source:
+      variable: ITEMS.Value
+      filter: ITEMS.ItemOID = 'I_ELIGI_PTAGE' AND ITEMS.Value IS NOT NULL
+      order_by:
+      - variable: ITEMS.SourceOrdinal
+        direction: asc
+      keep: first
+- name: AGE
+  type: int
+  label: Age
+  derivation:
+    value: AGE_RAW
+    unconvertible: null
+  submission:
+    core: Exp
+    mandatory: false
+    role: Record Qualifier
+    data_type: integer
+    length: 8
+    origins:
+    - type: Derived
+      source: Sponsor
+    method:
+      type: Computation
+      description: First present Eligibility.PTAGE by source group ordinal. No age
+        is invented when the recorded value is unavailable.
+    comment: First present Eligibility.PTAGE by source group ordinal. No age is invented
+      when the recorded value is unavailable.
+- name: AGEU
+  type: str
+  label: Age Units
+  derivation:
+    case:
+    - when: AGE IS NOT NULL
+      then: '''YEARS'''
+    - otherwise: null
+  verifications:
+  - max_length:
+      max: 5
+      severity: error
+  - allowed_values:
+      values:
+      - YEARS
+      severity: error
+  submission:
+    core: Exp
+    mandatory: false
+    role: Record Qualifier
+    data_type: text
+    length: 5
+    codelist: AGEU
+    origins:
+    - type: Derived
+      source: Sponsor
+    method:
+      type: Computation
+      description: "Executable yamaa derivation: case:\n- when: AGE IS NOT NULL\n\
+        \  then: '''YEARS'''\n- otherwise: null"
+- name: S1
+  type: str
+  label: S1
+  derivation:
+    source:
+      variable: ITEMS.Value
+      filter: ITEMS.ItemOID = 'I_1DEMO_PTSEX' AND ITEMS.Value IS NOT NULL
+      order_by:
+      - variable: ITEMS.SourceOrdinal
+        direction: asc
+      keep: first
+- name: S2
+  type: str
+  label: S2
+  derivation:
+    source:
+      variable: ITEMS.Value
+      filter: ITEMS.ItemOID = 'I_1DEMO_PTSEXEL' AND ITEMS.Value IS NOT NULL
+      order_by:
+      - variable: ITEMS.SourceOrdinal
+        direction: asc
+      keep: first
+- name: S3
+  type: str
+  label: S3
+  derivation:
+    source:
+      variable: ITEMS.Value
+      filter: ITEMS.ItemOID = 'I_ELIGI_PSEX' AND ITEMS.Value IS NOT NULL
+      order_by:
+      - variable: ITEMS.SourceOrdinal
+        direction: asc
+      keep: first
+- name: RACE_RAW
+  type: str
+  label: RACE_RAW
+  derivation:
+    source:
+      variable: ITEMS.Value
+      filter: ITEMS.ItemOID = 'I_1DEMO_PTRACE' AND ITEMS.Value IS NOT NULL
+      order_by:
+      - variable: ITEMS.SourceOrdinal
+        direction: asc
+      keep: first
+- name: ETH_RAW
+  type: str
+  label: ETH_RAW
+  derivation:
+    source:
+      variable: ITEMS.Value
+      filter: ITEMS.ItemOID = 'I_1DEMO_HISP' AND ITEMS.Value IS NOT NULL
+      order_by:
+      - variable: ITEMS.SourceOrdinal
+        direction: asc
+      keep: first
+- name: S1_STD
+  type: str
+  label: S1_STD
+  derivation:
+    mapping:
+      source: S1
+      dict:
+        '1': M
+        '2': F
+        Male: M
+        Female: F
+        M: M
+        F: F
+      case_sensitive: true
+      unmapped: null
+- name: S2_STD
+  type: str
+  label: S2_STD
+  derivation:
+    mapping:
+      source: S2
+      dict:
+        '1': M
+        '2': F
+        Male: M
+        Female: F
+        M: M
+        F: F
+      case_sensitive: true
+      unmapped: null
+- name: S3_STD
+  type: str
+  label: S3_STD
+  derivation:
+    mapping:
+      source: S3
+      dict:
+        '1': M
+        '2': F
+        Male: M
+        Female: F
+        M: M
+        F: F
+      case_sensitive: true
+      unmapped: null
+- name: SEX
+  type: str
+  label: Sex
+  derivation:
+    first_available:
+      sources:
+      - S1_STD
+      - S2_STD
+      - S3_STD
+      missing: U
+  verifications:
+  - max_length:
+      max: 1
+      severity: error
+  - allowed_values:
+      values:
+      - F
+      - M
+      - U
+      - UNDIFFERENTIATED
+      severity: error
+  submission:
+    core: Req
+    mandatory: true
+    role: Record Qualifier
+    data_type: text
+    length: 1
+    codelist: SEX
+    origins:
+    - type: Derived
+      source: Sponsor
+    method:
+      type: Computation
+      description: PTSEX, then PTSEXEL, then Eligibility.PSEX; source codes 1=male,
+        2=female. Missing or unrecognized is U. Conflicts are listed for review.
+    comment: PTSEX, then PTSEXEL, then Eligibility.PSEX; source codes 1=male, 2=female.
+      Missing or unrecognized is U. Conflicts are listed for review.
+- name: RACE
+  type: str
+  label: Race
+  derivation:
+    case:
+    - when: STR_CONTAINS(RACE_RAW, ',')
+      then: '''MULTIPLE'''
+    - otherwise:
+        mapping:
+          source: RACE_RAW
+          dict:
+            '1': AMERICAN INDIAN OR ALASKA NATIVE
+            '2': ASIAN
+            '3': BLACK OR AFRICAN AMERICAN
+            '4': NATIVE HAWAIIAN OR OTHER PACIFIC ISLANDER
+            '5': WHITE
+            '6': OTHER
+          case_sensitive: true
+          missing: UNKNOWN
+          unmapped: UNKNOWN
+  verifications:
+  - max_length:
+      max: 60
+      severity: error
+  - allowed_values:
+      values:
+      - AMERICAN INDIAN OR ALASKA NATIVE
+      - ASIAN
+      - BLACK OR AFRICAN AMERICAN
+      - NATIVE HAWAIIAN OR OTHER PACIFIC ISLANDER
+      - WHITE
+      - OTHER
+      - MULTIPLE
+      - UNKNOWN
+      severity: error
+  submission:
+    core: Exp
+    mandatory: false
+    role: Record Qualifier
+    data_type: text
+    length: 60
+    codelist: RACE
+    origins:
+    - type: Derived
+      source: Sponsor
+    method:
+      type: Computation
+      description: "Executable yamaa derivation: case:\n- when: STR_CONTAINS(RACE_RAW,\
+        \ ',')\n  then: '''MULTIPLE'''\n- otherwise:\n    mapping:\n      source:\
+        \ RACE_RAW\n      dict:\n        '1': AMERICAN INDIAN OR ALASKA NATIVE\n \
+        \       '2': ASIAN\n        '3': BLACK OR AFRICAN AMERICAN\n        '4': NATIVE\
+        \ HAWAIIAN OR OTHER PACIFIC ISLANDER\n        '5': WHITE\n        '6': OTHER\n\
+        \      missing: UNKNOWN\n      unmapped: UNKNOWN"
+- name: ETHNIC
+  type: str
+  label: Ethnicity
+  derivation:
+    mapping:
+      source: ETH_RAW
+      dict:
+        '0': NOT HISPANIC OR LATINO
+        '1': HISPANIC OR LATINO
+      case_sensitive: true
+      missing: UNKNOWN
+      unmapped: UNKNOWN
+  verifications:
+  - max_length:
+      max: 30
+      severity: error
+  - allowed_values:
+      values:
+      - HISPANIC OR LATINO
+      - NOT HISPANIC OR LATINO
+      - UNKNOWN
+      severity: error
+  submission:
+    core: Perm
+    mandatory: false
+    role: Record Qualifier
+    data_type: text
+    length: 30
+    codelist: ETHNIC
+    origins:
+    - type: Derived
+      source: Sponsor
+    method:
+      type: Computation
+      description: "Executable yamaa derivation: mapping:\n  source: ETH_RAW\n  dict:\n\
+        \    '0': NOT HISPANIC OR LATINO\n    '1': HISPANIC OR LATINO\n  missing:\
+        \ UNKNOWN\n  unmapped: UNKNOWN"
+- name: COUNTRY
+  type: str
+  label: Country
+  derivation: null
+  verifications:
+  - max_length:
+      max: 3
+      severity: error
+  submission:
+    core: Req
+    mandatory: true
+    role: Record Qualifier
+    data_type: text
+    length: 3
+    origins:
+    - type: Derived
+      source: Sponsor
+    method:
+      type: Computation
+      description: Not assigned from institution names. Country is not collected in
+        the source.
+    comment: Not assigned from institution names. Country is not collected in the
+      source.
+- name: ARMCD
+  type: str
+  label: Planned Arm Code
+  derivation: null
+  verifications:
+  - max_length:
+      max: 40
+      severity: error
+  submission:
+    core: Exp
+    mandatory: false
+    role: Record Qualifier
+    data_type: text
+    length: 40
+    origins:
+    - type: Derived
+      source: Sponsor
+    method:
+      type: Computation
+      description: No actual allocation or administration is identified. Randomization
+        PROFILE describes sex/ethnicity, not a treatment arm.
+    comment: No actual allocation or administration is identified. Randomization PROFILE
+      describes sex/ethnicity, not a treatment arm.
+- name: ARM
+  type: str
+  label: Description of Planned Arm
+  derivation: null
+  verifications:
+  - max_length:
+      max: 40
+      severity: error
+  submission:
+    core: Exp
+    mandatory: false
+    role: Record Qualifier
+    data_type: text
+    length: 40
+    origins:
+    - type: Derived
+      source: Sponsor
+    method:
+      type: Computation
+      description: No actual allocation or administration is identified. Randomization
+        PROFILE describes sex/ethnicity, not a treatment arm.
+    comment: No actual allocation or administration is identified. Randomization PROFILE
+      describes sex/ethnicity, not a treatment arm.
+- name: ACTARMCD
+  type: str
+  label: Actual Arm Code
+  derivation: null
+  verifications:
+  - max_length:
+      max: 40
+      severity: error
+  submission:
+    core: Exp
+    mandatory: false
+    role: Record Qualifier
+    data_type: text
+    length: 40
+    origins:
+    - type: Derived
+      source: Sponsor
+    method:
+      type: Computation
+      description: No actual allocation or administration is identified. Randomization
+        PROFILE describes sex/ethnicity, not a treatment arm.
+    comment: No actual allocation or administration is identified. Randomization PROFILE
+      describes sex/ethnicity, not a treatment arm.
+- name: ACTARM
+  type: str
+  label: Description of Actual Arm
+  derivation: null
+  verifications:
+  - max_length:
+      max: 40
+      severity: error
+  submission:
+    core: Exp
+    mandatory: false
+    role: Record Qualifier
+    data_type: text
+    length: 40
+    origins:
+    - type: Derived
+      source: Sponsor
+    method:
+      type: Computation
+      description: No actual allocation or administration is identified. Randomization
+        PROFILE describes sex/ethnicity, not a treatment arm.
+    comment: No actual allocation or administration is identified. Randomization PROFILE
+      describes sex/ethnicity, not a treatment arm.
+- name: ARMNRS
+  type: str
+  label: Reason Arm Information Is Missing
+  derivation: '''ASSIGNMENT NOT DOCUMENTED'''
+  verifications:
+  - max_length:
+      max: 40
+      severity: error
+  submission:
+    core: Exp
+    mandatory: false
+    role: Record Qualifier
+    data_type: text
+    length: 40
+    origins:
+    - type: Assigned
+      source: Sponsor
+- name: DEATH_N
+  type: int
+  label: DEATH_N
+  derivation:
+    aggregate:
+      filter: ITEMS.ItemOID = 'I_ADVER_AESDTH' AND ITEMS.Value = 'Y'
+      expr: COUNT(ITEMS.SourceOrdinal)
+- name: DTHFL
+  type: str
+  label: Subject Death Flag
+  derivation:
+    case:
+    - when: DEATH_N > 0
+      then: '''Y'''
+    - otherwise: null
+  verifications:
+  - max_length:
+      max: 1
+      severity: error
+  - allowed_values:
+      values:
+      - N
+      - Y
+      severity: error
+  submission:
+    core: Perm
+    mandatory: false
+    role: Record Qualifier
+    data_type: text
+    length: 1
+    codelist: NY
+    origins:
+    - type: Derived
+      source: Sponsor
+    method:
+      type: Computation
+      description: Y only when a source AE seriousness death criterion is Y. Conflicting
+        AE outcome is queried, not overwritten.
+    comment: Y only when a source AE seriousness death criterion is Y. Conflicting
+      AE outcome is queried, not overwritten.
+- name: DTHDTC
+  type: str
+  label: Date/Time of Death
+  derivation:
+    aggregate:
+      filter: ITEMS.ItemOID = 'I_ADVER_DTHDAT'
+      derivations:
+        D:
+          type: str
+          derivation:
+            date_text:
+              source: ITEMS.Value
+              forms:
+              - iso
+              - mdy_slash
+              invalid: null
+      expr: MIN(D)
+  verifications:
+  - max_length:
+      max: 25
+      severity: error
+  submission:
+    core: Perm
+    mandatory: false
+    role: Timing
+    data_type: text
+    length: 25
+    origins:
+    - type: Derived
+      source: Sponsor
+    method:
+      type: Computation
+      description: "Executable yamaa derivation: aggregate:\n  derivations:\n    D:\n\
+        \      type: str\n      derivation:\n        date_text:\n          source:\
+        \ ITEMS.Value\n          forms:\n          - iso\n          - mdy_slash\n\
+        \          invalid: null\n  expr: MIN(D)\n  filter: ITEMS.ItemOID = 'I_ADVER_DTHDAT'"
+rows:
+- id: subject
+  dataset: RAW
+  group_by:
+  - RAW.StudyOID
+  - RAW.MetaDataVersionOID
+  - RAW.SubjectKey
+  derivations:
+    SUBJECTID:
+      aggregate: MIN(RAW.StudySubjectID)
+verifications:
+- assert:
+    id: recorded_age_outside_adult_range
+    require: AGE IS NULL OR (AGE >= 18 AND AGE <= 100)
+    severity: warning
+submission:
+  mode: historical
+  artifact: dm.xpt
+  has_no_data: false
+  label: Demographics
+  class: SPECIAL PURPOSE
+  structure: One record per subject
+  repeating: false
+  reference_data: false
+  non_standard: false
+  comment: Review draft metadata. Historical mode keeps declarations separate from
+    incomplete data; this is not a validated submission. See spec/review/decisions.md.

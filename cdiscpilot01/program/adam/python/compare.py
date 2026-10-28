@@ -30,13 +30,13 @@ ABS_TOL = 1e-10
 
 
 def _spec_labels(spec):
-    """Declared labels after the pinned engine expands copies and inheritance."""
-    import yamaa
+    """Labels from the checked, saved engine resolution used by review and export."""
+    sys.path.insert(0, str(STUDY.parent / ".github/scripts"))
+    from resolved_specs import specification_packet
 
-    resolved = yamaa.spec(spec).resolve()
-    entry = next(e for e in resolved["entries"] if e["entry"] == resolved["entry"])
+    packet = specification_packet(STUDY.parent, Path(spec).resolve())
     return {column["name"]: column.get("label")
-            for column in entry["specification"]["columns"]}
+            for column in packet["model"]["columns"]}
 
 
 def compare(ds: str) -> bool:

@@ -1,0 +1,207 @@
+yamaa: '1.0'
+type: spec
+model: ADaM
+domain: ADADAS
+keys:
+- STUDYID
+- USUBJID
+- PARAMCD
+- AVISITN
+- QSSEQ
+input:
+  ADADAS_REF:
+    path: ../../data/adam/adadas.parquet
+    empty_string: present
+  QS:
+    path: ../../data/sdtm/qs.parquet
+    empty_string: present
+base: ADADAS_REF
+output:
+  path: ../../../.build/verification/submission-pilot5/adadas-documented-rules.parquet
+  columns:
+  - STUDYID
+  - USUBJID
+  - PARAMCD
+  - AVISITN
+  - QSSEQ
+  - AVISITN__LITERAL
+  - ADY
+  - ADT
+  - PARAM
+  - PARAMN
+  - BASE
+  - BASE__FLAG_ONLY
+  - BASE__VISIT_ONLY
+  - CHG
+  - AWTDIFF
+  - AWU
+intermediates:
+- id: REF
+  dataset: ADADAS_REF
+  key:
+    STUDYID: ADADAS_REF.STUDYID
+    USUBJID: ADADAS_REF.USUBJID
+    PARAMCD: ADADAS_REF.PARAMCD
+    AVISITN: ADADAS_REF.AVISITN
+    QSSEQ: ADADAS_REF.QSSEQ
+  order_by:
+  - variable: ADADAS_REF.QSSEQ
+    nulls: last
+  keep: first
+- id: _P1_QSROW
+  dataset: QS
+  key:
+    STUDYID: ADADAS_REF.STUDYID
+    USUBJID: ADADAS_REF.USUBJID
+    QSSEQ: ADADAS_REF.QSSEQ
+    QSTESTCD: ADADAS_REF.PARAMCD
+  order_by:
+  - variable: QS.QSSEQ
+    nulls: last
+  keep: first
+columns:
+- name: STUDYID
+  type: str
+  label: STUDYID
+  derivation: ADADAS_REF.STUDYID
+- name: USUBJID
+  type: str
+  label: USUBJID
+  derivation: ADADAS_REF.USUBJID
+- name: PARAMCD
+  type: str
+  label: PARAMCD
+  derivation: ADADAS_REF.PARAMCD
+- name: AVISITN
+  type: float
+  label: AVISITN
+  derivation: ADADAS_REF.AVISITN
+- name: QSSEQ
+  type: float
+  label: QSSEQ
+  derivation: ADADAS_REF.QSSEQ
+- name: AVISITN__LITERAL
+  type: float
+  label: AVISITN  LITERAL
+  derivation:
+    mapping:
+      source: REF.AVISIT
+      dict:
+        Baseline: 0.0
+        Week 2: 2.0
+        Week 4: 4.0
+        Week 6: 6.0
+        Week 8: 8.0
+        Week 10: 10.0
+        Week 12: 12.0
+        Week 14: 14.0
+        Week 16: 16.0
+        Week 18: 18.0
+        Week 20: 20.0
+        Week 22: 22.0
+        Week 24: 24.0
+        Week 26: 26.0
+        Weeks 4-24: 98.0
+        End of Treatment: 99.0
+- name: ADY
+  type: float
+  label: ADY
+  derivation:
+    study_day:
+      source: REF.ADT
+      reference: REF.TRTSDT
+- name: ADT
+  type: date
+  label: ADT
+  derivation:
+    to_date:
+      source: _P1_QSROW.QSDTC
+- name: PARAM
+  type: str
+  label: PARAM
+  derivation:
+    mapping:
+      source: REF.PARAMCD
+      dict:
+        ACITM01: Word Recall Task
+        ACITM02: Naming Objects And Fingers (Refer To 5 C
+        ACITM03: Delayed Word Recall
+        ACITM04: Commands
+        ACITM05: Constructional Praxis
+        ACITM06: Ideational Praxis
+        ACITM07: Orientation
+        ACITM08: Word Recognition
+        ACITM09: Attention/Visual Search Task
+        ACITM10: Maze Solution
+        ACITM11: Spoken Language Ability
+        ACITM12: Comprehension Of Spoken Language
+        ACITM13: Word Finding Difficulty In Spontaneous S
+        ACITM14: Recall Of Test Instructions
+        ACTOT: Adas-Cog(11) Subscore
+- name: PARAMN
+  type: float
+  label: PARAMN
+  derivation:
+    mapping:
+      source: REF.PARAMCD
+      dict:
+        ACITM01: 1.0
+        ACITM02: 2.0
+        ACITM03: 3.0
+        ACITM04: 4.0
+        ACITM05: 5.0
+        ACITM06: 6.0
+        ACITM07: 7.0
+        ACITM08: 8.0
+        ACITM09: 9.0
+        ACITM10: 10.0
+        ACITM11: 11.0
+        ACITM12: 12.0
+        ACITM13: 13.0
+        ACITM14: 14.0
+        ACTOT: 15.0
+- name: BASE
+  type: float
+  label: BASE
+  derivation:
+    aggregate:
+      filter: QS.QSBLFL = 'Y' AND QS.VISITNUM = 3
+      key:
+        STUDYID: STUDYID
+        USUBJID: USUBJID
+        QSTESTCD: PARAMCD
+      expr: ONLY(QS.QSSTRESN)
+- name: BASE__FLAG_ONLY
+  type: float
+  label: BASE  FLAG ONLY
+  derivation:
+    aggregate:
+      filter: QS.QSBLFL = 'Y'
+      key:
+        STUDYID: STUDYID
+        USUBJID: USUBJID
+        QSTESTCD: PARAMCD
+      expr: ONLY(QS.QSSTRESN)
+- name: BASE__VISIT_ONLY
+  type: float
+  label: BASE  VISIT ONLY
+  derivation:
+    aggregate:
+      filter: QS.VISITNUM = 3
+      key:
+        STUDYID: STUDYID
+        USUBJID: USUBJID
+        QSTESTCD: PARAMCD
+      expr: ONLY(QS.QSSTRESN)
+- name: CHG
+  type: float
+  label: CHG
+  derivation: REF.AVAL - REF.BASE
+- name: AWTDIFF
+  type: float
+  label: AWTDIFF
+  derivation: ABS(REF.AWTARGET - REF.ADY)
+- name: AWU
+  type: str
+  label: AWU
+  derivation: '''DAYS'''

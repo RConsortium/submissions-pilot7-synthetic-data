@@ -30,6 +30,13 @@ excluding changing repository links. Changed, missing or new checks stop
 publication until the grouping is reviewed. This binds editorial claims to
 the evidence they describe without rewriting check IDs or adjudications.
 
+`allow_ungrouped: true` permits a focused declaration to group selected checks
+and retain the normal fallback issues for every other check. The declaration
+still inventories the complete dataset, and changed or missing bases still fail
+publication. Without this option, authored issues must cover every check.
+Optional authored `aliases` preserve earlier issue URLs when grouping changes;
+aliases cannot shadow another issue or alias.
+
 Data selectors identify a check, method (`probe`, `copy`, `codelist`),
 comparison target (`reference`, `derived`), and probe column where applicable.
 They are resolved against the complete check evidence, never a display sample.

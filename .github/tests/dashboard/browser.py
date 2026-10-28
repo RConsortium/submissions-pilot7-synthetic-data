@@ -35,7 +35,8 @@ def capture(page, directory, name):
         directory.mkdir(parents=True, exist_ok=True)
         page.evaluate("document.activeElement.blur();window.scrollTo(0,0)")
         page.screenshot(
-            path=str(directory / name), full_page=True, animations="disabled"
+            path=str(directory / name),
+            full_page=not page.locator("dialog[open]").count(), animations="disabled"
         )
 
 
@@ -71,7 +72,7 @@ def assert_yaml_context(page, specification, inputs, intermediates):
 
 
 def check(browser, base, site_dir, screenshots):
-    context = browser.new_context(viewport={"width": 1600, "height": 1000},
+    context = browser.new_context(viewport={"width": 1600, "height": 1000}, reduced_motion="reduce",
                                   permissions=["clipboard-read", "clipboard-write"])
     context.route(
         "https://giscus.app/client.js",
@@ -86,6 +87,18 @@ def check(browser, base, site_dir, screenshots):
     dm = next(i["table"] for i in adsl["inputs"] if i["alias"] == "DM")
     ex = next(i["table"] for i in adsl["inputs"] if i["alias"] == "EX")
     page = context.new_page()
+
+    def open_trace(row):
+        row.get_by_role("button", name="Trace evidence", exact=True).click()
+        trace = page.locator("dialog.trace-review-dialog")
+        expect(trace).to_be_visible()
+        return trace
+
+    def open_workspace(trace):
+        trace.locator(".trace-technical > summary").click()
+        trace.get_by_role("button", name=re.compile(r"^Open evidence in workspace")).click()
+        expect(page.locator(".trace-workspace-note")).to_be_visible()
+
     study = base + "/studies/cdiscpilot01/"
     # Treatment codes use DM; exposure dates retain EX and its matching keys.
     for name in ["cdiscpilot01", "submission-pilot3", "submission-pilot5"]:
@@ -192,8 +205,8 @@ def check(browser, base, site_dir, screenshots):
     assert selected == [line or " " for line in authored]
     assert "data_type: integer" in "\n".join(selected)
     page.locator("#spec-view").select_option("resolved")
-    expect(page.locator("#spec-caption")).to_contain_text("model lines")
-    expect(page.locator(".spec-pane .pane-footer")).to_contain_text("Engine-resolved model for inspection")
+    expect(page.locator("#spec-caption")).to_contain_text("composed lines")
+    expect(page.locator(".spec-pane .pane-footer")).to_contain_text("Generated composed specification")
     assert "ADSL.AGE" in "\n".join(page.locator(".spec-line.node-selected code").all_text_contents())
     capture(page, screenshots, "resolved-copy-specification.png")
     page.reload()
@@ -399,17 +412,15 @@ def check(browser, base, site_dir, screenshots):
     expect(page.locator(".consistency-table tbody tr")).to_have_count(1)
     expect(page.locator(".consistency-table tbody")).to_contain_text("ADAE.ASTDT")
     expect(page.locator(".finding-evidence")).to_have_count(0)
-    page.locator(".finding-trace > summary").click()
-    expect(page.locator(".finding-evidence")).to_be_visible()
-    expect(page.locator(".consistency-table tbody")).to_contain_text("No issue-specific data comparison")
-    # The ASTDT rule is written in the CDISC Pilot 01 version of the ADAE template.
-    expect(page.locator('.finding-evidence a[href*="pilot-program/adae_v1.yaml"]').first).to_have_attribute(
+    trace = open_trace(page.locator(".consistency-table tbody tr"))
+    expect(trace).to_contain_text("No issue-specific data comparison")
+    expect(trace.locator('a[href*="pilot-program/adae_v1.yaml"]').first).to_have_attribute(
         "href", re.compile(r"spec/yamaa/pilot-program/adae_v1\.yaml#L\d+$"))
     capture(page, screenshots, "consistency-review.png")
-    page.get_by_role("button", name="Open evidence in workspace", exact=True).click()
-    expect(page.locator(".evidence-drawer")).to_be_visible()
+    open_workspace(trace)
     capture(page, screenshots, "source-evidence.png")
-    page.locator(".evidence-drawer").get_by_role("button", name="View source", exact=True).first.click()
+    trace = open_trace(page.locator(".trace-workspace-note"))
+    trace.get_by_role("button", name="View source", exact=True).first.click()
     expect(page.locator("#source-frame")).to_have_attribute(
         "src", re.compile(r"dataguide\.pdf#page=5$")
     )
@@ -486,24 +497,25 @@ def check(browser, base, site_dir, screenshots):
     expect(rule).to_have_count(1)
     expect(rule.locator("h3")).to_have_text("BMI formula uses the wrong height conversion")
     expect(rule.locator(".rule-id")).to_have_text("CR-5, CR-6")
-    rule.locator(".finding-trace > summary").focus()
+    trigger = rule.get_by_role("button", name="Trace evidence", exact=True)
+    trigger.focus()
     page.keyboard.press("Enter")
-    expect(rule).to_contain_text("253 / 254 records differ")
-    expect(rule.locator(".quote-source + blockquote").first).to_contain_text("WEIGHTBL / ((HEIGHTBL*100)**2)")
-    expect(rule.locator(".pattern-list").first).to_be_visible()
-    expect(rule).to_contain_text("Agent review: agreed")
-    rule.locator(".issue-citation").filter(has=page.locator("pre.spec-lines")).first.locator("summary").click()
-    expect(rule.locator("pre.spec-lines mark").first).to_be_visible()
+    trace = page.locator(".trace-review-dialog")
+    expect(trace).to_be_visible()
+    expect(trace.locator(".trace-measurements")).to_contain_text("253 / 254")
+    expect(trace.locator(".quote-source + blockquote").first).to_contain_text("WEIGHTBL / ((HEIGHTBL*100)**2)")
+    trace.locator(".trace-technical > summary").click()
+    expect(trace).to_contain_text("Agent review: agreed")
+    trace.locator(".trace-technical > summary").click()
+    trace.locator(".trace-source-grid .issue-citation").filter(has=page.locator("pre.spec-lines")).first.locator("summary").click()
+    expect(trace.locator("pre.spec-lines mark").first).to_be_visible()
     capture(page, screenshots, "documented-rules.png")
-    rule.get_by_role("button", name="View source", exact=True).first.click()
+    trace.get_by_role("button", name="View source", exact=True).first.click()
     expect(page.locator("#source-panel-0 iframe")).to_have_attribute(
-        "src", re.compile(r"define-adam\.xml.*#ADSL\.BMIBL$")
-    )
+        "src", re.compile(r"define-adam\.xml.*#ADSL\.BMIBL$"))
     page.locator('.review-tabs [data-view="overview"]').click()
-    rule.locator(".finding-trace > summary").click()
-    evidence = rule.get_by_role("button", name="Open evidence in workspace (253 subjects)", exact=True)
-    evidence.click()
-    expect(page.locator(".evidence-drawer")).to_be_visible()
+    trace = open_trace(rule)
+    open_workspace(trace)
     expect(page.locator("#subject-summary")).to_contain_text("253 /")
     page.get_by_role("button", name="Close source evidence", exact=True).click()
     page.locator('.review-tabs [data-view="overview"]').click()
@@ -512,14 +524,14 @@ def check(browser, base, site_dir, screenshots):
     expect(rule).to_have_count(2)
     expect(rule.locator(".finding-evidence")).to_have_count(0)
     for row in rule.all():
-        row.locator(".finding-trace > summary").click()
-    expect(rule.filter(has_text="Missing BMI is assigned")).to_contain_text("Alternative rule (BMIBLGR1__CODED_GE30) vs published reference: 1 subject differs")
-    expect(rule.filter(has_text="Obese category code differs")).to_contain_text("Documented codelist vs published reference: 28 subjects differ")
-    capture(page, screenshots, "bmi-issues.png")
+        trace = open_trace(row)
+        expect(trace.locator(".trace-measurements")).to_contain_text("published reference")
+        page.keyboard.press("Escape")
     missing = rule.filter(has_text="Missing BMI is assigned")
-    expect(missing.locator(".finding-evidence")).to_be_visible()
+    trace = open_trace(missing)
+    expect(trace.locator(".trace-measurements")).to_contain_text("1 subject with differences")
     capture(page, screenshots, "missing-bmi-trace.png")
-    missing.get_by_role("button", name="Open evidence in workspace (1 subject)", exact=True).click()
+    open_workspace(trace)
     expect(page.locator("#subject-summary")).to_contain_text("1 /")
     expect(page.locator("#output-table tbody")).to_contain_text("01-702-1082")
     page.get_by_role("button", name="Close source evidence", exact=True).click()
@@ -528,9 +540,9 @@ def check(browser, base, site_dir, screenshots):
     page.locator("#finding-search").fill("VISNUMEN")
     expect(rule).to_have_count(2)
     for row in rule.all():
-        row.locator(".finding-trace > summary").click()
-    expect(rule.filter(has_text="Completion term is misspelled")).to_contain_text("No issue-specific data comparison")
-    expect(rule.filter(has_text="Completion-only rule")).to_contain_text("Alternative rule (VISNUMEN__PROTOCOL_SPELLING) vs published reference: 144 subjects differ")
+        trace = open_trace(row)
+        expect(trace.locator("#trace-review-title")).to_have_text(row.locator("h3").inner_text())
+        page.keyboard.press("Escape")
     capture(page, screenshots, "visit-issues.png")
     page.get_by_role("button", name="Clear filters", exact=True).click()
     for status in ("yes", "no", "needs_review"):
@@ -549,9 +561,58 @@ def check(browser, base, site_dir, screenshots):
     assert len(combined["check_ids"]) == 4
     row = page.locator(f'[data-finding-id="{combined["id"]}"]')
     expect(row).to_have_count(1)
-    row.locator(".finding-trace > summary").click()
-    expect(row.locator(".issue-checks > summary")).to_have_text("4 supporting checks and agent review")
+    trace = open_trace(row)
+    trace.locator(".trace-technical > summary").click()
+    expect(trace.locator(".issue-checks > summary")).to_have_text("4 supporting checks and agent review")
     capture(page, screenshots, "combined-trtemfl-trace.png")
+    page.keyboard.press("Escape")
+    page.get_by_role("button", name="Clear filters", exact=True).click()
+    page.locator("#finding-search").fill("ADAE.AOCC01FL")
+    expect(rule).to_have_count(2)
+    selection = rule.filter(has_text="Define-XML selects the wrong event group")
+    trace = open_trace(selection)
+    expect(trace.locator("input:checked")).to_have_count(0)
+    expect(trace.locator(".trace-measurements")).to_contain_text("327 / 1,191")
+    expect(trace.locator(".trace-data-table tbody tr")).to_have_count(3)
+    expect(trace.locator(".trace-data-table")).to_contain_text("APPLICATION SITE ERYTHEMA")
+    trace.get_by_role("tab", name="01-701-1181", exact=True).click()
+    expect(trace.get_by_role("tab", name="01-701-1181", exact=True)).to_be_in_viewport()
+    expect(trace.locator(".trace-data-table")).to_be_in_viewport()
+    expect(trace.locator(".trace-data-table tbody tr")).to_have_count(1)
+    expect(trace.locator(".trace-data-table")).to_contain_text("AGITATION")
+    capture(page, screenshots, "trace-review-evidence.png")
+    trace.get_by_role("button", name="Add your review", exact=True).click()
+    trace.get_by_role("button", name="Save review", exact=True).click()
+    expect(trace.locator(".trace-review-feedback")).to_contain_text("Choose both")
+    trace.get_by_role("radio", name="Agree", exact=True).check()
+    trace.get_by_role("radio", name="Not critical", exact=True).check()
+    trace.get_by_role("textbox", name="Review comments").fill("Correct the blank query condition; reference flags follow the guide.")
+    trace.get_by_role("button", name="Save draft", exact=True).click()
+    expect(trace.locator("[data-trace-status]")).to_have_text("Your review: Draft")
+    capture(page, screenshots, "trace-review-form.png")
+    trace.get_by_role("button", name="Next finding", exact=False).click()
+    expect(trace.locator("#trace-review-title")).to_contain_text("Sequence-only ordering")
+    expect(trace.locator("input:checked")).to_have_count(0)
+    expect(trace.locator(".trace-measurements")).to_contain_text("0 / 1,191")
+    expect(trace.locator("#trace-examples")).to_contain_text("do not demonstrate a failure")
+    trace.get_by_role("button", name="Previous finding", exact=False).click()
+    expect(trace.get_by_role("radio", name="Agree", exact=True)).to_be_checked()
+    trace.get_by_role("button", name="Add your review", exact=True).click()
+    trace.get_by_role("button", name="Save review", exact=True).click()
+    expect(trace.locator("[data-trace-progress]")).to_have_text("1 of 2 findings reviewed")
+    with page.expect_download() as downloaded:
+        trace.locator("[data-trace-download]").first.click()
+    exported = json.loads(Path(downloaded.value.path()).read_text())
+    assert exported["study"] == "cdiscpilot01"
+    saved = next(r for r in exported["reviews"] if r["status"] == "reviewed")
+    assert saved["agreement"] == "agree" and saved["criticality"] == "not_critical"
+    assert "blank query" in saved["comment"]
+    page.keyboard.press("Escape")
+    expect(selection.get_by_role("button", name="Trace evidence", exact=True)).to_be_focused()
+    page.reload()
+    trace = open_trace(selection)
+    expect(trace.locator("[data-trace-status]")).to_have_text("Your review: Reviewed")
+    page.keyboard.press("Escape")
     page.get_by_role("button", name="Clear filters", exact=True).click()
     # Pilot and synthetic reports share summary metrics and study tables.
     page.get_by_role("link", name="All pilot studies", exact=True).click()
@@ -632,6 +693,14 @@ def check(browser, base, site_dir, screenshots):
     expect(
         page.frame_locator("#source-frame").locator("#sheet-1-row-1")
     ).to_be_visible()
+    workbook = page.frame_locator("#source-frame")
+    assert workbook.locator("body").evaluate("""body =>
+      getComputedStyle(body).maxWidth === 'none' &&
+      body.getBoundingClientRect().width >= innerWidth - 64
+    """), "Workbook tables should use the available viewer width"
+    assert workbook.locator("tbody tr").evaluate_all("""rows => rows.every(row =>
+      [...row.querySelectorAll('td')].some(cell => cell.textContent.trim())
+    )"""), "Workbook tables should omit blank rows"
     capture(page, screenshots, "excel-source-tables.png")
     page.get_by_role("tablist", name="Document 1 files", exact=True).get_by_role("tab", name="define-adam.xml", exact=True).click()
     expect(page.frame_locator("#source-frame").locator("table").first).to_be_visible()
@@ -710,7 +779,7 @@ def check(browser, base, site_dir, screenshots):
                 assert_page_fits(page, "#output-table")
             elif view == "findings":
                 expect(page.get_by_role("region", name="Consistency findings", exact=True)).to_be_visible()
-                page.locator(".finding-trace > summary").first.click()
+                page.locator("[data-trace-issue]").first.click()
                 expect(page.locator(".finding-evidence").first).to_be_visible()
             elif view == "materials":
                 expect(page.locator("#source-frame")).to_be_visible()

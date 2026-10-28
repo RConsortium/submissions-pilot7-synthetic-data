@@ -253,6 +253,11 @@ def build_report(
         "findings": findings,
         "logic_checks": logic_checks,
         "review": build_review(root, study, revision, findings + logic_checks),
+        "trace_examples": {
+            f'{d["dataset"]}.{v["variable"]}': v["examples"]
+            for d in (verification or {}).get("datasets", [])
+            for v in d.get("variables", []) if v.get("examples")
+        },
         "checks": checks,
         "documents": [
             {k: v for k, v in d.items() if k != "sections"} for d in documents

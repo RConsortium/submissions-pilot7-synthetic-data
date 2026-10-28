@@ -48,6 +48,8 @@ docs/assets/dashboard/
   define-comparison.js                   original/generated XML and metadata differences
   report.js, comments.js, ui.js           evidence, discussions, and shared primitives
   issues.js                              concise issues, progressive traces and check aliases
+  trace-review.js                        expanded evidence and per-finding human review
+  review-drafts.js                       browser-local assessments bound to reviewed evidence
 docs/stylesheets/dashboard.css           responsive layout and light/dark themes
 .github/tests/dashboard/                 artifact, extension, module, and browser checks
 <study>/spec/review/questions.json        optional authored review questions
@@ -112,7 +114,9 @@ official pilot results explicitly omitted when their evidence is unavailable.
    Publication renders the original HTML using lxml with external resource access
    disabled. PDF originals are embedded directly; workbook HTML preserves sheet,
    row and column positions and merged cells. No source document is fetched
-   during publication. Source documents use the original views only, with one or
+   during publication. Workbook tables use the full viewer width and omit blank
+   rows while retaining original row numbers and citation anchors.
+   Source documents use the original views only, with one or
    two independent tabbed panes; extracted text is kept for consistency checks.
 5. Optionally add `spec/review/questions.json`, with `schema_version: 1` and a
    `questions` array. Each question needs unique `id`, `dataset`, optional
@@ -250,9 +254,28 @@ clauses without authored grouping share a row only for the same variable and
 exact source-file pair; all supporting checks and quotations remain available.
 Both the metric and the static study
 report count issues. The table separately counts unique supporting checks.
-Closed trace panels keep their full evidence out of the initial DOM. Opening a
-panel renders its complete trace once, including source context and check audit;
-the workspace evidence drawer uses the same trace renderer.
+Trace evidence opens an expanded dialog, keeping complete evidence out of the
+initial listing DOM. It separates the finding, source comparison, actual subject
+examples, recommended fix, and human review. Related issues for the same variable
+are independently selectable; source context and the full check audit remain
+expandable. The data workspace links back to the same dialog.
+
+Human agreement, criticality and comments are browser-local assessments. Neither
+decision is preselected. Saving an assessment does not resolve the finding or
+replace agent adjudication or automated criticality. Drafts are scoped to the
+study and issue and bound to its current evidence; changed evidence returns an
+earlier assessment as a draft. JSON export retains source revision and check IDs.
+No review is posted to GitHub automatically. Use the existing discussion tools
+to share an exported assessment.
+
+The verifier retains row-aligned examples from the actual reference, yamaa and
+probe tables. It chooses complementary subjects from measured differences where
+available, preserves missing/blank/absent distinctions, and labels abbreviated
+subject records. The browser shows at most two subjects. Examples do not supply
+impact counts, and an unavailable example never becomes invented data. Optional
+claim `example_columns` adds reference context such as an event term; dependencies
+read from REF are included automatically. Alternate calculations use their
+plain-language `reading` descriptions; VARIABLE__READING names remain in the audit.
 
 Author `<study>/spec/review/<dataset>-issues.json` to group related checks.
 Inventory every check and its basis hash, then write short issue titles,
@@ -273,7 +296,7 @@ resolution. Standalone verifier `report.md` remains the complete check audit.
 Agents propose and the script decides. The extraction agent writes
 `<study>/spec/review/<dataset>-claims.json` (verbatim citations, and clauses
 that quote both the document and a specification element) and
-`<dataset>-probe.yaml`, a yamaa specification that states each documented rule
+`<dataset>-documented-rules.yaml`, a yamaa specification that states each documented rule
 literally. An independent adjudicator writes `<dataset>-adjudication.json`. The
 script accepts a quote only when it is found where it is cited: a section that
 `documents.py` extracts, the text the dashboard's reading copy shows, or a
@@ -321,14 +344,19 @@ output sort references are recorded as `output_order`, separately from column
 value dependencies. This remains a conservative static index across declared
 branches, not contributing-row provenance.
 
-Validation records `resolved_specification` inspection packets with the pinned
+Each study saves executable composed specifications and `project.yaml` under
+`spec/yamaa/resolved/`, with provenance in separate `*.inspection.json` records.
+Validation checks them against fresh resolution and executes the composed
+project. It records both YAML and inspection-record paths and SHA-256 hashes.
+Downstream readers load that saved evidence. Validation records
+`resolved_specification` inspection packets with the pinned
 engine's normalized model, mapping order, original sources, origins and resolved
 resource locations. Publication checks source text against the artifact inventory
 and uses those facts without installing the engine. Copies, includes, inheritance
 and named windows require fresh resolved evidence; they are never approximated
 from authored YAML. Resolved dataset resources must be in the study's artifact
 inventory. Schema-default origins name engine schema modules, not study files.
-The browser can select each original file or a rendered inspection model.
+The browser can select each original file or the exact executable composed YAML.
 Focused views mark omitted lines, and clipboard actions retain the complete text.
 
 `domains.py` reads dataset descriptions from retained Define-XML, with browser
