@@ -17,7 +17,7 @@ def main():
     log = STUDY / "log"
     log.mkdir(parents=True, exist_ok=True)
     manifest = {"study": "cart-t", "status": "failed", "engine": yamaa.info(),
-                "yamaa_revision": "1d78496c0cbd4fe89462596a738db3adbd72c8ad",
+                "yamaa_revision": "5976b74fddfbcbcad4d53ba550cb1e3773e07a5b",
                 "created_utc": datetime.now(timezone.utc).isoformat(),
                 "reference_comparison": "unavailable", "submission_ready": False}
     # Delete stale success evidence before beginning a new run.

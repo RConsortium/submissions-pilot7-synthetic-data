@@ -1,4 +1,4 @@
-"""Stage the unchanged snapshot and its encoding-compatible reader copy.
+"""Stage the unchanged snapshot for native yamaa XML inputs and QC.
 
 All clinical reshaping is executed by yamaa specifications reading the XML.
 The native item Parquet and inventory are QC evidence, not SDTM inputs.
@@ -20,18 +20,6 @@ SCOPE = ("StudyOID", "MetaDataVersionOID", "SubjectKey", "StudyEventOID",
 INSTANCE = SCOPE + ("FormLayoutOID",)
 
 
-def reader_copy(source, target):
-    """Keep the source bytes; normalize only a verified ASCII declaration."""
-    original = source.read_bytes()
-    converted = original
-    if b'encoding="US-ASCII"' in original[:200]:
-        original.decode("ascii")
-        converted = original.replace(b'encoding="US-ASCII"', b'encoding="UTF-8"', 1)
-    target.parent.mkdir(parents=True, exist_ok=True)
-    target.write_bytes(converted)
-    return original
-
-
 def prepare(study=STUDY):
     destination = study / "data/odm"
     original = destination / "car-t-openclinica.xml"
@@ -39,9 +27,13 @@ def prepare(study=STUDY):
     # A source checkout has one authoritative XML. The downloadable package
     # includes its byte-identical staged copy and also works without the archive.
     source = archived if archived.is_file() else original
-    payload = reader_copy(source, destination / "car-t-utf8.xml")
-    original.write_bytes(payload)
-    native = yamaa.read_odm(destination / "car-t-utf8.xml")
+    destination.mkdir(parents=True, exist_ok=True)
+    payload = source.read_bytes()
+    if source != original:
+        original.write_bytes(payload)
+    # Remove the generated declaration copy left by earlier pipeline versions.
+    (destination / "car-t-utf8.xml").unlink(missing_ok=True)
+    native = yamaa.read_odm(original)
     rows = native.to_pylist()
     identifiers = [tuple(row[field] for field in INSTANCE) + (row["ItemOID"],)
                    for row in rows]
@@ -64,7 +56,7 @@ def prepare(study=STUDY):
                  "items": len(rows), "subjects": len(subjects),
                  "groups": len({tuple(row[field] for field in INSTANCE) for row in rows}),
                  "native_columns": native.column_names, "form_item_counts": dict(forms),
-                 "sdtm_input": "car-t-utf8.xml", "item_parquet_role": "QC only"}
+                 "sdtm_input": original.name, "item_parquet_role": "QC only"}
     (destination / "inventory.json").write_text(json.dumps(inventory, indent=2) + "\n")
     return inventory
 

@@ -18,7 +18,7 @@ from synthetic_evidence import artifact_inventory
 from study_dashboard.specifications import capture_specification
 
 ROOT = Path(__file__).resolve().parents[2]
-ENGINE_PIN = '44fa7ae736fd7cb4adb4dd385275a1759e5f2656'
+ENGINE_PIN = '5976b74fddfbcbcad4d53ba550cb1e3773e07a5b'
 
 
 def review_register(root, study, observations):

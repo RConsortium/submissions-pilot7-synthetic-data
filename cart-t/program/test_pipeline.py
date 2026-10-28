@@ -13,7 +13,7 @@ import yaml
 import yamaa
 
 from engine import export_xpt
-from odm.prepare import prepare, reader_copy
+from odm.prepare import prepare
 import run
 
 
@@ -52,7 +52,7 @@ class NativeODMTests(unittest.TestCase):
         # Execute the maintained clinical YAML against a small independent ODM.
         spec_path = Path(__file__).resolve().parents[1] / "spec/yamaa/sdtm/ae.yaml"
         spec = yaml.safe_load(spec_path.read_text())
-        spec["input"] = {name: str(self.odm / "car-t-utf8.xml") for name in ("ODM", "RAW")}
+        spec["input"] = {name: str(self.source) for name in ("ODM", "RAW")}
         spec["output"]["path"] = "ae.parquet"
         spec["output"]["report"] = "ae-report.parquet"
         path = self.study / "ae.yaml"
@@ -77,13 +77,27 @@ class NativeODMTests(unittest.TestCase):
         self.assertEqual(result.status, "succeeded", result.issues.to_pylist())
         self.assertEqual([row["AETERM"] for row in result.output.to_pylist()], ["first", "second"])
 
-    def test_original_xml_stays_byte_identical_and_only_reader_declaration_changes(self):
+    def test_original_xml_is_the_only_native_xml_input(self):
         original = snapshot(event(1, "41"))
         self.source.write_bytes(original)
-        prepare(self.study)
-        self.assertEqual(self.source.read_bytes(), original)
-        self.assertEqual((self.odm / "car-t-utf8.xml").read_bytes(),
-                         original.replace(b'US-ASCII', b'UTF-8', 1))
+        (self.odm / "car-t-utf8.xml").write_bytes(b"obsolete generated reader copy")
+        inventory = prepare(self.study)
+        self.assertEqual(
+            (self.source.read_bytes(), sorted(p.name for p in self.odm.glob("*.xml")),
+             inventory["sdtm_input"]),
+            (original, ["car-t-openclinica.xml"], "car-t-openclinica.xml"))
+
+    def test_archive_is_staged_without_changing_its_bytes(self):
+        repository = self.study / "repository"
+        archive = repository / ".archieve/cart-t/car-t-openclinica.xml"
+        archive.parent.mkdir(parents=True)
+        original = snapshot(event(1, "41"))
+        archive.write_bytes(original)
+        study = repository / "cart-t"
+        inventory = prepare(study)
+        staged = study / "data/odm/car-t-openclinica.xml"
+        self.assertEqual((archive.read_bytes(), staged.read_bytes(), inventory["items"]),
+                         (original, original, 1))
 
     def test_duplicate_item_in_one_true_instance_is_refused(self):
         extra = '<ItemData ItemOID="I_ADVER_AETERM" oc:ItemName="AETERM" Value="44"/>'
@@ -118,10 +132,12 @@ class NativeODMTests(unittest.TestCase):
             prepare(self.study)
 
     def test_ascii_declaration_with_non_ascii_bytes_is_not_relabelled(self):
-        self.source.write_bytes(snapshot(event(1, "result")).replace(b"result", "caf\u00e9".encode("utf-8")))
-        with self.assertRaises(UnicodeDecodeError):
-            reader_copy(self.source, self.odm / "reader.xml")
-        self.assertFalse((self.odm / "reader.xml").exists())
+        original = snapshot(event(1, "result")).replace(b"result", "caf\u00e9".encode("utf-8"))
+        self.source.write_bytes(original)
+        with self.assertRaisesRegex(yamaa.Error, "source_odm_xml_malformed"):
+            prepare(self.study)
+        self.assertEqual(self.source.read_bytes(), original)
+        self.assertFalse((self.odm / "car-t-utf8.xml").exists())
 
 
 class PublicationTests(unittest.TestCase):

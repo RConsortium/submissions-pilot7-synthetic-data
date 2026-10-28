@@ -7,7 +7,7 @@ remains unchanged under `spec/define/define-adam.xml` and uses Define-XML 1.0.0,
 ODM 1.2, and the draft ADaMRes analysis-results extension.
 
 The engine is pinned to yamaa commit
-`1d78496c0cbd4fe89462596a738db3adbd72c8ad`, the reviewed Define-XML 2.0
+`5976b74fddfbcbcad4d53ba550cb1e3773e07a5b`, the reviewed Define-XML 2.0
 implementation merged in yamaa PR #4030. All published studies use this same
 revision; its source tree is identical to merge commit
 `fa2867b68497755023daa4baa4477b34e5cfedc7`.
@@ -18,7 +18,7 @@ Run from the repository root:
 ```bash
 python -m pip install --config-settings build-args=--profile=dev -r cdiscpilot01/program/adam/python/requirements-define.txt
 git clone https://github.com/elong0527/yamaa.git .build/define-engine
-git -C .build/define-engine checkout --detach 1d78496c0cbd4fe89462596a738db3adbd72c8ad
+git -C .build/define-engine checkout --detach 5976b74fddfbcbcad4d53ba550cb1e3773e07a5b
 python .github/scripts/generate_define.py cdiscpilot01 --schemas .build/define-engine/rust/tests/schemas
 ```
 

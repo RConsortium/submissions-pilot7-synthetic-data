@@ -42,7 +42,8 @@ Run from the repository root. Python 3.12+ and a C compiler are required.
 Install Rust 1.99.1 with `rustup toolchain install 1.99.1 --profile minimal`
 before the source installation. All pilot studies use the same exact yamaa
 source pin; requirements are under `program/adam/python/` for consistency
-with the other pilots.
+with the other pilots. This revision includes the native US-ASCII ODM fix in
+[yamaa PR #4063](https://github.com/elong0527/yamaa/pull/4063).
 
 ```bash
 python3 -m venv .venv
@@ -53,7 +54,7 @@ git clone --filter=blob:none --no-checkout \
   https://github.com/elong0527/yamaa.git .build/define-engine
 git -C .build/define-engine sparse-checkout set rust/tests/schemas
 git -C .build/define-engine checkout --detach \
-  1d78496c0cbd4fe89462596a738db3adbd72c8ad
+  5976b74fddfbcbcad4d53ba550cb1e3773e07a5b
 .venv/bin/python cart-t/program/run.py
 .venv/bin/python -m unittest discover -s cart-t/program -p 'test_*.py' -v
 .venv/bin/python .github/scripts/validate_yamaa.py cart-t
@@ -91,11 +92,11 @@ To repeat the issue assessment against an existing build:
 ```text
 cart-t/
   data/
-    odm/       staged original XML, reader copy and native item Parquet for QC
+    odm/       staged original XML and native item Parquet for QC
     sdtm/      generated DM, SUPPDM, AE, CM, LB, QS, MH, IE, CE, DS
     adam/      generated ADSL, ADAE, ADCM, ADLB, ADQS, ADMH, ADDS, ADIE, ADCE
   program/
-    odm/       source staging, encoding compatibility and native item QC inventory
+    odm/       source staging and native item QC inventory
     sdtm/      SDTM stage entry point
     adam/      ADaM stage entry point and pinned Python requirements
     run.py     complete standardization, export and audit
@@ -119,9 +120,9 @@ the phenotype from `SUPPDM.RANDPROF`; its inputs are SDTM. `USUBJID` uses the
 unique ODM SubjectKey; `DM.SUBJID` retains the study subject ID.
 
 Clinical mappings and reshaping are executable yamaa YAML. The preparation
-step stages the unchanged archived XML and creates a reader copy with only
-its ASCII encoding declaration normalized to UTF-8. The native item Parquet
-is independent QC evidence; no SDTM specification reads it. Subject/site
+step stages the unchanged archived XML, including its US-ASCII declaration.
+The native yamaa reader handles this declaration directly. The native item
+Parquet is independent QC evidence; no SDTM specification reads it. Subject/site
 metadata mappings are checked independently against XML attributes.
 The same YAML can execute with the matching yamaa R host after preparation.
 
