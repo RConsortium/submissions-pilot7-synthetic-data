@@ -154,12 +154,13 @@ def document_sections(path, metadata):
     return []
 
 
-def document_html(title, body):
+def document_html(title, body, *, wide=False):
+    max_width = "none" if wide else "1000px"
     return (
         '<!doctype html><html lang="en"><meta charset="utf-8">'
         '<meta name="viewport" content="width=device-width, initial-scale=1">'
         f"<title>{html.escape(title)}</title><style>"
-        "body{font:16px/1.7 system-ui;margin:30px auto;padding:0 24px;max-width:1000px;color:#24344a}"
+        f"body{{font:16px/1.7 system-ui;margin:30px auto;padding:0 24px;max-width:{max_width};color:#24344a}}"
         "section{border-bottom:1px solid #ddd;padding:24px 0;scroll-margin-top:20px}"
         "pre{white-space:pre-wrap;font:inherit}td,th{padding:8px;border:1px solid #ddd;vertical-align:top}"
         "table{border-collapse:collapse}a{color:#2d5f8a}:target{background:#fff5d6}"
@@ -230,8 +231,9 @@ def materials(root, study, target, metadata):
             view.write_text(
                 document_html(
                     path.name,
-                    "<p>Workbook cells in their original sheet, row and column positions. Formulas are shown as entered. The original Excel file is retained.</p>"
+                    "<p>Blank rows are omitted; original sheet, row and column references are preserved. Formulas are shown as entered. The original Excel file is retained.</p>"
                     + body,
+                    wide=True,
                 ),
                 encoding="utf-8",
             )

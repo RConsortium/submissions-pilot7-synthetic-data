@@ -62,6 +62,40 @@ class DocumentViewTests(unittest.TestCase):
             self.assertEqual(
                 tree.xpath("//caption/text()"), ["Rules & inputs", "Output"]
             )
+            self.assertEqual(tree.xpath('//tbody/tr/@id'), [s['id'] for s in sections])
+
+    def test_workbook_omits_blank_rows_and_keeps_merges_aligned(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            source = root / 'study/spec/source/spec.xlsx'
+            source.parent.mkdir(parents=True)
+            book = Workbook()
+            sheet = book.active
+            sheet.append([0, False])
+            sheet['A2'] = ' \t '
+            sheet['A3'] = '=1+2'
+            sheet.merge_cells('A3:A5')
+            sheet['B5'] = 'last merged row'
+            sheet.merge_cells('A7:A9')
+            sheet['B7'] = 'empty merged cell'
+            sheet['B9'] = 'last empty merged row'
+            sheet['D10'].number_format = '0.00'
+            book.save(source)
+            (source.parent / 'manifest.json').write_text(
+                '{"files":[{"path":"study/spec/source/spec.xlsx"}]}')
+            target = root / 'bundle'
+            target.mkdir()
+            _, documents = materials(root, 'study', target, {})
+            document = documents[0]
+            tree = etree.HTML((target / document['view']).read_bytes())
+            self.assertEqual(tree.xpath('//tbody/tr/@id'), [
+                f'sheet-1-row-{number}' for number in (1, 3, 5, 7, 9)
+            ])
+            self.assertEqual(tree.xpath('//tr[@id="sheet-1-row-1"]/td/text()'), ['0', 'False'])
+            self.assertEqual(tree.xpath('//td[@rowspan="2"]/text()'), ['=1+2'])
+            self.assertEqual(tree.xpath('//tr[@id="sheet-1-row-7"]/td/@rowspan'), ['2', '1', '1', '1'])
+            self.assertEqual(tree.xpath('//tr[@id="sheet-1-row-9"]/td/text()'), ['last empty merged row'])
+            self.assertEqual((target / document['original']).read_bytes(), source.read_bytes())
 
     def test_xml_uses_retained_publisher_html_and_denies_external_document_reads(self):
         with tempfile.TemporaryDirectory() as tmp:

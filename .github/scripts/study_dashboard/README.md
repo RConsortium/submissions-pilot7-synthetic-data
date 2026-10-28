@@ -112,7 +112,9 @@ official pilot results explicitly omitted when their evidence is unavailable.
    Publication renders the original HTML using lxml with external resource access
    disabled. PDF originals are embedded directly; workbook HTML preserves sheet,
    row and column positions and merged cells. No source document is fetched
-   during publication. Source documents use the original views only, with one or
+   during publication. Workbook tables use the full viewer width and omit blank
+   rows while retaining original row numbers and citation anchors.
+   Source documents use the original views only, with one or
    two independent tabbed panes; extracted text is kept for consistency checks.
 5. Optionally add `spec/review/questions.json`, with `schema_version: 1` and a
    `questions` array. Each question needs unique `id`, `dataset`, optional
