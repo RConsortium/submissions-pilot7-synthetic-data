@@ -27,14 +27,14 @@
           },
           "spec": {
             "element": "SITEGR1",
-            "quote": "then: \"'900'\" - otherwise: SITEID"
+            "quote": "then: \"'900'\" - otherwise: DM.SITEID"
           }
         },
         {
           "relation": "absent_in_document",
           "spec": {
             "element": "SITEGR1",
-            "quote": "SITEID IN ('702', '706', '707', '711', '714', '715', '717')"
+            "quote": "DM.SITEID IN ('702','706','707','711','714','715','717')"
           },
           "note": "The retained Define-XML and workbook refer to SAP Section 7.1 without listing these fixed site identifiers; the shared SAP has pending applicability for this study."
         }
@@ -120,8 +120,9 @@
           },
           "spec": {
             "element": "TRT01A",
-            "quote": "derivation: TRT01P"
-          }
+            "quote": "derivation: DM.ARM"
+          },
+          "note": "TRT01A and TRT01P both read DM.ARM, so actual treatment equals planned treatment."
         },
         {
           "relation": "same",
@@ -131,7 +132,7 @@
           },
           "spec": {
             "element": "TRT01A",
-            "quote": "derivation: TRT01P"
+            "quote": "derivation: DM.ARM"
           }
         }
       ],
@@ -174,9 +175,9 @@
           },
           "spec": {
             "element": "TRT01AN",
-            "quote": "derivation: TRT01PN"
+            "quote": "mapping: source: DM.ARM dict: Placebo: 0 Xanomeline Low Dose: 54 Xanomeline High Dose: 81"
           },
-          "note": "The documented actual and planned treatments are equal and share the same randomized-dose codelist; reusing the planned code implements that equality."
+          "note": "TRT01A is DM.ARM, so mapping DM.ARM to the randomized-dose codes gives the numeric code for TRT01A."
         }
       ],
       "interpretations": [],
@@ -245,16 +246,16 @@
       ],
       "clauses": [
         {
-          "relation": "differs",
+          "relation": "same",
           "document": {
             "citation": 1,
             "quote": "EX.EXENDTC on the subject's last EX record."
           },
           "spec": {
-            "element": "EX_MAXDTC",
-            "quote": "filter: EX.EXDOSE > 0 OR (EX.EXDOSE = 0 AND EX.EXTRT = 'PLACEBO') expr: MAX(EX.EXENDTC)"
+            "element": "LAST_EXENDTC",
+            "quote": "derivation: LAST_EX.EXENDTC"
           },
-          "note": "The implementation takes the maximum qualifying exposure end date, while the document names the last exposure record without that dose filter."
+          "note": "LAST_EX keeps each subject's last EX record by EXSEQ, so LAST_EXENDTC is EX.EXENDTC on that record."
         },
         {
           "relation": "differs",
@@ -264,17 +265,25 @@
           },
           "spec": {
             "element": "TRTEDT",
-            "quote": "when: EOSDT IS NOT NULL AND (EX_NMISSEND > 0 OR EX_ENDHI > EOSDT) then: EOSDT"
+            "quote": "when: \"LAST_EXENDTC IS NULL OR LAST_EXENDTC = ''\" then: impute: type: date source: DS_DISP.DSSTDTC"
           },
-          "note": "The implementation also caps an available exposure end date to discontinuation and checks any missing qualifying end date, without requiring discontinuation after Visit 3."
+          "note": "When the last EX end date is missing, the specification uses the first disposition-event date without requiring that the subject discontinued after Visit 3."
+        },
+        {
+          "relation": "absent_in_document",
+          "spec": {
+            "element": "TRTEDT",
+            "quote": "source: LAST_EXENDTC month: 1 day: 1"
+          },
+          "note": "The specification completes a partial final-dose date with January and day 1; the retained rule only states conversion to a SAS date."
         }
       ],
       "interpretations": [
         "The probe takes the last exposure by EXSEQ because the document does not state an ordering field.",
         "The probe locates discontinuation in the first disposition-event record by DSSEQ and checks DSDECOD and VISITNUM; the document names the event concept without a domain or tie-breaking rule."
       ],
-      "assessment": "The recorded final-dose source and the fallback condition differ from the implemented maximum-date and discontinuation-cap logic.",
-      "question": "Confirm final-record ordering and whether discontinuation caps an observed last-dose date.",
+      "assessment": "The final-dose source follows the last EX record, but the disposition-date fallback applies whenever that end date is missing, without the documented discontinued-after-Visit-3 condition.",
+      "question": "Confirm final-record ordering and whether the disposition-date fallback should require discontinuation after Visit 3.",
       "probes": [
         {
           "column": "TRTEDT",
@@ -333,7 +342,7 @@
             "quote": "CUMDOSE/TRTDURD"
           },
           "spec": {
-            "element": "_AVGDD_RAW",
+            "element": "AVGDD_RAW",
             "quote": "CUMDOSE / NULLIF(TRTDUR, 0)"
           },
           "note": "TRTDURD is an alias of the inclusive-day TRTDUR helper; the implementation guards a zero divisor."
@@ -346,8 +355,9 @@
           },
           "spec": {
             "element": "AVGDD",
-            "quote": "round_half_away_from_zero: source: _AVGDD_RAW digits: 1"
-          }
+            "quote": "FLOOR(AVGDD_RAW * 10 + 0.5) / 10"
+          },
+          "note": "Adding 0.5 before FLOOR rounds the nonnegative average half up to one decimal place."
         }
       ],
       "interpretations": [
@@ -381,9 +391,9 @@
           },
           "spec": {
             "element": "CUMDOSE",
-            "quote": "derivation: _CUM0 + _OPEN0"
+            "quote": "derivation: \"_CUM0 + _DOSE0 * _DAYS0\""
           },
-          "note": "The specification sums exposure-record dose-days, with open records extended to treatment end, instead of stating the documented visit-interval calculation."
+          "note": "The specification sums exposure-record dose-days and extends a last record without an end date to treatment end, instead of stating the documented visit-interval calculation."
         }
       ],
       "interpretations": [
@@ -419,7 +429,7 @@
           },
           "spec": {
             "element": "AGEGR1",
-            "quote": "when: DM.AGE < 65"
+            "quote": "when: \"DM.AGE < 65\""
           },
           "note": "The specification derives the character group directly from age, whereas Define-XML specifies the numeric age group as its predecessor."
         }
@@ -489,24 +499,25 @@
           },
           "spec": {
             "element": "RACEN",
-            "quote": "source: RACE"
+            "quote": "mapping: source: DM.RACE"
           }
         },
         {
-          "relation": "same",
+          "relation": "differs",
           "document": {
             "citation": 1,
             "quote": "Codelist CL.RACEN: 1 = WHITE; 2 = BLACK OR AFRICAN AMERICAN; 6 = AMERICAN INDIAN OR ALASKA NATIVE; 7 = ASIAN; 5 = NATIVE HAWAIIAN OR OTHER PACIFIC ISLANDER"
           },
           "spec": {
             "element": "RACEN",
-            "quote": "WHITE: 1 BLACK OR AFRICAN AMERICAN: 2 AMERICAN INDIAN OR ALASKA NATIVE: 6 ASIAN: 7 NATIVE HAWAIIAN OR OTHER PACIFIC ISLANDER: 5"
-          }
+            "quote": "dict: WHITE: 1 BLACK OR AFRICAN AMERICAN: 2 AMERICAN INDIAN OR ALASKA NATIVE: 6"
+          },
+          "note": "The specification maps three of the five codelist races; ASIAN (7) and NATIVE HAWAIIAN OR OTHER PACIFIC ISLANDER (5) have no mapping."
         }
       ],
       "interpretations": [],
       "assessment": "",
-      "question": "",
+      "question": "Should the RACEN mapping state the ASIAN and NATIVE HAWAIIAN OR OTHER PACIFIC ISLANDER codes of the codelist?",
       "probes": [
         {
           "column": "RACEN",
@@ -531,12 +542,15 @@
       ],
       "clauses": [
         {
-          "relation": "absent_in_spec",
+          "relation": "same",
           "document": {
             "citation": 1,
             "quote": "ITTFL='Y'"
           },
-          "note": "The flag condition checks treatment-start presence but does not check the documented ITTFL condition."
+          "spec": {
+            "element": "SAFFL",
+            "quote": "ITTFL = 'Y'"
+          }
         },
         {
           "relation": "same",
@@ -546,13 +560,13 @@
           },
           "spec": {
             "element": "SAFFL",
-            "quote": "condition: TRTSDT IS NOT NULL"
+            "quote": "TRTSDT IS NOT NULL"
           }
         }
       ],
       "interpretations": [],
       "assessment": "",
-      "question": "Should safety population membership explicitly require the intent-to-treat flag as Define-XML states?",
+      "question": "",
       "probes": [
         {
           "column": "SAFFL",
@@ -584,7 +598,7 @@
           },
           "spec": {
             "element": "ITTFL",
-            "quote": "condition: DM.ARMCD <> ''"
+            "quote": "when: \"DM.ARMCD <> ''\""
           },
           "note": "The implementation represents the documented blank arm code with an empty string."
         }
@@ -620,7 +634,7 @@
           },
           "spec": {
             "element": "EFFFL",
-            "quote": "condition: SAFFL = 'Y' AND N_ACTOT > 0 AND N_CIBIC > 0"
+            "quote": "when: \"SAFFL = 'Y' AND QS_ADAS.QSSEQ IS NOT NULL AND QS_CIBIC.QSSEQ IS NOT NULL\""
           }
         },
         {
@@ -630,10 +644,10 @@
             "quote": "with VISITNUM>3"
           },
           "spec": {
-            "element": "N_ACTOT",
-            "quote": "filter: QS.VISITNUM > 3 AND QS.QSTESTCD = 'ACTOT'"
+            "element": "QS_ADAS",
+            "quote": "AND QS.VISITNUM > 3"
           },
-          "note": "The visit-number condition corresponds, while the specific test restriction is recorded separately."
+          "note": "The visit-number condition corresponds; the questionnaire category is recorded separately."
         },
         {
           "relation": "same",
@@ -642,21 +656,21 @@
             "quote": "with VISITNUM>3"
           },
           "spec": {
-            "element": "N_CIBIC",
-            "quote": "filter: QS.VISITNUM > 3 AND QS.QSTESTCD = 'CIBIC'"
+            "element": "QS_CIBIC",
+            "quote": "AND QS.VISITNUM > 3"
           }
         },
         {
-          "relation": "differs",
+          "relation": "same",
           "document": {
             "citation": 1,
             "quote": "at least one record in QS for ADAS-Cog with VISITNUM>3"
           },
           "spec": {
-            "element": "N_ACTOT",
-            "quote": "filter: QS.VISITNUM > 3 AND QS.QSTESTCD = 'ACTOT'"
+            "element": "QS_ADAS",
+            "quote": "QS.QSCAT = 'ALZHEIMER''S DISEASE ASSESSMENT SCALE'"
           },
-          "note": "The rule permits an ADAS-Cog questionnaire record, whereas the implementation requires the ACTOT total. The original SDTM Define identifies the questionnaire category; its metadata is not present in the exported citable sections."
+          "note": "QS_ADAS selects ADAS-Cog category records with VISITNUM > 3, and EFFFL requires that one exists."
         },
         {
           "relation": "same",
@@ -666,16 +680,20 @@
           },
           "spec": {
             "element": "EFFFL",
-            "quote": "false_value: N\n        missing: N"
+            "quote": "otherwise: \"'N'\""
           }
         },
         {
-          "relation": "absent_in_document",
-          "spec": {
-            "element": "N_CIBIC",
-            "quote": "QS.QSTESTCD = 'CIBIC'"
+          "relation": "same",
+          "document": {
+            "citation": 1,
+            "quote": "at least one record in QS for CIBIC+ with VISITNUM>3"
           },
-          "note": "The flag rule names a CIBIC+ questionnaire record and the visit condition, without an explicit QSTESTCD restriction. The literal probe identifies the questionnaire by its original SDTM QSCAT codelist category."
+          "spec": {
+            "element": "QS_CIBIC",
+            "quote": "QS.QSCAT = 'CLINICIAN''S INTERVIEW-BASED IMPRESSION OF CHANGE (CIBIC+)'"
+          },
+          "note": "QS_CIBIC selects CIBIC+ category records with VISITNUM > 3, and EFFFL requires that one exists."
         }
       ],
       "interpretations": [
@@ -683,8 +701,8 @@
         "Source binding: the original spec/define/define-sdtm.xml ItemDef QS.QSCAT references CodeList QSCAT, whose coded categories include ALZHEIMER'S DISEASE ASSESSMENT SCALE and CLINICIAN'S INTERVIEW-BASED IMPRESSION OF CHANGE (CIBIC+). These categories identify the questionnaires named in citation 1; the literal probe counts any qualifying questionnaire record, without an ACTOT-only restriction. The exported SDTM Define section file is empty, so this is original-metadata support rather than a verified citation.",
         "The literal probe reads SAFFL from published REF and counts qualifying QS records by subject; it does not substitute its own safety-flag derivation."
       ],
-      "assessment": "The literal category-based questionnaire rule is executable. The maintained specification states test-code restrictions, including an ADAS-Cog total-only condition.",
-      "question": "Is the ACTOT-only restriction intended, and should the questionnaire selections be documented as categories or test codes?",
+      "assessment": "The literal category-based questionnaire rule is executable, and the maintained specification selects the same questionnaire categories with VISITNUM > 3.",
+      "question": "",
       "probes": [
         {
           "column": "EFFFL",
@@ -715,26 +733,29 @@
             "quote": "SV.VISITNUM=8"
           },
           "spec": {
-            "element": "N_WK8",
-            "quote": "filter: SV.VISIT = 'WEEK 8'"
-          },
-          "note": "The retained VISITNUM codelist maps the documented visit number to the implemented visit label."
+            "element": "SV8",
+            "quote": "filter: \"SV.VISITNUM = 8\""
+          }
         },
         {
-          "relation": "absent_in_spec",
+          "relation": "differs",
           "document": {
             "citation": 1,
             "quote": "ENDDT >= date of visit 8"
           },
-          "note": "The flag only checks that a visit record exists; it has no comparison between an end date and the visit date."
+          "spec": {
+            "element": "COMP8FL",
+            "quote": "RFENDT >= SV8DT"
+          },
+          "note": "The specification compares RFENDT, the converted DM.RFENDTC, where the document names an undefined ENDDT."
         }
       ],
       "not_probed_reason": "ENDDT is not defined as a published ADSL variable or assigned a source in the retained completion rules. The required end-date comparison cannot be stated literally without choosing which end-of-treatment or end-of-study date ENDDT denotes.",
       "interpretations": [
         "The referenced shared SAP has pending applicability for Pilot 5 and was not presumed to resolve ENDDT."
       ],
-      "assessment": "The implemented flag omits the documented end-date condition.",
-      "question": "Which date does ENDDT denote, and should completion require it to be on or after the visit date?"
+      "assessment": "The implemented flag compares RFENDT with the visit date where the document names an undefined ENDDT.",
+      "question": "Which date does ENDDT denote, and is it the RFENDT date the specification compares?"
     },
     {
       "variable": "COMP16FL",
@@ -759,26 +780,29 @@
             "quote": "SV.VISITNUM=10"
           },
           "spec": {
-            "element": "N_WK16",
-            "quote": "filter: SV.VISIT = 'WEEK 16'"
-          },
-          "note": "The retained VISITNUM codelist maps the documented visit number to the implemented visit label."
+            "element": "SV10",
+            "quote": "filter: \"SV.VISITNUM = 10\""
+          }
         },
         {
-          "relation": "absent_in_spec",
+          "relation": "differs",
           "document": {
             "citation": 1,
             "quote": "ENDDT>=date of visit 10"
           },
-          "note": "The flag only checks that a visit record exists; it has no comparison between an end date and the visit date."
+          "spec": {
+            "element": "COMP16FL",
+            "quote": "RFENDT >= SV10DT"
+          },
+          "note": "The specification compares RFENDT, the converted DM.RFENDTC, where the document names an undefined ENDDT."
         }
       ],
       "not_probed_reason": "ENDDT is not defined as a published ADSL variable or assigned a source in the retained completion rules. The required end-date comparison cannot be stated literally without choosing which end-of-treatment or end-of-study date ENDDT denotes.",
       "interpretations": [
         "The referenced shared SAP has pending applicability for Pilot 5 and was not presumed to resolve ENDDT."
       ],
-      "assessment": "The implemented flag omits the documented end-date condition.",
-      "question": "Which date does ENDDT denote, and should completion require it to be on or after the visit date?"
+      "assessment": "The implemented flag compares RFENDT with the visit date where the document names an undefined ENDDT.",
+      "question": "Which date does ENDDT denote, and is it the RFENDT date the specification compares?"
     },
     {
       "variable": "COMP24FL",
@@ -803,26 +827,29 @@
             "quote": "SV.VISITNUM=12"
           },
           "spec": {
-            "element": "N_WK24",
-            "quote": "filter: SV.VISIT = 'WEEK 24'"
-          },
-          "note": "The retained VISITNUM codelist maps the documented visit number to the implemented visit label."
+            "element": "SV12",
+            "quote": "filter: \"SV.VISITNUM = 12\""
+          }
         },
         {
-          "relation": "absent_in_spec",
+          "relation": "differs",
           "document": {
             "citation": 1,
             "quote": "ENDDT>= date of visit 12 "
           },
-          "note": "The flag only checks that a visit record exists; it has no comparison between an end date and the visit date."
+          "spec": {
+            "element": "COMP24FL",
+            "quote": "RFENDT >= SV12DT"
+          },
+          "note": "The specification compares RFENDT, the converted DM.RFENDTC, where the document names an undefined ENDDT."
         }
       ],
       "not_probed_reason": "ENDDT is not defined as a published ADSL variable or assigned a source in the retained completion rules. The required end-date comparison cannot be stated literally without choosing which end-of-treatment or end-of-study date ENDDT denotes.",
       "interpretations": [
         "The referenced shared SAP has pending applicability for Pilot 5 and was not presumed to resolve ENDDT."
       ],
-      "assessment": "The implemented flag omits the documented end-date condition.",
-      "question": "Which date does ENDDT denote, and should completion require it to be on or after the visit date?"
+      "assessment": "The implemented flag compares RFENDT with the visit date where the document names an undefined ENDDT.",
+      "question": "Which date does ENDDT denote, and is it the RFENDT date the specification compares?"
     },
     {
       "variable": "DISCONFL",
@@ -851,16 +878,16 @@
       ],
       "clauses": [
         {
-          "relation": "differs",
+          "relation": "same",
           "document": {
             "citation": 1,
             "quote": "DCREASCD ^= 'Completed'"
           },
           "spec": {
             "element": "DISCONFL",
-            "quote": "when: EOSSTT = 'DISCONTINUED'"
+            "quote": "when: \"DCREASCD <> 'Completed'\""
           },
-          "note": "The original ItemRef and workbook associate the DCREASCD method with DCSREAS. The documented condition therefore compares the grouped reason with Completed, while the implementation compares EOSSTT with DISCONTINUED; the two sources are not silently equated."
+          "note": "The specification keeps DCREASCD as an internal grouped reason, which DCSREAS blanks for completers, and compares it with Completed as documented."
         },
         {
           "relation": "differs",
@@ -884,7 +911,7 @@
             "element": "EOSSTT",
             "quote": "case:\n        - when: DCDECOD = 'COMPLETED'\n          then: \"'COMPLETED'\"\n        - otherwise: \"'DISCONTINUED'\""
           },
-          "note": "The end-of-study status dependency itself follows its documented DCDECOD condition; this does not replace the separate grouped-reason condition in the flag method."
+          "note": "EOSSTT follows its documented DCDECOD condition; the flag itself reads the grouped reason DCREASCD, not EOSSTT."
         }
       ],
       "interpretations": [
@@ -892,8 +919,8 @@
         "The literal probe reads the published REF.DCSREAS grouped display code, using the DCSREAS method and codelist cited here as context, rather than re-deriving that upstream variable.",
         "The SAS-style ^= condition treats a missing grouped reason as unequal to Completed. The literal uses the preserved blank or null grouped-reason value without borrowing completion status from another upstream variable."
       ],
-      "assessment": "Original source metadata supplies the legacy method-to-variable binding, allowing the grouped-reason condition to be probed literally. The maintained flag instead uses the end-of-study status.",
-      "question": "Should the grouped-reason condition remain as written, or should the flag method explicitly use EOSSTT or DCDECOD?",
+      "assessment": "Original source metadata supplies the legacy method-to-variable binding, allowing the grouped-reason condition to be probed literally. The maintained flag compares the same grouped reason with Completed, and returns empty text rather than null otherwise.",
+      "question": "Should the flag's remaining case be null, as written, or empty text, as the specification returns?",
       "probes": [
         {
           "column": "DISCONFL",
@@ -923,16 +950,16 @@
       ],
       "clauses": [
         {
-          "relation": "differs",
+          "relation": "same",
           "document": {
             "citation": 1,
             "quote": "DCREASCD='Adverse Event'"
           },
           "spec": {
             "element": "DSRAEFL",
-            "quote": "condition: DCDECOD = 'ADVERSE EVENT'"
+            "quote": "when: \"DCREASCD = 'Adverse Event'\""
           },
-          "note": "The original ItemRef and workbook associate the DCREASCD method with DCSREAS. The documented condition reads its grouped display code Adverse Event; the implementation reads the standardized DCDECOD term ADVERSE EVENT."
+          "note": "The specification compares its internal grouped reason DCREASCD with Adverse Event, as documented."
         },
         {
           "relation": "same",
@@ -942,7 +969,7 @@
           },
           "spec": {
             "element": "DSRAEFL",
-            "quote": "false_value: ''\n        missing: ''"
+            "quote": "otherwise: \"''\""
           },
           "note": "Under the explicit SAS character-missing serialization interpretation, Null otherwise means an unpopulated character flag, represented by empty text in this study staging. The specification uses that representation for both a false condition and an unavailable condition. An explicit physical-Parquet-null reading is retained separately because the method does not name a storage representation."
         }
@@ -953,8 +980,8 @@
         "Representation convention: submission-pilot5/README.md identifies the published ADaM references as SAS transport (.xpt) converted to Parquet. Independent inspection of the staged ADSL character flags DSRAEFL, DISCONFL and DTHFL shows serialized empty text for unpopulated flags rather than physical Parquet nulls. A missing SAS character value is blank; the native literal probe therefore encodes the source phrase Null otherwise as empty text, using false_value and missing set to empty text while preserving input empty_string: present. This is an explicit representation interpretation, not a new citable derivation statement, a rewritten reference, or a relaxed comparison policy. The original citation remains verbatim.",
         "The word Null in citation 1 does not itself distinguish an unpopulated SAS character value from a physical Parquet null. DSRAEFL__PARQUET_NULL retains the latter storage-level reading of the unchanged phrase Null otherwise. It reads the same published REF.DCSREAS condition and changes only the otherwise representation; neither reading is chosen by its agreement with the reference."
       ],
-      "assessment": "Original source metadata binds the legacy method name to DCSREAS. The native literal probe makes the study character-missing serialization convention explicit, and a separate physical-null reading preserves the remaining storage ambiguity. The maintained flag instead reads the standardized disposition term.",
-      "question": "Should the flag explicitly use DCSREAS as the source method binding indicates, or should its method be updated to name DCDECOD? Confirm that Null otherwise denotes an unpopulated character flag serialized as empty text under the stated staging convention.",
+      "assessment": "Original source metadata binds the legacy method name to DCSREAS. The native literal probe makes the study character-missing serialization convention explicit, and a separate physical-null reading preserves the remaining storage ambiguity. The maintained flag compares the grouped reason DCREASCD with Adverse Event, as documented.",
+      "question": "Confirm that Null otherwise denotes an unpopulated character flag serialized as empty text under the stated staging convention.",
       "probes": [
         {
           "column": "DSRAEFL",
@@ -984,7 +1011,7 @@
             "quote": "WEIGHTBL / ((HEIGHTBL/100)**2)"
           },
           "spec": {
-            "element": "_BMIBL_RAW",
+            "element": "BMIBL_RAW",
             "quote": "WEIGHTBL / POWER(NULLIF(HEIGHTBL, 0) / 100, 2)"
           },
           "note": "The arithmetic is the same for nonzero heights; the explicit zero-height guard is recorded separately."
@@ -997,13 +1024,14 @@
           },
           "spec": {
             "element": "BMIBL",
-            "quote": "digits: 1"
-          }
+            "quote": "FLOOR(BMIBL_RAW * 10 + 0.5) / 10"
+          },
+          "note": "Adding 0.5 before FLOOR rounds the nonnegative BMI half up to one decimal place."
         },
         {
           "relation": "absent_in_document",
           "spec": {
-            "element": "_BMIBL_RAW",
+            "element": "BMIBL_RAW",
             "quote": "NULLIF(HEIGHTBL, 0)"
           },
           "note": "The implementation explicitly converts zero height to missing before division; the retained BMI rule does not state zero-height handling."
@@ -1054,9 +1082,9 @@
           },
           "spec": {
             "element": "BMIBLGR1",
-            "quote": "missing: ''"
+            "quote": "cut: source: BMIBL"
           },
-          "note": "An empty character value represents an unassigned group; the ADRG explicitly rejects assigning a group when BMI is missing."
+          "note": "The cut states no missing handler, so a missing BMIBL stays missing rather than receiving a group, as the ADRG requires."
         }
       ],
       "probes": [
@@ -1088,15 +1116,16 @@
       ],
       "clauses": [
         {
-          "relation": "same",
+          "relation": "differs",
           "document": {
             "citation": 1,
             "quote": "VSSTRESN when VS.VSTESTCD='HEIGHT' and VS.VISITNUM=1"
           },
           "spec": {
             "element": "BASE_HT",
-            "quote": "filter: VS.VSTESTCD = 'HEIGHT' AND VS.VISITNUM = 1"
-          }
+            "quote": "filter: \"VS.VSTESTCD = 'HEIGHT'\" order_by: - variable: VS.VISITNUM nulls: last keep: first"
+          },
+          "note": "The specification keeps each subject's height record with the lowest VISITNUM instead of requiring VISITNUM=1."
         },
         {
           "relation": "same",
@@ -1106,23 +1135,15 @@
           },
           "spec": {
             "element": "HEIGHTBL",
-            "quote": "source: BASE_HT.VSSTRESN digits: 1"
+            "quote": "FLOOR(BASE_HT.VSSTRESN * 10 + 0.5) / 10"
           }
-        },
-        {
-          "relation": "absent_in_document",
-          "spec": {
-            "element": "BASE_HT",
-            "quote": "order_by: - variable: VS.VSDTC nulls: last keep: first"
-          },
-          "note": "The retained rule does not choose among repeated qualifying measurements by date."
         }
       ],
       "interpretations": [
         "The probe takes the earliest qualifying VSDTC when repeated records qualify; the documents do not state a repeated-record selection rule."
       ],
       "assessment": "",
-      "question": "Confirm how repeated qualifying baseline measurements should be selected.",
+      "question": "Should baseline height require VISITNUM=1, as documented, or take the earliest-visit height record, as the specification does?",
       "probes": [
         {
           "column": "HEIGHTBL",
@@ -1147,15 +1168,16 @@
       ],
       "clauses": [
         {
-          "relation": "same",
+          "relation": "differs",
           "document": {
             "citation": 1,
             "quote": "VSSTRESN when VS.VSTESTCD='WEIGHT' and VS.VISITNUM=3"
           },
           "spec": {
             "element": "BASE_WT",
-            "quote": "filter: VS.VSTESTCD = 'WEIGHT' AND VS.VISITNUM = 3"
-          }
+            "quote": "filter: \"VS.VSTESTCD = 'WEIGHT' AND VS.VSBLFL = 'Y'\""
+          },
+          "note": "The specification reads the weight record flagged as baseline (VSBLFL = 'Y') instead of the Visit 3 record."
         },
         {
           "relation": "same",
@@ -1165,23 +1187,23 @@
           },
           "spec": {
             "element": "WEIGHTBL",
-            "quote": "source: BASE_WT.VSSTRESN digits: 1"
+            "quote": "FLOOR(BASE_WT.VSSTRESN * 10 + 0.5) / 10"
           }
         },
         {
           "relation": "absent_in_document",
           "spec": {
             "element": "BASE_WT",
-            "quote": "order_by: - variable: VS.VSDTC nulls: last keep: first"
+            "quote": "order_by: - variable: VS.VISITNUM nulls: last keep: first"
           },
-          "note": "The retained rule does not choose among repeated qualifying measurements by date."
+          "note": "The retained rule does not choose among several baseline-flagged weight records; the specification keeps the lowest VISITNUM."
         }
       ],
       "interpretations": [
         "The probe takes the earliest qualifying VSDTC when repeated records qualify; the documents do not state a repeated-record selection rule."
       ],
       "assessment": "",
-      "question": "Confirm how repeated qualifying baseline measurements should be selected.",
+      "question": "Should baseline weight come from Visit 3, as documented, or from the baseline-flagged record, as the specification reads, and how should repeated records be selected?",
       "probes": [
         {
           "column": "WEIGHTBL",
@@ -1219,16 +1241,16 @@
           },
           "spec": {
             "element": "SC_EDU",
-            "quote": "filter: SC.SCTESTCD = 'EDLEVEL'"
+            "quote": "filter: \"SC.SCTESTCD = 'EDLEVEL'\""
           }
         },
         {
           "relation": "absent_in_document",
           "spec": {
             "element": "SC_EDU",
-            "quote": "order_by: - variable: SC.SCDTC nulls: last keep: first"
+            "quote": "order_by: - variable: SC.SCSEQ nulls: last keep: first"
           },
-          "note": "The retained rule does not specify selection of the earliest education result when several qualify."
+          "note": "The retained rule does not specify which education result to keep when several qualify; the specification keeps the first by SCSEQ."
         }
       ],
       "interpretations": [
@@ -1262,7 +1284,7 @@
           },
           "spec": {
             "element": "MH_DX",
-            "quote": "filter: MH.MHCAT = 'PRIMARY DIAGNOSIS'"
+            "quote": "filter: \"MH.MHCAT = 'PRIMARY DIAGNOSIS'\""
           }
         },
         {
@@ -1272,25 +1294,25 @@
             "quote": "MH.MHSTDTC"
           },
           "spec": {
-            "element": "DISONSDT",
-            "quote": "source: MH_DX.MHSTDTC"
+            "element": "MH_DTC",
+            "quote": "derivation: MH_DX.MHSTDTC"
           }
         },
         {
           "relation": "absent_in_document",
           "spec": {
             "element": "DISONSDT",
-            "quote": "month: 6 day: 15"
+            "quote": "month: 1 day: 1"
           },
-          "note": "The documented conversion does not state June/day-15 completion of partial onset dates."
+          "note": "The documented conversion does not state January/day-1 completion of partial onset dates."
         },
         {
           "relation": "absent_in_document",
           "spec": {
             "element": "MH_DX",
-            "quote": "order_by: - variable: MH.MHSTDTC nulls: last keep: first"
+            "quote": "order_by: - variable: MH.MHSEQ nulls: last keep: first"
           },
-          "note": "The retained rule does not specify selecting the earliest primary-diagnosis history record."
+          "note": "The retained rule does not specify which primary-diagnosis record to keep when several qualify; the specification keeps the first by MHSEQ."
         }
       ],
       "interpretations": [
@@ -1329,7 +1351,7 @@
             "quote": "DISONSET"
           },
           "spec": {
-            "element": "_DURDIS_DAYS",
+            "element": "DURDIS_DAYS",
             "quote": "start: DISONSDT"
           },
           "note": "The documented DISONSET name is not a published ADSL variable; the implementation substitutes DISONSDT."
@@ -1337,7 +1359,7 @@
         {
           "relation": "absent_in_document",
           "spec": {
-            "element": "_DURDIS_DAYS",
+            "element": "DURDIS_DAYS",
             "quote": "unit: day closed: both"
           },
           "note": "The month-count statement does not specify inclusive day counting."
@@ -1345,10 +1367,10 @@
         {
           "relation": "absent_in_document",
           "spec": {
-            "element": "_DURDIS_MONTHS",
-            "quote": "derivation: _DURDIS_DAYS * 12 / 365.25"
+            "element": "DURDIS",
+            "quote": "DURDIS_DAYS / 30.4375"
           },
-          "note": "The documented month-count statement does not state the average-year conversion constant."
+          "note": "The documented month-count statement does not state the 30.4375-day average month."
         },
         {
           "relation": "same",
@@ -1358,8 +1380,9 @@
           },
           "spec": {
             "element": "DURDIS",
-            "quote": "round_half_away_from_zero: {source: _DURDIS_MONTHS, digits: 1}"
-          }
+            "quote": "FLOOR(DURDIS_DAYS / 30.4375 * 10 + 0.5) / 10"
+          },
+          "note": "Adding 0.5 before FLOOR rounds the nonnegative duration half up to one decimal place."
         }
       ],
       "interpretations": [
@@ -1394,7 +1417,7 @@
           },
           "spec": {
             "element": "DURDSGR1",
-            "quote": "when: DURDIS < 12 then: \"'<12'\""
+            "quote": "when: \"DURDIS < 12\" then: \"'<12'\""
           }
         },
         {
@@ -1440,8 +1463,8 @@
             "quote": "SV.VISITNUM=1"
           },
           "spec": {
-            "element": "SV_V1",
-            "quote": "filter: SV.VISITNUM = 1"
+            "element": "SV1",
+            "quote": "filter: \"SV.VISITNUM = 1\""
           }
         },
         {
@@ -1451,8 +1474,8 @@
             "quote": "SV.SVSTDTC"
           },
           "spec": {
-            "element": "VISIT1DT",
-            "quote": "source: SV_V1.SVSTDTC"
+            "element": "SV1_DTC",
+            "quote": "derivation: SV1.SVSTDTC"
           }
         },
         {
@@ -1466,10 +1489,10 @@
         {
           "relation": "absent_in_document",
           "spec": {
-            "element": "SV_V1",
-            "quote": "order_by: - variable: SV.SVSTDTC nulls: last keep: first"
+            "element": "SV1",
+            "quote": "order_by: - variable: SV.VISITNUM nulls: last keep: first"
           },
-          "note": "The retained rule does not select among repeated Visit 1 start dates."
+          "note": "The retained rule does not select among repeated Visit 1 records; the specification keeps the first, ordered only by VISITNUM."
         }
       ],
       "interpretations": [
@@ -1504,9 +1527,9 @@
           },
           "spec": {
             "element": "VISNUMEN",
-            "quote": "expr: MAX(SV.VISITNUM) filter: SV.VISITNUM <= 12 AND SV.VISIT NOT LIKE 'UNSCHEDULED%'"
+            "quote": "when: \"DS_VISITNUM = 13\" then: 12 - otherwise: DS_VISITNUM"
           },
-          "note": "The document uses completion disposition records and a visit remapping; the implementation instead selects the highest scheduled subject visit up to the endpoint."
+          "note": "The specification applies the documented 13-to-12 remapping to the visit of the first disposition-event record, without the documented DSTERM='PROTCOL COMPLETED' restriction."
         }
       ],
       "interpretations": [
@@ -1541,8 +1564,16 @@
           },
           "spec": {
             "element": "RFENDT",
-            "quote": "to_date: source: RFENDTC"
+            "quote": "impute: type: date source: RFENDTC"
           }
+        },
+        {
+          "relation": "absent_in_document",
+          "spec": {
+            "element": "RFENDT",
+            "quote": "month: 1 day: 1"
+          },
+          "note": "The specification completes a partial RFENDTC with January and day 1; the retained rule only states conversion to a SAS date."
         }
       ],
       "probes": [
@@ -1575,8 +1606,8 @@
             "quote": "DS.DSDECOD where DSCAT='DISPOSITION EVENT'"
           },
           "spec": {
-            "element": "DS_LAST",
-            "quote": "filter: DS.DSCAT = 'DISPOSITION EVENT'"
+            "element": "DS_DISP",
+            "quote": "filter: \"DS.DSCAT = 'DISPOSITION EVENT'\""
           }
         },
         {
@@ -1587,24 +1618,24 @@
           },
           "spec": {
             "element": "DCDECOD",
-            "quote": "derivation: DS_LAST.DSDECOD"
+            "quote": "derivation: DS_DISP.DSDECOD"
           }
         },
         {
           "relation": "absent_in_document",
           "spec": {
-            "element": "DS_LAST",
-            "quote": "order_by: - variable: DS.DSSTDTC nulls: last keep: last"
+            "element": "DS_DISP",
+            "quote": "order_by: - variable: DS.DSSEQ nulls: last keep: first"
           },
-          "note": "The retained rule does not specify which disposition event supplies the scalar value when several disposition events exist."
+          "note": "The retained rule does not specify which disposition event supplies the scalar value when several exist; the specification keeps the first by DSSEQ."
         }
       ],
       "interpretations": [
-        "The implementation chooses the last record by DSSTDTC with nulls last; the retained rule does not establish that choice.",
+        "The implementation keeps the first record by DSSEQ; the retained rule does not establish that choice.",
         "The original spec/define/define-sdtm.xml defines DS.DSDECOD as Standardized Disposition Term and associates DS.DSCAT with the DSCAT codelist, which includes DISPOSITION EVENT and OTHER EVENT. This supports the exact source/category binding in citation 1. The exported SDTM Define section file is empty, so this is original-metadata support rather than a verified citation.",
         "The literal probe uses only the documented DS category filter and a subject-keyed lookup, without order_by or keep. That lookup checks and runs on the staged inputs without adding a chronological event-selection rule; the method still leaves selection undefined if a future subject has competing qualifying records."
       ],
-      "assessment": "The documented source and category can be probed with an unranked lookup on the staged inputs. The maintained specification additionally chooses the last record by disposition date.",
+      "assessment": "The documented source and category can be probed with an unranked lookup on the staged inputs. The maintained specification additionally keeps the first record by DSSEQ.",
       "question": "Should the method document a selection rule for subjects with competing qualifying disposition records?",
       "probes": [
         {
@@ -1667,8 +1698,8 @@
         {
           "relation": "absent_in_document",
           "spec": {
-            "element": "DCSREAS",
-            "quote": "DS_DISP.DSDECOD <> 'COMPLETED' AND DS_DISP.DSTERM = 'PROTOCOL ENTRY CRITERIA NOT MET'"
+            "element": "DCREASCD",
+            "quote": "when: \"DS_DSTERM = 'PROTOCOL ENTRY CRITERIA NOT MET'\" then: \"'I/E Not Met'\""
           },
           "note": "The grouping statement and codelist do not state the DSTERM condition used for the I/E Not Met override."
         },
@@ -1676,28 +1707,28 @@
           "relation": "absent_in_document",
           "spec": {
             "element": "DCSREAS",
-            "quote": "when: DS_DISP.DSDECOD = 'COMPLETED' then: \"''\""
+            "quote": "when: DCREASCD = 'Completed' then: \"''\""
           },
           "note": "The codelist includes Completed but no retained rule states that completed subjects receive an empty discontinuation reason."
         },
         {
-          "relation": "differs",
+          "relation": "same",
           "document": {
             "citation": 1,
             "quote": "Grouping of DCDECOD values"
           },
           "spec": {
-            "element": "DCSREAS",
-            "quote": "mapping: source: DS_DISP.DSDECOD dict: ADVERSE EVENT: Adverse Event"
+            "element": "DC_REAS_MAP",
+            "quote": "mapping: source: DCDECOD dict: ADVERSE EVENT: Adverse Event"
           },
-          "note": "The document names the analysis DCDECOD value; the specification maps DS_DISP.DSDECOD directly, while its DCDECOD column reads the separately selected DS_LAST record."
+          "note": "DC_REAS_MAP groups the analysis DCDECOD values into the codelist decodes, which DCSREAS reads through DCREASCD."
         }
       ],
       "not_probed_reason": "The derivation states grouping and enumerates output codes and decodes without completely specifying the source-to-group mapping, the DSTERM-based I/E Not Met condition, or whether completed subjects receive Completed or an empty reason.",
       "interpretations": [
         "Codelist coded values and their decodes do not by themselves establish the complete derivation from DSDECOD and DSTERM."
       ],
-      "assessment": "The implementation contains source-selection, override and completed-subject behavior beyond the retained grouping statement.",
+      "assessment": "The implementation groups DCDECOD as documented, and adds override and completed-subject behavior beyond the retained grouping statement.",
       "question": "Document the complete grouping rule, including the I/E Not Met override and completed-subject handling."
     },
     {
@@ -1719,21 +1750,20 @@
           },
           "spec": {
             "element": "MMSETOT",
-            "quote": "expr: SUM(QS.QSSTRESN)"
+            "quote": "expr: \"SUM(QS.QSSTRESN)\""
           },
           "note": "The specification sums the standardized numeric result rather than the original result named by the document."
         },
         {
-          "relation": "differs",
+          "relation": "same",
           "document": {
             "citation": 1,
             "quote": "when QSCAT = MINI-MENTAL STATE"
           },
           "spec": {
             "element": "MMSETOT",
-            "quote": "filter: QS.VISITNUM = 1 AND QS.QSTESTCD LIKE 'MMITM%'"
-          },
-          "note": "The implementation restricts visit and item codes rather than applying the documented questionnaire-category condition."
+            "quote": "filter: \"QS.QSCAT = 'MINI-MENTAL STATE'\""
+          }
         }
       ],
       "probes": [
@@ -1745,8 +1775,8 @@
       "interpretations": [
         "Original QSORRES text is converted to the numeric type required by the documented summation; the standardized QSSTRESN field is not substituted."
       ],
-      "assessment": "The original-result source and questionnaire selection differ from the implemented source and visit/item restrictions.",
-      "question": "Should MMSETOT sum all MINI-MENTAL STATE original results or only baseline MMITM standardized results?"
+      "assessment": "The questionnaire category matches; the specification sums the standardized result where the document names the original result.",
+      "question": "Should MMSETOT sum the original QSORRES results, as documented, or the standardized QSSTRESN results, as the specification does?"
     }
   ]
 }
