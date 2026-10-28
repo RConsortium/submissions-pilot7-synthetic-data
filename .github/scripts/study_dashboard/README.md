@@ -236,7 +236,12 @@ datasets cannot publish without one. `rule_review.py` preserves the underlying
 checks and adds document links. `issues.py` groups them using the versioned
 [issue schema](issue-schema.md); the JSON Schemas live in `.github/schemas/`.
 `docs/assets/dashboard/issues.js` renders concise issue rows and progressively
-expanded trace evidence from that contract. Both the metric and the static study
+expanded trace evidence from that contract. Rows show dataset/variable, status,
+criticality badge, type badge, issue and evidence in that order. Impact,
+criticality reasons and agent review remain in the expanded trace. Verified
+clauses without authored grouping share a row only for the same variable and
+exact source-file pair; all supporting checks and quotations remain available.
+Both the metric and the static study
 report count issues. The table separately counts unique supporting checks.
 Closed trace panels keep their full evidence out of the initial DOM. Opening a
 panel renders its complete trace once, including source context and check audit;

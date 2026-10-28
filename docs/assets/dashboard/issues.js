@@ -27,7 +27,7 @@ export function readReview(report) {
 
 export function findIssue(report, id) {
   return readReview(report).issues.find(
-    (i) => i.id === id || i.check_ids.includes(id),
+    (i) => i.id === id || i.aliases?.includes(id) || i.check_ids.includes(id),
   );
 }
 
@@ -191,7 +191,8 @@ export function issueTrace(issue, report) {
           .join("")}</details></details>`,
     )
     .join("");
-  return `<div class="finding-evidence"><section><h4>1. Rule comparison</h4>${comparisons}${quotes.length ? quotes.map(({ e }) => citation(e, report)).join("") : "<p>No source statements retained for this issue.</p>"}</section><section><h4>2. Data comparison</h4><p>${esc(impactText(issue, report))}</p>${data.length ? data.map(({ e, role }) => measurement(e, role)).join("") : "<p>No issue-specific data comparison.</p>"}</section>${issue.action ? `<section><h4>3. Proposed action</h4><p>${esc(issue.action)}</p></section>` : ""}<section><details class="issue-checks"><summary>${plural(checks.length, "supporting check")} and agent review</summary>${audit}</details></section><button class="text-link" data-finding="${esc(issue.id)}">Open evidence in workspace${issue.impact.subject_count ? ` (${plural(issue.impact.subject_count, "subject")})` : ""}</button></div>`;
+  const critical = criticalFinding(issue);
+  return `<div class="finding-evidence"><p><strong>Critical finding: ${esc(CRITICAL_LABELS[critical.status])}.</strong> ${esc(critical.reason)}</p><p>Agent review: ${esc(issue.review.replaceAll("_", " "))}</p><section><h4>1. Rule comparison</h4>${comparisons}${quotes.length ? quotes.map(({ e }) => citation(e, report)).join("") : "<p>No source statements retained for this issue.</p>"}</section><section><h4>2. Data comparison</h4><p>${esc(impactText(issue, report))}</p>${data.length ? data.map(({ e, role }) => measurement(e, role)).join("") : "<p>No issue-specific data comparison.</p>"}</section>${issue.action ? `<section><h4>3. Proposed action</h4><p>${esc(issue.action)}</p></section>` : ""}<section><details class="issue-checks"><summary>${plural(checks.length, "supporting check")} and agent review</summary>${audit}</details></section><button class="text-link" data-finding="${esc(issue.id)}">Open evidence in workspace${issue.impact.subject_count ? ` (${plural(issue.impact.subject_count, "subject")})` : ""}</button></div>`;
 }
 
 export function issueRow(issue, report) {
@@ -200,5 +201,5 @@ export function issueRow(issue, report) {
   );
   const rules = [...new Set(checks.map((c) => c.rule?.id).filter(Boolean))];
   const critical = criticalFinding(issue);
-  return `<tr class="review-issue" data-finding-id="${esc(issue.id)}"><th scope="row"><button class="text-link" data-finding="${esc(issue.id)}">${esc(issue.dataset + (issue.variable ? "." + issue.variable : ""))}</button><span class="rule-id">${esc(rules.join(", "))}</span></th><td class="issue-impact"><span class="status ${["conflict", "evidence", "inconsistent"].includes(issue.kind) ? "attention" : "neutral"}">${esc(issue.kind.replaceAll("_", " "))}</span><p>${esc(impactText(issue, report))}</p><small>Agent review: ${esc(issue.review.replaceAll("_", " "))}</small><small>${plural(checks.length, "supporting check")}</small></td><td class="issue-summary"><h3>${esc(issue.title)}</h3><p>${esc(issue.summary)}</p></td><td class="issue-critical"><span class="sr-only">Critical finding: </span><span class="status ${critical.status === "yes" ? "attention" : "neutral"}">${esc(CRITICAL_LABELS[critical.status])}</span><p>${esc(critical.reason)}</p></td><td class="issue-status"><span class="sr-only">Status: </span><span class="status attention">Under Review</span></td><td><details class="finding-trace"><summary>Trace evidence</summary><div data-issue-trace></div></details></td></tr>`;
+  return `<tr class="review-issue" data-finding-id="${esc(issue.id)}"><th scope="row"><button class="text-link" data-finding="${esc(issue.id)}">${esc(issue.dataset + (issue.variable ? "." + issue.variable : ""))}</button><span class="rule-id">${esc(rules.join(", "))}</span></th><td class="issue-status"><span class="sr-only">Status: </span><span class="status attention">Under Review</span></td><td class="issue-critical"><span class="sr-only">Critical finding: </span><span class="status ${critical.status === "yes" ? "attention" : "neutral"}">${esc(CRITICAL_LABELS[critical.status])}</span></td><td class="issue-type"><span class="sr-only">Type: </span><span class="status ${["conflict", "evidence", "inconsistent"].includes(issue.kind) ? "attention" : "neutral"}">${esc(issue.kind.replaceAll("_", " "))}</span></td><td class="issue-summary"><h3>${esc(issue.title)}</h3><p>${esc(issue.summary)}</p></td><td><details class="finding-trace"><summary>Trace evidence</summary><div data-issue-trace></div></details></td></tr>`;
 }
