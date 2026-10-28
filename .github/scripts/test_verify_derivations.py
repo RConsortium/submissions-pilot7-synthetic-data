@@ -32,6 +32,72 @@ def spec_file():
     return {"path": "s/adsl.yaml", "lines": SPEC.splitlines(), "spans": source_locations(SPEC)["spans"], "keys": ["USUBJID"], "revision": "r"}
 
 
+def layered_spec_file():
+    """Two template versions and a study entry, with the origin ledger the engine records for them."""
+    layers = {
+        "spec/yamaa/pilot-program/adx_v1.yaml": """columns:
+  - name: TRTSDT
+    label: Treatment start
+    derivation:
+      impute: {type: date, source: EX_MINDTC}
+  - {name: AGE, type: int, label: Age at screening, derivation: ADSL.AGE}
+intermediates:
+  - id: FIRST_DERM
+    dataset: ADAE
+    filter: "ADAE.AOCC01FL = 'Y'"
+    keep: first
+rows:
+  - id: base-ord
+    dataset: LB
+    derivations:
+      AVISIT: "'  Baseline'"
+      VISITNUM: LB.VISITNUM
+""",
+        "spec/yamaa/pilot-program/adx_v2.yaml": """columns:
+  - name: TRTSDT
+    label: Date of First Exposure to Treatment
+    derivation: {impute: {source: EX_STDTC}}
+  - {name: AGE, label: Age}
+intermediates:
+  - {id: FIRST_DERM, filter: "ADAE.AOCCIFL = 'Y'"}
+rows:
+  - id: base-ord
+    derivations:
+      AVISIT: "'Baseline'"
+""",
+        "s/spec/yamaa/adx.yaml": """columns:
+  - name: TRTSDT
+    submission:
+      comment: SV.SVSTDTC
+""",
+    }
+    v1, v2, entry = layers
+    written = {
+        "/columns/0": v1, "/columns/0/name": entry, "/columns/0/label": v2,
+        "/columns/0/derivation/value": v1, "/columns/0/derivation/value/impute": v1,
+        "/columns/0/derivation/value/impute/type": v1, "/columns/0/derivation/value/impute/source": v2,
+        "/columns/0/submission": entry, "/columns/0/submission/comment": entry,
+        "/columns/1": v1, "/columns/1/name": v2, "/columns/1/type": v1, "/columns/1/label": v2,
+        "/columns/1/derivation/value": v1,
+        "/intermediates/0": v1, "/intermediates/0/id": v2, "/intermediates/0/dataset": v1,
+        "/intermediates/0/filter": v2, "/intermediates/0/keep": v1,
+        "/rows/0": v1, "/rows/0/id": v2, "/rows/0/dataset": v1, "/rows/0/derivations": v1,
+        "/rows/0/derivations/AVISIT/value": v2, "/rows/0/derivations/VISITNUM/value": v1,
+    }
+    origins = {pointer: {"declaring_source": source, "source_kind": "authored", "generated": False}
+               for pointer, source in written.items()}
+    for pointer in ("/columns/0/derivation", "/columns/1/derivation", "/rows/0/derivations/AVISIT",
+                    "/rows/0/derivations/VISITNUM"):
+        origins[pointer] = {"declaring_source": v1, "source_kind": "authored", "generated": True}
+    packet = {
+        "model": {"columns": [{"name": "TRTSDT"}, {"name": "AGE"}], "intermediates": [{"id": "FIRST_DERM"}],
+                  "rows": [{"id": "base-ord"}]},
+        "sources": [{"path": path, "text": text} for path, text in layers.items()],
+        "origins": origins,
+    }
+    return {**spec_file(), "path": entry, "elements": vd.layered_elements(packet)}, (v1, v2, entry)
+
+
 def probe(differ, column="X"):
     return {"column": column, "reading": "literal", "reference": {"compared": 3, "differ": differ, "patterns": []}}
 
@@ -140,68 +206,7 @@ class CitationTests(unittest.TestCase):
 
     def test_a_layered_element_is_read_only_where_the_composition_keeps_it(self):
         # Seam: the engine's origin ledger, as recorded in a validation packet.
-        layers = {
-            "spec/yamaa/pilot-program/adx_v1.yaml": """columns:
-  - name: TRTSDT
-    label: Treatment start
-    derivation:
-      impute: {type: date, source: EX_MINDTC}
-  - {name: AGE, type: int, label: Age at screening, derivation: ADSL.AGE}
-intermediates:
-  - id: FIRST_DERM
-    dataset: ADAE
-    filter: "ADAE.AOCC01FL = 'Y'"
-    keep: first
-rows:
-  - id: base-ord
-    dataset: LB
-    derivations:
-      AVISIT: "'  Baseline'"
-      VISITNUM: LB.VISITNUM
-""",
-            "spec/yamaa/pilot-program/adx_v2.yaml": """columns:
-  - name: TRTSDT
-    label: Date of First Exposure to Treatment
-    derivation: {impute: {source: EX_STDTC}}
-  - {name: AGE, label: Age}
-intermediates:
-  - {id: FIRST_DERM, filter: "ADAE.AOCCIFL = 'Y'"}
-rows:
-  - id: base-ord
-    derivations:
-      AVISIT: "'Baseline'"
-""",
-            "s/spec/yamaa/adx.yaml": """columns:
-  - name: TRTSDT
-    submission:
-      comment: SV.SVSTDTC
-""",
-        }
-        v1, v2, entry = layers
-        written = {
-            "/columns/0": v1, "/columns/0/name": entry, "/columns/0/label": v2,
-            "/columns/0/derivation/value": v1, "/columns/0/derivation/value/impute": v1,
-            "/columns/0/derivation/value/impute/type": v1, "/columns/0/derivation/value/impute/source": v2,
-            "/columns/0/submission": entry, "/columns/0/submission/comment": entry,
-            "/columns/1": v1, "/columns/1/name": v2, "/columns/1/type": v1, "/columns/1/label": v2,
-            "/columns/1/derivation/value": v1,
-            "/intermediates/0": v1, "/intermediates/0/id": v2, "/intermediates/0/dataset": v1,
-            "/intermediates/0/filter": v2, "/intermediates/0/keep": v1,
-            "/rows/0": v1, "/rows/0/id": v2, "/rows/0/dataset": v1, "/rows/0/derivations": v1,
-            "/rows/0/derivations/AVISIT/value": v2, "/rows/0/derivations/VISITNUM/value": v1,
-        }
-        origins = {pointer: {"declaring_source": source, "source_kind": "authored", "generated": False}
-                   for pointer, source in written.items()}
-        for pointer in ("/columns/0/derivation", "/columns/1/derivation", "/rows/0/derivations/AVISIT",
-                        "/rows/0/derivations/VISITNUM"):
-            origins[pointer] = {"declaring_source": v1, "source_kind": "authored", "generated": True}
-        packet = {
-            "model": {"columns": [{"name": "TRTSDT"}, {"name": "AGE"}], "intermediates": [{"id": "FIRST_DERM"}],
-                      "rows": [{"id": "base-ord"}]},
-            "sources": [{"path": path, "text": text} for path, text in layers.items()],
-            "origins": origins,
-        }
-        layered = {**spec_file(), "path": entry, "elements": vd.layered_elements(packet)}
+        layered, (v1, v2, entry) = layered_spec_file()
         cases = [
             ("rule in its defining layer", "TRTSDT", "impute: {type: date,", (True, v1, [5, 5])),
             ("rule part a later layer writes", "TRTSDT", "source: EX_STDTC", (True, v2, [4, 4])),
@@ -221,6 +226,42 @@ rows:
             with self.subTest(case=label):
                 side = vd.spec_side(layered, element, quote)
                 self.assertEqual((side["verified"], side["path"], side["lines"]), expected, label)
+
+    def test_a_layered_excerpt_shows_only_the_text_the_composition_keeps(self):
+        # Seam: the excerpt a finding shows and its basis holds, from the origin ledger.
+        layered, (v1, v2, entry) = layered_spec_file()
+        cases = [
+            ("label and one rule part a later layer overrode", "TRTSDT", None, v1,
+             "  - name: TRTSDT\n"
+             "    (not kept in the resolved specification)\n"
+             "    derivation:\n"
+             "      impute: {type: date, source: (not kept in the resolved specification)}"),
+            ("rule part a later layer writes, quoted there", "TRTSDT", "source: EX_STDTC", v2,
+             "    derivation: {impute: {source: EX_STDTC}}"),
+            ("overridden label on a line the rule shares", "AGE", None, v1,
+             "  - {name: AGE, type: int, (not kept in the resolved specification), derivation: ADSL.AGE}"),
+            ("intermediate filter a later layer overrode, quoting the rest", "FIRST_DERM", "keep: first", v1,
+             "  - id: FIRST_DERM\n"
+             "    dataset: ADAE\n"
+             "    (not kept in the resolved specification)\n"
+             "    keep: first"),
+            ("row rule a later layer replaced", "base-ord", None, v1,
+             "  - id: base-ord\n"
+             "    dataset: LB\n"
+             "    derivations:\n"
+             "      (not kept in the resolved specification)\n"
+             "      VISITNUM: LB.VISITNUM"),
+        ]
+        for label, element, quote, path, excerpt in cases:
+            with self.subTest(case=label):
+                side = vd.spec_side(layered, element, quote)
+                self.assertEqual((side["path"], side["excerpt"]), (path, excerpt), label)
+        self.assertEqual(
+            vd.basis("CR-7", [], vd.spec_side(layered, "FIRST_DERM", "keep: first")),
+            'CR-7 | spec FIRST_DERM: "keep: first"'
+            ' | spec FIRST_DERM text: "- id: FIRST_DERM dataset: ADAE (not kept in the resolved specification) keep: first"',
+            "the basis holds the kept text, not the filter a later layer overrode",
+        )
 
 
 class FindingTests(unittest.TestCase):

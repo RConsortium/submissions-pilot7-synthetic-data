@@ -46,6 +46,8 @@ CLAIMS_VERSION = 2
 ADJUDICATION_VERSION = 1
 TOLERANCE = 1e-10  # The CDISC Pilot 01 numeric comparison policy.
 DEFINE = "spec/define/define-adam.xml"
+# Shown in a specification excerpt where the composition did not keep the text.
+NOT_KEPT = "(not kept in the resolved specification)"
 COPY = re.compile(r"([A-Z][A-Z0-9]*)\.([A-Z][A-Z0-9_]*)")
 QUALIFIED = re.compile(r"([A-Za-z_][A-Za-z0-9_]*)\.([A-Za-z_][A-Za-z0-9_]*)")
 # A clause relation and the rule its finding cites; same is no finding.
@@ -307,7 +309,8 @@ def layered_elements(packet):
     fields other layers still contribute, such as an entry's Define-XML
     metadata or one row template rule a later version replaces. Text in any
     of these layers that the composition replaced is blanked for quote
-    search, as kept_text blanks it, so it never verifies a quote.
+    search, as kept_text blanks it, so it never verifies a quote, and
+    spec_side marks it in the element's excerpt.
     """
     from study_dashboard.specifications import defining_sources, element_leaves, field_sources
 
@@ -335,12 +338,30 @@ def layered_elements(packet):
     return elements
 
 
+def mark_not_kept(line, kept):
+    """One specification line with each run of text kept_text blanked shown as NOT_KEPT.
+
+    Blanked parts separated only by spaces, such as a key and its value, are one
+    run. The line keeps its place, so an excerpt's line numbers still hold.
+    """
+    runs = []
+    for at in (i for i, (raw, shown) in enumerate(zip(line, kept)) if raw != shown):
+        if runs and not line[runs[-1][1] + 1 : at].strip():
+            runs[-1][1] = at
+        else:
+            runs.append([at, at])
+    for start, end in reversed(runs):
+        line = line[:start] + NOT_KEPT + line[end + 1 :]
+    return line
+
+
 def spec_side(spec_file, element, quote=None):
     """A specification element, and the lines of a quote inside it when given.
 
     A layered specification's element is read where the composition keeps it,
-    as layered_elements lists it. Text a later layer overrode never verifies a
-    quote.
+    as layered_elements lists it. Text the composition did not keep, such as
+    a rule a later layer overrode, never verifies a quote, and the excerpt,
+    which a finding's basis holds, marks it rather than showing it.
     """
     path, lines, spans, revision = spec_file["path"], spec_file["lines"], spec_file["spans"], spec_file["revision"]
     span = spans.get(element) if element else None
@@ -357,7 +378,8 @@ def spec_side(spec_file, element, quote=None):
         if quote is not None or element is not None:
             side.update(verified=False, reason=f"specification element {element} not found")
         return side
-    side.update(element_lines=[span["start"], span["end"]], excerpt="\n".join(lines[span["start"] - 1 : span["end"]]))
+    element_lines = range(span["start"] - 1, span["end"])
+    side.update(element_lines=[span["start"], span["end"]], excerpt="\n".join(mark_not_kept(lines[i], search[i]) for i in element_lines))
     shown = [span["start"], span["end"]]
     if quote is not None:
         found = locate_quote(search, span, quote)
