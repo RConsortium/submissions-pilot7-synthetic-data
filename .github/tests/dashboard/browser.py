@@ -48,6 +48,51 @@ def assert_page_fits(page, selector):
     }"""), selector + " clips the selected page of rows"
 
 
+def check_workbook(workbook):
+    """Exercise sheet selection, keyboard access and independent comparison tables."""
+    tabs = workbook.get_by_role('tablist', name='Worksheets').get_by_role('tab')
+    panels = workbook.locator('.workbook-sheet:visible')
+    expect(panels).to_have_count(1)
+    assert workbook.locator('body').evaluate(
+        'body => body.getBoundingClientRect().height <= innerHeight'
+    ), 'Worksheet controls and tables should fit within the viewer'
+    tabs.first.focus()
+    tabs.first.press('End')
+    expect(tabs.last).to_have_attribute('aria-selected', 'true')
+    expect(panels).to_have_count(1)
+    tabs.last.press('Home')
+    expect(tabs.first).to_have_attribute('aria-selected', 'true')
+    workbook.get_by_role('button', name='Compare worksheets', exact=True).click()
+    expect(panels).to_have_count(2)
+    tabs.nth(2).click()
+    expect(panels).to_have_count(3)
+    table = workbook.locator('#sheet-3 .workbook-table')
+    table.evaluate('table => table.scrollTop = 80')
+    offset = table.evaluate('table => table.scrollTop')
+    assert offset > 0, 'Worksheet tables scroll independently of the tabs'
+    assert workbook.locator('#sheet-1 .workbook-table').evaluate('table => table.scrollTop') == 0
+    tabs.nth(2).click()
+    expect(panels).to_have_count(2)
+    tabs.nth(2).click()
+    expect(panels).to_have_count(3)
+    assert table.evaluate('table => table.scrollTop') == offset
+    assert workbook.locator('[id]').evaluate_all(
+        'elements => new Set(elements.map(e => e.id)).size === elements.length'
+    ), 'Worksheet comparison must preserve unique citation anchors'
+    tabs.first.click()
+    tabs.nth(1).click()
+    tabs.nth(2).click()  # The last selected worksheet cannot be deselected.
+    expect(panels).to_have_count(1)
+    workbook.get_by_role('button', name='Close worksheet comparison', exact=True).click()
+    expect(panels).to_have_count(1)
+    expect(workbook.locator('#sheet-3')).to_be_visible()
+    tabs.nth(2).click()  # Selecting the current sheet keeps it open.
+    expect(panels).to_have_count(1)
+    workbook.locator('body').evaluate("() => location.hash = 'sheet-2-row-1'")
+    expect(workbook.locator('#sheet-2-row-1')).to_be_visible()
+    expect(panels).to_have_count(1)
+
+
 def displayed_source(page, specification):
     """The source document the specification pane shows."""
     view = page.locator("#spec-view").input_value()
@@ -722,6 +767,7 @@ def check(browser, base, site_dir, screenshots):
     assert workbook.locator("tbody tr").evaluate_all("""rows => rows.every(row =>
       [...row.querySelectorAll('td')].some(cell => cell.textContent.trim())
     )"""), "Workbook tables should omit blank rows"
+    check_workbook(workbook)
     capture(page, screenshots, "excel-source-tables.png")
     page.get_by_role("tablist", name="Document 1 files", exact=True).get_by_role("tab", name="define-adam.xml", exact=True).click()
     expect(page.frame_locator("#source-frame").locator("table").first).to_be_visible()
