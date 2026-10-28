@@ -11,20 +11,20 @@ keys:
 input:
   QS:
     path: ../../../data/sdtm/qs.parquet
-    relative_to: declaring
-    empty_string: missing
+    relative_to: entry
+    empty_string: present
   ADSL:
     path: ../../../data/adam/adsl-yamaa.parquet
-    relative_to: declaring
+    relative_to: entry
     schema: adsl.yaml
-    empty_string: missing
+    empty_string: present
     key:
     - STUDYID
     - USUBJID
 base: QS
 output:
   path: ../../../data/adam/adadas-yamaa.parquet
-  relative_to: declaring
+  relative_to: entry
   columns:
   - STUDYID
   - SITEID
@@ -66,15 +66,34 @@ output:
   - AWHI
   - AWU
   - QSSEQ
+  order_by:
+  - variable: USUBJID
+    direction: asc
+    nulls: last
+  - variable: PARAMCD
+    direction: asc
+    nulls: last
+  - variable: AVISIT
+    direction: asc
+    nulls: last
+  - variable: ADT
+    direction: asc
+    nulls: last
 intermediates:
 - id: DONOR8
   dataset: SELF
   key:
   - STUDYID
   - USUBJID
-  filter: PARAMCD = 'ACTOT' AND ANL01FL = 'Y' AND AVISITN <= 8
+  filter: SELF.PARAMCD = 'ACTOT' AND SELF.ANL01FL = 'Y' AND SELF.AVISITN <= 8
   order_by:
-  - variable: AVISITN
+  - variable: SELF.AVISITN
+    direction: desc
+    nulls: last
+  - variable: SELF.ADY
+    direction: desc
+    nulls: last
+  - variable: SELF.QSSEQ
     direction: desc
     nulls: last
   keep: first
@@ -91,9 +110,15 @@ intermediates:
   key:
   - STUDYID
   - USUBJID
-  filter: PARAMCD = 'ACTOT' AND ANL01FL = 'Y' AND AVISITN <= 16
+  filter: SELF.PARAMCD = 'ACTOT' AND SELF.ANL01FL = 'Y' AND SELF.AVISITN <= 16
   order_by:
-  - variable: AVISITN
+  - variable: SELF.AVISITN
+    direction: desc
+    nulls: last
+  - variable: SELF.ADY
+    direction: desc
+    nulls: last
+  - variable: SELF.QSSEQ
     direction: desc
     nulls: last
   keep: first
@@ -110,9 +135,15 @@ intermediates:
   key:
   - STUDYID
   - USUBJID
-  filter: PARAMCD = 'ACTOT' AND ANL01FL = 'Y' AND AVISITN <= 24
+  filter: SELF.PARAMCD = 'ACTOT' AND SELF.ANL01FL = 'Y' AND SELF.AVISITN <= 24
   order_by:
-  - variable: AVISITN
+  - variable: SELF.AVISITN
+    direction: desc
+    nulls: last
+  - variable: SELF.ADY
+    direction: desc
+    nulls: last
+  - variable: SELF.QSSEQ
     direction: desc
     nulls: last
   keep: first
@@ -136,6 +167,18 @@ columns:
     origins:
     - type: Predecessor
       description: ADSL.STUDYID
+- name: USUBJID
+  type: str
+  label: Unique Subject Identifier
+  derivation: QS.USUBJID
+  submission:
+    key_sequence: 1
+    mandatory: false
+    data_type: text
+    length: 11
+    origins:
+    - type: Predecessor
+      description: ADSL.USUBJID
 - name: SITEID
   type: str
   label: Study Site Identifier
@@ -158,18 +201,6 @@ columns:
     origins:
     - type: Predecessor
       description: ADSL.SITEGR1
-- name: USUBJID
-  type: str
-  label: Unique Subject Identifier
-  derivation: QS.USUBJID
-  submission:
-    key_sequence: 1
-    mandatory: false
-    data_type: text
-    length: 11
-    origins:
-    - type: Predecessor
-      description: ADSL.USUBJID
 - name: TRTSDT
   type: date
   label: Date of First Exposure to Treatment
@@ -325,88 +356,6 @@ columns:
     origins:
     - type: Predecessor
       description: ADSL.COMP24FL
-- name: AVISIT
-  type: str
-  label: Analysis Visit
-  submission:
-    key_sequence: 3
-    mandatory: false
-    data_type: text
-    length: 16
-    codelist: AVISIT
-    origins:
-    - type: Derived
-    method:
-      name: Algorithm to derive ADADAS.AVISIT
-      type: Computation
-      description: Derived based on windowing algorithm described in SAP, Section
-        8.2
-- name: AVISITN
-  type: float
-  label: Analysis Visit (N)
-  submission:
-    mandatory: false
-    data_type: integer
-    length: 8
-    codelist: AVISITN
-    origins:
-    - type: Assigned
-    method:
-      name: Algorithm to derive ADADAS.AVISITN
-      type: Computation
-      description: Numeric code for AVISIT
-- name: VISIT
-  type: str
-  label: Visit Name
-  submission:
-    mandatory: false
-    data_type: text
-    length: 19
-    codelist: VISIT
-    origins:
-    - type: Predecessor
-      description: QS.VISIT
-- name: VISITNUM
-  type: float
-  label: Visit Number
-  submission:
-    mandatory: false
-    data_type: float
-    length: 8
-    significant_digits: 1
-    codelist: VISITNUM
-    origins:
-    - type: Predecessor
-      description: QS.VISITNUM
-- name: ADY
-  type: float
-  label: Analysis Relative Day
-  submission:
-    mandatory: false
-    data_type: integer
-    length: 8
-    origins:
-    - type: Derived
-    method:
-      name: Algorithm to derive ADADAS.ADY
-      type: Computation
-      description: ADY = ADT - TRTSDT + 1, if ADT>=TRTSDT. ADY = ADT - TRTSDT, if
-        ADT<TRTSDT.
-- name: ADT
-  type: date
-  label: Analysis Date
-  submission:
-    key_sequence: 4
-    mandatory: false
-    data_type: integer
-    length: 8
-    display_format: DATE9.
-    origins:
-    - type: Derived
-    method:
-      name: Algorithm to derive ADADAS.ADT
-      type: Computation
-      description: SAS date from QS.QSDTC
 - name: PARAMCD
   type: str
   label: Parameter Code
@@ -481,6 +430,40 @@ columns:
     origins:
     - type: Assigned
     comment: Assign a numeric code for each value of PARAMCD (see codelist PARAMN_ADQSADAS)
+- name: ABLFL
+  type: str
+  label: Baseline Record Flag
+  submission:
+    mandatory: false
+    data_type: text
+    length: 1
+    origins:
+    - type: Predecessor
+      description: QS.QSBLFL
+- name: DTYPE
+  type: str
+  label: Derivation Type
+  submission:
+    mandatory: false
+    data_type: text
+    length: 7
+    codelist: DTYPE
+    origins:
+    - type: Derived
+    method:
+      name: Algorithm to derive ADADAS.DTYPE
+      type: Computation
+      description: Set to "LOCF" if a record is imputated when PARAMCD="ACTOT"; otherwise,
+        set to missing
+- name: _HIT
+  type: float
+  label: QSSEQ of an observed ANL01FL record at the LOCF visit, if any (internal)
+- name: _SRC_QSSEQ
+  type: float
+  label: carried QSSEQ (internal)
+- name: _SRC_AVAL
+  type: float
+  label: carried AVAL (internal)
 - name: AVAL
   type: float
   label: Analysis Value
@@ -722,46 +705,71 @@ columns:
         type: Computation
         description: Sum of ADAS scores for items 1, 2, 4, 5, 6, 7, 8, 11, 12, 13,
           and 14, see SAP section 14.2 for details on adjusting for missing values
-- name: ABLFL
-  type: str
-  label: Baseline Record Flag
+- name: _SRC_ADY
+  type: float
+  label: carried ADY (internal)
+- name: _SRC_ADT
+  type: date
+  label: carried ADT (internal)
+- name: ADT
+  type: date
+  label: Analysis Date
   submission:
+    key_sequence: 4
     mandatory: false
-    data_type: text
-    length: 1
-    origins:
-    - type: Predecessor
-      description: QS.QSBLFL
-- name: ANL01FL
-  type: str
-  label: Analysis Flag 01
-  submission:
-    mandatory: false
-    data_type: text
-    length: 1
+    data_type: integer
+    length: 8
+    display_format: DATE9.
     origins:
     - type: Derived
     method:
-      name: Algorithm to derive ADADAS.ANL01FL
+      name: Algorithm to derive ADADAS.ADT
       type: Computation
-      description: If multiple visits fall into the same visit window, then the one
-        closest to the target date is chosen for analysis. These are flagged with
-        ANL01FL="Y".
-- name: DTYPE
-  type: str
-  label: Derivation Type
+      description: SAS date from QS.QSDTC
+- name: ADY
+  type: float
+  label: Analysis Relative Day
   submission:
     mandatory: false
-    data_type: text
-    length: 7
-    codelist: DTYPE
+    data_type: integer
+    length: 8
     origins:
     - type: Derived
     method:
-      name: Algorithm to derive ADADAS.DTYPE
+      name: Algorithm to derive ADADAS.ADY
       type: Computation
-      description: Set to "LOCF" if a record is imputated when PARAMCD="ACTOT"; otherwise,
-        set to missing
+      description: ADY = ADT - TRTSDT + 1, if ADT>=TRTSDT. ADY = ADT - TRTSDT, if
+        ADT<TRTSDT.
+- name: AVISIT
+  type: str
+  label: Analysis Visit
+  submission:
+    key_sequence: 3
+    mandatory: false
+    data_type: text
+    length: 16
+    codelist: AVISIT
+    origins:
+    - type: Derived
+    method:
+      name: Algorithm to derive ADADAS.AVISIT
+      type: Computation
+      description: Derived based on windowing algorithm described in SAP, Section
+        8.2
+- name: AVISITN
+  type: float
+  label: Analysis Visit (N)
+  submission:
+    mandatory: false
+    data_type: integer
+    length: 8
+    codelist: AVISITN
+    origins:
+    - type: Assigned
+    method:
+      name: Algorithm to derive ADADAS.AVISITN
+      type: Computation
+      description: Numeric code for AVISIT
 - name: AWTARGET
   type: float
   label: Analysis Window Target
@@ -789,27 +797,50 @@ columns:
   type: float
   label: rank by window closeness within subject-param-visit (internal)
   derivation: 1.0
-- name: _HIT
-  type: float
-  label: QSSEQ of an observed ANL01FL record at the LOCF visit, if any (internal)
-- name: _SRC_QSSEQ
-  type: float
-  label: carried QSSEQ (internal)
-- name: _SRC_AVAL
-  type: float
-  label: carried AVAL (internal)
-- name: _SRC_ADY
-  type: float
-  label: carried ADY (internal)
-- name: _SRC_ADT
-  type: date
-  label: carried ADT (internal)
+- name: ANL01FL
+  type: str
+  label: Analysis Flag 01
+  submission:
+    mandatory: false
+    data_type: text
+    length: 1
+    origins:
+    - type: Derived
+    method:
+      name: Algorithm to derive ADADAS.ANL01FL
+      type: Computation
+      description: If multiple visits fall into the same visit window, then the one
+        closest to the target date is chosen for analysis. These are flagged with
+        ANL01FL="Y".
 - name: _SRC_VISIT
   type: str
   label: carried VISIT (internal)
+- name: VISIT
+  type: str
+  label: Visit Name
+  submission:
+    mandatory: false
+    data_type: text
+    length: 19
+    codelist: VISIT
+    origins:
+    - type: Predecessor
+      description: QS.VISIT
 - name: _SRC_VISITNUM
   type: float
   label: carried VISITNUM (internal)
+- name: VISITNUM
+  type: float
+  label: Visit Number
+  submission:
+    mandatory: false
+    data_type: float
+    length: 8
+    significant_digits: 1
+    codelist: VISITNUM
+    origins:
+    - type: Predecessor
+      description: QS.VISITNUM
 - name: QSSEQ
   type: float
   label: Sequence Number
@@ -1019,7 +1050,7 @@ rows:
         true_value: Y
         false_value: ''
         missing: ''
-    DTYPE: ''''''
+    DTYPE: null
     _HIT: null
     _SRC_QSSEQ: null
     _SRC_AVAL: null

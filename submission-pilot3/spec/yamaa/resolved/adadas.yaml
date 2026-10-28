@@ -6,40 +6,25 @@ keys:
 - STUDYID
 - USUBJID
 - PARAMCD
-- AVISIT
-- ADT
+- AVISITN
+- QSSEQ
 input:
   QS:
     path: ../../../data/sdtm/qs.parquet
-    relative_to: declaring
-    empty_string: missing
+    relative_to: entry
+    empty_string: present
+  ADSL:
+    path: ../../../data/adam/adsl-yamaa.parquet
+    relative_to: entry
+    schema: adsl.yaml
+    empty_string: present
     key:
     - STUDYID
     - USUBJID
-  ADSL:
-    path: ../../../data/adam/adsl-yamaa.parquet
-    relative_to: declaring
-    schema: adsl.yaml
-    empty_string: missing
-    key:
-    - USUBJID
-  PLAN:
-    path: ../../../data/mapping/plan.csv
-    relative_to: declaring
-    types:
-      AVISITN: int
-    empty_string: missing
-  AW:
-    path: ../../../data/mapping/analysis_window.csv
-    relative_to: declaring
-    types:
-      AWTARGET: int
-      AWLO: int
-      AWHI: int
-    empty_string: missing
+base: QS
 output:
   path: ../../../data/adam/adadas-yamaa.parquet
-  relative_to: declaring
+  relative_to: entry
   columns:
   - STUDYID
   - SITEID
@@ -81,18 +66,114 @@ output:
   - AWHI
   - AWU
   - QSSEQ
+  order_by:
+  - variable: _RECORD_GROUP
+    direction: asc
+    nulls: last
+  - variable: USUBJID
+    direction: asc
+    nulls: last
+  - variable: PARAMCD
+    direction: asc
+    nulls: last
+  - variable: _VISIT_ORDER
+    direction: asc
+    nulls: last
+  - variable: ADT
+    direction: asc
+    nulls: last
 intermediates:
-- id: AW_LOOKUP
-  dataset: AW
+- id: DONOR8
+  dataset: SELF
   key:
-  - AVISIT
+  - STUDYID
+  - USUBJID
+  filter: SELF.PARAMCD = 'ACTOT' AND SELF.ANL01FL = 'Y' AND SELF.AVISITN <= 8
+  order_by:
+  - variable: SELF.AVISITN
+    direction: desc
+    nulls: last
+  - variable: SELF.ADY
+    direction: desc
+    nulls: last
+  - variable: SELF.QSSEQ
+    direction: desc
+    nulls: last
+  keep: first
+  columns:
+  - QSSEQ
+  - AVAL
+  - ADY
+  - ADT
+  - VISIT
+  - VISITNUM
+  - AVISITN
+- id: DONOR16
+  dataset: SELF
+  key:
+  - STUDYID
+  - USUBJID
+  filter: SELF.PARAMCD = 'ACTOT' AND SELF.ANL01FL = 'Y' AND SELF.AVISITN <= 16
+  order_by:
+  - variable: SELF.AVISITN
+    direction: desc
+    nulls: last
+  - variable: SELF.ADY
+    direction: desc
+    nulls: last
+  - variable: SELF.QSSEQ
+    direction: desc
+    nulls: last
+  keep: first
+  columns:
+  - QSSEQ
+  - AVAL
+  - ADY
+  - ADT
+  - VISIT
+  - VISITNUM
+  - AVISITN
+- id: DONOR24
+  dataset: SELF
+  key:
+  - STUDYID
+  - USUBJID
+  filter: SELF.PARAMCD = 'ACTOT' AND SELF.ANL01FL = 'Y' AND SELF.AVISITN <= 24
+  order_by:
+  - variable: SELF.AVISITN
+    direction: desc
+    nulls: last
+  - variable: SELF.ADY
+    direction: desc
+    nulls: last
+  - variable: SELF.QSSEQ
+    direction: desc
+    nulls: last
+  keep: first
+  columns:
+  - QSSEQ
+  - AVAL
+  - ADY
+  - ADT
+  - VISIT
+  - VISITNUM
+  - AVISITN
 columns:
-- name: ROWSRC
-  type: int
-  label: Rowsrc (helper)
+- name: STUDYID
+  type: str
+  label: Study Identifier
+  derivation: QS.STUDYID
+  submission:
+    mandatory: false
+    data_type: text
+    length: 12
+    origins:
+    - type: Predecessor
+      description: ADSL.STUDYID
 - name: USUBJID
   type: str
   label: Unique Subject Identifier
+  derivation: QS.USUBJID
   submission:
     key_sequence: 1
     mandatory: false
@@ -101,109 +182,6 @@ columns:
     origins:
     - type: Predecessor
       description: ADSL.USUBJID
-- name: PARAMCD
-  type: str
-  label: Parameter Code
-  submission:
-    key_sequence: 2
-    mandatory: false
-    data_type: text
-    length: 8
-    codelist: PARAMCD_ADQSADAS
-    origins:
-    - type: Predecessor
-      description: QS.QSTESTCD
-- name: ADT_RAW
-  type: date
-  label: Adt Raw (helper)
-- name: PLAN_AVISIT
-  type: str
-  label: Planned Analysis Visit (helper)
-- name: ABLFL
-  type: str
-  label: Baseline Record Flag
-  submission:
-    mandatory: false
-    data_type: text
-    length: 1
-    origins:
-    - type: Predecessor
-      description: QS.QSBLFL
-- name: VISIT_RAW
-  type: str
-  label: Visit Raw (helper)
-- name: VISITNUM_RAW
-  type: float
-  label: Visitnum Raw (helper)
-- name: QSSEQ_RAW
-  type: float
-  label: Qsseq Raw (helper)
-- name: AVAL_RAW
-  type: float
-  label: Aval Raw (helper)
-- name: TRTSDT
-  type: date
-  label: Date of First Exposure to Treatment
-  derivation: ADSL.TRTSDT
-  submission:
-    mandatory: false
-    data_type: integer
-    length: 8
-    display_format: DATE9.
-    origins:
-    - type: Predecessor
-      description: ADSL.TRTSDT
-- name: ADY_RAW
-  type: float
-  label: Ady Raw (helper)
-  derivation:
-    study_day:
-      source: ADT_RAW
-      reference: TRTSDT
-- name: AVISIT
-  type: str
-  label: Analysis Visit
-  derivation:
-    case:
-    - when: ROWSRC = 1
-      then: PLAN_AVISIT
-    - otherwise:
-        cut:
-          source: ADY_RAW
-          breaks:
-          - 1
-          - 84
-          - 140
-          labels:
-          - Baseline
-          - Week 8
-          - Week 16
-          - Week 24
-          closed: right
-  submission:
-    key_sequence: 3
-    mandatory: false
-    data_type: text
-    length: 16
-    codelist: AVISIT
-    origins:
-    - type: Derived
-    method:
-      name: Algorithm to derive ADADAS.AVISIT
-      type: Computation
-      description: Derived based on windowing algorithm described in SAP, Section
-        8.2
-- name: STUDYID
-  type: str
-  label: Study Identifier
-  derivation: ADSL.STUDYID
-  submission:
-    mandatory: false
-    data_type: text
-    length: 12
-    origins:
-    - type: Predecessor
-      description: ADSL.STUDYID
 - name: SITEID
   type: str
   label: Study Site Identifier
@@ -226,6 +204,18 @@ columns:
     origins:
     - type: Predecessor
       description: ADSL.SITEGR1
+- name: TRTSDT
+  type: date
+  label: Date of First Exposure to Treatment
+  derivation: ADSL.TRTSDT
+  submission:
+    mandatory: false
+    data_type: integer
+    length: 8
+    display_format: DATE9.
+    origins:
+    - type: Predecessor
+      description: ADSL.TRTSDT
 - name: TRTEDT
   type: date
   label: Date of Last Exposure to Treatment
@@ -369,6 +359,18 @@ columns:
     origins:
     - type: Predecessor
       description: ADSL.COMP24FL
+- name: PARAMCD
+  type: str
+  label: Parameter Code
+  submission:
+    key_sequence: 2
+    mandatory: false
+    data_type: text
+    length: 8
+    codelist: PARAMCD_ADQSADAS
+    origins:
+    - type: Predecessor
+      description: QS.QSTESTCD
 - name: PARAM
   type: str
   label: Parameter
@@ -431,348 +433,43 @@ columns:
     origins:
     - type: Assigned
     comment: Assign a numeric code for each value of PARAMCD (see codelist PARAMN_ADQSADAS)
-- name: AVISITN
-  type: float
-  label: Analysis Visit (N)
-  derivation:
-    mapping:
-      source: AVISIT
-      dict:
-        Baseline: 0.0
-        Week 8: 8.0
-        Week 16: 16.0
-        Week 24: 24.0
-      case_sensitive: true
-  submission:
-    mandatory: false
-    data_type: integer
-    length: 8
-    codelist: AVISITN
-    origins:
-    - type: Assigned
-    method:
-      name: Algorithm to derive ADADAS.AVISITN
-      type: Computation
-      description: Numeric code for AVISIT
-- name: AWRANGE
+- name: ABLFL
   type: str
-  label: Analysis Window Valid Relative Range
-  derivation: AW_LOOKUP.AWRANGE
-  submission:
-    mandatory: false
-    data_type: text
-    length: 9
-    origins:
-    - type: Assigned
-    comment: Window range, specified in the SAP.
-- name: AWTARGET
-  type: float
-  label: Analysis Window Target
-  derivation: AW_LOOKUP.AWTARGET
-  submission:
-    mandatory: false
-    data_type: integer
-    length: 8
-    origins:
-    - type: Assigned
-    comment: Target day within the window, specified in the SAP.
-- name: AWLO
-  type: float
-  label: Analysis Window Beginning Timepoint
-  derivation: AW_LOOKUP.AWLO
-  submission:
-    mandatory: false
-    data_type: integer
-    length: 8
-    origins:
-    - type: Assigned
-    comment: Start day of the window, specified in the SAP.
-- name: AWHI
-  type: float
-  label: Analysis Window Ending Timepoint
-  derivation: AW_LOOKUP.AWHI
-  submission:
-    mandatory: false
-    data_type: integer
-    length: 8
-    origins:
-    - type: Assigned
-    comment: End day of the window, specified in the SAP.
-- name: AWU
-  type: str
-  label: Analysis Window Unit
-  derivation: '''DAYS'''
-  submission:
-    mandatory: false
-    data_type: text
-    length: 4
-    codelist: AWU
-    origins:
-    - type: Assigned
-    comment: Assigned as "DAYS".
-- name: AWTDIFF_RAW
-  type: float
-  label: Awtdiff Raw (helper)
-  derivation: ABS(AWTARGET - ADY_RAW)
-- name: DIFF_RAW
-  type: float
-  label: Diff Raw (helper)
-  derivation: AWTARGET - ADY_RAW
-- name: ANL01_RN
-  type: int
-  label: Anl01 Rn (helper)
-  derivation:
-    row_number:
-      window:
-        group_by:
-        - USUBJID
-        - PARAMCD
-        - AVISIT
-        order_by:
-        - variable: AWTDIFF_RAW
-          direction: asc
-          nulls: last
-        - variable: DIFF_RAW
-          direction: asc
-          nulls: last
-        filter: ROWSRC = 0
-- name: ANL01FL
-  type: str
-  label: Analysis Flag 01
-  derivation:
-    case:
-    - when: ROWSRC = 1
-      then: '''Y'''
-    - when: ANL01_RN = 1
-      then: '''Y'''
-    - otherwise: null
+  label: Baseline Record Flag
   submission:
     mandatory: false
     data_type: text
     length: 1
     origins:
-    - type: Derived
-    method:
-      name: Algorithm to derive ADADAS.ANL01FL
-      type: Computation
-      description: If multiple visits fall into the same visit window, then the one
-        closest to the target date is chosen for analysis. These are flagged with
-        ANL01FL="Y".
-- name: ADT_Y
-  type: date
-  label: Adt Y (helper)
-  derivation:
-    case:
-    - when: ANL01FL = 'Y'
-      then: ADT_RAW
-    - otherwise: null
-- name: ADY_Y
-  type: float
-  label: Ady Y (helper)
-  derivation:
-    case:
-    - when: ANL01FL = 'Y'
-      then: ADY_RAW
-    - otherwise: null
-- name: VISIT_Y
+    - type: Predecessor
+      description: QS.QSBLFL
+- name: DTYPE
   type: str
-  label: Visit Y (helper)
-  derivation:
-    case:
-    - when: ANL01FL = 'Y'
-      then: VISIT_RAW
-    - otherwise: null
-- name: VISITNUM_Y
-  type: float
-  label: Visitnum Y (helper)
-  derivation:
-    case:
-    - when: ANL01FL = 'Y'
-      then: VISITNUM_RAW
-    - otherwise: null
-- name: QSSEQ_Y
-  type: float
-  label: Qsseq Y (helper)
-  derivation:
-    case:
-    - when: ANL01FL = 'Y'
-      then: QSSEQ_RAW
-    - otherwise: null
-- name: AVAL_Y
-  type: float
-  label: Aval Y (helper)
-  derivation:
-    case:
-    - when: ANL01FL = 'Y'
-      then: AVAL_RAW
-    - otherwise: null
-- name: ADT
-  type: date
-  label: Analysis Date
-  derivation:
-    case:
-    - when: ROWSRC = 1
-      then:
-        locf:
-          source: ADT_Y
-          include_current: true
-          window:
-            group_by:
-            - STUDYID
-            - USUBJID
-            - PARAMCD
-            order_by:
-            - variable: AVISITN
-              direction: asc
-              nulls: last
-    - otherwise: ADT_RAW
-  submission:
-    key_sequence: 4
-    mandatory: false
-    data_type: integer
-    length: 8
-    display_format: DATE9.
-    origins:
-    - type: Derived
-    method:
-      name: Algorithm to derive ADADAS.ADT
-      type: Computation
-      description: SAS date from QS.QSDTC
-- name: ADY
-  type: float
-  label: Analysis Relative Day
-  derivation:
-    case:
-    - when: ROWSRC = 1
-      then:
-        locf:
-          source: ADY_Y
-          include_current: true
-          window:
-            group_by:
-            - STUDYID
-            - USUBJID
-            - PARAMCD
-            order_by:
-            - variable: AVISITN
-              direction: asc
-              nulls: last
-    - otherwise: ADY_RAW
-  submission:
-    mandatory: false
-    data_type: integer
-    length: 8
-    origins:
-    - type: Derived
-    method:
-      name: Algorithm to derive ADADAS.ADY
-      type: Computation
-      description: ADY = ADT - TRTSDT + 1, if ADT>=TRTSDT. ADY = ADT - TRTSDT, if
-        ADT<TRTSDT.
-- name: VISIT
-  type: str
-  label: Visit Name
-  derivation:
-    case:
-    - when: ROWSRC = 1
-      then:
-        locf:
-          source: VISIT_Y
-          include_current: true
-          window:
-            group_by:
-            - STUDYID
-            - USUBJID
-            - PARAMCD
-            order_by:
-            - variable: AVISITN
-              direction: asc
-              nulls: last
-    - otherwise: VISIT_RAW
+  label: Derivation Type
   submission:
     mandatory: false
     data_type: text
-    length: 19
-    codelist: VISIT
+    length: 7
+    codelist: DTYPE
     origins:
-    - type: Predecessor
-      description: QS.VISIT
-- name: VISITNUM
+    - type: Derived
+    method:
+      name: Algorithm to derive ADADAS.DTYPE
+      type: Computation
+      description: Set to "LOCF" if a record is imputated when PARAMCD="ACTOT"; otherwise,
+        set to missing
+- name: _HIT
   type: float
-  label: Visit Number
-  derivation:
-    case:
-    - when: ROWSRC = 1
-      then:
-        locf:
-          source: VISITNUM_Y
-          include_current: true
-          window:
-            group_by:
-            - STUDYID
-            - USUBJID
-            - PARAMCD
-            order_by:
-            - variable: AVISITN
-              direction: asc
-              nulls: last
-    - otherwise: VISITNUM_RAW
-  submission:
-    mandatory: false
-    data_type: float
-    length: 8
-    significant_digits: 1
-    codelist: VISITNUM
-    origins:
-    - type: Predecessor
-      description: QS.VISITNUM
-- name: QSSEQ
+  label: QSSEQ of an observed ANL01FL record at the LOCF visit, if any (internal)
+- name: _SRC_QSSEQ
   type: float
-  label: Sequence Number
-  derivation:
-    case:
-    - when: ROWSRC = 1
-      then:
-        locf:
-          source: QSSEQ_Y
-          include_current: true
-          window:
-            group_by:
-            - STUDYID
-            - USUBJID
-            - PARAMCD
-            order_by:
-            - variable: AVISITN
-              direction: asc
-              nulls: last
-    - otherwise: QSSEQ_RAW
-  submission:
-    mandatory: false
-    data_type: integer
-    length: 8
-    origins:
-    - type: Predecessor
-      description: QS.QSSEQ
+  label: carried QSSEQ (internal)
+- name: _SRC_AVAL
+  type: float
+  label: carried AVAL (internal)
 - name: AVAL
   type: float
   label: Analysis Value
-  derivation:
-    case:
-    - when: ROWSRC = 1
-      then:
-        locf:
-          source: AVAL_Y
-          include_current: true
-          window:
-            group_by:
-            - STUDYID
-            - USUBJID
-            - PARAMCD
-            order_by:
-            - variable: AVISITN
-              direction: asc
-              nulls: last
-    - otherwise: AVAL_RAW
   submission:
     mandatory: false
     data_type: float
@@ -1011,10 +708,84 @@ columns:
         type: Computation
         description: Sum of ADAS scores for items 1, 2, 4, 5, 6, 7, 8, 11, 12, 13,
           and 14, see SAP section 14.2 for details on adjusting for missing values
+- name: _SRC_ADY
+  type: float
+  label: carried ADY (internal)
+- name: _SRC_ADT
+  type: date
+  label: carried ADT (internal)
+- name: ADT
+  type: date
+  label: Analysis Date
+  submission:
+    key_sequence: 4
+    mandatory: false
+    data_type: integer
+    length: 8
+    display_format: DATE9.
+    origins:
+    - type: Derived
+    method:
+      name: Algorithm to derive ADADAS.ADT
+      type: Computation
+      description: SAS date from QS.QSDTC
+- name: ADY
+  type: float
+  label: Analysis Relative Day
+  submission:
+    mandatory: false
+    data_type: integer
+    length: 8
+    origins:
+    - type: Derived
+    method:
+      name: Algorithm to derive ADADAS.ADY
+      type: Computation
+      description: ADY = ADT - TRTSDT + 1, if ADT>=TRTSDT. ADY = ADT - TRTSDT, if
+        ADT<TRTSDT.
+- name: AVISIT
+  type: str
+  label: Analysis Visit
+  submission:
+    key_sequence: 3
+    mandatory: false
+    data_type: text
+    length: 16
+    codelist: AVISIT
+    origins:
+    - type: Derived
+    method:
+      name: Algorithm to derive ADADAS.AVISIT
+      type: Computation
+      description: Derived based on windowing algorithm described in SAP, Section
+        8.2
+- name: AVISITN
+  type: float
+  label: Analysis Visit (N)
+  submission:
+    mandatory: false
+    data_type: integer
+    length: 8
+    codelist: AVISITN
+    origins:
+    - type: Assigned
+    method:
+      name: Algorithm to derive ADADAS.AVISITN
+      type: Computation
+      description: Numeric code for AVISIT
+- name: AWTARGET
+  type: float
+  label: Analysis Window Target
+  submission:
+    mandatory: false
+    data_type: integer
+    length: 8
+    origins:
+    - type: Assigned
+    comment: Target day within the window, specified in the SAP.
 - name: AWTDIFF
   type: float
   label: Analysis Window Diff from Target
-  derivation: ABS(AWTARGET - ADY)
   submission:
     mandatory: false
     data_type: integer
@@ -1022,6 +793,136 @@ columns:
     origins:
     - type: Assigned
     comment: Absolute difference between AWTARGET and ADY
+- name: _DIFF
+  type: float
+  label: signed AWTARGET-ADY (internal)
+- name: _RN_ANL
+  type: float
+  label: rank by window closeness within subject-param-visit (internal)
+  derivation: 1.0
+- name: ANL01FL
+  type: str
+  label: Analysis Flag 01
+  submission:
+    mandatory: false
+    data_type: text
+    length: 1
+    origins:
+    - type: Derived
+    method:
+      name: Algorithm to derive ADADAS.ANL01FL
+      type: Computation
+      description: If multiple visits fall into the same visit window, then the one
+        closest to the target date is chosen for analysis. These are flagged with
+        ANL01FL="Y".
+- name: _SRC_VISIT
+  type: str
+  label: carried VISIT (internal)
+- name: VISIT
+  type: str
+  label: Visit Name
+  submission:
+    mandatory: false
+    data_type: text
+    length: 19
+    codelist: VISIT
+    origins:
+    - type: Predecessor
+      description: QS.VISIT
+- name: _SRC_VISITNUM
+  type: float
+  label: carried VISITNUM (internal)
+- name: VISITNUM
+  type: float
+  label: Visit Number
+  submission:
+    mandatory: false
+    data_type: float
+    length: 8
+    significant_digits: 1
+    codelist: VISITNUM
+    origins:
+    - type: Predecessor
+      description: QS.VISITNUM
+- name: QSSEQ
+  type: float
+  label: Sequence Number
+  submission:
+    mandatory: false
+    data_type: integer
+    length: 8
+    origins:
+    - type: Predecessor
+      description: QS.QSSEQ
+- name: AWRANGE
+  type: str
+  label: Analysis Window Valid Relative Range
+  derivation:
+    mapping:
+      source: AVISIT
+      dict:
+        Baseline: <=1
+        Week 8: 2-84
+        Week 16: 85-140
+        Week 24: '>140'
+      case_sensitive: true
+  submission:
+    mandatory: false
+    data_type: text
+    length: 9
+    origins:
+    - type: Assigned
+    comment: Window range, specified in the SAP.
+- name: AWLO
+  type: float
+  label: Analysis Window Beginning Timepoint
+  derivation:
+    mapping:
+      source: AVISIT
+      dict:
+        Baseline: null
+        Week 8: 2.0
+        Week 16: 85.0
+        Week 24: 141.0
+      case_sensitive: true
+  submission:
+    mandatory: false
+    data_type: integer
+    length: 8
+    origins:
+    - type: Assigned
+    comment: Start day of the window, specified in the SAP.
+- name: AWHI
+  type: float
+  label: Analysis Window Ending Timepoint
+  derivation:
+    mapping:
+      source: AVISIT
+      dict:
+        Baseline: 1.0
+        Week 8: 84.0
+        Week 16: 140.0
+        Week 24: null
+      case_sensitive: true
+  submission:
+    mandatory: false
+    data_type: integer
+    length: 8
+    origins:
+    - type: Assigned
+    comment: End day of the window, specified in the SAP.
+- name: AWU
+  type: str
+  label: Analysis Window Unit
+  derivation: '''DAYS'''
+  submission:
+    mandatory: false
+    data_type: text
+    length: 4
+    codelist: AWU
+    origins:
+    - type: Assigned
+    comment: Assigned as "DAYS".
 - name: BASE
   type: float
   label: Baseline Value
@@ -1048,9 +949,8 @@ columns:
   label: Change from Baseline
   derivation:
     case:
-    - when: ABLFL IS NULL
+    - when: ABLFL <> 'Y'
       then: AVAL - BASE
-    - otherwise: null
   submission:
     mandatory: false
     data_type: integer
@@ -1066,9 +966,8 @@ columns:
   label: Percent Change from Baseline
   derivation:
     case:
-    - when: ABLFL IS NULL
-      then: (AVAL - BASE) / NULLIF(BASE, 0) * 100
-    - otherwise: null
+    - when: ABLFL <> 'Y' AND BASE <> 0
+      then: 100 * (AVAL - BASE) / BASE
   submission:
     mandatory: false
     data_type: integer
@@ -1079,63 +978,215 @@ columns:
       name: Algorithm to derive ADADAS.PCHG
       type: Computation
       description: 100* (CHG/BASE)
-- name: DTYPE
-  type: str
-  label: Derivation Type
+- name: _RECORD_GROUP
+  type: float
+  label: Pilot 3 record group (helper)
   derivation:
     case:
-    - when: ROWSRC = 1
-      then: '''LOCF'''
-    - otherwise: null
-  submission:
-    mandatory: false
-    data_type: text
-    length: 7
-    codelist: DTYPE
-    origins:
-    - type: Derived
-    method:
-      name: Algorithm to derive ADADAS.DTYPE
-      type: Computation
-      description: Set to "LOCF" if a record is imputated when PARAMCD="ACTOT"; otherwise,
-        set to missing
+    - when: ABLFL = 'Y' AND AVAL IS NULL
+      then: 4.0
+    - when: ABLFL = 'Y'
+      then: 3.0
+    - when: ANL01FL = 'Y' AND AVAL IS NULL
+      then: 1.0
+    - when: ANL01FL = 'Y'
+      then: 0.0
+    - otherwise: 2.0
+- name: _VISIT_ORDER
+  type: float
+  label: Pilot 3 visit order (helper)
+  derivation:
+    case:
+    - when: _RECORD_GROUP = 1
+      then:
+        mapping:
+          source: AVISIT
+          dict:
+            Baseline: 0.0
+            Week 16: 1.0
+            Week 24: 2.0
+            Week 8: 3.0
+          case_sensitive: true
+    - otherwise: AVISITN
 rows:
-- id: collected
+- id: obs
   dataset: QS
-  filter: QS.QSTESTCD IN ('ACITM01', 'ACITM02', 'ACITM03', 'ACITM04', 'ACITM05', 'ACITM06',
-    'ACITM07', 'ACITM08', 'ACITM09', 'ACITM10', 'ACITM11', 'ACITM12', 'ACITM13', 'ACITM14',
-    'ACTOT')
+  filter: QS.QSTESTCD IN ('ACITM01','ACITM02','ACITM03','ACITM04','ACITM05','ACITM06','ACITM07','ACITM08','ACITM09','ACITM10','ACITM11','ACITM12','ACITM13','ACITM14','ACTOT')
   derivations:
-    ROWSRC: 0
-    USUBJID: QS.USUBJID
+    QSSEQ: QS.QSSEQ
     PARAMCD: QS.QSTESTCD
-    ADT_RAW:
-      to_date:
+    ADT:
+      impute:
+        type: date
         source: QS.QSDTC
-    PLAN_AVISIT: null
-    ABLFL: QS.QSBLFL
-    VISIT_RAW: QS.VISIT
-    VISITNUM_RAW: QS.VISITNUM
-    QSSEQ_RAW: QS.QSSEQ
-    AVAL_RAW: QS.QSSTRESN
-- id: planned
-  dataset: PLAN
+        day: 1
+    ADY:
+      study_day:
+        source: ADT
+        reference: TRTSDT
+    AVISIT:
+      case:
+      - when: ADY <= 1
+        then: '''Baseline'''
+      - when: ADY >= 2 AND ADY <= 84
+        then: '''Week 8'''
+      - when: ADY >= 85 AND ADY <= 140
+        then: '''Week 16'''
+      - otherwise: '''Week 24'''
+    AVAL: QS.QSSTRESN
+    AVISITN:
+      mapping:
+        source: AVISIT
+        dict:
+          Baseline: 0.0
+          Week 8: 8.0
+          Week 16: 16.0
+          Week 24: 24.0
+        case_sensitive: true
+    VISIT: QS.VISIT
+    VISITNUM: QS.VISITNUM
+    AWTARGET:
+      mapping:
+        source: AVISIT
+        dict:
+          Baseline: 1.0
+          Week 8: 56.0
+          Week 16: 112.0
+          Week 24: 168.0
+        case_sensitive: true
+    AWTDIFF: ABS(AWTARGET - ADY)
+    _DIFF: AWTARGET - ADY
+    _RN_ANL:
+      row_number:
+        window:
+          group_by:
+          - STUDYID
+          - USUBJID
+          - PARAMCD
+          - AVISIT
+          order_by:
+          - variable: AWTDIFF
+            direction: asc
+            nulls: last
+          - variable: _DIFF
+            direction: asc
+            nulls: last
+    ABLFL:
+      flag:
+        condition: QS.QSBLFL = 'Y'
+        true_value: Y
+        false_value: ''
+        missing: ''
+    ANL01FL:
+      flag:
+        condition: _RN_ANL = 1
+        true_value: Y
+        false_value: ''
+        missing: ''
+    DTYPE: null
+    _HIT: null
+    _SRC_QSSEQ: null
+    _SRC_AVAL: null
+    _SRC_ADY: null
+    _SRC_ADT: null
+    _SRC_VISIT: null
+    _SRC_VISITNUM: null
+- id: locf8
+  dataset: QS
+  group_by:
+  - QS.STUDYID
+  - QS.USUBJID
+  filter: _HIT IS NULL AND _SRC_QSSEQ IS NOT NULL
   derivations:
-    ROWSRC: 1
-    USUBJID: PLAN.USUBJID
-    PARAMCD: PLAN.PARAMCD
-    ADT_RAW: null
-    PLAN_AVISIT: PLAN.AVISIT
-    ABLFL: null
-    VISIT_RAW: null
-    VISITNUM_RAW: null
-    QSSEQ_RAW: null
-    AVAL_RAW: null
-verifications:
-- row_count:
-    min: 12463
-    max: 12463
-    severity: error
+    _HIT:
+      case:
+      - when: DONOR8.AVISITN = 8
+        then: DONOR8.QSSEQ
+    _SRC_QSSEQ: DONOR8.QSSEQ
+    _SRC_AVAL: DONOR8.AVAL
+    _SRC_ADY: DONOR8.ADY
+    _SRC_ADT: DONOR8.ADT
+    _SRC_VISIT: DONOR8.VISIT
+    _SRC_VISITNUM: DONOR8.VISITNUM
+    AVISIT: '''Week 8'''
+    AVISITN: 8.0
+    AWTARGET: 56.0
+    AWTDIFF: ABS(AWTARGET - ADY)
+    _DIFF: AWTARGET - ADY
+    VISIT: _SRC_VISIT
+    VISITNUM: _SRC_VISITNUM
+    ADY: _SRC_ADY
+    ADT: _SRC_ADT
+    PARAMCD: '''ACTOT'''
+    AVAL: _SRC_AVAL
+    ABLFL: ''''''
+    ANL01FL: '''Y'''
+    DTYPE: '''LOCF'''
+    QSSEQ: _SRC_QSSEQ
+- id: locf16
+  dataset: QS
+  group_by:
+  - QS.STUDYID
+  - QS.USUBJID
+  filter: _HIT IS NULL AND _SRC_QSSEQ IS NOT NULL
+  derivations:
+    _HIT:
+      case:
+      - when: DONOR16.AVISITN = 16
+        then: DONOR16.QSSEQ
+    _SRC_QSSEQ: DONOR16.QSSEQ
+    _SRC_AVAL: DONOR16.AVAL
+    _SRC_ADY: DONOR16.ADY
+    _SRC_ADT: DONOR16.ADT
+    _SRC_VISIT: DONOR16.VISIT
+    _SRC_VISITNUM: DONOR16.VISITNUM
+    AVISIT: '''Week 16'''
+    AVISITN: 16.0
+    AWTARGET: 112.0
+    AWTDIFF: ABS(AWTARGET - ADY)
+    _DIFF: AWTARGET - ADY
+    VISIT: _SRC_VISIT
+    VISITNUM: _SRC_VISITNUM
+    ADY: _SRC_ADY
+    ADT: _SRC_ADT
+    PARAMCD: '''ACTOT'''
+    AVAL: _SRC_AVAL
+    ABLFL: ''''''
+    ANL01FL: '''Y'''
+    DTYPE: '''LOCF'''
+    QSSEQ: _SRC_QSSEQ
+- id: locf24
+  dataset: QS
+  group_by:
+  - QS.STUDYID
+  - QS.USUBJID
+  filter: _HIT IS NULL AND _SRC_QSSEQ IS NOT NULL
+  derivations:
+    _HIT:
+      case:
+      - when: DONOR24.AVISITN = 24
+        then: DONOR24.QSSEQ
+    _SRC_QSSEQ: DONOR24.QSSEQ
+    _SRC_AVAL: DONOR24.AVAL
+    _SRC_ADY: DONOR24.ADY
+    _SRC_ADT: DONOR24.ADT
+    _SRC_VISIT: DONOR24.VISIT
+    _SRC_VISITNUM: DONOR24.VISITNUM
+    AVISIT: '''Week 24'''
+    AVISITN: 24.0
+    AWTARGET: 168.0
+    AWTDIFF: ABS(AWTARGET - ADY)
+    _DIFF: AWTARGET - ADY
+    VISIT: _SRC_VISIT
+    VISITNUM: _SRC_VISITNUM
+    ADY: _SRC_ADY
+    ADT: _SRC_ADT
+    PARAMCD: '''ACTOT'''
+    AVAL: _SRC_AVAL
+    ABLFL: ''''''
+    ANL01FL: '''Y'''
+    DTYPE: '''LOCF'''
+    QSSEQ: _SRC_QSSEQ
 submission:
   mode: historical
   artifact: adadas.xpt

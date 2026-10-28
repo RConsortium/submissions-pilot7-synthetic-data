@@ -41,6 +41,20 @@ spec/yamaa/pilot-program/adlbc_v1.yaml             chemistry parameters
     `-- submission-pilot5/spec/yamaa/adlbc.yaml
 ```
 
+CDISC Pilot 01 names the ADAS-Cog dataset ADQSADAS and the R Submission
+Pilots name it ADADAS. Pilots 3 and 5 publish the same records in different
+orders, so version 2 is what R Submission Pilot 3 changed and version 3 is the
+key order of Pilot 5's Dataset-JSON resubmission:
+
+```text
+spec/yamaa/pilot-program/adadas_v1.yaml            CDISC Pilot 01 version
+|-- cdiscpilot01/spec/yamaa/adqsadas.yaml
+`-- spec/yamaa/pilot-program/adadas_v2.yaml        R Submission Pilot 3 version
+    |-- submission-pilot3/spec/yamaa/adadas.yaml
+    `-- spec/yamaa/pilot-program/adadas_v3.yaml    R Submission Pilot 5 version
+        `-- submission-pilot5/spec/yamaa/adadas.yaml
+```
+
 | File | Holds |
 | --- | --- |
 | `<dataset>_v1.yaml` | Inputs, keys, output columns and order, intermediates, and every column's type, label and derivation for what every package publishes, as the original CDISC Pilot 01 submission derives them. |
