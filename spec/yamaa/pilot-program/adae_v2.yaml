@@ -226,7 +226,13 @@ columns:
         name: Algorithm to derive ADAE.AENDT
         description: AE.AEENDTC, converted to a numeric SAS date
 
+  # Pilot 3 computes the study day from AENDT, as for ASTDY; CDISC Pilot 01
+  # copies AE.AEENDY.
   - name: AENDY
+    derivation:
+      study_day:
+        source: AENDT
+        reference: TRTSDT
     submission:
       data_type: integer
       mandatory: false
@@ -606,6 +612,24 @@ columns:
           is not in ('COLD SWEAT', 'HYPERHIDROSIS',
           'ALOPECIA') then CQ01NAM='DERMATOLOGIC EVENTS' Otherwise CQ01NAM=NULL
 
+  # Pilot 3 ranks each first occurrence by start date, then sequence
+  # number, within subject, body system (AEBODSYS) and preferred term, as
+  # its Define-XML methods state. CDISC Pilot 01 ranks by sequence number
+  # within AESOC or AEDECOD alone.
+  - name: TE_RN
+    derivation:
+      row_number:
+        window:
+          group_by:
+            - STUDYID
+            - USUBJID
+          order_by:
+            - variable: ASTDT
+              nulls: last
+            - variable: AESEQ
+              nulls: last
+          filter: "TRTEMFL = 'Y'"
+
   # Pilot 3 label; CDISC Pilot 01: 1st Occurrence of Any AE Flag.
   - name: AOCCFL
     label: 1st Occurrence within Subject Flag
@@ -621,6 +645,21 @@ columns:
           Start Date (ASTDT), and Sequence Number (AESEQ) and flag
           the first record (set AOCCFL=?Y?) within each Subject
 
+  - name: TE_SOC_RN
+    derivation:
+      row_number:
+        window:
+          group_by:
+            - STUDYID
+            - USUBJID
+            - AEBODSYS
+          order_by:
+            - variable: ASTDT
+              nulls: last
+            - variable: AESEQ
+              nulls: last
+          filter: "TRTEMFL = 'Y'"
+
   - name: AOCCSFL
     submission:
       data_type: text
@@ -634,6 +673,22 @@ columns:
           System Organ Class (AEBODSYS), Start Date (ASTDT),
           and Sequence Number (AESEQ) and flag the first
           record (set AOCCSFL=?Y?) within each Subject and SOC
+
+  - name: TE_PT_RN
+    derivation:
+      row_number:
+        window:
+          group_by:
+            - STUDYID
+            - USUBJID
+            - AEBODSYS
+            - AEDECOD
+          order_by:
+            - variable: ASTDT
+              nulls: last
+            - variable: AESEQ
+              nulls: last
+          filter: "TRTEMFL = 'Y'"
 
   - name: AOCCPFL
     submission:
@@ -649,6 +704,20 @@ columns:
           Start Date (ASTDT), and Sequence Number (AESEQ) and flag the
           first record (set AOCCPFL=?Y?) within each Subject, SOC, and PT
 
+  - name: SER_RN
+    derivation:
+      row_number:
+        window:
+          group_by:
+            - STUDYID
+            - USUBJID
+          order_by:
+            - variable: ASTDT
+              nulls: last
+            - variable: AESEQ
+              nulls: last
+          filter: "TRTEMFL = 'Y' AND AE.AESER = 'Y'"
+
   - name: AOCC02FL
     submission:
       data_type: text
@@ -661,6 +730,21 @@ columns:
         description: Subset to TRTEMFL='Y' and AESER='Y' and sort by Subject
           (USUBJID), Start Date (ASTDT), and Sequence Number (AESEQ) and
           flag the first record (set AOCC02FL=?Y?) within each Subject
+
+  - name: SER_SOC_RN
+    derivation:
+      row_number:
+        window:
+          group_by:
+            - STUDYID
+            - USUBJID
+            - AEBODSYS
+          order_by:
+            - variable: ASTDT
+              nulls: last
+            - variable: AESEQ
+              nulls: last
+          filter: "TRTEMFL = 'Y' AND AE.AESER = 'Y'"
 
   - name: AOCC03FL
     submission:
@@ -676,6 +760,22 @@ columns:
           and Sequence Number (AESEQ) and flag the first
           record (set AOCC03FL=?Y?) within each Subject and SOC
 
+  - name: SER_PT_RN
+    derivation:
+      row_number:
+        window:
+          group_by:
+            - STUDYID
+            - USUBJID
+            - AEBODSYS
+            - AEDECOD
+          order_by:
+            - variable: ASTDT
+              nulls: last
+            - variable: AESEQ
+              nulls: last
+          filter: "TRTEMFL = 'Y' AND AE.AESER = 'Y'"
+
   - name: AOCC04FL
     submission:
       data_type: text
@@ -689,3 +789,18 @@ columns:
           (USUBJID), System Organ Class (AEBODSYS), Preferred Term (AEDECOD),
           Start Date (ASTDT), and Sequence Number (AESEQ) and flag the
           first record (set AOCC04FL=?Y?) within each Subject, SOC, and PT
+
+  # AOCC01FL also ranks by start date, then sequence number.
+  - name: DERM_RN
+    derivation:
+      row_number:
+        window:
+          group_by:
+            - STUDYID
+            - USUBJID
+          order_by:
+            - variable: ASTDT
+              nulls: last
+            - variable: AESEQ
+              nulls: last
+          filter: "TRTEMFL = 'Y' AND CQ01NAM = 'DERMATOLOGIC EVENTS'"
