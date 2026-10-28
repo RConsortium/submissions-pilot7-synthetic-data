@@ -222,11 +222,13 @@ test("a layered specification shows the source that writes the selected rule unt
     documents: [{ path: "study/spec/yamaa/adsl.yaml" }, { path: "spec/yamaa/adsl.yaml" }],
     resolved: { text: "model" },
     lineage: { definitions: { AGE: { path: "spec/yamaa/adsl.yaml", start: 2, end: 4 },
-                              SEX: { path: "study/spec/yamaa/adsl.yaml", start: 5, end: 6 } } },
+                              SEX: { path: "study/spec/yamaa/adsl.yaml", start: 5, end: 6 },
+                              R: { path: "spec/yamaa/adsl.yaml", start: 7, end: 9, kind: "rows" } } },
   };
   const cases = [
     ["output column defined in the shared layer", "", "output.AGE", 1],
     ["specification column defined in the entry", "", "spec.SEX", 0],
+    ["row template written in the shared layer", "", "row.R", 1],
     ["input column shows the entry", "", "DM.AGE", 0],
     ["chosen source stays", "source:0", "output.AGE", 0],
     ["missing source falls back to the entry", "source:9", "", 0],

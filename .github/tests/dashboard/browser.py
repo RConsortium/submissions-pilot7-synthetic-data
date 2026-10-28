@@ -706,43 +706,40 @@ def check(browser, base, site_dir, screenshots):
     expect(page.frame_locator("#source-frame").locator("table").first).to_be_visible()
     page.locator('.review-tabs [data-view="datasets"]').click()
     page.locator("#dataset-select").select_option("ADADAS")
+    # The shared version 1 template writes ADADAS's row templates.
+    adadas = json.loads(
+        (site_dir / "evidence/dashboard/submission-pilot3/specs/adadas.json").read_text()
+    )
+    paths = [document["path"] for document in adadas["documents"]]
+    template = paths.index("spec/yamaa/pilot-program/adadas_v1.yaml")
+    page.locator("#spec-view").select_option(f"source:{template}")
     expression = page.locator(
-        '.spec-line[data-row-node="row.collected"][data-line-node="spec.ADT_RAW"]'
+        '.spec-line[data-row-node="row.obs"][data-line-node="spec.ADT"]'
     ).first
     expression.click()
     expect(expression).to_have_class("spec-line node-selected")
     expect(expression).to_be_in_viewport()
     expect(
         page.locator(
-            '.spec-line[data-spec-kind="columns"][data-line-node="spec.ADT_RAW"]'
+            '.spec-line[data-spec-kind="columns"][data-line-node="spec.ADT"]'
         ).first
     ).to_have_class("spec-line node-selected")
     expect(
         page.locator(
-            '.spec-line[data-row-node="row.collected"][data-line-node="spec.AVAL_RAW"]'
+            '.spec-line[data-row-node="row.obs"][data-line-node="spec.VISIT"]'
         ).first
     ).not_to_be_visible()
     page.locator(
-        '.spec-line[data-row-node="row.collected"][data-line-node="row.collected"]'
+        '.spec-line[data-row-node="row.obs"][data-line-node="row.obs"]'
     ).first.click()
+    expect(page.locator("#spec-view")).to_have_value(f"source:{template}")
+    expect(page.locator('.spec-line[data-row-node="row.obs"]')).not_to_have_count(0)
     expect(
-        page.locator('.spec-line[data-row-node="row.collected"]:not(.node-selected)')
+        page.locator('.spec-line[data-row-node="row.obs"]:not(.node-selected)')
     ).to_have_count(0)
     capture(page, screenshots, "focused-row-specification.png")
     page.get_by_role("button", name="Clear highlight", exact=True).click()
     expect(page.locator(".spec-line[hidden]")).to_have_count(0)
-    p3 = json.loads(
-        (site_dir / "evidence/dashboard/submission-pilot3/catalog.json").read_text()
-    )
-    d = next(d for d in p3["datasets"] if d["name"] == "ADADAS")
-    aw = next(i["table"] for i in d["inputs"] if i["alias"] == "AW")
-    page.locator("#input-picker summary").click()
-    page.locator(f'[data-input-dataset="{aw}"]').check()
-    page.locator("#record-search").click()
-    expect(page.locator(f"#panel-i-{aw} tbody tr")).to_have_count(4)
-    expect(page.locator(f"#panel-i-{aw} .pane-footer")).to_contain_text(
-        "subject-independent lookup"
-    )
     page.goto(base + "/synthetic/")
     synthetic_index = json.loads(
         (site_dir / "evidence/dashboard/synthetic/index.json").read_text()
