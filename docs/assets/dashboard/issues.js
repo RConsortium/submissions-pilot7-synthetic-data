@@ -94,16 +94,17 @@ function citation(e, report) {
   let context;
   if (e.type === "specification" && e.context_lines) {
     const first = e.context_lines[0];
-    context = `<pre class="spec-lines">${e.context
-      .split("\n")
+    context = `<pre class="spec-lines" tabindex="0" aria-label="${esc(e.path.split("/").pop())} source context"><code>${e.context
+      .replace(/\r?\n$/, "")
+      .split(/\r?\n/)
       .map((line, n) => {
         const number = first + n,
-          text = `<span class="line-number">${number}</span>${esc(line)}`;
+          text = `<span class="context-line-number" aria-hidden="true">${number}</span><span class="context-line-text">${esc(line) || " "}</span>`;
         return e.lines && number >= e.lines[0] && number <= e.lines[1]
-          ? `<mark>${text}</mark>`
-          : text;
+          ? `<mark class="context-line">${text}</mark>`
+          : `<span class="context-line">${text}</span>`;
       })
-      .join("\n")}</pre>`;
+      .join("")}</code></pre>`;
   } else context = `<blockquote>${marked(e.context, e.quote)}</blockquote>`;
   const source =
     e.type === "document" &&
@@ -111,7 +112,8 @@ function citation(e, report) {
       ? `<button class="text-link" data-document="${esc(e.path)}" data-document-section="${esc(e.section)}">View source</button>`
       : "";
   const lines = e.lines ? `Source lines ${e.lines.join("-")}` : "Source file";
-  return `<div class="issue-citation"><p class="quote-source">${esc((e.type === "specification" ? "Specification: " : "Document: ") + e.path.split("/").pop())}${location ? ", " + esc(location) : ""}</p><blockquote>${esc(snippet)}</blockquote>${!e.verified ? `<p>Quote not verified: ${esc(e.reason || "source unavailable")}</p>` : ""}<p class="finding-links">${source}${source && e.url ? " &middot; " : ""}${e.url ? link(e.url, lines) : ""}</p>${e.context && (normalize(e.context) !== quote || quote.length > 240 || e.type === "specification") ? `<details><summary>Full context</summary>${context}</details>` : ""}</div>`;
+  const contextLocation = e.context_lines ? `Lines ${e.context_lines.join("-")}` : location;
+  return `<div class="issue-citation"><p class="quote-source">${esc((e.type === "specification" ? "Specification: " : "Document: ") + e.path.split("/").pop())}${location ? ", " + esc(location) : ""}</p><blockquote>${esc(snippet)}</blockquote>${!e.verified ? `<p>Quote not verified: ${esc(e.reason || "source unavailable")}</p>` : ""}<p class="finding-links">${source}${source && e.url ? " &middot; " : ""}${e.url ? link(e.url, lines) : ""}</p>${e.context && (normalize(e.context) !== quote || quote.length > 240 || e.type === "specification") ? `<details class="issue-context"><summary><span>Full context</span><small>${esc(contextLocation)}</small></summary>${context}</details>` : ""}</div>`;
 }
 
 function patterns(e) {
