@@ -3,9 +3,9 @@
   "dataset": "ADADAS",
   "author": {
     "kind": "agent",
-    "model": "gpt-6",
+    "model": "claude-opus-5-5",
     "instructions": ".automation/consistency_review/extract.md",
-    "date": "2026-10-26"
+    "date": "2026-10-28"
   },
   "claims": [
     {
@@ -504,9 +504,17 @@
           "relation": "absent_in_document",
           "spec": {
             "element": "DONOR8",
-            "quote": "filter: PARAMCD = 'ACTOT' AND ANL01FL = 'Y' AND AVISITN <= 8\n    order_by:\n      - variable: AVISITN\n        direction: desc\n        nulls: last\n    keep: first"
+            "quote": "filter: \"SELF.PARAMCD = 'ACTOT' AND SELF.ANL01FL = 'Y' AND SELF.AVISITN <= 8\""
           },
-          "note": "The exact eligibility and visit-order donor selection are not stated by the citable LOCF label or the ADRG current-versus-historical discussion; analogous donor choices occur for the later visits."
+          "note": "The citable LOCF label and the ADRG current-versus-historical discussion do not state that only analysis-flagged ACTOT records at or before the target visit may donate the carried score; DONOR16 and DONOR24 apply the same restriction with their visit bounds."
+        },
+        {
+          "relation": "absent_in_document",
+          "spec": {
+            "element": "DONOR8",
+            "quote": "order_by:\n      - variable: SELF.AVISITN\n        direction: desc\n        nulls: last\n      - variable: SELF.ADY\n        direction: desc\n        nulls: last\n      - variable: SELF.QSSEQ\n        direction: desc\n        nulls: last\n    keep: first"
+          },
+          "note": "No retained text states that the carried score comes from the latest eligible analysis visit, with the later ADY and then the later QSSEQ breaking a tie; DONOR16 and DONOR24 repeat this ranking."
         }
       ],
       "interpretations": [
@@ -539,7 +547,7 @@
           },
           "spec": {
             "element": "BASE",
-            "quote": "      aggregate:\n        filter: ABLFL = 'Y'\n        group_by:\n          - STUDYID\n          - USUBJID\n          - PARAMCD\n        expr: ONLY(AVAL)"
+            "quote": "      aggregate:\n        filter: \"ABLFL = 'Y'\"\n        group_by:\n          - STUDYID\n          - USUBJID\n          - PARAMCD\n        expr: ONLY(AVAL)"
           },
           "note": "BASE takes the baseline-flagged analysis value, whose observed source is QS.QSSTRESN."
         },
@@ -551,7 +559,7 @@
           },
           "spec": {
             "element": "obs",
-            "quote": "ABLFL:\n        flag:\n          condition: QS.QSBLFL = 'Y'"
+            "quote": "ABLFL:\n        flag:\n          condition: \"QS.QSBLFL = 'Y'\""
           },
           "note": "The baseline filter reads ABLFL, which the observed template derives from the specified source flag."
         },
@@ -622,7 +630,7 @@
           "relation": "absent_in_document",
           "spec": {
             "element": "CHG",
-            "quote": "when: ABLFL <> 'Y'"
+            "quote": "when: \"ABLFL <> 'Y'\""
           },
           "note": "The documented subtraction does not suppress change on baseline-flagged rows."
         }
@@ -675,7 +683,7 @@
           "relation": "absent_in_document",
           "spec": {
             "element": "PCHG",
-            "quote": "when: ABLFL <> 'Y' AND BASE <> 0"
+            "quote": "when: \"ABLFL <> 'Y' AND BASE <> 0\""
           },
           "note": "The retained formula does not explicitly give a baseline-record exclusion or the result to use for a zero baseline denominator."
         }
@@ -758,7 +766,7 @@
           "relation": "absent_in_document",
           "spec": {
             "element": "obs",
-            "quote": "condition: _RN_ANL = 1\n          false_value: ''\n          missing: ''"
+            "quote": "condition: _RN_ANL = 1\n          false_value: \"\"\n          missing: \"\""
           },
           "note": "The executable flag also selects singleton windows and assigns empty strings to other records; the stated conditional only describes the multiple-visit choice."
         },
@@ -917,9 +925,9 @@
           },
           "spec": {
             "element": "obs",
-            "quote": "DTYPE: \"''\""
+            "quote": "DTYPE:"
           },
-          "note": "The observed template represents character missingness as the empty string; the rule does not prescribe its physical serialization."
+          "note": "The observed template gives DTYPE no derivation, so every collected record is missing, as the method states; only the generated LOCF templates assign a value."
         },
         {
           "relation": "absent_in_document",
@@ -949,9 +957,9 @@
           "relation": "absent_in_document",
           "spec": {
             "element": "DONOR8",
-            "quote": "filter: PARAMCD = 'ACTOT' AND ANL01FL = 'Y' AND AVISITN <= 8\n    order_by:\n      - variable: AVISITN\n        direction: desc\n        nulls: last\n    keep: first"
+            "quote": "filter: \"SELF.PARAMCD = 'ACTOT' AND SELF.ANL01FL = 'Y' AND SELF.AVISITN <= 8\""
           },
-          "note": "The LOCF name and ADRG examples do not fully state the eligible donor set, visit-order selection and remaining-tie convention; analogous donor rules apply at the later generated visits."
+          "note": "The LOCF name and ADRG examples do not fully state that only analysis-flagged ACTOT records at or before the target visit are eligible donors, which together with the latest-visit ranking decides whether an imputed record is generated; DONOR16 and DONOR24 apply the same restriction."
         }
       ],
       "interpretations": [
@@ -959,7 +967,7 @@
         "The ADRG distinguishes current R-generated records from historical CDISC records and says a directly sourced QS record should have missing DTYPE. Historical tabular LOCF assignments are examples of the issue, not an alternate current rule.",
         "A published QSSEQ can identify the observed source behind either a direct row or a carried row. Merely finding that sequence in raw QS cannot independently establish the imputation status.",
         "The own citable sections do not provide a complete source-to-analysis-window mapping or deterministic imputed-record classifier. Raw Define/workbook method bindings repeat the label condition and add no formal expression or imputation provenance field.",
-        "The documented character missing result does not distinguish null from the observed template empty-string serialization. No reference target value is copied to decide imputation."
+        "The documented character missing result does not distinguish null from an empty string; the observed template now leaves DTYPE missing rather than writing an empty string. No reference target value is copied to decide imputation."
       ],
       "assessment": "The label condition is documented, but the provenance needed to classify each analysis record independently is incomplete.",
       "question": "Where is the approved rule for observed-versus-imputed row membership, donor eligibility and missing-character serialization stated?",
