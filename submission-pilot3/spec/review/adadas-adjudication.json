@@ -3,335 +3,343 @@
   "dataset": "ADADAS",
   "author": {
     "kind": "agent",
-    "model": "Codex",
+    "model": "claude-opus-5-5",
     "instructions": ".automation/consistency_review/adjudicate.md",
-    "date": "2026-10-26"
+    "date": "2026-10-28"
   },
   "decisions": [
     {
       "finding": "ADADAS.CHG.CR-5",
-      "basis": "sha256:111a9726563f073c35004b69eb00c4c9da0b098a2d3fab810f49afc72c4c6d3b",
+      "basis": "sha256:2733eb3b71daaf3d7a0c22524d605cd332fe61b2c13302f9a4fa73b2ba84f1d6",
       "decision": "agree",
-      "reason": "Define-XML ADADAS.CHG (MT.ADADAS.CHG, lines 4448-4451) and workbook Methods!D10 state AVAL - BASE without baseline suppression, which adadas-documented-rules.yaml lines 184-187 executes from the independent reference AVAL and BASE. The reported missing-reference/zero-literal pattern follows from this formula; ADRG pages 45-48 explain imputation changes without replacing the subtraction rule."
+      "reason": "Define-XML ADADAS.CHG states only AVAL - BASE, and its literal probe (adadas-documented-rules.yaml lines 184-187) gives 0 on the 3800 records where the reference leaves CHG missing, which are the ABLFL = 'Y' baseline records with a score. ADRG pages 17, 45 and 48 concern the LOCF analysis and the imputation differences and state no baseline suppression that would reproduce the reference."
     },
     {
       "finding": "ADADAS.AVISIT.CR-6.1",
-      "basis": "sha256:8efcd562d640f10b8e8e7d4c8ef5413126e061142e36e85a957f405f7c873b4e",
+      "basis": "sha256:2f30831eff19730b539e4181800225b08df992c1f5b3ae532af03e6ea8f7a7e0",
       "decision": "dispute",
-      "reason": "ADRG page 47 explicitly shows the current R-generated Week 16 imputed record carrying the Week 8 donor visit and date, so the page-11 date-window description cannot be applied to the carried donor date as a universal rule for imputed visits. The planned-visit branch is consistent with that retained example; its complete assignment algorithm remains unspecified."
+      "reason": "ADRG page 11 describes placing collected visits into analysis visits by their dates; its counterpart is the obs AVISIT windowing (adadas_v1.yaml lines 438-446), not the constant visit of an added record. ADRG page 47's R-generated example shows exactly this for an imputed record: the Week 16 LOCF record carries the Week 8 record's VISIT and date, as locf8, locf16 and locf24 do."
     },
     {
       "finding": "ADADAS.AVISITN.CR-6.2",
-      "basis": "sha256:cddac82e9f5afd7d81621e0762b966a863ee0dbc5badc74b95582117dbec2343",
-      "decision": "agree",
-      "reason": "Define-XML ADADAS.AVISITN defines numeric mappings for all enumerated AVISIT values, while adadas.yaml AVISITN implements only Baseline, Week 8, Week 16 and Week 24. The retained sources provide no ADADAS-specific restriction that removes the other documented mapping pairs."
+      "basis": "sha256:bba3880c5cbd3165b477351060213cc0e9f401076b6671bf5d489665755a8eec",
+      "decision": "dispute",
+      "reason": "CL.AVISITN is shared by IT.ADADAS.AVISITN and IT.ADLBC.AVISITN (native define-adam.xml lines 1190 and 1579), so its other entries serve ADLBC's visits. The obs mapping (adadas_v1.yaml lines 452-459) gives the codelist's own codes for Baseline, Week 8, Week 16 and Week 24, the only AVISIT values the specification derives, so it states the same numeric code for AVISIT on this dataset."
     },
     {
       "finding": "ADADAS.ADY.CR-6.2",
-      "basis": "sha256:2f42011126d45ec869325cc1b85194dc014aaf731f17a474114c269e93c31388",
+      "basis": "sha256:9b3d01606892a4cb4b0019508b95d69dcd93257e330ccdfed29ee95497fe5169",
       "decision": "dispute",
-      "reason": "Define-XML ADADAS.ADY states the date-relative arithmetic, and adadas.yaml ADY_RAW computes it using TRTSDT. ADT and ADY then carry the same ANL01FL-selected donor under identical subject/parameter grouping and visit ordering, so carrying the calculated day preserves the formula for final ADT rather than expressing different arithmetic."
+      "reason": "Each LOCF template takes ADT and ADY from the same donor record (adadas_v1.yaml lines 537-538 and 548-549), whose ADY obs computed by study_day from that ADT and the subject's TRTSDT. The copied ADY therefore equals the Define-XML ADADAS.ADY formula applied to the record's own ADT; it is the same arithmetic by another route."
     },
     {
       "finding": "ADADAS.BASE.CR-6.3",
-      "basis": "sha256:307603eceee186f1d9205f5720e3430ed732913e2d9a2f6a6d2ec77fabd5105e",
+      "basis": "sha256:eb11f5a0a9c650fd04b9c61d134fadae8a10092681a608ee4f43b9a1ab62ba80",
       "decision": "agree",
-      "reason": "Define-XML ADADAS.BASE states QS.QSBLFL=Y with QS.VISITNUM=3, while adadas.yaml BASE filters only the copied baseline flag. No VISITNUM=3 selection appears anywhere in the specification; the native SDTM QSBLFL comment at define-sdtm.xml line 3858 names the BASELINE visit but does not add that specification condition."
-    },
-    {
-      "finding": "ADADAS.PCHG.CR-6.1",
-      "basis": "sha256:fb4cab861345153b181b3246bc023b9d8866e4ebd657f09521f8212ff8f82034",
-      "decision": "agree",
-      "reason": "Define-XML ADADAS.PCHG states 100* (CHG/BASE), whereas adadas.yaml PCHG explicitly applies NULLIF(BASE, 0) before division. Expanding CHG is algebraically consistent on eligible rows, but the extra zero-baseline output handling is not stated in that method or the retained ADRG."
-    },
-    {
-      "finding": "ADADAS.DTYPE.CR-6.1",
-      "basis": "sha256:1e434dfba193a7cf4a0999ca98a3c5f3143f88cfc1d4c9e57398fb7c1fbc3842",
-      "decision": "dispute",
-      "reason": "Define-XML ADADAS.DTYPE assigns LOCF to imputed ACTOT records, and the specification explicitly defines its planned template as one row per missing ACTOT visit slot at adadas.yaml lines 11-12. Using ROWSRC=1 for that template expresses the documented predicate; ADRG pages 45-47 distinguish these current imputed records from incorrectly labeled original CDISC records and show no conflicting current assignment."
+      "reason": "Define-XML ADADAS.BASE adds (QS.VISITNUM=3) to QS.QSBLFL=Y, while the BASE aggregate (adadas_v1.yaml lines 391-401) filters only ABLFL = 'Y' and no layer conditions on VISITNUM. Every ADAS-Cog QSBLFL=Y record in the staged QS is at VISITNUM 3, so the values agree and this is a divergence rather than a conflict."
     },
     {
       "finding": "ADADAS.STUDYID.CR-11",
-      "basis": "sha256:be6a60e2d5f62931e580218121f4e450e994889f1decc2356892e40b104d11c8",
+      "basis": "sha256:f85422242640a5f2c38d49de42db6f865b6c41072d8ec44040b6727d69608512",
       "decision": "dispute",
-      "reason": "Native define-adam.xml line 987 states the Predecessor Origin ADSL.STUDYID for IT.ADADAS.STUDYID, repeated in adam-pilot-3.xlsx Variables!M2:P2. The section export omits Origin descriptions, so an empty projected method/comment is an export limitation rather than absent retained documentation."
+      "reason": "Native define-adam.xml line 987 gives IT.ADADAS.STUDYID a Predecessor origin of ADSL.STUDYID, repeated in adam-pilot-3.xlsx Variables row 2; the ADADAS.STUDYID section text omits origins. The derivation is therefore documented, although the specification reads QS.STUDYID (adadas_v1.yaml line 175), a source difference rather than silence."
     },
     {
       "finding": "ADADAS.SITEID.CR-11",
-      "basis": "sha256:ae30d5e166cd425767450dd3fbeecf24d64035566570f9c16e1fbf3e924ddf7f",
+      "basis": "sha256:53a774487b5885e4d082dd32bde07d397ce8ce67789dd32f1bca8e7ec9610bd1",
       "decision": "dispute",
-      "reason": "Native define-adam.xml line 998 states the Predecessor Origin DM.SITEID for IT.ADADAS.SITEID, repeated in adam-pilot-3.xlsx Variables!M3:P3. The section export omits Origin descriptions, so an empty projected method/comment is an export limitation rather than absent retained documentation."
+      "reason": "Native define-adam.xml line 998 gives IT.ADADAS.SITEID a Predecessor origin of DM.SITEID, repeated in adam-pilot-3.xlsx Variables row 3; the ADADAS.SITEID section text omits origins. The derivation is therefore documented, although the specification reads ADSL.SITEID (adadas_v1.yaml line 176), a source difference rather than silence."
     },
     {
       "finding": "ADADAS.SITEGR1.CR-11",
-      "basis": "sha256:4d403c02696d741832348a85a8777ee03abdb173efeb19290366dce59ed7adec",
+      "basis": "sha256:5bf76b6a1525cd9d1a8f5df558257f543eac98b406c5cc433947101333711eaf",
       "decision": "dispute",
-      "reason": "Native define-adam.xml line 1009 states the Predecessor Origin ADSL.SITEGR1 for IT.ADADAS.SITEGR1, repeated in adam-pilot-3.xlsx Variables!M4:P4. The section export omits Origin descriptions, so an empty projected method/comment is an export limitation rather than absent retained documentation."
+      "reason": "Native define-adam.xml line 1009 gives IT.ADADAS.SITEGR1 a Predecessor origin of ADSL.SITEGR1, repeated in adam-pilot-3.xlsx Variables row 4; the ADADAS.SITEGR1 section text omits origins. The derivation is therefore documented, and the specification copies ADSL.SITEGR1 (adadas_v1.yaml line 180)."
     },
     {
       "finding": "ADADAS.USUBJID.CR-11",
-      "basis": "sha256:0c55ded56a783e59a7cd6b8f5a69352fb2f9e8ec170ca7c4ab26eadf13a0a1b0",
+      "basis": "sha256:9e6fed5c3c29fd1572eb645cef589a5525bd7ff259a881f39e4d5b82affd4c0d",
       "decision": "dispute",
-      "reason": "Native define-adam.xml line 1020 states the Predecessor Origin ADSL.USUBJID for IT.ADADAS.USUBJID, repeated in adam-pilot-3.xlsx Variables!M5:P5. The section export omits Origin descriptions, so an empty projected method/comment is an export limitation rather than absent retained documentation."
+      "reason": "Native define-adam.xml line 1020 gives IT.ADADAS.USUBJID a Predecessor origin of ADSL.USUBJID, repeated in adam-pilot-3.xlsx Variables row 5; the ADADAS.USUBJID section text omits origins. The derivation is therefore documented, although the specification reads QS.USUBJID (adadas_v1.yaml line 187), a source difference rather than silence."
     },
     {
       "finding": "ADADAS.TRTSDT.CR-11",
-      "basis": "sha256:b987d89da8d875c13d7d5895c06fe1f3a116a2694ede3bd6c42f2c1ee0f56d8f",
+      "basis": "sha256:82a37fb938c54e5d776681ed6ebd4fead16d39b24ed669dcee27e12c08753bdc",
       "decision": "dispute",
-      "reason": "Native define-adam.xml line 1032 states the Predecessor Origin ADSL.TRTSDT for IT.ADADAS.TRTSDT, repeated in adam-pilot-3.xlsx Variables!M6:P6. The section export omits Origin descriptions, so an empty projected method/comment is an export limitation rather than absent retained documentation."
+      "reason": "Native define-adam.xml line 1032 gives IT.ADADAS.TRTSDT a Predecessor origin of ADSL.TRTSDT, repeated in adam-pilot-3.xlsx Variables row 6; the ADADAS.TRTSDT section text omits origins. The derivation is therefore documented, and the specification copies ADSL.TRTSDT (adadas_v1.yaml line 188)."
     },
     {
       "finding": "ADADAS.TRTEDT.CR-11",
-      "basis": "sha256:ccb2278bb3ef0efb149cc5bb6fd3b4de4f512c53784abca98587ef32d34d1263",
+      "basis": "sha256:faec91c8e9251c8bb193a421885991f062001319003b40fa354328ca4d86c65c",
       "decision": "dispute",
-      "reason": "Native define-adam.xml line 1044 states the Predecessor Origin ADSL.TRTEDT for IT.ADADAS.TRTEDT, repeated in adam-pilot-3.xlsx Variables!M7:P7. The section export omits Origin descriptions, so an empty projected method/comment is an export limitation rather than absent retained documentation."
+      "reason": "Native define-adam.xml line 1044 gives IT.ADADAS.TRTEDT a Predecessor origin of ADSL.TRTEDT, repeated in adam-pilot-3.xlsx Variables row 7; the ADADAS.TRTEDT section text omits origins. The derivation is therefore documented, and the specification copies ADSL.TRTEDT (adadas_v1.yaml line 192)."
     },
     {
       "finding": "ADADAS.TRTP.CR-11",
-      "basis": "sha256:5e2a50aa710fd305342bebcb55c55503345b400fe71acce0b2a341ead3096fe1",
+      "basis": "sha256:e98f17130d1641306aceeb7cd667bb7a1896e97cb1aeed0d4d1681acfc679d6d",
       "decision": "dispute",
-      "reason": "Native define-adam.xml line 1056 states the Predecessor Origin DM.ARM for IT.ADADAS.TRTP, repeated in adam-pilot-3.xlsx Variables!M8:P8. The section export omits Origin descriptions, so an empty projected method/comment is an export limitation rather than absent retained documentation."
+      "reason": "Native define-adam.xml line 1056 gives IT.ADADAS.TRTP a Predecessor origin of DM.ARM, repeated in adam-pilot-3.xlsx Variables row 8; the ADADAS.TRTP section text omits origins. The derivation is therefore documented, although the specification reads ADSL.TRT01P (adadas_v1.yaml line 199), a source difference rather than silence."
     },
     {
       "finding": "ADADAS.TRTPN.CR-11",
-      "basis": "sha256:09a902fc784cb2a3c48e4967f1915b40ae39d42598ba602e0518a0dea539c54f",
+      "basis": "sha256:c77221707c9fedb9a59986641be62bd87b7bb5cfcd7bac0957dec0f15b1448e2",
       "decision": "dispute",
-      "reason": "Native define-adam.xml line 1068 states the Predecessor Origin ADSL.TRT01PN for IT.ADADAS.TRTPN, repeated in adam-pilot-3.xlsx Variables!M9:P9. The section export omits Origin descriptions, so an empty projected method/comment is an export limitation rather than absent retained documentation."
+      "reason": "Native define-adam.xml line 1068 gives IT.ADADAS.TRTPN a Predecessor origin of ADSL.TRT01PN, repeated in adam-pilot-3.xlsx Variables row 9; the ADADAS.TRTPN section text omits origins. The derivation is therefore documented, and the specification copies ADSL.TRT01PN (adadas_v1.yaml line 203)."
     },
     {
       "finding": "ADADAS.AGE.CR-11",
-      "basis": "sha256:03d8da82dd1a57e7d14314f98d5eeefd50d54ec923c074812097305e95383240",
+      "basis": "sha256:17c1def4228c78ab69ade134fab52191fe5c54ba817eb64f616cec816069d52f",
       "decision": "dispute",
-      "reason": "Native define-adam.xml line 1078 states the Predecessor Origin DM.AGE for IT.ADADAS.AGE, repeated in adam-pilot-3.xlsx Variables!M10:P10. The section export omits Origin descriptions, so an empty projected method/comment is an export limitation rather than absent retained documentation."
+      "reason": "Native define-adam.xml line 1078 gives IT.ADADAS.AGE a Predecessor origin of DM.AGE, repeated in adam-pilot-3.xlsx Variables row 10; the ADADAS.AGE section text omits origins. The derivation is therefore documented, although the specification reads ADSL.AGE (adadas_v1.yaml line 204), a source difference rather than silence."
     },
     {
       "finding": "ADADAS.AGEGR1.CR-11",
-      "basis": "sha256:5f418122b5e6c2f012d1cbd7f8273ec92897cd9ef725f431b8939c00ed6bdbae",
+      "basis": "sha256:bbf3e986d9cb4981687f2847c80fd6e6c253019addce319718bd713f6a25c2e2",
       "decision": "dispute",
-      "reason": "Native define-adam.xml line 1090 states the Predecessor Origin ADSL.AGEGR1 for IT.ADADAS.AGEGR1, repeated in adam-pilot-3.xlsx Variables!M11:P11. The section export omits Origin descriptions, so an empty projected method/comment is an export limitation rather than absent retained documentation."
+      "reason": "Native define-adam.xml line 1090 gives IT.ADADAS.AGEGR1 a Predecessor origin of ADSL.AGEGR1, repeated in adam-pilot-3.xlsx Variables row 11; the ADADAS.AGEGR1 section text omits origins. The derivation is therefore documented, and the specification copies ADSL.AGEGR1 (adadas_v1.yaml line 208)."
     },
     {
       "finding": "ADADAS.AGEGR1N.CR-11",
-      "basis": "sha256:ff936c73050974dfa65890b17552f1d837d002cdd0beca5d0a0e2ecc0b38dc70",
+      "basis": "sha256:889cae8ace194e33428c9ed48bebfe34469e3103f87ee3d951a95eb04f415812",
       "decision": "dispute",
-      "reason": "Native define-adam.xml line 1102 states the Predecessor Origin ADSL.AGEGR1N for IT.ADADAS.AGEGR1N, repeated in adam-pilot-3.xlsx Variables!M12:P12. The section export omits Origin descriptions, so an empty projected method/comment is an export limitation rather than absent retained documentation."
+      "reason": "Native define-adam.xml line 1102 gives IT.ADADAS.AGEGR1N a Predecessor origin of ADSL.AGEGR1N, repeated in adam-pilot-3.xlsx Variables row 12; the ADADAS.AGEGR1N section text omits origins. The derivation is therefore documented, and the specification copies ADSL.AGEGR1N (adadas_v1.yaml line 212)."
     },
     {
       "finding": "ADADAS.RACE.CR-11",
-      "basis": "sha256:fd2be3b1541468aef1410794a50e3d60f233c01d6337624d9e725bd7ffd85de8",
+      "basis": "sha256:195a8a30e88638580b001d14882a9bed3a8b2c34256a35f091d1ab7ba65b8718",
       "decision": "dispute",
-      "reason": "Native define-adam.xml line 1114 states the Predecessor Origin DM.RACE for IT.ADADAS.RACE, repeated in adam-pilot-3.xlsx Variables!M13:P13. The section export omits Origin descriptions, so an empty projected method/comment is an export limitation rather than absent retained documentation."
+      "reason": "Native define-adam.xml line 1114 gives IT.ADADAS.RACE a Predecessor origin of DM.RACE, repeated in adam-pilot-3.xlsx Variables row 13; the ADADAS.RACE section text omits origins. The derivation is therefore documented, although the specification reads ADSL.RACE (adadas_v1.yaml line 216), a source difference rather than silence."
     },
     {
       "finding": "ADADAS.RACEN.CR-11",
-      "basis": "sha256:2854d2d8a2cdb13f3b3226419f001f1684de8dcf796592960a944a4c5e53d540",
+      "basis": "sha256:ca55507973b2f6b2e19bbb98de788f755a0452992eeacfef988f0b65a8c00e29",
       "decision": "dispute",
-      "reason": "Native define-adam.xml line 1126 states the Predecessor Origin ADSL.RACEN for IT.ADADAS.RACEN, repeated in adam-pilot-3.xlsx Variables!M14:P14. The section export omits Origin descriptions, so an empty projected method/comment is an export limitation rather than absent retained documentation."
+      "reason": "Native define-adam.xml line 1126 gives IT.ADADAS.RACEN a Predecessor origin of ADSL.RACEN, repeated in adam-pilot-3.xlsx Variables row 14; the ADADAS.RACEN section text omits origins. The derivation is therefore documented, and the specification copies ADSL.RACEN (adadas_v1.yaml line 220)."
     },
     {
       "finding": "ADADAS.SEX.CR-11",
-      "basis": "sha256:7d7abba1a392f569b617ea769d3919d7a4e585d692c9c15d42b6a4fa9078bf0c",
+      "basis": "sha256:4a5411a8184bf2a9cc12bc5a689ade649d08f18cee35baabf2291ee0cb977eb4",
       "decision": "dispute",
-      "reason": "Native define-adam.xml line 1137 states the Predecessor Origin DM.SEX for IT.ADADAS.SEX, repeated in adam-pilot-3.xlsx Variables!M15:P15. The section export omits Origin descriptions, so an empty projected method/comment is an export limitation rather than absent retained documentation."
+      "reason": "Native define-adam.xml line 1137 gives IT.ADADAS.SEX a Predecessor origin of DM.SEX, repeated in adam-pilot-3.xlsx Variables row 15; the ADADAS.SEX section text omits origins. The derivation is therefore documented, although the specification reads ADSL.SEX (adadas_v1.yaml line 224), a source difference rather than silence."
     },
     {
       "finding": "ADADAS.ITTFL.CR-11",
-      "basis": "sha256:053ef9feced2b0863bb24e68ab5ae1a41abbe1b621747bd3deb980bee732203e",
+      "basis": "sha256:1a52ddd5989914e5ac0ee9648e2522a15401a43f1ba07ea6221e7b02d64a7e87",
       "decision": "dispute",
-      "reason": "Native define-adam.xml line 1149 states the Predecessor Origin ADSL.ITTFL for IT.ADADAS.ITTFL, repeated in adam-pilot-3.xlsx Variables!M16:P16. The section export omits Origin descriptions, so an empty projected method/comment is an export limitation rather than absent retained documentation."
+      "reason": "Native define-adam.xml line 1149 gives IT.ADADAS.ITTFL a Predecessor origin of ADSL.ITTFL, repeated in adam-pilot-3.xlsx Variables row 16; the ADADAS.ITTFL section text omits origins. The derivation is therefore documented, and the specification copies ADSL.ITTFL (adadas_v1.yaml line 231)."
     },
     {
       "finding": "ADADAS.EFFFL.CR-11",
-      "basis": "sha256:8ec677ccc8f8998e32769856cf1beae770d1753be8bab3f4828183dbdac0fafd",
+      "basis": "sha256:2345afa787fb872c5d18c6a3abb8ee0ca8a29d66922c9c293625c3053bbfd201",
       "decision": "dispute",
-      "reason": "Native define-adam.xml line 1161 states the Predecessor Origin ADSL.EFFFL for IT.ADADAS.EFFFL, repeated in adam-pilot-3.xlsx Variables!M17:P17. The section export omits Origin descriptions, so an empty projected method/comment is an export limitation rather than absent retained documentation."
+      "reason": "Native define-adam.xml line 1161 gives IT.ADADAS.EFFFL a Predecessor origin of ADSL.EFFFL, repeated in adam-pilot-3.xlsx Variables row 17; the ADADAS.EFFFL section text omits origins. The derivation is therefore documented, and the specification copies ADSL.EFFFL (adadas_v1.yaml line 232)."
     },
     {
       "finding": "ADADAS.COMP24FL.CR-11",
-      "basis": "sha256:fecd0e91906322e685e7c00c12e0a0a8234a45a906a8c38cb0089ea9adb240ac",
+      "basis": "sha256:40eaa50013eab8a11ddf19ad6396bc0d841618bc84040fcdb7e5f8bfd8b446cf",
       "decision": "dispute",
-      "reason": "Native define-adam.xml line 1173 states the Predecessor Origin ADSL.COMP24FL for IT.ADADAS.COMP24FL, repeated in adam-pilot-3.xlsx Variables!M18:P18. The section export omits Origin descriptions, so an empty projected method/comment is an export limitation rather than absent retained documentation."
+      "reason": "Native define-adam.xml line 1173 gives IT.ADADAS.COMP24FL a Predecessor origin of ADSL.COMP24FL, repeated in adam-pilot-3.xlsx Variables row 18; the ADADAS.COMP24FL section text omits origins. The derivation is therefore documented, and the specification copies ADSL.COMP24FL (adadas_v1.yaml line 236)."
     },
     {
       "finding": "ADADAS.AVISIT.CR-7.2",
-      "basis": "sha256:73c2889c55c8312898b7dc837042de8895103de53c75ac3c64885884a593d609",
+      "basis": "sha256:ada669da8e275f0ea7ac41c2815634be2771dab971465feccbf37d114fe3d230",
       "decision": "agree",
-      "reason": "Define-XML ADADAS.AVISIT refers to SAP Section 8.2 and ADRG page 11 states date-based windowing, but neither supplies the specification cut points 1, 84 and 140 or its interval closure. The native workbook Methods!D7 adds no boundaries, and the source manifest leaves shared SAP applicability pending_review."
+      "reason": "Define-XML ADADAS.AVISIT delegates windowing to Section 8.2 of the SAP, which is not among Pilot 3's section files and whose applicability is pending_review in spec/source/manifest.json, and ADRG page 11 says only that visits are windowed by date. No retained text gives the study-day cut points 1, 84 and 140, their closure, or the otherwise branch to Week 24 (adadas_v1.yaml lines 438-446)."
     },
     {
       "finding": "ADADAS.AVISIT.CR-7.5",
-      "basis": "sha256:b53b0fbdb84171794e237ba5fe7efc5082e54a5a78d7e3fe392cc73181cabb96",
+      "basis": "sha256:a90b9ca7515187da9789151aa61a84e79d68ffe0cb789d5af18fc4b7c160b948",
       "decision": "agree",
-      "reason": "ADRG pages 45-47 document current ACTOT imputed records and illustrate their planned visits, but do not define the complete subject/visit universe or absence criteria represented by PLAN. Neither Define-XML ADADAS.AVISIT nor native workbook Methods!D7 supplies that planning relation and its row assignments."
+      "reason": "Define-XML ADADAS.DTYPE only labels imputed ACTOT records LOCF, and ADRG pages 45-47 give the number of imputed records and one example of an added Week 16 record. No retained text states the general condition in locf8 (and locf16, locf24) for adding a record: one per subject when the target visit has no ANL01FL ACTOT record and an earlier one exists."
     },
     {
       "finding": "ADADAS.AVISIT.CR-7.6",
-      "basis": "sha256:2849ae814ee3ecc833f707afcc10c70c5ce8b41459c126abe0ef187abeb6dcd1",
+      "basis": "sha256:adf38f25f1ffb7e7fe9c1b63d4ba1dab1b9b9e65a89119731aab7aaa129f5d64",
       "decision": "dispute",
-      "reason": "Define-XML ADADAS.PARAMCD enumerates exactly ACITM01-ACITM14 and ACTOT, and its native Predecessor Origin at define-adam.xml lines 1245-1248 is QS.QSTESTCD. Together with the ADAS-Cog questionnaire scope on ADRG page 11, these statements provide the semantic counterpart to selecting those QS codes."
+      "reason": "ADRG page 11 states that ADADAS holds the ADAS-Cog questionnaire items, one record per subject per parameter per VISIT, Define-XML ADADAS.PARAMCD limits the parameters to the CL.PARAMCD_ADQSADAS codes ACITM01-ACITM14 and ACTOT, and ADADAS.AVAL reads QS.QSSTRESN where QSTESTCD=PARAMCD. Together they state this QS record selection, and native define-adam.xml line 1248 names QS.QSTESTCD as PARAMCD's predecessor."
     },
     {
       "finding": "ADADAS.AVISIT.CR-10",
-      "basis": "sha256:d75ed53a88a95d8c5fced9b0ae895b1fafd854dfe0a5168854525046a4566936",
+      "basis": "sha256:dbb1bca7bd58837536815f5da6a1797a632e1ea34e3ee65a35f5f9cad75a09ee",
       "decision": "agree",
-      "reason": "Define-XML ADADAS.AVISIT and native workbook Methods!D7 delegate windowing to SAP Section 8.2 without giving boundaries, while ADRG page 11 supplies only the general date-window rule. The source manifest leaves shared SAP applicability pending_review, and ADRG pages 45-47 do not complete planned-visit assignment for a literal full-scope probe."
+      "reason": "Define-XML ADADAS.AVISIT delegates windowing to Section 8.2 of the SAP, which is not among Pilot 3's section files and whose applicability is pending_review in spec/source/manifest.json, and ADRG page 11 states only that visits are windowed by date. Neither gives window boundaries or the visit of an added LOCF record, so no literal probe can be stated."
     },
     {
       "finding": "ADADAS.VISIT.CR-11",
-      "basis": "sha256:eb5493b03ecedec9952b617f18465bcab643dd98365878173009da32e12e7670",
+      "basis": "sha256:2cff3d5f1f41f9a40cb1dfebdc4dbc2defdf2035e479232cb5699e8e5e3a933d",
       "decision": "dispute",
-      "reason": "Native define-adam.xml line 1201 states the Predecessor Origin QS.VISIT for IT.ADADAS.VISIT, repeated in adam-pilot-3.xlsx Variables!M21:P21. The section export omits Origin descriptions, so an empty projected method/comment is an export limitation rather than absent retained documentation."
+      "reason": "Native define-adam.xml line 1201 gives IT.ADADAS.VISIT a Predecessor origin of QS.VISIT, repeated in adam-pilot-3.xlsx Variables row 21; the ADADAS.VISIT section text omits origins. The derivation is therefore documented, and the specification copies QS.VISIT (obs, adadas_v1.yaml line 460)."
     },
     {
       "finding": "ADADAS.VISITNUM.CR-11",
-      "basis": "sha256:a21e50e942631a721bf4ca54e0970fdb90411312071d2730ee2ceac6100eae6b",
+      "basis": "sha256:d65f64b20f38f3b8dc22eca09147c28945835879c1bf8e331dd9ea351ae02d34",
       "decision": "dispute",
-      "reason": "Native define-adam.xml line 1214 states the Predecessor Origin QS.VISITNUM for IT.ADADAS.VISITNUM, repeated in adam-pilot-3.xlsx Variables!M22:P22. The section export omits Origin descriptions, so an empty projected method/comment is an export limitation rather than absent retained documentation."
+      "reason": "Native define-adam.xml line 1214 gives IT.ADADAS.VISITNUM a Predecessor origin of QS.VISITNUM, repeated in adam-pilot-3.xlsx Variables row 22; the ADADAS.VISITNUM section text omits origins. The derivation is therefore documented, and the specification copies QS.VISITNUM (obs, adadas_v1.yaml line 461)."
     },
     {
       "finding": "ADADAS.ADY.CR-7.3",
-      "basis": "sha256:c1129186f700ed5510e34cbd0a150d191dc9fd0c662d72b6d3d1eb1ac478652c",
+      "basis": "sha256:8dc1de3af11ea920ad1f549982d83833a5fcb9977f4f8a559087623ea2b4088d",
       "decision": "agree",
-      "reason": "Define-XML ADADAS.ADY gives the date arithmetic, and ADRG page 47 illustrates a carried selected date/day. Neither states a general rule that only ANL01FL=Y raw days may donate to all imputed ADY records, as ADY_Y requires."
+      "reason": "Define-XML ADADAS.ADY and ADADAS.ANL01FL do not say which record an imputed record's ADY comes from, and ADRG page 47 shows only one R-generated Week 16 record carrying the flagged Week 8 record's day rather than the later unflagged one's. No retained text states the general restriction to ANL01FL = 'Y' ACTOT donors at or before the target visit that adadas_v2.yaml lines 71-72 apply."
     },
     {
       "finding": "ADADAS.ADY.CR-7.4",
-      "basis": "sha256:4bc2b95f47409cdd658787edddd81bf2357bd02b563843c9e4aa6987bf3f01fd",
+      "basis": "sha256:633a8775496a60b1bbdd86d207b5733f716b14c99e422f4590cd33ca95108a46",
       "decision": "agree",
-      "reason": "Define-XML ADADAS.ADY and ADRG pages 45-47 describe derived days and imputed ACTOT records but do not prescribe initializing the planned template ADT_RAW to missing. That intermediate assignment is present in adadas.yaml planned and has no stated documentary counterpart."
+      "reason": "Define-XML CL.DTYPE's 'Last Observation Carried Forward' gives only the direction of the carry, and ADRG page 47 illustrates one carried record. No retained text states the donor ranking by AVISITN, then ADY, then QSSEQ, all descending with missing values last (adadas_v1.yaml lines 102-112)."
+    },
+    {
+      "finding": "ADADAS.ADT.CR-7.2",
+      "basis": "sha256:05172e4d5b557ddc5cd01e11f34c036a9324a480d0c44f917be7f1312ed411b4",
+      "decision": "agree",
+      "reason": "Define-XML ADADAS.ADT states only 'SAS date from QS.QSDTC', and the day-01 imputation in ADRG page 8 section 3.4 is stated for ADAE ASTDT, not ADADAS ADT. No retained text states imputing a missing QSDTC day as the first of the month; every ADAS-Cog QSDTC in the staged QS is a complete date, so the clause does not change values."
     },
     {
       "finding": "ADADAS.ADT.CR-7.5",
-      "basis": "sha256:4bc2b95f47409cdd658787edddd81bf2357bd02b563843c9e4aa6987bf3f01fd",
+      "basis": "sha256:21e23289a127b79aa7f52ab3a3dd19c16e271294d5c688f634bc76b9a412a171",
       "decision": "agree",
-      "reason": "Define-XML ADADAS.ADT and ADRG pages 45-47 document source dates and imputed ACTOT records without prescribing a missing ADT_RAW field in an intermediate planned template. That explicit helper initialization is therefore unstated."
-    },
-    {
-      "finding": "ADADAS.PARAMCD.CR-11",
-      "basis": "sha256:0286ebb806de920934c4caeb9e864842663d1c4f8fd8142207a280a7f559b1bf",
-      "decision": "dispute",
-      "reason": "Native define-adam.xml line 1248 states the Predecessor Origin QS.QSTESTCD for IT.ADADAS.PARAMCD, repeated in adam-pilot-3.xlsx Variables!M26:P26. The section export omits Origin descriptions, so an empty projected method/comment is an export limitation rather than absent retained documentation."
-    },
-    {
-      "finding": "ADADAS.AVAL.CR-10",
-      "basis": "sha256:5789283058ae0434399836c447cd6b1f6f7b24a94e104eb8753dee62cdfb127e",
-      "decision": "dispute",
-      "reason": "Native define-adam.xml VL.ADADAS.AVAL at lines 27-102 binds ACTOT to MT.ADADAS.AVAL.ACTOT, whose item-sum rule appears at lines 4425-4428 and in workbook ValueLevel!O16/Methods!D6. The finding records exclusion of this retained rule from the citation export, which is not evidence that the cited item-level QS.QSSTRESN method is incomplete; the ACTOT SAP adjustment requires a separate scoped assessment."
-    },
-    {
-      "finding": "ADADAS.CHG.CR-7.2",
-      "basis": "sha256:a9cd9bc67498ce26de78c63828b5ba1e1e26ff79116c8f34e8fc1fd579657476",
-      "decision": "agree",
-      "reason": "Define-XML ADADAS.CHG and native workbook Methods!D10 state only AVAL - BASE. Neither those methods nor ADRG pages 17 and 45-48 state the specification condition ABLFL IS NULL that suppresses flagged baseline-row change."
-    },
-    {
-      "finding": "ADADAS.PCHG.CR-7.2",
-      "basis": "sha256:ad271cb3dd784197888fdb6344979ed3387906d73caa4d3c13dd5666a0949216",
-      "decision": "agree",
-      "reason": "Define-XML ADADAS.PCHG and native workbook Methods!D12 state only 100* (CHG/BASE). The retained ADRG supplies no baseline-flag condition corresponding to the specification ABLFL IS NULL guard."
-    },
-    {
-      "finding": "ADADAS.PCHG.CR-10",
-      "basis": "sha256:860c8ed2799e0524c0e5b95411f782c1fc1539b4551a80f943f83449f60eaf51",
-      "decision": "agree",
-      "reason": "Define-XML ADADAS.PCHG and native workbook Methods!D12 state division by BASE without specifying the result when BASE is zero. ADRG pages 45-48 discuss imputation discrepancies but provide no zero-denominator policy to complete the literal formula on those records."
-    },
-    {
-      "finding": "ADADAS.ABLFL.CR-11",
-      "basis": "sha256:b6cc6f97ce3b3a5a4e07514a01425700091fc3af9af89e1e8d774ea1b218c836",
-      "decision": "dispute",
-      "reason": "Native define-adam.xml line 1297 states the Predecessor Origin QS.QSBLFL for IT.ADADAS.ABLFL, repeated in adam-pilot-3.xlsx Variables!M32:P32. The section export omits Origin descriptions, so an empty projected method/comment is an export limitation rather than absent retained documentation."
-    },
-    {
-      "finding": "ADADAS.ANL01FL.CR-7.3",
-      "basis": "sha256:4276ca6d81d84cf18e1b340906b0c1d2681ee127ec4631e58b7263c1efb882cd",
-      "decision": "agree",
-      "reason": "Define-XML ADADAS.ANL01FL and native workbook Methods!D4 select the closest visit but give no equal-distance tie-break. Sorting DIFF_RAW ascending after absolute distance adds a later-visit preference that neither ADRG page 11 nor the page-47 example states as a general rule."
-    },
-    {
-      "finding": "ADADAS.ANL01FL.CR-7.4",
-      "basis": "sha256:ac581f5762eb8d6f90a93b2e409817448ab0b3724b46f76d1b732199875646eb",
-      "decision": "agree",
-      "reason": "Define-XML ADADAS.ANL01FL states closest-to-target selection but no eligibility or ranking rule for missing distances. Native workbook Methods!D4 repeats that text, and the retained ADRG supplies no counterpart to nulls: last for AWTDIFF_RAW."
-    },
-    {
-      "finding": "ADADAS.ANL01FL.CR-7.5",
-      "basis": "sha256:cfed421bb84430c3e2176313627735eaa7f7f8b28b8b0de5dc398d62929b8499",
-      "decision": "agree",
-      "reason": "Define-XML ADADAS.ANL01FL and native workbook Methods!D4 do not state that ranking excludes every planned record. ADRG page 47 illustrates an imputed flagged row but does not give the general ROWSRC=0 eligibility restriction used in ANL01_RN."
-    },
-    {
-      "finding": "ADADAS.ANL01FL.CR-10",
-      "basis": "sha256:afbfac9e9de287e13575f339e88e86eb84ec8736d176d145f18b4fe08573e2dd",
-      "decision": "agree",
-      "reason": "Define-XML ADADAS.ANL01FL (MT.ADADAS.ANL01FL, lines 4414-4419) and workbook Methods!D4 state nearest-target selection, while ADRG page 47 establishes the illustrated selected, unselected and imputed flags. They do not complete general tie and eligibility rules, and the shared original-study SAP remains pending_review for Pilot 3 in spec/source/manifest.json shared_documents."
-    },
-    {
-      "finding": "ADADAS.DTYPE.CR-10",
-      "basis": "sha256:cbe96f20c356f2499ca5175d30bc506998655db0b04da964d88ab441fe53e7dd",
-      "decision": "agree",
-      "reason": "Define-XML ADADAS.DTYPE states LOCF for imputed ACTOT records, and ADRG pages 45-47 distinguish current imputed rows from collected rows without defining the complete expected visit universe or when to add each row. Neither native workbook Methods!D11 nor the current-study sources supplies an independent full-scope imputation predicate for the probe."
-    },
-    {
-      "finding": "ADADAS.AWRANGE.CR-7.2",
-      "basis": "sha256:b93e9ce691e5ffe7f5b1f38ae24376cf33cb1ec034054c9d84596d44c2c0218c",
-      "decision": "agree",
-      "reason": "Define-XML ADADAS.AWRANGE and native workbook Comments!D4 delegate the assignment to the SAP but do not state the range text, boundary inclusiveness and unbounded-endpoint representation used by AW_LOOKUP. ADRG page 11 confirms windowing without supplying the mapping, and the source manifest leaves shared SAP applicability pending_review."
-    },
-    {
-      "finding": "ADADAS.AWRANGE.CR-10",
-      "basis": "sha256:dcf4d2ecf0d889050ed1764aa1d63a36f7de45a2b8bc80f808655d434be2fc18",
-      "decision": "agree",
-      "reason": "Define-XML ADADAS.AWRANGE and native workbook Comments!D4 do not provide the range text, boundary inclusiveness and unbounded-endpoint representation. ADRG page 11 supplies no assignments, and shared SAP applicability remains pending_review in the retained manifest, so an independent literal full-scope probe would need an unstated mapping."
-    },
-    {
-      "finding": "ADADAS.AWTARGET.CR-7.2",
-      "basis": "sha256:c6a245742f6271d9cff1251473224086e167294f89240c7032be850b5aa03e37",
-      "decision": "agree",
-      "reason": "Define-XML ADADAS.AWTARGET and native workbook Comments!D5 delegate the assignment to the SAP but do not state the numeric target day for each AVISIT used by AW_LOOKUP. ADRG page 11 confirms windowing without supplying the mapping, and the source manifest leaves shared SAP applicability pending_review."
-    },
-    {
-      "finding": "ADADAS.AWTARGET.CR-10",
-      "basis": "sha256:8364f829e6f3798504008aee8e39f3b62681d93f91e0c4e3908c1c3db01f6119",
-      "decision": "agree",
-      "reason": "Define-XML ADADAS.AWTARGET and native workbook Comments!D5 do not provide the numeric target day for each AVISIT. ADRG page 11 supplies no assignments, and shared SAP applicability remains pending_review in the retained manifest, so an independent literal full-scope probe would need an unstated mapping."
-    },
-    {
-      "finding": "ADADAS.AWLO.CR-7.2",
-      "basis": "sha256:0047c31953eb16dc8231fa43e2fc1eee2a244823558b5af4b15e466bd3d21ff1",
-      "decision": "agree",
-      "reason": "Define-XML ADADAS.AWLO and native workbook Comments!D3 delegate the assignment to the SAP but do not state the beginning day for each AVISIT and unbounded lower-endpoint representation used by AW_LOOKUP. ADRG page 11 confirms windowing without supplying the mapping, and the source manifest leaves shared SAP applicability pending_review."
-    },
-    {
-      "finding": "ADADAS.AWLO.CR-10",
-      "basis": "sha256:7da85790fbc1413c26f1ce618b5c19ace8b574be718eb4fb993f1910ffc5e59b",
-      "decision": "agree",
-      "reason": "Define-XML ADADAS.AWLO and native workbook Comments!D3 do not provide the beginning day for each AVISIT and unbounded lower-endpoint representation. ADRG page 11 supplies no assignments, and shared SAP applicability remains pending_review in the retained manifest, so an independent literal full-scope probe would need an unstated mapping."
-    },
-    {
-      "finding": "ADADAS.AWHI.CR-7.2",
-      "basis": "sha256:bace8737ab765999717d649fec9e6398517df49d3f6950d703ef0a05b02cf39a",
-      "decision": "agree",
-      "reason": "Define-XML ADADAS.AWHI and native workbook Comments!D2 delegate the assignment to the SAP but do not state the ending day for each AVISIT and unbounded upper-endpoint representation used by AW_LOOKUP. ADRG page 11 confirms windowing without supplying the mapping, and the source manifest leaves shared SAP applicability pending_review."
-    },
-    {
-      "finding": "ADADAS.AWHI.CR-10",
-      "basis": "sha256:09ddf026b2c2e0b137c17ed5fc7b2ecde55cea776d76a3806d220e2585501761",
-      "decision": "agree",
-      "reason": "Define-XML ADADAS.AWHI and native workbook Comments!D2 do not provide the ending day for each AVISIT and unbounded upper-endpoint representation. ADRG page 11 supplies no assignments, and shared SAP applicability remains pending_review in the retained manifest, so an independent literal full-scope probe would need an unstated mapping."
-    },
-    {
-      "finding": "ADADAS.QSSEQ.CR-11",
-      "basis": "sha256:5e55891cbdc3151b933b3636fcdf1551c8e6e6683bafd9987c14007eef8cd498",
-      "decision": "dispute",
-      "reason": "Native define-adam.xml line 1371 states the Predecessor Origin QS.QSSEQ for IT.ADADAS.QSSEQ, repeated in adam-pilot-3.xlsx Variables!M41:P41. The section export omits Origin descriptions, so an empty projected method/comment is an export limitation rather than absent retained documentation."
+      "reason": "Define-XML ADADAS.ADT names only the QS.QSDTC conversion, ADADAS.DTYPE only labels imputed ACTOT records, and ADRG page 47 illustrates one added Week 16 record. The condition _HIT IS NULL AND _SRC_QSSEQ IS NOT NULL under which a record carrying a donor's date is added (adadas_v1.yaml line 529, repeated at lines 563 and 597) has no documentary counterpart."
     },
     {
       "finding": "ADADAS.ADT.CR-7.6",
-      "basis": "sha256:73efe261c31e1d8bb04404fbe3473eb363b8a3641023d9d8ea9c79685b79ab46",
+      "basis": "sha256:b37cb8d5a045f6e558e880578c8578a847bb6618dce4a429d89e872dee041997",
       "decision": "agree",
-      "reason": "ADRG pages 46-47 illustrate the selected donor, and native IG.ADADAS supplies subject/parameter scope; MT.ADADAS.ADT states conversion from QS.QSDTC. Neither those statements nor workbook Methods!D2 specifies the general AVISITN donor ordering and nulls: last placement imposed at adadas.yaml lines 661-668."
+      "reason": "Define-XML CL.DTYPE's 'Last Observation Carried Forward' gives only the direction of the carry, and ADRG page 47 illustrates one carried date. No retained text states the DONOR16 ranking by AVISITN, then ADY, then QSSEQ, all descending with missing values last (adadas_v1.yaml lines 127-137)."
+    },
+    {
+      "finding": "ADADAS.PARAMCD.CR-11",
+      "basis": "sha256:bb83916417cb1573c2341bc6af5837262ae0027c1e21e1c2b37dc4f55df39bfb",
+      "decision": "dispute",
+      "reason": "Native define-adam.xml line 1248 gives IT.ADADAS.PARAMCD a Predecessor origin of QS.QSTESTCD, repeated in adam-pilot-3.xlsx Variables row 26; the ADADAS.PARAMCD section text omits origins. The derivation is therefore documented, and the specification copies QS.QSTESTCD (obs, adadas_v1.yaml line 428)."
+    },
+    {
+      "finding": "ADADAS.AVAL.CR-10",
+      "basis": "sha256:25dab5ce0ad30d27192accf69a3575447224ea8c3e059056575b51ce2dd282b0",
+      "decision": "agree",
+      "reason": "The generic Define-XML ADADAS.AVAL method covers the item parameters, but native define-adam.xml binds ACTOT to MT.ADADAS.AVAL.ACTOT (lines 98-100 and 4425-4428, workbook Methods row 6), which leaves the missing-item adjustment to SAP section 14.2, whose applicability to Pilot 3 is pending_review. With that adjustment unstated the documented ACTOT rule is incomplete, so AVAL cannot be probed across its full scope whatever the section export holds."
+    },
+    {
+      "finding": "ADADAS.CHG.CR-7.2",
+      "basis": "sha256:4f05c026a9d987d390ef1525e4cd5d4e4fb2ea3e6afa632ac28708648158e6b1",
+      "decision": "agree",
+      "reason": "Define-XML ADADAS.CHG and workbook Methods row 10 state only AVAL - BASE, and ADRG pages 17 and 45-48 add no condition on baseline records. The guard ABLFL <> 'Y' (adadas_v1.yaml line 407) is therefore unstated, although the reference leaves CHG missing on baseline records as the guard does."
+    },
+    {
+      "finding": "ADADAS.PCHG.CR-7.2",
+      "basis": "sha256:1dc324a7e12aea07dd1c0f70ba70c932a298ff46dad55e2118cbf9e96682625a",
+      "decision": "agree",
+      "reason": "Define-XML ADADAS.PCHG and workbook Methods row 12 state only 100* (CHG/BASE), and no ADRG page adds a baseline-record or zero-baseline condition. The guard ABLFL <> 'Y' AND BASE <> 0 (adadas_v1.yaml line 414) is therefore unstated."
+    },
+    {
+      "finding": "ADADAS.PCHG.CR-10",
+      "basis": "sha256:3a07ef06f670561ee97bf3777abeaee2cf73466de91510dbe66de4df013892ba",
+      "decision": "agree",
+      "reason": "Define-XML ADADAS.PCHG states 100* (CHG/BASE) without saying what PCHG is when BASE is 0, and neither the ADRG nor workbook Methods row 12 supplies that policy. The literal expression is undefined on zero-baseline records, so it cannot be stated as a probe."
+    },
+    {
+      "finding": "ADADAS.ABLFL.CR-11",
+      "basis": "sha256:816a304d1fa7d5e956f67d2ef953e00e4b191bb4adcf06da1afe3f6c4654e2ef",
+      "decision": "dispute",
+      "reason": "Native define-adam.xml line 1297 gives IT.ADADAS.ABLFL a Predecessor origin of QS.QSBLFL, repeated in adam-pilot-3.xlsx Variables row 32; the ADADAS.ABLFL section text omits origins. The derivation is therefore documented, and the specification copies QS.QSBLFL (obs, adadas_v1.yaml lines 485-489)."
+    },
+    {
+      "finding": "ADADAS.ANL01FL.CR-7.3",
+      "basis": "sha256:2f6f5f79d9708f46c20bf8d7d2a3d4e77faceee89b8349e11395195480c292cb",
+      "decision": "agree",
+      "reason": "Define-XML ADADAS.ANL01FL chooses the visit closest to the target date but gives no rule for two equally close visits, and the ADRG page 46-47 example has no such tie. The second sort key _DIFF (adadas_v1.yaml lines 483-484), which prefers the later visit, is therefore unstated."
+    },
+    {
+      "finding": "ADADAS.ANL01FL.CR-7.4",
+      "basis": "sha256:32d0dd884351f1a0612b04241c4da5adee83a034cdade7c2c72245dac2c0e8a1",
+      "decision": "agree",
+      "reason": "Define-XML ADADAS.ANL01FL ranks by closeness to the target date and does not say how a record without a distance is ranked. Placing missing AWTDIFF last (adadas_v1.yaml lines 481-482) has no counterpart in the retained documents."
+    },
+    {
+      "finding": "ADADAS.ANL01FL.CR-7.5",
+      "basis": "sha256:5f634af942bdf14e41dcaf73fb24cafcf65ce8b3ae561fe3667880d2375a495f",
+      "decision": "dispute",
+      "reason": "Define-XML ADADAS.ANL01FL selects among the visits that fall into the same visit window, with no condition on the score, and ADRG page 11 gives the dataset one record per subject per parameter per VISIT, so ranking every collected record of a subject, parameter and AVISIT states that rule. Added LOCF records never compete, since locf8, locf16 and locf24 add one only where the visit has no flagged ACTOT record, and ADRG page 47 shows such a record flagged Y."
+    },
+    {
+      "finding": "ADADAS.ANL01FL.CR-10",
+      "basis": "sha256:7f5148f49e127bf7dab580e2663131c3fb5e17f452da4d1a328b2806be11d276",
+      "decision": "agree",
+      "reason": "Define-XML ADADAS.ANL01FL gives nearest-to-target selection but no tie rule, and the target day itself is delegated by ADADAS.AWTARGET to the SAP, which is not among Pilot 3's section files and whose applicability is pending_review in spec/source/manifest.json. ADRG pages 46-47 illustrate one subject's flags without completing those choices, so a literal probe cannot be stated."
+    },
+    {
+      "finding": "ADADAS.DTYPE.CR-7.2",
+      "basis": "sha256:a90b9ca7515187da9789151aa61a84e79d68ffe0cb789d5af18fc4b7c160b948",
+      "decision": "agree",
+      "reason": "Define-XML ADADAS.DTYPE only labels imputed ACTOT records LOCF, and ADRG pages 45-47 give the number of imputed records and one example of an added Week 16 record. No retained text states the condition in locf8 (and locf16, locf24) under which an imputed record is added: one per subject when the target visit has no ANL01FL ACTOT record and an earlier one exists."
+    },
+    {
+      "finding": "ADADAS.DTYPE.CR-10",
+      "basis": "sha256:08ce10081c8a2f4c1e6de5a1ff6d4f8ba6be5bc7eee9115a5aaba7038ca75c0e",
+      "decision": "agree",
+      "reason": "Define-XML ADADAS.DTYPE needs a predicate for an imputed ACTOT record, and ADRG pages 45-48 distinguish collected from imputed records and illustrate one added Week 16 record without stating which visits must exist or when a record is added. An independent probe would have to borrow the specification's LOCF templates or the reference DTYPE, so the documented rule is incomplete."
+    },
+    {
+      "finding": "ADADAS.AWRANGE.CR-7.2",
+      "basis": "sha256:55712dc7940814767c6ce2b68159fd063851ccb8ea4314df23ebad9ef271af1f",
+      "decision": "agree",
+      "reason": "Define-XML ADADAS.AWRANGE and workbook Comments row 4 only point to the SAP, which is not among Pilot 3's section files and whose applicability is pending_review in spec/source/manifest.json, and ADRG page 11 gives no windows. The range strings mapped from AVISIT (adadas_v1.yaml lines 357-364) are therefore unstated."
+    },
+    {
+      "finding": "ADADAS.AWRANGE.CR-10",
+      "basis": "sha256:c503eed1eefadaf81f916f90cd46a6a3f1de6c742ac0305d08e24bf7063e9064",
+      "decision": "agree",
+      "reason": "Define-XML ADADAS.AWRANGE says only that the range is specified in the SAP, which is not among Pilot 3's section files and whose applicability is pending_review in spec/source/manifest.json, and ADRG page 11 gives no windows. Without the range text, boundary inclusiveness or the open-ended form, the rule cannot be stated as a probe."
+    },
+    {
+      "finding": "ADADAS.AWTARGET.CR-7.2",
+      "basis": "sha256:be068582545e90fa512cfbf236f86aff31524939072f0ed7b7bf8c664876c481",
+      "decision": "agree",
+      "reason": "Define-XML ADADAS.AWTARGET and workbook Comments row 5 only point to the SAP, which is not among Pilot 3's section files and whose applicability is pending_review in spec/source/manifest.json, and ADRG page 11 gives no target days. The obs mapping (adadas_v1.yaml lines 462-469) and the LOCF templates' constant targets are therefore unstated."
+    },
+    {
+      "finding": "ADADAS.AWTARGET.CR-10",
+      "basis": "sha256:0167704bf767d8455c40bc5a661f442bd579fe07c085aad88cf547b621a4fb31",
+      "decision": "agree",
+      "reason": "Define-XML ADADAS.AWTARGET says only that the target day is specified in the SAP, which is not among Pilot 3's section files and whose applicability is pending_review in spec/source/manifest.json, and ADRG page 11 gives no target days. Without the target day of each analysis visit the rule cannot be stated as a probe."
+    },
+    {
+      "finding": "ADADAS.AWLO.CR-7.2",
+      "basis": "sha256:bf79bbea3a2ea7c2adf41b5481f377b4e43501b0471d081f395a7c5fe946e3ae",
+      "decision": "agree",
+      "reason": "Define-XML ADADAS.AWLO and workbook Comments row 3 only point to the SAP, which is not among Pilot 3's section files and whose applicability is pending_review in spec/source/manifest.json, and ADRG page 11 gives no windows. The start days mapped from AVISIT, with Baseline missing (adadas_v1.yaml lines 368-375), are therefore unstated."
+    },
+    {
+      "finding": "ADADAS.AWLO.CR-10",
+      "basis": "sha256:2c0c0da1c9663f34e84fe599406cefd41fe3e3aa320631d9087c08871302b416",
+      "decision": "agree",
+      "reason": "Define-XML ADADAS.AWLO says only that the start day is specified in the SAP, which is not among Pilot 3's section files and whose applicability is pending_review in spec/source/manifest.json, and ADRG page 11 gives no windows. Without each window's start day and the form of an open lower end, the rule cannot be stated as a probe."
+    },
+    {
+      "finding": "ADADAS.AWHI.CR-7.2",
+      "basis": "sha256:77e5c42c6255bf6bc1b406b065342d5fd8e263a85d1287ba68b0e1a40bdd7d86",
+      "decision": "agree",
+      "reason": "Define-XML ADADAS.AWHI and workbook Comments row 2 only point to the SAP, which is not among Pilot 3's section files and whose applicability is pending_review in spec/source/manifest.json, and ADRG page 11 gives no windows. The end days mapped from AVISIT, with Week 24 missing (adadas_v1.yaml lines 379-386), are therefore unstated."
+    },
+    {
+      "finding": "ADADAS.AWHI.CR-10",
+      "basis": "sha256:ca9d8b444b6dc0a5a9021ab612f451a2978de0f2b42557e7bdc44d839cfe4cd4",
+      "decision": "agree",
+      "reason": "Define-XML ADADAS.AWHI says only that the end day is specified in the SAP, which is not among Pilot 3's section files and whose applicability is pending_review in spec/source/manifest.json, and ADRG page 11 gives no windows. Without each window's end day and the form of an open upper end, the rule cannot be stated as a probe."
+    },
+    {
+      "finding": "ADADAS.QSSEQ.CR-11",
+      "basis": "sha256:191c7fa3c2d62160a6b0a27a6f79ca6b19a0a8ff9712951831ebff9b307c8097",
+      "decision": "dispute",
+      "reason": "Native define-adam.xml line 1371 gives IT.ADADAS.QSSEQ a Predecessor origin of QS.QSSEQ, repeated in adam-pilot-3.xlsx Variables row 41; the ADADAS.QSSEQ section text omits origins. The derivation is therefore documented, and the specification copies QS.QSSEQ (obs, adadas_v1.yaml line 427)."
     }
   ],
-  "missed": []
+  "missed": [
+    {
+      "variable": "obs",
+      "document": "spec/source/adrg.pdf",
+      "section": "page-45",
+      "quote": "ADADAS generated by R: 1040 records for PARAMCD=ACTOT, 818 (directly from QS) +\n222 imputed records ( DTYPE=LOCF)",
+      "reason": "ADRG page 45 states which ACTOT records Pilot 3's ADADAS holds: every QS ACTOT record directly from QS, beside the CDISC dataset that kept fewer, plus the imputed LOCF records. No claim cites it; it is the record rule that the obs row (each record keeps QS.QSSTRESN, DTYPE missing, adadas_v2.yaml lines 783-787) and the locf8, locf16 and locf24 templates implement."
+    }
+  ]
 }

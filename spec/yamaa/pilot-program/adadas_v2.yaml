@@ -1,0 +1,787 @@
+# Pilot program ADADAS, version 2: what R Submission Pilot 3 changed from
+# version 1, and the Define-XML 2.0 metadata that Pilots 3 and 5 share. Pilot 5
+# resubmitted the Pilot 3 ADaM datasets as Dataset-JSON.
+yamaa: "1.0"
+type: spec
+parent: adadas_v1.yaml
+
+# Pilot 3 names the dataset ADADAS and lists the records in the order its R
+# program writes them, by the record groups and visit order derived below.
+output:
+  path: ../../data/adam/adadas-yamaa.parquet
+  relative_to: entry
+  columns:
+    - STUDYID
+    - SITEID
+    - SITEGR1
+    - USUBJID
+    - TRTSDT
+    - TRTEDT
+    - TRTP
+    - TRTPN
+    - AGE
+    - AGEGR1
+    - AGEGR1N
+    - RACE
+    - RACEN
+    - SEX
+    - ITTFL
+    - EFFFL
+    - COMP24FL
+    - AVISIT
+    - AVISITN
+    - VISIT
+    - VISITNUM
+    - ADY
+    - ADT
+    - PARAM
+    - PARAMCD
+    - PARAMN
+    - AVAL
+    - BASE
+    - CHG
+    - PCHG
+    - ABLFL
+    - ANL01FL
+    - DTYPE
+    - AWRANGE
+    - AWTARGET
+    - AWTDIFF
+    - AWLO
+    - AWHI
+    - AWU
+    - QSSEQ
+  order_by:
+    - variable: _RECORD_GROUP
+      nulls: last
+    - variable: USUBJID
+      nulls: last
+    - variable: PARAMCD
+      nulls: last
+    - variable: _VISIT_ORDER
+      nulls: last
+    - variable: ADT
+      nulls: last
+
+# Pilot 3 carries ACTOT forward from the analysis record (ANL01FL = 'Y') of the
+# latest earlier visit. CDISC Pilot 01 carries the latest ACTOT record of any
+# earlier visit, selected or not.
+intermediates:
+  - id: DONOR8
+    filter: "SELF.PARAMCD = 'ACTOT' AND SELF.ANL01FL = 'Y'
+      AND SELF.AVISITN <= 8"
+
+  - id: DONOR16
+    filter: "SELF.PARAMCD = 'ACTOT' AND SELF.ANL01FL = 'Y'
+      AND SELF.AVISITN <= 16"
+
+  - id: DONOR24
+    filter: "SELF.PARAMCD = 'ACTOT' AND SELF.ANL01FL = 'Y'
+      AND SELF.AVISITN <= 24"
+
+columns:
+  - name: STUDYID
+    submission:
+      data_type: text
+      mandatory: false
+      length: 12
+      origins:
+        - type: Predecessor
+          description: ADSL.STUDYID
+
+  - name: SITEID
+    submission:
+      data_type: text
+      mandatory: false
+      length: 3
+      origins:
+        - type: Predecessor
+          description: DM.SITEID
+
+  - name: SITEGR1
+    submission:
+      data_type: text
+      mandatory: false
+      length: 3
+      origins:
+        - type: Predecessor
+          description: ADSL.SITEGR1
+
+  - name: USUBJID
+    submission:
+      data_type: text
+      mandatory: false
+      key_sequence: 1
+      length: 11
+      origins:
+        - type: Predecessor
+          description: ADSL.USUBJID
+
+  - name: TRTSDT
+    submission:
+      data_type: integer
+      mandatory: false
+      length: 8
+      display_format: DATE9.
+      origins:
+        - type: Predecessor
+          description: ADSL.TRTSDT
+
+  - name: TRTEDT
+    submission:
+      data_type: integer
+      mandatory: false
+      length: 8
+      display_format: DATE9.
+      origins:
+        - type: Predecessor
+          description: ADSL.TRTEDT
+
+  - name: TRTP
+    submission:
+      data_type: text
+      mandatory: false
+      length: 20
+      codelist: ARM
+      origins:
+        - type: Predecessor
+          description: DM.ARM
+
+  - name: TRTPN
+    submission:
+      data_type: integer
+      mandatory: false
+      length: 8
+      codelist: ARMN
+      origins:
+        - type: Predecessor
+          description: ADSL.TRT01PN
+
+  - name: AGE
+    submission:
+      data_type: integer
+      mandatory: false
+      length: 8
+      origins:
+        - type: Predecessor
+          description: DM.AGE
+
+  - name: AGEGR1
+    submission:
+      data_type: text
+      mandatory: false
+      length: 5
+      codelist: AGEGR1
+      origins:
+        - type: Predecessor
+          description: ADSL.AGEGR1
+
+  - name: AGEGR1N
+    submission:
+      data_type: integer
+      mandatory: false
+      length: 8
+      codelist: AGEGR1N
+      origins:
+        - type: Predecessor
+          description: ADSL.AGEGR1N
+
+  - name: RACE
+    submission:
+      data_type: text
+      mandatory: false
+      length: 32
+      codelist: RACE
+      origins:
+        - type: Predecessor
+          description: DM.RACE
+
+  - name: RACEN
+    submission:
+      data_type: integer
+      mandatory: false
+      length: 8
+      codelist: RACEN
+      origins:
+        - type: Predecessor
+          description: ADSL.RACEN
+
+  - name: SEX
+    submission:
+      data_type: text
+      mandatory: false
+      length: 1
+      codelist: SEX
+      origins:
+        - type: Predecessor
+          description: DM.SEX
+
+  # Pilot 3 label; CDISC Pilot 01: Intent-to-Treat Population Flag.
+  - name: ITTFL
+    label: Intent-To-Treat Population Flag
+    submission:
+      data_type: text
+      mandatory: false
+      length: 1
+      codelist: YN
+      origins:
+        - type: Predecessor
+          description: ADSL.ITTFL
+
+  - name: EFFFL
+    submission:
+      data_type: text
+      mandatory: false
+      length: 1
+      codelist: YN
+      origins:
+        - type: Predecessor
+          description: ADSL.EFFFL
+
+  - name: COMP24FL
+    submission:
+      data_type: text
+      mandatory: false
+      length: 1
+      codelist: YN
+      origins:
+        - type: Predecessor
+          description: ADSL.COMP24FL
+
+  - name: AVISIT
+    submission:
+      data_type: text
+      mandatory: false
+      key_sequence: 3
+      length: 16
+      codelist: AVISIT
+      origins:
+        - type: Derived
+      method:
+        name: Algorithm to derive ADADAS.AVISIT
+        type: Computation
+        description: Derived based on windowing algorithm described in SAP,
+          Section 8.2
+
+  - name: AVISITN
+    submission:
+      data_type: integer
+      mandatory: false
+      length: 8
+      codelist: AVISITN
+      origins:
+        - type: Assigned
+      method:
+        name: Algorithm to derive ADADAS.AVISITN
+        type: Computation
+        description: Numeric code for AVISIT
+
+  - name: VISIT
+    submission:
+      data_type: text
+      mandatory: false
+      length: 19
+      codelist: VISIT
+      origins:
+        - type: Predecessor
+          description: QS.VISIT
+
+  - name: VISITNUM
+    submission:
+      data_type: float
+      mandatory: false
+      length: 8
+      significant_digits: 1
+      codelist: VISITNUM
+      origins:
+        - type: Predecessor
+          description: QS.VISITNUM
+
+  - name: ADY
+    submission:
+      data_type: integer
+      mandatory: false
+      length: 8
+      origins:
+        - type: Derived
+      method:
+        name: Algorithm to derive ADADAS.ADY
+        type: Computation
+        description: ADY = ADT - TRTSDT + 1, if ADT>=TRTSDT.
+          ADY = ADT - TRTSDT, if ADT<TRTSDT.
+
+  - name: ADT
+    submission:
+      data_type: integer
+      mandatory: false
+      key_sequence: 4
+      length: 8
+      display_format: DATE9.
+      origins:
+        - type: Derived
+      method:
+        name: Algorithm to derive ADADAS.ADT
+        type: Computation
+        description: SAS date from QS.QSDTC
+
+  - name: PARAMCD
+    submission:
+      data_type: text
+      mandatory: false
+      key_sequence: 2
+      length: 8
+      codelist: PARAMCD_ADQSADAS
+      origins:
+        - type: Predecessor
+          description: QS.QSTESTCD
+
+  - name: PARAM
+    submission:
+      data_type: text
+      mandatory: false
+      length: 100
+      codelist: PARAM_ADQSADAS
+      origins:
+        - type: Assigned
+      comment: Decoded value for PARAMCD
+
+  - name: PARAMN
+    submission:
+      data_type: integer
+      mandatory: false
+      length: 8
+      codelist: PARAMN_ADQSADAS
+      origins:
+        - type: Assigned
+      comment: Assign a numeric code for each value of
+        PARAMCD (see codelist PARAMN_ADQSADAS)
+
+  - name: AVAL
+    submission:
+      data_type: float
+      mandatory: false
+      length: 16
+      significant_digits: 13
+      origins:
+        - type: Derived
+      method:
+        name: Algorithm to derive ADADAS.AVAL
+        type: Computation
+        description: QS.QSSTRESN where QSTESTCD=PARAMCD
+      value_level:
+        - id: ACITM01
+          where:
+            PARAMCD:
+              - ACITM01
+          label: Word Recall Task
+          data_type: float
+          mandatory: false
+          length: 16
+          significant_digits: 13
+          origins:
+            - type: Derived
+          method:
+            name: Algorithm to derive ADADAS.AVAL
+            type: Computation
+            description: QS.QSSTRESN where QSTESTCD=PARAMCD
+        - id: ACITM02
+          where:
+            PARAMCD:
+              - ACITM02
+          label: Naming Objects And Fingers (Refer To 5 C
+          data_type: float
+          mandatory: false
+          length: 16
+          significant_digits: 13
+          origins:
+            - type: Derived
+          method:
+            name: Algorithm to derive ADADAS.AVAL
+            type: Computation
+            description: QS.QSSTRESN where QSTESTCD=PARAMCD
+        - id: ACITM03
+          where:
+            PARAMCD:
+              - ACITM03
+          label: Delayed Word Recall
+          data_type: float
+          mandatory: false
+          length: 16
+          significant_digits: 13
+          origins:
+            - type: Derived
+          method:
+            name: Algorithm to derive ADADAS.AVAL
+            type: Computation
+            description: QS.QSSTRESN where QSTESTCD=PARAMCD
+        - id: ACITM04
+          where:
+            PARAMCD:
+              - ACITM04
+          label: Commands
+          data_type: float
+          mandatory: false
+          length: 16
+          significant_digits: 13
+          origins:
+            - type: Derived
+          method:
+            name: Algorithm to derive ADADAS.AVAL
+            type: Computation
+            description: QS.QSSTRESN where QSTESTCD=PARAMCD
+        - id: ACITM05
+          where:
+            PARAMCD:
+              - ACITM05
+          label: Constructional Praxis
+          data_type: float
+          mandatory: false
+          length: 16
+          significant_digits: 13
+          origins:
+            - type: Derived
+          method:
+            name: Algorithm to derive ADADAS.AVAL
+            type: Computation
+            description: QS.QSSTRESN where QSTESTCD=PARAMCD
+        - id: ACITM06
+          where:
+            PARAMCD:
+              - ACITM06
+          label: Ideational Praxis
+          data_type: float
+          mandatory: false
+          length: 16
+          significant_digits: 13
+          origins:
+            - type: Derived
+          method:
+            name: Algorithm to derive ADADAS.AVAL
+            type: Computation
+            description: QS.QSSTRESN where QSTESTCD=PARAMCD
+        - id: ACITM07
+          where:
+            PARAMCD:
+              - ACITM07
+          label: Orientation
+          data_type: float
+          mandatory: false
+          length: 16
+          significant_digits: 13
+          origins:
+            - type: Derived
+          method:
+            name: Algorithm to derive ADADAS.AVAL
+            type: Computation
+            description: QS.QSSTRESN where QSTESTCD=PARAMCD
+        - id: ACITM08
+          where:
+            PARAMCD:
+              - ACITM08
+          label: Word Recognition
+          data_type: float
+          mandatory: false
+          length: 16
+          significant_digits: 13
+          origins:
+            - type: Derived
+          method:
+            name: Algorithm to derive ADADAS.AVAL
+            type: Computation
+            description: QS.QSSTRESN where QSTESTCD=PARAMCD
+        - id: ACITM09
+          where:
+            PARAMCD:
+              - ACITM09
+          label: Attention/Visual Search Task
+          data_type: float
+          mandatory: false
+          length: 16
+          significant_digits: 13
+          origins:
+            - type: Derived
+          method:
+            name: Algorithm to derive ADADAS.AVAL
+            type: Computation
+            description: QS.QSSTRESN where QSTESTCD=PARAMCD
+        - id: ACITM10
+          where:
+            PARAMCD:
+              - ACITM10
+          label: Maze Solution
+          data_type: float
+          mandatory: false
+          length: 16
+          significant_digits: 13
+          origins:
+            - type: Derived
+          method:
+            name: Algorithm to derive ADADAS.AVAL
+            type: Computation
+            description: QS.QSSTRESN where QSTESTCD=PARAMCD
+        - id: ACITM11
+          where:
+            PARAMCD:
+              - ACITM11
+          label: Spoken Language Ability
+          data_type: float
+          mandatory: false
+          length: 16
+          significant_digits: 13
+          origins:
+            - type: Derived
+          method:
+            name: Algorithm to derive ADADAS.AVAL
+            type: Computation
+            description: QS.QSSTRESN where QSTESTCD=PARAMCD
+        - id: ACITM12
+          where:
+            PARAMCD:
+              - ACITM12
+          label: Comprehension Of Spoken Language
+          data_type: float
+          mandatory: false
+          length: 16
+          significant_digits: 13
+          origins:
+            - type: Derived
+          method:
+            name: Algorithm to derive ADADAS.AVAL
+            type: Computation
+            description: QS.QSSTRESN where QSTESTCD=PARAMCD
+        - id: ACITM13
+          where:
+            PARAMCD:
+              - ACITM13
+          label: Word Finding Difficulty In Spontaneous S
+          data_type: float
+          mandatory: false
+          length: 16
+          significant_digits: 13
+          origins:
+            - type: Derived
+          method:
+            name: Algorithm to derive ADADAS.AVAL
+            type: Computation
+            description: QS.QSSTRESN where QSTESTCD=PARAMCD
+        - id: ACITM14
+          where:
+            PARAMCD:
+              - ACITM14
+          label: Recall Of Test Instructions
+          data_type: float
+          mandatory: false
+          length: 16
+          significant_digits: 13
+          origins:
+            - type: Derived
+          method:
+            name: Algorithm to derive ADADAS.AVAL
+            type: Computation
+            description: QS.QSSTRESN where QSTESTCD=PARAMCD
+        - id: ACTOT
+          where:
+            PARAMCD:
+              - ACTOT
+          label: Adas-Cog(11) Subscore
+          data_type: float
+          mandatory: false
+          length: 16
+          significant_digits: 13
+          origins:
+            - type: Derived
+          method:
+            name: Algorithm to derive ADADAS.AVAL.ACTOT
+            type: Computation
+            description: Sum of ADAS scores for items 1, 2, 4, 5, 6, 7, 8, 11,
+              12, 13, and 14, see SAP section 14.2 for
+              details on adjusting for missing values
+
+  # Pilot 3 label; CDISC Pilot 01: ABLFL.
+  - name: ABLFL
+    label: Baseline Record Flag
+    submission:
+      data_type: text
+      mandatory: false
+      length: 1
+      origins:
+        - type: Predecessor
+          description: QS.QSBLFL
+
+  # Pilot 3 label; CDISC Pilot 01: Analysis Record Flag 01.
+  - name: ANL01FL
+    label: Analysis Flag 01
+    submission:
+      data_type: text
+      mandatory: false
+      length: 1
+      origins:
+        - type: Derived
+      method:
+        name: Algorithm to derive ADADAS.ANL01FL
+        type: Computation
+        description: If multiple visits fall into the same visit window,
+          then the one closest to the target date is chosen
+          for analysis. These are flagged with ANL01FL="Y".
+
+  - name: DTYPE
+    submission:
+      data_type: text
+      mandatory: false
+      length: 7
+      codelist: DTYPE
+      origins:
+        - type: Derived
+      method:
+        name: Algorithm to derive ADADAS.DTYPE
+        type: Computation
+        description: Set to "LOCF" if a record is imputated when
+          PARAMCD="ACTOT"; otherwise, set to missing
+
+  - name: AWTARGET
+    submission:
+      data_type: integer
+      mandatory: false
+      length: 8
+      origins:
+        - type: Assigned
+      comment: Target day within the window, specified in the SAP.
+
+  - name: AWTDIFF
+    submission:
+      data_type: integer
+      mandatory: false
+      length: 8
+      origins:
+        - type: Assigned
+      comment: Absolute difference between AWTARGET and ADY
+
+  - name: QSSEQ
+    submission:
+      data_type: integer
+      mandatory: false
+      length: 8
+      origins:
+        - type: Predecessor
+          description: QS.QSSEQ
+
+  - name: AWRANGE
+    submission:
+      data_type: text
+      mandatory: false
+      length: 9
+      origins:
+        - type: Assigned
+      comment: Window range, specified in the SAP.
+
+  - name: AWLO
+    submission:
+      data_type: integer
+      mandatory: false
+      length: 8
+      origins:
+        - type: Assigned
+      comment: Start day of the window, specified in the SAP.
+
+  - name: AWHI
+    submission:
+      data_type: integer
+      mandatory: false
+      length: 8
+      origins:
+        - type: Assigned
+      comment: End day of the window, specified in the SAP.
+
+  - name: AWU
+    submission:
+      data_type: text
+      mandatory: false
+      length: 4
+      codelist: AWU
+      origins:
+        - type: Assigned
+      comment: Assigned as "DAYS".
+
+  - name: BASE
+    submission:
+      data_type: integer
+      mandatory: false
+      length: 8
+      origins:
+        - type: Derived
+      method:
+        name: Algorithm to derive ADADAS.BASE
+        type: Computation
+        description: QS.QSSTRESN when QS.QSBLFL=Y (QS.VISITNUM=3)
+
+  # Pilot 3 label; CDISC Pilot 01: Baseline Value.
+  - name: CHG
+    label: Change from Baseline
+    submission:
+      data_type: integer
+      mandatory: false
+      length: 8
+      origins:
+        - type: Derived
+      method:
+        name: Algorithm to derive ADADAS.CHG
+        type: Computation
+        description: AVAL - BASE
+
+  - name: PCHG
+    submission:
+      data_type: integer
+      mandatory: false
+      length: 8
+      origins:
+        - type: Derived
+      method:
+        name: Algorithm to derive ADADAS.PCHG
+        type: Computation
+        description: 100* (CHG/BASE)
+
+  # Pilot 3 lists the post-baseline analysis records with a score, with the
+  # LOCF records, then the analysis records without a score, then the other
+  # post-baseline records, then the baseline records with and without a score.
+  - name: _RECORD_GROUP
+    type: float
+    label: Pilot 3 record group (helper)
+    derivation:
+      case:
+        - when: "ABLFL = 'Y' AND AVAL IS NULL"
+          then: 4.0
+        - when: "ABLFL = 'Y'"
+          then: 3.0
+        - when: "ANL01FL = 'Y' AND AVAL IS NULL"
+          then: 1.0
+        - when: "ANL01FL = 'Y'"
+          then: 0.0
+        - otherwise: 2.0
+
+  # Within a subject and parameter, records follow the analysis visit; the
+  # analysis records without a score follow the visit name instead.
+  - name: _VISIT_ORDER
+    type: float
+    label: Pilot 3 visit order (helper)
+    derivation:
+      case:
+        - when: _RECORD_GROUP = 1
+          then:
+            mapping:
+              source: AVISIT
+              dict:
+                Baseline: 0.0
+                Week 16: 1.0
+                Week 24: 2.0
+                Week 8: 3.0
+        - otherwise: AVISITN
+
+# Pilot 3 keeps each record's own score and sets DTYPE to missing on collected
+# records, as its Define-XML method states. CDISC Pilot 01 carries the
+# selected ACTOT score onto the unselected records and marks a changed score
+# LOCF.
+rows:
+  - id: obs
+    derivations:
+      AVAL: QS.QSSTRESN
+      DTYPE:

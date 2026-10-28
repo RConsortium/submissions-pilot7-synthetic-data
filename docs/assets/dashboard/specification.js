@@ -9,9 +9,9 @@ export function specificationView(specification, view = "", focus = "") {
   return { ...specification, ...(specification.documents?.[index] || {}), sourceIndex: index };
 }
 
-/** The index of the source that writes a variable's rule, or 0 for the entry. */
+/** The index of the source that writes a variable's or row template's rule, or 0 for the entry. */
 export function definingSource(specification, focus = "") {
-  const name = focus.replace(/^(spec|output)\./, "");
+  const name = focus.replace(/^(spec|output|row)\./, "");
   const path = specification.lineage?.definitions?.[name]?.path;
   return Math.max(0, (specification.documents || []).findIndex((d) => path && d.path === path));
 }
