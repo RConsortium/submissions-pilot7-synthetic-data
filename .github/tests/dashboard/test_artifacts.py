@@ -19,9 +19,26 @@ from study_dashboard.lineage import build_lineage, source_locations
 from study_dashboard.consistency import build_report
 from study_dashboard.documents import define_metadata, document_sections
 from study_dashboard.rule_review import rule_findings
+from verify_derivations import document_links
 
 
 class ReviewDataTests(unittest.TestCase):
+    def test_pilot5_query_citation_opens_the_method_that_states_the_rule(self):
+        root = Path(__file__).resolve().parents[3]
+        path = root / "submission-pilot5/spec/define/define-adam.xml"
+        metadata = define_metadata(path)
+        item = metadata["ADAE"]["CQ01NAM"]
+        links = document_links(root, "submission-pilot5", "commit", {
+            "document": "spec/define/define-adam.xml",
+            "section": "ADAE.CQ01NAM",
+            "quote": item["method"],
+        }, metadata)
+        self.assertEqual(links["original_lines"], [4735, 4740])
+        first, last = links["original_lines"]
+        cited = "\n".join(path.read_text().splitlines()[first - 1:last])
+        self.assertIn(item["method"], cited)
+        self.assertIn('OID="MT.ADAE.CQ01NAM"', cited)
+
     def test_static_lineage_excludes_mapping_literals_and_includes_context(self):
         text = """domain: ADSL
 input:
@@ -303,7 +320,7 @@ intermediates:
                 '<ItemDef OID="ADSL.BMIGR" Name="BMIGR" DataType="text" Origin="Derived" Comment="Normal if BMIBL &lt;25" def:Label="BMI group"><CodeListRef CodeListOID="CL.GR"/></ItemDef>'
                 + codelist
                 + '<ItemGroupDef OID="IG.ADSL" Name="ADSL"><ItemRef ItemOID="ADSL.BMIGR"/></ItemGroupDef>',
-                {"method": "", "comment": "Normal if BMIBL <25"},
+                {"method": "", "method_oid": None, "comment_oid": None, "comment": "Normal if BMIBL <25"},
                 "Label: BMI group\nData type: text\nOrigin: Derived\nComment: Normal if BMIBL <25\nCodelist CL.GR: <25 = Normal",
             ),
             (
@@ -313,7 +330,7 @@ intermediates:
                 + '<MethodDef OID="MT.GR" Name="Group"><Description><TranslatedText>Normal if BMIBL &lt;25</TranslatedText></Description></MethodDef>'
                 + '<def:CommentDef OID="COM.GR"><Description><TranslatedText>See SAP 9.2</TranslatedText></Description></def:CommentDef>'
                 + '<ItemGroupDef OID="IG.ADSL" Name="ADSL"><ItemRef ItemOID="IT.BMIGR" MethodOID="MT.GR"/></ItemGroupDef>',
-                {"method": "Normal if BMIBL <25", "comment": "See SAP 9.2"},
+                {"method": "Normal if BMIBL <25", "method_oid": "MT.GR", "comment_oid": "COM.GR", "comment": "See SAP 9.2"},
                 "Label: BMI group\nData type: text\nMethod: Normal if BMIBL <25\nComment: See SAP 9.2\nCodelist CL.GR: <25 = Normal",
             ),
         ]

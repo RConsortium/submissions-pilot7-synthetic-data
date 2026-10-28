@@ -130,28 +130,35 @@ def write_sections(index, target):
 
 
 def element_lines(path, tag, oid):
-    """First and last line of a Define-XML element, for a repository link."""
-    from lxml import etree
+    """Exact opening/closing lines, including prefixed and final XML elements."""
+    from xml.parsers import expat
 
-    found = [e for e in etree.parse(str(path)).iter(f"{{*}}{tag}") if e.get("OID") == oid]
-    if not found:
-        return None
-    lines = path.read_bytes().splitlines()
+    parser = expat.ParserCreate(namespace_separator="}")
+    parser.SetParamEntityParsing(expat.XML_PARAM_ENTITY_PARSING_NEVER)
+    depth, active, result = 0, None, None
 
-    def opening(element):
-        # libxml2 reports the line that ends a start tag; walk back to its "<".
-        name = f"<{etree.QName(element).localname}".encode()
-        line = element.sourceline
-        while line > 1 and name not in lines[line - 1]:
-            line -= 1
-        return line
+    def start(name, attrs):
+        nonlocal depth, active, result
+        depth += 1
+        if (
+            result is None
+            and name.rsplit("}", 1)[-1] == tag
+            and attrs.get("OID") == oid
+        ):
+            active = depth
+            result = [parser.CurrentLineNumber, parser.CurrentLineNumber]
 
-    element = found[0]
-    start, following = opening(element), element.getnext()
-    end = opening(following) - 1 if following is not None else start
-    while end > start and not lines[end - 1].strip():
-        end -= 1
-    return [start, end]
+    def end(name):
+        nonlocal depth, active
+        if active == depth:
+            result[1] = parser.CurrentLineNumber
+            active = None
+        depth -= 1
+
+    parser.StartElementHandler = start
+    parser.EndElementHandler = end
+    parser.Parse(path.read_bytes(), True)
+    return result
 
 
 def document_links(root, study, revision, citation, metadata):
@@ -164,8 +171,20 @@ def document_links(root, study, revision, citation, metadata):
         links["original"] = f"{published}#page={section.removeprefix('page-')}"
     elif document.endswith(".xml"):
         domain, _, name = section.partition(".")
-        oid = metadata.get(domain, {}).get(name, {}).get("oid")
-        tag, oid = ("ItemDef", oid)
+        item = metadata.get(domain, {}).get(name, {})
+        tag, oid = "ItemDef", item.get("oid")
+        # Define 2.x keeps these statements outside ItemDef. Follow the
+        # variable's actual reference; OID naming conventions are not reliable.
+        quote = normalize(citation["quote"])
+        for field, element in (("method", "MethodDef"), ("comment", "CommentDef")):
+            statement = item.get(field, "")
+            if (
+                statement
+                and item.get(field + "_oid")
+                and quote in normalize(field.capitalize() + ": " + statement)
+            ):
+                tag, oid = element, item[field + "_oid"]
+                break
         if citation["quote"].startswith("Codelist "):
             tag, oid = "CodeList", citation["quote"].removeprefix("Codelist ").split(":")[0]
         if oid and (lines := element_lines(root / path, tag, oid)):

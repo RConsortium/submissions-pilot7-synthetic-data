@@ -177,6 +177,7 @@ columns:
         self.assertIn("Findings can remain open even when reference agreement is 100%", page)
         self.assertEqual(review_counts(issues), {"yes": 1, "no": 1, "needs_review": 1})
 
+    @patch.dict("os.environ", {"GITHUB_SHA": "commit"})
     def test_home_page_shows_review_counts_separately_and_rejects_stale_summary(self):
         target = self.generate()
         table = "\n".join(build_table(self.root, self.root / ".build/validation"))
@@ -185,6 +186,9 @@ columns:
         self.assertIn("[0 findings](studies/future-study.md#future-study/overview)", table)
         self.assertIn("0 critical; 0 non-critical; 0 needing assessment", table)
         self.assertIn("Review pending", table)
+        with patch.dict("os.environ", {"GITHUB_SHA": "another-commit"}):
+            with self.assertRaisesRegex(ValueError, "not from this source commit"):
+                build_table(self.root, self.root / ".build/validation")
         path = target / "future-study/report.json"
         report = json.loads(path.read_text())
         report["revision"] = "old-commit"

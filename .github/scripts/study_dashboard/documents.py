@@ -90,6 +90,8 @@ def define_metadata(path):
                 "type": item.attrib.get("DataType"),
                 "oid": item.attrib["OID"],
                 "method": methods.get(reference.attrib.get("MethodOID"), ""),
+                "method_oid": reference.attrib.get("MethodOID"),
+                "comment_oid": attrs.get("CommentOID"),
                 "comment": (
                     attrs.get("Comment", "").strip()
                     or comments.get(attrs.get("CommentOID"), "")

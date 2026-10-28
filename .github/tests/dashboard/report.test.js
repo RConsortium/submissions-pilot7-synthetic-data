@@ -152,7 +152,9 @@ test("the metric and listing count issues separately from supporting checks", ()
 test("trace shows selected quotes and comparisons once, with full context and check audit expandable", () => {
   const html = issueTrace(issue, report);
   for (const fragment of [
-    "Rule comparison",
+    "1. Rule comparison",
+    "2. Data comparison",
+    "3. Proposed action",
     "Expected",
     "Observed",
     "Use &lt;first&gt; day",
@@ -164,6 +166,7 @@ test("trace shows selected quotes and comparisons once, with full context and ch
     "2 supporting checks and agent review",
     "Proposed action",
     "Complete check evidence",
+    "Source lines 3-3",
   ])
     assert.ok(html.includes(fragment), fragment);
   const primary = html.slice(0, html.indexOf('<details class="issue-checks">'));
@@ -172,6 +175,9 @@ test("trace shows selected quotes and comparisons once, with full context and ch
     1,
   );
   assert.ok(!html.includes("<value>"));
+  assert.ok(html.indexOf("1. Rule comparison") < html.indexOf("2. Data comparison"));
+  assert.ok(html.indexOf("2. Data comparison") < html.indexOf("3. Proposed action"));
+  assert.match(primary, /Documented rule vs published reference: 2 subjects differ/);
 });
 
 test("closed finding rows defer evidence and an opened trace is populated only once", () => {

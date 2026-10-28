@@ -61,6 +61,59 @@ def trtsdt(clauses, probes):
 
 
 class CitationTests(unittest.TestCase):
+    def test_xml_citations_follow_referenced_statements_and_exact_element_bounds(self):
+        xml = """<ODM xmlns="urn:odm" xmlns:d="urn:define">
+  <ItemDef OID="IT.CQ" Name="CQ01NAM">
+    <Description><TranslatedText>Query name</TranslatedText></Description>
+  </ItemDef>
+  <MethodDef OID="rule-17"
+      Name="Query rule">
+    <Description><TranslatedText>Use dermatologic events</TranslatedText></Description>
+  </MethodDef>
+  <CodeList OID="CL.CQ">
+    <EnumeratedItem CodedValue="DERMATOLOGIC EVENTS"/>
+  </CodeList>
+  <d:CommentDef OID="note-9">
+    <Description><TranslatedText>See SAP 9.2</TranslatedText></Description>
+  </d:CommentDef>
+</ODM>
+"""
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            path = root / "s" / DEFINE
+            path.parent.mkdir(parents=True)
+            path.write_text(xml)
+            metadata = {"ADAE": {"CQ01NAM": {
+                "oid": "IT.CQ", "method_oid": "rule-17",
+                "method": "Use dermatologic events",
+                "comment_oid": "note-9", "comment": "See SAP 9.2",
+            }}}
+            for quote, expected in [
+                ("Query name", [2, 4]),
+                ("Use dermatologic events", [5, 8]),
+                ("Method: Use dermatologic events", [5, 8]),
+                ("See SAP 9.2", [12, 14]),
+                ("Codelist CL.CQ: DERMATOLOGIC EVENTS", [9, 11]),
+            ]:
+                with self.subTest(quote=quote):
+                    links = vd.document_links(root, "s", "r", {
+                        "document": DEFINE, "section": "ADAE.CQ01NAM", "quote": quote,
+                    }, metadata)
+                    self.assertEqual(links["original_lines"], expected)
+                    self.assertTrue(links["repository"].endswith(f"#L{expected[0]}-L{expected[1]}"))
+            self.assertIsNone(vd.element_lines(path, "MethodDef", "missing"))
+
+    def test_legacy_define_derivation_stays_on_itemdef(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            path = root / "s" / DEFINE
+            path.parent.mkdir(parents=True)
+            path.write_text('<ODM>\n<ItemDef OID="ADSL.X" Comment="Copy DM.X"/>\n</ODM>')
+            links = vd.document_links(root, "s", "r", {
+                "document": DEFINE, "section": "ADSL.X", "quote": "Copy DM.X",
+            }, {"ADSL": {"X": {"oid": "ADSL.X", "comment": "Copy DM.X"}}})
+            self.assertEqual(links["original_lines"], [2, 2])
+
     def test_a_quote_counts_only_verbatim_in_its_cited_section(self):
         cases = [
             ("whitespace differs", "ADSL.TRTSDT", "SV.SVSTDTC when SV.VISITNUM=3, converted to   SAS date", True, None),
