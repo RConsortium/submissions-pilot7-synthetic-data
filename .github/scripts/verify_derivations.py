@@ -208,14 +208,27 @@ def field_spans(text):
     """Line spans of each field of every column and row template in one YAML file.
 
     A row template's derivations are spanned one variable at a time, as
-    `derivations/<variable>`, the fields field_sources names.
+    `derivations/<variable>`, the fields field_sources names. Each span also
+    holds the character range of every leaf the field writes, under the
+    pointer element_leaves names it by.
     """
     root = yaml.compose(text)
     found = {}
 
-    def span(key, value):
+    def leaves(node, pointer):
+        children = (
+            [(k.value, v) for k, v in node.value] if isinstance(node, yaml.MappingNode)
+            else list(enumerate(node.value)) if isinstance(node, yaml.SequenceNode) else []
+        )
+        if not children:
+            yield pointer, (node.start_mark.index, node.end_mark.index)
+        for name, child in children:
+            yield from leaves(child, f"{pointer}/{name}")
+
+    def span(key, value, field=None):
         start = key.start_mark.line + 1
-        return {"start": start, "end": start + text[key.start_mark.index:value.end_mark.index].rstrip().count("\n")}
+        end = start + text[key.start_mark.index:value.end_mark.index].rstrip().count("\n")
+        return {"start": start, "end": end, "leaves": dict(leaves(value, field or key.value))}
 
     for key, value in root.value if isinstance(root, yaml.MappingNode) else []:
         label = {"columns": "name", "rows": "id"}.get(key.value)
@@ -230,11 +243,33 @@ def field_spans(text):
             spans = {}
             for field, (k, v) in fields.items():
                 if field == "derivations" and isinstance(v, yaml.MappingNode):
-                    spans.update({f"derivations/{dk.value}": span(dk, dv) for dk, dv in v.value})
+                    spans.update({f"derivations/{dk.value}": span(dk, dv, f"derivations/{dk.value}") for dk, dv in v.value})
                 else:
                     spans[field] = span(k, v)
             found[fields[label][1].value] = spans
     return found
+
+
+def kept_text(text, path, own, written, leaves):
+    """One layer's lines of an element, with the text the composition replaced blanked.
+
+    A field another layer overrode or cleared is blanked whole. Inside a field
+    several layers write, a leaf is kept only when the composed leaf at, under
+    or above it is this layer's, so a later layer that rewrites one part of a
+    rule, such as an `impute` day, blanks this layer's text for that part.
+    """
+    current = {f: f in {"name", "id"} or path in written.get(f, ()) for f in own}
+    characters = list(text)
+    for field, span in own.items():
+        if not current[field] or len(written.get(field, ())) < 2:
+            continue
+        for pointer, (start, end) in span["leaves"].items():
+            related = {s for p, s in leaves.items() if p == pointer or p.startswith(f"{pointer}/") or pointer.startswith(f"{p}/")}
+            if path not in related:
+                characters[start:end] = [c if c in "\r\n" else " " for c in characters[start:end]]
+    live = {n for f, s in own.items() if current[f] for n in range(s["start"], s["end"] + 1)}
+    stale = {n for f, s in own.items() if not current[f] for n in range(s["start"], s["end"] + 1)} - live
+    return ["" if number in stale else line for number, line in enumerate("".join(characters).splitlines(), 1)]
 
 
 def layered_elements(packet):
@@ -242,31 +277,32 @@ def layered_elements(packet):
 
     An element is read first in the layer that writes its rule, then in the
     fields other layers still contribute, such as an entry's Define-XML
-    metadata or one row template rule a later version replaces. The defining
-    layer's own text for a field another layer overrode or cleared is blanked
-    for quote search, so it never verifies a quote.
+    metadata or one row template rule a later version replaces. Text in any
+    of these layers that the composition replaced is blanked for quote
+    search, as kept_text blanks it, so it never verifies a quote.
     """
-    from study_dashboard.specifications import defining_sources, field_sources
+    from study_dashboard.specifications import defining_sources, element_leaves, field_sources
 
     texts = {source["path"]: source["text"] for source in packet["sources"]}
     located = {path: source_locations(text)["spans"] for path, text in texts.items()}
     fields = {path: field_spans(text) for path, text in texts.items()}
-    kept, elements = field_sources(packet), {}
+    kept, composed, elements = field_sources(packet), element_leaves(packet), {}
     for element, path in defining_sources(packet).items():
         if element not in located[path]:
             continue
-        lines, written, own = texts[path].splitlines(), kept.get(element, {}), fields[path].get(element, {})
-        current = {f: f in {"name", "id"} or path in written.get(f, ()) for f in own}
-        live = {n for f, s in own.items() if current[f] for n in range(s["start"], s["end"] + 1)}
-        stale = {n for f, s in own.items() if not current[f] for n in range(s["start"], s["end"] + 1)} - live
-        search = ["" if number in stale else line for number, line in enumerate(lines, 1)]
-        candidates = [{"path": path, "lines": lines, "search": search, "span": located[path][element]}]
+        written, leaves = kept.get(element, {}), composed.get(element, {})
+
+        def candidate(source, span):
+            own = fields[source].get(element, {})
+            return {"path": source, "lines": texts[source].splitlines(),
+                    "search": kept_text(texts[source], source, own, written, leaves), "span": span}
+
+        candidates = [candidate(path, located[path][element])]
         for field, sources in sorted(written.items()):
             for source in sorted(sources - {path}):
                 span = fields[source].get(element, {}).get(field)
-                candidate = {"path": source, "lines": texts[source].splitlines(), "span": span}
-                if span and candidate not in candidates:
-                    candidates.append(candidate)
+                if span and (other := candidate(source, span)) not in candidates:
+                    candidates.append(other)
         elements[element] = candidates
     return elements
 

@@ -103,6 +103,7 @@ rows:
             "spec/yamaa/pilot-program/adx_v2.yaml": """columns:
   - name: TRTSDT
     label: Date of First Exposure to Treatment
+    derivation: {impute: {source: EX_STDTC}}
 rows:
   - id: base-ord
     derivations:
@@ -117,16 +118,16 @@ rows:
         v1, v2, entry = layers
         written = {
             "/columns/0": v1, "/columns/0/name": entry, "/columns/0/label": v2,
-            "/columns/0/derivation": v1, "/columns/0/derivation/impute": v1,
-            "/columns/0/derivation/impute/type": v1, "/columns/0/derivation/impute/source": v1,
+            "/columns/0/derivation/value": v1, "/columns/0/derivation/value/impute": v1,
+            "/columns/0/derivation/value/impute/type": v1, "/columns/0/derivation/value/impute/source": v2,
             "/columns/0/submission": entry, "/columns/0/submission/comment": entry,
             "/rows/0": v1, "/rows/0/id": v2, "/rows/0/dataset": v1, "/rows/0/derivations": v1,
             "/rows/0/derivations/AVISIT/value": v2, "/rows/0/derivations/VISITNUM/value": v1,
         }
         origins = {pointer: {"declaring_source": source, "source_kind": "authored", "generated": False}
                    for pointer, source in written.items()}
-        for name in ("AVISIT", "VISITNUM"):
-            origins[f"/rows/0/derivations/{name}"] = {"declaring_source": v1, "source_kind": "authored", "generated": True}
+        for pointer in ("/columns/0/derivation", "/rows/0/derivations/AVISIT", "/rows/0/derivations/VISITNUM"):
+            origins[pointer] = {"declaring_source": v1, "source_kind": "authored", "generated": True}
         packet = {
             "model": {"columns": [{"name": "TRTSDT"}], "rows": [{"id": "base-ord"}]},
             "sources": [{"path": path, "text": text} for path, text in layers.items()],
@@ -134,12 +135,14 @@ rows:
         }
         layered = {**spec_file(), "path": entry, "elements": vd.layered_elements(packet)}
         cases = [
-            ("rule in its defining layer", "TRTSDT", "type: date, source: EX_MINDTC", (True, v1, [5, 5])),
+            ("rule in its defining layer", "TRTSDT", "impute: {type: date,", (True, v1, [5, 5])),
+            ("rule part a later layer writes", "TRTSDT", "source: EX_STDTC", (True, v2, [4, 4])),
+            ("rule part a later layer overrode", "TRTSDT", "source: EX_MINDTC", (False, v1, None)),
             ("metadata another layer still writes", "TRTSDT", "comment: SV.SVSTDTC", (True, entry, [4, 4])),
             ("label a later layer writes", "TRTSDT", "Date of First Exposure", (True, v2, [3, 3])),
             ("label a later layer overrode", "TRTSDT", "label: Treatment start", (False, v1, None)),
             ("row rule the declaring layer keeps", "base-ord", "VISITNUM: LB.VISITNUM", (True, v1, [11, 11])),
-            ("row rule a later layer replaces", "base-ord", "AVISIT: \"'Baseline'\"", (True, v2, [7, 7])),
+            ("row rule a later layer replaces", "base-ord", "AVISIT: \"'Baseline'\"", (True, v2, [8, 8])),
             ("row rule a later layer replaced", "base-ord", "'  Baseline'", (False, v1, None)),
         ]
         for label, element, quote, expected in cases:

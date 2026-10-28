@@ -12,7 +12,8 @@ import yaml
 sys.path.insert(0, str(Path(__file__).resolve().parents[2] / "scripts"))
 from study_dashboard.lineage import build_lineage, source_locations
 from study_dashboard.specifications import (
-    capture_specification, defining_sources, field_sources, inspection_specification, resource_path,
+    capture_specification, defining_sources, element_leaves, field_sources, inspection_specification,
+    resource_path,
 )
 
 
@@ -161,7 +162,7 @@ type: spec
 keys: [USUBJID]
 input:
   DM: {path: dm.csv, relative_to: entry}
-output: {path: out.csv, relative_to: entry, columns: [USUBJID, AGEGR, SEXN, AVISIT, VISITNUM]}
+output: {path: out.csv, relative_to: entry, columns: [USUBJID, AGEGR, SEXN, TRTSDT, AVISIT, VISITNUM]}
 columns:
   - {name: USUBJID, type: str, label: Subject, derivation: DM.USUBJID}
   - {name: AGEGR, type: str, label: Age group, derivation: "'ALL'"}
@@ -172,6 +173,11 @@ columns:
       case:
         - {when: "DM.SEX = 'M'", then: 1}
         - otherwise: 2
+  - name: TRTSDT
+    type: date
+    label: Start
+    derivation:
+      impute: {type: date, source: DM.DT, month: 1, day: 1}
   - {name: AVISIT, type: str, label: Visit}
   - {name: VISITNUM, type: str, label: Visit number}
 rows:
@@ -197,6 +203,7 @@ columns:
       case:
         - {when: "DM.SEX = 'F'", then: 2}
         - otherwise: 1
+  - {name: TRTSDT, derivation: {impute: {source: DM.DTC}}}
 rows:
   - id: base
     derivations:
@@ -208,11 +215,16 @@ rows:
             packet = capture_specification(root, path, yamaa.spec(path).resolve())
             base, entry = "shared/base.yaml", "study/entry.yaml"
             self.assertEqual(
-                (defining_sources(packet), field_sources(packet)["SEXN"], field_sources(packet)["base"]),
-                ({"USUBJID": base, "AGEGR": entry, "SEXN": entry, "AVISIT": base, "VISITNUM": base, "base": base},
+                (defining_sources(packet), field_sources(packet)["SEXN"], field_sources(packet)["base"],
+                 element_leaves(packet)["TRTSDT"]),
+                ({"USUBJID": base, "AGEGR": entry, "SEXN": entry, "TRTSDT": base, "AVISIT": base, "VISITNUM": base,
+                  "base": base},
                  {"type": {base}, "label": {entry}, "derivation": {entry}},
-                 {"dataset": {base}, "derivations/AVISIT": {entry}, "derivations/VISITNUM": {base}}),
-                "a case rule a later layer rewrites belongs to that layer, in a column or a row template")
+                 {"dataset": {base}, "derivations/AVISIT": {entry}, "derivations/VISITNUM": {base}},
+                 {"name": entry, "type": base, "label": base, "derivation/impute/type": base,
+                  "derivation/impute/source": entry, "derivation/impute/month": base, "derivation/impute/day": base}),
+                "a rule a later layer rewrites belongs to that layer, in a column or a row template, "
+                "and one part it rewrites belongs to it leaf by leaf")
 
 
 @unittest.skipUnless(importlib.util.find_spec("yamaa"), "requires the study's pinned yamaa")

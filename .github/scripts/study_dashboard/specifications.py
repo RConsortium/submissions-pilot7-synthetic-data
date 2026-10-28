@@ -129,6 +129,30 @@ def defining_sources(packet):
     return found
 
 
+def element_leaves(packet):
+    """The source file that wrote each leaf of every column and row template.
+
+    Pointers are relative to the element and follow the authored YAML: the
+    engine wraps a column's or row template's rule in `value`, which no layer
+    writes, so `derivation/impute/day` names the leaf that
+    `derivation: {impute: {day: 15}}` writes.
+    """
+    leaves, found = leaf_writers(packet), {}
+    for key, label in (("columns", "name"), ("rows", "id")):
+        for index, item in enumerate(packet["model"].get(key, [])):
+            prefix, written = f"/{key}/{index}/", {}
+            for pointer, source in leaves.items():
+                if not pointer.startswith(prefix):
+                    continue
+                parts = pointer[len(prefix):].split("/")
+                rule = {"derivation": 1, "derivations": 2}.get(parts[0])
+                if rule is not None and parts[rule:rule + 1] == ["value"]:
+                    del parts[rule]
+                written["/".join(parts)] = source
+            found[item[label]] = written
+    return found
+
+
 def field_sources(packet):
     """Name the source files that write each field a column or row template keeps.
 
@@ -137,17 +161,13 @@ def field_sources(packet):
     a row template is a field of its own, `derivations/<variable>`, because a
     layer may override one variable's rule in a template another layer declares.
     """
-    leaves, found = leaf_writers(packet), {}
-    for key, label in (("columns", "name"), ("rows", "id")):
-        for index, item in enumerate(packet["model"].get(key, [])):
-            prefix, fields = f"/{key}/{index}/", {}
-            for pointer, source in leaves.items():
-                if not pointer.startswith(prefix):
-                    continue
-                parts = pointer[len(prefix):].split("/")
-                if parts[0] == label:
-                    continue
-                field = "/".join(parts[:2]) if parts[0] == "derivations" and len(parts) > 1 else parts[0]
-                fields.setdefault(field, set()).add(source)
-            found[item[label]] = fields
+    found = {}
+    for element, written in element_leaves(packet).items():
+        fields = found[element] = {}
+        for pointer, source in written.items():
+            parts = pointer.split("/")
+            if parts[0] in ("name", "id"):
+                continue
+            field = "/".join(parts[:2]) if parts[0] == "derivations" and len(parts) > 1 else parts[0]
+            fields.setdefault(field, set()).add(source)
     return found
