@@ -216,3 +216,22 @@ test("inline row expressions sharing a source line remain visible for either var
     assert.equal(lines[2].text, "    derivations: {AGE: DM.AGE, SEX: DM.SEX}");
   }
 });
+
+test("a layered specification shows the source that writes the selected rule until a view is chosen", () => {
+  const layered = {
+    documents: [{ path: "study/spec/yamaa/adsl.yaml" }, { path: "spec/yamaa/adsl.yaml" }],
+    resolved: { text: "model" },
+    lineage: { definitions: { AGE: { path: "spec/yamaa/adsl.yaml", start: 2, end: 4 },
+                              SEX: { path: "study/spec/yamaa/adsl.yaml", start: 5, end: 6 } } },
+  };
+  const cases = [
+    ["output column defined in the shared layer", "", "output.AGE", 1],
+    ["specification column defined in the entry", "", "spec.SEX", 0],
+    ["input column shows the entry", "", "DM.AGE", 0],
+    ["chosen source stays", "source:0", "output.AGE", 0],
+    ["missing source falls back to the entry", "source:9", "", 0],
+  ];
+  for (const [label, view, focus, expected] of cases)
+    assert.equal(specificationView(layered, view, focus).sourceIndex, expected, label);
+  assert.equal(specificationView(layered, "resolved", "output.AGE").inspection, true);
+});

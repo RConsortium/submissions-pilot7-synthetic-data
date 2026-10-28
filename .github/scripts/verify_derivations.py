@@ -223,10 +223,134 @@ def locate_quote(lines, span, quote):
     return None
 
 
+def field_spans(text):
+    """Line spans of each field of every column, intermediate and row template in one YAML file.
+
+    A row template's derivations are spanned one variable at a time, as
+    `derivations/<variable>`, the fields field_sources names. Each span also
+    holds the field's character range and that of every leaf it writes,
+    under the pointer element_leaves names it by.
+    """
+    root = yaml.compose(text)
+    found = {}
+
+    def leaves(node, pointer):
+        children = (
+            [(k.value, v) for k, v in node.value] if isinstance(node, yaml.MappingNode)
+            else list(enumerate(node.value)) if isinstance(node, yaml.SequenceNode) else []
+        )
+        if not children:
+            yield pointer, (node.start_mark.index, node.end_mark.index)
+        for name, child in children:
+            yield from leaves(child, f"{pointer}/{name}")
+
+    def span(key, value, field=None):
+        start, written = key.start_mark.line + 1, text[key.start_mark.index:value.end_mark.index].rstrip()
+        return {"start": start, "end": start + written.count("\n"),
+                "range": (key.start_mark.index, key.start_mark.index + len(written)),
+                "leaves": dict(leaves(value, field or key.value))}
+
+    for key, value in root.value if isinstance(root, yaml.MappingNode) else []:
+        label = {"columns": "name", "intermediates": "id", "rows": "id"}.get(key.value)
+        if label is None or not isinstance(value, yaml.SequenceNode):
+            continue
+        for item in value.value:
+            if not isinstance(item, yaml.MappingNode):
+                continue
+            fields = {k.value: (k, v) for k, v in item.value}
+            if label not in fields:
+                continue
+            spans = {}
+            for field, (k, v) in fields.items():
+                if field == "derivations" and isinstance(v, yaml.MappingNode):
+                    spans.update({f"derivations/{dk.value}": span(dk, dv, f"derivations/{dk.value}") for dk, dv in v.value})
+                else:
+                    spans[field] = span(k, v)
+            found[fields[label][1].value] = spans
+    return found
+
+
+def kept_text(text, path, own, written, leaves):
+    """One layer's lines of an element, with the text the composition replaced blanked.
+
+    A field another layer overrode or cleared is blanked where it stands, even
+    on a line it shares with a field this layer still writes, such as
+    `label: Old` in `- {name: X, label: Old, derivation: A.X}`. Inside a field
+    several layers write, a leaf is kept only when the composed leaf at, under
+    or above it is this layer's, so a later layer that rewrites one part of a
+    rule, such as an `impute` day, blanks this layer's text for that part.
+    """
+    characters = list(text)
+
+    def blank(start, end):
+        characters[start:end] = [c if c in "\r\n" else " " for c in characters[start:end]]
+
+    for field, span in own.items():
+        writers = written.get(field, set())
+        if field in {"name", "id"} or writers == {path}:
+            continue
+        if path not in writers:
+            blank(*span["range"])
+            continue
+        for pointer, (start, end) in span["leaves"].items():
+            related = {s for p, s in leaves.items() if p == pointer or p.startswith(f"{pointer}/") or pointer.startswith(f"{p}/")}
+            if path not in related:
+                blank(start, end)
+    return "".join(characters).splitlines()
+
+
+def layered_elements(packet):
+    """Where each element of a layered specification may be quoted.
+
+    An element is read first in the layer that writes its rule, then in the
+    fields other layers still contribute, such as an entry's Define-XML
+    metadata or one row template rule a later version replaces. Text in any
+    of these layers that the composition replaced is blanked for quote
+    search, as kept_text blanks it, so it never verifies a quote.
+    """
+    from study_dashboard.specifications import defining_sources, element_leaves, field_sources
+
+    texts = {source["path"]: source["text"] for source in packet["sources"]}
+    located = {path: source_locations(text)["spans"] for path, text in texts.items()}
+    fields = {path: field_spans(text) for path, text in texts.items()}
+    kept, composed, elements = field_sources(packet), element_leaves(packet), {}
+    for element, path in defining_sources(packet).items():
+        if element not in located[path]:
+            continue
+        written, leaves = kept.get(element, {}), composed.get(element, {})
+
+        def candidate(source, span):
+            own = fields[source].get(element, {})
+            return {"path": source, "lines": texts[source].splitlines(),
+                    "search": kept_text(texts[source], source, own, written, leaves), "span": span}
+
+        candidates = [candidate(path, located[path][element])]
+        for field, sources in sorted(written.items()):
+            for source in sorted(sources - {path}):
+                span = fields[source].get(element, {}).get(field)
+                if span and (other := candidate(source, span)) not in candidates:
+                    candidates.append(other)
+        elements[element] = candidates
+    return elements
+
+
 def spec_side(spec_file, element, quote=None):
-    """A specification element, and the lines of a quote inside it when given."""
+    """A specification element, and the lines of a quote inside it when given.
+
+    A layered specification's element is read where the composition keeps it,
+    as layered_elements lists it. Text a later layer overrode never verifies a
+    quote.
+    """
     path, lines, spans, revision = spec_file["path"], spec_file["lines"], spec_file["spans"], spec_file["revision"]
     span = spans.get(element) if element else None
+    search = lines
+    candidates = spec_file.get("elements", {}).get(element, [])
+    if candidates:
+        chosen = candidates[0]
+        if quote is not None:
+            chosen = next((c for c in candidates if locate_quote(c.get("search", c["lines"]), c["span"], quote)), chosen)
+        path, lines, span = (chosen[k] for k in ("path", "lines", "span"))
+        search = chosen.get("search", lines)
     side = {"path": path, "element": element, "quote": quote, "element_lines": None, "lines": None, "excerpt": None, "verified": True, "reason": None}
     if span is None:
         if quote is not None or element is not None:
@@ -235,7 +359,7 @@ def spec_side(spec_file, element, quote=None):
     side.update(element_lines=[span["start"], span["end"]], excerpt="\n".join(lines[span["start"] - 1 : span["end"]]))
     shown = [span["start"], span["end"]]
     if quote is not None:
-        found = locate_quote(lines, span, quote)
+        found = locate_quote(search, span, quote)
         if found is None:
             side.update(verified=False, reason=f"quote not found in specification element {element}")
         else:
@@ -335,9 +459,10 @@ def copy_check(base, spec, tables, variable, comment, subject_key):
     if derivation is None:
         # Row templates supply the value; one plain source across them is a copy.
         found = {
-            str(row["derivations"][variable])
+            str(rule["value"] if isinstance(rule, dict) and set(rule) == {"value"} else rule)
             for row in spec.get("rows", [])
-            if variable in (row.get("derivations") or {})
+            for rule in [(row.get("derivations") or {}).get(variable)]
+            if rule is not None
         }
         derivation = found.pop() if len(found) == 1 else derivation
     resolved = resolve_source(spec, derivation)
@@ -631,7 +756,7 @@ def variable_findings(record, rules, spec_file, define_citation):
             }
         )
 
-    own = spec_side(spec_file, name if name in spec_file["spans"] else None)
+    own = spec_side(spec_file, name if name in spec_file["spans"] or name in spec_file["elements"] else None)
     if record["check"] == "copy":
         copy = record["copy"]
         documents = [quote_side(define_citation(record["define"]["comment"]), record["define"]["comment"], "states")]
@@ -723,15 +848,20 @@ def dataset_report(context, domain, spec_path, derived, reference):
     base = root / study
     text = spec_path.read_text()
     spec = yaml.safe_load(text)
-    if spec.get("parent") or spec.get("include") or any("copy" in c for c in spec["columns"]):
+    elements = {}
+    if spec.get("parent") or spec.get("include") or any("copy" in c for c in spec.get("columns", [])):
         import yamaa
-        resolved = yamaa.spec(spec_path).resolve()
-        spec = next(e["specification"] for e in resolved["entries"] if e["entry"] == resolved["entry"])
+        from study_dashboard.specifications import capture_specification
+
+        packet = capture_specification(root, spec_path, yamaa.spec(spec_path).resolve())
+        spec = packet["model"]
+        elements = layered_elements(packet)
     spans = source_locations(text)["spans"]
     spec_file = {
         "path": spec_path.relative_to(root).as_posix(),
         "lines": text.splitlines(),
         "spans": spans,
+        "elements": elements,
         "keys": spec["keys"],
         "revision": revision,
     }
@@ -771,7 +901,7 @@ def dataset_report(context, domain, spec_path, derived, reference):
                 "comment": item.get("comment", ""),
                 "text": define_section_text(item) if item else "",
             },
-            "spec": spec_side(spec_file, name if name in spans else None),
+            "spec": spec_side(spec_file, name if name in spans or name in elements else None),
         }
         record["spec"]["in_output"] = name in spec["output"]["columns"]
 

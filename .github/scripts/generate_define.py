@@ -149,9 +149,13 @@ def generate(study_name, schema_root):
 
     artifacts = {}
     for relative in declaration["adam"]["specs"]:
-        spec_file = project_file.parent / relative
-        spec = yaml.safe_load(spec_file.read_text())
-        artifacts[spec["domain"]] = (spec_file.parent / spec["output"]["path"]).resolve()
+        spec_file = (project_file.parent / relative).resolve()
+        domain = yaml.safe_load(spec_file.read_text())["domain"]
+        # A layered specification inherits its output; the engine names its location.
+        resolved = project.spec(domain).resolve()
+        entry = next(e for e in resolved["entries"] if e["entry"] == str(spec_file))
+        output = next(r for r in entry["resources"] if r["spec_path"] == "output.path")
+        artifacts[domain] = Path(output["location"]["path"]).resolve()
     candidate = (project_file.parent / declaration["adam"]["define"]).resolve()
     for supporting in declaration["adam"].get("documents", []):
         # These studies stage their reviewer guide under its original filename.

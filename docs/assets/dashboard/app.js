@@ -343,6 +343,8 @@ import { developmentReport, mountDevelopment } from "./synthetic-development.js"
       const owner = target.dataset.outputDataset;
       if (owner && owner !== state.dataset) changePrimary(state, owner);
       state.focus = clear ? "" : raw;
+      // A new selection shows its defining source again unless the model is chosen.
+      if (state.focus && state.specView !== "resolved") state.specView = "";
       state.relatedOnly = true;
       state.pages = {};
       save();

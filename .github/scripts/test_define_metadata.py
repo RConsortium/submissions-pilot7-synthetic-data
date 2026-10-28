@@ -178,30 +178,6 @@ class DefineComparisonTests(unittest.TestCase):
 
 
 class UnifiedSpecificationsTests(unittest.TestCase):
-    def test_each_pilot_uses_one_dataset_spec_for_derivations_and_submission(self):
-        for study in ("submission-pilot3", "submission-pilot5"):
-            with self.subTest(study=study):
-                directory = ROOT / study / "spec/yamaa"
-                project = yaml.safe_load((directory / "project.yaml").read_text())
-                self.assertFalse((directory / "submission").exists())
-                self.assertEqual(project["adam"]["define"], "../../data/adam/define-yamaa.xml")
-                self.assertEqual(project["adam"]["define_version"], "2.0.0")
-                self.assertEqual(project["adam"]["context"], "Other")
-                self.assertEqual(project["codelists"], ["codelists.yaml"])
-                count = 0
-                for filename in project["adam"]["specs"]:
-                    self.assertEqual(Path(filename).parent, Path("."))
-                    spec = yaml.safe_load((directory / filename).read_text())
-                    self.assertIn("submission", spec)
-                    self.assertEqual(spec["submission"]["mode"], "historical")
-                    columns = {c["name"]: c for c in spec["columns"]}
-                    self.assertEqual({name for name, c in columns.items() if "submission" in c}, set(spec["output"]["columns"]))
-                    for name in spec["output"]["columns"]:
-                        self.assertIn("origins", columns[name]["submission"])
-                        self.assertIn("label", columns[name])
-                    count += len(spec["output"]["columns"])
-                self.assertEqual(count, 216)
-
     def test_explicit_blank_terms_still_reject_unlisted_values(self):
         try:
             import yamaa

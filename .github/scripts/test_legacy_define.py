@@ -194,33 +194,6 @@ class LegacyComparisonTests(unittest.TestCase):
         self.assertEqual(source.conversions, conversions)
         self.assertEqual(source.inventory()["elements"]["ComputationMethod"], 1)
 
-    def test_pilot_01_keeps_derivation_and_historical_metadata_in_each_dataset_yaml(self):
-        directory = ROOT / "cdiscpilot01/spec/yamaa"
-        project = yaml.safe_load((directory / "project.yaml").read_text())
-        self.assertFalse((directory / "submission").exists())
-        self.assertEqual(project["adam"]["define_version"], "2.0.0")
-        self.assertEqual(project["adam"]["context"], "Other")
-        self.assertEqual(project["codelists"], ["codelists.yaml"])
-        variables = values = 0
-        for filename in project["adam"]["specs"]:
-            specification = yaml.safe_load((directory / filename).read_text())
-            self.assertEqual(specification["submission"]["mode"], "historical")
-            columns = {c["name"]: c for c in specification["columns"]}
-            for name in specification["output"]["columns"]:
-                column = columns[name]
-                # A bare declaration copies its value from the base dataset.
-                self.assertTrue("derivation" in column or specification.get("base"))
-                self.assertIn("type", column)
-                self.assertIn("label", column)
-                self.assertIn("data_type", column["submission"])
-                self.assertIn("mandatory", column["submission"])
-                variables += 1
-                for entry in column["submission"].get("value_level", []):
-                    self.assertEqual(entry["where"], {"PARAMCD": [entry["id"]]})
-                    values += 1
-        self.assertEqual((len(project["adam"]["specs"]), variables, values), (10, 415, 903))
-        self.assertEqual(len(yaml.safe_load((directory / "codelists.yaml").read_text())["codelists"]), 58)
-
 
 if __name__ == "__main__":
     unittest.main()

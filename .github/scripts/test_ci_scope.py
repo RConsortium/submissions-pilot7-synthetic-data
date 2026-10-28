@@ -60,6 +60,30 @@ class ScopeTests(unittest.TestCase):
             self.assertEqual(self.scope(path)['studies'], [
                 {'study': 'submission-pilot3', 'yamaa': True, 'core': False, 'r': False}])
 
+    def test_a_shared_layer_selects_exactly_the_studies_that_inherit_it(self):
+        layers = {'spec/yamaa/pilot-program/adsl_v1.yaml': 'yamaa: "1.0"\n',
+                  'spec/yamaa/pilot-program/adsl_v2.yaml': 'parent: adsl_v1.yaml\n',
+                  'cdiscpilot01/spec/yamaa/adsl.yaml':
+                      'parent: ../../../spec/yamaa/pilot-program/adsl_v1.yaml\n'}
+        # An entry may use either supported suffix.
+        for study, suffix in (('submission-pilot3', 'yaml'), ('submission-pilot5', 'yml')):
+            layers[f'{study}/spec/yamaa/adsl.{suffix}'] = \
+                'parent: ../../../spec/yamaa/pilot-program/adsl_v2.yaml\n'
+        for name, text in layers.items():
+            (self.root / name).parent.mkdir(parents=True, exist_ok=True)
+            (self.root / name).write_text(text)
+        cases = [
+            ('version 1', 'spec/yamaa/pilot-program/adsl_v1.yaml',
+             ['cdiscpilot01', 'submission-pilot3', 'submission-pilot5']),
+            ('version 2', 'spec/yamaa/pilot-program/adsl_v2.yaml',
+             ['submission-pilot3', 'submission-pilot5']),
+            ('guide', 'spec/yamaa/README.md', []),
+        ]
+        for label, path, studies in cases:
+            with self.subTest(case=label):
+                self.assertEqual(self.scope(path)['studies'], [
+                    {'study': name, 'yamaa': True, 'core': False, 'r': False} for name in studies])
+
     def test_source_pipeline_changes_select_its_study_before_sdtm_exists(self):
         manifest = self.root / '.github/yamaa-studies.json'
         entries = json.loads(manifest.read_text())

@@ -16,11 +16,16 @@ class ArtifactTests(unittest.TestCase):
         self.root = Path(temporary.name)
         self.files = ['study/spec/yamaa/adsl.yaml', 'study/spec/source/guide.pdf',
                       'study/data/sdtm/dm.parquet', 'study/data/adam/adsl.parquet',
-                      'study/data/adam/adsl-yamaa.parquet', '.github/dashboard.json']
+                      'study/data/adam/adsl-yamaa.parquet', '.github/dashboard.json',
+                      'spec/yamaa/study/adsl.yaml']
         for name in self.files:
             path = self.root / name
             path.parent.mkdir(parents=True, exist_ok=True)
             path.write_bytes(b'validated bytes')
+        # The study inherits one shared layer; an unrelated layer is not its evidence.
+        (self.root / self.files[0]).write_text('parent: ../../../spec/yamaa/study/adsl.yaml\n')
+        (self.root / 'spec/yamaa/other/adsl.yaml').parent.mkdir(parents=True)
+        (self.root / 'spec/yamaa/other/adsl.yaml').write_text('other study')
         self.report = {'status': 'succeeded', 'artifacts': artifact_snapshot(self.root, 'study')}
 
     def test_roundtrip_and_exact_cross_job_transfer(self):
@@ -75,10 +80,15 @@ class ArtifactTests(unittest.TestCase):
         for name in self.files:
             with self.subTest(name=name):
                 path = self.root / name
+                original = path.read_bytes()
                 path.write_bytes(b'changed after validation')
                 with self.assertRaisesRegex(ValueError, 'artifacts changed'):
                     verify_artifacts(self.root, 'study', self.report)
-                path.write_bytes(b'validated bytes')
+                path.write_bytes(original)
+
+    def test_a_layer_the_study_does_not_inherit_is_not_its_evidence(self):
+        (self.root / 'spec/yamaa/other/adsl.yaml').write_text('changed for another study')
+        verify_artifacts(self.root, 'study', self.report)
 
     def test_added_and_deleted_files_cannot_reuse_a_success(self):
         path = self.root / 'study/data/adam/new-yamaa.parquet'

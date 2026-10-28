@@ -9,7 +9,7 @@ import subprocess
 
 from check_structure import discover_studies
 from discover_core_studies import has_validatable_data
-from study_evidence import catalog
+from study_evidence import catalog, shared_layers
 from study_dashboard.synthetic import synthetic_catalog
 
 CORE_CODE = {'.github/scripts/run_core.py', '.github/scripts/parquet_to_xpt.py',
@@ -78,6 +78,8 @@ def select_checks(root, changed):
                      and (path.endswith('.py') or path.endswith('/requirements.txt'))
                      and path != 'program/adam/python/make_plan.py' for path in local)
         spec = any(path.startswith('spec/yamaa/') and path.endswith(('.yaml', '.yml')) for path in local)
+        # A layer under the root spec/yamaa/ changes every study that inherits it.
+        spec = spec or bool(changed & set(shared_layers(root, study)))
         r_changed = any(path.startswith('program/adam/R/') and path.lower().endswith('.r')
                         and path != 'program/adam/R/make_plan.R' for path in local)
         pending = entries.get(study, {}).get('allow_pending') and not (root / study / 'spec/yamaa/project.yaml').exists()

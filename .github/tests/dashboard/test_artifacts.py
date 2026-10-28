@@ -352,6 +352,41 @@ intermediates:
                     f"Define {version} reading-copy section",
                 )
 
+    def test_a_layered_finding_links_and_quotes_the_layer_that_writes_the_rule(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            study = "study"
+            define = root / study / "spec/define/define-adam.xml"
+            define.parent.mkdir(parents=True)
+            define.write_text(
+                '<ODM xmlns="http://www.cdisc.org/ns/odm/v1.3" xmlns:def="http://www.cdisc.org/ns/def/v1.0">'
+                '<ItemDef OID="IT.AGE" Name="AGE" DataType="integer" def:Label="Age in years"/>'
+                '<ItemGroupDef OID="IG.ADSL" Name="ADSL"><ItemRef ItemOID="IT.AGE"/></ItemGroupDef></ODM>'
+            )
+            out = root / study / "data/adam/adsl.parquet"
+            out.parent.mkdir(parents=True)
+            pq.write_table(pa.table({"AGE": [65]}), out)
+            layer = root / "spec/yamaa/adsl.yaml"
+            layer.parent.mkdir(parents=True)
+            layer.write_text("columns:\n  - name: AGE\n    label: Age\n    derivation: DM.AGE\n")
+            entry = root / study / "spec/yamaa/adsl.yaml"
+            entry.parent.mkdir(parents=True)
+            text = "domain: ADSL\ncolumns:\n  - name: AGE\n    label: Different age label\n"
+            entry.write_text(text)
+            model = {"domain": "ADSL", "input": {"DM": "dm.parquet"},
+                     "output": {"path": "../../data/adam/adsl.parquet", "columns": ["AGE"]},
+                     "columns": [{"name": "AGE", "label": "Different age label",
+                                  "derivation": "DM.AGE"}]}
+            lineage = build_lineage(text, model, {"DM": {"AGE"}})
+            lineage["definitions"] = {"AGE": {"path": "spec/yamaa/adsl.yaml", "start": 2, "end": 4}}
+            (root / "review").mkdir()
+            finding, = build_report(root, study, [(entry, model, lineage)], root / "review", "r")["findings"]
+            self.assertEqual(
+                {k: finding["spec"][k] for k in ("path", "line", "excerpt")},
+                {"path": "spec/yamaa/adsl.yaml", "line": 2,
+                 "excerpt": "  - name: AGE\n    label: Age\n    derivation: DM.AGE"},
+            )
+
     def test_define_versions_and_report_anchor_actual_source_differences(self):
         for version, definition in [
             (

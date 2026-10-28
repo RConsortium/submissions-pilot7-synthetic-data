@@ -5,6 +5,7 @@ import json
 from pathlib import Path
 
 from study_define import candidate_path
+from study_evidence import shared_layers
 
 
 def artifact_snapshot(root, study):
@@ -46,6 +47,8 @@ def artifact_snapshot(root, study):
         path = root / relative
         if path.is_file():
             files.add(path)
+    # Layers the study's specifications inherit from the root spec/yamaa/.
+    files.update(root / relative for relative in shared_layers(root, study))
     programs = base / ("program" if source_pipeline else "program/adam/python")
     for directory in (base / "spec", base / "data", programs):
         for path in directory.rglob("*"):

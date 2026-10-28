@@ -28,6 +28,37 @@ def project_specs(root, study):
     return result
 
 
+def shared_layers(root, study):
+    """Repository files outside a study that its specifications inherit.
+
+    Follows each specification's `parent` and `include`, as written, to the
+    shared layers under the root spec/yamaa/. Validation records every source
+    the engine reads, and publication refuses one this list leaves out.
+    """
+    import yaml
+
+    root = Path(root).resolve()
+    base = (root / study).resolve()
+    directory = root / study / 'spec/yamaa'
+    pending = sorted(p for p in directory.rglob('*') if p.suffix in {'.yaml', '.yml'}) if directory.is_dir() else []
+    seen, found = set(), set()
+    while pending:
+        path = pending.pop().resolve()
+        if path in seen or not path.is_file():
+            continue
+        seen.add(path)
+        declaration = yaml.safe_load(path.read_text())
+        if not isinstance(declaration, dict):
+            continue
+        for link in [declaration.get('parent'), *(declaration.get('include') or [])]:
+            if isinstance(link, str):
+                target = (path.parent / link).resolve()
+                pending.append(target)
+                if not target.is_relative_to(base) and target.is_relative_to(root):
+                    found.add(target.relative_to(root).as_posix())
+    return sorted(found)
+
+
 def reviewed_datasets(root, study):
     """Project datasets with committed consistency-review claims, in project order."""
     if not (root / study / 'spec/yamaa/project.yaml').exists():

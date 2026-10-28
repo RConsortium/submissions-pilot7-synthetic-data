@@ -1,9 +1,19 @@
-/** Project parsed YAML locations onto original lines without changing source text. */
-export function specificationView(specification, view = "") {
+/** Project parsed YAML locations onto original lines without changing source text.
+ * Until a view is chosen, a layered specification shows the source that
+ * writes the selected variable's rule, and otherwise its entry file. */
+export function specificationView(specification, view = "", focus = "") {
   if (view === "resolved" && specification.resolved)
     return { ...specification, ...specification.resolved, inspection: true };
-  const index = /^source:\d+$/.test(view) ? Number(view.slice(7)) : 0;
-  return { ...specification, ...(specification.documents?.[index] || specification.documents?.[0]) };
+  let index = /^source:\d+$/.test(view) ? Number(view.slice(7)) : definingSource(specification, focus);
+  if (!specification.documents?.[index]) index = 0;
+  return { ...specification, ...(specification.documents?.[index] || {}), sourceIndex: index };
+}
+
+/** The index of the source that writes a variable's rule, or 0 for the entry. */
+export function definingSource(specification, focus = "") {
+  const name = focus.replace(/^(spec|output)\./, "");
+  const path = specification.lineage?.definitions?.[name]?.path;
+  return Math.max(0, (specification.documents || []).findIndex((d) => path && d.path === path));
 }
 
 export function specificationGaps(lines) {
