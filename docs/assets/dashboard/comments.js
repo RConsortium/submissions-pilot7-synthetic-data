@@ -72,7 +72,7 @@ export function createComments(ctx) {
     const placeholder = document.createElement("p"),
       script = host.querySelector("script[data-term]"),
       originalTerm = script?.dataset.term;
-    placeholder.textContent = "GitHub comments are open in Trace evidence. Close it to return to this discussion.";
+    placeholder.textContent = "GitHub comments are open in the review dialog. Close it to return to this discussion.";
     host.before(placeholder);
     if (script) script.dataset.term = ctx.index.comments.term_prefix + ctx.model.id + "/" + dataset;
     // giscus supports one container per page. Reuse it instead of a second embed.

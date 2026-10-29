@@ -138,7 +138,7 @@ Keep the existing `term_prefix` and study/dataset IDs to retain discussion threa
 Current comments use the yamaa Discussions repository, with separate Pilot 7
 terms, as Pilot 7 does not have Discussions enabled.
 
-Trace evidence can copy a structured reviewer assessment and open the same dataset
+The review dialog can copy a structured reviewer assessment and open the same dataset
 discussion inside the dialog. Reviewers paste it into giscus and select Comment
 to publish with their GitHub identity. The widget is moved from the workspace
 and restored on close; a second giscus embed would replace the first container.
@@ -269,7 +269,7 @@ clauses without authored grouping share a row only for the same variable and
 exact source-file pair; all supporting checks and quotations remain available.
 Both the metric and the static study
 report count issues. The table separately counts unique supporting checks.
-Trace evidence opens an expanded dialog, keeping complete evidence out of the
+The Start review button opens an expanded dialog, keeping complete evidence out of the
 initial listing DOM. It separates the finding, source comparison, actual subject
 examples, recommended fix, and human review. Related issues for the same variable
 are independently selectable; source context and the full check audit remain

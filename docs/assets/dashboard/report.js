@@ -70,7 +70,7 @@ export function createReport(ctx) {
       host.innerHTML = "";
       return;
     }
-    host.innerHTML = `<aside class="trace-workspace-note" aria-label="Source evidence"><div><strong>${esc(issue.title)}</strong><p>${esc(impactText(issue, report))}</p></div><button class="button" data-trace-issue="${esc(issue.id)}">Trace evidence</button><button class="text-link" id="close-evidence" aria-label="Close source evidence">Clear finding</button></aside>`;
+    host.innerHTML = `<aside class="trace-workspace-note" aria-label="Source evidence"><div><strong>${esc(issue.title)}</strong><p>${esc(impactText(issue, report))}</p></div><button class="button" data-trace-issue="${esc(issue.id)}">Start review</button><button class="text-link" id="close-evidence" aria-label="Close source evidence">Clear finding</button></aside>`;
   }
   return {
     allFindings,
