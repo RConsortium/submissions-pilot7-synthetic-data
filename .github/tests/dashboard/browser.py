@@ -178,12 +178,13 @@ def check(browser, base, site_dir, screenshots):
         expect(page.locator(".result-count")).to_have_text(f"{len(issues)} of {len(issues)} issues \u00b7 {checks} supporting checks")
         expect(page.locator(".consistency-table tbody tr[data-finding-id]")).to_have_count(len(issues))
         expect(page.locator(".consistency-table thead th")).to_have_text([
-            "Dataset / variable", "Status", "Critical finding", "Type", "Issue", "Evidence"
+            "Dataset / variable", "Status", "Critical finding", "Type", "Measured impact", "Issue", "Evidence"
         ])
         expect(page.locator("#issue-review")).to_have_count(0)
         for issue in issues:
             row = page.locator(f'[data-finding-id="{issue["id"]}"]')
             expect(row.locator(".issue-summary p")).to_have_text(issue["summary"])
+            expect(row.locator(".issue-impact")).to_have_text(re.compile(r"^Measured impact: (\d+ subjects? differ|Differences observed|No differences in tested data|Not measured)$"))
             for cell_class in ("issue-critical", "issue-type"):
                 expect(row.locator(f".{cell_class} .status")).to_have_count(1)
                 expect(row.locator(f".{cell_class} p, .{cell_class} small")).to_have_count(0)
@@ -764,7 +765,9 @@ def check(browser, base, site_dir, screenshots):
     expect(trace.locator("#comments-host script")).to_have_attribute("data-term", "pilot7/studies/cdiscpilot01/ADAE")
     original_term = "pilot7/studies/cdiscpilot01/ADSL"
     page.evaluate("window.originalCommentsHost=document.querySelector('#comments-host')")
-    trace.get_by_role("button", name="Next finding", exact=False).click()
+    # The footer walks the full listing here; the aside still moves between this variable's findings.
+    expect(trace.locator(".trace-review-footer")).to_contain_text("in the current list")
+    trace.locator(".trace-review-nav [data-trace-sibling]", has_text="Sequence-only ordering").click()
     expect(trace.locator("#trace-review-title")).to_contain_text("Sequence-only ordering")
     expect(page.locator("#review-comments #comments-host script")).to_have_attribute("data-term", original_term)
     assert page.evaluate("window.originalCommentsHost===document.querySelector('#comments-host')")
@@ -772,7 +775,7 @@ def check(browser, base, site_dir, screenshots):
     expect(trace.locator("input:checked")).to_have_count(0)
     expect(trace.locator(".trace-measurements")).to_contain_text("0 / 1,191")
     expect(trace.locator("#trace-examples")).to_contain_text("do not demonstrate a failure")
-    trace.get_by_role("button", name="Previous finding", exact=False).click()
+    trace.locator(".trace-review-nav [data-trace-sibling]", has_text="Define-XML selects the wrong event group").click()
     expect(trace.get_by_role("radio", name="Agree", exact=True)).to_be_checked()
     trace.get_by_role("button", name="Add your review", exact=True).click()
     page.keyboard.press("Escape")

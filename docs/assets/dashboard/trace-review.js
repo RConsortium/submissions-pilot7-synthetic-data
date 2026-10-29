@@ -63,7 +63,9 @@ export function createTraceReview(ctx, comments, sources) {
     restoreComments?.(); restoreComments = null;
     dialog.close(); dialog.remove(); dialog = null;
     document.body.style.overflow = overflow;
-    if (ctx.state?.review) { ctx.state.review = ""; ctx.save?.(); }
+    // Drop the finding from the link only while the link still names it: a navigation that
+    // closes the review has already moved on, and saving would rewrite its destination.
+    if (ctx.state?.review) { ctx.state.review = ""; if (location.hash.includes("review=")) ctx.save?.(); }
     if (restoreFocus && target?.isConnected) target.focus({ preventScroll: true });
     refreshRows(issue.id);
   }
