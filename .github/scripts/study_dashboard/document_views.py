@@ -133,12 +133,18 @@ def render_xml(root, path, original, entry):
     view = original.with_name(original.name + ".original.html")
     rendered = bytes(transform(etree.parse(str(path), parser)))
     # A citation names an element by its OID (ADSL.DISCONFL); the publisher's stylesheet
-    # prefixes the ids it writes (IG.ADSL.IT.ADSL.DISCONFL, MT.MT.ADSL.DISCONFL), so an
-    # unmatched fragment scrolls to the element whose id ends with the cited name.
-    script = (b"<script>(function(){function go(){var want=decodeURIComponent(location.hash.slice(1));"
-              b"if(!want||document.getElementById(want))return;var all=Array.prototype.slice.call(document.querySelectorAll('[id]'));"
-              b"var hit=all.find(function(e){return e.id.endsWith('.IT.'+want)})||all.find(function(e){return e.id.endsWith('.'+want)});"
-              b"if(hit){hit.style.outline='3px solid #d4a342';hit.style.outlineOffset='2px';hit.scrollIntoView()}}go();addEventListener('hashchange',go)})();</script>")
+    # writes it as is or prefixed (IG.ADSL.IT.ADSL.DISCONFL, MT.MT.ADSL.DISCONFL), often
+    # on an empty anchor in the variable's row. The cited row, or element, is highlighted
+    # like a cited worksheet row and scrolled to the middle of the view, again after the
+    # browser's own fragment scroll on load.
+    script = (b"<style>.yamaa-cited,tr.yamaa-cited>*{background:#fff4d5!important;color:#24344a!important}"
+              b".yamaa-cited:not(tr),tr.yamaa-cited>:first-child{box-shadow:inset 3px 0 #d4a342}</style>"
+              b"<script>(function(){function go(){var want=decodeURIComponent(location.hash.slice(1));"
+              b"var old=document.querySelector('.yamaa-cited');if(old)old.classList.remove('yamaa-cited');if(!want)return;"
+              b"var all=Array.prototype.slice.call(document.querySelectorAll('[id]'));"
+              b"var hit=document.getElementById(want)||all.find(function(e){return e.id.endsWith('.IT.'+want)})||all.find(function(e){return e.id.endsWith('.'+want)});"
+              b"if(hit){hit=hit.closest('tr')||hit;hit.classList.add('yamaa-cited');hit.scrollIntoView({block:'center'})}}"
+              b"go();addEventListener('load',go);addEventListener('hashchange',go)})();</script>")
     end = rendered.lower().rfind(b"</body>")
     rendered = rendered[:end] + script + rendered[end:] if end >= 0 else rendered + script
     view.write_bytes(rendered)

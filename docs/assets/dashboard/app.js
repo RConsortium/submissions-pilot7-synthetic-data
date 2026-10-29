@@ -316,6 +316,21 @@ import { developmentReport, mountDevelopment } from "./synthetic-development.js"
     dismissPickers(event);
     if (root()) resizing.pointer(event);
   });
+  // A rule statement opens beside its ID and follows it, above the scrolling findings table.
+  function placeRuleLegends() {
+    for (const legend of root()?.querySelectorAll(".rule-legend[open]") || []) {
+      const id = legend.querySelector("summary").getBoundingClientRect(),
+        popover = legend.querySelector(".rule-popover"),
+        below = id.bottom + 6;
+      popover.style.left = `${Math.max(8, Math.min(id.left, innerWidth - popover.offsetWidth - 8))}px`;
+      popover.style.top = `${below + popover.offsetHeight > innerHeight - 8 ? Math.max(8, id.top - 6 - popover.offsetHeight) : below}px`;
+    }
+  }
+  document.addEventListener("toggle", (event) => {
+    if (event.target.classList?.contains("rule-legend")) placeRuleLegends();
+  }, true);
+  document.addEventListener("scroll", placeRuleLegends, true);
+  window.addEventListener("resize", placeRuleLegends);
   document.addEventListener("keydown", (event) => {
     if (!root()) return;
     if (traceReview.isOpen) return;

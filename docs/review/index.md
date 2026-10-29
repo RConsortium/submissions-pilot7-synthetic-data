@@ -34,10 +34,10 @@ the same variable separate and follows this order:
 | Example subject difference | Do actual records support the explanation? Examples illustrate the calculation; the measured comparison determines impact. |
 | Recommended fix | Is the suggested correction or decision justified? Is more evidence needed? |
 
-Use **Full context** or **View source** to check a citation. Use **Open
-evidence in workspace** to inspect the affected subjects, the specification
-and the linked SDTM inputs; [SDTM to ADaM workspace](workspace.md) explains
-its controls.
+Use **Full context** or **View source** to check a citation. To inspect
+the affected subjects, the specification and the linked SDTM inputs, select
+the finding's variable name in the findings table;
+[SDTM to ADaM workspace](workspace.md) explains its controls.
 
 **A 100% published-reference match does not establish correctness or human
 approval.** Documents, specifications and data can still disagree, and a

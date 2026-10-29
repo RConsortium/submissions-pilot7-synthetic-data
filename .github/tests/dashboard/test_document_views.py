@@ -131,10 +131,11 @@ class DocumentViewTests(unittest.TestCase):
                 ["ASTDT"],
             )
             self.assertEqual(source.read_text(), '<ODM><ItemDef Name="ASTDT"/></ODM>')
-            # A cited OID scrolls to the stylesheet's prefixed id for it, inside the body.
+            # A cited OID, exact or prefixed by the stylesheet, highlights its row inside the body.
             html = view.read_text()
-            self.assertIn("e.id.endsWith('.IT.'+want)", html)
-            self.assertIn("hit.style.outline=", html)
+            self.assertIn("document.getElementById(want)||all.find(function(e){return e.id.endsWith('.IT.'+want)})", html)
+            self.assertIn("hit=hit.closest('tr')||hit;hit.classList.add('yamaa-cited')", html)
+            self.assertIn("tr.yamaa-cited>*{background:", html)
             self.assertLess(html.index("<script>"), html.lower().index("</body>"))
             stylesheet.write_text(
                 template.replace(
