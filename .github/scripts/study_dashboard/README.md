@@ -314,6 +314,14 @@ claim `example_columns` adds reference context such as an event term; dependenci
 read from REF are included automatically. Alternate calculations use their
 plain-language `reading` descriptions; VARIABLE__READING names remain in the audit.
 
+Retained ADaM programs, listed in a study's source manifest with the role
+`adam_program` or `reference_reimplementation`, are cited by line range
+(`L<first>-L<last>`). The verifier checks the quote inside those lines and
+links the repository and upstream lines; `documents.py` renders the program
+as numbered lines that mark the cited range. A program shows how the
+reference was computed, so a claim that cites only program lines leaves the
+variable undocumented (CR-11), and its finding shows the lines.
+
 Author `<study>/spec/review/<dataset>-issues.json` to group related checks.
 Inventory every check and its basis hash, then write short issue titles,
 expected/observed behavior and actions. Explicit data and citation selectors

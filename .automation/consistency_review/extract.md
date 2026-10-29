@@ -15,7 +15,12 @@ a data value: only the verifier states those.
 - The exact citable text of every retained document, written by the verifier
   to `.build/verification/<study>/sections/<document>.txt`. Each section
   starts with a line `=== <section id>`: `<DATASET>.<VARIABLE>` for a
-  Define-XML variable, `page-<n>` for a PDF page. Quote only from these files.
+  Define-XML variable, `page-<n>` for a PDF page, `L<n>` for one line of a
+  retained program. Quote only from these files.
+- The retained ADaM programs that `<study>/spec/source/manifest.json` lists
+  with the role `adam_program` (the submission's own program) or
+  `reference_reimplementation` (a later program that reproduces the
+  reference, such as Pilot 6's R for CDISC Pilot 01).
 - `.automation/consistency_review/rules.yaml`, which says what each relation
   you choose will be reported as.
 
@@ -35,7 +40,25 @@ columns. Return them to the orchestrator; it writes the files.
    `section` and `quote`. Copy the shortest span that states the rule; only
    whitespace may differ from the section text. Citations are numbered from 1
    in the order you list them.
-3. **Split the rule into clauses.** A clause is one condition, source or
+3. **Trace the reference to its program.** When a retained program computes
+   the variable, cite the lines that do, after the document citations: the
+   `section` is the line range `L<first>-L<last>` and the quote lies inside
+   those lines. Read the whole program first; a later step may overwrite the
+   value. A program shows how the reference was computed. It does not
+   document the rule, so:
+   - never use a program as the `document` side of a `same`, `differs` or
+     `absent_in_spec` clause;
+   - when an `adam_program` computes a clause differently from a document
+     statement, add a `contradicts` clause with the document statement as
+     `document` and the program lines as `against`;
+   - name the program and its lines in a reading that the program supports;
+   - for a variable no document states, cite the program lines anyway. The
+     variable stays undocumented and needs no probe; the review shows the
+     lines beside that finding.
+   A `reference_reimplementation` shows how the values can be produced, not
+   what the original authors intended. Use it only to support a reading or
+   to show an undocumented derivation, and say which program it is.
+4. **Split the rule into clauses.** A clause is one condition, source or
    computation. Give each clause both sides, quoted verbatim:
    - `document`: `{"citation": <n>, "quote": "<span of that citation's quote>"}`
    - `spec`: `{"element": "<column, intermediate or row id>", "quote": "<text
@@ -55,24 +78,27 @@ columns. Return them to the orchestrator; it writes the files.
    wherever the relation is not obvious from the two quotes. Group clauses
    that share one specification quote; do not split one difference into
    several clauses.
-4. **Write the literal probe.** Add a column to
+5. **Write the literal probe.** Add a column to
    `<study>/spec/review/<dataset>-documented-rules.yaml`, named after the variable, that
    states the rule exactly as written, even when it looks wrong. Read
    upstream analysis variables from the `REF` intermediate, the published
    reference, so the probe tests this rule alone. Apply documented precision
    with `round_half_away_from_zero`. Keep helper columns prefixed with `_`.
-5. **Add readings; never replace the literal one.** When the text is likely a
+6. **Add readings; never replace the literal one.** When the text is likely a
    typo or omission, or a second document states the rule differently, add a
    column `<VARIABLE>__<READING>` and a probe entry whose `reading` says what
-   changed and why, citing the quote that justifies it.
+   changed and why, citing the quote that justifies it. When the literal rule
+   differs from the reference and the cited program computes it another way,
+   add that program's reading, so the review can show whether it reproduces
+   the reference.
    Write `reading` in plain language: the review page uses it to explain the
    alternative, while the technical column name remains in calculation details.
    Optional `example_columns` lists reference columns that help interpret the
    subject records, such as `AEDECOD`. The verifier generates actual row-aligned
    subject examples; do not invent example records or author measured counts.
-6. **Record open choices.** Every choice the documents leave open goes in
+7. **Record open choices.** Every choice the documents leave open goes in
    `interpretations`. A decision for the reviewer goes in `question`.
-7. **When the rule cannot be stated in yamaa**, give `not_probed_reason`
+8. **When the rule cannot be stated in yamaa**, give `not_probed_reason`
    instead of probes and say what the documents leave unstated.
 
 ## Claim format

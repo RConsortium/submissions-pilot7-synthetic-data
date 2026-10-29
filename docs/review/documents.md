@@ -9,6 +9,14 @@ stylesheet. Each retained file has its own tab, and each worksheet of a
 workbook has its own tab too. Use the arrow keys, Home or End to move between
 tabs.
 
+Retained ADaM programs open as numbered lines. A finding that cites program
+lines opens the program at those lines, marked, with a link to the same lines
+in the upstream repository. Each program states its role: the submission's own
+program, which produced the reference datasets, or a later reimplementation,
+which shows how the reference values can be computed but not what the
+original authors intended. A program shows how the reference was computed; it
+never counts as documentation of the rule.
+
 **Compare side by side** opens a second independent viewer; switch files
 within either pane, and **Close comparison** returns to one. On narrow
 screens the two viewers stack. Each viewer has a **Source** link to the file

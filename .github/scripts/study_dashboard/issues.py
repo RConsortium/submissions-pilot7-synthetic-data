@@ -8,6 +8,8 @@ import re
 
 from jsonschema import Draft202012Validator
 
+from .programs import is_program
+
 SCHEMAS = Path(__file__).resolve().parents[2] / "schemas"
 CHECK_TITLES = {
     "CR-1": "Source quote could not be verified",
@@ -141,10 +143,12 @@ class Evidence:
         if not side or not side.get("path"):
             return None
         section = side.get("section", side.get("element", "")) or ""
+        # Program lines read as "adlbc.r, lines 224-226"; other titles keep their identity.
+        shown = (side.get("section_title") or section).lower() if is_program(side["path"]) else section
         return self.add(
             {
                 "type": kind,
-                "title": f'{Path(side["path"]).name}, {section}',
+                "title": f'{Path(side["path"]).name}, {shown}',
                 "path": side["path"],
                 "section": section,
                 "quote": side.get("quote") or "",
