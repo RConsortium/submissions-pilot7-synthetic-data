@@ -28,6 +28,15 @@ export function createReport(ctx) {
     documented_rules: "Documented rules",
   };
   const allFindings = () => consistencyFindings(ctx.report);
+  /** Comparison, type and criticality filters; the search is applied separately. */
+  function filtered(i) {
+    const { state } = ctx;
+    return (
+      (!state.kind || i.kind === state.kind) &&
+      (!state.comparison || i.comparison === state.comparison) &&
+      (!state.critical || criticalFinding(i).status === state.critical)
+    );
+  }
   function findingItems() {
     const { state, report } = ctx,
       q = state.findingSearch.toLowerCase();
@@ -38,19 +47,37 @@ export function createReport(ctx) {
     const exactScope = q && allFindings().some(scope);
     return allFindings().filter(
       (i) =>
-        (!state.kind || i.kind === state.kind) &&
-        (!state.comparison || i.comparison === state.comparison) &&
-        (!state.critical || criticalFinding(i).status === state.critical) &&
+        filtered(i) &&
         (!q ||
           (exactScope
             ? scope(i)
             : issueSearchText(i, report).toLowerCase().includes(q))),
     );
   }
+  /** Filtered issues per dataset, in the study's dataset order, then by first appearance. */
+  function datasetCounts() {
+    const counts = new Map(
+      (ctx.model?.datasets || []).map((d) => [d.name, 0]),
+    );
+    for (const i of allFindings()) {
+      if (!counts.has(i.dataset)) counts.set(i.dataset, 0);
+      if (filtered(i)) counts.set(i.dataset, counts.get(i.dataset) + 1);
+    }
+    return counts;
+  }
+  /** Dataset chips scope the listing through the exact-name search. */
+  function datasetStrip() {
+    const { state, esc } = ctx,
+      selected = state.findingSearch.trim().toUpperCase(),
+      counts = datasetCounts(),
+      chip = (name, count, label = name) =>
+        `<button type="button" class="dataset-chip" data-finding-dataset="${esc(name)}" aria-pressed="${name.toUpperCase() === selected}">${esc(label)} <span class="chip-count">${count}</span></button>`;
+    return `<div class="finding-datasets" role="group" aria-label="Findings by dataset"><span class="field-label">By dataset</span>${chip("", [...counts.values()].reduce((a, b) => a + b, 0), "All")}${[...counts].map(([name, count]) => chip(name, count)).join("")}</div>`;
+  }
   function findingRows() {
     const items = findingItems(),
       checks = new Set(items.flatMap((i) => i.check_ids)).size;
-    return `<p class="result-count" role="status">${items.length} of ${allFindings().length} issue${allFindings().length === 1 ? "" : "s"} &middot; ${checks} supporting check${checks === 1 ? "" : "s"}</p><div class="overview-table consistency-table" role="region" aria-label="Consistency findings" tabindex="0"><table class="review-table"><thead><tr><th scope="col">Dataset / variable</th><th scope="col">Status</th><th scope="col">Critical finding</th><th scope="col">Type</th><th scope="col">Issue</th><th scope="col">Evidence</th></tr></thead><tbody>${items.length ? items.map((i) => issueRow(i, ctx.report)).join("") : '<tr><td colspan="6">No issues match. Clear the filters to see all issues.</td></tr>'}</tbody></table></div>`;
+    return `${datasetStrip()}<p class="result-count" role="status">${items.length} of ${allFindings().length} issue${allFindings().length === 1 ? "" : "s"} &middot; ${checks} supporting check${checks === 1 ? "" : "s"}</p><div class="overview-table consistency-table" role="region" aria-label="Consistency findings" tabindex="0"><table class="review-table"><thead><tr><th scope="col">Dataset / variable</th><th scope="col">Status</th><th scope="col">Critical finding</th><th scope="col">Type</th><th scope="col">Issue</th><th scope="col">Evidence</th></tr></thead><tbody>${items.length ? items.map((i) => issueRow(i, ctx.report)).join("") : '<tr><td colspan="6">No issues match. Clear the filters to see all issues.</td></tr>'}</tbody></table></div>`;
   }
   function findingsView() {
     const { state, esc } = ctx;

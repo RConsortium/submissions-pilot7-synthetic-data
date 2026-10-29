@@ -86,8 +86,8 @@ For a refactor, compare the derived tables before and after the change,
 including types, labels, column order, row order and missing values, and run
 `python .github/scripts/validate_yamaa.py <study>` against the independent
 reference. Refresh validation and reviewed-derivation evidence before building
-the website. See the [dashboard reference](dashboard-reference.md) for source
-and resolved-model views.
+the website. See the [SDTM to ADaM workspace](review/workspace.md) for the
+source and composed-specification views.
 
 ## Turn a pilot pattern into a benchmark
 
