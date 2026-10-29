@@ -449,6 +449,8 @@ def check(browser, base, site_dir, screenshots):
     page.locator('.review-tabs [data-view="overview"]').click()
     expect(page.locator(".consistency-table")).to_be_visible()
     expect(page.locator(".consistency-table tbody tr[data-finding-id]")).to_have_count(cdisc_issue_count)
+    expect(page.locator(".review-howto summary")).to_have_text("How to review a finding")
+    expect(page.locator(".review-howto a")).to_have_attribute("href", base + "/review/findings/")
     expect(page.locator("#view-content h2, #view-content .uncited")).to_have_count(0)
     page.locator("#finding-comparison").select_option("input_output")
     expect(page.locator(".consistency-table tbody")).to_contain_text("No issues match")

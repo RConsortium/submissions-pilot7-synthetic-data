@@ -8,6 +8,10 @@ while a document states a different rule, and that finding stays open until
 a person decides it. The [verification policy](../verification.md) defines
 both measures.
 
+**How to review a finding**, above the filters, states the two decisions
+every finding asks for, the working definition of critical and the issue
+types, so the tab can be used without this page.
+
 ## The findings table
 
 Each row is one issue.

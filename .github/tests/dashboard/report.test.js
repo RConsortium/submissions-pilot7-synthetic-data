@@ -479,3 +479,12 @@ test("the listing puts critical findings first, then those needing assessment, k
   const html = view.findingRows();
   assert.ok(html.indexOf('data-finding-id="third"') < html.indexOf('data-finding-id="second"'));
 });
+
+test("the findings tab explains the two decisions and the types before the filters, linking the guide when the site is known", () => {
+  const html = createReport({ report, state: state(), esc, site: "https://example.org/project/" }).findingsView();
+  assert.ok(html.indexOf("review-howto") < html.indexOf("report-filters"));
+  for (const fragment of ["How to review a finding", "Do you agree with this finding?", "Is this finding critical?",
+    "Conflict: documents disagree", "Agent agreement is not resolution.", 'href="https://example.org/project/review/findings/"'])
+    assert.ok(html.includes(fragment), fragment);
+  assert.doesNotMatch(createReport({ report, state: state(), esc }).findingsView(), /href="[^"]*review\/findings/);
+});
