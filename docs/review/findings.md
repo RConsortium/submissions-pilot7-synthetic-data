@@ -20,7 +20,7 @@ Each row is one issue.
 
 | Column | Meaning |
 | --- | --- |
-| Dataset / variable | The output variable the issue concerns, with the IDs of the consistency rules its checks apply; hover a rule ID for what its finding means. Select the name to open the variable in the workspace with the affected subjects. |
+| Dataset / variable | The output variable the issue concerns, with the IDs of the consistency rules its checks apply; select a rule ID to read what the rule requires. Select the name to open the variable in the workspace with the affected subjects. |
 | Status | Under Review until maintainers record a human decision. When the adjudicating agent disputed the finding, or its decision is stale or mixed, the cell says so. |
 | Critical finding | The automated criticality assessment: Yes, No or Needs review. |
 | Type | The issue type, listed below. |
@@ -97,13 +97,13 @@ reviewer needs them:
    published reference for the dataset, so a count of differing subjects
    reads as a test of the written rule, not of the dataset.
 2. **Source documents**: the cited clauses of the retained protocol, SAP or
-   Define-XML, side by side, with the quoted text highlighted. **Full
-   context** reveals the complete passage. **View source** and **Source
-   lines** open the cited file in a popup over the review, keeping your
-   place and your draft: XML uses the retained rendered document, a PDF
-   opens at the cited page, and YAML shows the numbered source with the
-   cited lines highlighted. The popup also links to the file in the
-   repository when the citation retains that link.
+   Define-XML, side by side. **Full context** reveals the complete passage
+   when it is longer than the quotation. **View source** opens the cited
+   file in a popup over the review, keeping your place and your draft:
+   Define-XML uses the retained rendered document with the cited row
+   highlighted, a PDF opens at the cited page, and YAML shows the numbered
+   source with the cited lines highlighted. The popup also links to the
+   file in the repository when the citation retains that link.
 3. **YAML specification**: the rule as the study's resolved specification
    states it, with its line numbers, next to the rule as the documents
    state it. Document-based translations keep their own YAML; the original

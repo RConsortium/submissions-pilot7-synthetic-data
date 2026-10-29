@@ -85,15 +85,7 @@ export const CRITICAL_LABELS = {
   needs_review: "Needs review",
 };
 
-function marked(context, quote) {
-  const text = normalize(context),
-    part = normalize(quote),
-    at = part ? text.indexOf(part) : -1;
-  if (at < 0) return esc(text);
-  return `${esc(text.slice(0, at))}<mark>${esc(part)}</mark>${esc(text.slice(at + part.length))}`;
-}
-
-function citation(e, report, preview = false) {
+function citation(e, preview = false) {
   const quote = normalize(e.quote || e.context),
     snippet = shorten(quote);
   const location = e.section.startsWith("page-")
@@ -113,15 +105,15 @@ function citation(e, report, preview = false) {
           : `<span class="context-line">${text}</span>`;
       })
       .join("")}</code></pre>`;
-  } else context = `<blockquote>${marked(e.context, e.quote)}</blockquote>`;
-  const source =
-    e.type === "document" &&
-    report.documents?.some((d) => d.path === e.path && d.available)
-      ? `<button class="text-link" data-source-evidence="${esc(e.id)}">View source</button>`
-      : "";
-  const lines = e.lines ? `Source lines ${e.lines.join("-")}` : "Source file";
+  } else context = `<blockquote>${esc(normalize(e.context))}</blockquote>`;
   const contextLocation = e.context_lines ? `Lines ${e.context_lines.join("-")}` : location;
-  return `<div class="issue-citation"><p class="quote-source">${esc((e.type === "specification" ? "Specification: " : "Document: ") + e.path.split("/").pop())}${location ? ", " + esc(location) : ""}</p>${quote ? `<blockquote>${preview ? marked(e.type === "document" ? (e.context || quote) : quote, quote) : esc(snippet)}</blockquote>` : '<p class="trace-limit">No quotation was retained for this citation; open the source to read the element.</p>'}${!e.verified ? `<p>Quote not verified: ${esc(e.reason || "source unavailable")}</p>` : ""}<p class="finding-links">${source}${source ? " &middot; " : ""}<button class="text-link" data-source-evidence="${esc(e.id)}">${esc(lines)}</button></p>${e.context && !(preview && e.type === "document") && (normalize(e.context) !== quote || quote.length > 240 || e.type === "specification") ? `<details class="issue-context"${preview ? " open" : ""}><summary><span>Full context</span><small>${esc(contextLocation)}</small></summary>${context}</details>` : ""}</div>`;
+  // A preview quotes the cited clause in full; a document's longer passage stays one click away.
+  return `<div class="issue-citation"><p class="quote-source">${esc((e.type === "specification" ? "Specification: " : "Document: ") + e.path.split("/").pop())}${location ? ", " + esc(location) : ""}</p>${quote ? `<blockquote>${esc(preview ? quote : snippet)}</blockquote>` : '<p class="trace-limit">No quotation was retained for this citation; open the source to read the element.</p>'}${!e.verified ? `<p>Quote not verified: ${esc(e.reason || "source unavailable")}</p>` : ""}<p class="finding-links"><button class="text-link" data-source-evidence="${esc(e.id)}">View source</button></p>${e.context && (normalize(e.context) !== quote || (!preview && quote.length > 240) || e.type === "specification") ? `<details class="issue-context"${preview && e.type === "specification" ? " open" : ""}><summary><span>Full context</span><small>${esc(contextLocation)}</small></summary>${context}</details>` : ""}</div>`;
+}
+
+/** A rule ID that states, when selected, what its checks require. */
+function ruleLegend(rule) {
+  return `<details class="rule-legend" data-popover><summary>${esc(rule.id)}</summary><div class="rule-popover" role="note"><strong>${esc(rule.id)}: ${esc(rule.title)}</strong><p>${esc(rule.statement)}</p></div></details>`;
 }
 
 function patterns(e) {
@@ -209,7 +201,7 @@ export function issueTrace(issue, report, { sourcesOnly = false, specificationsO
     const gap = files.size < 2
       ? `<p class="trace-limit">${files.size ? "Only one " : "No "}${sourcesOnly ? "source document" : "YAML specification"} retained for this finding. ${files.size ? "A second side is unavailable; no comparison is inferred." : "There is no retained preview to compare."}</p>`
       : "";
-    return `<div class="finding-evidence">${specificationsOnly ? comparisons : ""}${gap}<div class="trace-source-grid" aria-label="${sourcesOnly ? "Source document" : "YAML specification"} comparison">${[...files].map(([path, entries]) => `<section class="trace-source-file" aria-label="${esc(path)}"><p class="trace-scope">${esc(path)}</p>${entries.map((e) => citation(e, report, true)).join("")}</section>`).join("")}</div></div>`;
+    return `<div class="finding-evidence">${specificationsOnly ? comparisons : ""}${gap}<div class="trace-source-grid" aria-label="${sourcesOnly ? "Source document" : "YAML specification"} comparison">${[...files].map(([path, entries]) => `<section class="trace-source-file" aria-label="${esc(path)}"><p class="trace-scope">${esc(path)}</p>${entries.map((e) => citation(e, true)).join("")}</section>`).join("")}</div></div>`;
   }
   const audit = checks
     .map(
@@ -218,7 +210,7 @@ export function issueTrace(issue, report, { sourcesOnly = false, specificationsO
           .map((id) => {
             const e = evidence.get(id);
             return ["document", "specification"].includes(e.type)
-              ? citation(e, report)
+              ? citation(e)
               : measurement(e, "audit");
           })
           .join("")}</details></details>`,
@@ -227,16 +219,15 @@ export function issueTrace(issue, report, { sourcesOnly = false, specificationsO
   const critical = criticalFinding(issue);
   if (auditOnly)
     return `<div class="finding-evidence"><p><strong>Automated criticality assessment: ${esc(CRITICAL_LABELS[critical.status])}.</strong> ${esc(critical.reason)}</p><p>Agent review: ${esc(issue.review.replaceAll("_", " "))}</p><details class="issue-checks"><summary>${plural(checks.length, "supporting check")} and agent review</summary>${audit}</details></div>`;
-  return `<div class="finding-evidence"><p><strong>Critical finding: ${esc(CRITICAL_LABELS[critical.status])}.</strong> ${esc(critical.reason)}</p><p>Agent review: ${esc(issue.review.replaceAll("_", " "))}</p><section><h4>1. Rule comparison</h4>${comparisons}${quotes.length ? quotes.map(({ e }) => citation(e, report)).join("") : "<p>No source statements retained for this issue.</p>"}</section><section><h4>2. Data comparison</h4><p>${esc(impactText(issue, report))}</p>${data.length ? data.map(({ e, role }) => measurement(e, role)).join("") : "<p>No issue-specific data comparison.</p>"}</section>${issue.action ? `<section><h4>3. Proposed action</h4><p>${esc(issue.action)}</p></section>` : ""}<section><details class="issue-checks"><summary>${plural(checks.length, "supporting check")} and agent review</summary>${audit}</details></section><button class="text-link" data-finding="${esc(issue.id)}">Open evidence in workspace${issue.impact.subject_count ? ` (${plural(issue.impact.subject_count, "subject")})` : ""}</button></div>`;
+  return `<div class="finding-evidence"><p><strong>Critical finding: ${esc(CRITICAL_LABELS[critical.status])}.</strong> ${esc(critical.reason)}</p><p>Agent review: ${esc(issue.review.replaceAll("_", " "))}</p><section><h4>1. Rule comparison</h4>${comparisons}${quotes.length ? quotes.map(({ e }) => citation(e)).join("") : "<p>No source statements retained for this issue.</p>"}</section><section><h4>2. Data comparison</h4><p>${esc(impactText(issue, report))}</p>${data.length ? data.map(({ e, role }) => measurement(e, role)).join("") : "<p>No issue-specific data comparison.</p>"}</section>${issue.action ? `<section><h4>3. Proposed action</h4><p>${esc(issue.action)}</p></section>` : ""}<section><details class="issue-checks"><summary>${plural(checks.length, "supporting check")} and agent review</summary>${audit}</details></section><button class="text-link" data-finding="${esc(issue.id)}">Open evidence in workspace${issue.impact.subject_count ? ` (${plural(issue.impact.subject_count, "subject")})` : ""}</button></div>`;
 }
 
 export function issueRow(issue, report) {
   const checks = readReview(report).checks.filter((c) =>
     issue.check_ids.includes(c.id),
   );
-  const rules = [...new Set(checks.map((c) => c.rule?.id).filter(Boolean))];
-  const legend = [...new Set(checks.map((c) => c.rule ? `${c.rule.id}: ${c.title || c.rule.title}` : "").filter(Boolean))].join("\n");
+  const rules = [...new Map(checks.filter((c) => c.rule).map((c) => [c.rule.id, c.rule])).values()];
   const critical = criticalFinding(issue);
   const agent = ["disputed", "stale", "mixed"].includes(issue.review) ? `<small class="agent-review-status">Agent review: ${esc(issue.review)}</small>` : "";
-  return `<tr class="review-issue" data-finding-id="${esc(issue.id)}"><th scope="row"><button class="text-link" data-finding="${esc(issue.id)}">${esc(issue.dataset + (issue.variable ? "." + issue.variable : ""))}</button><span class="rule-id"${legend ? ` title="${esc(legend)}"` : ""}>${esc(rules.join(", "))}</span></th><td class="issue-status"><span class="sr-only">Status: </span><span class="status attention">Under Review</span>${agent}</td><td class="issue-critical"><span class="sr-only">Critical finding: </span><span class="status ${critical.status === "yes" ? "attention" : "neutral"}">${esc(CRITICAL_LABELS[critical.status])}</span></td><td class="issue-type"><span class="sr-only">Type: </span><span class="status ${["conflict", "evidence", "inconsistent"].includes(issue.kind) ? "attention" : "neutral"}">${esc(issue.kind.replaceAll("_", " "))}</span></td><td class="issue-impact"><span class="sr-only">Documented rule vs data: </span>${esc(impactSummary(issue))}</td><td class="issue-summary"><h3>${esc(issue.title)}</h3><p>${esc(issue.summary)}</p></td><td><button class="button" data-trace-issue="${esc(issue.id)}">Start review</button><small class="human-review-status" data-human-review="${esc(issue.id)}"></small></td></tr>`;
+  return `<tr class="review-issue" data-finding-id="${esc(issue.id)}"><th scope="row"><button class="text-link" data-finding="${esc(issue.id)}">${esc(issue.dataset + (issue.variable ? "." + issue.variable : ""))}</button><span class="rule-id">${rules.map(ruleLegend).join(", ")}</span></th><td class="issue-status"><span class="sr-only">Status: </span><span class="status attention">Under Review</span>${agent}</td><td class="issue-critical"><span class="sr-only">Critical finding: </span><span class="status ${critical.status === "yes" ? "attention" : "neutral"}">${esc(CRITICAL_LABELS[critical.status])}</span></td><td class="issue-type"><span class="sr-only">Type: </span><span class="status ${["conflict", "evidence", "inconsistent"].includes(issue.kind) ? "attention" : "neutral"}">${esc(issue.kind.replaceAll("_", " "))}</span></td><td class="issue-impact"><span class="sr-only">Documented rule vs data: </span>${esc(impactSummary(issue))}</td><td class="issue-summary"><h3>${esc(issue.title)}</h3><p>${esc(issue.summary)}</p></td><td><button class="button" data-trace-issue="${esc(issue.id)}">Start review</button><small class="human-review-status" data-human-review="${esc(issue.id)}"></small></td></tr>`;
 }

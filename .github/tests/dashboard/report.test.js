@@ -180,7 +180,6 @@ test("trace shows selected quotes and comparisons once, with full context and ch
     "2 supporting checks and agent review",
     "Proposed action",
     "Complete check evidence",
-    "Source lines 3-3",
     "The date derivation differs.",
     "Agent review: agreed",
   ])
@@ -194,6 +193,12 @@ test("trace shows selected quotes and comparisons once, with full context and ch
   assert.ok(html.indexOf("1. Rule comparison") < html.indexOf("2. Data comparison"));
   assert.ok(html.indexOf("2. Data comparison") < html.indexOf("3. Proposed action"));
   assert.match(primary, /Documented rule vs published reference: 2 subjects differ/);
+  // Each citation opens its source through one link; line numbers stay in the source view.
+  assert.equal(
+    (html.match(/data-source-evidence=/g) || []).length,
+    (html.match(/<button class="text-link" data-source-evidence="[^"]+">View source<\/button>/g) || []).length,
+  );
+  assert.doesNotMatch(html, /Source lines|Source file/);
 });
 
 test("source context preserves indentation, blank lines and escaped code with accurate line numbers", () => {
@@ -214,6 +219,13 @@ test("source context preserves indentation, blank lines and escaped code with ac
   assert.match(html, /<mark class="context-line"><span class="context-line-number" aria-hidden="true">3<\/span><span class="context-line-text"> <\/span><\/mark>/);
   assert.equal((html.match(/class="context-line-number"/g) || []).length, 3);
   assert.doesNotMatch(html, /class="line-number"|>5<\/span>/);
+});
+
+test("each rule ID opens its title and statement, once and in check order", () => {
+  const row = issueRow(issue, report);
+  const legend = (id) => `<details class="rule-legend" data-popover><summary>${id}</summary><div class="rule-popover" role="note"><strong>${id}: Rule title</strong><p>Follow the documented date rule.</p></div></details>`;
+  assert.ok(row.includes(`<span class="rule-id">${legend("CR-5")}, ${legend("CR-6")}</span>`), row);
+  assert.doesNotMatch(row, /title="CR-|Generic rule title/);
 });
 
 test("finding rows open a separate evidence page without rendering complete evidence", () => {
@@ -380,7 +392,10 @@ test("unsupported or missing review versions fail visibly", () => {
 test("document previews exclude YAML and expose missing comparison evidence", () => {
   const html = issueTrace(issue, report, { sourcesOnly: true });
   assert.match(html, /Document: guide.pdf/);
-  assert.match(html, /<mark>Use &lt;first&gt; day<\/mark>/);
+  // The quotation is the cited clause, unhighlighted; its longer passage stays collapsed.
+  assert.match(html, /<blockquote>Use &lt;first&gt; day<\/blockquote>/);
+  assert.match(html, /<details class="issue-context"><summary><span>Full context<\/span><small>page 5<\/small><\/summary><blockquote>For partial dates: Use &lt;first&gt; day of the month.<\/blockquote><\/details>/);
+  assert.doesNotMatch(html, /<mark/);
   assert.match(html, /Only one source document/);
   assert.doesNotMatch(html, /Specification:|spec-lines|Expected<\/dt>/);
   const yaml = issueTrace(issue, report, { specificationsOnly: true });

@@ -471,13 +471,13 @@ def check(browser, base, site_dir, screenshots):
     expect(trace.locator("#trace-finding .trace-basis")).to_contain_text("No agent adjudication: this is an authored question.")
     expect(trace.locator("#trace-finding").get_by_role("button", name="Open evidence in workspace", exact=True)).to_have_count(1)
     # The YAML comparison shows the resolved specification; the original
-    # layer citation stays in the check audit, where Source lines opens the
+    # layer citation stays in the check audit, where View source opens the
     # numbered file in a popup with its repository link.
     expect(trace.locator('a[href*="pilot-program/adae_v1.yaml"]')).to_have_count(0)
     technical = trace.locator(".trace-technical")
     technical.evaluate("(el) => { el.open = true; el.querySelectorAll('details').forEach((d) => { d.open = true; }); }")
     technical.locator(".issue-citation").filter(has_text="adae_v1.yaml").first.get_by_role(
-        "button", name=re.compile(r"^Source (lines|file)")).click()
+        "button", name="View source", exact=True).click()
     popup = page.locator("dialog.review-source-dialog")
     expect(popup).to_be_visible()
     expect(popup.locator("h2")).to_contain_text("pilot-program/adae_v1.yaml")
@@ -573,7 +573,14 @@ def check(browser, base, site_dir, screenshots):
     rule = page.locator(".consistency-table tbody tr.review-issue")
     expect(rule).to_have_count(1)
     expect(rule.locator("h3")).to_have_text("BMI formula uses the wrong height conversion")
-    expect(rule.locator(".rule-id")).to_have_text("CR-5, CR-6")
+    expect(rule.locator(".rule-legend > summary")).to_have_text(["CR-5", "CR-6"])
+    # Selecting a rule ID states what the rule requires; Escape closes it.
+    legend = rule.locator(".rule-legend").first
+    legend.locator("summary").click()
+    expect(legend.locator(".rule-popover")).to_be_visible()
+    expect(legend.locator(".rule-popover")).to_contain_text("CR-5: A documented rule reproduces the reference")
+    page.keyboard.press("Escape")
+    expect(legend.locator(".rule-popover")).to_be_hidden()
     trigger = rule.get_by_role("button", name="Start review", exact=True)
     trigger.focus()
     page.keyboard.press("Enter")
@@ -615,6 +622,7 @@ def check(browser, base, site_dir, screenshots):
     trace.get_by_role("button", name="View source", exact=True).first.click()
     expect(page.locator("dialog.review-source-dialog iframe")).to_have_attribute(
         "src", re.compile(r"define-adam\.xml.*#ADSL\.BMIBL$"))
+    expect(page.frame_locator("dialog.review-source-dialog iframe").locator(".yamaa-cited")).to_contain_text("BMIBL")
     page.get_by_role("button", name="Close source", exact=True).click()
     expect(page.locator("dialog.review-source-dialog")).to_have_count(0)
     page.keyboard.press("Escape")
