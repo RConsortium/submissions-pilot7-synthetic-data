@@ -276,12 +276,13 @@ are independently selectable; source context and the full check audit remain
 expandable. The data workspace links back to the same dialog.
 
 Human agreement, criticality and comments are browser-local assessments. Neither
-decision is preselected. Saving an assessment does not resolve the finding or
+decision is preselected. Drafts save automatically as the reviewer edits; there
+is no separate local-save action. A draft does not resolve the finding or
 replace agent adjudication or automated criticality. Drafts are scoped to the
 study and issue and bound to its current evidence; changed evidence returns an
-earlier assessment as a draft. JSON export retains source revision and check IDs.
-No review is posted to GitHub automatically. Use the existing discussion tools
-to share an exported assessment.
+earlier assessment as a draft. The copied GitHub comment retains source revision
+and check IDs. No review is posted to GitHub automatically. Use the dialog's
+GitHub comments section to publish the copied assessment.
 
 The verifier retains row-aligned examples from the actual reference, yamaa and
 probe tables. It chooses complementary subjects from measured differences where
