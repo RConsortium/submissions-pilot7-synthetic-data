@@ -552,7 +552,11 @@ def check(browser, base, site_dir, screenshots):
     trace.locator(".trace-technical > summary").click()
     expect(trace).to_contain_text("Agent review: agreed")
     trace.locator(".trace-technical > summary").click()
-    trace.locator(".trace-source-grid .issue-citation").filter(has=page.locator("pre.spec-lines")).first.locator("summary").click()
+    expect(trace.locator("#trace-sources")).not_to_contain_text("Specification:")
+    expect(trace.locator("#trace-specifications pre.spec-lines").first).to_be_visible()
+    expect(trace.locator("#trace-examples h3")).to_have_text("3. Example Subject Difference")
+    expect(trace.locator(".trace-data-table thead")).not_to_contain_text("yamaa output")
+    expect(trace.locator(".trace-cell-difference").first).to_be_visible()
     expect(trace.locator("pre.spec-lines mark").first).to_be_visible()
     code_context = trace.locator(".trace-source-grid pre.spec-lines").first
 
