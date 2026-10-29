@@ -637,6 +637,8 @@ def check(browser, base, site_dir, screenshots):
     expect(rule).to_have_count(2)
     selection = rule.filter(has_text="Define-XML selects the wrong event group")
     trace = open_trace(selection)
+    expect(trace.locator("[data-trace-status]")).to_have_count(0)
+    expect(trace.get_by_role("button", name="Download review", exact=True)).to_have_count(0)
     expect(trace.locator("input:checked")).to_have_count(0)
     expect(trace.locator(".trace-measurements")).to_contain_text("327 / 1,191")
     expect(trace.locator(".trace-data-table tbody tr")).to_have_count(3)
@@ -648,12 +650,12 @@ def check(browser, base, site_dir, screenshots):
     expect(trace.locator(".trace-data-table")).to_contain_text("AGITATION")
     capture(page, screenshots, "trace-review-evidence.png")
     trace.get_by_role("button", name="Add your review", exact=True).click()
-    trace.get_by_role("button", name="Save locally", exact=True).click()
+    expect(trace.get_by_role("button", name="Save locally", exact=True)).to_have_count(0)
+    trace.get_by_role("button", name="Copy review & open GitHub comments", exact=True).click()
     expect(trace.locator(".trace-review-feedback")).to_contain_text("Choose both")
     trace.get_by_role("radio", name="Agree", exact=True).check()
     trace.get_by_role("radio", name="Not critical", exact=True).check()
     trace.get_by_role("textbox", name="Review comments").fill("Correct the blank query condition; reference flags follow the guide.")
-    expect(trace.locator("[data-trace-status]")).to_have_text("Your review: Draft")
     capture(page, screenshots, "trace-review-form.png")
     original_term = page.locator("#comments-host script").get_attribute("data-term")
     page.evaluate("window.originalCommentsHost=document.querySelector('#comments-host')")
@@ -667,7 +669,6 @@ def check(browser, base, site_dir, screenshots):
     for fragment in ("**Agreement:** Agree", "**Criticality:** Not critical", "selection-rule", catalog["revision"], "blank query"):
         assert fragment in text
     assert page.evaluate("navigator.clipboard.readText()") == text
-    expect(trace.locator("[data-trace-status]")).to_have_text("Your review: Draft")
     expect(trace.locator("#trace-fix details")).to_have_count(0)
     trace.get_by_role("textbox", name="Review comments").fill("Confirm the dermatologic group; reference flags follow the guide.")
     expect(trace.locator("[data-trace-comment-stale]")).to_be_visible()
@@ -702,20 +703,13 @@ def check(browser, base, site_dir, screenshots):
     trace.get_by_role("button", name="Previous finding", exact=False).click()
     expect(trace.get_by_role("radio", name="Agree", exact=True)).to_be_checked()
     trace.get_by_role("button", name="Add your review", exact=True).click()
-    trace.get_by_role("button", name="Save locally", exact=True).click()
-    expect(trace.locator("[data-trace-progress]")).to_have_text("1 of 2 reviews saved locally")
-    with page.expect_download() as downloaded:
-        trace.locator("[data-trace-download]").first.click()
-    exported = json.loads(Path(downloaded.value.path()).read_text())
-    assert exported["study"] == "cdiscpilot01"
-    saved = next(r for r in exported["reviews"] if r["status"] == "reviewed")
-    assert saved["agreement"] == "agree" and saved["criticality"] == "not_critical"
-    assert "blank query" in saved["comment"]
     page.keyboard.press("Escape")
     expect(selection.get_by_role("button", name="Start review", exact=True)).to_be_focused()
     page.reload()
     trace = open_trace(selection)
-    expect(trace.locator("[data-trace-status]")).to_have_text("Your review: Saved locally")
+    expect(trace.get_by_role("radio", name="Agree", exact=True)).to_be_checked()
+    expect(trace.get_by_role("radio", name="Not critical", exact=True)).to_be_checked()
+    expect(trace.get_by_role("textbox", name="Review comments")).to_have_value(re.compile("blank query"))
     page.keyboard.press("Escape")
     page.get_by_role("button", name="Clear filters", exact=True).click()
     # A finding can belong to a different dataset than the underlying workspace.
