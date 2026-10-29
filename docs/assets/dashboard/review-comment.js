@@ -1,5 +1,5 @@
 /** A reviewer can paste this assessment into the shared GitHub discussion. */
-import { AGREEMENTS, CRITICALITIES, draftLabel } from "./review-drafts.js";
+import { AGREEMENTS, CRITICALITIES, SIDES, draftLabel } from "./review-drafts.js";
 
 const variableName = (issue) => issue.dataset + (issue.variable ? "." + issue.variable : "");
 
@@ -19,6 +19,7 @@ export function reviewComment(model, issue, review, pageUrl) {
     `## Review: ${variableName(issue)} - ${issue.title}`,
     "", `**Agreement:** ${AGREEMENTS[review.agreement]}`,
     `**Criticality:** ${CRITICALITIES[review.criticality]}`,
+    ...(SIDES[review.side] ? [`**Which side is right:** ${SIDES[review.side]}`] : []),
     "", review.comment.trim() || "No additional comments.",
     "", `**Study:** ${model.id}`,
     `**Finding:** \`${issue.id}\``,
@@ -44,6 +45,7 @@ export function reviewLedgerDocument(model, entries, counts, pageUrl, context = 
     lines.push("", `## ${variableName(issue)} - ${issue.title}`, "",
       `**Agreement:** ${AGREEMENTS[draft.agreement] || "(not chosen)"}`,
       `**Criticality:** ${CRITICALITIES[draft.criticality] || "(not chosen)"}`,
+      ...(SIDES[draft.side] ? [`**Which side is right:** ${SIDES[draft.side]}`] : []),
       `**Status:** ${draftLabel(draft)}${draft.stale ? " (evidence changed)" : ""}`,
       "", draft.comment.trim() || "No additional comments.",
       "", `**Finding:** \`${issue.id}\``,

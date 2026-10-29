@@ -9,6 +9,13 @@ export const CRITICALITIES = {
   not_critical: "Not critical",
   unsure: "Unsure",
 };
+/** Which side the reviewer holds right, when a finding asks that; optional. */
+export const SIDES = {
+  document: "The document",
+  specification: "The specification",
+  neither: "Neither as written",
+  unsure: "Unsure",
+};
 /** How a completed assessment left this browser; the dashboard never confirms publication. */
 export const SHARED = { github: "Opened in GitHub composer", clipboard: "Copied for GitHub" };
 
@@ -61,6 +68,7 @@ export function createReviewDrafts(storage) {
     return {
       schema_version: 1, signature, agreement, criticality,
       comment: typeof raw.comment === "string" ? raw.comment.slice(0, 10000) : "",
+      side: Object.hasOwn(SIDES, raw.side) ? raw.side : "",
       status,
       shared: status === "reviewed" && Object.hasOwn(SHARED, raw.shared) ? raw.shared : "",
       updated_at: typeof raw.updated_at === "string" ? raw.updated_at : "",
@@ -77,6 +85,7 @@ export function createReviewDrafts(storage) {
       agreement: Object.hasOwn(AGREEMENTS, input.agreement) ? input.agreement : "",
       criticality: Object.hasOwn(CRITICALITIES, input.criticality) ? input.criticality : "",
       comment: String(input.comment || "").slice(0, 10000),
+      side: Object.hasOwn(SIDES, input.side) ? input.side : "",
       status: complete ? "reviewed" : "draft",
       shared: complete && Object.hasOwn(SHARED, input.shared) ? input.shared : "",
       updated_at: new Date().toISOString(),

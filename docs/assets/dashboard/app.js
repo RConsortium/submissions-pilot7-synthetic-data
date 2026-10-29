@@ -336,7 +336,7 @@ import { developmentReport, mountDevelopment } from "./synthetic-development.js"
   async function handOverReviews(how) {
     const listing = [
       state.findingSearch && `search "${state.findingSearch}"`, state.comparison && `comparison ${state.comparison}`,
-      state.kind && `type ${state.kind}`, state.critical && `critical finding ${state.critical}`,
+      state.kind && `type ${state.kind}`, state.critical && `critical finding ${state.critical}`, state.agentReview && `agent review ${state.agentReview}`,
       state.yourReview && `your review ${state.yourReview}`,
     ].filter(Boolean).join(", ");
     const { entries, counts } = ledger(),
@@ -519,12 +519,14 @@ import { developmentReport, mountDevelopment } from "./synthetic-development.js"
       state.kind = "";
       state.comparison = "";
       state.critical = "";
+      state.agentReview = "";
       state.yourReview = "";
       save();
       byId("finding-search").value = "";
       byId("finding-kind").value = "";
       byId("finding-comparison").value = "";
       byId("finding-critical").value = "";
+      byId("finding-agent").value = "";
       byId("finding-review").value = "";
       byId("finding-results").innerHTML = findingRows();
       traceReview.refreshRows();
@@ -614,13 +616,14 @@ import { developmentReport, mountDevelopment } from "./synthetic-development.js"
       return;
     }
     if (
-      ["finding-kind", "finding-comparison", "finding-critical", "finding-review"].includes(el.id)
+      ["finding-kind", "finding-comparison", "finding-critical", "finding-agent", "finding-review"].includes(el.id)
     ) {
       state[
         {
           "finding-kind": "kind",
           "finding-comparison": "comparison",
           "finding-critical": "critical",
+          "finding-agent": "agentReview",
           "finding-review": "yourReview",
         }[el.id]
       ] = el.value;

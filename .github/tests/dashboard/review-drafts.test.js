@@ -70,6 +70,10 @@ test("a complete assessment records how it left the browser and returns to a dra
   assert.equal(drafts.save("study", issue, report, { ...assessment, shared: "invented" }, true).shared, "");
   assert.equal(draftLabel(drafts.load("study", issue, report)), "Saved locally");
   assert.equal(draftLabel(drafts.load("study", { ...issue, id: "untouched" }, report)), "Not reviewed");
+  // The optional side is kept as chosen and never invented.
+  assert.equal(drafts.save("study", issue, report, { ...assessment, side: "specification" }, true).side, "specification");
+  assert.equal(drafts.load("study", issue, report).side, "specification");
+  assert.equal(drafts.save("study", issue, report, { ...assessment, side: "invented" }, true).side, "");
 });
 test("the ledger counts started, complete, shared and stale assessments of the listed issues", () => {
   const drafts = createReviewDrafts(storage());

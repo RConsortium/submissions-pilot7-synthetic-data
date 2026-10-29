@@ -22,6 +22,13 @@ const KINDS = [
   "not_reviewed",
 ];
 /** The reviewer's own progress, kept in this browser and never part of a shared link. */
+export const AGENT_REVIEW = {
+  agreed: "Agreed",
+  disputed: "Disputed",
+  stale: "Stale",
+  mixed: "Mixed",
+  not_reviewed: "Not adjudicated",
+};
 export const YOUR_REVIEW = {
   unreviewed: "Not reviewed",
   draft: "Draft",
@@ -43,6 +50,7 @@ export function createReport(ctx) {
       (!state.kind || i.kind === state.kind) &&
       (!state.comparison || i.comparison === state.comparison) &&
       (!state.critical || criticalFinding(i).status === state.critical) &&
+      (!state.agentReview || i.review === state.agentReview) &&
       (!state.yourReview || !ctx.drafts || draftOf(i).status === state.yourReview)
     );
   }
@@ -57,9 +65,11 @@ export function createReport(ctx) {
     // zero-count dataset chip lists nothing instead of text matches.
     const exactScope = q && (allFindings().some(scope) ||
       (ctx.model?.datasets || []).some((d) => d.name.toLowerCase() === q));
-    // Critical findings first, then the ones needing assessment; the report order holds within
-    // each: a measured count compares the documented rule as written, not the dataset.
-    const rank = { yes: 0, needs_review: 1, no: 2 }, order = (i) => rank[criticalFinding(i).status];
+    // Critical findings first, then the ones needing assessment; within each, findings the
+    // adjudicating agent disputed, or whose decision is stale or mixed, come last. The report
+    // order holds otherwise: a measured count compares the documented rule as written.
+    const rank = { yes: 0, needs_review: 1, no: 2 },
+      order = (i) => rank[criticalFinding(i).status] * 2 + (["disputed", "stale", "mixed"].includes(i.review) ? 1 : 0);
     return allFindings().filter(
       (i) =>
         filtered(i) &&
@@ -110,7 +120,9 @@ export function createReport(ctx) {
   /** The two decisions and the finding types, where the reviewer meets them. */
   function howToReview() {
     const { esc } = ctx, guide = ctx.site ? new URL("review/findings/", ctx.site).href : "";
-    return `<details class="review-howto"><summary>How to review a finding</summary><div><p>Each row is one finding that asks for two decisions. <strong>Do you agree with this finding?</strong> The documents, the specification and the data disagree in the way the row describes. <strong>Is this finding critical?</strong> A critical issue could materially affect analysis results or their interpretation. Start with <strong>Critical finding: Yes</strong>, then <strong>Needs review</strong>; the automated criticality rates the kind of discrepancy, not the number of subjects.</p><p><strong>Types.</strong> Conflict: documents disagree with the data or with one another. Divergence: a documented rule is expressed differently in the specification. Gap: a rule or clause is undocumented. Evidence: a quoted passage was not found. Inconsistent: an input-to-output check failed. Unclear: a question the checks cannot settle. Missing evidence and not reviewed: authored questions. Agent agreement is not resolution.</p><p>Open <strong>Start review</strong> for the finding's evidence, record both decisions under <strong>Your review</strong>, then share them on GitHub or hand them over from <strong>Your reviews</strong> above the table.${guide ? ` <a class="text-link" href="${esc(guide)}">Read the full guide</a>` : ""}</p></div></details>`;
+    // Open until the reviewer has started a review of this study, then out of the way.
+    const open = !ctx.drafts || reviewLedger(ctx.drafts, ctx.model.id, allFindings(), ctx.report).counts.started === 0;
+    return `<details class="review-howto"${open ? " open" : ""}><summary>How to review a finding</summary><div><p>Each row is one finding that asks for two decisions. <strong>Do you agree with this finding?</strong> The documents, the specification and the data disagree in the way the row describes. <strong>Is this finding critical?</strong> A critical issue could materially affect analysis results or their interpretation. Start with <strong>Critical finding: Yes</strong>, then <strong>Needs review</strong>; the automated criticality rates the kind of discrepancy, not the number of subjects.</p><p><strong>Types.</strong> Conflict: documents disagree with the data or with one another. Divergence: a documented rule is expressed differently in the specification. Gap: a rule or clause is undocumented. Evidence: a quoted passage was not found. Inconsistent: an input-to-output check failed. Unclear: a question the checks cannot settle. Missing evidence and not reviewed: authored questions. Agent agreement is not resolution.</p><p>Open <strong>Start review</strong> for the finding's evidence, record both decisions under <strong>Your review</strong>, then share them on GitHub or hand them over from <strong>Your reviews</strong> above the table.${guide ? ` <a class="text-link" href="${esc(guide)}">Read the full guide</a>` : ""}</p></div></details>`;
   }
   function findingsView() {
     const { state, esc } = ctx;
@@ -118,7 +130,7 @@ export function createReport(ctx) {
       return `<label class="select-field">${label}<select id="${id}"><option value="">All</option>${entries.map(([key, text]) => `<option value="${key}" ${selected === key ? "selected" : ""}>${esc(text)}</option>`).join("")}</select></label>`;
     }
     const entries = (values) => values.map((v) => [v, v.replaceAll("_", " ")]);
-    return `${howToReview()}<div class="report-filters"><label class="search-field"><span class="field-label">Search issues</span><input id="finding-search" type="search" value="${esc(state.findingSearch)}" placeholder="Variable, issue, document or rule..."></label>${select("finding-comparison", "Comparison", Object.entries(comparisons), state.comparison)}${select("finding-kind", "Issue type", entries(KINDS), state.kind)}${select("finding-critical", "Critical finding", Object.entries(CRITICAL_LABELS), state.critical)}${ctx.drafts ? select("finding-review", "Your review", Object.entries(YOUR_REVIEW), state.yourReview || "") : ""}<button class="button" id="clear-findings">Clear filters</button></div><div id="finding-results">${findingRows()}</div>`;
+    return `${howToReview()}<div class="report-filters"><label class="search-field"><span class="field-label">Search issues</span><input id="finding-search" type="search" value="${esc(state.findingSearch)}" placeholder="Variable, issue, document or rule..."></label>${select("finding-comparison", "Comparison", Object.entries(comparisons), state.comparison)}${select("finding-kind", "Issue type", entries(KINDS), state.kind)}${select("finding-critical", "Critical finding", Object.entries(CRITICAL_LABELS), state.critical)}${select("finding-agent", "Agent review", Object.entries(AGENT_REVIEW), state.agentReview || "")}${ctx.drafts ? select("finding-review", "Your review", Object.entries(YOUR_REVIEW), state.yourReview || "") : ""}<button class="button" id="clear-findings">Clear filters</button></div><div id="finding-results">${findingRows()}</div>`;
   }
   function drawer() {
     const { state, esc, byId, root, report } = ctx;

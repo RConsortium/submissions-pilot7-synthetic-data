@@ -141,7 +141,8 @@ test("the metric and listing count issues separately from supporting checks", ()
   assert.match(listing, /1 of 1 issue &middot; 2 supporting checks/);
   assert.equal((listing.match(/<tr class="review-issue"/g) || []).length, 1);
   assert.ok(listing.includes("Issue type"));
-  assert.ok(!listing.includes("Agent review"));
+  assert.ok(!listing.includes("Agent review: agreed"));
+  assert.ok(listing.includes('id="finding-agent"'));
   assert.ok(!listing.includes('id="issue-review"'));
   assert.deepEqual([...listing.matchAll(/<th scope="col">([^<]+)<\/th>/g)].map((m) => m[1]), [
     "Dataset / variable", "Status", "Critical finding", "Type", "Documented rule vs data", "Issue", "Evidence",
@@ -505,4 +506,23 @@ test("the documented-rule column states subjects, no differences or not measured
   assert.match(html, /data-finding-id="measured"[^]*?<td class="issue-impact"><span class="sr-only">Documented rule vs data: <\/span>3 subjects differ<\/td>/);
   assert.match(html, /data-finding-id="none"[^]*?issue-impact">[^]*?No differences in tested data</);
   assert.match(html, /data-finding-id="unmeasured"[^]*?issue-impact">[^]*?Not measured</);
+});
+
+test("disputed, stale and mixed agent reviews list after agreed ones within a criticality and can be filtered", () => {
+  const disputed = { ...issue, id: "disputed", variable: "D", review: "disputed" },
+    stale = { ...issue, id: "stale", variable: "S", review: "stale", critical: { status: "needs_review", reason: "Gap." } },
+    agreed = { ...issue, id: "agreed", variable: "A", review: "agreed", critical: { status: "needs_review", reason: "Gap." } };
+  const data = { ...report, review: { ...report.review, issues: [disputed, stale, agreed, issue] } };
+  const s = state(), view = createReport({ report: data, state: s, esc });
+  assert.deepEqual(view.findingItems().map((i) => i.id), [issue.id, "disputed", "agreed", "stale"]);
+  assert.match(view.findingRows(), /data-finding-id="disputed"[^]*?<small class="agent-review-status">Agent review: disputed<\/small>/);
+  s.agentReview = "disputed";
+  assert.deepEqual(view.findingItems().map((i) => i.id), ["disputed"]);
+});
+
+test("the how-to panel stays open until the reviewer has started a review of the study", () => {
+  const started = { load: (study, i) => ({ status: i.id === issue.id ? "draft" : "unreviewed", shared: "", stale: false }) },
+    none = { load: () => ({ status: "unreviewed", shared: "", stale: false }) };
+  assert.match(createReport({ report, state: state(), esc, drafts: none, model: { id: "study" } }).findingsView(), /<details class="review-howto" open>/);
+  assert.match(createReport({ report, state: state(), esc, drafts: started, model: { id: "study" } }).findingsView(), /<details class="review-howto"><summary>/);
 });

@@ -134,6 +134,7 @@ class DocumentViewTests(unittest.TestCase):
             # A cited OID scrolls to the stylesheet's prefixed id for it, inside the body.
             html = view.read_text()
             self.assertIn("e.id.endsWith('.IT.'+want)", html)
+            self.assertIn("hit.style.outline=", html)
             self.assertLess(html.index("<script>"), html.lower().index("</body>"))
             stylesheet.write_text(
                 template.replace(

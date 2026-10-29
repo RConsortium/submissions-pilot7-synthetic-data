@@ -10,7 +10,9 @@ both measures.
 
 **How to review a finding**, above the filters, states the two decisions
 every finding asks for, the working definition of critical and the issue
-types, so the tab can be used without this page.
+types, so the tab can be used without this page. It stays open until you
+have started a review of the study. The **Consistency review** card above
+the tabs counts your reviews over the whole study.
 
 ## The findings table
 
@@ -18,7 +20,7 @@ Each row is one issue.
 
 | Column | Meaning |
 | --- | --- |
-| Dataset / variable | The output variable the issue concerns, with the IDs of the consistency rules its checks apply; hover a rule ID for its title. Select the name to open the variable in the workspace with the affected subjects. |
+| Dataset / variable | The output variable the issue concerns, with the IDs of the consistency rules its checks apply; hover a rule ID for what its finding means. Select the name to open the variable in the workspace with the affected subjects. |
 | Status | Under Review until maintainers record a human decision. When the adjudicating agent disputed the finding, or its decision is stale or mixed, the cell says so. |
 | Critical finding | The automated criticality assessment: Yes, No or Needs review. |
 | Type | The issue type, listed below. |
@@ -44,6 +46,10 @@ title, document name, quotation or rule ID; an exact name, such as
 - **Comparison** separates input-to-output logic checks, source-document
   questions and documented-rule checks.
 - **Issue type** filters the types below.
+- **Agent review** filters by the adjudicating agent's decision: agreed,
+  disputed, stale, mixed or not adjudicated. The list places disputed,
+  stale and mixed findings after the agreed ones of the same criticality;
+  they stay listed, because agent agreement is not resolution.
 - **Critical finding** filters Yes, No and Needs review. Incorrect source,
   derivation, category and output rules are critical; differences limited to
   significant digits or variable labels are not. Incomplete evidence and
@@ -141,8 +147,10 @@ comment text.
 ## Record your assessment
 
 Under **Your review**, choose **Agree**, **Disagree** or **Need
-clarification**, then **Critical**, **Not critical** or **Unsure**, and add a
-comment. Neither decision is preselected. Drafts save automatically in this
+clarification**, then **Critical**, **Not critical** or **Unsure**. When the
+finding sets a document against the specification, **Which side is right?**
+(**The document**, **The specification**, **Neither as written**, **Unsure**)
+is optional and answers the variable's open question; add a comment. Neither decision is preselected. Drafts save automatically in this
 browser, scoped to the study and the issue and bound to its current
 evidence; if the evidence changes in a later publication, your earlier
 assessment returns as a draft marked **evidence changed**.

@@ -138,7 +138,7 @@ def render_xml(root, path, original, entry):
     script = (b"<script>(function(){function go(){var want=decodeURIComponent(location.hash.slice(1));"
               b"if(!want||document.getElementById(want))return;var all=Array.prototype.slice.call(document.querySelectorAll('[id]'));"
               b"var hit=all.find(function(e){return e.id.endsWith('.IT.'+want)})||all.find(function(e){return e.id.endsWith('.'+want)});"
-              b"if(hit)hit.scrollIntoView()}go();addEventListener('hashchange',go)})();</script>")
+              b"if(hit){hit.style.outline='3px solid #d4a342';hit.style.outlineOffset='2px';hit.scrollIntoView()}}go();addEventListener('hashchange',go)})();</script>")
     end = rendered.lower().rfind(b"</body>")
     rendered = rendered[:end] + script + rendered[end:] if end >= 0 else rendered + script
     view.write_bytes(rendered)
