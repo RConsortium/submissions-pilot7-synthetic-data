@@ -55,6 +55,11 @@ def run(browser_path=None):
               window.review.open('age',document.querySelector('#open'));
             }""")
             page.locator('#trace-review-comment').fill('Keep my review draft')
+            basis = page.locator('#trace-finding .trace-basis')
+            assert 'Automated criticality: Needs review.' in basis.inner_text()
+            assert 'Agent review: agreed.' in basis.inner_text()
+            assert basis.get_by_role('button', name='Open evidence in workspace', exact=True).count() == 1
+            assert page.locator('.trace-technical button[data-finding]').count() == 0
             rule = page.locator('#trace-specifications [data-source-evidence="rule"]')
             rule.click()
             assert page.locator('.review-source-dialog').is_visible()

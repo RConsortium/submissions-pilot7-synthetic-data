@@ -74,7 +74,11 @@ reviewer needs them:
    impact. Each comparison names both sides, such as **Documented rule vs
    published reference**, and counts the distinct subjects that differ.
    Comparisons labeled as context are excluded from impact. **Impact not
-   measured** is different from **No differences in tested data**.
+   measured** is different from **No differences in tested data**. The
+   review basis below the measurements states the automated criticality
+   with its reason, the agent adjudication with the adjudicator's reason,
+   any documented rule that could not be checked and why, and **Open
+   evidence in workspace**, which selects the affected subjects.
 2. **Source documents**: the cited clauses of the retained protocol, SAP or
    Define-XML, side by side, with the quoted text highlighted. **Full
    context** reveals the complete passage. **View source** and **Source
@@ -91,7 +95,10 @@ reviewer needs them:
    reference next to the document-based calculation, with differing cells
    highlighted. Examples illustrate the calculation; they do not supply the
    impact count.
-5. **Recommended fix**: the proposed correction or decision.
+5. **Recommended fix**: the proposed correction or decision. When the
+   text is the extraction agent's question about the whole variable, the
+   section is headed **Open question for this variable** and says how many
+   findings share it; decide each finding on its own evidence.
 6. **Your review** and **GitHub comments**: see
    [Record your assessment](#record-your-assessment).
 

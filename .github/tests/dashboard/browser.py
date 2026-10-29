@@ -460,6 +460,9 @@ def check(browser, base, site_dir, screenshots):
     expect(page.locator(".finding-evidence")).to_have_count(0)
     trace = open_trace(page.locator(".consistency-table tbody tr"))
     expect(trace).to_contain_text("No issue-specific data comparison")
+    expect(trace.locator("#trace-finding .trace-basis")).to_contain_text("Automated criticality: Needs review.")
+    expect(trace.locator("#trace-finding .trace-basis")).to_contain_text("No agent adjudication: this is an authored question.")
+    expect(trace.locator("#trace-finding").get_by_role("button", name="Open evidence in workspace", exact=True)).to_have_count(1)
     # The YAML comparison shows the resolved specification; the original
     # layer citation stays in the check audit, where Source lines opens the
     # numbered file in a popup with its repository link.
