@@ -140,8 +140,13 @@ its own subjects; context-only comparisons are excluded from issue impact.
 **Full context** reveals the complete quotation or specification with original
 line numbers. **Supporting checks and agent review** retains the rule statements,
 complete check evidence and the adjudicator's reasons. Source quotations stay
-literal. **View source** opens the retained document. **Source lines** opens
-the original quoted XML element or YAML lines in the repository. Define-XML
+literal. The review's YAML comparison uses the retained resolved specification;
+document-based translations retain their independent YAML. Original layer
+citations remain in the supporting check audit. **View source** and **Source
+lines** open a popup over the review, preserving its position and draft.
+XML uses the retained rendered document, PDFs open at the cited page, and YAML
+shows numbered source with the cited lines highlighted. The popup also offers
+the repository link when retained in the citation. Define-XML
 2.x derivation citations follow the variable's referenced `MethodDef`; comment
 and codelist citations open their own elements. Define-XML 1.0 derivations
 remain on the `ItemDef` that contains their comment text.

@@ -14,6 +14,7 @@ import { createWorkspace } from "./workspace.js";
 import { createReport } from "./report.js";
 import { findIssue } from "./issues.js";
 import { createTraceReview } from "./trace-review.js";
+import { createReviewSources, resolvedReviewReport } from "./review-sources.js";
 import { createSourceDocuments } from "./source-documents.js";
 import { defineComparisonView } from "./define-comparison.js";
 import { createComments } from "./comments.js";
@@ -79,6 +80,9 @@ import { developmentReport, mountDevelopment } from "./synthetic-development.js"
     get specification() {
       return specification;
     },
+    get specifications() {
+      return specifications;
+    },
     get graph() {
       return graph;
     },
@@ -111,7 +115,8 @@ import { developmentReport, mountDevelopment } from "./synthetic-development.js"
   const { findingRows, findingsView, drawer } = createReport(ctx),
     comments = createComments(ctx),
     { commentsView, loadComments } = comments;
-  const traceReview = createTraceReview(ctx, comments);
+  const reviewSources = createReviewSources(ctx);
+  const traceReview = createTraceReview(ctx, comments, reviewSources);
   const sourceDocuments = createSourceDocuments(ctx),
     { materialsView } = sourceDocuments;
   const resizing = createResizing(ctx, fitWorkbench);
@@ -327,6 +332,13 @@ import { developmentReport, mountDevelopment } from "./synthetic-development.js"
     }
     const target = event.target.closest("button,[data-line-node]");
     if (!target || !root()?.contains(target)) return;
+    if (target.dataset.sourceEvidence) {
+      const sourceReport = target.closest("#trace-specifications")
+        ? resolvedReviewReport(report, specifications, target.closest(".trace-review-dialog")?.dataset.reviewDataset) : report;
+      const evidence = sourceReport.review.evidence.find((e) => e.id === target.dataset.sourceEvidence);
+      if (evidence) reviewSources.open(evidence, target);
+      return;
+    }
     if (target.dataset.traceIssue) {
       traceReview.open(target.dataset.traceIssue, target);
       return;

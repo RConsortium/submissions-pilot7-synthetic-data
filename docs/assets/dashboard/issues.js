@@ -1,5 +1,5 @@
 /** Concise issues and progressive evidence, rendered from the review schema. */
-import { esc, link } from "./ui.js";
+import { esc } from "./ui.js";
 
 const shorten = (text, n = 240) =>
   text.length > n ? text.slice(0, n) + "..." : text;
@@ -109,11 +109,11 @@ function citation(e, report, preview = false) {
   const source =
     e.type === "document" &&
     report.documents?.some((d) => d.path === e.path && d.available)
-      ? `<button class="text-link" data-document="${esc(e.path)}" data-document-section="${esc(e.section)}">View source</button>`
+      ? `<button class="text-link" data-source-evidence="${esc(e.id)}">View source</button>`
       : "";
   const lines = e.lines ? `Source lines ${e.lines.join("-")}` : "Source file";
   const contextLocation = e.context_lines ? `Lines ${e.context_lines.join("-")}` : location;
-  return `<div class="issue-citation"><p class="quote-source">${esc((e.type === "specification" ? "Specification: " : "Document: ") + e.path.split("/").pop())}${location ? ", " + esc(location) : ""}</p><blockquote>${preview ? marked(e.type === "document" ? (e.context || quote) : quote, quote) : esc(snippet)}</blockquote>${!e.verified ? `<p>Quote not verified: ${esc(e.reason || "source unavailable")}</p>` : ""}<p class="finding-links">${source}${source && e.url ? " &middot; " : ""}${e.url ? link(e.url, lines) : ""}</p>${e.context && !(preview && e.type === "document") && (normalize(e.context) !== quote || quote.length > 240 || e.type === "specification") ? `<details class="issue-context"${preview ? " open" : ""}><summary><span>Full context</span><small>${esc(contextLocation)}</small></summary>${context}</details>` : ""}</div>`;
+  return `<div class="issue-citation"><p class="quote-source">${esc((e.type === "specification" ? "Specification: " : "Document: ") + e.path.split("/").pop())}${location ? ", " + esc(location) : ""}</p><blockquote>${preview ? marked(e.type === "document" ? (e.context || quote) : quote, quote) : esc(snippet)}</blockquote>${!e.verified ? `<p>Quote not verified: ${esc(e.reason || "source unavailable")}</p>` : ""}<p class="finding-links">${source}${source ? " &middot; " : ""}<button class="text-link" data-source-evidence="${esc(e.id)}">${esc(lines)}</button></p>${e.context && !(preview && e.type === "document") && (normalize(e.context) !== quote || quote.length > 240 || e.type === "specification") ? `<details class="issue-context"${preview ? " open" : ""}><summary><span>Full context</span><small>${esc(contextLocation)}</small></summary>${context}</details>` : ""}</div>`;
 }
 
 function patterns(e) {

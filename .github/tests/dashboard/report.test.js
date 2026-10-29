@@ -169,7 +169,7 @@ test("trace shows selected quotes and comparisons once, with full context and ch
     "Expected",
     "Observed",
     "Use &lt;first&gt; day",
-    'data-document-section="page-5"',
+    'data-source-evidence="source"',
     "Full context",
     '3</span><span class="context-line-text">  day: 1</span></mark>',
     "2 / 3 records differ",
