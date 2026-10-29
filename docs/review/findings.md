@@ -91,8 +91,7 @@ reviewer needs them:
    measured** is different from **No differences in tested data**. The
    review basis, first in the section, states the automated criticality
    with its reason, the agent adjudication with the adjudicator's reason,
-   any documented rule that could not be checked and why, and **Open
-   evidence in workspace**, which selects the affected subjects. The
+   and any documented rule that could not be checked and why. The
    measurements that follow say whether the yamaa output matches the
    published reference for the dataset, so a count of differing subjects
    reads as a test of the written rule, not of the dataset.
@@ -121,12 +120,10 @@ reviewer needs them:
 
 **Supporting checks and agent review** keeps the rule statements, the
 complete check evidence and the adjudicator's reasons; source quotations stay
-literal. **Open evidence in workspace** selects the variable and the subjects
-named by its measured impact, or keeps the current subject selection when no
-subject set was measured. **Next finding in list** and **Previous finding
-in list** walk the findings the table currently lists, in its order, without
-closing the page; the footer counts your place in that list. When the open
-finding is not in the list, the buttons walk its variable's findings instead.
+literal. **Next finding in list** and **Previous finding in list** walk the
+findings the table currently lists, in its order, without closing the page;
+the footer counts your place in that list. When the open finding is not in
+the list, the buttons walk its variable's findings instead.
 
 ## Documented rules
 

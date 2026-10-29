@@ -80,7 +80,7 @@ export function createTraceReview(ctx, comments, sources) {
     return issue.trace.map((t) => ({ ...pool.get(t.evidence_id), role: t.role }))
       .filter((e) => ["comparison", "codelist", "note"].includes(e.type));
   }
-  /** The automated assessments a reviewer weighs before deciding, and the way to the affected records. */
+  /** The automated assessments a reviewer weighs before deciding. */
   function reviewBasis() {
     const checks = readReview(ctx.report).checks.filter((c) => issue.check_ids.includes(c.id)),
       critical = criticalFinding(issue),
@@ -90,7 +90,7 @@ export function createTraceReview(ctx, comments, sources) {
     const agent = issue.review === "not_reviewed"
       ? "No agent adjudication: this is an authored question."
       : `<strong>Agent review: ${esc(status)}.</strong> ${reasons.length ? esc(reasons.join(" ")) : "The adjudicator recorded no reason."}${issue.review === "stale" ? " The decision predates the current evidence; weigh it accordingly." : ""}`;
-    return `<div class="trace-basis" aria-label="Review basis"><p><strong>Automated criticality: ${esc(CRITICAL_LABELS[critical.status])}.</strong> ${esc(critical.reason)}</p><p>${agent}</p>${notes.map((n) => `<p class="trace-limit"><strong>${esc(n.title)}:</strong> ${esc(n.text)}</p>`).join("")}<p><button class="text-link" data-finding="${esc(issue.id)}">Open evidence in workspace${issue.impact.subject_count ? ` (${plural(issue.impact.subject_count, "subject")})` : ""}</button>${issue.impact.subject_count ? " <small>Selects the affected subjects in the SDTM -&gt; ADaM workspace.</small>" : ""}</p></div>`;
+    return `<div class="trace-basis" aria-label="Review basis"><p><strong>Automated criticality: ${esc(CRITICAL_LABELS[critical.status])}.</strong> ${esc(critical.reason)}</p><p>${agent}</p>${notes.map((n) => `<p class="trace-limit"><strong>${esc(n.title)}:</strong> ${esc(n.text)}</p>`).join("")}</div>`;
   }
   /** What the measured counts compare: the documented rule as written, not the dataset, which the reference comparison covers. */
   function agreement() {

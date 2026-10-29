@@ -140,9 +140,12 @@ def check(browser, base, site_dir, screenshots):
         expect(trace).to_be_visible()
         return trace
 
-    def open_workspace(trace):
-        trace.locator(".trace-technical > summary").click()
-        trace.get_by_role("button", name=re.compile(r"^Open evidence in workspace")).click()
+    def open_workspace(row):
+        # The finding's variable name opens its affected subjects in the workspace.
+        if page.locator("dialog.trace-review-dialog").count():
+            page.keyboard.press("Escape")
+            expect(page.locator("dialog.trace-review-dialog")).to_have_count(0)
+        row.locator("th [data-finding]").click()
         expect(page.locator(".trace-workspace-note")).to_be_visible()
 
     study = base + "/studies/cdiscpilot01/"
@@ -469,7 +472,8 @@ def check(browser, base, site_dir, screenshots):
     expect(trace.locator(".trace-review-footer")).to_contain_text("Finding 1 of 1 in the current list")
     expect(trace.get_by_role("button", name=re.compile(r"finding in list"))).to_have_count(0)
     expect(trace.locator("#trace-finding .trace-basis")).to_contain_text("No agent adjudication: this is an authored question.")
-    expect(trace.locator("#trace-finding").get_by_role("button", name="Open evidence in workspace", exact=True)).to_have_count(1)
+    # The review shows example subjects itself; the workspace opens from the finding's row.
+    expect(trace.locator("[data-finding]")).to_have_count(0)
     # The YAML comparison shows the resolved specification; the original
     # layer citation stays in the check audit, where View source opens the
     # numbered file in a popup with its repository link.
@@ -489,7 +493,7 @@ def check(browser, base, site_dir, screenshots):
     expect(trace).to_be_visible()
     technical.evaluate("(el) => { el.querySelectorAll('details').forEach((d) => { d.open = false; }); el.open = false; }")
     capture(page, screenshots, "consistency-review.png")
-    open_workspace(trace)
+    open_workspace(page.locator(".consistency-table tbody tr.review-issue"))
     capture(page, screenshots, "source-evidence.png")
     trace = open_trace(page.locator(".trace-workspace-note"))
     trace.get_by_role("button", name="View source", exact=True).first.click()
@@ -628,8 +632,7 @@ def check(browser, base, site_dir, screenshots):
     page.keyboard.press("Escape")
     expect(trace).to_have_count(0)
     page.locator('.review-tabs [data-view="overview"]').click()
-    trace = open_trace(rule)
-    open_workspace(trace)
+    open_workspace(rule)
     expect(page.locator("#subject-summary")).to_contain_text("253 /")
     page.get_by_role("button", name="Close source evidence", exact=True).click()
     page.locator('.review-tabs [data-view="overview"]').click()
@@ -658,7 +661,7 @@ def check(browser, base, site_dir, screenshots):
     trace = open_trace(missing)
     expect(trace.locator(".trace-measurements")).to_contain_text("1 subject with differences")
     capture(page, screenshots, "missing-bmi-trace.png")
-    open_workspace(trace)
+    open_workspace(missing)
     expect(page.locator("#subject-summary")).to_contain_text("1 /")
     expect(page.locator("#output-table tbody")).to_contain_text("01-702-1082")
     page.get_by_role("button", name="Close source evidence", exact=True).click()
