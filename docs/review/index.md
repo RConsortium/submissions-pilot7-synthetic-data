@@ -12,10 +12,10 @@ contribution.**
 
 ## 1. Choose a Pilot 5 finding
 
-Open the [Pilot 5 consistency findings](../studies/submission-pilot5.md#submission-pilot5/overview/ADSL).
-Pick a dataset under **By dataset**, then start with findings marked
-**Critical finding: Yes** or **Needs review**, and documentation gaps after
-those. You can also report a problem that the automated checks missed.
+Open the [Pilot 5 consistency findings](../studies/submission-pilot5.md#submission-pilot5/overview/ADSL?findingSearch=ADSL).
+It opens on ADSL with the critical findings first; pick another dataset
+under **By dataset** when you are done, and take documentation gaps after
+the findings marked **Critical finding: Yes** or **Needs review**. You can also report a problem that the automated checks missed.
 
 Each row names the dataset and variable, the issue type and the automated
 criticality assessment. [Consistency findings](findings.md) explains the

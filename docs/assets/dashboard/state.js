@@ -7,6 +7,7 @@ const fields = [
   "findingSearch",
   "kind",
   "evidence",
+  "review",
   "comparison",
   "critical",
   "document",

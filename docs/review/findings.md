@@ -45,8 +45,11 @@ title, document name, quotation or rule ID; an exact name, such as
   documentation gaps need review. Criticality is independent of the number of
   affected subjects.
 
-**Clear filters** restores the full list. The dataset, filters, search and
-open finding are part of the page URL, so a copied link reproduces them.
+**Clear filters** restores the full list. The list puts findings marked
+**Critical finding: Yes** first, then **Needs review**, then **No**, in the
+report's order within each group. The dataset, filters, search and open
+finding are part of the page URL, so a copied link reproduces them,
+including the finding open in **Start review**.
 
 ## Issue types
 
@@ -106,8 +109,10 @@ reviewer needs them:
 complete check evidence and the adjudicator's reasons; source quotations stay
 literal. **Open evidence in workspace** selects the variable and the subjects
 named by its measured impact, or keeps the current subject selection when no
-subject set was measured. **Next finding** and **Previous finding** move
-through the current list without closing the page.
+subject set was measured. **Next finding in list** and **Previous finding
+in list** walk the findings the table currently lists, in its order, without
+closing the page; the footer counts your place in that list. When the open
+finding is not in the list, the buttons walk its variable's findings instead.
 
 ## Documented rules
 

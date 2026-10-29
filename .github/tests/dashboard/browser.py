@@ -461,6 +461,10 @@ def check(browser, base, site_dir, screenshots):
     trace = open_trace(page.locator(".consistency-table tbody tr"))
     expect(trace).to_contain_text("No issue-specific data comparison")
     expect(trace.locator("#trace-finding .trace-basis")).to_contain_text("Automated criticality: Needs review.")
+    # The open finding is part of the shareable state; this one is alone in the filtered list.
+    assert "review=" in page.url and "imputation" in page.url
+    expect(trace.locator(".trace-review-footer")).to_contain_text("Finding 1 of 1 in the current list")
+    expect(trace.get_by_role("button", name=re.compile(r"finding in list"))).to_have_count(0)
     expect(trace.locator("#trace-finding .trace-basis")).to_contain_text("No agent adjudication: this is an authored question.")
     expect(trace.locator("#trace-finding").get_by_role("button", name="Open evidence in workspace", exact=True)).to_have_count(1)
     # The YAML comparison shows the resolved specification; the original
@@ -626,6 +630,19 @@ def check(browser, base, site_dir, screenshots):
         trace = open_trace(row)
         expect(trace.locator(".trace-measurements")).to_contain_text("published reference")
         page.keyboard.press("Escape")
+    # The footer walks the filtered listing, and a reloaded link reopens the finding it names.
+    trace = open_trace(rule.first)
+    expect(trace.locator(".trace-review-footer")).to_contain_text("Finding 1 of 2 in the current list")
+    trace.get_by_role("button", name="Next finding in list", exact=True).click()
+    expect(trace.locator(".trace-review-footer")).to_contain_text("Finding 2 of 2 in the current list")
+    reopened = trace.locator("#trace-review-title").inner_text()
+    linked = page.url
+    page.keyboard.press("Escape")
+    expect(trace).to_have_count(0)
+    assert "review=" not in page.url
+    page.goto(linked)
+    expect(page.locator("dialog.trace-review-dialog #trace-review-title")).to_have_text(reopened)
+    page.keyboard.press("Escape")
     missing = rule.filter(has_text="Missing BMI is assigned")
     trace = open_trace(missing)
     expect(trace.locator(".trace-measurements")).to_contain_text("1 subject with differences")

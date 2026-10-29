@@ -57,6 +57,8 @@ export function createReport(ctx) {
     // zero-count dataset chip lists nothing instead of text matches.
     const exactScope = q && (allFindings().some(scope) ||
       (ctx.model?.datasets || []).some((d) => d.name.toLowerCase() === q));
+    // Critical findings first, then the ones needing assessment; the report order holds within each.
+    const rank = { yes: 0, needs_review: 1, no: 2 };
     return allFindings().filter(
       (i) =>
         filtered(i) &&
@@ -64,7 +66,7 @@ export function createReport(ctx) {
           (exactScope
             ? scope(i)
             : issueSearchText(i, report).toLowerCase().includes(q))),
-    );
+    ).sort((a, b) => rank[criticalFinding(a).status] - rank[criticalFinding(b).status]);
   }
   /** Filtered issues per dataset, in the study's dataset order, then by first appearance. */
   function datasetCounts() {

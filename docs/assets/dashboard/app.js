@@ -120,9 +120,11 @@ import { developmentReport, mountDevelopment } from "./synthetic-development.js"
   const { frame } = createShell(ctx),
     { workspace, applyHighlight, paintTables, fitWorkbench, copySpecification } =
       createWorkspace(ctx);
-  const { findingRows, findingsView, drawer, ledger, ledgerStrip } = createReport(ctx),
+  const { findingRows, findingsView, findingItems, drawer, ledger, ledgerStrip } = createReport(ctx),
     comments = createComments(ctx),
     { commentsView, loadComments } = comments;
+  // The review dialog walks the findings the listing currently shows.
+  ctx.listed = () => (state.view === "overview" ? findingItems() : []);
   ctx.refreshLedger = () => {
     const strip = byId("review-ledger");
     if (strip) strip.outerHTML = ledgerStrip();
@@ -294,6 +296,9 @@ import { developmentReport, mountDevelopment } from "./synthetic-development.js"
       Object.assign(state, readRoute(location.hash, model));
       document.body.classList.add("study-review-page");
       await renderView();
+      // A link that names an open finding reopens it, unless a GitHub return restored one.
+      if (state.review && !traceReview.isOpen && findIssue(report, state.review))
+        traceReview.open(state.review, root().querySelector(`[data-trace-issue="${CSS.escape(state.review)}"]`));
       if (location.hash.split("?")[0].split("/")[1] === "comments")
         byId("review-comments")?.scrollIntoView({ block: "start" });
     } catch (e) {

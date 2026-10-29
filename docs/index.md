@@ -22,7 +22,7 @@ complete contribution.
     Open the Submission Pilot 5 dashboard at its consistency findings, pick a
     dataset and start with the critical findings.
 
-    [Open the findings](studies/submission-pilot5.md#submission-pilot5/overview/ADSL)
+    [Open the findings](studies/submission-pilot5.md#submission-pilot5/overview/ADSL?findingSearch=ADSL)
 
 -   **Learn how to review**
 

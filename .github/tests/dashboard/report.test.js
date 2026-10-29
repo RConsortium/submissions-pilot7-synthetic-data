@@ -467,3 +467,15 @@ test("your reviews strip counts the listed findings' assessments and the own-rev
   const bare = createReport({ report: data, state: state(), esc });
   assert.doesNotMatch(bare.findingRows() + bare.findingsView(), /review-ledger|finding-review/);
 });
+
+test("the listing puts critical findings first, then those needing assessment, keeping report order within each", () => {
+  const second = { ...issue, id: "second", variable: "B", critical: { status: "needs_review", reason: "Gap." } },
+    third = { ...issue, id: "third", variable: "C", critical: { status: "yes", reason: "Rule differs." } },
+    fourth = { ...issue, id: "fourth", variable: "D", critical: { status: "no", reason: "Label only." } },
+    fifth = { ...issue, id: "fifth", variable: "E", critical: { status: "needs_review", reason: "Gap." } };
+  const data = { ...report, review: { ...report.review, issues: [second, fourth, issue, third, fifth] } };
+  const view = createReport({ report: data, state: state(), esc });
+  assert.deepEqual(view.findingItems().map((i) => i.id), [issue.id, "third", "second", "fifth", "fourth"]);
+  const html = view.findingRows();
+  assert.ok(html.indexOf('data-finding-id="third"') < html.indexOf('data-finding-id="second"'));
+});
