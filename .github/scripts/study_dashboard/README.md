@@ -270,8 +270,12 @@ exact source-file pair; all supporting checks and quotations remain available.
 Both the metric and the static study
 report count issues. The table separately counts unique supporting checks.
 The Start review button opens an expanded dialog, keeping complete evidence out of the
-initial listing DOM. It separates the finding, source comparison, actual subject
-examples, recommended fix, and human review. Related issues for the same variable
+initial listing DOM. It separates the finding, source-document previews, YAML specification comparison,
+Example Subject Difference, recommended fix, and human review. Source previews
+contain only retained documents; YAML citations and document-based translations
+are compared separately. Subject examples compare current reference values with
+document-based calculations, omit the yamaa output column, and highlight differing
+cells while preserving blank, missing, absent-variable and absent-record states. Related issues for the same variable
 are independently selectable; source context and the full check audit remain
 expandable. The data workspace links back to the same dialog.
 

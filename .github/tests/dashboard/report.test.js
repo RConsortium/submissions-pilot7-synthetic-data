@@ -204,8 +204,8 @@ test("source context preserves indentation, blank lines and escaped code with ac
         context_lines: [2, 4],
       }, comparison],
     },
-  }, { sourcesOnly: true });
-  assert.match(html, /<details class="issue-context"><summary><span>Full context<\/span><small>Lines 2-4<\/small>/);
+  }, { specificationsOnly: true });
+  assert.match(html, /<details class="issue-context" open><summary><span>Full context<\/span><small>Lines 2-4<\/small>/);
   assert.match(html, /tabindex="0" aria-label="spec.yaml source context"/);
   assert.match(html, /<span class="context-line-text">  when: &quot;DATE &lt; END &amp; VALID&quot;<\/span>/);
   assert.match(html, /<mark class="context-line"><span class="context-line-number" aria-hidden="true">3<\/span><span class="context-line-text"> <\/span><\/mark>/);
@@ -372,4 +372,30 @@ test("unsupported or missing review versions fail visibly", () => {
       () => readReview(data),
       /Unsupported consistency review schema/,
     );
+});
+
+test("document previews exclude YAML and expose missing comparison evidence", () => {
+  const html = issueTrace(issue, report, { sourcesOnly: true });
+  assert.match(html, /Document: guide.pdf/);
+  assert.match(html, /<mark>Use &lt;first&gt; day<\/mark>/);
+  assert.match(html, /Only one source document/);
+  assert.doesNotMatch(html, /Specification:|spec-lines|Expected<\/dt>/);
+  const yaml = issueTrace(issue, report, { specificationsOnly: true });
+  assert.match(yaml, /Specification: spec.yaml/);
+  assert.match(yaml, /class="spec-lines"/);
+  assert.doesNotMatch(yaml, /Document: guide.pdf/);
+});
+
+
+test("YAML comparison includes the selected translated rule but no sibling calculation", () => {
+  const translation = { ...spec, id: "translation", path: "study/documented-rules.yaml", section: comparison.column };
+  const unrelated = { ...spec, id: "unrelated", path: "study/other.yaml", section: "OTHER" };
+  const data = { ...report, review: { ...report.review,
+    evidence: [...report.review.evidence, translation, unrelated],
+    checks: report.review.checks.map((c) => ({ ...c, evidence_ids: [...c.evidence_ids, translation.id, unrelated.id] })),
+  } };
+  const html = issueTrace(issue, data, { specificationsOnly: true });
+  assert.match(html, /Specification: documented-rules.yaml/);
+  assert.doesNotMatch(html, /other.yaml|Only one YAML/);
+  assert.equal((html.match(/class="trace-source-file"/g) || []).length, 2);
 });

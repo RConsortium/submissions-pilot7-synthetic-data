@@ -85,7 +85,7 @@ function marked(context, quote) {
   return `${esc(text.slice(0, at))}<mark>${esc(part)}</mark>${esc(text.slice(at + part.length))}`;
 }
 
-function citation(e, report) {
+function citation(e, report, preview = false) {
   const quote = normalize(e.quote || e.context),
     snippet = shorten(quote);
   const location = e.section.startsWith("page-")
@@ -113,7 +113,7 @@ function citation(e, report) {
       : "";
   const lines = e.lines ? `Source lines ${e.lines.join("-")}` : "Source file";
   const contextLocation = e.context_lines ? `Lines ${e.context_lines.join("-")}` : location;
-  return `<div class="issue-citation"><p class="quote-source">${esc((e.type === "specification" ? "Specification: " : "Document: ") + e.path.split("/").pop())}${location ? ", " + esc(location) : ""}</p><blockquote>${esc(snippet)}</blockquote>${!e.verified ? `<p>Quote not verified: ${esc(e.reason || "source unavailable")}</p>` : ""}<p class="finding-links">${source}${source && e.url ? " &middot; " : ""}${e.url ? link(e.url, lines) : ""}</p>${e.context && (normalize(e.context) !== quote || quote.length > 240 || e.type === "specification") ? `<details class="issue-context"><summary><span>Full context</span><small>${esc(contextLocation)}</small></summary>${context}</details>` : ""}</div>`;
+  return `<div class="issue-citation"><p class="quote-source">${esc((e.type === "specification" ? "Specification: " : "Document: ") + e.path.split("/").pop())}${location ? ", " + esc(location) : ""}</p><blockquote>${preview ? marked(e.type === "document" ? (e.context || quote) : quote, quote) : esc(snippet)}</blockquote>${!e.verified ? `<p>Quote not verified: ${esc(e.reason || "source unavailable")}</p>` : ""}<p class="finding-links">${source}${source && e.url ? " &middot; " : ""}${e.url ? link(e.url, lines) : ""}</p>${e.context && !(preview && e.type === "document") && (normalize(e.context) !== quote || quote.length > 240 || e.type === "specification") ? `<details class="issue-context"${preview ? " open" : ""}><summary><span>Full context</span><small>${esc(contextLocation)}</small></summary>${context}</details>` : ""}</div>`;
 }
 
 function patterns(e) {
@@ -162,7 +162,7 @@ export function issueSearchText(issue, report) {
   ].join(" ");
 }
 
-export function issueTrace(issue, report, { sourcesOnly = false, auditOnly = false } = {}) {
+export function issueTrace(issue, report, { sourcesOnly = false, specificationsOnly = false, auditOnly = false } = {}) {
   const r = readReview(report),
     evidence = new Map(r.evidence.map((e) => [e.id, e]));
   const trace = issue.trace.map((t) => ({
@@ -180,8 +180,29 @@ export function issueTrace(issue, report, { sourcesOnly = false, auditOnly = fal
     issue.expected || issue.observed
       ? `<dl class="issue-comparison">${issue.expected ? `<dt>Expected</dt><dd>${esc(issue.expected)}</dd>` : ""}${issue.observed ? `<dt>Observed</dt><dd>${esc(issue.observed)}</dd>` : ""}</dl>`
       : "";
-  if (sourcesOnly)
-    return `<div class="finding-evidence">${comparisons}<div class="trace-source-grid">${quotes.length ? quotes.map(({ e }) => citation(e, report)).join("") : "<p>No source statements retained for this issue.</p>"}</div></div>`;
+  if (sourcesOnly || specificationsOnly) {
+    const kind = sourcesOnly ? "document" : "specification";
+    const selected = quotes.filter(({ e }) => e.type === kind);
+    // A selected measurement may retain its translated rule only in the audit.
+    // Include that exact definition, without unrelated sibling calculations.
+    if (specificationsOnly) {
+      const columns = new Set(data.filter(({ e }) => e.type === "comparison").map(({ e }) => e.column));
+      for (const c of checks) for (const id of c.evidence_ids) {
+        const e = evidence.get(id);
+        if (e.type === "specification" && columns.has(e.section) && !selected.some((q) => q.e.id === id))
+          selected.push({ e });
+      }
+    }
+    const files = new Map();
+    for (const { e } of selected) {
+      if (!files.has(e.path)) files.set(e.path, []);
+      files.get(e.path).push(e);
+    }
+    const gap = files.size < 2
+      ? `<p class="trace-limit">${files.size ? "Only one " : "No "}${sourcesOnly ? "source document" : "YAML specification"} retained for this finding. ${files.size ? "A second side is unavailable; no comparison is inferred." : "There is no retained preview to compare."}</p>`
+      : "";
+    return `<div class="finding-evidence">${specificationsOnly ? comparisons : ""}${gap}<div class="trace-source-grid" aria-label="${sourcesOnly ? "Source document" : "YAML specification"} comparison">${[...files].map(([path, entries]) => `<section class="trace-source-file" aria-label="${esc(path)}"><p class="trace-scope">${esc(path)}</p>${entries.map((e) => citation(e, report, true)).join("")}</section>`).join("")}</div></div>`;
+  }
   const audit = checks
     .map(
       (c) =>
