@@ -57,10 +57,9 @@ export function createReport(ctx) {
     // zero-count dataset chip lists nothing instead of text matches.
     const exactScope = q && (allFindings().some(scope) ||
       (ctx.model?.datasets || []).some((d) => d.name.toLowerCase() === q));
-    // Critical findings first, then the ones needing assessment; within each, measured
-    // differences before unmeasured findings; the report order holds otherwise.
-    const rank = { yes: 0, needs_review: 1, no: 2 }, measured = { observed: 0, not_observed: 1, not_measured: 2 },
-      order = (i) => rank[criticalFinding(i).status] * 3 + measured[i.impact.status];
+    // Critical findings first, then the ones needing assessment; the report order holds within
+    // each: a measured count compares the documented rule as written, not the dataset.
+    const rank = { yes: 0, needs_review: 1, no: 2 }, order = (i) => rank[criticalFinding(i).status];
     return allFindings().filter(
       (i) =>
         filtered(i) &&
@@ -99,14 +98,14 @@ export function createReport(ctx) {
     if (!ctx.drafts) return "";
     const { counts } = ledger(),
       parts = [`${counts.reviewed} with both decisions`, `${counts.drafts} draft${counts.drafts === 1 ? "" : "s"}`];
-    if (counts.shared) parts.push(`${counts.shared} shared`);
+    if (counts.shared) parts.push(`${counts.shared} opened in GitHub or copied`);
     if (counts.stale) parts.push(`${counts.stale} with changed evidence`);
     return `<div id="review-ledger" class="review-ledger" role="group" aria-label="Your reviews"><span class="field-label">Your reviews</span><strong>${counts.started} of ${counts.listed}</strong> listed${counts.started ? ` <span class="ledger-detail">(${parts.join("; ")})</span>` : ""}<span class="ledger-actions"><button type="button" class="text-link" data-review-ledger="copy" ${counts.started ? "" : "disabled"}>Copy your reviews</button><button type="button" class="text-link" data-review-ledger="download" ${counts.started ? "" : "disabled"}>Download your reviews</button></span><span class="ledger-feedback" role="status" aria-live="polite"></span></div>`;
   }
   function findingRows() {
     const items = findingItems(),
       checks = new Set(items.flatMap((i) => i.check_ids)).size;
-    return `${datasetStrip()}${ledgerStrip()}<p class="result-count" role="status">${items.length} of ${allFindings().length} issue${allFindings().length === 1 ? "" : "s"} &middot; ${checks} supporting check${checks === 1 ? "" : "s"}</p><div class="overview-table consistency-table" role="region" aria-label="Consistency findings" tabindex="0"><table class="review-table"><thead><tr><th scope="col">Dataset / variable</th><th scope="col">Status</th><th scope="col">Critical finding</th><th scope="col">Type</th><th scope="col">Measured impact</th><th scope="col">Issue</th><th scope="col">Evidence</th></tr></thead><tbody>${items.length ? items.map((i) => issueRow(i, ctx.report)).join("") : '<tr><td colspan="7">No issues match. Clear the filters to see all issues.</td></tr>'}</tbody></table></div>`;
+    return `${datasetStrip()}${ledgerStrip()}<p class="result-count" role="status">${items.length} of ${allFindings().length} issue${allFindings().length === 1 ? "" : "s"} &middot; ${checks} supporting check${checks === 1 ? "" : "s"}</p><div class="overview-table consistency-table" role="region" aria-label="Consistency findings" tabindex="0"><table class="review-table"><thead><tr><th scope="col">Dataset / variable</th><th scope="col">Status</th><th scope="col">Critical finding</th><th scope="col">Type</th><th scope="col">Documented rule vs data</th><th scope="col">Issue</th><th scope="col">Evidence</th></tr></thead><tbody>${items.length ? items.map((i) => issueRow(i, ctx.report)).join("") : '<tr><td colspan="7">No issues match. Clear the filters to see all issues.</td></tr>'}</tbody></table></div>`;
   }
   /** The two decisions and the finding types, where the reviewer meets them. */
   function howToReview() {

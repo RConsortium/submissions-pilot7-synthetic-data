@@ -29,10 +29,13 @@ export function reviewComment(model, issue, review, pageUrl) {
 }
 
 /** Every assessment the reviewer started in this browser, as one document to hand over. */
-export function reviewLedgerDocument(model, entries, counts, pageUrl) {
+export function reviewLedgerDocument(model, entries, counts, pageUrl, context = {}) {
   const lines = [
     `# Review of ${model.title} (${model.id})`,
-    "", `**Evidence revision:** \`${model.revision}\``,
+    "", "**Reviewer:** (add your name)",
+    `**Date:** ${context.date || new Date().toISOString().slice(0, 10)}`,
+    `**Listed with:** ${context.listing || "no filters"}`,
+    `**Evidence revision:** \`${model.revision}\``,
     `**Reviewed in this browser:** ${counts.started} of ${counts.listed} listed findings; ${counts.reviewed} with both decisions, ${counts.drafts} still drafts${counts.stale ? `, ${counts.stale} with changed evidence` : ""}.`,
     "", "These assessments are a reviewer's own record. They do not resolve a finding or approve a dataset.",
   ];

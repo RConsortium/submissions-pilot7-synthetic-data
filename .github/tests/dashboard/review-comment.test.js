@@ -40,10 +40,10 @@ test("the ledger document lists every started assessment with its status and ski
   ];
   const text = reviewLedgerDocument({ ...model, title: "Pilot" }, entries,
     { listed: 3, started: 2, drafts: 1, reviewed: 1, shared: 1, stale: 1 },
-    "https://example.org/project/studies/pilot/?giscus=session#pilot/overview/ADSL");
-  for (const fragment of ["# Review of Pilot (pilot)", "`1234567890abcdef`",
+    "https://example.org/project/studies/pilot/?giscus=session#pilot/overview/ADSL", { date: "2026-10-29", listing: "search \"ADSL\", critical finding yes" });
+  for (const fragment of ["# Review of Pilot (pilot)", "`1234567890abcdef`", "**Reviewer:** (add your name)", "**Date:** 2026-10-29", "**Listed with:** search \"ADSL\", critical finding yes",
     "2 of 3 listed findings; 1 with both decisions, 1 still drafts, 1 with changed evidence",
-    "## ADAE.AOCC01FL - Select the dermatologic event", "**Status:** Submitted on GitHub", "Fix the rule.",
+    "## ADAE.AOCC01FL - Select the dermatologic event", "**Status:** Opened in GitHub composer", "Fix the rule.",
     "## ADAE.OTHER - Other", "**Agreement:** (not chosen)", "**Criticality:** Unsure", "**Status:** Draft (evidence changed)",
     "No additional comments.", "do not resolve a finding",
     "https://example.org/project/studies/pilot/?v=1234567#pilot/overview/ADAE?findingSearch=ADAE.OTHER"])

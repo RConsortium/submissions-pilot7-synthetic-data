@@ -10,7 +10,7 @@ export const CRITICALITIES = {
   unsure: "Unsure",
 };
 /** How a completed assessment left this browser; the dashboard never confirms publication. */
-export const SHARED = { github: "Submitted on GitHub", clipboard: "Copied for GitHub" };
+export const SHARED = { github: "Opened in GitHub composer", clipboard: "Copied for GitHub" };
 
 export function draftLabel(draft) {
   if (draft.status === "reviewed") return SHARED[draft.shared] || "Saved locally";

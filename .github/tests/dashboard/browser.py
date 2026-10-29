@@ -178,13 +178,13 @@ def check(browser, base, site_dir, screenshots):
         expect(page.locator(".result-count")).to_have_text(f"{len(issues)} of {len(issues)} issues \u00b7 {checks} supporting checks")
         expect(page.locator(".consistency-table tbody tr[data-finding-id]")).to_have_count(len(issues))
         expect(page.locator(".consistency-table thead th")).to_have_text([
-            "Dataset / variable", "Status", "Critical finding", "Type", "Measured impact", "Issue", "Evidence"
+            "Dataset / variable", "Status", "Critical finding", "Type", "Documented rule vs data", "Issue", "Evidence"
         ])
         expect(page.locator("#issue-review")).to_have_count(0)
         for issue in issues:
             row = page.locator(f'[data-finding-id="{issue["id"]}"]')
             expect(row.locator(".issue-summary p")).to_have_text(issue["summary"])
-            expect(row.locator(".issue-impact")).to_have_text(re.compile(r"^Measured impact: (\d+ subjects? differ|Differences observed|No differences in tested data|Not measured)$"))
+            expect(row.locator(".issue-impact")).to_have_text(re.compile(r"^Documented rule vs data: (\d+ subjects? differ|Differences observed|No differences in tested data|Not measured)$"))
             for cell_class in ("issue-critical", "issue-type"):
                 expect(row.locator(f".{cell_class} .status")).to_have_count(1)
                 expect(row.locator(f".{cell_class} p, .{cell_class} small")).to_have_count(0)
@@ -752,7 +752,7 @@ def check(browser, base, site_dir, screenshots):
     expect(trace.locator(".trace-share-feedback")).to_contain_text("Review copied")
     # The listing behind the dialog keeps the reviewer's own ledger current.
     expect(page.locator("#review-ledger")).to_contain_text("1 of ")
-    expect(page.locator("#review-ledger")).to_contain_text("1 with both decisions; 0 drafts; 1 shared")
+    expect(page.locator("#review-ledger")).to_contain_text("1 with both decisions; 0 drafts; 1 opened in GitHub or copied")
     expect(page.locator('[data-human-review="cdiscpilot01:ADAE.AOCC01FL.selection-rule"]')).to_have_text("Your review: Copied for GitHub")
     capture(page, screenshots, "trace-github-comments.png")
     # Giscus sign-in navigates the top page; return state must restore the finding.

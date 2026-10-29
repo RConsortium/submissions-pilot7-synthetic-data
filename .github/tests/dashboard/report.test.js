@@ -144,7 +144,7 @@ test("the metric and listing count issues separately from supporting checks", ()
   assert.ok(!listing.includes("Agent review"));
   assert.ok(!listing.includes('id="issue-review"'));
   assert.deepEqual([...listing.matchAll(/<th scope="col">([^<]+)<\/th>/g)].map((m) => m[1]), [
-    "Dataset / variable", "Status", "Critical finding", "Type", "Measured impact", "Issue", "Evidence",
+    "Dataset / variable", "Status", "Critical finding", "Type", "Documented rule vs data", "Issue", "Evidence",
   ]);
   assert.ok(listing.includes('<th scope="col">Status</th>'));
   assert.match(listing, /class="issue-status"[^]*?class="status attention">Under Review<\/span>/);
@@ -452,7 +452,7 @@ test("your reviews strip counts the listed findings' assessments and the own-rev
     view = createReport({ report: data, state: s, esc, drafts, model: { id: "study", datasets: [] } });
   let html = view.findingRows();
   assert.match(html, /Your reviews<\/span><strong>2 of 2<\/strong> listed/);
-  assert.match(html, /1 with both decisions; 1 draft; 1 shared/);
+  assert.match(html, /1 with both decisions; 1 draft; 1 opened in GitHub or copied/);
   assert.match(html, /data-review-ledger="copy" >Copy your reviews/);
   s.yourReview = "draft";
   html = view.findingRows();
@@ -491,7 +491,7 @@ test("the findings tab explains the two decisions and the types before the filte
   assert.doesNotMatch(createReport({ report, state: state(), esc }).findingsView(), /href="[^"]*review\/findings/);
 });
 
-test("the measured impact column states subjects, no differences or not measured, and orders within a criticality", () => {
+test("the documented-rule column states subjects, no differences or not measured, without reordering a criticality", () => {
   const measuredIssue = { ...issue, id: "measured", variable: "M", critical: { status: "needs_review", reason: "Gap." },
       impact: { status: "observed", subject_count: 3, subjects: ["A", "B", "C"] } },
     none = { ...issue, id: "none", variable: "N", critical: { status: "needs_review", reason: "Gap." },
@@ -500,9 +500,9 @@ test("the measured impact column states subjects, no differences or not measured
       impact: { status: "not_measured", subject_count: 0, subjects: [] } };
   const data = { ...report, review: { ...report.review, issues: [unmeasured, none, measuredIssue, issue] } };
   const view = createReport({ report: data, state: state(), esc });
-  assert.deepEqual(view.findingItems().map((i) => i.id), [issue.id, "measured", "none", "unmeasured"]);
+  assert.deepEqual(view.findingItems().map((i) => i.id), [issue.id, "unmeasured", "none", "measured"]);
   const html = view.findingRows();
-  assert.match(html, /data-finding-id="measured"[^]*?<td class="issue-impact"><span class="sr-only">Measured impact: <\/span>3 subjects differ<\/td>/);
+  assert.match(html, /data-finding-id="measured"[^]*?<td class="issue-impact"><span class="sr-only">Documented rule vs data: <\/span>3 subjects differ<\/td>/);
   assert.match(html, /data-finding-id="none"[^]*?issue-impact">[^]*?No differences in tested data</);
   assert.match(html, /data-finding-id="unmeasured"[^]*?issue-impact">[^]*?Not measured</);
 });

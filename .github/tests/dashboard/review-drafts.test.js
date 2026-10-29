@@ -61,7 +61,7 @@ test("malformed or unsupported stored decisions cannot become a completed review
 test("a complete assessment records how it left the browser and returns to a draft when edited", () => {
   const drafts = createReviewDrafts(storage());
   assert.equal(drafts.save("study", issue, report, { ...assessment, shared: "github" }, true).shared, "github");
-  assert.equal(draftLabel(drafts.load("study", issue, report)), "Submitted on GitHub");
+  assert.equal(draftLabel(drafts.load("study", issue, report)), "Opened in GitHub composer");
   drafts.save("study", issue, report, { ...assessment, shared: "clipboard" }, true);
   assert.equal(draftLabel(drafts.load("study", issue, report)), "Copied for GitHub");
   drafts.save("study", issue, report, { ...assessment, comment: "edited" }, false);

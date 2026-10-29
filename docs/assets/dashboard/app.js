@@ -334,8 +334,13 @@ import { developmentReport, mountDevelopment } from "./synthetic-development.js"
   window.addEventListener("resize", fitWorkbench);
   /** Copy or download every assessment this browser holds for the listed findings. */
   async function handOverReviews(how) {
+    const listing = [
+      state.findingSearch && `search "${state.findingSearch}"`, state.comparison && `comparison ${state.comparison}`,
+      state.kind && `type ${state.kind}`, state.critical && `critical finding ${state.critical}`,
+      state.yourReview && `your review ${state.yourReview}`,
+    ].filter(Boolean).join(", ");
     const { entries, counts } = ledger(),
-      text = reviewLedgerDocument(model, entries, counts, location.href),
+      text = reviewLedgerDocument(model, entries, counts, location.href, { listing }),
       feedback = byId("review-ledger")?.querySelector(".ledger-feedback");
     if (how === "download") {
       const url = URL.createObjectURL(new Blob([text], { type: "text/markdown" })),

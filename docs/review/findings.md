@@ -18,11 +18,11 @@ Each row is one issue.
 
 | Column | Meaning |
 | --- | --- |
-| Dataset / variable | The output variable the issue concerns, with the IDs of the consistency rules its checks apply. Select the name to open the variable in the workspace with the affected subjects. |
-| Status | Under Review until maintainers record a human decision. |
+| Dataset / variable | The output variable the issue concerns, with the IDs of the consistency rules its checks apply; hover a rule ID for its title. Select the name to open the variable in the workspace with the affected subjects. |
+| Status | Under Review until maintainers record a human decision. When the adjudicating agent disputed the finding, or its decision is stale or mixed, the cell says so. |
 | Critical finding | The automated criticality assessment: Yes, No or Needs review. |
 | Type | The issue type, listed below. |
-| Measured impact | How many subjects differ in the issue-specific comparison, **No differences in tested data**, or **Not measured** when the finding compares statements only. |
+| Documented rule vs data | How many subjects differ when the documented rule, run as written, is compared with the data; **No differences in tested data**; or **Not measured** when the finding compares statements only. A count here measures the written rule, not the dataset: the review states whether the yamaa output matches the published reference. |
 | Issue | A short title and a one-sentence summary. |
 | Evidence | **Start review** opens the complete evidence. Your own draft assessment, if you have one, appears underneath. |
 
@@ -51,9 +51,8 @@ title, document name, quotation or rule ID; an exact name, such as
   affected subjects.
 
 **Clear filters** restores the full list. The list puts findings marked
-**Critical finding: Yes** first, then **Needs review**, then **No**; within
-each group, findings with measured differences come before those with none
-and those not measured, in the report's order otherwise. The dataset, filters, search and open
+**Critical finding: Yes** first, then **Needs review**, then **No**, in the
+report's order within each group. The dataset, filters, search and open
 finding are part of the page URL, so a copied link reproduces them,
 including the finding open in **Start review**.
 
@@ -84,10 +83,13 @@ reviewer needs them:
    published reference**, and counts the distinct subjects that differ.
    Comparisons labeled as context are excluded from impact. **Impact not
    measured** is different from **No differences in tested data**. The
-   review basis below the measurements states the automated criticality
+   review basis, first in the section, states the automated criticality
    with its reason, the agent adjudication with the adjudicator's reason,
    any documented rule that could not be checked and why, and **Open
-   evidence in workspace**, which selects the affected subjects.
+   evidence in workspace**, which selects the affected subjects. The
+   measurements that follow say whether the yamaa output matches the
+   published reference for the dataset, so a count of differing subjects
+   reads as a test of the written rule, not of the dataset.
 2. **Source documents**: the cited clauses of the retained protocol, SAP or
    Define-XML, side by side, with the quoted text highlighted. **Full
    context** reveals the complete passage. **View source** and **Source
@@ -170,10 +172,12 @@ comment and a link back to the finding. The document is your own record; it
 does not resolve a finding or approve a dataset.
 
 A finding's row says **Your review: Draft** until both decisions are chosen,
-**Saved locally** once they are, **Submitted on GitHub** once **Submit review
-on GitHub** has opened the composer, and **Copied for GitHub** once you copied
-the review; editing the assessment afterwards returns it to **Saved locally**
-or to a draft. The dashboard never confirms what was published on GitHub.
+**Saved locally** once they are, **Opened in GitHub composer** once **Submit
+review on GitHub** has opened the composer, and **Copied for GitHub** once you
+copied the review; editing the assessment afterwards returns it to **Saved
+locally** or to a draft. The dashboard never confirms what was published on
+GitHub: only the discussion itself shows that. The hand-over document starts
+with a line for your name, the date and the filters the list was under.
 
 ## Review comments
 
