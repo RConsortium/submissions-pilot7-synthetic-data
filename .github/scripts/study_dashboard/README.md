@@ -136,16 +136,32 @@ official pilot results explicitly omitted when their evidence is unavailable.
 Shared defaults and giscus identifiers live in `.github/dashboard.json`.
 Keep the existing `term_prefix` and study/dataset IDs to retain discussion threads.
 Current comments use the yamaa Discussions repository, with separate Pilot 7
-terms, as Pilot 7 does not have Discussions enabled.
+terms. `comments.review_url` names GitHub's new-discussion composer for reviewer
+assessments, `https://github.com/<owner>/<repo>/discussions/new?category=<slug>`;
+it points at this repository's General category and can name any repository
+with Discussions enabled, or a dedicated category once one exists.
 
-The review dialog can copy a structured reviewer assessment and open the same dataset
-discussion inside the dialog. Reviewers paste it into giscus and select Comment
+The review dialog prepares a structured reviewer assessment. **Submit review on
+GitHub** opens that composer in a new tab with the assessment in its `title` and
+`body` query parameters, the prefill GitHub documents for issues and honours for
+discussions. The reviewer signs in to GitHub if needed and selects Start
+discussion, so the post carries their identity and no server, token or GitHub
+App stands between the static site and GitHub. GitHub's OAuth token exchange
+has no CORS support and needs a client secret, so a static page cannot post on
+a reviewer's behalf by itself. A link over 8,000 characters is not sent: the
+composer then opens with the title only and the dialog keeps the text to paste.
+Without `review_url`, the dialog falls back to **Copy review & open GitHub
+comments**.
+
+**Copy review instead** copies the same text and opens the dataset discussion
+inside the dialog. Reviewers paste it into giscus and select Comment
 to publish with their GitHub identity. The widget is moved from the workspace
 and restored on close; a second giscus embed would replace the first container.
-Copying or saving locally never reports a successful GitHub post. Clipboard
-failure leaves selectable review text, and the repository link remains available
-when the embed cannot load. Browser checks intercept giscus; they do not exercise
-GitHub sign-in or post real comments.
+Opening the composer, copying or saving locally never reports a successful
+GitHub post. Clipboard failure leaves selectable review text, and the repository
+link remains available when the embed cannot load. Browser checks intercept
+giscus and the composer tab; they do not exercise GitHub sign-in or post real
+discussions or comments.
 The open finding is kept in session storage so the sign-in round trip restores
 its discussion and the review draft. Closing the dialog clears that return state.
 
