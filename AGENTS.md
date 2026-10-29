@@ -35,7 +35,12 @@ Keep explanations short, concrete, and easy to follow.
 
 ## Website changes
 
-- Edit `docs/index.md` for the landing page.
+- Edit `docs/index.md` for the landing page. Its first section routes
+  reviewers to the Pilot 5 findings, the review guide and the study report.
+- Edit `docs/review/index.md` for the community review guide and the pages
+  beside it, `findings.md`, `workspace.md`, `documents.md` and
+  `synthetic.md`, for the dashboard screen each one names. Keep the
+  headings of those pages aligned with the labels in the dashboard.
 - Edit `docs/studies/kn189.md` and `docs/studies/kn564.md` for synthetic studies.
 - Generate pilot study pages and JSON evidence with
   `python3 .github/scripts/build_study_docs.py` after validating the studies.

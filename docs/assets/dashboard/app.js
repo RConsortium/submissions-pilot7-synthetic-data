@@ -14,6 +14,9 @@ import { createWorkspace } from "./workspace.js";
 import { createReport } from "./report.js";
 import { findIssue } from "./issues.js";
 import { createTraceReview } from "./trace-review.js";
+import { createReviewDrafts } from "./review-drafts.js";
+import { reviewLedgerDocument } from "./review-comment.js";
+import { createReviewSources, resolvedReviewReport } from "./review-sources.js";
 import { createSourceDocuments } from "./source-documents.js";
 import { defineComparisonView } from "./define-comparison.js";
 import { createComments } from "./comments.js";
@@ -41,6 +44,11 @@ import { developmentReport, mountDevelopment } from "./synthetic-development.js"
     rowsLoading = false;
   const state = {},
     layouts = new Map();
+  // One store of the reviewer's own assessments serves the listing and the review dialog.
+  let storage;
+  try { storage = window.localStorage; }
+  catch { storage = { getItem() { throw Error("Storage unavailable"); }, setItem() { throw Error("Storage unavailable"); } }; }
+  const drafts = createReviewDrafts(storage);
   const root = () => document.getElementById("study-dashboard"),
     byId = (id) => document.getElementById(id);
   const resource = (path) => new URL(`${model.id}/${path}`, dataRoot).href;
@@ -59,6 +67,7 @@ import { developmentReport, mountDevelopment } from "./synthetic-development.js"
     REPO,
     site,
     state,
+    drafts,
     esc,
     link,
     root,
@@ -78,6 +87,9 @@ import { developmentReport, mountDevelopment } from "./synthetic-development.js"
     },
     get specification() {
       return specification;
+    },
+    get specifications() {
+      return specifications;
     },
     get graph() {
       return graph;
@@ -108,10 +120,17 @@ import { developmentReport, mountDevelopment } from "./synthetic-development.js"
   const { frame } = createShell(ctx),
     { workspace, applyHighlight, paintTables, fitWorkbench, copySpecification } =
       createWorkspace(ctx);
-  const { findingRows, findingsView, drawer } = createReport(ctx),
+  const { findingRows, findingsView, findingItems, drawer, ledger, ledgerStrip } = createReport(ctx),
     comments = createComments(ctx),
     { commentsView, loadComments } = comments;
-  const traceReview = createTraceReview(ctx, comments);
+  // The review dialog walks the findings the listing currently shows.
+  ctx.listed = () => (state.view === "overview" ? findingItems() : []);
+  ctx.refreshLedger = () => {
+    const strip = byId("review-ledger");
+    if (strip) strip.outerHTML = ledgerStrip();
+  };
+  const reviewSources = createReviewSources(ctx);
+  const traceReview = createTraceReview(ctx, comments, reviewSources);
   const sourceDocuments = createSourceDocuments(ctx),
     { materialsView } = sourceDocuments;
   const resizing = createResizing(ctx, fitWorkbench);
@@ -277,6 +296,9 @@ import { developmentReport, mountDevelopment } from "./synthetic-development.js"
       Object.assign(state, readRoute(location.hash, model));
       document.body.classList.add("study-review-page");
       await renderView();
+      // A link that names an open finding reopens it, unless a GitHub return restored one.
+      if (state.review && !traceReview.isOpen && findIssue(report, state.review))
+        traceReview.open(state.review, root().querySelector(`[data-trace-issue="${CSS.escape(state.review)}"]`));
       if (location.hash.split("?")[0].split("/")[1] === "comments")
         byId("review-comments")?.scrollIntoView({ block: "start" });
     } catch (e) {
@@ -310,6 +332,33 @@ import { developmentReport, mountDevelopment } from "./synthetic-development.js"
     resizing.keyboard(event);
   });
   window.addEventListener("resize", fitWorkbench);
+  /** Copy or download every assessment this browser holds for the listed findings. */
+  async function handOverReviews(how) {
+    const listing = [
+      state.findingSearch && `search "${state.findingSearch}"`, state.comparison && `comparison ${state.comparison}`,
+      state.kind && `type ${state.kind}`, state.critical && `critical finding ${state.critical}`, state.agentReview && `agent review ${state.agentReview}`,
+      state.yourReview && `your review ${state.yourReview}`,
+    ].filter(Boolean).join(", ");
+    const { entries, counts } = ledger(),
+      text = reviewLedgerDocument(model, entries, counts, location.href, { listing }),
+      feedback = byId("review-ledger")?.querySelector(".ledger-feedback");
+    if (how === "download") {
+      const url = URL.createObjectURL(new Blob([text], { type: "text/markdown" })),
+        anchor = document.createElement("a");
+      anchor.href = url;
+      anchor.download = `${model.id}-review-${model.revision.slice(0, 7)}.md`;
+      document.body.append(anchor); anchor.click(); anchor.remove();
+      setTimeout(() => URL.revokeObjectURL(url), 1000);
+      if (feedback) feedback.textContent = `Downloaded ${anchor.download}.`;
+      return;
+    }
+    try {
+      await navigator.clipboard.writeText(text);
+      if (feedback) feedback.textContent = `Copied ${counts.started} review${counts.started === 1 ? "" : "s"} as Markdown.`;
+    } catch {
+      if (feedback) feedback.textContent = "Clipboard access is unavailable; download your reviews instead.";
+    }
+  }
   async function updateSubjects(subjects) {
     state.subjects = [...new Set(subjects)];
     state.pages = {};
@@ -327,6 +376,13 @@ import { developmentReport, mountDevelopment } from "./synthetic-development.js"
     }
     const target = event.target.closest("button,[data-line-node]");
     if (!target || !root()?.contains(target)) return;
+    if (target.dataset.sourceEvidence) {
+      const sourceReport = target.closest("#trace-specifications")
+        ? resolvedReviewReport(report, specifications, target.closest(".trace-review-dialog")?.dataset.reviewDataset) : report;
+      const evidence = sourceReport.review.evidence.find((e) => e.id === target.dataset.sourceEvidence);
+      if (evidence) reviewSources.open(evidence, target);
+      return;
+    }
     if (target.dataset.traceIssue) {
       traceReview.open(target.dataset.traceIssue, target);
       return;
@@ -383,6 +439,18 @@ import { developmentReport, mountDevelopment } from "./synthetic-development.js"
     if (target.dataset.domainFindings) {
       state.findingSearch = target.dataset.domainFindings;
       navigate("overview");
+      return;
+    }
+    if (target.dataset.reviewLedger) {
+      await handOverReviews(target.dataset.reviewLedger);
+      return;
+    }
+    if (target.dataset.findingDataset !== undefined) {
+      state.findingSearch = target.dataset.findingDataset;
+      save();
+      byId("finding-search").value = state.findingSearch;
+      byId("finding-results").innerHTML = findingRows();
+      traceReview.refreshRows();
       return;
     }
     if (target.dataset.finding) {
@@ -451,11 +519,15 @@ import { developmentReport, mountDevelopment } from "./synthetic-development.js"
       state.kind = "";
       state.comparison = "";
       state.critical = "";
+      state.agentReview = "";
+      state.yourReview = "";
       save();
       byId("finding-search").value = "";
       byId("finding-kind").value = "";
       byId("finding-comparison").value = "";
       byId("finding-critical").value = "";
+      byId("finding-agent").value = "";
+      byId("finding-review").value = "";
       byId("finding-results").innerHTML = findingRows();
       traceReview.refreshRows();
       return;
@@ -544,13 +616,15 @@ import { developmentReport, mountDevelopment } from "./synthetic-development.js"
       return;
     }
     if (
-      ["finding-kind", "finding-comparison", "finding-critical"].includes(el.id)
+      ["finding-kind", "finding-comparison", "finding-critical", "finding-agent", "finding-review"].includes(el.id)
     ) {
       state[
         {
           "finding-kind": "kind",
           "finding-comparison": "comparison",
           "finding-critical": "critical",
+          "finding-agent": "agentReview",
+          "finding-review": "yourReview",
         }[el.id]
       ] = el.value;
       save();

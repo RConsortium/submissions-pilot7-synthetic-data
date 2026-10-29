@@ -5,6 +5,8 @@ from study_evidence import catalog
 from study_dashboard.synthetic import synthetic_catalog
 
 ROOT = Path(__file__).resolve().parents[2]
+PILOT_SECTION = "Pilot studies"
+SYNTHETIC_SECTION = "Synthetic studies"
 
 
 def study_navigation(root, manual):
@@ -14,7 +16,7 @@ def study_navigation(root, manual):
                if entry.get("category") != "synthetic"}
     tail = [item for item in manual if not any(path in owned for path in item.values())]
     return [
-        {"Study report": "studies/index.md"},
+        {"Pilot study report": "studies/index.md"},
         *({entry["title"]: f"studies/{name}.md"} for name, entry in entries.items()),
         *tail,
     ]
@@ -26,7 +28,7 @@ def synthetic_navigation(root):
         if entry.get("category") == "synthetic"
     }}
     return [
-        {"Synthetic report": "synthetic/index.md"},
+        {"Synthetic data report": "synthetic/index.md"},
         *(
             {entry["title"]: f"studies/{name}.md"}
             for name, entry in entries.items()
@@ -34,11 +36,16 @@ def synthetic_navigation(root):
     ]
 
 
+def populate(nav, root):
+    """Fill the pilot and synthetic sections of a navigation list in place."""
+    for item in nav:
+        if PILOT_SECTION in item:
+            item[PILOT_SECTION] = study_navigation(root, item[PILOT_SECTION])
+        if SYNTHETIC_SECTION in item:
+            item[SYNTHETIC_SECTION] = synthetic_navigation(root)
+    return nav
+
+
 def on_config(config):
-    for item in config.get("nav", []):
-        for title in ("Pilot studies", "Studies"):
-            if title in item:
-                item[title] = study_navigation(ROOT, item[title])
-        if "Synthetic data" in item:
-            item["Synthetic data"] = synthetic_navigation(ROOT)
+    populate(config.get("nav", []), ROOT)
     return config

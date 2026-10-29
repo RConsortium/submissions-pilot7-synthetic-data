@@ -163,3 +163,14 @@ test("related-column views retain declared keys and the subject identifier", () 
     [0, 2, 1],
   );
 });
+
+test("the open finding travels with the shared link and clears from it when closed", () => {
+  const opened = readRoute("#study/overview/ADSL?review=study%3AADSL.AGE.rule", model);
+  assert.equal(opened.review, "study:ADSL.AGE.rule");
+  assert.equal(opened.yourReview, "");
+  assert.equal(formatRoute(opened, model), "#study/overview/ADSL?review=study%3AADSL.AGE.rule");
+  opened.review = "";
+  opened.yourReview = "draft";
+  // The reviewer's own progress filter never enters a link.
+  assert.equal(formatRoute(opened, model), "#study/overview/ADSL");
+});

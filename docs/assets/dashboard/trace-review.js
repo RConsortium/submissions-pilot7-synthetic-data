@@ -2,11 +2,11 @@
 import { esc, link } from "./ui.js";
 import { reviewComment } from "./review-comment.js";
 import { reviewDestination, reviewDiscussion } from "./review-submit.js";
-import { comparisonLabel, findIssue, issueTrace, readReview } from "./issues.js";
-import { AGREEMENTS, CRITICALITIES, createReviewDrafts } from "./review-drafts.js";
+import { comparisonLabel, criticalFinding, CRITICAL_LABELS, findIssue, issueTrace, readReview } from "./issues.js";
+import { AGREEMENTS, CRITICALITIES, SIDES, createReviewDrafts, draftLabel } from "./review-drafts.js";
+import { resolvedReviewReport } from "./review-sources.js";
 
 const plural = (n, word) => `${n} ${word}${n === 1 ? "" : "s"}`;
-const label = (draft) => draft.status === "reviewed" ? "Saved locally" : draft.status === "draft" ? "Draft" : "Not reviewed";
 const display = (value) => value == null ? "(missing)" : value === "" ? "(blank)" : String(value);
 const cell = (item) => esc(!item?.present ? "(no record)" : item.column_present === false ? "(variable absent)" : display(item.value));
 
@@ -21,11 +21,11 @@ export function subjectDifferenceCells(row, calculations) {
   return render(row.reference, differs.some(Boolean)) + calculations.map((p, i) => render(row.calculations[p.column], differs[i])).join("");
 }
 
-export function createTraceReview(ctx, comments) {
+export function createTraceReview(ctx, comments, sources) {
   let storage;
   try { storage = window.localStorage; }
   catch { storage = { getItem() { throw Error("Storage unavailable"); }, setItem() { throw Error("Storage unavailable"); } }; }
-  const drafts = createReviewDrafts(storage);
+  const drafts = ctx.drafts || createReviewDrafts(storage);
   const destination = () => reviewDestination(ctx.index?.comments);
   let dialog = null, issue = null, opener = null, overflow = "", subject = "";
   let restoreComments = null;
@@ -51,16 +51,21 @@ export function createTraceReview(ctx, comments) {
       const item = findIssue(ctx.report, element.dataset.humanReview);
       if (!item) continue;
       const draft = drafts.load(ctx.model.id, item, ctx.report);
-      element.textContent = draft.status === "unreviewed" ? "" : `Your review: ${label(draft)}${draft.stale ? " (evidence changed)" : ""}`;
+      element.textContent = draft.status === "unreviewed" ? "" : `Your review: ${draftLabel(draft)}${draft.stale ? " (evidence changed)" : ""}`;
     }
+    ctx.refreshLedger?.();
   }
   function close(restoreFocus = true) {
+    sources?.close(false);
     if (!dialog) return;
     const target = opener;
     forgetComments();
     restoreComments?.(); restoreComments = null;
     dialog.close(); dialog.remove(); dialog = null;
     document.body.style.overflow = overflow;
+    // Drop the finding from the link only while the link still names it: a navigation that
+    // closes the review has already moved on, and saving would rewrite its destination.
+    if (ctx.state?.review) { ctx.state.review = ""; if (location.hash.includes("review=")) ctx.save?.(); }
     if (restoreFocus && target?.isConnected) target.focus({ preventScroll: true });
     refreshRows(issue.id);
   }
@@ -75,12 +80,32 @@ export function createTraceReview(ctx, comments) {
     return issue.trace.map((t) => ({ ...pool.get(t.evidence_id), role: t.role }))
       .filter((e) => ["comparison", "codelist", "note"].includes(e.type));
   }
+  /** The automated assessments a reviewer weighs before deciding, and the way to the affected records. */
+  function reviewBasis() {
+    const checks = readReview(ctx.report).checks.filter((c) => issue.check_ids.includes(c.id)),
+      critical = criticalFinding(issue),
+      reasons = [...new Set(checks.map((c) => c.review?.reason).filter(Boolean))],
+      notes = measures().filter((e) => e.type === "note"),
+      status = issue.review.replaceAll("_", " ");
+    const agent = issue.review === "not_reviewed"
+      ? "No agent adjudication: this is an authored question."
+      : `<strong>Agent review: ${esc(status)}.</strong> ${reasons.length ? esc(reasons.join(" ")) : "The adjudicator recorded no reason."}${issue.review === "stale" ? " The decision predates the current evidence; weigh it accordingly." : ""}`;
+    return `<div class="trace-basis" aria-label="Review basis"><p><strong>Automated criticality: ${esc(CRITICAL_LABELS[critical.status])}.</strong> ${esc(critical.reason)}</p><p>${agent}</p>${notes.map((n) => `<p class="trace-limit"><strong>${esc(n.title)}:</strong> ${esc(n.text)}</p>`).join("")}<p><button class="text-link" data-finding="${esc(issue.id)}">Open evidence in workspace${issue.impact.subject_count ? ` (${plural(issue.impact.subject_count, "subject")})` : ""}</button>${issue.impact.subject_count ? " <small>Selects the affected subjects in the SDTM -&gt; ADaM workspace.</small>" : ""}</p></div>`;
+  }
+  /** What the measured counts compare: the documented rule as written, not the dataset, which the reference comparison covers. */
+  function agreement() {
+    const dataset = ctx.model?.datasets?.find((d) => d.name === issue.dataset);
+    if (!dataset) return "";
+    return dataset.comparison === "passed"
+      ? `The yamaa output for ${esc(issue.dataset)} matches the published reference (reference comparison passed), so these counts show where the documented rule, run as written, and the data disagree, not a wrong dataset. `
+      : `The ${esc(issue.dataset)} reference comparison is ${esc(String(dataset.comparison || "unavailable"))}; these counts compare the documented rule, run as written, with the data. `;
+  }
   function measurements() {
     const measured = measures().filter((e) => e.type !== "note");
-    if (!measured.length) return '<p class="trace-scope">No issue-specific data comparison. This finding compares source statements or specification text.</p>';
+    if (!measured.length) return '<p class="trace-scope">No issue-specific data comparison: this finding compares source statements or specification text, so its effect on the data was not measured. Decide criticality from the rule itself and from the examples below.</p>';
     return `<div class="trace-measurements">${measured.map((e) => `<article class="trace-measurement"><h4>${esc(comparisonLabel(e))}</h4>${e.type === "comparison"
       ? `<p><strong>${e.differ.toLocaleString()} / ${e.compared.toLocaleString()}</strong> records differ</p><small>${plural(e.subjects.length, "subject")} with differences</small>`
-      : `<p>${plural(e.values.length, "value")} outside the documented codelist</p>`}<p class="trace-scope">${e.role === "context" ? "Context only; excluded from this issue's impact." : "Issue-specific measurement."}</p></article>`).join("")}</div><p class="trace-scope">Differences compare calculations with their stated target; they do not establish that the reference is wrong. Each comparison has its own denominator. Zero differences does not prove equivalent rules.</p>`;
+      : `<p>${plural(e.values.length, "value")} outside the documented codelist</p>`}<p class="trace-scope">${e.role === "context" ? "Context only; excluded from this issue's impact." : "Issue-specific measurement."}</p></article>`).join("")}</div><p class="trace-scope">${agreement()}Differences compare calculations with their stated target; they do not establish that the reference is wrong. Each comparison has its own denominator. Zero differences does not prove equivalent rules.</p>`;
   }
   function sampleSubjects() {
     const candidates = examples()?.subjects || [];
@@ -103,7 +128,7 @@ export function createTraceReview(ctx, comments) {
     function options(name, entries) {
       return `<div class="trace-review-choices">${Object.entries(entries).map(([value, text]) => `<label><input type="radio" name="${name}" value="${value}" ${draft[name] === value ? "checked" : ""}> ${text}</label>`).join("")}</div>`;
     }
-    return `<form id="trace-your-review" class="trace-human-review" novalidate><header><h3>Your review</h3><p>Agreement and criticality are separate decisions. Your assessment does not resolve or change the published finding.</p></header><div class="trace-form-body">${draft.stale ? '<p class="trace-limit" role="status">The evidence changed since your previous assessment. Your choices are retained as a draft; review the current evidence before sharing.</p>' : ""}<fieldset><legend>Do you agree with this finding? <small>Required</small></legend>${options("agreement", AGREEMENTS)}</fieldset><fieldset><legend>Is this finding critical? <small>Required</small></legend>${options("criticality", CRITICALITIES)}<p class="trace-scope">Working definition: a critical issue could materially affect analysis results or their interpretation.</p></fieldset><label class="trace-comment-label" for="trace-review-comment">Review comments <small>Optional</small></label><textarea id="trace-review-comment" name="comment" rows="4" maxlength="10000" placeholder="Explain your assessment, suggest a correction, or note missing evidence.">${esc(draft.comment)}</textarea><p class="trace-review-feedback" role="status" aria-live="polite" hidden></p><div class="trace-review-actions"><p class="trace-storage-note">Drafts save automatically in this browser. ${target ? "Submitting opens GitHub with your review filled in; select Start discussion there to publish." : "Publish your assessment through the GitHub comment box below."}</p><div><button class="button primary" type="submit">${target ? "Submit review on GitHub" : "Copy review &amp; open GitHub comments"}</button>${target ? '<button class="button" type="button" data-trace-copy-comment>Copy review instead</button>' : ""}</div></div></div></form>`;
+    return `<form id="trace-your-review" class="trace-human-review" novalidate><header><h3>Your review</h3><p>Agreement and criticality are separate decisions. Your assessment does not resolve or change the published finding.</p></header><div class="trace-form-body">${draft.stale ? '<p class="trace-limit" role="status">The evidence changed since your previous assessment. Your choices are retained as a draft; review the current evidence before sharing.</p>' : ""}<fieldset><legend>Do you agree with this finding? <small>Required</small></legend>${options("agreement", AGREEMENTS)}</fieldset><fieldset><legend>Is this finding critical? <small>Required</small></legend>${options("criticality", CRITICALITIES)}<p class="trace-scope">Working definition: a critical issue could materially affect analysis results or their interpretation.</p></fieldset><fieldset><legend>Which side is right? <small>Optional</small></legend>${options("side", SIDES)}<p class="trace-scope">Answers the open question for this variable when the finding sets a document against the specification.</p></fieldset><label class="trace-comment-label" for="trace-review-comment">Review comments <small>Optional</small></label><textarea id="trace-review-comment" name="comment" rows="4" maxlength="10000" placeholder="Explain your assessment, suggest a correction, or note missing evidence.">${esc(draft.comment)}</textarea><p class="trace-review-feedback" role="status" aria-live="polite" hidden></p><div class="trace-review-actions"><p class="trace-storage-note">Drafts save automatically in this browser. ${target ? "Submitting opens GitHub with your review filled in; select Start discussion there to publish." : "Publish your assessment through the GitHub comment box below."}</p><div><button class="button primary" type="submit">${target ? "Submit review on GitHub" : "Copy review &amp; open GitHub comments"}</button>${target ? '<button class="button" type="button" data-trace-copy-comment>Copy review instead</button>' : ""}</div></div></div></form>`;
   }
   function discussionView() {
     const target = destination();
@@ -166,6 +191,7 @@ export function createTraceReview(ctx, comments) {
       ? "Review copied. Paste it into the GitHub comment box below, then select Comment to publish."
       : "Clipboard access is unavailable. Copy the prepared text below, paste it into the GitHub comment box, then select Comment to publish.";
     if (!copied) { textarea.focus({ preventScroll: true }); textarea.select(); }
+    markShared("clipboard");
   }
   function submitOnGitHub() {
     let prepared;
@@ -183,6 +209,7 @@ export function createTraceReview(ctx, comments) {
     dialog.querySelector("[data-trace-prepared]").hidden = false;
     dialog.querySelector("[data-trace-comment-stale]").hidden = true;
     dialog.querySelector(".trace-share-feedback").hidden = true;
+    markShared("github");
     const again = link(prepared.url, tab ? "Open GitHub again" : "Open GitHub");
     if (!prepared.prefilled) {
       navigator.clipboard?.writeText(prepared.body).catch(() => { /* The prepared text stays selectable below. */ });
@@ -193,7 +220,7 @@ export function createTraceReview(ctx, comments) {
   function updateStatus() {
     for (const button of dialog.querySelectorAll("[data-trace-sibling]")) {
       const other = findIssue(ctx.report, button.dataset.traceSibling);
-      button.querySelector("small").textContent = label(drafts.load(ctx.model.id, other, ctx.report));
+      button.querySelector("small").textContent = draftLabel(drafts.load(ctx.model.id, other, ctx.report));
     }
     const note = dialog.querySelector(".trace-storage-note");
     if (note && !drafts.available) note.textContent = "Browser storage is unavailable. Your draft lasts for this session. Use GitHub comments below to publish it.";
@@ -205,10 +232,18 @@ export function createTraceReview(ctx, comments) {
     element.hidden = false;
     element.classList.toggle("trace-error", error);
   }
+  /** Record how a complete assessment left this browser; later edits return it to a draft. */
+  function markShared(shared) {
+    const values = Object.fromEntries(new FormData(dialog.querySelector("form")));
+    try { drafts.save(ctx.model.id, issue, ctx.report, { ...values, shared }, true); updateStatus(); }
+    catch { /* An incomplete assessment stays a draft. */ }
+  }
   function save() {
     const form = dialog.querySelector("form"), values = Object.fromEntries(new FormData(form));
     try {
-      drafts.save(ctx.model.id, issue, ctx.report, values, false);
+      // Both decisions chosen is a complete assessment, saved locally until it is shared.
+      drafts.save(ctx.model.id, issue, ctx.report, values,
+        Object.hasOwn(AGREEMENTS, values.agreement) && Object.hasOwn(CRITICALITIES, values.criticality));
       updateStatus();
       return true;
     } catch (error) {
@@ -221,7 +256,17 @@ export function createTraceReview(ctx, comments) {
     forgetComments();
     restoreComments?.(); restoreComments = null;
     const group = siblings(), at = group.indexOf(issue);
-    dialog.innerHTML = `<div class="trace-review-shell"><header class="trace-review-header"><div><p>${esc(ctx.model.title)} / ${esc(issue.dataset)} / Start review</p><h2>${esc(issue.dataset + (issue.variable ? "." + issue.variable : ""))}</h2></div><div><button class="button" data-trace-close aria-label="Close review">Close</button></div></header><div class="trace-review-layout"><aside class="trace-review-nav"><h3>Findings for this variable</h3><nav aria-label="Choose a finding">${group.map((i, n) => `<button data-trace-sibling="${esc(i.id)}" ${i.id === issue.id ? 'aria-current="page"' : ""}><span>${String(n + 1).padStart(2, "0")}</span><span>${esc(i.title)}<small></small></span></button>`).join("")}</nav><h3>On this page</h3><nav aria-label="Evidence sections">${[["trace-finding", "The finding"], ["trace-sources", "Source documents"], ["trace-specifications", "YAML specification"], ["trace-examples", "Example Subject Difference"], ["trace-fix", "Recommended fix"], ["trace-your-review", "Your review"], ["trace-discussion", "GitHub comments"]].map(([id, text]) => `<button data-trace-section="${id}">${text}</button>`).join("")}</nav></aside><div class="trace-scroll"><main class="trace-review-content"><section id="trace-finding"><p class="eyebrow">Finding ${at + 1} of ${group.length} <span class="status neutral">${esc(issue.kind.replaceAll("_", " "))}</span></p><h2 id="trace-review-title" tabindex="-1">${esc(issue.title)}</h2><p class="trace-introduction">${esc(issue.summary)}</p>${measurements()}</section><section id="trace-sources"><h3>1. Source documents</h3><p class="trace-scope">Compare retained source-document statements side by side. Highlighted text identifies the cited clauses; missing comparison evidence is called out below.</p>${issueTrace(issue, ctx.report, { sourcesOnly: true })}</section><section id="trace-specifications"><h3>2. YAML specification</h3><p class="trace-scope">Compare the retained YAML rules and document-based translations side by side. File names identify each specification; highlighted lines show the cited rule.</p>${issueTrace(issue, ctx.report, { specificationsOnly: true })}</section><section id="trace-examples"><h3>3. Example Subject Difference</h3><div data-trace-samples>${sampleView()}</div></section><section id="trace-fix"><h3>4. Recommended fix</h3><div class="trace-fix"><p>${esc(issue.action || "The retained evidence does not specify a correction. Confirm the intended rule before changing the specification or documents.")}</p></div></section>${reviewForm()}${discussionView()}<details class="trace-technical"><summary>Supporting details: calculations, technical names and check audit</summary><p>Names containing a double underscore identify alternative review calculations: VARIABLE__READING. They do not add submission variables. The interpretation descriptions above explain what changes.</p>${issueTrace(issue, ctx.report, { auditOnly: true })}<button class="text-link" data-finding="${esc(issue.id)}">Open evidence in workspace${issue.impact.subject_count ? ` (${plural(issue.impact.subject_count, "subject")})` : ""}</button></details></main></div></div><footer class="trace-review-footer"><div><small>Share your assessment on GitHub</small></div><div>${at > 0 ? `<button class="button" data-trace-sibling="${esc(group[at - 1].id)}">Previous finding<small hidden></small></button>` : ""}${at + 1 < group.length ? `<button class="button" data-trace-sibling="${esc(group[at + 1].id)}">Next finding<small hidden></small></button>` : ""}<button class="button primary" data-trace-section="trace-your-review">Add your review</button></div></footer></div>`;
+    // A claim-level question is shared by every finding of its variable; say so instead of presenting it as this finding's fix.
+    const sharedAction = Boolean(issue.action) && group.filter((i) => i.action === issue.action).length > 1,
+      fixHeading = sharedAction ? "Open question for this variable" : "Recommended fix",
+      fixScope = sharedAction ? `<p class="trace-scope">This question applies to all ${group.filter((i) => i.action === issue.action).length} findings for ${esc(issue.dataset + (issue.variable ? "." + issue.variable : ""))}. Decide this finding on the evidence above.</p>` : "";
+    // The footer walks the findings the listing shows when this one is among them, else its variable's findings.
+    const listed = ctx.listed?.() || [], inList = listed.some((i) => i.id === issue.id),
+      walk = inList ? listed : group, pos = walk.findIndex((i) => i.id === issue.id),
+      step = (n, text) => n >= 0 && n < walk.length ? `<button class="button" data-trace-sibling="${esc(walk[n].id)}">${text}${inList ? " in list" : ""}<small hidden></small></button>` : "";
+    if (ctx.state && ctx.state.review !== issue.id) { ctx.state.review = issue.id; ctx.save?.(); }
+    dialog.dataset.reviewDataset = issue.dataset;
+    dialog.innerHTML = `<div class="trace-review-shell"><header class="trace-review-header"><div><p>${esc(ctx.model.title)} / ${esc(issue.dataset)} / Start review</p><h2>${esc(issue.dataset + (issue.variable ? "." + issue.variable : ""))}</h2></div><div><button class="button" data-trace-close aria-label="Close review">Close</button></div></header><div class="trace-review-layout"><aside class="trace-review-nav"><h3>Findings for this variable</h3><nav aria-label="Choose a finding">${group.map((i, n) => `<button data-trace-sibling="${esc(i.id)}" ${i.id === issue.id ? 'aria-current="page"' : ""}><span>${String(n + 1).padStart(2, "0")}</span><span>${esc(i.title)}<small></small></span></button>`).join("")}</nav><h3>On this page</h3><nav aria-label="Evidence sections">${[["trace-finding", "The finding"], ["trace-sources", "Source documents"], ["trace-specifications", "YAML specification"], ["trace-examples", "Example Subject Difference"], ["trace-fix", fixHeading], ["trace-your-review", "Your review"], ["trace-discussion", "GitHub comments"]].map(([id, text]) => `<button data-trace-section="${id}">${text}</button>`).join("")}</nav></aside><div class="trace-scroll"><main class="trace-review-content"><section id="trace-finding"><p class="eyebrow">Finding ${at + 1} of ${group.length} <span class="status neutral">${esc(issue.kind.replaceAll("_", " "))}</span></p><h2 id="trace-review-title" tabindex="-1">${esc(issue.title)}</h2><p class="trace-introduction">${esc(issue.summary)}</p>${reviewBasis()}${measurements()}</section><section id="trace-sources"><h3>1. Source documents</h3><p class="trace-scope">Compare retained source-document statements side by side. Highlighted text identifies the cited clauses; missing comparison evidence is called out below.</p>${issueTrace(issue, ctx.report, { sourcesOnly: true })}</section><section id="trace-specifications"><h3>2. YAML specification</h3><p class="trace-scope">Compare the resolved YAML rules and document-based translations side by side. File names identify each specification; highlighted lines show the cited rule.</p>${issueTrace(issue, resolvedReviewReport(ctx.report, ctx.specifications, issue.dataset), { specificationsOnly: true })}</section><section id="trace-examples"><h3>3. Example Subject Difference</h3><div data-trace-samples>${sampleView()}</div></section><section id="trace-fix"><h3>4. ${fixHeading}</h3>${fixScope}<div class="trace-fix"><p>${esc(issue.action || "The retained evidence does not specify a correction. Confirm the intended rule before changing the specification or documents.")}</p></div></section>${reviewForm()}${discussionView()}<details class="trace-technical"><summary>Supporting details: calculations, technical names and check audit</summary><p>Names containing a double underscore identify alternative review calculations: VARIABLE__READING. They do not add submission variables. The interpretation descriptions above explain what changes.</p>${issueTrace(issue, ctx.report, { auditOnly: true })}</details></main></div></div><footer class="trace-review-footer"><div><small>${inList ? `Finding ${pos + 1} of ${walk.length} in the current list` : "Share your assessment on GitHub"}</small></div><div>${step(pos - 1, "Previous finding")}${step(pos + 1, "Next finding")}<button class="button primary" data-trace-section="trace-your-review">Add your review</button></div></footer></div>`;
     updateStatus();
     dialog.querySelector(".trace-scroll").scrollTop = 0;
   }

@@ -55,9 +55,9 @@ publication of that source revision.
 
 The dashboard also publishes source-backed documentation observations and
 authored questions. These are distinct from dataset agreement, with partial
-narrative coverage stated explicitly. See the [review guide](review.md).
+narrative coverage stated explicitly. See the [review guide](review/index.md).
 
-[View the study results](studies/index.md).
+[Open the pilot study report](studies/index.md).
 
 Pending projects are shown explicitly and cannot contribute passing datasets.
 Publication rejects failed builds, missing dataset records, unknown comparison

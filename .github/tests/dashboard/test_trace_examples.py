@@ -28,6 +28,22 @@ TEXT = "columns:\n  - name: FLAG\n    derivation: REF.INPUT\n  - name: FLAG__OTH
 
 
 class TraceExampleTests(unittest.TestCase):
+    def test_inputs_read_through_a_ref_intermediate_over_the_base_input_are_shown(self):
+        # Documented-rules specifications name the reference input ADSL_REF and read it as REF.
+        spec = {
+            "keys": ["SUBJECT"], "base": "ADSL_REF", "input": {"ADSL_REF": {}},
+            "intermediates": [{"id": "REF", "dataset": "ADSL_REF", "key": ["SUBJECT"]}],
+            "output": {"columns": ["FLAG"]},
+            "columns": [{"name": "FLAG", "derivation": {"case": [
+                {"when": "REF.REASON <> 'Completed' OR REF.REASON IS NULL", "then": "'Y'"}]}}],
+        }
+        text = "columns:\n  - name: FLAG\n    derivation:\n      case:\n        - when: REF.REASON <> 'Completed'\n          then: \"'Y'\"\n"
+        rows = [{"SUBJECT": "A", "REASON": "Completed", "OTHER": 1, "FLAG": ""}]
+        probes = [{"column": "FLAG", "reading": "literal", "reference": {"patterns": []}}]
+        result = TraceExamples(Frame(rows), Frame(rows), Frame(rows), spec, text, "SUBJECT").variable("FLAG", probes)
+        self.assertEqual(result["input_columns"], ["REASON"])
+        self.assertEqual(result["subjects"][0]["rows"][0]["inputs"], {"REASON": "Completed"})
+
     def test_missing_values_blank_values_and_absent_records_are_distinct(self):
         reference = Frame([
             {"SUBJECT": "A", "SEQ": 1, "INPUT": "", "FLAG": "Y"},

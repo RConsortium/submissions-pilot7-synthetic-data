@@ -2,20 +2,61 @@
 
 Pilot 7 uses publicly available pilot studies and synthetic clinical trial
 data to demonstrate and evaluate agentic workflows for clinical data
-standardization.
+standardization. AI agents draft derivation specifications in YAML, the
+[yamaa](https://elong0527.github.io/yamaa/) engine executes them, and
+automated checks compare the outputs with the published submissions and the
+study documents. Every result on this site is a draft pending human review.
+
+## Start reviewing
+
+Statistical programmers and biostatisticians can review one finding at a
+time. Nothing is installed, and one evidence-backed recommendation is a
+complete contribution.
+
+<div class="grid cards" markdown>
+
+-   **Review Pilot 5 findings**
+
+    ---
+
+    Open the Submission Pilot 5 dashboard at its consistency findings, pick a
+    dataset and start with the critical findings.
+
+    [Open the findings](studies/submission-pilot5.md#submission-pilot5/overview/ADSL?findingSearch=ADSL)
+
+-   **Learn how to review**
+
+    ---
+
+    What a finding is, how to check its evidence and how to record your
+    assessment on GitHub.
+
+    [Read the review guide](review/index.md)
+
+-   **See the results**
+
+    ---
+
+    Reference agreement and consistency findings for every pilot study on one
+    printable page.
+
+    [Open the pilot study report](studies/index.md)
+
+</div>
 
 ## Pilot studies
 
-AI agents review pilot submission packages and generate derivation
-specifications in YAML format.
-The yamaa engine executes these specifications to derive
-ADaM datasets from SDTM. We compare the yamaa outputs with the published
-ADaM datasets from the original submissions.
+For each pilot submission package, AI agents review the package and write
+the derivation specifications, yamaa derives the ADaM datasets from the
+staged SDTM data, and the outputs are compared with the published ADaM
+datasets and with the study documents. Two measures are reported, and they
+answer different questions:
 
-**Published ADaM reference agreement** measures reproduction of the published
-datasets under each study's comparison rules. **Consistency review** checks
-agreement among documents, derivation rules, and data. Findings can remain open
-even when reference agreement is 100%.
+- **Published ADaM reference agreement**: does the derived dataset reproduce
+  the published one under the study's comparison rules?
+- **Consistency review**: do the documents, derivation rules and data agree
+  with one another? Findings stay open until a person decides them, even
+  when reference agreement is 100%.
 
 <div class="pilot-metrics" markdown="1" role="region" aria-label="Pilot study comparison metrics" tabindex="0">
 
@@ -26,22 +67,30 @@ even when reference agreement is 100%.
 </div>
 
 Reference values are **matching / reference total**. Column and cell counts
-come from datasets that pass the reference comparison; **M** means one million.
-Select a findings count to review its evidence.
+come from datasets that pass the reference comparison; **M** means one
+million. Select a findings count to open its evidence. The
+[verification policy](verification.md) defines both measures and their
+limits, and the [pilot study report](studies/index.md) compares the packages
+dataset by dataset.
 
 ## Synthetic studies
 
-We use synthetic studies to develop and demonstrate the full workflow:
+Synthetic studies exercise the complete workflow:
 
 > EDC data extraction -> SDTM mapping -> ADaM derivation -> define.xml generation.
 
-These outputs support eCTD submission package preparation.
+They have no published reference, so their dashboards support source
+exploration and analysis review rather than reference comparison. These
+outputs support eCTD submission package preparation.
 
-| Study | Status |
-| --- | --- |
-| [KN189](studies/kn189.md) | Ongoing |
-| [KN564](studies/kn564.md) | Ongoing |
-| [CAR-T for ALL](studies/cart-t.md) | Ongoing |
+| Study | Scope | Review |
+| --- | --- | --- |
+| [KN189](studies/kn189.md) | Protocol/SAP-based SDTM and ADaM development with submission metadata | Analysis coverage and open findings |
+| [KN564](studies/kn564.md) | Protocol/SAP-based SDTM and ADaM development with submission metadata | Analysis coverage and open findings |
+| [CAR-T for ALL](studies/cart-t.md) | OpenClinica ODM export standardized to SDTM, exploratory ADaM and draft Define-XML | Linked specification and data workspace |
+
+The [synthetic data report](synthetic/index.md) inventories the staged
+sources and workflow readiness of all three studies.
 
 ## Agentic SDLC workflow
 
@@ -68,5 +117,5 @@ throughout the workflow.
 | Tool | Purpose |
 | --- | --- |
 | [yamaa](https://elong0527.github.io/yamaa/) | Check and execute YAML specifications to generate datasets and define.xml. |
-| GitHub Issues | Record requests, discussions, and decisions. |
+| GitHub Issues and Discussions | Record requests, review assessments, and decisions. |
 | GitHub Actions | Run automated checks and dataset comparisons. Build and deploy the project website through CI/CD. |

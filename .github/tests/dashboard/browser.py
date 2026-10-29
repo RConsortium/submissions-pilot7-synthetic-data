@@ -178,12 +178,13 @@ def check(browser, base, site_dir, screenshots):
         expect(page.locator(".result-count")).to_have_text(f"{len(issues)} of {len(issues)} issues \u00b7 {checks} supporting checks")
         expect(page.locator(".consistency-table tbody tr[data-finding-id]")).to_have_count(len(issues))
         expect(page.locator(".consistency-table thead th")).to_have_text([
-            "Dataset / variable", "Status", "Critical finding", "Type", "Issue", "Evidence"
+            "Dataset / variable", "Status", "Critical finding", "Type", "Documented rule vs data", "Issue", "Evidence"
         ])
         expect(page.locator("#issue-review")).to_have_count(0)
         for issue in issues:
             row = page.locator(f'[data-finding-id="{issue["id"]}"]')
             expect(row.locator(".issue-summary p")).to_have_text(issue["summary"])
+            expect(row.locator(".issue-impact")).to_have_text(re.compile(r"^Documented rule vs data: (\d+ subjects? differ|Differences observed|No differences in tested data|Not measured)$"))
             for cell_class in ("issue-critical", "issue-type"):
                 expect(row.locator(f".{cell_class} .status")).to_have_count(1)
                 expect(row.locator(f".{cell_class} p, .{cell_class} small")).to_have_count(0)
@@ -449,6 +450,8 @@ def check(browser, base, site_dir, screenshots):
     page.locator('.review-tabs [data-view="overview"]').click()
     expect(page.locator(".consistency-table")).to_be_visible()
     expect(page.locator(".consistency-table tbody tr[data-finding-id]")).to_have_count(cdisc_issue_count)
+    expect(page.locator(".review-howto summary")).to_have_text("How to review a finding")
+    expect(page.locator(".review-howto a")).to_have_attribute("href", base + "/review/findings/")
     expect(page.locator("#view-content h2, #view-content .uncited")).to_have_count(0)
     page.locator("#finding-comparison").select_option("input_output")
     expect(page.locator(".consistency-table tbody")).to_contain_text("No issues match")
@@ -460,18 +463,46 @@ def check(browser, base, site_dir, screenshots):
     expect(page.locator(".finding-evidence")).to_have_count(0)
     trace = open_trace(page.locator(".consistency-table tbody tr"))
     expect(trace).to_contain_text("No issue-specific data comparison")
-    expect(trace.locator('a[href*="pilot-program/adae_v1.yaml"]').first).to_have_attribute(
+    expect(trace.locator("#trace-finding .trace-basis")).to_contain_text("Automated criticality: Needs review.")
+    # The open finding is part of the shareable state; this one is alone in the filtered list.
+    assert "review=" in page.url and "imputation" in page.url
+    expect(trace.locator(".trace-review-footer")).to_contain_text("Finding 1 of 1 in the current list")
+    expect(trace.get_by_role("button", name=re.compile(r"finding in list"))).to_have_count(0)
+    expect(trace.locator("#trace-finding .trace-basis")).to_contain_text("No agent adjudication: this is an authored question.")
+    expect(trace.locator("#trace-finding").get_by_role("button", name="Open evidence in workspace", exact=True)).to_have_count(1)
+    # The YAML comparison shows the resolved specification; the original
+    # layer citation stays in the check audit, where Source lines opens the
+    # numbered file in a popup with its repository link.
+    expect(trace.locator('a[href*="pilot-program/adae_v1.yaml"]')).to_have_count(0)
+    technical = trace.locator(".trace-technical")
+    technical.evaluate("(el) => { el.open = true; el.querySelectorAll('details').forEach((d) => { d.open = true; }); }")
+    technical.locator(".issue-citation").filter(has_text="adae_v1.yaml").first.get_by_role(
+        "button", name=re.compile(r"^Source (lines|file)")).click()
+    popup = page.locator("dialog.review-source-dialog")
+    expect(popup).to_be_visible()
+    expect(popup.locator("h2")).to_contain_text("pilot-program/adae_v1.yaml")
+    expect(popup.locator("pre.spec-lines .context-line-number").first).to_have_text("1")
+    expect(popup.locator("footer a")).to_have_attribute(
         "href", re.compile(r"spec/yamaa/pilot-program/adae_v1\.yaml#L\d+$"))
+    popup.get_by_role("button", name="Close source", exact=True).click()
+    expect(popup).to_have_count(0)
+    expect(trace).to_be_visible()
+    technical.evaluate("(el) => { el.querySelectorAll('details').forEach((d) => { d.open = false; }); el.open = false; }")
     capture(page, screenshots, "consistency-review.png")
     open_workspace(trace)
     capture(page, screenshots, "source-evidence.png")
     trace = open_trace(page.locator(".trace-workspace-note"))
     trace.get_by_role("button", name="View source", exact=True).first.click()
-    expect(page.locator("#source-frame")).to_have_attribute(
+    expect(popup.locator("iframe")).to_have_attribute(
         "src", re.compile(r"dataguide\.pdf#page=5$")
     )
-    cited = page.locator("#source-frame").get_attribute("src")
+    cited = popup.locator("iframe").get_attribute("src")
     assert page.request.get(cited.split("#")[0]).body().startswith(b"%PDF")
+    page.keyboard.press("Escape")
+    expect(popup).to_have_count(0)
+    expect(trace).to_be_visible()
+    page.keyboard.press("Escape")
+    expect(trace).to_have_count(0)
     page.locator('.review-tabs [data-view="datasets"]').click()
     page.get_by_role("button", name="Close source evidence", exact=True).click()
     expect(page.locator("#comments-host script")).to_have_attribute(
@@ -582,8 +613,12 @@ def check(browser, base, site_dir, screenshots):
     capture(page, screenshots, "full-context-mobile.png")
     page.set_viewport_size({"width": 1600, "height": 1000})
     trace.get_by_role("button", name="View source", exact=True).first.click()
-    expect(page.locator("#source-panel-0 iframe")).to_have_attribute(
+    expect(page.locator("dialog.review-source-dialog iframe")).to_have_attribute(
         "src", re.compile(r"define-adam\.xml.*#ADSL\.BMIBL$"))
+    page.get_by_role("button", name="Close source", exact=True).click()
+    expect(page.locator("dialog.review-source-dialog")).to_have_count(0)
+    page.keyboard.press("Escape")
+    expect(trace).to_have_count(0)
     page.locator('.review-tabs [data-view="overview"]').click()
     trace = open_trace(rule)
     open_workspace(trace)
@@ -598,6 +633,19 @@ def check(browser, base, site_dir, screenshots):
         trace = open_trace(row)
         expect(trace.locator(".trace-measurements")).to_contain_text("published reference")
         page.keyboard.press("Escape")
+    # The footer walks the filtered listing, and a reloaded link reopens the finding it names.
+    trace = open_trace(rule.first)
+    expect(trace.locator(".trace-review-footer")).to_contain_text("Finding 1 of 2 in the current list")
+    trace.get_by_role("button", name="Next finding in list", exact=True).click()
+    expect(trace.locator(".trace-review-footer")).to_contain_text("Finding 2 of 2 in the current list")
+    reopened = trace.locator("#trace-review-title").inner_text()
+    linked = page.url
+    page.keyboard.press("Escape")
+    expect(trace).to_have_count(0)
+    assert "review=" not in page.url
+    page.goto(linked)
+    expect(page.locator("dialog.trace-review-dialog #trace-review-title")).to_have_text(reopened)
+    page.keyboard.press("Escape")
     missing = rule.filter(has_text="Missing BMI is assigned")
     trace = open_trace(missing)
     expect(trace.locator(".trace-measurements")).to_contain_text("1 subject with differences")
@@ -702,6 +750,10 @@ def check(browser, base, site_dir, screenshots):
     trace.get_by_role("textbox", name="Review comments").fill("Correct the blank query condition; reference flags follow the guide.")
     copy_review.click()
     expect(trace.locator(".trace-share-feedback")).to_contain_text("Review copied")
+    # The listing behind the dialog keeps the reviewer's own ledger current.
+    expect(page.locator("#review-ledger")).to_contain_text("1 of ")
+    expect(page.locator("#review-ledger")).to_contain_text("1 with both decisions; 0 drafts; 1 opened in GitHub or copied")
+    expect(page.locator('[data-human-review="cdiscpilot01:ADAE.AOCC01FL.selection-rule"]')).to_have_text("Your review: Copied for GitHub")
     capture(page, screenshots, "trace-github-comments.png")
     # Giscus sign-in navigates the top page; return state must restore the finding.
     page.goto(study + "?trace-return-test=1#cdiscpilot01/overview/ADSL")
@@ -713,7 +765,9 @@ def check(browser, base, site_dir, screenshots):
     expect(trace.locator("#comments-host script")).to_have_attribute("data-term", "pilot7/studies/cdiscpilot01/ADAE")
     original_term = "pilot7/studies/cdiscpilot01/ADSL"
     page.evaluate("window.originalCommentsHost=document.querySelector('#comments-host')")
-    trace.get_by_role("button", name="Next finding", exact=False).click()
+    # The footer walks the full listing here; the aside still moves between this variable's findings.
+    expect(trace.locator(".trace-review-footer")).to_contain_text("in the current list")
+    trace.locator(".trace-review-nav [data-trace-sibling]", has_text="Sequence-only ordering").click()
     expect(trace.locator("#trace-review-title")).to_contain_text("Sequence-only ordering")
     expect(page.locator("#review-comments #comments-host script")).to_have_attribute("data-term", original_term)
     assert page.evaluate("window.originalCommentsHost===document.querySelector('#comments-host')")
@@ -721,7 +775,7 @@ def check(browser, base, site_dir, screenshots):
     expect(trace.locator("input:checked")).to_have_count(0)
     expect(trace.locator(".trace-measurements")).to_contain_text("0 / 1,191")
     expect(trace.locator("#trace-examples")).to_contain_text("do not demonstrate a failure")
-    trace.get_by_role("button", name="Previous finding", exact=False).click()
+    trace.locator(".trace-review-nav [data-trace-sibling]", has_text="Define-XML selects the wrong event group").click()
     expect(trace.get_by_role("radio", name="Agree", exact=True)).to_be_checked()
     trace.get_by_role("button", name="Add your review", exact=True).click()
     page.keyboard.press("Escape")
@@ -782,7 +836,7 @@ def check(browser, base, site_dir, screenshots):
     assert page.evaluate("document.documentElement.scrollWidth<=innerWidth")
     nav = page.locator(".md-nav--primary")
     expect(nav).to_contain_text("Pilot studies")
-    expect(nav).to_contain_text("Synthetic data")
+    expect(nav).to_contain_text("Synthetic studies")
     capture(page, screenshots, "study-report.png")
     page.goto(base + "/")
     home = page.locator(".pilot-metrics")

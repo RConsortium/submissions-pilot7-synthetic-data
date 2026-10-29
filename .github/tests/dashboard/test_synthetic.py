@@ -74,14 +74,14 @@ class SyntheticTests(unittest.TestCase):
             self.assertEqual(
                 synthetic_navigation(root),
                 [
-                    {"Synthetic report": "synthetic/index.md"},
+                    {"Synthetic data report": "synthetic/index.md"},
                     {"New synthetic": "studies/new-synthetic.md"},
                 ],
             )
             self.assertEqual(
                 study_navigation(root, []),
                 [
-                    {"Study report": "studies/index.md"},
+                    {"Pilot study report": "studies/index.md"},
                     {"Pilot": "studies/pilot.md"},
                 ],
             )

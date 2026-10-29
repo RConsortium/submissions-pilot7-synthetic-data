@@ -7,8 +7,10 @@ const fields = [
   "findingSearch",
   "kind",
   "evidence",
+  "review",
   "comparison",
   "critical",
+  "agentReview",
   "document",
   "compareDocument",
   "documentSection",
@@ -55,6 +57,8 @@ export function readRoute(hash, model) {
       (n) => n !== dataset.name && model.datasets.some((d) => d.name === n),
     ),
     relatedOnly: params.get("columns") !== "all",
+    // The reviewer's own progress filter stays in this browser, never in a shared link.
+    yourReview: "",
     pageSizes: {},
     pages: {},
   };
@@ -67,6 +71,8 @@ export function readRoute(hash, model) {
     state[field] = (params.get(field) || "").slice(0, 500);
   if (!["yes", "no", "needs_review"].includes(state.critical))
     state.critical = "";
+  if (!["agreed", "disputed", "stale", "mixed", "not_reviewed"].includes(state.agentReview))
+    state.agentReview = "";
   if (state.specView !== "resolved" && !/^source:\d{1,3}$/.test(state.specView))
     state.specView = "";
   const keys = new Set([

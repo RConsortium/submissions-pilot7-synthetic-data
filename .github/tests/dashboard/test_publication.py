@@ -139,7 +139,7 @@ columns:
         self.assertEqual(
             study_navigation(self.root, [{"Manual": "studies/manual.md"}]),
             [
-                {"Study report": "studies/index.md"},
+                {"Pilot study report": "studies/index.md"},
                 {"Future study": "studies/future-study.md"},
                 {"Pending study": "studies/pending-study.md"},
                 {"Manual": "studies/manual.md"},
