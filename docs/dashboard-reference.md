@@ -244,4 +244,6 @@ Copy the browser URL to preserve the specification, subjects, compared datasets,
 row-count choices, column focus, searches, and open evidence. **Review comments**
 appears below pilot dashboard content with a separate GitHub Discussion for the
 focused dataset. GitHub sign-in is required to post. A review-issue link remains
-available if the embedded discussion cannot load.
+available if the embedded discussion cannot load. **Start review** ends with
+**Submit review on GitHub**, which opens a new discussion for the finding with
+your assessment filled in; select **Start discussion** there to publish.

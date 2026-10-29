@@ -9,6 +9,7 @@ import json
 from pathlib import Path
 import re
 from threading import Thread
+import urllib.parse
 
 from playwright.sync_api import expect, sync_playwright
 
@@ -655,7 +656,8 @@ def check(browser, base, site_dir, screenshots):
     capture(page, screenshots, "trace-review-evidence.png")
     trace.get_by_role("button", name="Add your review", exact=True).click()
     expect(trace.get_by_role("button", name="Save locally", exact=True)).to_have_count(0)
-    trace.get_by_role("button", name="Copy review & open GitHub comments", exact=True).click()
+    submit_review = trace.get_by_role("button", name="Submit review on GitHub", exact=True)
+    submit_review.click()
     expect(trace.locator(".trace-review-feedback")).to_contain_text("Choose both")
     trace.get_by_role("radio", name="Agree", exact=True).check()
     trace.get_by_role("radio", name="Not critical", exact=True).check()
@@ -663,15 +665,30 @@ def check(browser, base, site_dir, screenshots):
     capture(page, screenshots, "trace-review-form.png")
     original_term = page.locator("#comments-host script").get_attribute("data-term")
     page.evaluate("window.originalCommentsHost=document.querySelector('#comments-host')")
-    copy_review = trace.get_by_role("button", name="Copy review & open GitHub comments", exact=True)
+    # GitHub's composer opens in a new tab; the site holds no credentials and this check never reaches GitHub.
+    page.evaluate("window.open=url=>{window.openedReview=url;return {}}")
+    submit_review.click()
+    opened = page.evaluate("window.openedReview")
+    composer = urllib.parse.urlsplit(opened)
+    assert composer._replace(query="").geturl() == "https://github.com/RConsortium/submissions-pilot7-synthetic-data/discussions/new"
+    params = dict(urllib.parse.parse_qsl(composer.query, keep_blank_values=True))
+    assert params["category"] == "general"
+    assert params["title"].startswith("Review: cdiscpilot01 ADAE.AOCC01FL - ")
+    assert "Define-XML selects the wrong event group" in params["title"]
+    prepared = trace.locator("#trace-github-comment")
+    text = prepared.input_value()
+    assert params["body"] == text
+    for fragment in ("**Agreement:** Agree", "**Criticality:** Not critical", "selection-rule", catalog["revision"], "blank query"):
+        assert fragment in text
+    expect(trace.locator(".trace-review-feedback")).to_contain_text("select Start discussion")
+    expect(trace.locator(".trace-review-feedback a")).to_have_attribute("href", opened)
+    expect(page.locator("#review-comments #comments-host script")).to_have_attribute("data-term", original_term)
+    copy_review = trace.get_by_role("button", name="Copy review instead", exact=True)
     copy_review.click()
     expect(trace.locator("#comments-host script")).to_have_attribute(
         "data-term", "pilot7/studies/cdiscpilot01/ADAE")
     expect(page.locator("#comments-host")).to_have_count(1)
-    prepared = trace.locator("#trace-github-comment")
-    text = prepared.input_value()
-    for fragment in ("**Agreement:** Agree", "**Criticality:** Not critical", "selection-rule", catalog["revision"], "blank query"):
-        assert fragment in text
+    assert prepared.input_value() == text
     assert page.evaluate("navigator.clipboard.readText()") == text
     expect(trace.locator("#trace-fix details")).to_have_count(0)
     trace.get_by_role("textbox", name="Review comments").fill("Confirm the dermatologic group; reference flags follow the guide.")
