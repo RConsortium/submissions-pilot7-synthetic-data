@@ -138,6 +138,15 @@ Keep the existing `term_prefix` and study/dataset IDs to retain discussion threa
 Current comments use the yamaa Discussions repository, with separate Pilot 7
 terms, as Pilot 7 does not have Discussions enabled.
 
+Direct submission is optional. Set `comments.direct_submission_url` to the
+HTTPS origin of the Node review service after registering a GitHub App and
+configuring its credentials on the host. See
+[the service setup guide](../../services/review-api/README.md). The form then
+posts under the reviewer's GitHub identity and shows a confirmed comment link.
+The service preserves the existing giscus repository/category and dataset terms;
+reviewers can still use the embedded discussion. Credentials do not enter the
+static site. Without a configured service, the existing copy/paste flow remains.
+
 The review dialog can copy a structured reviewer assessment and open the same dataset
 discussion inside the dialog. Reviewers paste it into giscus and select Comment
 to publish with their GitHub identity. The widget is moved from the workspace

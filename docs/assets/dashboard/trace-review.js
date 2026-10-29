@@ -1,5 +1,6 @@
 /** Expanded, source-backed evidence and an independent human review per issue. */
 import { esc, link } from "./ui.js";
+import { createReviewSubmission } from "./review-submit.js";
 import { reviewComment } from "./review-comment.js";
 import { comparisonLabel, findIssue, issueTrace, readReview } from "./issues.js";
 import { AGREEMENTS, CRITICALITIES, createReviewDrafts } from "./review-drafts.js";
@@ -14,6 +15,8 @@ export function createTraceReview(ctx, comments) {
   try { storage = window.localStorage; }
   catch { storage = { getItem() { throw Error("Storage unavailable"); }, setItem() { throw Error("Storage unavailable"); } }; }
   const drafts = createReviewDrafts(storage);
+  const submission = createReviewSubmission(ctx.index.comments);
+  let submitting = false;
   let dialog = null, issue = null, opener = null, overflow = "", subject = "";
   let restoreComments = null;
   const returnKey = "pilot7:trace-comment-return:v1";
@@ -90,10 +93,10 @@ export function createTraceReview(ctx, comments) {
     function options(name, entries) {
       return `<div class="trace-review-choices">${Object.entries(entries).map(([value, text]) => `<label><input type="radio" name="${name}" value="${value}" ${draft[name] === value ? "checked" : ""}> ${text}</label>`).join("")}</div>`;
     }
-    return `<form id="trace-your-review" class="trace-human-review" novalidate><header><h3>Your review</h3><p>Agreement and criticality are separate decisions. Your assessment does not resolve or change the published finding.</p></header><div class="trace-form-body">${draft.stale ? '<p class="trace-limit" role="status">The evidence changed since your previous assessment. Your choices are retained as a draft; review the current evidence before sharing.</p>' : ""}<fieldset><legend>Do you agree with this finding? <small>Required</small></legend>${options("agreement", AGREEMENTS)}</fieldset><fieldset><legend>Is this finding critical? <small>Required</small></legend>${options("criticality", CRITICALITIES)}<p class="trace-scope">Working definition: a critical issue could materially affect analysis results or their interpretation.</p></fieldset><label class="trace-comment-label" for="trace-review-comment">Review comments <small>Optional</small></label><textarea id="trace-review-comment" name="comment" rows="4" maxlength="10000" placeholder="Explain your assessment, suggest a correction, or note missing evidence.">${esc(draft.comment)}</textarea><p class="trace-review-feedback" role="status" aria-live="polite" hidden></p><div class="trace-review-actions"><p class="trace-storage-note">Drafts save automatically in this browser. Publish your assessment through the GitHub comment box below.</p><div><button class="button primary" type="submit">Copy review &amp; open GitHub comments</button></div></div></div></form>`;
+    return `<form id="trace-your-review" class="trace-human-review" novalidate><header><h3>Your review</h3><p>Agreement and criticality are separate decisions. Your assessment does not resolve or change the published finding.</p></header><div class="trace-form-body">${draft.stale ? '<p class="trace-limit" role="status">The evidence changed since your previous assessment. Your choices are retained as a draft; review the current evidence before sharing.</p>' : ""}<fieldset><legend>Do you agree with this finding? <small>Required</small></legend>${options("agreement", AGREEMENTS)}</fieldset><fieldset><legend>Is this finding critical? <small>Required</small></legend>${options("criticality", CRITICALITIES)}<p class="trace-scope">Working definition: a critical issue could materially affect analysis results or their interpretation.</p></fieldset><label class="trace-comment-label" for="trace-review-comment">Review comments <small>Optional</small></label><textarea id="trace-review-comment" name="comment" rows="4" maxlength="10000" placeholder="Explain your assessment, suggest a correction, or note missing evidence.">${esc(draft.comment)}</textarea><p class="trace-review-feedback" role="status" aria-live="polite" hidden></p><div class="trace-review-actions"><p class="trace-storage-note">Drafts save automatically in this browser. ${submission ? "Submit your assessment directly to GitHub." : "Publish your assessment through the GitHub comment box below."}</p><div><button class="button primary" type="submit" ${submitting ? "disabled" : ""}>${submission ? "Submit review to GitHub" : "Copy review &amp; open GitHub comments"}</button>${submission ? `<button class="button" type="button" data-trace-copy-comment>Copy review instead</button><button class="button" type="button" data-trace-signout ${submission.login ? "" : "hidden"}>Sign out @${esc(submission.login)}</button>` : ""}</div></div></div></form>`;
   }
   function discussionView() {
-    return `<section id="trace-discussion" class="trace-discussion"><h3>Share your review on GitHub</h3><p>Publish to the same <strong>${esc(ctx.model.title)} / ${esc(issue.dataset)}</strong> discussion used by the SDTM -&gt; ADaM workspace.</p><p class="trace-scope">Copy your review above, paste it into the comment box below, then select <strong>Comment</strong> to publish. GitHub sign-in is handled by the comment box.</p><p class="trace-share-feedback" role="status" aria-live="polite" hidden></p><div data-trace-prepared hidden><label for="trace-github-comment">Comment to paste</label><textarea id="trace-github-comment" rows="7" readonly></textarea><button class="button" type="button" data-trace-copy-comment>Copy prepared review</button><p data-trace-comment-stale class="trace-limit" role="status" hidden>Your assessment changed. Copy the review again before posting.</p></div><button class="button" type="button" data-trace-open-comments>Open GitHub comments</button><div data-trace-comments hidden></div><p class="trace-scope">Comments are stored in ${link(ctx.index.comments.discussion_url, ctx.index.comments.repo)}. If the embed is unavailable, use that link to open GitHub Discussions.</p></section>`;
+    return `<section id="trace-discussion" class="trace-discussion"><h3>Share your review on GitHub</h3><p>Publish to the same <strong>${esc(ctx.model.title)} / ${esc(issue.dataset)}</strong> discussion used by the SDTM -&gt; ADaM workspace.</p><p class="trace-scope">${submission ? "Submit your review above to publish with your GitHub identity. You can also use the comment box below for discussion." : "Copy your review above, paste it into the comment box below, then select <strong>Comment</strong> to publish. GitHub sign-in is handled by the comment box."}</p><p class="trace-share-feedback" role="status" aria-live="polite" hidden></p><div data-trace-prepared hidden><label for="trace-github-comment">Comment to paste</label><textarea id="trace-github-comment" rows="7" readonly></textarea><button class="button" type="button" data-trace-copy-comment>Copy prepared review</button><p data-trace-comment-stale class="trace-limit" role="status" hidden>Your assessment changed. Copy the review again before posting.</p></div><button class="button" type="button" data-trace-open-comments>Open GitHub comments</button><div data-trace-comments hidden></div><p class="trace-scope">Comments are stored in ${link(ctx.index.comments.discussion_url, ctx.index.comments.repo)}. If the embed is unavailable, use that link to open GitHub Discussions.</p></section>`;
   }
   function openComments() {
     const target = dialog.querySelector("[data-trace-comments]");
@@ -153,6 +156,37 @@ export function createTraceReview(ctx, comments) {
       : "Clipboard access is unavailable. Copy the prepared text below, paste it into the GitHub comment box, then select Comment to publish.";
     if (!copied) { textarea.focus({ preventScroll: true }); textarea.select(); }
   }
+  async function submitToGitHub() {
+    if (submitting) return;
+    if (!save()) return;
+    const active = dialog, selected = issue, model = { id: ctx.model.id, revision: ctx.model.revision };
+    const review = currentDraft();
+    try { reviewComment(model, selected, review, location.href); }
+    catch (error) { feedback(error.message, true); return; }
+    submitting = true;
+    const button = active.querySelector('button[type="submit"]');
+    button.disabled = true;
+    const form = active.querySelector("form");
+    const isCurrent = () => dialog === active && issue.id === selected.id && active.querySelector("form") === form;
+    for (const field of form.querySelectorAll("input, textarea")) field.disabled = true;
+    try {
+      feedback(submission.login ? "Submitting review to GitHub..." : "Complete GitHub sign-in in the popup to submit your review.");
+      await submission.signIn();
+      const result = await submission.submit(model, selected, review);
+      if (!isCurrent()) return;
+      const element = active.querySelector(".trace-review-feedback");
+      element.hidden = false; element.classList.remove("trace-error");
+      element.innerHTML = `Review posted as @${esc(result.login)}. ${link(result.url, "View GitHub comment")}`;
+      const signout = active.querySelector("[data-trace-signout]");
+      signout.hidden = false; signout.textContent = `Sign out @${submission.login}`;
+    } catch (error) {
+      if (isCurrent()) feedback(error.message, true);
+    } finally {
+      submitting = false;
+      for (const field of form.querySelectorAll("input, textarea")) field.disabled = false;
+      if (dialog) dialog.querySelector('button[type="submit"]').disabled = false;
+    }
+  }
   function updateStatus() {
     for (const button of dialog.querySelectorAll("[data-trace-sibling]")) {
       const other = findIssue(ctx.report, button.dataset.traceSibling);
@@ -204,7 +238,11 @@ export function createTraceReview(ctx, comments) {
       else if (target.dataset.traceSection) jump(target.dataset.traceSection);
       else if (target.dataset.traceSubject) { subject = target.dataset.traceSubject; dialog.querySelector("[data-trace-samples]").innerHTML = sampleView(); jump("trace-examples"); dialog.querySelector('[aria-selected="true"]')?.focus({ preventScroll: true }); }
       else if (target.hasAttribute("data-trace-open-comments")) openComments();
-      else if (target.hasAttribute("data-trace-copy-comment")) void copyForGitHub();
+      else if (target.hasAttribute("data-trace-copy-comment") && !submitting) void copyForGitHub();
+      else if (target.hasAttribute("data-trace-signout") && !submitting) {
+        const active = dialog;
+        void submission.signOut().catch(error => { if (dialog === active) feedback(error.message, true); }).finally(() => { if (dialog === active) dialog.querySelector("[data-trace-signout]").hidden = true; });
+      }
     });
     dialog.addEventListener("keydown", (event) => {
       if (!event.target.matches("[data-trace-subject]") || !["ArrowLeft", "ArrowRight", "Home", "End"].includes(event.key)) return;
@@ -216,7 +254,7 @@ export function createTraceReview(ctx, comments) {
     dialog.addEventListener("input", (event) => { if (event.target.closest("form")) { save(); dialog.querySelector(".trace-review-feedback").hidden = true; const prepared = dialog.querySelector("[data-trace-prepared]"); if (!prepared.hidden) dialog.querySelector("[data-trace-comment-stale]").hidden = false; } });
     dialog.addEventListener("submit", (event) => {
       event.preventDefault();
-      void copyForGitHub();
+      if (submission) void submitToGitHub(); else void copyForGitHub();
     });
     dialog.showModal(); dialog.querySelector("[data-trace-close]").focus({ preventScroll: true });
   }

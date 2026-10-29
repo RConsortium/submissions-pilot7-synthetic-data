@@ -40,9 +40,14 @@ See the [verification policy](verification.md) for comparison scope and limits.
 At the end of the trace page, assess **Agree**, **Disagree**, or **Need
 clarification**, then choose **Critical**, **Not critical**, or **Unsure**.
 Add comments explaining your assessment. Drafts save automatically in this
-browser. **Copy review & open GitHub comments** requires both decisions and
-copies your assessment. Paste it into the comment box, sign in with GitHub
-if needed, and select **Comment** to publish.
+browser. When direct submission is enabled, **Submit review to GitHub** opens
+GitHub sign-in if needed and posts your assessment with your GitHub identity.
+Follow **View GitHub comment** to see the confirmed post. If submission fails,
+your draft is retained so you can retry.
+
+**Copy review instead** remains available. When direct submission has not been
+configured, use **Copy review & open GitHub comments**, paste into the comment
+box, and select **Comment**. Both workflows require agreement and criticality.
 
 
 **One evidence-backed recommendation is a useful completed contribution.**

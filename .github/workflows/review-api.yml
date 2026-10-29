@@ -1,0 +1,38 @@
+name: Direct review submission
+on:
+  pull_request:
+    paths:
+      - '.github/services/review-api/**'
+      - '.github/tests/dashboard/direct_submission_browser.py'
+      - '.github/tests/dashboard/review-submit.test.js'
+      - 'docs/assets/dashboard/**'
+      - '.github/dashboard.json'
+      - '.github/workflows/review-api.yml'
+  push:
+    branches: [main]
+    paths:
+      - '.github/services/review-api/**'
+      - 'docs/assets/dashboard/**'
+      - '.github/tests/dashboard/direct_submission_browser.py'
+      - '.github/tests/dashboard/review-submit.test.js'
+      - '.github/dashboard.json'
+      - '.github/workflows/review-api.yml'
+permissions:
+  contents: read
+jobs:
+  review-submission:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - run: node --test .github/services/review-api/*.test.js .github/tests/dashboard/*.test.js
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - run: python -m pip install -r .github/tests/dashboard/requirements.txt
+      - run: python -m playwright install --with-deps chromium
+      - run: python .github/tests/dashboard/direct_submission_browser.py
