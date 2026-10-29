@@ -460,18 +460,39 @@ def check(browser, base, site_dir, screenshots):
     expect(page.locator(".finding-evidence")).to_have_count(0)
     trace = open_trace(page.locator(".consistency-table tbody tr"))
     expect(trace).to_contain_text("No issue-specific data comparison")
-    expect(trace.locator('a[href*="pilot-program/adae_v1.yaml"]').first).to_have_attribute(
+    # The YAML comparison shows the resolved specification; the original
+    # layer citation stays in the check audit, where Source lines opens the
+    # numbered file in a popup with its repository link.
+    expect(trace.locator('a[href*="pilot-program/adae_v1.yaml"]')).to_have_count(0)
+    technical = trace.locator(".trace-technical")
+    technical.evaluate("(el) => { el.open = true; el.querySelectorAll('details').forEach((d) => { d.open = true; }); }")
+    technical.locator(".issue-citation").filter(has_text="adae_v1.yaml").first.get_by_role(
+        "button", name=re.compile(r"^Source (lines|file)")).click()
+    popup = page.locator("dialog.review-source-dialog")
+    expect(popup).to_be_visible()
+    expect(popup.locator("h2")).to_contain_text("pilot-program/adae_v1.yaml")
+    expect(popup.locator("pre.spec-lines .context-line-number").first).to_have_text("1")
+    expect(popup.locator("footer a")).to_have_attribute(
         "href", re.compile(r"spec/yamaa/pilot-program/adae_v1\.yaml#L\d+$"))
+    popup.get_by_role("button", name="Close source", exact=True).click()
+    expect(popup).to_have_count(0)
+    expect(trace).to_be_visible()
+    technical.evaluate("(el) => { el.querySelectorAll('details').forEach((d) => { d.open = false; }); el.open = false; }")
     capture(page, screenshots, "consistency-review.png")
     open_workspace(trace)
     capture(page, screenshots, "source-evidence.png")
     trace = open_trace(page.locator(".trace-workspace-note"))
     trace.get_by_role("button", name="View source", exact=True).first.click()
-    expect(page.locator("#source-frame")).to_have_attribute(
+    expect(popup.locator("iframe")).to_have_attribute(
         "src", re.compile(r"dataguide\.pdf#page=5$")
     )
-    cited = page.locator("#source-frame").get_attribute("src")
+    cited = popup.locator("iframe").get_attribute("src")
     assert page.request.get(cited.split("#")[0]).body().startswith(b"%PDF")
+    page.keyboard.press("Escape")
+    expect(popup).to_have_count(0)
+    expect(trace).to_be_visible()
+    page.keyboard.press("Escape")
+    expect(trace).to_have_count(0)
     page.locator('.review-tabs [data-view="datasets"]').click()
     page.get_by_role("button", name="Close source evidence", exact=True).click()
     expect(page.locator("#comments-host script")).to_have_attribute(
@@ -582,8 +603,12 @@ def check(browser, base, site_dir, screenshots):
     capture(page, screenshots, "full-context-mobile.png")
     page.set_viewport_size({"width": 1600, "height": 1000})
     trace.get_by_role("button", name="View source", exact=True).first.click()
-    expect(page.locator("#source-panel-0 iframe")).to_have_attribute(
+    expect(page.locator("dialog.review-source-dialog iframe")).to_have_attribute(
         "src", re.compile(r"define-adam\.xml.*#ADSL\.BMIBL$"))
+    page.get_by_role("button", name="Close source", exact=True).click()
+    expect(page.locator("dialog.review-source-dialog")).to_have_count(0)
+    page.keyboard.press("Escape")
+    expect(trace).to_have_count(0)
     page.locator('.review-tabs [data-view="overview"]').click()
     trace = open_trace(rule)
     open_workspace(trace)
@@ -782,7 +807,7 @@ def check(browser, base, site_dir, screenshots):
     assert page.evaluate("document.documentElement.scrollWidth<=innerWidth")
     nav = page.locator(".md-nav--primary")
     expect(nav).to_contain_text("Pilot studies")
-    expect(nav).to_contain_text("Synthetic data")
+    expect(nav).to_contain_text("Synthetic studies")
     capture(page, screenshots, "study-report.png")
     page.goto(base + "/")
     home = page.locator(".pilot-metrics")
