@@ -3,7 +3,8 @@
 The production dashboard is part of the normal MkDocs site. There is one build
 path and no study-specific frontend build. It uses static JSON and gzip chunks;
 GitHub Discussions through giscus supplies comments without an application server.
-The reviewer guide is `docs/review.md`.
+The reviewer guide is `docs/review/index.md`; the pages beside it describe
+each dashboard screen.
 
 ## Source layout
 

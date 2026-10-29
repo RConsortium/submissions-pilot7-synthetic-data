@@ -397,6 +397,14 @@ import { developmentReport, mountDevelopment } from "./synthetic-development.js"
       navigate("overview");
       return;
     }
+    if (target.dataset.findingDataset !== undefined) {
+      state.findingSearch = target.dataset.findingDataset;
+      save();
+      byId("finding-search").value = state.findingSearch;
+      byId("finding-results").innerHTML = findingRows();
+      traceReview.refreshRows();
+      return;
+    }
     if (target.dataset.finding) {
       const f = findIssue(report, target.dataset.finding);
       if (!f) return;

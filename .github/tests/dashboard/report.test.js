@@ -399,3 +399,41 @@ test("YAML comparison includes the selected translated rule but no sibling calcu
   assert.doesNotMatch(html, /other.yaml|Only one YAML/);
   assert.equal((html.match(/class="trace-source-file"/g) || []).length, 2);
 });
+
+test("findings by dataset count the current filters and mark the selected dataset", () => {
+  const other = {
+    ...issue, id: "other", dataset: "ADY", variable: "FLAG",
+    summary: "Label copied from ADZ.",
+    critical: { status: "no", reason: "Label only." },
+  };
+  const data = { ...report, review: { ...report.review, issues: [issue, other] } };
+  const s = state(),
+    view = createReport({ report: data, state: s, esc,
+      model: { datasets: [{ name: "ADY" }, { name: "ADX" }, { name: "ADZ" }] } });
+  const chips = (html) => [...html.matchAll(
+    /data-finding-dataset="([^"]*)" aria-pressed="(true|false)">[^<]*<span class="chip-count">(\d+)<\/span>/g,
+  )].map((m) => [m[1], m[2], Number(m[3])]);
+  assert.deepEqual(chips(view.findingRows()), [
+    ["", "true", 2], ["ADY", "false", 1], ["ADX", "false", 1], ["ADZ", "false", 0],
+  ]);
+  s.critical = "yes";
+  s.findingSearch = "adx";
+  const html = view.findingRows();
+  assert.deepEqual(chips(html), [
+    ["", "false", 1], ["ADY", "false", 0], ["ADX", "true", 1], ["ADZ", "false", 0],
+  ]);
+  assert.match(html, /aria-label="Findings by dataset"/);
+  assert.match(html, /1 of 2 issues/);
+  assert.ok(html.indexOf("finding-datasets") < html.indexOf("result-count"));
+  // A zero-count dataset chip lists nothing, not issues whose text mentions the name.
+  s.critical = "";
+  s.findingSearch = "ADZ";
+  const empty = view.findingRows();
+  assert.deepEqual(chips(empty), [
+    ["", "false", 2], ["ADY", "false", 1], ["ADX", "false", 1], ["ADZ", "true", 0],
+  ]);
+  assert.match(empty, /0 of 2 issues/);
+  assert.match(empty, /No issues match/);
+  const bare = createReport({ report: data, state: state(), esc }).findingRows();
+  assert.deepEqual(chips(bare).map(([name]) => name), ["", "ADX", "ADY"]);
+});

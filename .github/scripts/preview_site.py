@@ -8,7 +8,7 @@ import sys
 
 from study_evidence import catalog
 from build_index_table import BEGIN, replace_block
-from dashboard_nav import study_navigation, synthetic_navigation
+from dashboard_nav import populate
 from study_dashboard.synthetic import build_synthetic, synthetic_catalog
 
 ROOT = Path(__file__).resolve().parents[2]
@@ -35,19 +35,13 @@ def prepare_preview(root, work):
     entries = catalog(root)
     for name, entry in entries.items():
         (studies / f'{name}.md').write_text(f'# {entry["title"]}\n\n{note}')
-    (studies / 'index.md').write_text('# Study verification\n\n' + note + '\n' + '\n'.join(
+    (studies / 'index.md').write_text('# Pilot study report\n\n' + note + '\n' + '\n'.join(
         f'- [{entry["title"]}]({name}.md)' for name, entry in entries.items()) + '\n')
     config = work / 'mkdocs.yml'
     # The layout preview omits the hook that requires fresh validation reports.
     import yaml
     source_config = yaml.safe_load((root / "mkdocs.yml").read_text())
-    nav = source_config.get("nav", [])
-    for item in nav:
-        for title in ('Pilot studies', 'Studies'):
-            if title in item:
-                item[title] = study_navigation(root, item[title])
-        if 'Synthetic data' in item:
-            item['Synthetic data'] = synthetic_navigation(root)
+    nav = populate(source_config.get("nav", []), root)
     config.write_text(f'INHERIT: {root / "mkdocs.yml"}\ndocs_dir: {docs}\n'
                       f'site_dir: {work / "site"}\nhooks: []\n' +
                       (yaml.safe_dump({"nav": nav}, sort_keys=False) if nav else ""))
