@@ -131,5 +131,15 @@ def render_xml(root, path, original, entry):
         access_control=etree.XSLTAccessControl.DENY_ALL,
     )
     view = original.with_name(original.name + ".original.html")
-    view.write_bytes(bytes(transform(etree.parse(str(path), parser))))
+    rendered = bytes(transform(etree.parse(str(path), parser)))
+    # A citation names an element by its OID (ADSL.DISCONFL); the publisher's stylesheet
+    # prefixes the ids it writes (IG.ADSL.IT.ADSL.DISCONFL, MT.MT.ADSL.DISCONFL), so an
+    # unmatched fragment scrolls to the element whose id ends with the cited name.
+    script = (b"<script>(function(){function go(){var want=decodeURIComponent(location.hash.slice(1));"
+              b"if(!want||document.getElementById(want))return;var all=Array.prototype.slice.call(document.querySelectorAll('[id]'));"
+              b"var hit=all.find(function(e){return e.id.endsWith('.IT.'+want)})||all.find(function(e){return e.id.endsWith('.'+want)});"
+              b"if(hit)hit.scrollIntoView()}go();addEventListener('hashchange',go)})();</script>")
+    end = rendered.lower().rfind(b"</body>")
+    rendered = rendered[:end] + script + rendered[end:] if end >= 0 else rendered + script
+    view.write_bytes(rendered)
     return view

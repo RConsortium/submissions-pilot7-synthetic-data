@@ -19,7 +19,12 @@ class TraceExamples:
         self.derived = derived.to_dicts()
         self.probe = probe.to_dicts()
         self.columns = reference.columns
-        self.edges = build_lineage(text, spec, {"REF": set(self.columns)})["edges"]
+        # A documented-rules specification reads the reference as REF, an intermediate over
+        # its base input; both names resolve to the reference columns.
+        schemas = {"REF": set(self.columns)}
+        if spec.get("base"):
+            schemas[spec["base"]] = set(self.columns)
+        self.edges = build_lineage(text, spec, schemas)["edges"]
         self.indexes = []
         self.reason = ""
         for rows in (self.reference, self.derived, self.probe):
