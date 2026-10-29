@@ -1,14 +1,12 @@
 /** GitHub App user authorization and fixed-destination review submission. */
-import { createServer } from 'node:http';
-import { randomBytes, createHash } from 'node:crypto';
-import { readFileSync } from 'node:fs';
-import { pathToFileURL } from 'node:url';
+import dashboard from '../../dashboard.json' with { type: 'json' };
+import studies from '../../yamaa-studies.json' with { type: 'json' };
+import { MemoryStore } from './storage.js';
 import { reviewComment } from '../../../docs/assets/dashboard/review-comment.js';
 
-const dashboard = JSON.parse(readFileSync(new URL('../../dashboard.json', import.meta.url)));
-const studies = JSON.parse(readFileSync(new URL('../../yamaa-studies.json', import.meta.url)));
 const comments = dashboard.comments;
-const random = () => randomBytes(32).toString('hex');
+const random = () => [...crypto.getRandomValues(new Uint8Array(32))].map(n => n.toString(16).padStart(2, '0')).join('');
+const digest = async text => [...new Uint8Array(await crypto.subtle.digest('SHA-256', new TextEncoder().encode(text)))].map(n => n.toString(16).padStart(2, '0')).join('');
 const fail = (status, message) => Object.assign(new Error(message), { status });
 const json = (value, status = 200, headers = {}) => new Response(JSON.stringify(value), {
   status, headers: { 'Content-Type': 'application/json', 'Cache-Control': 'no-store', ...headers },
@@ -20,18 +18,22 @@ function publicUrl(value) {
   return url;
 }
 
-export function createReviewApi(env, { fetch: request = fetch, now = Date.now } = {}) {
+export function createReviewApi(env, { fetch: request = fetch, now = Date.now, store = new MemoryStore(now) } = {}) {
   const site = publicUrl(env.SITE_URL), service = publicUrl(env.SERVICE_URL);
   if (service.pathname !== '/' || !env.GITHUB_CLIENT_ID || !env.GITHUB_CLIENT_SECRET)
     throw Error('SERVICE_URL must be an origin; GitHub App client ID and secret are required.');
   const callback = `${service.origin}/auth/callback`;
-  const states = new Map(), sessions = new Map(), locks = new Map();
-  function prune(map) {
-    for (const [key, value] of map) if (value.expires <= now()) map.delete(key);
+  const locks = new Map();
+  async function exclusive(term, action) {
+    const previous = locks.get(term) || Promise.resolve();
+    const promise = previous.catch(() => {}).then(action);
+    locks.set(term, promise);
+    try { return await promise; }
+    finally { if (locks.get(term) === promise) locks.delete(term); }
   }
   async function upstream(url, options) {
     let response;
-    try { response = await request(url, { ...options, redirect: 'error', signal: AbortSignal.timeout(20000) }); }
+    try { response = await request(url, { ...options, redirect: 'manual', signal: AbortSignal.timeout(20000) }); }
     catch { throw fail(502, 'GitHub could not be reached. Your draft is retained. Check the discussion before retrying.'); }
     if (!response.ok) throw fail(response.status === 401 ? 401 : 502, 'GitHub rejected the request. Your draft is retained.');
     return response.json();
@@ -46,15 +48,25 @@ export function createReviewApi(env, { fetch: request = fetch, now = Date.now } 
   }
   async function body(req) {
     if (req.headers.get('content-type')?.split(';')[0].trim().toLowerCase() !== 'application/json') throw fail(415, 'Expected JSON.');
-    const text = await req.text();
-    if (Buffer.byteLength(text) > 24000) throw fail(413, 'Review is too large.');
+    const reader = req.body?.getReader(), decoder = new TextDecoder();
+    let size = 0, text = '';
+    if (reader) {
+      while (true) {
+        const { done, value } = await reader.read();
+        if (done) break;
+        size += value.byteLength;
+        if (size > 24000) { await reader.cancel(); throw fail(413, 'Review is too large.'); }
+        text += decoder.decode(value, { stream: true });
+      }
+      text += decoder.decode();
+    }
     try { const value = JSON.parse(text); if (!value || typeof value !== 'object' || Array.isArray(value)) throw Error(); return value; } catch { throw fail(400, 'Invalid JSON.'); }
   }
-  function session(req) {
+  async function session(req) {
     const key = req.headers.get('authorization')?.replace(/^Bearer /, '');
-    const value = sessions.get(key);
+    const value = await store.get('sessions', key || '');
     if (!value) throw fail(401, 'Sign in with GitHub to submit your review.');
-    return value;
+    return { ...value, key };
   }
   function assessment(input) {
     const { model, issue, review, requestId } = input;
@@ -114,12 +126,11 @@ export function createReviewApi(env, { fetch: request = fetch, now = Date.now } 
     });
   }
   async function route(req) {
-    prune(states); prune(sessions);
+    await store.prune();
     const url = new URL(req.url);
     if (url.pathname === '/health' && req.method === 'GET') return json({ ok: true });
     if (url.pathname === '/auth/callback' && req.method === 'GET') {
-      const state = states.get(url.searchParams.get('state'));
-      states.delete(url.searchParams.get('state'));
+      const state = await store.take('states', url.searchParams.get('state') || '');
       if (!state) throw fail(400, 'GitHub sign-in expired. Close this window and try again.');
       try {
         if (!url.searchParams.get('code') || url.searchParams.has('error')) throw fail(400, 'GitHub sign-in was cancelled. Your draft is retained.');
@@ -131,8 +142,8 @@ export function createReviewApi(env, { fetch: request = fetch, now = Date.now } 
         const user = await upstream('https://api.github.com/user', { headers: { Authorization: `Bearer ${result.access_token}`, 'User-Agent': 'pilot7-review' } });
         if (!/^[a-z0-9-]+$/i.test(user.login || '')) throw fail(502, 'GitHub did not identify the reviewer.');
         const key = random();
-        if (sessions.size >= 1000) throw fail(503, 'Sign-in is busy. Try again later.');
-        sessions.set(key, { token: result.access_token, login: user.login, expires: now() + Math.min(Number(result.expires_in) || 3600, 3600) * 1000, submissions: new Map() });
+        if (await store.count('sessions') >= 1000) throw fail(503, 'Sign-in is busy. Try again later.');
+        await store.put('sessions', key, { token: result.access_token, login: user.login, expires: now() + Math.min(Number(result.expires_in) || 3600, 3600) * 1000 });
         return authPage(state, { session: key, login: user.login });
       } catch (error) { return authPage(state, { error: error.status ? error.message : 'GitHub sign-in could not be completed. Try again.' }); }
     }
@@ -142,33 +153,30 @@ export function createReviewApi(env, { fetch: request = fetch, now = Date.now } 
     if (url.pathname === '/auth/start') {
       const input = await body(req);
       if (!/^[a-f0-9-]{36}$/.test(input.nonce || '')) throw fail(400, 'Invalid sign-in request.');
-      if (states.size >= 1000) throw fail(429, 'Too many pending sign-ins. Try again later.');
-      const key = random(); states.set(key, { nonce: input.nonce, expires: now() + 300000 });
+      if (await store.count('states') >= 1000) throw fail(429, 'Too many pending sign-ins. Try again later.');
+      const key = random(); await store.put('states', key, { nonce: input.nonce, expires: now() + 300000 });
       const authorize = new URL('https://github.com/login/oauth/authorize');
       for (const [k, v] of Object.entries({ client_id: env.GITHUB_CLIENT_ID, redirect_uri: callback, state: key })) authorize.searchParams.set(k, v);
       return json({ url: authorize.href });
     }
-    const user = session(req);
+    const user = await session(req);
     if (url.pathname === '/logout') {
-      sessions.delete(req.headers.get('authorization').slice(7)); return json({ ok: true });
+      await store.remove('sessions', user.key); return json({ ok: true });
     }
     if (url.pathname !== '/reviews') throw fail(404, 'Not found.');
     const input = await body(req), review = assessment(input);
-    const hash = createHash('sha256').update(review.text).digest('hex');
-    const prior = user.submissions.get(input.requestId);
-    if (prior) {
-      if (prior.hash !== hash) throw fail(409, 'This submission changed. Start a new submission.');
-      return json(await prior.promise);
-    }
-    if (user.submissions.size >= 100) throw fail(429, 'Review limit reached. Sign in again to continue.');
-    // Serialize per thread, including retries, to prevent duplicate thread creation.
-    const previous = locks.get(review.term) || Promise.resolve();
-    const promise = previous.catch(() => {}).then(() => post(user, review));
-    locks.set(review.term, promise);
-    user.submissions.set(input.requestId, { hash, promise });
-    try { return json(await promise); }
-    catch (error) { user.submissions.delete(input.requestId); throw error; }
-    finally { if (locks.get(review.term) === promise) locks.delete(review.term); }
+    const hash = await digest(review.text), key = `${user.key}:${input.requestId}`;
+    return exclusive(review.term, async () => {
+      const prior = await store.get('submissions', key);
+      if (prior && prior.hash !== hash) throw fail(409, 'This submission changed. Start a new submission.');
+      if (prior?.result) return json(prior.result);
+      if (!prior && await store.count('submissions', `${user.key}:`) >= 100) throw fail(429, 'Review limit reached. Sign in again to continue.');
+      // Persist intent before the external write; retries recover ambiguous writes.
+      await store.put('submissions', key, { hash, expires: user.expires });
+      const result = await post(user, review);
+      await store.put('submissions', key, { hash, result, expires: user.expires });
+      return json(result);
+    });
   }
   return async req => {
     let response;
@@ -183,24 +191,4 @@ export function createReviewApi(env, { fetch: request = fetch, now = Date.now } 
     response.headers.set('X-Content-Type-Options', 'nosniff');
     return response;
   };
-}
-
-if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) {
-  const handle = createReviewApi(process.env);
-  createServer(async (incoming, outgoing) => {
-    try {
-      const chunks = []; let size = 0;
-      for await (const chunk of incoming) {
-        size += chunk.length;
-        if (size > 24000) { outgoing.writeHead(413); outgoing.end('Review is too large.'); return; }
-        chunks.push(chunk);
-      }
-      const response = await handle(new Request(new URL(incoming.url, process.env.SERVICE_URL), {
-        method: incoming.method, headers: incoming.headers,
-        ...(['GET', 'HEAD'].includes(incoming.method) ? {} : { body: Buffer.concat(chunks) }),
-      }));
-      outgoing.writeHead(response.status, Object.fromEntries(response.headers));
-      outgoing.end(Buffer.from(await response.arrayBuffer()));
-    } catch { outgoing.writeHead(500); outgoing.end('Review service unavailable.'); }
-  }).listen(Number(process.env.PORT || 8080), '0.0.0.0');
 }

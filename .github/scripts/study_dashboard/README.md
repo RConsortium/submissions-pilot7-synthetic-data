@@ -139,8 +139,8 @@ Current comments use the yamaa Discussions repository, with separate Pilot 7
 terms, as Pilot 7 does not have Discussions enabled.
 
 Direct submission is optional. Set `comments.direct_submission_url` to the
-HTTPS origin of the Node review service after registering a GitHub App and
-configuring its credentials on the host. See
+HTTPS origin of the serverless review Worker after registering a GitHub App and
+configuring its credentials as Worker secrets. See
 [the service setup guide](../../services/review-api/README.md). The form then
 posts under the reviewer's GitHub identity and shows a confirmed comment link.
 The service preserves the existing giscus repository/category and dataset terms;
