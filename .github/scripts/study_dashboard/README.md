@@ -276,7 +276,8 @@ are independently selectable; source context and the full check audit remain
 expandable. The data workspace links back to the same dialog.
 
 Human agreement, criticality and comments are browser-local assessments. Neither
-decision is preselected. Saving an assessment does not resolve the finding or
+decision is preselected. Drafts save automatically as the reviewer edits; there
+is no separate local-save action. A draft does not resolve the finding or
 replace agent adjudication or automated criticality. Drafts are scoped to the
 study and issue and bound to its current evidence; changed evidence returns an
 earlier assessment as a draft. The copied GitHub comment retains source revision

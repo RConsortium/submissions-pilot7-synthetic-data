@@ -39,8 +39,10 @@ See the [verification policy](verification.md) for comparison scope and limits.
 
 At the end of the trace page, assess **Agree**, **Disagree**, or **Need
 clarification**, then choose **Critical**, **Not critical**, or **Unsure**.
-Add comments explaining your assessment. **Save draft** retains unfinished work;
-**Save review** requires both decisions.
+Add comments explaining your assessment. Drafts save automatically in this
+browser. **Copy review & open GitHub comments** requires both decisions and
+copies your assessment. Paste it into the comment box, sign in with GitHub
+if needed, and select **Comment** to publish.
 
 
 **One evidence-backed recommendation is a useful completed contribution.**
