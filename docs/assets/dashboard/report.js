@@ -57,8 +57,10 @@ export function createReport(ctx) {
     // zero-count dataset chip lists nothing instead of text matches.
     const exactScope = q && (allFindings().some(scope) ||
       (ctx.model?.datasets || []).some((d) => d.name.toLowerCase() === q));
-    // Critical findings first, then the ones needing assessment; the report order holds within each.
-    const rank = { yes: 0, needs_review: 1, no: 2 };
+    // Critical findings first, then the ones needing assessment; within each, measured
+    // differences before unmeasured findings; the report order holds otherwise.
+    const rank = { yes: 0, needs_review: 1, no: 2 }, measured = { observed: 0, not_observed: 1, not_measured: 2 },
+      order = (i) => rank[criticalFinding(i).status] * 3 + measured[i.impact.status];
     return allFindings().filter(
       (i) =>
         filtered(i) &&
@@ -66,7 +68,7 @@ export function createReport(ctx) {
           (exactScope
             ? scope(i)
             : issueSearchText(i, report).toLowerCase().includes(q))),
-    ).sort((a, b) => rank[criticalFinding(a).status] - rank[criticalFinding(b).status]);
+    ).sort((a, b) => order(a) - order(b));
   }
   /** Filtered issues per dataset, in the study's dataset order, then by first appearance. */
   function datasetCounts() {
@@ -104,7 +106,7 @@ export function createReport(ctx) {
   function findingRows() {
     const items = findingItems(),
       checks = new Set(items.flatMap((i) => i.check_ids)).size;
-    return `${datasetStrip()}${ledgerStrip()}<p class="result-count" role="status">${items.length} of ${allFindings().length} issue${allFindings().length === 1 ? "" : "s"} &middot; ${checks} supporting check${checks === 1 ? "" : "s"}</p><div class="overview-table consistency-table" role="region" aria-label="Consistency findings" tabindex="0"><table class="review-table"><thead><tr><th scope="col">Dataset / variable</th><th scope="col">Status</th><th scope="col">Critical finding</th><th scope="col">Type</th><th scope="col">Issue</th><th scope="col">Evidence</th></tr></thead><tbody>${items.length ? items.map((i) => issueRow(i, ctx.report)).join("") : '<tr><td colspan="6">No issues match. Clear the filters to see all issues.</td></tr>'}</tbody></table></div>`;
+    return `${datasetStrip()}${ledgerStrip()}<p class="result-count" role="status">${items.length} of ${allFindings().length} issue${allFindings().length === 1 ? "" : "s"} &middot; ${checks} supporting check${checks === 1 ? "" : "s"}</p><div class="overview-table consistency-table" role="region" aria-label="Consistency findings" tabindex="0"><table class="review-table"><thead><tr><th scope="col">Dataset / variable</th><th scope="col">Status</th><th scope="col">Critical finding</th><th scope="col">Type</th><th scope="col">Measured impact</th><th scope="col">Issue</th><th scope="col">Evidence</th></tr></thead><tbody>${items.length ? items.map((i) => issueRow(i, ctx.report)).join("") : '<tr><td colspan="7">No issues match. Clear the filters to see all issues.</td></tr>'}</tbody></table></div>`;
   }
   /** The two decisions and the finding types, where the reviewer meets them. */
   function howToReview() {

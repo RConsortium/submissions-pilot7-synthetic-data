@@ -22,6 +22,7 @@ Each row is one issue.
 | Status | Under Review until maintainers record a human decision. |
 | Critical finding | The automated criticality assessment: Yes, No or Needs review. |
 | Type | The issue type, listed below. |
+| Measured impact | How many subjects differ in the issue-specific comparison, **No differences in tested data**, or **Not measured** when the finding compares statements only. |
 | Issue | A short title and a one-sentence summary. |
 | Evidence | **Start review** opens the complete evidence. Your own draft assessment, if you have one, appears underneath. |
 
@@ -50,8 +51,9 @@ title, document name, quotation or rule ID; an exact name, such as
   affected subjects.
 
 **Clear filters** restores the full list. The list puts findings marked
-**Critical finding: Yes** first, then **Needs review**, then **No**, in the
-report's order within each group. The dataset, filters, search and open
+**Critical finding: Yes** first, then **Needs review**, then **No**; within
+each group, findings with measured differences come before those with none
+and those not measured, in the report's order otherwise. The dataset, filters, search and open
 finding are part of the page URL, so a copied link reproduces them,
 including the finding open in **Start review**.
 

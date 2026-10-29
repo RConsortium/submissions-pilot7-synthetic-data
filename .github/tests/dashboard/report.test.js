@@ -144,12 +144,12 @@ test("the metric and listing count issues separately from supporting checks", ()
   assert.ok(!listing.includes("Agent review"));
   assert.ok(!listing.includes('id="issue-review"'));
   assert.deepEqual([...listing.matchAll(/<th scope="col">([^<]+)<\/th>/g)].map((m) => m[1]), [
-    "Dataset / variable", "Status", "Critical finding", "Type", "Issue", "Evidence",
+    "Dataset / variable", "Status", "Critical finding", "Type", "Measured impact", "Issue", "Evidence",
   ]);
   assert.ok(listing.includes('<th scope="col">Status</th>'));
   assert.match(listing, /class="issue-status"[^]*?class="status attention">Under Review<\/span>/);
   assert.deepEqual([...issueRow(issue, report).matchAll(/<td class="([^"]+)"/g)].map((m) => m[1]), [
-    "issue-status", "issue-critical", "issue-type", "issue-summary",
+    "issue-status", "issue-critical", "issue-type", "issue-impact", "issue-summary",
   ]);
   for (const name of ["issue-critical", "issue-type"]) {
     const cell = listing.match(new RegExp(`<td class="${name}">([^]*?)</td>`))[1];
@@ -157,7 +157,9 @@ test("the metric and listing count issues separately from supporting checks", ()
     assert.doesNotMatch(cell, /<p|<small/);
   }
   assert.ok(!listing.includes(issue.critical.reason));
-  assert.ok(!listing.includes("2 subjects differ"));
+  // The row states the measured impact in one line; the comparison labels stay in the review.
+  assert.ok(listing.includes("2 subjects differ"));
+  assert.ok(!listing.includes("Documented rule vs published reference"));
 });
 
 test("trace shows selected quotes and comparisons once, with full context and check audit expandable", () => {
@@ -265,7 +267,7 @@ test("criticality filters all assessments, preserves long issues and handles old
   assert.equal(view.findingItems().length, 3);
   assert.equal(criticalFinding({}).status, "needs_review");
   s.findingSearch = "absent";
-  assert.match(view.findingRows(), /colspan="6"/);
+  assert.match(view.findingRows(), /colspan="7"/);
 });
 
 test("workspace drawer resolves old check links to the issue and uses the same evidence", () => {
@@ -487,4 +489,20 @@ test("the findings tab explains the two decisions and the types before the filte
     "Conflict: documents disagree", "Agent agreement is not resolution.", 'href="https://example.org/project/review/findings/"'])
     assert.ok(html.includes(fragment), fragment);
   assert.doesNotMatch(createReport({ report, state: state(), esc }).findingsView(), /href="[^"]*review\/findings/);
+});
+
+test("the measured impact column states subjects, no differences or not measured, and orders within a criticality", () => {
+  const measuredIssue = { ...issue, id: "measured", variable: "M", critical: { status: "needs_review", reason: "Gap." },
+      impact: { status: "observed", subject_count: 3, subjects: ["A", "B", "C"] } },
+    none = { ...issue, id: "none", variable: "N", critical: { status: "needs_review", reason: "Gap." },
+      impact: { status: "not_observed", subject_count: 0, subjects: [] } },
+    unmeasured = { ...issue, id: "unmeasured", variable: "U", critical: { status: "needs_review", reason: "Gap." },
+      impact: { status: "not_measured", subject_count: 0, subjects: [] } };
+  const data = { ...report, review: { ...report.review, issues: [unmeasured, none, measuredIssue, issue] } };
+  const view = createReport({ report: data, state: state(), esc });
+  assert.deepEqual(view.findingItems().map((i) => i.id), [issue.id, "measured", "none", "unmeasured"]);
+  const html = view.findingRows();
+  assert.match(html, /data-finding-id="measured"[^]*?<td class="issue-impact"><span class="sr-only">Measured impact: <\/span>3 subjects differ<\/td>/);
+  assert.match(html, /data-finding-id="none"[^]*?issue-impact">[^]*?No differences in tested data</);
+  assert.match(html, /data-finding-id="unmeasured"[^]*?issue-impact">[^]*?Not measured</);
 });

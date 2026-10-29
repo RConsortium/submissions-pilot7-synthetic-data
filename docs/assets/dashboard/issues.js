@@ -64,6 +64,14 @@ export function impactText(issue, report) {
     : "differences observed; subject impact unavailable"}`).join("; ");
 }
 
+/** The row's one-line impact: measured differences, none in the tested data, or not measured. */
+export function impactSummary(issue) {
+  const { status, subject_count } = issue.impact;
+  if (status === "observed") return subject_count ? `${plural(subject_count, "subject")} differ` : "Differences observed";
+  if (status === "not_observed") return "No differences in tested data";
+  return "Not measured";
+}
+
 export function criticalFinding(issue) {
   return issue.critical || {
     status: "needs_review",
@@ -228,5 +236,5 @@ export function issueRow(issue, report) {
   );
   const rules = [...new Set(checks.map((c) => c.rule?.id).filter(Boolean))];
   const critical = criticalFinding(issue);
-  return `<tr class="review-issue" data-finding-id="${esc(issue.id)}"><th scope="row"><button class="text-link" data-finding="${esc(issue.id)}">${esc(issue.dataset + (issue.variable ? "." + issue.variable : ""))}</button><span class="rule-id">${esc(rules.join(", "))}</span></th><td class="issue-status"><span class="sr-only">Status: </span><span class="status attention">Under Review</span></td><td class="issue-critical"><span class="sr-only">Critical finding: </span><span class="status ${critical.status === "yes" ? "attention" : "neutral"}">${esc(CRITICAL_LABELS[critical.status])}</span></td><td class="issue-type"><span class="sr-only">Type: </span><span class="status ${["conflict", "evidence", "inconsistent"].includes(issue.kind) ? "attention" : "neutral"}">${esc(issue.kind.replaceAll("_", " "))}</span></td><td class="issue-summary"><h3>${esc(issue.title)}</h3><p>${esc(issue.summary)}</p></td><td><button class="button" data-trace-issue="${esc(issue.id)}">Start review</button><small class="human-review-status" data-human-review="${esc(issue.id)}"></small></td></tr>`;
+  return `<tr class="review-issue" data-finding-id="${esc(issue.id)}"><th scope="row"><button class="text-link" data-finding="${esc(issue.id)}">${esc(issue.dataset + (issue.variable ? "." + issue.variable : ""))}</button><span class="rule-id">${esc(rules.join(", "))}</span></th><td class="issue-status"><span class="sr-only">Status: </span><span class="status attention">Under Review</span></td><td class="issue-critical"><span class="sr-only">Critical finding: </span><span class="status ${critical.status === "yes" ? "attention" : "neutral"}">${esc(CRITICAL_LABELS[critical.status])}</span></td><td class="issue-type"><span class="sr-only">Type: </span><span class="status ${["conflict", "evidence", "inconsistent"].includes(issue.kind) ? "attention" : "neutral"}">${esc(issue.kind.replaceAll("_", " "))}</span></td><td class="issue-impact"><span class="sr-only">Measured impact: </span>${esc(impactSummary(issue))}</td><td class="issue-summary"><h3>${esc(issue.title)}</h3><p>${esc(issue.summary)}</p></td><td><button class="button" data-trace-issue="${esc(issue.id)}">Start review</button><small class="human-review-status" data-human-review="${esc(issue.id)}"></small></td></tr>`;
 }
