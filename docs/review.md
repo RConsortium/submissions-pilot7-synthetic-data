@@ -15,7 +15,7 @@ gaps. You can also report a problem that the automated checks missed.
 
 ## 2. Check the evidence
 
-For a finding, open **Trace evidence**. The expanded review page keeps
+For a finding, open **Start review**. The expanded review page keeps
 related findings separate and follows this structure:
 
 | Step | Review question |

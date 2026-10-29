@@ -108,7 +108,7 @@ remain open even when reference agreement is 100%.
 The **Consistency findings** tab lists actionable issues. Columns show
 **Dataset / variable**, **Status**, **Critical finding**, **Type**, **Issue**
 and **Evidence**. Type and criticality show badges for quick scanning; expand
-**Trace evidence** for measured impact, criticality reasons and agent review.
+**Start review** for measured impact, criticality reasons and agent review.
 The **Consistency** metric counts issues; the listing separately counts the
 supporting automated checks. Successful execution stays in the study metrics.
 
@@ -125,7 +125,7 @@ pages. Different source pairs stay separate. A shared check can support more
 than one issue without duplicating it
 in the supporting-check count.
 
-Expand **Trace evidence** and follow the numbered steps:
+Expand **Start review** and follow the numbered steps:
 
 1. **Rule comparison:** compare expected and observed behavior with the quoted
    document and specification clauses.

@@ -134,7 +134,7 @@ def check(browser, base, site_dir, screenshots):
     page = context.new_page()
 
     def open_trace(row):
-        row.get_by_role("button", name="Trace evidence", exact=True).click()
+        row.get_by_role("button", name="Start review", exact=True).click()
         trace = page.locator("dialog.trace-review-dialog")
         expect(trace).to_be_visible()
         return trace
@@ -542,7 +542,7 @@ def check(browser, base, site_dir, screenshots):
     expect(rule).to_have_count(1)
     expect(rule.locator("h3")).to_have_text("BMI formula uses the wrong height conversion")
     expect(rule.locator(".rule-id")).to_have_text("CR-5, CR-6")
-    trigger = rule.get_by_role("button", name="Trace evidence", exact=True)
+    trigger = rule.get_by_role("button", name="Start review", exact=True)
     trigger.focus()
     page.keyboard.press("Enter")
     trace = page.locator(".trace-review-dialog")
@@ -704,7 +704,7 @@ def check(browser, base, site_dir, screenshots):
     expect(trace.get_by_role("radio", name="Agree", exact=True)).to_be_checked()
     trace.get_by_role("button", name="Add your review", exact=True).click()
     page.keyboard.press("Escape")
-    expect(selection.get_by_role("button", name="Trace evidence", exact=True)).to_be_focused()
+    expect(selection.get_by_role("button", name="Start review", exact=True)).to_be_focused()
     page.reload()
     trace = open_trace(selection)
     expect(trace.get_by_role("radio", name="Agree", exact=True)).to_be_checked()
