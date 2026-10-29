@@ -730,6 +730,10 @@ def check(browser, base, site_dir, screenshots):
     trace.get_by_role("textbox", name="Review comments").fill("Correct the blank query condition; reference flags follow the guide.")
     copy_review.click()
     expect(trace.locator(".trace-share-feedback")).to_contain_text("Review copied")
+    # The listing behind the dialog keeps the reviewer's own ledger current.
+    expect(page.locator("#review-ledger")).to_contain_text("1 of ")
+    expect(page.locator("#review-ledger")).to_contain_text("1 with both decisions; 0 drafts; 1 shared")
+    expect(page.locator('[data-human-review="cdiscpilot01:ADAE.AOCC01FL.selection-rule"]')).to_have_text("Your review: Copied for GitHub")
     capture(page, screenshots, "trace-github-comments.png")
     # Giscus sign-in navigates the top page; return state must restore the finding.
     page.goto(study + "?trace-return-test=1#cdiscpilot01/overview/ADSL")

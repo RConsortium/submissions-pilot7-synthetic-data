@@ -62,6 +62,11 @@ dataset comment box, where **Comment** publishes it.
 Maintainers assess feedback, record the human decision and apply agreed
 changes before rebuilding. A comment does not approve a dataset.
 
+**Your reviews** above the findings table counts what you have reviewed and
+hands over all of your assessments as one document (**Copy your reviews**
+or **Download your reviews**) for a study lead;
+[Consistency findings](findings.md#your-reviews) describes it.
+
 ## Other studies
 
 CDISC Pilot 01 and Submission Pilot 3 use the same dashboard; the

@@ -146,6 +146,24 @@ No review is posted automatically, and a posted review does not resolve the
 finding or approve the dataset: maintainers record the human decision and
 apply agreed changes before rebuilding.
 
+## Your reviews
+
+**Your reviews** above the table counts the listed findings you have
+started in this browser: how many have both decisions, how many are still
+drafts, how many you shared and how many have changed evidence since. The
+**Your review** filter lists only your drafts, only the findings with both
+decisions, or only the ones you have not started. **Copy your reviews** and
+**Download your reviews** hand over every assessment of the listed findings
+as one Markdown document with the evidence revision, each decision, your
+comment and a link back to the finding. The document is your own record; it
+does not resolve a finding or approve a dataset.
+
+A finding's row says **Your review: Draft** until both decisions are chosen,
+**Saved locally** once they are, **Submitted on GitHub** once **Submit review
+on GitHub** has opened the composer, and **Copied for GitHub** once you copied
+the review; editing the assessment afterwards returns it to **Saved locally**
+or to a draft. The dashboard never confirms what was published on GitHub.
+
 ## Review comments
 
 **Review comments** below the dashboard holds a GitHub Discussion for the

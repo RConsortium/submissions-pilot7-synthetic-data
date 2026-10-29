@@ -9,6 +9,27 @@ export const CRITICALITIES = {
   not_critical: "Not critical",
   unsure: "Unsure",
 };
+/** How a completed assessment left this browser; the dashboard never confirms publication. */
+export const SHARED = { github: "Submitted on GitHub", clipboard: "Copied for GitHub" };
+
+export function draftLabel(draft) {
+  if (draft.status === "reviewed") return SHARED[draft.shared] || "Saved locally";
+  return draft.status === "draft" ? "Draft" : "Not reviewed";
+}
+
+/** Counts a listing can state about the reviewer's own work, with each issue's draft. */
+export function reviewLedger(drafts, study, issues, report) {
+  const entries = issues.map((issue) => ({ issue, draft: drafts.load(study, issue, report) }));
+  const counts = { listed: issues.length, started: 0, drafts: 0, reviewed: 0, shared: 0, stale: 0 };
+  for (const { draft } of entries) {
+    if (draft.status === "unreviewed") continue;
+    counts.started++;
+    if (draft.stale) counts.stale++;
+    if (draft.status === "reviewed") { counts.reviewed++; if (draft.shared) counts.shared++; }
+    else counts.drafts++;
+  }
+  return { entries, counts };
+}
 
 export function evidenceSignature(issue, report) {
   const checks = report.review.checks.filter((c) => issue.check_ids.includes(c.id));
@@ -35,11 +56,13 @@ export function createReviewDrafts(storage) {
       stale = Boolean(raw.signature && raw.signature !== signature),
       agreement = Object.hasOwn(AGREEMENTS, raw.agreement) ? raw.agreement : "",
       criticality = Object.hasOwn(CRITICALITIES, raw.criticality) ? raw.criticality : "";
+    const status = !stale && raw.status === "reviewed" && agreement && criticality
+      ? "reviewed" : raw.signature ? "draft" : "unreviewed";
     return {
       schema_version: 1, signature, agreement, criticality,
       comment: typeof raw.comment === "string" ? raw.comment.slice(0, 10000) : "",
-      status: !stale && raw.status === "reviewed" && agreement && criticality
-        ? "reviewed" : raw.signature ? "draft" : "unreviewed",
+      status,
+      shared: status === "reviewed" && Object.hasOwn(SHARED, raw.shared) ? raw.shared : "",
       updated_at: typeof raw.updated_at === "string" ? raw.updated_at : "",
       stale,
     };
@@ -55,6 +78,7 @@ export function createReviewDrafts(storage) {
       criticality: Object.hasOwn(CRITICALITIES, input.criticality) ? input.criticality : "",
       comment: String(input.comment || "").slice(0, 10000),
       status: complete ? "reviewed" : "draft",
+      shared: complete && Object.hasOwn(SHARED, input.shared) ? input.shared : "",
       updated_at: new Date().toISOString(),
     };
     const id = key(study, issue);

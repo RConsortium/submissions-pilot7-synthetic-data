@@ -437,3 +437,33 @@ test("findings by dataset count the current filters and mark the selected datase
   const bare = createReport({ report: data, state: state(), esc }).findingRows();
   assert.deepEqual(chips(bare).map(([name]) => name), ["", "ADX", "ADY"]);
 });
+
+test("your reviews strip counts the listed findings' assessments and the own-review filter narrows the list", () => {
+  const other = { ...issue, id: "other", dataset: "ADY", variable: "FLAG" };
+  const data = { ...report, review: { ...report.review, issues: [issue, other] } };
+  const records = new Map([
+    [issue.id, { status: "reviewed", shared: "github", stale: false }],
+    [other.id, { status: "draft", shared: "", stale: false }],
+  ]);
+  const drafts = { load: (study, i) => records.get(i.id) || { status: "unreviewed", shared: "", stale: false } };
+  const s = state(),
+    view = createReport({ report: data, state: s, esc, drafts, model: { id: "study", datasets: [] } });
+  let html = view.findingRows();
+  assert.match(html, /Your reviews<\/span><strong>2 of 2<\/strong> listed/);
+  assert.match(html, /1 with both decisions; 1 draft; 1 shared/);
+  assert.match(html, /data-review-ledger="copy" >Copy your reviews/);
+  s.yourReview = "draft";
+  html = view.findingRows();
+  assert.match(html, /1 of 2 issues/);
+  assert.match(html, /data-finding-id="other"/);
+  assert.doesNotMatch(html, /data-finding-id="study:ADX/);
+  assert.match(html, /<strong>1 of 1<\/strong> listed/);
+  assert.deepEqual(view.ledger().counts, { listed: 1, started: 1, drafts: 1, reviewed: 0, shared: 0, stale: 0 });
+  assert.match(view.findingsView(), /id="finding-review"/);
+  records.clear();
+  assert.match(createReport({ report: data, state: state(), esc, drafts, model: { id: "study" } }).findingRows(),
+    /<strong>0 of 2<\/strong> listed<span class="ledger-actions"><button type="button" class="text-link" data-review-ledger="copy" disabled>/);
+  // Without a drafts store there is no ledger and no own-review filter.
+  const bare = createReport({ report: data, state: state(), esc });
+  assert.doesNotMatch(bare.findingRows() + bare.findingsView(), /review-ledger|finding-review/);
+});

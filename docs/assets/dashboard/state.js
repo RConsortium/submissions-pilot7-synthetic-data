@@ -55,6 +55,8 @@ export function readRoute(hash, model) {
       (n) => n !== dataset.name && model.datasets.some((d) => d.name === n),
     ),
     relatedOnly: params.get("columns") !== "all",
+    // The reviewer's own progress filter stays in this browser, never in a shared link.
+    yourReview: "",
     pageSizes: {},
     pages: {},
   };

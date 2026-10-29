@@ -1,6 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { createReviewDrafts } from "../../../docs/assets/dashboard/review-drafts.js";
+import { createReviewDrafts, draftLabel, reviewLedger } from "../../../docs/assets/dashboard/review-drafts.js";
 
 const issue = { dataset: "ADAE", variable: "FLAG", id: "study:ADAE.FLAG.test", title: "A finding", summary: "Review it.",
   check_ids: ["check"], trace: [{ evidence_id: "source", role: "context" }] };
@@ -57,4 +57,30 @@ test("malformed or unsupported stored decisions cannot become a completed review
     assert.equal(value.criticality, "");
     assert.notEqual(value.status, "reviewed");
   }
+});
+test("a complete assessment records how it left the browser and returns to a draft when edited", () => {
+  const drafts = createReviewDrafts(storage());
+  assert.equal(drafts.save("study", issue, report, { ...assessment, shared: "github" }, true).shared, "github");
+  assert.equal(draftLabel(drafts.load("study", issue, report)), "Submitted on GitHub");
+  drafts.save("study", issue, report, { ...assessment, shared: "clipboard" }, true);
+  assert.equal(draftLabel(drafts.load("study", issue, report)), "Copied for GitHub");
+  drafts.save("study", issue, report, { ...assessment, comment: "edited" }, false);
+  assert.equal(drafts.load("study", issue, report).shared, "");
+  assert.equal(draftLabel(drafts.load("study", issue, report)), "Draft");
+  assert.equal(drafts.save("study", issue, report, { ...assessment, shared: "invented" }, true).shared, "");
+  assert.equal(draftLabel(drafts.load("study", issue, report)), "Saved locally");
+  assert.equal(draftLabel(drafts.load("study", { ...issue, id: "untouched" }, report)), "Not reviewed");
+});
+test("the ledger counts started, complete, shared and stale assessments of the listed issues", () => {
+  const drafts = createReviewDrafts(storage());
+  const second = { ...issue, id: "study:ADAE.FLAG.second" }, third = { ...issue, id: "study:ADAE.FLAG.third" };
+  drafts.save("study", issue, report, { ...assessment, shared: "github" }, true);
+  drafts.save("study", second, report, { agreement: "agree" }, false);
+  drafts.save("study", third, report, assessment, true);
+  const { counts, entries } = reviewLedger(drafts, "study", [issue, second, third, { ...issue, id: "untouched" }], report);
+  assert.deepEqual(counts, { listed: 4, started: 3, drafts: 1, reviewed: 2, shared: 1, stale: 0 });
+  assert.equal(entries[3].draft.status, "unreviewed");
+  const revised = { review: { checks: [{ id: "check", basis: "evidence-b" }] } };
+  assert.deepEqual(reviewLedger(drafts, "study", [issue], revised).counts,
+    { listed: 1, started: 1, drafts: 1, reviewed: 0, shared: 0, stale: 1 });
 });

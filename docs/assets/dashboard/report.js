@@ -8,6 +8,7 @@ import {
   issueSearchText,
   readReview,
 } from "./issues.js";
+import { reviewLedger } from "./review-drafts.js";
 
 export const consistencyFindings = (report) => readReview(report).issues;
 const KINDS = [
@@ -20,6 +21,12 @@ const KINDS = [
   "missing_evidence",
   "not_reviewed",
 ];
+/** The reviewer's own progress, kept in this browser and never part of a shared link. */
+export const YOUR_REVIEW = {
+  unreviewed: "Not reviewed",
+  draft: "Draft",
+  reviewed: "Both decisions saved",
+};
 
 export function createReport(ctx) {
   const comparisons = {
@@ -28,13 +35,15 @@ export function createReport(ctx) {
     documented_rules: "Documented rules",
   };
   const allFindings = () => consistencyFindings(ctx.report);
-  /** Comparison, type and criticality filters; the search is applied separately. */
+  const draftOf = (issue) => ctx.drafts?.load(ctx.model.id, issue, ctx.report);
+  /** Comparison, type, criticality and own-review filters; the search is applied separately. */
   function filtered(i) {
     const { state } = ctx;
     return (
       (!state.kind || i.kind === state.kind) &&
       (!state.comparison || i.comparison === state.comparison) &&
-      (!state.critical || criticalFinding(i).status === state.critical)
+      (!state.critical || criticalFinding(i).status === state.critical) &&
+      (!state.yourReview || !ctx.drafts || draftOf(i).status === state.yourReview)
     );
   }
   function findingItems() {
@@ -77,10 +86,23 @@ export function createReport(ctx) {
         `<button type="button" class="dataset-chip" data-finding-dataset="${esc(name)}" aria-pressed="${name.toUpperCase() === selected}">${esc(label)} <span class="chip-count">${count}</span></button>`;
     return `<div class="finding-datasets" role="group" aria-label="Findings by dataset"><span class="field-label">By dataset</span>${chip("", [...counts.values()].reduce((a, b) => a + b, 0), "All")}${[...counts].map(([name, count]) => chip(name, count)).join("")}</div>`;
   }
+  /** The reviewer's assessments of the listed findings, with their counts. */
+  function ledger() {
+    return reviewLedger(ctx.drafts, ctx.model.id, findingItems(), ctx.report);
+  }
+  /** What this reviewer has done with the listed findings, and the way to hand it over. */
+  function ledgerStrip() {
+    if (!ctx.drafts) return "";
+    const { counts } = ledger(),
+      parts = [`${counts.reviewed} with both decisions`, `${counts.drafts} draft${counts.drafts === 1 ? "" : "s"}`];
+    if (counts.shared) parts.push(`${counts.shared} shared`);
+    if (counts.stale) parts.push(`${counts.stale} with changed evidence`);
+    return `<div id="review-ledger" class="review-ledger" role="group" aria-label="Your reviews"><span class="field-label">Your reviews</span><strong>${counts.started} of ${counts.listed}</strong> listed${counts.started ? ` <span class="ledger-detail">(${parts.join("; ")})</span>` : ""}<span class="ledger-actions"><button type="button" class="text-link" data-review-ledger="copy" ${counts.started ? "" : "disabled"}>Copy your reviews</button><button type="button" class="text-link" data-review-ledger="download" ${counts.started ? "" : "disabled"}>Download your reviews</button></span><span class="ledger-feedback" role="status" aria-live="polite"></span></div>`;
+  }
   function findingRows() {
     const items = findingItems(),
       checks = new Set(items.flatMap((i) => i.check_ids)).size;
-    return `${datasetStrip()}<p class="result-count" role="status">${items.length} of ${allFindings().length} issue${allFindings().length === 1 ? "" : "s"} &middot; ${checks} supporting check${checks === 1 ? "" : "s"}</p><div class="overview-table consistency-table" role="region" aria-label="Consistency findings" tabindex="0"><table class="review-table"><thead><tr><th scope="col">Dataset / variable</th><th scope="col">Status</th><th scope="col">Critical finding</th><th scope="col">Type</th><th scope="col">Issue</th><th scope="col">Evidence</th></tr></thead><tbody>${items.length ? items.map((i) => issueRow(i, ctx.report)).join("") : '<tr><td colspan="6">No issues match. Clear the filters to see all issues.</td></tr>'}</tbody></table></div>`;
+    return `${datasetStrip()}${ledgerStrip()}<p class="result-count" role="status">${items.length} of ${allFindings().length} issue${allFindings().length === 1 ? "" : "s"} &middot; ${checks} supporting check${checks === 1 ? "" : "s"}</p><div class="overview-table consistency-table" role="region" aria-label="Consistency findings" tabindex="0"><table class="review-table"><thead><tr><th scope="col">Dataset / variable</th><th scope="col">Status</th><th scope="col">Critical finding</th><th scope="col">Type</th><th scope="col">Issue</th><th scope="col">Evidence</th></tr></thead><tbody>${items.length ? items.map((i) => issueRow(i, ctx.report)).join("") : '<tr><td colspan="6">No issues match. Clear the filters to see all issues.</td></tr>'}</tbody></table></div>`;
   }
   function findingsView() {
     const { state, esc } = ctx;
@@ -88,7 +110,7 @@ export function createReport(ctx) {
       return `<label class="select-field">${label}<select id="${id}"><option value="">All</option>${entries.map(([key, text]) => `<option value="${key}" ${selected === key ? "selected" : ""}>${esc(text)}</option>`).join("")}</select></label>`;
     }
     const entries = (values) => values.map((v) => [v, v.replaceAll("_", " ")]);
-    return `<div class="report-filters"><label class="search-field"><span class="field-label">Search issues</span><input id="finding-search" type="search" value="${esc(state.findingSearch)}" placeholder="Variable, issue, document or rule..."></label>${select("finding-comparison", "Comparison", Object.entries(comparisons), state.comparison)}${select("finding-kind", "Issue type", entries(KINDS), state.kind)}${select("finding-critical", "Critical finding", Object.entries(CRITICAL_LABELS), state.critical)}<button class="button" id="clear-findings">Clear filters</button></div><div id="finding-results">${findingRows()}</div>`;
+    return `<div class="report-filters"><label class="search-field"><span class="field-label">Search issues</span><input id="finding-search" type="search" value="${esc(state.findingSearch)}" placeholder="Variable, issue, document or rule..."></label>${select("finding-comparison", "Comparison", Object.entries(comparisons), state.comparison)}${select("finding-kind", "Issue type", entries(KINDS), state.kind)}${select("finding-critical", "Critical finding", Object.entries(CRITICAL_LABELS), state.critical)}${ctx.drafts ? select("finding-review", "Your review", Object.entries(YOUR_REVIEW), state.yourReview || "") : ""}<button class="button" id="clear-findings">Clear filters</button></div><div id="finding-results">${findingRows()}</div>`;
   }
   function drawer() {
     const { state, esc, byId, root, report } = ctx;
@@ -107,6 +129,8 @@ export function createReport(ctx) {
     findingItems,
     findingRows,
     findingsView,
+    ledger,
+    ledgerStrip,
     drawer,
   };
 }

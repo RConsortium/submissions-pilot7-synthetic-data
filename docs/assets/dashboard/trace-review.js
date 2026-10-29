@@ -3,11 +3,10 @@ import { esc, link } from "./ui.js";
 import { reviewComment } from "./review-comment.js";
 import { reviewDestination, reviewDiscussion } from "./review-submit.js";
 import { comparisonLabel, criticalFinding, CRITICAL_LABELS, findIssue, issueTrace, readReview } from "./issues.js";
-import { AGREEMENTS, CRITICALITIES, createReviewDrafts } from "./review-drafts.js";
+import { AGREEMENTS, CRITICALITIES, createReviewDrafts, draftLabel } from "./review-drafts.js";
 import { resolvedReviewReport } from "./review-sources.js";
 
 const plural = (n, word) => `${n} ${word}${n === 1 ? "" : "s"}`;
-const label = (draft) => draft.status === "reviewed" ? "Saved locally" : draft.status === "draft" ? "Draft" : "Not reviewed";
 const display = (value) => value == null ? "(missing)" : value === "" ? "(blank)" : String(value);
 const cell = (item) => esc(!item?.present ? "(no record)" : item.column_present === false ? "(variable absent)" : display(item.value));
 
@@ -26,7 +25,7 @@ export function createTraceReview(ctx, comments, sources) {
   let storage;
   try { storage = window.localStorage; }
   catch { storage = { getItem() { throw Error("Storage unavailable"); }, setItem() { throw Error("Storage unavailable"); } }; }
-  const drafts = createReviewDrafts(storage);
+  const drafts = ctx.drafts || createReviewDrafts(storage);
   const destination = () => reviewDestination(ctx.index?.comments);
   let dialog = null, issue = null, opener = null, overflow = "", subject = "";
   let restoreComments = null;
@@ -52,8 +51,9 @@ export function createTraceReview(ctx, comments, sources) {
       const item = findIssue(ctx.report, element.dataset.humanReview);
       if (!item) continue;
       const draft = drafts.load(ctx.model.id, item, ctx.report);
-      element.textContent = draft.status === "unreviewed" ? "" : `Your review: ${label(draft)}${draft.stale ? " (evidence changed)" : ""}`;
+      element.textContent = draft.status === "unreviewed" ? "" : `Your review: ${draftLabel(draft)}${draft.stale ? " (evidence changed)" : ""}`;
     }
+    ctx.refreshLedger?.();
   }
   function close(restoreFocus = true) {
     sources?.close(false);
@@ -180,6 +180,7 @@ export function createTraceReview(ctx, comments, sources) {
       ? "Review copied. Paste it into the GitHub comment box below, then select Comment to publish."
       : "Clipboard access is unavailable. Copy the prepared text below, paste it into the GitHub comment box, then select Comment to publish.";
     if (!copied) { textarea.focus({ preventScroll: true }); textarea.select(); }
+    markShared("clipboard");
   }
   function submitOnGitHub() {
     let prepared;
@@ -197,6 +198,7 @@ export function createTraceReview(ctx, comments, sources) {
     dialog.querySelector("[data-trace-prepared]").hidden = false;
     dialog.querySelector("[data-trace-comment-stale]").hidden = true;
     dialog.querySelector(".trace-share-feedback").hidden = true;
+    markShared("github");
     const again = link(prepared.url, tab ? "Open GitHub again" : "Open GitHub");
     if (!prepared.prefilled) {
       navigator.clipboard?.writeText(prepared.body).catch(() => { /* The prepared text stays selectable below. */ });
@@ -207,7 +209,7 @@ export function createTraceReview(ctx, comments, sources) {
   function updateStatus() {
     for (const button of dialog.querySelectorAll("[data-trace-sibling]")) {
       const other = findIssue(ctx.report, button.dataset.traceSibling);
-      button.querySelector("small").textContent = label(drafts.load(ctx.model.id, other, ctx.report));
+      button.querySelector("small").textContent = draftLabel(drafts.load(ctx.model.id, other, ctx.report));
     }
     const note = dialog.querySelector(".trace-storage-note");
     if (note && !drafts.available) note.textContent = "Browser storage is unavailable. Your draft lasts for this session. Use GitHub comments below to publish it.";
@@ -219,10 +221,18 @@ export function createTraceReview(ctx, comments, sources) {
     element.hidden = false;
     element.classList.toggle("trace-error", error);
   }
+  /** Record how a complete assessment left this browser; later edits return it to a draft. */
+  function markShared(shared) {
+    const values = Object.fromEntries(new FormData(dialog.querySelector("form")));
+    try { drafts.save(ctx.model.id, issue, ctx.report, { ...values, shared }, true); updateStatus(); }
+    catch { /* An incomplete assessment stays a draft. */ }
+  }
   function save() {
     const form = dialog.querySelector("form"), values = Object.fromEntries(new FormData(form));
     try {
-      drafts.save(ctx.model.id, issue, ctx.report, values, false);
+      // Both decisions chosen is a complete assessment, saved locally until it is shared.
+      drafts.save(ctx.model.id, issue, ctx.report, values,
+        Object.hasOwn(AGREEMENTS, values.agreement) && Object.hasOwn(CRITICALITIES, values.criticality));
       updateStatus();
       return true;
     } catch (error) {
