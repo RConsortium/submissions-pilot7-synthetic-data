@@ -50,17 +50,30 @@ def assert_page_fits(page, selector):
 
 
 def check_dataset_define(page, url, screenshots=None):
-    """The focused review uses the derived table and one retained XML only."""
+    """Keep the full study workspace around the focused Start review dialog."""
     page.goto(url)
-    expect(page.locator('.dataset-define-panes')).to_be_visible()
+    expect(page.locator('.spec-pane')).to_be_visible()
+    expect(page.locator('.input-group [data-panel]')).not_to_have_count(0)
     expect(page.locator('#output-table tbody tr')).not_to_have_count(0)
-    expect(page.locator('.spec-pane, .input-group, #output-select')).to_have_count(0)
-    expect(page.get_by_role('button', name='Define-XML comparison', exact=True)).to_have_count(0)
-    page.locator('#output-table thead [data-node]').first.click()
-    expect(page.locator('#dataset-define-frame')).to_have_attribute('src', re.compile(r'#ADSL\.'))
+    expect(page.locator('.reference-summary')).to_be_visible()
+    page.locator('#output-select').select_option('reference')
+    expect(page.locator('#output-select')).to_have_value('reference')
+    page.reload()
+    expect(page.locator('#output-select')).to_have_value('reference')
+    page.locator('#output-select').select_option('derived')
+    page.get_by_role('button', name='Define-XML comparison', exact=True).click()
+    expect(page.locator('.define-comparison iframe')).to_have_count(2)
+    page.reload()
+    expect(page.locator('.define-comparison iframe')).to_have_count(2)
+    page.get_by_role('button', name='Source documents', exact=True).click()
+    expect(page.get_by_role('tablist', name='Document 1 files')).to_be_visible()
+    tabs = page.get_by_role('tablist', name='Document 1 files').get_by_role('tab')
+    assert tabs.count() > 1
+    tabs.filter(has_text='.xlsx').first.click()
+    expect(page.locator('#source-frame')).to_have_attribute('src', re.compile(r'\.table\.html'))
     page.get_by_role('button', name='Consistency findings', exact=True).click()
     expect(page.locator('#finding-comparison, #finding-agent')).to_have_count(0)
-    expect(page.locator('.reference-summary')).to_have_count(0)
+    expect(page.locator('.reference-summary')).to_be_visible()
     page.locator('[data-trace-issue]').first.click()
     dialog = page.locator('.trace-review-dialog')
     expect(dialog).to_contain_text('Current derived dataset')
@@ -76,13 +89,11 @@ def check_dataset_define(page, url, screenshots=None):
     expect(page.locator('[data-human-review]').first).to_contain_text('Saved locally')
     for width in (375, 1600):
         page.set_viewport_size({'width': width, 'height': 1000})
-        page.get_by_role('button', name='Dataset and Define-XML', exact=True).click()
-        expect(page.locator('.dataset-define-panes')).to_be_visible()
+        page.get_by_role('button', name='SDTM -> ADaM', exact=True).click()
+        expect(page.locator('.spec-pane')).to_be_visible()
         assert page.evaluate('document.documentElement.scrollWidth <= innerWidth'), width
         if screenshots:
-            capture(page, screenshots, f'dataset-define-{width}.png')
-    page.get_by_role('button', name='Define-XML', exact=True).click()
-    expect(page.get_by_role('tablist', name='Document 1 files').get_by_role('tab')).to_have_count(1)
+            capture(page, screenshots, f'pilot5-workspace-{width}.png')
 
 
 def check_workbook(workbook):

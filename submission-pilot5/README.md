@@ -20,11 +20,12 @@ yamaa-based SDTM-to-ADaM derivation.
 
 ## Review scope
 
-The study dashboard focuses on consistency and gaps between current
+The dashboard's **Start review** dialog focuses on consistency and gaps between current
 `data/adam/*-yamaa.parquet` outputs and the retained
 `spec/define/define-adam.xml`. It identifies both sources and reports checks
 that require additional evidence as Not assessed. Reference reproduction,
-YAML review and generated XML comparison are separate from this view.
+YAML review and generated XML comparison remain available in the full dashboard's
+**SDTM -> ADaM**, **Define-XML comparison** and **Source documents** tabs.
 
 ## Source documents
 

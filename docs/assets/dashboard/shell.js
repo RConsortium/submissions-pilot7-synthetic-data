@@ -15,10 +15,6 @@ export function createShell(ctx) {
   }
   function metrics() {
     const { model, report } = ctx;
-    if (report?.scope === "dataset_define") {
-      const counts = report.check_counts || {};
-      return `<section class="summary-card" aria-label="Dataset and Define-XML review"><h2>Dataset and Define-XML review</h2><p><strong>${consistencyFindings(report).length}</strong> findings awaiting review</p><p>${counts.passed || 0} checks passed; ${counts.different || 0} differences; ${counts.gap || 0} gaps; ${counts.not_assessed || 0} not assessed.</p>${progress(consistencyFindings(report))}<p>Current derived datasets are compared with the retained ADaM Define-XML. Checks that require other sources remain not assessed.</p></section>`;
-    }
     if (model.kind === "synthetic")
       return `<div class="metric-strip"><span><strong>Subjects:</strong> ${metric(model.subjects.length)}</span><span><strong>ADaM datasets:</strong> ${model.datasets.length}</span><span>No independent generated ADaM comparison datasets</span><span>Human analysis review pending</span></div>`;
     const m = model.metrics, issues = consistencyFindings(report);
@@ -33,15 +29,12 @@ export function createShell(ctx) {
   function frame() {
     const { model, state, site, REPO, esc, link } = ctx;
     const synthetic = model.kind === "synthetic";
-    const pair = ctx.report?.scope === "dataset_define";
-    return `<header class="review-hero"><div><p class="eyebrow">PILOT 7 / SDTM &#8594; ADaM</p><div class="study-title-row"><h1>${esc(model.title)}</h1><div class="hero-actions"><a class="button" href="${new URL(synthetic ? "synthetic/" : "studies/", site).href}">${synthetic ? "All synthetic studies" : "All pilot studies"}</a>${link(`${REPO}/tree/${model.revision}/${model.id}`, "Study source", "button")}</div></div><p>${pair ? "Check consistency and gaps between current derived datasets and retained ADaM Define-XML." : synthetic ? "Review synthetic SDTM inputs, ADaM derivations and pending analysis decisions." : "Review SDTM to ADaM derivations against the published submission package."}</p></div></header>${metrics()}<nav class="review-tabs" aria-label="Study sections">${[
-      ...(pair ? [["overview", "Consistency findings"], ["datasets", "Dataset and Define-XML"], ["materials", "Define-XML"]] : [
+    return `<header class="review-hero"><div><p class="eyebrow">PILOT 7 / SDTM &#8594; ADaM</p><div class="study-title-row"><h1>${esc(model.title)}</h1><div class="hero-actions"><a class="button" href="${new URL(synthetic ? "synthetic/" : "studies/", site).href}">${synthetic ? "All synthetic studies" : "All pilot studies"}</a>${link(`${REPO}/tree/${model.revision}/${model.id}`, "Study source", "button")}</div></div><p>${synthetic ? "Review synthetic SDTM inputs, ADaM derivations and pending analysis decisions." : "Review SDTM to ADaM derivations against the published submission package."}</p></div></header>${metrics()}<nav class="review-tabs" aria-label="Study sections">${[
       ["datasets", "SDTM -&gt; ADaM"],
       ...(model.development ? [["development", "Analysis development"]] : []),
       ["overview", "Consistency findings"],
       ...(model.define_comparison ? [["define", "Define-XML comparison"]] : []),
       ["materials", "Source documents"],
-      ]),
     ]
       .map(
         ([id, label]) =>
@@ -49,7 +42,7 @@ export function createShell(ctx) {
       )
       .join(
         "",
-      )}</nav><div id="view-content"></div><div class="review-footnote">${pair ? "Dataset and Define-XML checks use the two identified sources. Derivation correctness requires additional evidence." : "Build success, generated ADaM dataset agreement, and documentation consistency are separate checks."} ${link(new URL("verification/", site).href, "Verification policy")}</div><section id="review-comments" class="review-comments" aria-label="Review comments"></section>`;
+      )}</nav><div id="view-content"></div><div class="review-footnote">Build success, generated ADaM dataset agreement, and documentation consistency are separate checks. ${link(new URL("verification/", site).href, "Verification policy")}</div><section id="review-comments" class="review-comments" aria-label="Review comments"></section>`;
   }
 
   return { metrics, frame };

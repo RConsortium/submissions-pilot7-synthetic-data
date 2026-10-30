@@ -1,23 +1,10 @@
-# Dataset review and SDTM to ADaM workspace
-
-## Pilot 5: Dataset and Define-XML
-
-The **Dataset and Define-XML** tab shows the current derived dataset beside
-the retained ADaM Define-XML. Choose a dataset, select subjects, search records
-or page through the table. Select a column to focus its XML entry. The file
-path identifies the current derived output; the view does not switch to the
-retained reference dataset.
-
-Findings and counts cover the full dataset, regardless of the subjects or
-page displayed. **Define-XML** opens the same retained metadata separately.
-YAML and SDTM inputs are outside this focused review.
-
-## Other studies: SDTM to ADaM
+# SDTM to ADaM workspace
 
 The **SDTM -> ADaM** tab of a study shows an output dataset, the SDTM inputs
 its derivations read and the yamaa specification that produced it, side by
 side for the selected subjects. The pilot studies and the KN189 and KN564
-synthetic studies share this workspace.
+synthetic studies share this workspace. Pilot 5 keeps this full workspace;
+its focused dataset-versus-Define-XML evidence opens under **Start review**.
 
 ## Subjects and datasets
 

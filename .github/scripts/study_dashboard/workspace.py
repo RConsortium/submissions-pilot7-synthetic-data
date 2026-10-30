@@ -14,6 +14,7 @@ from .specifications import defining_sources, inspection_specification, resource
 from .consistency import build_report
 from .domains import domain_labels, domain_keys
 from .define_comparison import export_comparison
+from .documents import define_metadata, materials
 
 
 def build_workspace(root, destination, study, entry, validation, revision, verification=None):
@@ -98,13 +99,11 @@ def build_workspace(root, destination, study, entry, validation, revision, verif
         output = table(resource_path(root, spec_path, resources, "output.path", spec["output"]["path"]))
         labels = {c["name"]: c.get("label", "") for c in spec["columns"]}
         for column in exported[output]["columns"]:
-            if options.get("review_scope") != "dataset_define":
-                column["declared_label"] = labels.get(column["name"], "")
+            column["declared_label"] = labels.get(column["name"], "")
         exported[output]["domain"] = domain
         exported[output]["description"] = labels_adam.get(domain, "")
-        pair = options.get("review_scope") == "dataset_define"
-        exported[output]["keys"] = keys_adam.get(domain, []) if pair else spec.get("keys", [])
-        exported[output]["key_source"] = (define_paths['adam'] if pair else spec_path).relative_to(root).as_posix()
+        exported[output]["keys"] = spec.get("keys", [])
+        exported[output]["key_source"] = spec_path.relative_to(root).as_posix()
         reference = reference_path(root, study, domain, options)
         reference_id = table(reference) if reference.exists() else None
         if results[domain]["comparison"] == "passed" and reference_id is None:
@@ -193,17 +192,30 @@ def build_workspace(root, destination, study, entry, validation, revision, verif
         review_scope=options.get("review_scope", "full"),
         subject_key=options["subject_key"],
     )
+    if options.get("review_scope") == "dataset_define":
+        # The finding checker stays scoped; navigation retains the full package.
+        focused_documents = {d["path"]: d for d in report["documents"]}
+        define_path = define_paths["adam"]
+        _, documents = materials(
+            root, study, target,
+            define_metadata(define_path) if define_path.is_file() else {},
+        )
+        documents = [
+            focused_documents.get(d["path"],
+                                  {k: v for k, v in d.items() if k != "sections"})
+            for d in documents
+        ]
+        report["documents"] = documents
+        write_json(target / "documents.json", documents)
     write_json(target / "report.json", report)
-    if entry.get("category") != "synthetic" and options.get("review_scope") != "dataset_define":
+    if entry.get("category") != "synthetic":
         comparison = export_comparison(root, study, target, validation)
         if comparison is not None:
             record["define_comparison"] = comparison
     record.update(
         tables=exported,
         subjects=sorted(
-            {s for identifier, item in exported.items() for s in item["subjects"]
-             if options.get("review_scope") != "dataset_define"
-             or identifier in {d["output"] for d in record["datasets"]}}
+            {s for item in exported.values() for s in item["subjects"]}
         ),
         metrics={
             "matched": matched_totals(validation),

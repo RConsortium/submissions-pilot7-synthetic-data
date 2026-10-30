@@ -4,9 +4,9 @@
 
 Pilot 5 findings compare only the current derived datasets and the retained
 ADaM Define-XML. **Compared files and coverage** identifies the exact files
-and their SHA256 hashes. The summary separates passed checks, differences,
-gaps and checks that were not assessed. No independent-reference agreement
-percentage is used as a consistency score.
+and their SHA256 hashes. Coverage explains which metadata and narrative rules
+were assessed. Independent-reference agreement remains separate from these
+consistency checks.
 
 - **Inconsistent:** an actual dataset schema or observed value contradicts
   an explicit XML declaration.
@@ -27,8 +27,9 @@ than SAS allocation. Unsupported value-level conditions remain not assessed.
 Record your agreement and criticality under **Your review**. The same local
 draft, sharing and export controls described below apply. The
 **Which side is right?** document/specification question is omitted in this
-scope. The other sections on this page describe the broader workflow retained
-for other pilot studies.
+scope. Pilot 5 retains the **SDTM -> ADaM**, **Define-XML comparison** and
+**Source documents** tabs for broader inspection. The other sections on this
+page describe the broader finding-review workflow used by other pilot studies.
 
 ## Other pilot studies
 

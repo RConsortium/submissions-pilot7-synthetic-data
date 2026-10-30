@@ -62,13 +62,6 @@ export function readRoute(hash, model) {
     pageSizes: {},
     pages: {},
   };
-  if (model.settings?.review_scope === "dataset_define") {
-    if (!view || view === "define") state.view = "overview";
-    state.output = "derived";
-    state.inputs = [];
-    state.outputs = [];
-    state.relatedOnly = false;
-  }
   if (state.inputs === null && params.get("input")) {
     const legacy = params.get("input"),
       id = dataset.inputs.find((i) => i.alias === legacy)?.table || legacy;
@@ -79,7 +72,6 @@ export function readRoute(hash, model) {
   if (model.settings?.review_scope === "dataset_define") {
     state.comparison = "";
     state.agentReview = "";
-    state.specView = "";
   }
   if (!["yes", "no", "needs_review"].includes(state.critical))
     state.critical = "";

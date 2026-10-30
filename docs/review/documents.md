@@ -1,10 +1,8 @@
 # Source documents and Define-XML
 
-Pilot 5 retains only the ADaM Define-XML in its focused review interface.
-Its **Dataset and Define-XML** tab compares that metadata with the current
-derived data; it does not compare two XML files. Finding citations open the
-unchanged XML with line numbers. The broader document and generated-XML views
-below remain available for other pilot studies.
+Pilot 5 keeps the **Source documents** and **Define-XML comparison** tabs.
+Its **Start review** dialog focuses on current derived data and retained
+ADaM Define-XML; finding citations open the unchanged XML with line numbers.
 
 ## Source documents
 

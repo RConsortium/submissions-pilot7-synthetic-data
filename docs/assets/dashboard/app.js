@@ -136,10 +136,6 @@ import { developmentReport, mountDevelopment } from "./synthetic-development.js"
   const resizing = createResizing(ctx, fitWorkbench);
   function updatePlan() {
     plan = reviewPlan(model, state, graph);
-    if (report.scope === "dataset_define") {
-      plan.inputs = [];
-      plan.panels = plan.outputs;
-    }
   }
   async function refreshRows() {
     const token = ++refreshRows.token,

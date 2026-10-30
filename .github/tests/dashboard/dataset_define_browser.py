@@ -14,8 +14,6 @@ from playwright.sync_api import sync_playwright
 
 ROOT = Path(__file__).resolve().parents[3]
 sys.path.insert(0, str(ROOT / '.github/scripts'))
-from study_artifacts import artifact_snapshot
-from study_dashboard.workspace import build_workspace
 from test_dataset_define import DatasetDefineTests
 from browser import check_dataset_define
 
@@ -33,28 +31,10 @@ def main():
     fixture = DatasetDefineTests()
     fixture.setUp()
     try:
-        fixture.report({'USUBJID': ['001', '002', '003'], 'CODE': ['Y', 'X', 'N'], 'AGE': [65., 70., 75.]})
-        specs = fixture.base / 'spec/yamaa'
-        specs.mkdir()
-        (specs / 'project.yaml').write_text('adam: {specs: [adsl.yaml]}')
-        (specs / 'adsl.yaml').write_text('''domain: ADSL
-keys: [USUBJID]
-input: {}
-output: {path: ../../data/adam/adsl-yamaa.parquet, columns: [USUBJID, CODE, AGE]}
-columns:
-  - {name: USUBJID, type: str, label: ID, derivation: "'001'"}
-  - {name: CODE, type: str, label: Code, derivation: "'Y'"}
-  - {name: AGE, type: float, label: Age, derivation: '65'}
-''')
         site = fixture.root / 'site'
         destination = site / 'evidence/dashboard'
         destination.mkdir(parents=True)
-        validation = {'status': 'succeeded', 'datasets': [{'domain': 'ADSL', 'build': 'succeeded',
-                       'comparison': 'unavailable', 'rows': 3, 'columns': 3}],
-                      'artifacts': artifact_snapshot(fixture.root, 'study')}
-        entry = {'title': 'Two-source browser fixture', 'description': 'Synthetic fixture; no study results.',
-                 'source': 'https://example.test', 'dashboard': {'review_scope': 'dataset_define'}}
-        build_workspace(fixture.root, destination, 'study', entry, validation, 'fixture')
+        fixture.workspace(destination)
         (destination / 'index.json').write_text(json.dumps({'schema_version': 1, 'studies': [{'id': 'study'}], 'comments': {}}))
         shutil.copytree(ROOT / 'docs/assets', site / 'assets')
         shutil.copytree(ROOT / 'docs/stylesheets', site / 'stylesheets')
