@@ -14,9 +14,9 @@ SCHEMAS = Path(__file__).resolve().parents[2] / "schemas"
 CHECK_TITLES = {
     "CR-1": "Source quote could not be verified",
     "CR-2": "Documented source variable is absent",
-    "CR-3": "Documented source differs from the reference",
+    "CR-3": "Documented source differs from generated ADaM datasets",
     "CR-4": "Specification uses a different copy source",
-    "CR-5": "Documented rule differs from the reference",
+    "CR-5": "Documented rule differs from generated ADaM datasets",
     "CR-6": "Specification differs from a documented clause",
     "CR-7": "Specification clause is undocumented",
     "CR-8": "Source documents disagree",

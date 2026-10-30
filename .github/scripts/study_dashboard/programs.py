@@ -4,10 +4,10 @@ import re
 
 PROGRAM_SUFFIXES = {".r", ".sas"}
 PROGRAM_ROLES = {
-    "adam_program": "ADaM program retained from the submission package that published the reference datasets.",
+    "adam_program": "ADaM program retained from the submission package that produced the generated ADaM datasets.",
     "reference_reimplementation": (
-        "Later reimplementation that reproduces the published reference datasets. It shows how "
-        "the reference values can be produced, not what the original authors intended."
+        "Later reimplementation that reproduces the generated ADaM datasets. It shows how "
+        "the generated ADaM values can be produced, not what the original authors intended."
     ),
 }
 LINE_RANGE = re.compile(r"L([1-9][0-9]*)(?:-L([1-9][0-9]*))?")

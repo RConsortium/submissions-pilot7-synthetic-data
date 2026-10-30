@@ -37,7 +37,7 @@ function comparisonSources(e) {
       : e.method === "copy" ? "Documented source"
       : e.reading === "literal" ? "Documented rule"
       : `Alternative interpretation: ${e.reading || "see calculation details"}`,
-    target: e.target === "derived" ? "yamaa output" : "published reference",
+    target: e.target === "derived" ? "yamaa output" : "generated ADaM datasets",
   };
 }
 

@@ -121,7 +121,7 @@ test("synthetic workspaces retain development review without claiming reference 
   }).frame();
   assert.match(html, /href="https:\/\/example.test\/project\/synthetic\/">All synthetic studies/);
   assert.match(html, /data-view="development"[^>]*>Analysis development/);
-  assert.match(html, /No independent published reference/);
+  assert.match(html, /No independent generated ADaM comparison datasets/);
   assert.match(html, /Human analysis review pending/);
   assert.doesNotMatch(html, /All pilot studies|published submission package|%/);
 });
@@ -132,11 +132,11 @@ test("the metric and listing count issues separately from supporting checks", ()
     report,
     model: { metrics: { matched: [1, 2, 3], reference: [1, 2, 3] } },
   }).metrics();
-  assert.match(html, /Published ADaM reference agreement/);
-  assert.match(html, /<strong>100%<\/strong> of reference datasets matched/);
+  assert.match(html, /Generated ADaM dataset agreement/);
+  assert.match(html, /<strong>100%<\/strong> of generated ADaM datasets matched/);
   assert.match(html, /<strong>1<\/strong> finding awaiting review/);
   assert.match(html, /1 critical; 0 non-critical; 0 needing assessment/);
-  assert.match(html, /Findings can remain open even when reference agreement is 100%/);
+  assert.match(html, /Findings can remain open even when generated ADaM dataset agreement is 100%/);
   const listing = createReport({ report, state: state(), esc }).findingsView();
   assert.match(listing, /1 of 1 issue &middot; 2 supporting checks/);
   assert.equal((listing.match(/<tr class="review-issue"/g) || []).length, 1);
@@ -160,7 +160,7 @@ test("the metric and listing count issues separately from supporting checks", ()
   assert.ok(!listing.includes(issue.critical.reason));
   // The row states the measured impact in one line; the comparison labels stay in the review.
   assert.ok(listing.includes("2 subjects differ"));
-  assert.ok(!listing.includes("Documented rule vs published reference"));
+  assert.ok(!listing.includes("Documented rule vs generated ADaM datasets"));
 });
 
 test("trace shows selected quotes and comparisons once, with full context and check audit expandable", () => {
@@ -176,7 +176,7 @@ test("trace shows selected quotes and comparisons once, with full context and ch
     "Full context",
     '3</span><span class="context-line-text">  day: 1</span></mark>',
     "2 / 3 records differ",
-    "published reference <code>&lt;value&gt;</code>; documented rule <code>(missing)</code>",
+    "generated ADaM datasets <code>&lt;value&gt;</code>; documented rule <code>(missing)</code>",
     "2 supporting checks and agent review",
     "Proposed action",
     "Complete check evidence",
@@ -192,7 +192,7 @@ test("trace shows selected quotes and comparisons once, with full context and ch
   assert.ok(!html.includes("<value>"));
   assert.ok(html.indexOf("1. Rule comparison") < html.indexOf("2. Data comparison"));
   assert.ok(html.indexOf("2. Data comparison") < html.indexOf("3. Proposed action"));
-  assert.match(primary, /Documented rule vs published reference: 2 subjects differ/);
+  assert.match(primary, /Documented rule vs generated ADaM datasets: 2 subjects differ/);
   // Each citation opens its source through one link; line numbers stay in the source view.
   assert.equal(
     (html.match(/data-source-evidence=/g) || []).length,
@@ -296,7 +296,7 @@ test("workspace drawer resolves old check links to the issue and uses the same e
   }).drawer();
   assert.match(host.innerHTML, /Partial-date rule differs/);
   assert.match(host.innerHTML, /data-trace-issue="study:ADX.DATE.partial-date"/);
-  assert.match(host.innerHTML, /Documented rule vs published reference: 2 subjects differ/);
+  assert.match(host.innerHTML, /Documented rule vs generated ADaM datasets: 2 subjects differ/);
 });
 
 test("former issue links resolve to the combined source-pair row and trace", () => {
@@ -339,7 +339,7 @@ test("unmeasured impact stays distinct from zero observed differences and contex
       ...issue,
       impact: { ...issue.impact, status: "not_observed" },
     }, { ...report, review: { ...report.review, evidence: [{ ...comparison, differ: 0, subjects: [], patterns: [] }] } }),
-    "Documented rule vs published reference: no differences in tested data",
+    "Documented rule vs generated ADaM datasets: no differences in tested data",
   );
   const contextual = {
     ...issue,
@@ -360,17 +360,17 @@ test("impact names each compared pair, deduplicates subjects and excludes contex
   ];
   const item = { ...issue, trace: evidence.map((e) => ({ evidence_id: e.id, role: e.id === "context" ? "context" : "impact" })) };
   const data = { ...report, review: { ...report.review, evidence } };
-  assert.equal(impactText(item, data), "Documented rule vs published reference: 3 subjects differ; Documented rule vs yamaa output: 1 subject differs");
-  assert.equal(comparisonLabel({ ...comparison, method: "copy" }), "Documented source vs published reference");
+  assert.equal(impactText(item, data), "Documented rule vs generated ADaM datasets: 3 subjects differ; Documented rule vs yamaa output: 1 subject differs");
+  assert.equal(comparisonLabel({ ...comparison, method: "copy" }), "Documented source vs generated ADaM datasets");
   assert.equal(comparisonLabel({ ...comparison, type: "codelist", target: "derived" }), "Documented codelist vs yamaa output");
-  assert.match(comparisonLabel({ ...comparison, reading: "corrected" }), /Alternative interpretation: corrected vs published reference/);
+  assert.match(comparisonLabel({ ...comparison, reading: "corrected" }), /Alternative interpretation: corrected vs generated ADaM datasets/);
 });
 
 test("summary retains unassessed findings, zero findings and unavailable references", () => {
   const data = { ...report, review: { ...report.review, issues: [{ ...issue, critical: undefined }] } };
   const model = { metrics: { matched: [0, 0, 0], reference: [0, 0, 0] } };
   const html = createShell({ report: data, model }).metrics();
-  assert.match(html, /No official reference/);
+  assert.match(html, /No generated ADaM comparison datasets/);
   assert.match(html, /0 critical; 0 non-critical; 1 needing assessment/);
   assert.doesNotMatch(html, /NaN|100%<\/strong>|non-critical; 0 needing assessment/);
   const zero = createShell({ model, report: { ...report, review: { ...report.review, issues: [] } } }).metrics();
