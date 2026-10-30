@@ -912,8 +912,8 @@ def check(browser, base, site_dir, screenshots):
                 assert_page_fits(page, "#output-table")
             elif view == "findings":
                 expect(page.get_by_role("region", name="Consistency findings", exact=True)).to_be_visible()
-                page.locator("[data-trace-issue]").first.click()
-                expect(page.locator(".finding-evidence").first).to_be_visible()
+                trace = open_trace(page.locator(".consistency-table tbody tr.review-issue").first)
+                expect(trace.locator("#trace-sources")).to_be_visible()
             elif view == "materials":
                 expect(page.locator("#source-frame")).to_be_visible()
             else:
