@@ -136,6 +136,10 @@ import { developmentReport, mountDevelopment } from "./synthetic-development.js"
   const resizing = createResizing(ctx, fitWorkbench);
   function updatePlan() {
     plan = reviewPlan(model, state, graph);
+    if (report.scope === "dataset_define") {
+      plan.inputs = [];
+      plan.panels = plan.outputs;
+    }
   }
   async function refreshRows() {
     const token = ++refreshRows.token,
@@ -177,7 +181,7 @@ import { developmentReport, mountDevelopment } from "./synthetic-development.js"
     updatePlan();
     byId("view-content").innerHTML = workspace();
     for (const id of opened) if (byId(id)) byId(id).open = true;
-    byId("spec-scroll").scrollTop = offset;
+    if (byId("spec-scroll")) byId("spec-scroll").scrollTop = offset;
     await refreshRows();
     if (token === ticket) {
       drawer();

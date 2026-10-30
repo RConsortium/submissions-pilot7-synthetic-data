@@ -64,6 +64,10 @@ def reviewed_datasets(root, study):
     """Project datasets with committed consistency-review claims, in project order."""
     if not (root / study / 'spec/yamaa/project.yaml').exists():
         return []
+    from study_dashboard.config import settings
+    entries = catalog(root) if (root / '.github/yamaa-studies.json').exists() else {}
+    if settings(root, entries.get(study, {})).get('review_scope') == 'dataset_define':
+        return []
     review = root / study / 'spec/review'
     return [domain for domain, _ in project_specs(root, study)
             if (review / f'{domain.lower()}-claims.json').is_file()]

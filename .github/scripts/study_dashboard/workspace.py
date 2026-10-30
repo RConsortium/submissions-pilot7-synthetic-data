@@ -98,11 +98,13 @@ def build_workspace(root, destination, study, entry, validation, revision, verif
         output = table(resource_path(root, spec_path, resources, "output.path", spec["output"]["path"]))
         labels = {c["name"]: c.get("label", "") for c in spec["columns"]}
         for column in exported[output]["columns"]:
-            column["declared_label"] = labels.get(column["name"], "")
+            if options.get("review_scope") != "dataset_define":
+                column["declared_label"] = labels.get(column["name"], "")
         exported[output]["domain"] = domain
         exported[output]["description"] = labels_adam.get(domain, "")
-        exported[output]["keys"] = spec.get("keys", [])
-        exported[output]["key_source"] = spec_path.relative_to(root).as_posix()
+        pair = options.get("review_scope") == "dataset_define"
+        exported[output]["keys"] = keys_adam.get(domain, []) if pair else spec.get("keys", [])
+        exported[output]["key_source"] = (define_paths['adam'] if pair else spec_path).relative_to(root).as_posix()
         reference = reference_path(root, study, domain, options)
         reference_id = table(reference) if reference.exists() else None
         if results[domain]["comparison"] == "passed" and reference_id is None:
@@ -188,16 +190,20 @@ def build_workspace(root, destination, study, entry, validation, revision, verif
         revision,
         validation,
         verification,
+        review_scope=options.get("review_scope", "full"),
+        subject_key=options["subject_key"],
     )
     write_json(target / "report.json", report)
-    if entry.get("category") != "synthetic":
+    if entry.get("category") != "synthetic" and options.get("review_scope") != "dataset_define":
         comparison = export_comparison(root, study, target, validation)
         if comparison is not None:
             record["define_comparison"] = comparison
     record.update(
         tables=exported,
         subjects=sorted(
-            {s for item in exported.values() for s in item["subjects"]}
+            {s for identifier, item in exported.items() for s in item["subjects"]
+             if options.get("review_scope") != "dataset_define"
+             or identifier in {d["output"] for d in record["datasets"]}}
         ),
         metrics={
             "matched": matched_totals(validation),

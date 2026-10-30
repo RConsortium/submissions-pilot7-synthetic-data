@@ -14,7 +14,7 @@ def settings(root, entry):
     if shared and shared.get("schema_version") != SCHEMA_VERSION:
         raise ValueError("Unsupported dashboard configuration schema_version")
     options = {**DEFAULTS, **shared.get("defaults", {}), **entry.get("dashboard", {})}
-    unknown = set(options) - {"subject_key", "default_subject_count", "references"}
+    unknown = set(options) - {"subject_key", "default_subject_count", "references", "review_scope"}
     if unknown:
         raise ValueError(f"Unknown dashboard settings: {sorted(unknown)}")
     if not isinstance(options["subject_key"], str) or not options["subject_key"]:
@@ -26,6 +26,8 @@ def settings(root, entry):
         raise ValueError(
             "dashboard.references must map domain names to study-relative files"
         )
+    if options.get("review_scope", "full") not in {"full", "dataset_define"}:
+        raise ValueError("Unsupported dashboard.review_scope")
     return options
 
 

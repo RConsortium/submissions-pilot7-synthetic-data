@@ -225,6 +225,9 @@ def check_record(f, pool):
                 )
             )
     e = f.get("evidence") or {}
+    if e.get("dataset_check") is not None:
+        add(pool.comparison(e["dataset_check"], "dataset_define",
+                            f["variable"] or "Dataset", f["title"], "derived"))
     for p in e.get("probes", []):
         add(pool.citation(p.get("definition"), "specification"))
         for target in ("reference", "derived"):
@@ -264,6 +267,8 @@ def check_record(f, pool):
         add(key)
         selectors[("codelist", None, target)] = key
     for title, note in (
+        ("Current derived dataset", f.get("data", {}).get("summary")
+         if f["comparison"] == "dataset_define" else None),
         ("Documented rule check unavailable", e.get("not_probed_reason")),
         ("Copy source", copy.get("reason")),
     ):
@@ -434,10 +439,12 @@ def fallback_issues(study, checks, originals, pool):
             "variable": linked[0]["variable"],
             "title": CHECK_TITLES.get((first.get("rule") or {}).get("id"), first["title"]),
             "summary": first["observation"],
-            "expected": "",
-            "observed": "",
+            "expected": first.get("expected", ""),
+            "observed": first.get("observed", ""),
             "action": " ".join(dict.fromkeys(f.get("recommendation", "") for f in findings)),
         }
+        if first.get("critical"):
+            definition["critical"] = first["critical"]
         if len(linked) > 1:
             pair = source_pair(first)
             definition["title"] += ": " + " vs ".join(Path(path).name for _, path in pair)
@@ -461,7 +468,7 @@ def fallback_issues(study, checks, originals, pool):
     return issues
 
 
-def build_review(root, study, revision, findings):
+def build_review(root, study, revision, findings, use_authored=True):
     """Honor authored decisions; otherwise group verified clauses by source pair."""
     pool, checks, selectors = Evidence(), [], {}
     for f in findings:
@@ -471,7 +478,7 @@ def build_review(root, study, revision, findings):
         checks.append(check)
         selectors[check["id"]] = selection
     issues, covered = [], set()
-    for path in sorted((Path(root) / study / "spec/review").glob("*-issues.json")):
+    for path in sorted((Path(root) / study / "spec/review").glob("*-issues.json")) if use_authored else []:
         domain = path.stem.removesuffix("-issues").upper()
         found, assigned = declaration_issues(path, study, checks, selectors, pool)
         if any(i["dataset"] != domain for i in found):
