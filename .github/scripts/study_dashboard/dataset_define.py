@@ -64,7 +64,7 @@ def formula(text, domain, names):
                   ast.Mult: operator.mul, ast.Div: operator.truediv}
     try:
         tree = ast.parse(text.strip(), mode="eval")
-    except SyntaxError:
+    except (SyntaxError, ValueError):
         return None
 
     def compile_node(node):
@@ -125,12 +125,12 @@ def build_report(root, study, outputs, target, revision, subject_key="USUBJID"):
         lines = path.read_text(encoding=parsed.docinfo.encoding).splitlines()
         elements = {e.get("OID"): e for e in parsed.iter() if e.get("OID")}
         for group in parsed.iter():
-            if etree.QName(group).localname != "ItemGroupDef":
+            if not isinstance(group.tag, str) or etree.QName(group).localname != "ItemGroupDef":
                 continue
             domain = group.get("Name")
             citations[(domain, "")] = [group]
             for ref in group:
-                if etree.QName(ref).localname != "ItemRef":
+                if not isinstance(ref.tag, str) or etree.QName(ref).localname != "ItemRef":
                     continue
                 item = elements.get(ref.get("ItemOID"))
                 if item is None:
@@ -142,9 +142,9 @@ def build_report(root, study, outputs, target, revision, subject_key="USUBJID"):
                         linked.append(elements[identity])
                     if child.get("ValueListOID") in elements:
                         value_scopes[(domain, item.get("Name"))] = [
-                            sum(etree.QName(c).localname == "WhereClauseRef" for c in value_ref) == 1
+                            sum(isinstance(c.tag, str) and etree.QName(c).localname == "WhereClauseRef" for c in value_ref) == 1
                             for value_ref in elements[child.get("ValueListOID")]
-                            if etree.QName(value_ref).localname == "ItemRef"]
+                            if isinstance(value_ref.tag, str) and etree.QName(value_ref).localname == "ItemRef"]
                 if ref.get("MethodOID") in elements:
                     linked.append(elements[ref.get("MethodOID")])
                 pending = list(linked)
