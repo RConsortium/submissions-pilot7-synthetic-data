@@ -71,7 +71,8 @@ For a derivation change, also run
 For website changes, validate every study in `.github/yamaa-studies.json`,
 install `docs/requirements.txt`, run
 `python3 .github/scripts/verify_derivations.py <study> --reviewed` for each study
-with review claims under `<study>/spec/review/`,
+selected by `study_evidence.reviewed_datasets`. The `dataset_define` review
+scope does not require multisource claim verification. Then
 generate study pages with `python3 .github/scripts/build_study_docs.py`, and run
 `python3 -m mkdocs build --strict`.
 
