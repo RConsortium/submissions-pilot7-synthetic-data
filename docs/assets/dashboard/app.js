@@ -130,7 +130,7 @@ import { developmentReport, mountDevelopment } from "./synthetic-development.js"
     if (strip) strip.outerHTML = ledgerStrip();
   };
   const reviewSources = createReviewSources(ctx);
-  const traceReview = createTraceReview(ctx, comments, reviewSources);
+  const traceReview = createTraceReview(ctx, reviewSources);
   const sourceDocuments = createSourceDocuments(ctx),
     { materialsView } = sourceDocuments;
   const resizing = createResizing(ctx, fitWorkbench);
@@ -207,7 +207,6 @@ import { developmentReport, mountDevelopment } from "./synthetic-development.js"
     byId("review-comments").innerHTML = commentsView();
     loadComments();
     traceReview.refreshRows();
-    traceReview.resumeComments();
     if (state.view === "datasets") {
       await refreshRows();
       if (token === ticket) {

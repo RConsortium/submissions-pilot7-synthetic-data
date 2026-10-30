@@ -108,7 +108,7 @@ reviewer needs them:
 3. **YAML specification**: the rule as the study's resolved specification
    states it, with its line numbers, next to the rule as the documents
    state it. Document-based translations keep their own YAML; the original
-   layer citations remain in the supporting check audit.
+   layer citations remain in the generated verification report.
 4. **Example subject difference**: representative records from the published
    reference next to the document-based calculation, with differing cells
    highlighted. Examples illustrate the calculation; they do not supply the
@@ -117,12 +117,10 @@ reviewer needs them:
    text is the extraction agent's question about the whole variable, the
    section is headed **Open question for this variable** and says how many
    findings share it; decide each finding on its own evidence.
-6. **Your review** and **GitHub comments**: see
+6. **Your review**: see
    [Record your assessment](#record-your-assessment).
 
-**Supporting checks and agent review** keeps the rule statements, the
-complete check evidence and the adjudicator's reasons; source quotations stay
-literal. **Next finding in list** and **Previous finding in list** walk the
+**Next finding in list** and **Previous finding in list** walk the
 findings the table currently lists, in its order, without closing the page;
 the footer counts your place in that list. When the open finding is not in
 the list, the buttons walk its variable's findings instead.
@@ -136,7 +134,7 @@ title, expected and observed behavior, a proposed action and links to its
 supporting checks; a change to the check evidence requires the grouping to be
 reviewed before publication. Without authored grouping, verified clause
 discrepancies for the same variable and exact source-file pair share one
-issue, and their complete checks remain in the trace.
+issue, and their complete checks remain in the generated verification report.
 
 Define-XML 2.x derivation citations follow the variable's referenced
 `MethodDef`; comment and codelist citations open their own elements.
