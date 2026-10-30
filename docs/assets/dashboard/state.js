@@ -62,6 +62,13 @@ export function readRoute(hash, model) {
     pageSizes: {},
     pages: {},
   };
+  if (model.settings?.review_scope === "dataset_define") {
+    if (!view || view === "define") state.view = "overview";
+    state.output = "derived";
+    state.inputs = [];
+    state.outputs = [];
+    state.relatedOnly = false;
+  }
   if (state.inputs === null && params.get("input")) {
     const legacy = params.get("input"),
       id = dataset.inputs.find((i) => i.alias === legacy)?.table || legacy;
@@ -69,6 +76,11 @@ export function readRoute(hash, model) {
   }
   for (const field of fields)
     state[field] = (params.get(field) || "").slice(0, 500);
+  if (model.settings?.review_scope === "dataset_define") {
+    state.comparison = "";
+    state.agentReview = "";
+    state.specView = "";
+  }
   if (!["yes", "no", "needs_review"].includes(state.critical))
     state.critical = "";
   if (!["agreed", "disputed", "stale", "mixed", "not_reviewed"].includes(state.agentReview))

@@ -115,17 +115,31 @@ jobs:
           if-no-files-found: error
       # Datasets with committed review claims are verified here, where the pinned
       # engine runs their probes; publication only checks and shows the report.
+      - name: Select document verification for the study review scope
+        if: inputs.yamaa
+        id: reviewed
+        run: |
+          python - <<'PY'
+          import os
+          from pathlib import Path
+          import sys
+          sys.path.insert(0, '.github/scripts')
+          from study_evidence import reviewed_datasets
+          required = bool(reviewed_datasets(Path.cwd(), os.environ['STUDY']))
+          with open(os.environ['GITHUB_OUTPUT'], 'a') as output:
+              output.write(f'required={str(required).lower()}\n')
+          PY
       - name: Install document readers for derivation verification
-        if: inputs.yamaa && hashFiles(format('{0}/spec/review/*-claims.json', inputs.study)) != ''
+        if: inputs.yamaa && steps.reviewed.outputs.required == 'true'
         run: python -m pip install -r docs/requirements.txt
       - name: Verify reviewed derivations against the submission documents
-        if: inputs.yamaa && hashFiles(format('{0}/spec/review/*-claims.json', inputs.study)) != ''
+        if: inputs.yamaa && steps.reviewed.outputs.required == 'true'
         run: |
           python .github/scripts/verify_derivations.py "$STUDY" --reviewed
           mkdir -p ".build/verification-artifact/$STUDY"
           cp ".build/verification/$STUDY/report.json" ".build/verification/$STUDY/report.md" ".build/verification-artifact/$STUDY/"
       - uses: actions/upload-artifact@v4
-        if: inputs.yamaa && hashFiles(format('{0}/spec/review/*-claims.json', inputs.study)) != ''
+        if: inputs.yamaa && steps.reviewed.outputs.required == 'true'
         with:
           name: verification-${{ inputs.study }}
           path: .build/verification-artifact/

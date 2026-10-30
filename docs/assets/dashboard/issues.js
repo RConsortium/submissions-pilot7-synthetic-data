@@ -32,6 +32,7 @@ export function findIssue(report, id) {
 }
 
 function comparisonSources(e) {
+  if (e.method === "dataset_define") return { source: "Define-XML declaration", target: "current derived dataset" };
   return {
     source: e.type === "codelist" ? "Documented codelist"
       : e.method === "copy" ? "Documented source"
@@ -176,7 +177,7 @@ export function issueSearchText(issue, report) {
   ].join(" ");
 }
 
-export function issueTrace(issue, report, { sourcesOnly = false, specificationsOnly = false, auditOnly = false } = {}) {
+export function issueTrace(issue, report, { sourcesOnly = false, specificationsOnly = false, auditOnly = false, datasetDefineOnly = false } = {}) {
   const r = readReview(report),
     evidence = new Map(r.evidence.map((e) => [e.id, e]));
   const trace = issue.trace.map((t) => ({
@@ -194,6 +195,8 @@ export function issueTrace(issue, report, { sourcesOnly = false, specificationsO
     issue.expected || issue.observed
       ? `<dl class="issue-comparison">${issue.expected ? `<dt>Expected</dt><dd>${esc(issue.expected)}</dd>` : ""}${issue.observed ? `<dt>Observed</dt><dd>${esc(issue.observed)}</dd>` : ""}</dl>`
       : "";
+  if (datasetDefineOnly)
+    return `<div class="finding-evidence">${comparisons}<h3>Define-XML declaration</h3>${quotes.map(({ e }) => citation(e)).join("")}<h3>Current derived dataset</h3>${data.map(({ e, role }) => measurement(e, role)).join("")}</div>`;
   if (sourcesOnly || specificationsOnly) {
     const kind = sourcesOnly ? "document" : "specification";
     const selected = quotes.filter(({ e }) => e.type === kind);

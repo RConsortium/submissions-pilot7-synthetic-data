@@ -49,6 +49,7 @@ def artifact_snapshot(root, study):
         ".github/scripts/resolved_specs.py",
         ".github/scripts/composed_specs.py",
         ".github/scripts/study_dashboard/specifications.py",
+        ".github/scripts/study_dashboard/dataset_define.py",
         ".github/scripts/compare_adam.py",
     ):
         path = root / relative

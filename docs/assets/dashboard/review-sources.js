@@ -17,6 +17,8 @@ export function resolvedReviewReport(report, specifications = {}, dataset = "") 
 export function sourcePreview(e, report, specifications, resource) {
   const doc = report.documents?.find((d) => d.path === e.path && d.available);
   if (doc && (doc.view || doc.original)) {
+    if (report.scope === "dataset_define" && e.lines && doc.source)
+      return `<iframe title="${esc(doc.name)} source lines" src="${esc(resource(doc.source) + '#L' + e.lines[0])}" sandbox="allow-scripts"></iframe>`;
     const pdf = /\.pdf$/i.test(doc.name);
     const fragment = pdf && /^page-\d+$/.test(e.section)
       ? "#page=" + e.section.slice(5) : e.section ? "#" + encodeURIComponent(e.section) : "";

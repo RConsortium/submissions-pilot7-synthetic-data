@@ -139,7 +139,8 @@ export function createTraceReview(ctx, sources) {
   function updateStatus() {
     for (const button of dialog.querySelectorAll("[data-trace-sibling]")) {
       const other = findIssue(ctx.report, button.dataset.traceSibling);
-      button.querySelector("small").textContent = draftLabel(drafts.load(ctx.model.id, other, ctx.report));
+      const status = button.querySelector("small");
+      if (status && other) status.textContent = draftLabel(drafts.load(ctx.model.id, other, ctx.report));
     }
     const note = dialog.querySelector(".trace-storage-note");
     if (note && !drafts.available) note.textContent = "Browser storage is unavailable. Your draft lasts for this session. Submit or copy your review to share it on GitHub.";
@@ -173,6 +174,14 @@ export function createTraceReview(ctx, sources) {
   }
   function render() {
     const group = siblings(), at = group.indexOf(issue);
+    if (ctx.report.scope === "dataset_define") {
+      const walk = ctx.listed?.() || group, pos = walk.findIndex((i) => i.id === issue.id);
+      dialog.innerHTML = `<div class="trace-review-shell"><header class="trace-review-header"><h2 tabindex="-1">${esc(issue.dataset + (issue.variable ? "." + issue.variable : ""))}</h2><button class="button" data-trace-close>Close</button></header><div class="trace-review-layout"><aside class="trace-review-nav"><h3>Findings for this variable</h3>${group.map((i) => `<button data-trace-sibling="${esc(i.id)}">${esc(i.title)}<small></small></button>`).join("")}</aside><div class="trace-scroll"><main class="trace-review-content"><section><h2 id="trace-review-title">${esc(issue.title)}</h2><p>${esc(issue.summary)}</p>${issueTrace(issue, ctx.report, { datasetDefineOnly: true })}<h3>Recommended action</h3><p>${esc(issue.action)}</p></section>${reviewForm()}</main></div></div><footer class="trace-review-footer">${[[-1, "Previous finding"], [1, "Next finding"]].map(([delta, label]) => `<button class="button" data-trace-sibling="${esc(walk[pos + delta]?.id || "")}" ${pos < 0 || !walk[pos + delta] ? "disabled" : ""}>${label}</button>`).join("")}<button class="button primary" data-trace-section="trace-your-review">Add your review</button></footer></div>`;
+      // This scope compares data with XML; the document/specification choice does not apply.
+      dialog.querySelector('input[name="side"]')?.closest("fieldset").remove();
+      updateStatus();
+      return;
+    }
     // A claim-level question is shared by every finding of its variable; say so instead of presenting it as this finding's fix.
     const sharedAction = Boolean(issue.action) && group.filter((i) => i.action === issue.action).length > 1,
       fixHeading = sharedAction ? "Open question for this variable" : "Recommended fix",

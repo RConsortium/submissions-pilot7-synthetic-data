@@ -85,6 +85,10 @@ export function createWorkspace(ctx) {
   }
   function workspace() {
     const { model, specification, state, layout, esc, sourceUrl, link } = ctx;
+    if (ctx.report.scope === "dataset_define") {
+      const doc = ctx.report.documents[0];
+      return `<div class="workspace-toolbar"><label class="select-field">Dataset<select id="dataset-select">${model.datasets.map((d) => `<option value="${d.name}" ${state.dataset === d.name ? "selected" : ""}>${d.name}</option>`).join("")}</select></label>${subjectPicker()}<label class="search-field">Search records<input id="record-search" type="search" value="${esc(state.rowSearch)}"></label><button class="button" id="clear-selection">Clear highlight</button></div><p>Current derived dataset: <code>${esc(model.tables[ctx.dataset().output].path)}</code>. Select a column to focus its Define-XML entry.</p><div class="dataset-define-panes"><div>${ctx.plan.outputs.map(panelMarkup).join("")}</div><section class="pane source-viewer"><h2>Retained ADaM Define-XML</h2>${doc?.available ? `${link(sourceUrl(doc.path), "Open source", "button")}<iframe id="dataset-define-frame" title="Retained ADaM Define-XML" src="${esc(ctx.resource(doc.view || doc.reading || doc.original))}" sandbox="allow-scripts"></iframe>` : '<p class="empty-state">Define-XML is unavailable.</p>'}</section></div><div id="data-status" role="status"></div><div id="evidence-drawer"></div>`;
+    }
     return `<div class="workspace-toolbar"><label class="select-field">Specification<select id="dataset-select">${model.datasets.map((d) => `<option value="${d.name}" ${state.dataset === d.name ? "selected" : ""}>${d.name}</option>`).join("")}</select></label>${subjectPicker()}<label class="search-field"><span class="field-label">Search records</span><input id="record-search" type="search" placeholder="Subject or value across displayed datasets..." value="${esc(state.rowSearch)}"></label><label class="select-field">Columns<select id="column-mode"><option value="related" ${state.relatedOnly ? "selected" : ""}>Related columns</option><option value="all" ${!state.relatedOnly ? "selected" : ""}>All columns</option></select></label><button class="button" id="clear-selection">Clear highlight</button><button class="button" id="reset-layout">Reset layout</button></div><div class="lineage-toolbar"><div id="lineage-summary" role="status"></div><span class="lineage-legend"><i class="swatch key"></i>Key / ID <i class="swatch selected"></i>Selected <i class="swatch related"></i>Related</span></div><div class="review-workbench" style="--spec-width:${layout.spec}%;--input-height:${layout.inputs ?? 50}%"><section class="spec-pane pane" aria-labelledby="spec-heading"><header class="pane-header"><div><h2 id="spec-heading">yamaa specification</h2><span id="spec-caption">${state.dataset} / ${specification.text.split("\n").length} lines${specification.lineage.unresolved.length ? " / " + specification.lineage.unresolved.length + " unresolved references" : ""}</span></div>${specificationPicker()}</header><div class="spec-scroll" id="spec-scroll" tabindex="0" aria-label="YAML specification">${renderSpec()}</div><footer class="pane-footer">${displayedSpec().inspection ? "Generated composed specification. " : ""}Declared column dependencies; contributing rows are not traced.</footer></section><div class="spec-resizer" id="spec-resizer" role="separator" aria-label="Resize specification panel" aria-orientation="vertical" aria-valuemin="25" aria-valuemax="60" aria-valuenow="${Math.round(layout.spec)}" tabindex="0"></div><div class="data-panes">${group("input")}<div id="data-resizer" class="data-resizer" role="separator" aria-label="Resize input and output areas" aria-orientation="horizontal" aria-valuemin="25" aria-valuemax="75" aria-valuenow="${Math.round(layout.inputs ?? 50)}" tabindex="0"></div>${group("output")}</div></div><div id="data-status" role="status" class="data-status"></div><div id="evidence-drawer"></div>`;
   }
   function specLines() {
@@ -130,6 +134,15 @@ export function createWorkspace(ctx) {
       );
       if (el.tagName === "BUTTON")
         el.setAttribute("aria-pressed", String(node === plan.focus));
+    }
+    if (ctx.report.scope === "dataset_define") {
+      const frame = byId("dataset-define-frame"), doc = ctx.report.documents[0];
+      if (frame && doc) {
+        const variable = plan.focus.startsWith(`out:${state.dataset}.`) ? plan.focus.split(".").at(-1) : "";
+        const url = ctx.resource(doc.view || doc.reading || doc.original) + (variable ? `#${state.dataset}.${variable}` : "");
+        if (frame.src !== url) frame.src = url;
+      }
+      return;
     }
     const sourceLines = specLines();
     for (const line of sourceLines) {
@@ -272,7 +285,7 @@ export function createWorkspace(ctx) {
       sizes.observe(card);
     applyHighlight();
     ctx.byId("data-status").textContent =
-      `${state.subjects.length} of ${model.subjects.length} subjects selected. ${plan.inputs.length} input and ${plan.outputs.length} output datasets displayed. Each table has its own row count and pagination. Missing values are shown as a dash.`;
+      ctx.report.scope === "dataset_define" ? `${state.subjects.length} of ${model.subjects.length} subjects selected. Checks cover the complete dataset; the displayed records are a sample.` : `${state.subjects.length} of ${model.subjects.length} subjects selected. ${plan.inputs.length} input and ${plan.outputs.length} output datasets displayed. Each table has its own row count and pagination. Missing values are shown as a dash.`;
   }
   function fitWorkbench() {
     const el = ctx.root()?.querySelector(".review-workbench");

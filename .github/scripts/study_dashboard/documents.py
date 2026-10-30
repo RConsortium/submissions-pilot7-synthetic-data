@@ -205,7 +205,7 @@ def document_html(title, body, *, wide=False):
     )
 
 
-def materials(root, study, target, metadata):
+def materials(root, study, target, metadata, only_paths=None):
     folder = target / "documents"
     folder.mkdir(exist_ok=True)
     manifest_path = root / study / "spec/source/manifest.json"
@@ -227,6 +227,8 @@ def materials(root, study, target, metadata):
         if path.is_file() and relative not in known:
             entries.append({'path': relative, 'role': 'generated_draft_metadata'})
     for entry in entries:
+        if only_paths is not None and entry["path"] not in only_paths:
+            continue
         path = root / entry["path"]
         path.resolve().relative_to(root.resolve())
         relative = path.relative_to(root)
