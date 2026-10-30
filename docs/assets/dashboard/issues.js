@@ -85,19 +85,32 @@ export const CRITICAL_LABELS = {
   needs_review: "Needs review",
 };
 
-function citation(e, preview = false) {
+function citation(e, preview = false, yamlOnly = false) {
   const quote = normalize(e.quote || e.context),
     snippet = shorten(quote);
   const location = e.section.startsWith("page-")
     ? `page ${e.section.slice(5)}`
     : e.section;
   let context;
-  if (e.type === "specification" && e.context_lines) {
-    const first = e.context_lines[0];
-    context = `<pre class="spec-lines" tabindex="0" aria-label="${esc(e.path.split("/").pop())} source context"><code>${e.context
+  if (e.type === "specification" && (e.context_lines || yamlOnly)) {
+    const first = e.context_lines?.[0] || e.lines?.[0] || 1;
+    let submissionIndent = null;
+    context = `<pre class="spec-lines" tabindex="0" aria-label="${esc(e.path.split("/").pop())} source context"><code>${(e.context || e.quote || "")
       .replace(/\r?\n$/, "")
       .split(/\r?\n/)
       .map((line, n) => {
+        // Filter metadata only in the derivation comparison; retain original line numbers.
+        if (yamlOnly) {
+          const indent = line.search(/\S/);
+          if (submissionIndent !== null) {
+            if (indent < 0 || indent > submissionIndent) return "";
+            submissionIndent = null;
+          }
+          if (/^\s*submission\s*:/.test(line)) {
+            submissionIndent = indent;
+            return "";
+          }
+        }
         const number = first + n,
           text = `<span class="context-line-number" aria-hidden="true">${number}</span><span class="context-line-text">${esc(line) || " "}</span>`;
         return e.lines && number >= e.lines[0] && number <= e.lines[1]
@@ -107,6 +120,7 @@ function citation(e, preview = false) {
       .join("")}</code></pre>`;
   } else context = `<blockquote>${esc(normalize(e.context))}</blockquote>`;
   const contextLocation = e.context_lines ? `Lines ${e.context_lines.join("-")}` : location;
+  if (yamlOnly) return `<div class="issue-citation"><p class="quote-source">${esc("Specification: " + e.path.split("/").pop())}${location ? ", " + esc(location) : ""}</p>${context}${!e.verified ? `<p>Quote not verified: ${esc(e.reason || "source unavailable")}</p>` : ""}<p class="finding-links"><button class="text-link" data-source-evidence="${esc(e.id)}">View source</button></p></div>`;
   // A preview quotes the cited clause in full; a document's longer passage stays one click away.
   return `<div class="issue-citation"><p class="quote-source">${esc((e.type === "specification" ? "Specification: " : "Document: ") + e.path.split("/").pop())}${location ? ", " + esc(location) : ""}</p>${quote ? `<blockquote>${esc(preview ? quote : snippet)}</blockquote>` : '<p class="trace-limit">No quotation was retained for this citation; open the source to read the element.</p>'}${!e.verified ? `<p>Quote not verified: ${esc(e.reason || "source unavailable")}</p>` : ""}<p class="finding-links"><button class="text-link" data-source-evidence="${esc(e.id)}">View source</button></p>${e.context && (normalize(e.context) !== quote || (!preview && quote.length > 240) || e.type === "specification") ? `<details class="issue-context"${preview && e.type === "specification" ? " open" : ""}><summary><span>Full context</span><small>${esc(contextLocation)}</small></summary>${context}</details>` : ""}</div>`;
 }
@@ -198,10 +212,14 @@ export function issueTrace(issue, report, { sourcesOnly = false, specificationsO
       if (!files.has(e.path)) files.set(e.path, []);
       files.get(e.path).push(e);
     }
+    const orderedFiles = [...files];
+    if (specificationsOnly) orderedFiles.sort(([a], [b]) =>
+      Number(b.split("/").pop() === "documented-rules.yaml") -
+      Number(a.split("/").pop() === "documented-rules.yaml"));
     const gap = files.size < 2
       ? `<p class="trace-limit">${files.size ? "Only one " : "No "}${sourcesOnly ? "source document" : "YAML specification"} retained for this finding. ${files.size ? "A second side is unavailable; no comparison is inferred." : "There is no retained preview to compare."}</p>`
       : "";
-    return `<div class="finding-evidence">${specificationsOnly ? comparisons : ""}${gap}<div class="trace-source-grid" aria-label="${sourcesOnly ? "Source document" : "YAML specification"} comparison">${[...files].map(([path, entries]) => `<section class="trace-source-file" aria-label="${esc(path)}"><p class="trace-scope">${esc(path)}</p>${entries.map((e) => citation(e, true)).join("")}</section>`).join("")}</div></div>`;
+    return `<div class="finding-evidence">${gap}<div class="trace-source-grid" aria-label="${sourcesOnly ? "Source document" : "YAML specification"} comparison">${orderedFiles.map(([path, entries]) => `<section class="trace-source-file" aria-label="${esc(path)}"><p class="trace-scope">${esc(path)}</p>${entries.map((e) => citation(e, true, specificationsOnly)).join("")}</section>`).join("")}</div></div>`;
   }
   const audit = checks
     .map(
