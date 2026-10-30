@@ -24,10 +24,10 @@ test("missing or unknown decisions cannot produce a ready-to-publish assessment"
     assert.throws(() => reviewComment(model, issue, input, "https://example.org/"), /Choose both/);
 });
 
-test("a chosen side is stated between the decisions and the comment, and never when unset", () => {
+test("dataset correctness leads the decisions, and is omitted when unset", () => {
   const text = reviewComment(model, issue, { ...review, side: "document" }, "https://example.org/");
-  assert.ok(text.indexOf("**Criticality:** Critical\n**Which side is right:** The document\n") > 0, text);
-  assert.doesNotMatch(reviewComment(model, issue, review, "https://example.org/"), /Which side/);
+  assert.ok(text.indexOf("**Is current dataset correctly derived?** No, define-xml is correct\n**Agreement:** Disagree\n**Criticality:** Critical\n") > 0, text);
+  assert.doesNotMatch(reviewComment(model, issue, review, "https://example.org/"), /Is current dataset/);
 });
 
 test("optional comments and a dataset-level finding have explicit context", () => {
