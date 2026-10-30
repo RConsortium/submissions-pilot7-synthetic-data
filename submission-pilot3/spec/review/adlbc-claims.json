@@ -3,9 +3,9 @@
   "dataset": "ADLBC",
   "author": {
     "kind": "agent",
-    "model": "claude-opus-5-5",
+    "model": "claude-opus-5-5; program tracing round by claude-opus-5-5[1m]",
     "instructions": ".automation/consistency_review/extract.md",
-    "date": "2026-10-27"
+    "date": "2026-10-29"
   },
   "claims": [
     {
@@ -36,6 +36,21 @@
           "document": "spec/define/define-adam.xml",
           "section": "ADSL.VISNUMEN",
           "quote": "if DS.VISITNUM=13 where DSTERM='PROTCOL COMPLETED' then VISNUMEN=12, otherwise VISNUMEN=DS.VISITNUM where DSTERM='PROTCOL COMPLETED'"
+        },
+        {
+          "document": "spec/source/programs/adlbc.r",
+          "section": "L155-L161",
+          "quote": "eot <- adlb05 %>%\nfilter(ENDPOINT == \"Y\" | VISITNUM == 12) %>%\nmutate(\nAVISIT = \"End of Treatment\",\nAVISITN = 99,\nAENTMTFL = \"Y\""
+        },
+        {
+          "document": "spec/source/programs/adlbc.r",
+          "section": "L164-L183",
+          "quote": "AVISIT = case_when(\nABLFL == \"Y\" ~ \"Baseline\",\ngrepl(\"UNSCHEDULED\", VISIT) == TRUE ~ \"\",\nTRUE ~ str_to_sentence(VISIT)\n),"
+        },
+        {
+          "document": "spec/source/programs/adlbc.r",
+          "section": "L187-L209",
+          "quote": "eot2 <- adlb06 %>%\narrange(STUDYID, USUBJID, PARAMCD, desc(AVISITN)) %>%\ngroup_by(STUDYID, USUBJID, PARAMCD) %>%\nfilter(VISITNUM != 13) %>%\nslice(1) %>%\nfilter(!is.na(AVISITN), AVISITN != 0, AVISITN != 99) %>%\nmutate(\nAVISITN = 99,\nAVISIT = \"End of Treatment\",\nAENTMTFL = \"Y\""
         }
       ],
       "clauses": [
@@ -110,6 +125,18 @@
             "quote": "_IS_LAST_ELIGIBLE:\n        row_number:\n          window:\n            group_by:\n              - USUBJID\n              - PARAMCD\n            order_by:\n              - {variable: LBSEQ, direction: desc, nulls: last}"
           },
           "note": "The subject and parameter grouping follows the method's last assessment of this analyte for the subject, but no retained statement inspected says the last assessment is the record with the highest LBSEQ."
+        },
+        {
+          "relation": "contradicts",
+          "document": {
+            "citation": 1,
+            "quote": "'Y' if VISITNUM=12"
+          },
+          "against": {
+            "citation": 7,
+            "quote": "AVISIT = case_when(\nABLFL == \"Y\" ~ \"Baseline\",\ngrepl(\"UNSCHEDULED\", VISIT) == TRUE ~ \"\",\nTRUE ~ str_to_sentence(VISIT)\n),"
+          },
+          "note": "adlbc.r lines 164-183 set AVISIT to visit labels (Baseline on the ABLFL record, the sentence-case VISIT, blank for unscheduled visits) and lines 155-161 and 187-197 add End of Treatment rows; the program never assigns Y, which belongs to the AENTMTFL method this section repeats."
         }
       ],
       "interpretations": [
@@ -119,7 +146,7 @@
         "Native SUPPLB.ENDPOINT metadata refers to SAP, but this study has no retained SAP section. The manifest shared SAP has applicability pending review and is outside the supplied own-study citable sections.",
         "An unassigned character result can use the empty SAS character serialization; representation outside the Y conditions is not the reason the clinical selection rule remains unprobed."
       ],
-      "assessment": "The method and visit codelist require reconciliation before a complete literal value rule can be executed.",
+      "assessment": "The method and visit codelist require reconciliation before a complete literal value rule can be executed. The Pilot 3 program adlbc.r (cited lines 155-161, 164-183 and 187-209) assigns visit labels and End of Treatment rows, not the flag the method states.",
       "question": "Should the AVISIT method be replaced with a visit-label rule, and which retained rule defines each analysis visit?",
       "not_probed_reason": "Published ADSL.DISCONFL and VISNUMEN supply documented discontinuation and end-visit context, but the AVISIT method still does not define treatment-phase boundaries or the source and ordering that select the last assessment of the analyte. A full literal probe would therefore require unstated clinical selection conventions. Empty character serialization is a representation choice and does not close those gaps."
     },
@@ -136,6 +163,21 @@
           "document": "spec/define/define-adam.xml",
           "section": "ADLBC.AVISITN",
           "quote": "Codelist CL.AVISITN: 0 = Baseline; 2 = Week 2; 4 = Week 4; 6 = Week 6; 8 = Week 8; 10 = Week 10; 12 = Week 12; 14 = Week 14; 16 = Week 16; 18 = Week 18; 20 = Week 20; 22 = Week 22; 24 = Week 24; 26 = Week 26; 98 = Weeks 4-24; 99 = End of Treatment"
+        },
+        {
+          "document": "spec/source/programs/adlbc.r",
+          "section": "L174-L182",
+          "quote": "AVISITN = case_when(\nAVISIT == \"Baseline\" ~ 0,\nTRUE ~ as.numeric(gsub(\"[^0-9]\", \"\", AVISIT))\n),\nAENTMTFL = \"\"\n) %>%\nrbind(eot) %>%\nmutate(\nAVISITN = ifelse(AVISITN == -1, \"\", AVISITN)"
+        },
+        {
+          "document": "spec/source/programs/adlbc.r",
+          "section": "L155-L161",
+          "quote": "AVISITN = 99,"
+        },
+        {
+          "document": "spec/source/programs/adlbc.r",
+          "section": "L187-L197",
+          "quote": "AVISITN = 99,"
         }
       ],
       "clauses": [
@@ -194,6 +236,11 @@
           "document": "spec/source/adrg.pdf",
           "section": "page-45",
           "quote": "Three variables from R-generated ADLBC have class date while the same variables are numeric\nin the CDISC ADLBC. We opted to keep the date class in our R-generated ADLB.\n> diffdf(adlbc, qc_adlbc, keys = c(\"STUDYID\", \"USUBJID\", \"AVISIT\", \"LBSEQ\"))\nDifferences found between the objects !\nA summary is given below.\nThere are columns in BASE and COMPARE with different classes !!\nAll rows are shown in table below\n==================================\nVARIABLE CLASS.BASE CLASS.COMP\n----------------------------------\nADT Date numeric\nTRTEDT Date numeric\nTRTSDT Date numeric\n----------------------------------"
+        },
+        {
+          "document": "spec/source/programs/adlbc.r",
+          "section": "L109-L115",
+          "quote": "derive_vars_dt(\nnew_vars_prefix = \"A\",\ndtc = LBDTC,\nhighest_imputation = \"n\"\n)"
         }
       ],
       "clauses": [
@@ -347,6 +394,11 @@
           "document": "spec/define/define-adam.xml",
           "section": "ADLBC.PARAMCD",
           "quote": "Codelist CL.PARAMCD_ADLBC: ALB = Albumin (g/L); ALP = Alkaline Phosphatase (U/L); ALT = Alanine Aminotransferase (U/L); AST = Aspartate Aminotransferase (U/L); BILI = Bilirubin (umol/L); BUN = Blood Urea Nitrogen (mmol/L); CA = Calcium (mmol/L); CHOL = Cholesterol (mmol/L); CK = Creatine Kinase (U/L); CL = Chloride (mmol/L); CREAT = Creatinine (umol/L); GGT = Gamma Glutamyl Transferase (U/L); GLUC = Glucose (mmol/L); K = Potassium (mmol/L); PHOS = Phosphate (mmol/L); PROT = Protein (g/L); SODIUM = Sodium (mmol/L); URATE = Urate (umol/L); _ALB = Albumin (g/L) change from previous visit, relative to normal range; _ALP = Alkaline Phosphatase (U/L) change from previous visit, relative to normal range; _ALT = Alanine Aminotransferase (U/L) change from previous visit, relative to normal range; _AST = Aspartate Aminotransferase (U/L) change from previous visit, relative to normal range; _BILI = Bilirubin (umol/L) change from previous visit, relative to normal range; _BUN = Blood Urea Nitrogen (mmol/L) change from previous visit, relative to normal range; _CA = Calcium (mmol/L) change from previous visit, relative to normal range; _CHOL = Cholesterol (mmol/L) change from previous visit, relative to normal range; _CK = Creatine Kinase (U/L) change from previous visit, relative to normal range; _CL = Chloride (mmol/L) change from previous visit, relative to normal range; _CREAT = Creatinine (umol/L) change from previous visit, relative to normal range; _GGT = Gamma Glutamyl Transferase (U/L) change from previous visit, relative to normal range; _GLUC = Glucose (mmol/L) change from previous visit, relative to normal range; _K = Potassium (mmol/L) change from previous visit, relative to normal range; _PHOS = Phosphate (mmol/L) change from previous visit, relative to normal range; _PROT = Protein (g/L) change from previous visit, relative to normal range; _SODIUM = Sodium (mmol/L) change from previous visit, relative to normal range; _URATE = Urate (umol/L) change from previous visit, relative to normal range"
+        },
+        {
+          "document": "spec/source/programs/adlbc.r",
+          "section": "L130-L136",
+          "quote": "PARAM = paste0(LBTEST, \" (\", LBSTRESU, \")\"),"
         }
       ],
       "clauses": [
@@ -377,6 +429,18 @@
             "quote": "the second set contains change from previous visit\nrelative to normal range values."
           },
           "note": "The rows base-ord and base-eot produce only the 18 standard lab parameters."
+        },
+        {
+          "relation": "contradicts",
+          "document": {
+            "citation": 1,
+            "quote": "Concatenated LB.LBTEST, '(', LB.LBSTRESU and ')'"
+          },
+          "against": {
+            "citation": 5,
+            "quote": "paste0(LBTEST, \" (\", LBSTRESU, \")\")"
+          },
+          "note": "adlbc.r line 132 inserts a blank before the opening parenthesis, which the method's list of concatenated parts does not state."
         }
       ],
       "interpretations": [
@@ -385,7 +449,7 @@
         "Native workbook Methods repeats the method; its Variables and Codelists sheets repeat the attached metadata, but none has a citable projected section.",
         "The complete codelist-label reading uses published REF.PARAMCD and the documented code-to-label pairs; it does not read REF.PARAM or reconstruct a derived analysis value."
       ],
-      "assessment": "The concatenation and codelist permit testing the literal text and the codelist spacing reading independently.",
+      "assessment": "The concatenation and codelist permit testing the literal text and the codelist spacing reading independently. The Pilot 3 program adlbc.r line 132 concatenates with a blank before '(', as the spacing reading does.",
       "question": "Confirm the intended separator and the source/condition for appending the derived-parameter suffix.",
       "probes": [
         {
@@ -420,6 +484,16 @@
           "document": "spec/define/define-adam.xml",
           "section": "ADLBC.PARAMCD",
           "quote": "Codelist CL.PARAMCD_ADLBC: ALB = Albumin (g/L); ALP = Alkaline Phosphatase (U/L); ALT = Alanine Aminotransferase (U/L); AST = Aspartate Aminotransferase (U/L); BILI = Bilirubin (umol/L); BUN = Blood Urea Nitrogen (mmol/L); CA = Calcium (mmol/L); CHOL = Cholesterol (mmol/L); CK = Creatine Kinase (U/L); CL = Chloride (mmol/L); CREAT = Creatinine (umol/L); GGT = Gamma Glutamyl Transferase (U/L); GLUC = Glucose (mmol/L); K = Potassium (mmol/L); PHOS = Phosphate (mmol/L); PROT = Protein (g/L); SODIUM = Sodium (mmol/L); URATE = Urate (umol/L); _ALB = Albumin (g/L) change from previous visit, relative to normal range; _ALP = Alkaline Phosphatase (U/L) change from previous visit, relative to normal range; _ALT = Alanine Aminotransferase (U/L) change from previous visit, relative to normal range; _AST = Aspartate Aminotransferase (U/L) change from previous visit, relative to normal range; _BILI = Bilirubin (umol/L) change from previous visit, relative to normal range; _BUN = Blood Urea Nitrogen (mmol/L) change from previous visit, relative to normal range; _CA = Calcium (mmol/L) change from previous visit, relative to normal range; _CHOL = Cholesterol (mmol/L) change from previous visit, relative to normal range; _CK = Creatine Kinase (U/L) change from previous visit, relative to normal range; _CL = Chloride (mmol/L) change from previous visit, relative to normal range; _CREAT = Creatinine (umol/L) change from previous visit, relative to normal range; _GGT = Gamma Glutamyl Transferase (U/L) change from previous visit, relative to normal range; _GLUC = Glucose (mmol/L) change from previous visit, relative to normal range; _K = Potassium (mmol/L) change from previous visit, relative to normal range; _PHOS = Phosphate (mmol/L) change from previous visit, relative to normal range; _PROT = Protein (g/L) change from previous visit, relative to normal range; _SODIUM = Sodium (mmol/L) change from previous visit, relative to normal range; _URATE = Urate (umol/L) change from previous visit, relative to normal range"
+        },
+        {
+          "document": "spec/source/programs/adlbc.r",
+          "section": "L57-L78",
+          "quote": "format_paramn <- function(x) {\ncase_when(\nx == \"SODIUM\" ~ 18,\nx == \"K\" ~ 19,\nx == \"CL\" ~ 20,\nx == \"BILI\" ~ 21,\nx == \"ALP\" ~ 22,\nx == \"GGT\" ~ 23,\nx == \"ALT\" ~ 24,\nx == \"AST\" ~ 25,\nx == \"BUN\" ~ 26,\nx == \"CREAT\" ~ 27,\nx == \"URATE\" ~ 28,\nx == \"PHOS\" ~ 29,\nx == \"CA\" ~ 30,\nx == \"GLUC\" ~ 31,\nx == \"PROT\" ~ 32,\nx == \"ALB\" ~ 33,\nx == \"CHOL\" ~ 34,\nx == \"CK\" ~ 35\n)\n}"
+        },
+        {
+          "document": "spec/source/programs/adlbc.r",
+          "section": "L134",
+          "quote": "PARAMN = format_paramn(LBTESTCD),"
         }
       ],
       "clauses": [
@@ -470,6 +544,11 @@
           "document": "spec/source/adrg.pdf",
           "section": "page-12",
           "quote": "Two sets of lab parameters exist in ADLBC. One set contains the standard-\nised lab value from the LB domain and the second set contains change from previous visit\nrelative to normal range values."
+        },
+        {
+          "document": "spec/source/programs/adlbc.r",
+          "section": "L122-L126",
+          "quote": "AVAL = LBSTRESN,"
         }
       ],
       "clauses": [
@@ -539,6 +618,11 @@
           "document": "spec/define/define-adam.xml",
           "section": "ADLBC.AVISITN",
           "quote": "Codelist CL.AVISITN: 0 = Baseline"
+        },
+        {
+          "document": "spec/source/programs/adlbc.r",
+          "section": "L142-L148",
+          "quote": "mutate(ABLFL = LBBLFL) %>%\nderive_var_base(\nby_vars = exprs(STUDYID, USUBJID, PARAMCD),\nsource_var = AVAL,\nnew_var = BASE\n)"
         }
       ],
       "clauses": [
@@ -577,6 +661,18 @@
             "quote": "_PNM_BASE:\n        locf:\n          source: _BASELINE_AVAL\n          window:\n            group_by:\n              - USUBJID\n              - PARAMCD\n            order_by:\n              - {variable: LBSEQ, nulls: last}\n      _BASE:\n        first_available:\n          sources:\n            - _BASELINE_AVAL\n            - _PNM_BASE"
           },
           "note": "No retained document states that the baseline value is carried forward in LBSEQ order within subject and parameter, which leaves records ordered before the baseline record without BASE; base-eot states the same carry-forward."
+        },
+        {
+          "relation": "contradicts",
+          "document": {
+            "citation": 1,
+            "quote": "LB.LBSTNRHI"
+          },
+          "against": {
+            "citation": 5,
+            "quote": "source_var = AVAL,"
+          },
+          "note": "adlbc.r lines 142-148 derive BASE with admiral derive_var_base from AVAL on the baseline record flagged ABLFL, which line 143 copies from LBBLFL, by study, subject and parameter; the program never reads LBSTNRHI for BASE."
         }
       ],
       "probes": [
@@ -595,7 +691,7 @@
         "The reading identifies baseline by the published AVISITN code 0, as the BR2A1LO claim does, through the existing P_BASE_BATCH1 lookup, which has no keep or order rule and rejects multiple baseline records rather than choose one. ABLFL, labelled Baseline Record Flag, has no documented method.",
         "The documents do not state which records receive BASE; the reading attaches the baseline value to every record of the subject and parameter."
       ],
-      "assessment": "The method names a reference-range limit for a variable labelled Baseline Value, and the specification instead derives a baseline analysis value through an undocumented flag condition and carry-forward. The label reading tests whether the published values follow the analysis value at baseline.",
+      "assessment": "The method names a reference-range limit for a variable labelled Baseline Value, and the specification instead derives a baseline analysis value through an undocumented flag condition and carry-forward. The label reading tests whether the published values follow the analysis value at baseline. The Pilot 3 program adlbc.r lines 142-148 take BASE as the baseline analysis value, which the label reading follows.",
       "question": "Is LB.LBSTNRHI an error in the BASE method, and if so, which baseline record and which records receiving it should the method state?"
     },
     {
@@ -611,6 +707,11 @@
           "document": "spec/define/define-adam.xml",
           "section": "ADLBC.CHG",
           "quote": "Significant digits: 5"
+        },
+        {
+          "document": "spec/source/programs/adlbc.r",
+          "section": "L149-L150",
+          "quote": "derive_var_chg() %>%\nmutate(CHG = ifelse(VISITNUM == 1, NA, CHG))"
         }
       ],
       "clauses": [
@@ -641,18 +742,34 @@
             "quote": "Significant digits: 5"
           },
           "note": "The runtime arithmetic has no explicit rounding operation; submission metadata alone does not round its result."
+        },
+        {
+          "relation": "contradicts",
+          "document": {
+            "citation": 1,
+            "quote": "AVAL - BASE"
+          },
+          "against": {
+            "citation": 3,
+            "quote": "mutate(CHG = ifelse(VISITNUM == 1, NA, CHG))"
+          },
+          "note": "adlbc.r line 150 sets CHG missing on every VISITNUM 1 record after admiral derive_var_chg computes AVAL - BASE; the method states the subtraction with no such exception."
         }
       ],
       "interpretations": [
         "Published REF inputs isolate this computation from upstream derivations.",
         "Native workbook Variables and Methods repeat the precision and formula but have no citable projected sections."
       ],
-      "assessment": "The literal arithmetic can be tested directly after the documented rounding.",
+      "assessment": "The literal arithmetic can be tested directly after the documented rounding. The Pilot 3 program adlbc.r line 150 blanks CHG on VISITNUM 1 records, which the program reading tests.",
       "question": "",
       "probes": [
         {
           "column": "CHG",
           "reading": "literal"
+        },
+        {
+          "column": "CHG__MISSING_AT_VISIT1",
+          "reading": "AVAL minus BASE, left missing on records with VISITNUM 1 and not rounded, as the Pilot 3 program adlbc.r lines 149-150 compute it (derive_var_chg, then CHG = ifelse(VISITNUM == 1, NA, CHG)); the Define method states the subtraction without that exception."
         }
       ]
     },
@@ -669,6 +786,11 @@
           "document": "spec/define/define-adam.xml",
           "section": "ADLBC.R2A1LO",
           "quote": "Significant digits: 1"
+        },
+        {
+          "document": "spec/source/programs/adlbc.r",
+          "section": "L220",
+          "quote": "R2A1LO = AVAL / A1LO,"
         }
       ],
       "clauses": [
@@ -691,18 +813,34 @@
             "quote": "Significant digits: 1"
           },
           "note": "The runtime arithmetic has no explicit rounding operation; submission metadata alone does not round its result."
+        },
+        {
+          "relation": "contradicts",
+          "document": {
+            "citation": 2,
+            "quote": "Significant digits: 1"
+          },
+          "against": {
+            "citation": 3,
+            "quote": "R2A1LO = AVAL / A1LO"
+          },
+          "note": "adlbc.r line 220 stores the full-precision ratio; no later step before xportr_write rounds it to the documented precision."
         }
       ],
       "interpretations": [
         "Published REF inputs isolate this computation from upstream derivations.",
         "Native workbook Variables and Methods repeat the precision and formula but have no citable projected sections."
       ],
-      "assessment": "The literal arithmetic can be tested directly after the documented rounding.",
+      "assessment": "The literal arithmetic can be tested directly after the documented rounding. The Pilot 3 program adlbc.r line 220 computes R2A1LO = AVAL / A1LO without rounding, which the program reading tests.",
       "question": "",
       "probes": [
         {
           "column": "R2A1LO",
           "reading": "literal"
+        },
+        {
+          "column": "R2A1LO__UNROUNDED",
+          "reading": "AVAL divided by A1LO at full precision, as the Pilot 3 program adlbc.r line 220 computes it (R2A1LO = AVAL / A1LO) with no rounding; the Define significant digits 1 is not applied."
         }
       ]
     },
@@ -719,6 +857,11 @@
           "document": "spec/define/define-adam.xml",
           "section": "ADLBC.R2A1HI",
           "quote": "Significant digits: 1"
+        },
+        {
+          "document": "spec/source/programs/adlbc.r",
+          "section": "L221",
+          "quote": "R2A1HI = AVAL / A1HI,"
         }
       ],
       "clauses": [
@@ -741,18 +884,34 @@
             "quote": "Significant digits: 1"
           },
           "note": "The runtime arithmetic has no explicit rounding operation; submission metadata alone does not round its result."
+        },
+        {
+          "relation": "contradicts",
+          "document": {
+            "citation": 2,
+            "quote": "Significant digits: 1"
+          },
+          "against": {
+            "citation": 3,
+            "quote": "R2A1HI = AVAL / A1HI"
+          },
+          "note": "adlbc.r line 221 stores the full-precision ratio; no later step before xportr_write rounds it to the documented precision."
         }
       ],
       "interpretations": [
         "Published REF inputs isolate this computation from upstream derivations.",
         "Native workbook Variables and Methods repeat the precision and formula but have no citable projected sections."
       ],
-      "assessment": "The literal arithmetic can be tested directly after the documented rounding.",
+      "assessment": "The literal arithmetic can be tested directly after the documented rounding. The Pilot 3 program adlbc.r line 221 computes R2A1HI = AVAL / A1HI without rounding, which the program reading tests.",
       "question": "",
       "probes": [
         {
           "column": "R2A1HI",
           "reading": "literal"
+        },
+        {
+          "column": "R2A1HI__UNROUNDED",
+          "reading": "AVAL divided by A1HI at full precision, as the Pilot 3 program adlbc.r line 221 computes it (R2A1HI = AVAL / A1HI) with no rounding; the Define significant digits 1 is not applied."
         }
       ]
     },
@@ -774,6 +933,11 @@
           "document": "spec/define/define-adam.xml",
           "section": "ADLBC.AVISITN",
           "quote": "Codelist CL.AVISITN: 0 = Baseline"
+        },
+        {
+          "document": "spec/source/programs/adlbc.r",
+          "section": "L222",
+          "quote": "BR2A1LO = BASE / A1LO,"
         }
       ],
       "clauses": [
@@ -796,6 +960,30 @@
             "quote": "Significant digits: 1"
           },
           "note": "The runtime ratio has no explicit rounding operation; submission precision does not execute rounding."
+        },
+        {
+          "relation": "contradicts",
+          "document": {
+            "citation": 1,
+            "quote": "AVAL / A1LO at baseline"
+          },
+          "against": {
+            "citation": 4,
+            "quote": "BR2A1LO = BASE / A1LO"
+          },
+          "note": "adlbc.r line 222 divides BASE by the A1LO of the current record, not by the lower limit at baseline."
+        },
+        {
+          "relation": "contradicts",
+          "document": {
+            "citation": 2,
+            "quote": "Significant digits: 1"
+          },
+          "against": {
+            "citation": 4,
+            "quote": "BR2A1LO = BASE / A1LO"
+          },
+          "note": "adlbc.r line 222 stores the full-precision ratio; no later step before xportr_write rounds it to the documented precision."
         }
       ],
       "interpretations": [
@@ -803,12 +991,16 @@
         "No baseline-donor tie convention is documented. The lookup deliberately has no keep/order rule and must reject multiple donors rather than select one silently.",
         "Native workbook Variables and Methods repeat the precision and baseline-ratio wording but have no citable projected sections."
       ],
-      "assessment": "The baseline wording permits a literal ratio using published baseline operands and an unambiguous baseline donor.",
+      "assessment": "The baseline wording permits a literal ratio using published baseline operands and an unambiguous baseline donor. The Pilot 3 program adlbc.r line 222 computes BR2A1LO = BASE / A1LO without rounding, which the program reading tests.",
       "question": "Confirm that both operands are taken at baseline, as the method states.",
       "probes": [
         {
           "column": "BR2A1LO",
           "reading": "literal"
+        },
+        {
+          "column": "BR2A1LO__CURRENT_LIMIT_UNROUNDED",
+          "reading": "BASE divided by the current record's A1LO at full precision, as the Pilot 3 program adlbc.r line 222 computes it (BR2A1LO = BASE / A1LO); the Define method takes both operands at baseline and states significant digits 1."
         }
       ]
     },
@@ -830,6 +1022,11 @@
           "document": "spec/define/define-adam.xml",
           "section": "ADLBC.AVISITN",
           "quote": "Codelist CL.AVISITN: 0 = Baseline"
+        },
+        {
+          "document": "spec/source/programs/adlbc.r",
+          "section": "L223",
+          "quote": "BR2A1HI = BASE / A1HI,"
         }
       ],
       "clauses": [
@@ -852,6 +1049,30 @@
             "quote": "Significant digits: 1"
           },
           "note": "The runtime ratio has no explicit rounding operation; submission precision does not execute rounding."
+        },
+        {
+          "relation": "contradicts",
+          "document": {
+            "citation": 1,
+            "quote": "AVAL / A1HI at baseline"
+          },
+          "against": {
+            "citation": 4,
+            "quote": "BR2A1HI = BASE / A1HI"
+          },
+          "note": "adlbc.r line 223 divides BASE by the A1HI of the current record, not by the upper limit at baseline."
+        },
+        {
+          "relation": "contradicts",
+          "document": {
+            "citation": 2,
+            "quote": "Significant digits: 1"
+          },
+          "against": {
+            "citation": 4,
+            "quote": "BR2A1HI = BASE / A1HI"
+          },
+          "note": "adlbc.r line 223 stores the full-precision ratio; no later step before xportr_write rounds it to the documented precision."
         }
       ],
       "interpretations": [
@@ -859,12 +1080,16 @@
         "No baseline-donor tie convention is documented. The lookup deliberately has no keep/order rule and must reject multiple donors rather than select one silently.",
         "Native workbook Variables and Methods repeat the precision and baseline-ratio wording but have no citable projected sections."
       ],
-      "assessment": "The baseline wording permits a literal ratio using published baseline operands and an unambiguous baseline donor.",
+      "assessment": "The baseline wording permits a literal ratio using published baseline operands and an unambiguous baseline donor. The Pilot 3 program adlbc.r line 223 computes BR2A1HI = BASE / A1HI without rounding, which the program reading tests.",
       "question": "Confirm that both operands are taken at baseline, as the method states.",
       "probes": [
         {
           "column": "BR2A1HI",
           "reading": "literal"
+        },
+        {
+          "column": "BR2A1HI__CURRENT_LIMIT_UNROUNDED",
+          "reading": "BASE divided by the current record's A1HI at full precision, as the Pilot 3 program adlbc.r line 223 computes it (BR2A1HI = BASE / A1HI); the Define method takes both operands at baseline and states significant digits 1."
         }
       ]
     },
@@ -891,6 +1116,11 @@
           "document": "spec/define/define-adam.xml",
           "section": "ADLBC.A1LO",
           "quote": "Label: Analysis Range 1 Lower Limit\nData type: float\nSignificant digits: 5\nMethod: LB.LBSTNRLO"
+        },
+        {
+          "document": "spec/source/programs/adlbc.r",
+          "section": "L224-L226",
+          "quote": "ONE = abs((LBSTRESN - (1.5 * LBSTNRHI))),\nTWO = abs(((.5 * LBSTNRLO) - LBSTRESN)),\nALBTRVAL = ifelse(ONE > TWO, ONE, TWO),"
         }
       ],
       "clauses": [
@@ -981,12 +1211,40 @@
             "quote": "greatest:\n          sources:\n            - _T1\n            - _T2"
           },
           "note": "The retained method gives no missing-input rule for the maximum; greatest returns the larger of the present terms, so a missing range limit leaves the other term as the value and a missing analysis value leaves both terms, and so the value, missing."
+        },
+        {
+          "relation": "contradicts",
+          "document": {
+            "citation": 1,
+            "quote": "Maximum of [LBSTRESN-(1.5*ULN)] and [(.5*LLN) - LBSTRESN]"
+          },
+          "against": {
+            "citation": 5,
+            "quote": "ONE = abs((LBSTRESN - (1.5 * LBSTNRHI))),\nTWO = abs(((.5 * LBSTNRLO) - LBSTRESN)),\nALBTRVAL = ifelse(ONE > TWO, ONE, TWO),"
+          },
+          "note": "adlbc.r lines 224-226 take the absolute value of each term before choosing the larger; the Define formula states the signed terms."
+        },
+        {
+          "relation": "contradicts",
+          "document": {
+            "citation": 2,
+            "quote": "Significant digits: 3"
+          },
+          "against": {
+            "citation": 5,
+            "quote": "ALBTRVAL = ifelse(ONE > TWO, ONE, TWO)"
+          },
+          "note": "adlbc.r line 226 stores the full-precision value; no later step before xportr_write rounds it to the documented precision."
         }
       ],
       "probes": [
         {
           "column": "ALBTRVAL",
           "reading": "literal"
+        },
+        {
+          "column": "ALBTRVAL__ABSOLUTE",
+          "reading": "Absolute value of each term, the larger kept and not rounded, as the Pilot 3 program adlbc.r lines 224-226 compute it (ONE = abs(LBSTRESN - 1.5 * LBSTNRHI), TWO = abs(.5 * LBSTNRLO - LBSTRESN)); the Define formula omits the absolute values and states significant digits 3."
         }
       ],
       "interpretations": [
@@ -995,7 +1253,7 @@
         "Significant digits is implemented with round_half_away_from_zero at the documented precision under the extraction instructions.",
         "Where a required numeric input is missing, arithmetic remains missing; the rule does not prescribe substitution or a partially available maximum."
       ],
-      "assessment": "The literal signed arithmetic can be executed with the explicitly stated range-source interpretation; the specification subtracts each term in the opposite order and takes the greater of the present terms. The native workbook repeats the method, but its exact section projection is empty and cannot be cited here. Native metadata was inspected as source coverage, without treating projection omissions as documentary silence.",
+      "assessment": "The literal signed arithmetic can be executed with the explicitly stated range-source interpretation; the specification subtracts each term in the opposite order and takes the greater of the present terms. The native workbook repeats the method, but its exact section projection is empty and cannot be cited here. Native metadata was inspected as source coverage, without treating projection omissions as documentary silence. The Pilot 3 program adlbc.r lines 224-226 take absolute values of both terms and do not round, which the program reading tests.",
       "question": "Confirm whether ULN and LLN mean the same-row standard-unit upper and lower reference limits, and whether the signed maximum and documented precision should govern."
     },
     {
@@ -1021,6 +1279,11 @@
           "document": "spec/define/define-adam.xml",
           "section": "ADLBC.A1HI",
           "quote": "Method: LB.LBSTNRHI"
+        },
+        {
+          "document": "spec/source/programs/adlbc.r",
+          "section": "L227-L228",
+          "quote": "ANRIND = ifelse(AVAL < (0.5 * LBSTNRLO), \"L\", ifelse(AVAL > (1.5 * LBSTNRHI), \"H\", \"N\")),\nANRIND = ifelse(is.na(AVAL), \"N\", ANRIND)"
         }
       ],
       "clauses": [
@@ -1134,6 +1397,30 @@
             "quote": "_R2A1LO_R:\n        case:\n          - when: \"A1LO IS NULL OR A1LO = 0\"\n            then:"
           },
           "note": "The method gives no rule for a missing or zero lower limit; the specification leaves the low ratio missing then, so the record cannot be L."
+        },
+        {
+          "relation": "contradicts",
+          "document": {
+            "citation": 1,
+            "quote": "then ANRIND = 'Y'"
+          },
+          "against": {
+            "citation": 5,
+            "quote": "ANRIND = ifelse(AVAL < (0.5 * LBSTNRLO), \"L\","
+          },
+          "note": "adlbc.r line 227 assigns L, not Y, below half the lower limit."
+        },
+        {
+          "relation": "contradicts",
+          "document": {
+            "citation": 1,
+            "quote": "AVAL > [0.5*LBSTRNHI)"
+          },
+          "against": {
+            "citation": 5,
+            "quote": "ifelse(AVAL > (1.5 * LBSTNRHI), \"H\", \"N\")"
+          },
+          "note": "adlbc.r line 227 compares AVAL with 1.5 times LBSTNRHI, where the method states 0.5 times LBSTRNHI; line 228 also sets N when AVAL is missing."
         }
       ],
       "probes": [],
@@ -1145,7 +1432,7 @@
         "No quoted statement supports replacing the high multiplier 0.5 with 1.5.",
         "The missing-value comparison policy and missing analysis-value category remain unstated."
       ],
-      "assessment": "The literal source spelling prevents execution without a repair; the value assignment, high multiplier and codelist also require review. The native workbook repeats the method, but its exact section projection is empty and cannot be cited here. Native metadata was inspected as source coverage, without treating projection omissions as documentary silence.",
+      "assessment": "The literal source spelling prevents execution without a repair; the value assignment, high multiplier and codelist also require review. The native workbook repeats the method, but its exact section projection is empty and cannot be cited here. Native metadata was inspected as source coverage, without treating projection omissions as documentary silence. The Pilot 3 program adlbc.r lines 227-228 assign L below 0.5*LBSTNRLO, H above 1.5*LBSTNRHI, and N otherwise or when AVAL is missing.",
       "question": "Resolve LBSTRNHI versus LBSTNRHI, Y versus L, the high multiplier, and the missing-value policy before approving an executable rule."
     },
     {
@@ -1176,6 +1463,16 @@
           "document": "spec/define/define-adam.xml",
           "section": "ADLBC.ANRIND",
           "quote": "Codelist CL.LNH: L = Low; N = Normal; H = High"
+        },
+        {
+          "document": "spec/source/programs/adlbc.r",
+          "section": "L231-L235",
+          "quote": "derive_var_base(\nby_vars = exprs(STUDYID, USUBJID, PARAMCD),\nsource_var = ANRIND,\nnew_var = BNRIND\n)"
+        },
+        {
+          "document": "spec/source/programs/adlbc.r",
+          "section": "L227-L228",
+          "quote": "ANRIND = ifelse(AVAL < (0.5 * LBSTNRLO), \"L\", ifelse(AVAL > (1.5 * LBSTNRHI), \"H\", \"N\")),\nANRIND = ifelse(is.na(AVAL), \"N\", ANRIND)"
         }
       ],
       "clauses": [
@@ -1286,6 +1583,30 @@
             "quote": "_R2A1LO_R:\n        case:\n          - when: \"A1LO IS NULL OR A1LO = 0\"\n            then:"
           },
           "note": "The method gives no rule for a missing or zero lower limit; the specification leaves the low ratio missing then, so the baseline indicator cannot be L."
+        },
+        {
+          "relation": "contradicts",
+          "document": {
+            "citation": 1,
+            "quote": "then ANRIND = 'Y'"
+          },
+          "against": {
+            "citation": 7,
+            "quote": "ANRIND = ifelse(AVAL < (0.5 * LBSTNRLO), \"L\","
+          },
+          "note": "adlbc.r lines 231-235 take BNRIND as the ANRIND of the baseline record, which line 227 sets to L, not Y, below half the lower limit."
+        },
+        {
+          "relation": "contradicts",
+          "document": {
+            "citation": 1,
+            "quote": "BASE > [0.5*LBSTRNHI)"
+          },
+          "against": {
+            "citation": 7,
+            "quote": "ifelse(AVAL > (1.5 * LBSTNRHI), \"H\", \"N\")"
+          },
+          "note": "The baseline ANRIND that adlbc.r lines 231-235 carry into BNRIND compares the value with 1.5 times LBSTNRHI on the baseline record, where the method states 0.5 times LBSTRNHI."
         }
       ],
       "probes": [],
@@ -1297,7 +1618,7 @@
         "The LNH codelists support considering L as the low text, but no alternative executable reading is substituted for the incomplete literal rule.",
         "When several records of a subject and parameter carry the baseline flag, the specification carries forward the latest one in LBSEQ order; the method supplies no selection or tie rule."
       ],
-      "assessment": "The method requires a decision about its assignment target, high-limit spelling and limit-record scope before a literal BNRIND rule can execute. The native workbook repeats the method, but its exact section projection is empty and cannot be cited here. Native metadata was inspected as source coverage, without treating projection omissions as documentary silence.",
+      "assessment": "The method requires a decision about its assignment target, high-limit spelling and limit-record scope before a literal BNRIND rule can execute. The native workbook repeats the method, but its exact section projection is empty and cannot be cited here. Native metadata was inspected as source coverage, without treating projection omissions as documentary silence. The Pilot 3 program adlbc.r lines 231-235 copy the baseline record's ANRIND, computed by lines 227-228, into BNRIND.",
       "question": "Confirm the intended target and low text, the high-limit spelling and multiplier, the source record for each limit, and the missing-BASE policy."
     },
     {
@@ -1318,6 +1639,11 @@
           "document": "spec/source/adrg.pdf",
           "section": "page-12",
           "quote": "In some of the summaries the derived end-of-treatment visit\n(A VISITN=99) is also presented."
+        },
+        {
+          "document": "spec/source/programs/adlbc.r",
+          "section": "L241-L251",
+          "quote": "adlb09 <- adlb08 %>%\nfilter((VISITNUM >= 4 & VISITNUM <= 12) & !grepl(\"UN\", VISIT)) %>%\ngroup_by(USUBJID, PARAMCD) %>%\nmutate(\nmaxALBTRVAL = ifelse(!is.na(ALBTRVAL), max(ALBTRVAL, na.rm = TRUE), ALBTRVAL),\nANL01FL = ifelse(maxALBTRVAL == ALBTRVAL, \"Y\", \"\")\n) %>%\narrange(desc(ANL01FL)) %>%\nselect(USUBJID, PARAMCD, LBSEQ, ANL01FL) %>%\nslice(1) %>%\nfull_join(adlb08, by = c(\"USUBJID\", \"PARAMCD\", \"LBSEQ\"), multiple = \"all\")"
         }
       ],
       "clauses": [
@@ -1385,7 +1711,7 @@
         "Once the maximum scope is chosen, literal equality flags all nonmissing records tied at that maximum; no LBSEQ tie breaker is stated.",
         "The treatment of missing ALBTRVAL and the flag on records not meeting the condition are unstated; an implementation must preserve character missing as empty text rather than invent a category."
       ],
-      "assessment": "The specification adds a maximum partition, eligible visits, a nonmissing requirement and visit, date and sequence tie breakers that the quoted rule does not supply. The native workbook repeats the method, but its exact section projection is empty and cannot be cited here. Native metadata was inspected as source coverage, without treating projection omissions as documentary silence.",
+      "assessment": "The specification adds a maximum partition, eligible visits, a nonmissing requirement and visit, date and sequence tie breakers that the quoted rule does not supply. The native workbook repeats the method, but its exact section projection is empty and cannot be cited here. Native metadata was inspected as source coverage, without treating projection omissions as documentary silence. The Pilot 3 program adlbc.r lines 241-251 flag the maximum ALBTRVAL only among scheduled records with VISITNUM 4 to 12, keep one record per subject and parameter, and join the flag back by LBSEQ.",
       "question": "Specify the maximum partition and candidate records, including derived end-of-treatment rows and unscheduled visits, and decide whether all equal maxima receive Y."
     },
     {
@@ -1411,6 +1737,21 @@
           "document": "spec/source/adrg.pdf",
           "section": "page-8",
           "quote": "Were unscheduled visits used in any analyses?\nYes"
+        },
+        {
+          "document": "spec/source/programs/adlbc.r",
+          "section": "L155-L161",
+          "quote": "eot <- adlb05 %>%\nfilter(ENDPOINT == \"Y\" | VISITNUM == 12) %>%\nmutate(\nAVISIT = \"End of Treatment\",\nAVISITN = 99,\nAENTMTFL = \"Y\""
+        },
+        {
+          "document": "spec/source/programs/adlbc.r",
+          "section": "L200-L209",
+          "quote": "adlb07 <- adlb06 %>%\nfilter(VISITNUM <= 12 & AVISITN > 0 & AVISITN != 99 & !grepl(\"UN\", VISIT)) %>%\ngroup_by(USUBJID, PARAMCD) %>%\nmutate(AENTMTFL_1 = ifelse(max(AVISITN, na.rm = TRUE) == AVISITN, \"Y\", \"\")) %>%\nselect(USUBJID, PARAMCD, AENTMTFL_1, LBSEQ) %>%\nfull_join(adlb06, by = c(\"USUBJID\", \"PARAMCD\", \"LBSEQ\"), multiple = \"all\") %>%\nmutate(AENTMTFL = ifelse(AENTMTFL == \"Y\", AENTMTFL, AENTMTFL_1)) %>%\nselect(-AENTMTFL_1) %>%\nrbind(eot2) %>%\nungroup()"
+        },
+        {
+          "document": "spec/source/programs/adlbc.r",
+          "section": "L187-L197",
+          "quote": "eot2 <- adlb06 %>%\narrange(STUDYID, USUBJID, PARAMCD, desc(AVISITN)) %>%\ngroup_by(STUDYID, USUBJID, PARAMCD) %>%\nfilter(VISITNUM != 13) %>%\nslice(1) %>%\nfilter(!is.na(AVISITN), AVISITN != 0, AVISITN != 99) %>%\nmutate(\nAVISITN = 99,\nAVISIT = \"End of Treatment\",\nAENTMTFL = \"Y\""
         }
       ],
       "clauses": [
@@ -1505,7 +1846,7 @@
         "The general ADRG statement that unscheduled visits were used in some analyses does not establish whether they are eligible for this flag.",
         "The method does not state whether an original record and its derived end-of-treatment copy should both receive the flag."
       ],
-      "assessment": "The runtime implements a concrete ranking rule, but the retained flag method leaves the treatment period and early-discontinuation condition incomplete. The native workbook repeats the method, but its exact section projection is empty and cannot be cited here. Native metadata was inspected as source coverage, without treating projection omissions as documentary silence.",
+      "assessment": "The runtime implements a concrete ranking rule, but the retained flag method leaves the treatment period and early-discontinuation condition incomplete. The native workbook repeats the method, but its exact section projection is empty and cannot be cited here. Native metadata was inspected as source coverage, without treating projection omissions as documentary silence. The Pilot 3 program adlbc.r sets AENTMTFL to Y on End of Treatment rows (lines 155-161 and 187-197) and on the scheduled record with the highest AVISITN up to VISITNUM 12 (lines 200-209).",
       "question": "Define treatment-phase boundaries and the early-discontinuation source, then decide the eligible assessments, chronological order, ties and treatment of derived end-of-treatment copies."
     },
     {
@@ -1539,6 +1880,246 @@
         "Significant digits is applied with round_half_away_from_zero at five decimal places."
       ],
       "assessment": "The specification's copy does not apply the documented precision; the probe tests whether the published values hold it.",
+      "question": ""
+    },
+    {
+      "variable": "SUBJID",
+      "rule": "No retained document states this derivation; the Pilot 3 program adlbc.r lines 96-105 select SUBJID from ADSL and join it to the lab records by STUDYID and USUBJID.",
+      "citations": [
+        {
+          "document": "spec/source/programs/adlbc.r",
+          "section": "L96-L105",
+          "quote": "adsl <- adsl %>%\nselect(\nSTUDYID, SUBJID, USUBJID, TRT01PN, TRT01P, TRT01AN, TRT01A, TRTSDT, TRTEDT, AGE, AGEGR1, AGEGR1N, RACE, RACEN, SEX,\nCOMP24FL, DSRAEFL, SAFFL\n)\nadlb01 <- adlb00 %>%\nleft_join(adsl, by = c(\"STUDYID\", \"USUBJID\"))"
+        }
+      ],
+      "clauses": [],
+      "probes": [],
+      "interpretations": [],
+      "assessment": "Undocumented; the cited program lines show how the reference carries this ADSL variable.",
+      "question": ""
+    },
+    {
+      "variable": "TRTSDT",
+      "rule": "No retained document states this derivation; the Pilot 3 program adlbc.r lines 96-105 select TRTSDT from ADSL and join it to the lab records by STUDYID and USUBJID.",
+      "citations": [
+        {
+          "document": "spec/source/programs/adlbc.r",
+          "section": "L96-L105",
+          "quote": "adsl <- adsl %>%\nselect(\nSTUDYID, SUBJID, USUBJID, TRT01PN, TRT01P, TRT01AN, TRT01A, TRTSDT, TRTEDT, AGE, AGEGR1, AGEGR1N, RACE, RACEN, SEX,\nCOMP24FL, DSRAEFL, SAFFL\n)\nadlb01 <- adlb00 %>%\nleft_join(adsl, by = c(\"STUDYID\", \"USUBJID\"))"
+        }
+      ],
+      "clauses": [],
+      "probes": [],
+      "interpretations": [],
+      "assessment": "Undocumented; the cited program lines show how the reference carries this ADSL variable.",
+      "question": ""
+    },
+    {
+      "variable": "TRTEDT",
+      "rule": "No retained document states this derivation; the Pilot 3 program adlbc.r lines 96-105 select TRTEDT from ADSL and join it to the lab records by STUDYID and USUBJID.",
+      "citations": [
+        {
+          "document": "spec/source/programs/adlbc.r",
+          "section": "L96-L105",
+          "quote": "adsl <- adsl %>%\nselect(\nSTUDYID, SUBJID, USUBJID, TRT01PN, TRT01P, TRT01AN, TRT01A, TRTSDT, TRTEDT, AGE, AGEGR1, AGEGR1N, RACE, RACEN, SEX,\nCOMP24FL, DSRAEFL, SAFFL\n)\nadlb01 <- adlb00 %>%\nleft_join(adsl, by = c(\"STUDYID\", \"USUBJID\"))"
+        }
+      ],
+      "clauses": [],
+      "probes": [],
+      "interpretations": [],
+      "assessment": "Undocumented; the cited program lines show how the reference carries this ADSL variable.",
+      "question": ""
+    },
+    {
+      "variable": "AGE",
+      "rule": "No retained document states this derivation; the Pilot 3 program adlbc.r lines 96-105 select AGE from ADSL and join it to the lab records by STUDYID and USUBJID.",
+      "citations": [
+        {
+          "document": "spec/source/programs/adlbc.r",
+          "section": "L96-L105",
+          "quote": "adsl <- adsl %>%\nselect(\nSTUDYID, SUBJID, USUBJID, TRT01PN, TRT01P, TRT01AN, TRT01A, TRTSDT, TRTEDT, AGE, AGEGR1, AGEGR1N, RACE, RACEN, SEX,\nCOMP24FL, DSRAEFL, SAFFL\n)\nadlb01 <- adlb00 %>%\nleft_join(adsl, by = c(\"STUDYID\", \"USUBJID\"))"
+        }
+      ],
+      "clauses": [],
+      "probes": [],
+      "interpretations": [],
+      "assessment": "Undocumented; the cited program lines show how the reference carries this ADSL variable.",
+      "question": ""
+    },
+    {
+      "variable": "AGEGR1",
+      "rule": "No retained document states this derivation; the Pilot 3 program adlbc.r lines 96-105 select AGEGR1 from ADSL and join it to the lab records by STUDYID and USUBJID.",
+      "citations": [
+        {
+          "document": "spec/source/programs/adlbc.r",
+          "section": "L96-L105",
+          "quote": "adsl <- adsl %>%\nselect(\nSTUDYID, SUBJID, USUBJID, TRT01PN, TRT01P, TRT01AN, TRT01A, TRTSDT, TRTEDT, AGE, AGEGR1, AGEGR1N, RACE, RACEN, SEX,\nCOMP24FL, DSRAEFL, SAFFL\n)\nadlb01 <- adlb00 %>%\nleft_join(adsl, by = c(\"STUDYID\", \"USUBJID\"))"
+        }
+      ],
+      "clauses": [],
+      "probes": [],
+      "interpretations": [],
+      "assessment": "Undocumented; the cited program lines show how the reference carries this ADSL variable.",
+      "question": ""
+    },
+    {
+      "variable": "AGEGR1N",
+      "rule": "No retained document states this derivation; the Pilot 3 program adlbc.r lines 96-105 select AGEGR1N from ADSL and join it to the lab records by STUDYID and USUBJID.",
+      "citations": [
+        {
+          "document": "spec/source/programs/adlbc.r",
+          "section": "L96-L105",
+          "quote": "adsl <- adsl %>%\nselect(\nSTUDYID, SUBJID, USUBJID, TRT01PN, TRT01P, TRT01AN, TRT01A, TRTSDT, TRTEDT, AGE, AGEGR1, AGEGR1N, RACE, RACEN, SEX,\nCOMP24FL, DSRAEFL, SAFFL\n)\nadlb01 <- adlb00 %>%\nleft_join(adsl, by = c(\"STUDYID\", \"USUBJID\"))"
+        }
+      ],
+      "clauses": [],
+      "probes": [],
+      "interpretations": [],
+      "assessment": "Undocumented; the cited program lines show how the reference carries this ADSL variable.",
+      "question": ""
+    },
+    {
+      "variable": "RACE",
+      "rule": "No retained document states this derivation; the Pilot 3 program adlbc.r lines 96-105 select RACE from ADSL and join it to the lab records by STUDYID and USUBJID.",
+      "citations": [
+        {
+          "document": "spec/source/programs/adlbc.r",
+          "section": "L96-L105",
+          "quote": "adsl <- adsl %>%\nselect(\nSTUDYID, SUBJID, USUBJID, TRT01PN, TRT01P, TRT01AN, TRT01A, TRTSDT, TRTEDT, AGE, AGEGR1, AGEGR1N, RACE, RACEN, SEX,\nCOMP24FL, DSRAEFL, SAFFL\n)\nadlb01 <- adlb00 %>%\nleft_join(adsl, by = c(\"STUDYID\", \"USUBJID\"))"
+        }
+      ],
+      "clauses": [],
+      "probes": [],
+      "interpretations": [],
+      "assessment": "Undocumented; the cited program lines show how the reference carries this ADSL variable.",
+      "question": ""
+    },
+    {
+      "variable": "RACEN",
+      "rule": "No retained document states this derivation; the Pilot 3 program adlbc.r lines 96-105 select RACEN from ADSL and join it to the lab records by STUDYID and USUBJID.",
+      "citations": [
+        {
+          "document": "spec/source/programs/adlbc.r",
+          "section": "L96-L105",
+          "quote": "adsl <- adsl %>%\nselect(\nSTUDYID, SUBJID, USUBJID, TRT01PN, TRT01P, TRT01AN, TRT01A, TRTSDT, TRTEDT, AGE, AGEGR1, AGEGR1N, RACE, RACEN, SEX,\nCOMP24FL, DSRAEFL, SAFFL\n)\nadlb01 <- adlb00 %>%\nleft_join(adsl, by = c(\"STUDYID\", \"USUBJID\"))"
+        }
+      ],
+      "clauses": [],
+      "probes": [],
+      "interpretations": [],
+      "assessment": "Undocumented; the cited program lines show how the reference carries this ADSL variable.",
+      "question": ""
+    },
+    {
+      "variable": "SEX",
+      "rule": "No retained document states this derivation; the Pilot 3 program adlbc.r lines 96-105 select SEX from ADSL and join it to the lab records by STUDYID and USUBJID.",
+      "citations": [
+        {
+          "document": "spec/source/programs/adlbc.r",
+          "section": "L96-L105",
+          "quote": "adsl <- adsl %>%\nselect(\nSTUDYID, SUBJID, USUBJID, TRT01PN, TRT01P, TRT01AN, TRT01A, TRTSDT, TRTEDT, AGE, AGEGR1, AGEGR1N, RACE, RACEN, SEX,\nCOMP24FL, DSRAEFL, SAFFL\n)\nadlb01 <- adlb00 %>%\nleft_join(adsl, by = c(\"STUDYID\", \"USUBJID\"))"
+        }
+      ],
+      "clauses": [],
+      "probes": [],
+      "interpretations": [],
+      "assessment": "Undocumented; the cited program lines show how the reference carries this ADSL variable.",
+      "question": ""
+    },
+    {
+      "variable": "COMP24FL",
+      "rule": "No retained document states this derivation; the Pilot 3 program adlbc.r lines 96-105 select COMP24FL from ADSL and join it to the lab records by STUDYID and USUBJID.",
+      "citations": [
+        {
+          "document": "spec/source/programs/adlbc.r",
+          "section": "L96-L105",
+          "quote": "adsl <- adsl %>%\nselect(\nSTUDYID, SUBJID, USUBJID, TRT01PN, TRT01P, TRT01AN, TRT01A, TRTSDT, TRTEDT, AGE, AGEGR1, AGEGR1N, RACE, RACEN, SEX,\nCOMP24FL, DSRAEFL, SAFFL\n)\nadlb01 <- adlb00 %>%\nleft_join(adsl, by = c(\"STUDYID\", \"USUBJID\"))"
+        }
+      ],
+      "clauses": [],
+      "probes": [],
+      "interpretations": [],
+      "assessment": "Undocumented; the cited program lines show how the reference carries this ADSL variable.",
+      "question": ""
+    },
+    {
+      "variable": "DSRAEFL",
+      "rule": "No retained document states this derivation; the Pilot 3 program adlbc.r lines 96-105 select DSRAEFL from ADSL and join it to the lab records by STUDYID and USUBJID.",
+      "citations": [
+        {
+          "document": "spec/source/programs/adlbc.r",
+          "section": "L96-L105",
+          "quote": "adsl <- adsl %>%\nselect(\nSTUDYID, SUBJID, USUBJID, TRT01PN, TRT01P, TRT01AN, TRT01A, TRTSDT, TRTEDT, AGE, AGEGR1, AGEGR1N, RACE, RACEN, SEX,\nCOMP24FL, DSRAEFL, SAFFL\n)\nadlb01 <- adlb00 %>%\nleft_join(adsl, by = c(\"STUDYID\", \"USUBJID\"))"
+        }
+      ],
+      "clauses": [],
+      "probes": [],
+      "interpretations": [],
+      "assessment": "Undocumented; the cited program lines show how the reference carries this ADSL variable.",
+      "question": ""
+    },
+    {
+      "variable": "SAFFL",
+      "rule": "No retained document states this derivation; the Pilot 3 program adlbc.r lines 96-105 select SAFFL from ADSL and join it to the lab records by STUDYID and USUBJID.",
+      "citations": [
+        {
+          "document": "spec/source/programs/adlbc.r",
+          "section": "L96-L105",
+          "quote": "adsl <- adsl %>%\nselect(\nSTUDYID, SUBJID, USUBJID, TRT01PN, TRT01P, TRT01AN, TRT01A, TRTSDT, TRTEDT, AGE, AGEGR1, AGEGR1N, RACE, RACEN, SEX,\nCOMP24FL, DSRAEFL, SAFFL\n)\nadlb01 <- adlb00 %>%\nleft_join(adsl, by = c(\"STUDYID\", \"USUBJID\"))"
+        }
+      ],
+      "clauses": [],
+      "probes": [],
+      "interpretations": [],
+      "assessment": "Undocumented; the cited program lines show how the reference carries this ADSL variable.",
+      "question": ""
+    },
+    {
+      "variable": "PARAMCD",
+      "rule": "No retained document states this derivation; the Pilot 3 program adlbc.r line 133 sets PARAMCD to LB.LBTESTCD.",
+      "citations": [
+        {
+          "document": "spec/source/programs/adlbc.r",
+          "section": "L133",
+          "quote": "PARAMCD = LBTESTCD,"
+        }
+      ],
+      "clauses": [],
+      "probes": [],
+      "interpretations": [],
+      "assessment": "Undocumented; the cited program line shows how the reference computes it.",
+      "question": ""
+    },
+    {
+      "variable": "PARCAT1",
+      "rule": "No retained document states this derivation; the Pilot 3 program adlbc.r line 135 sets PARCAT1 to the constant CHEM.",
+      "citations": [
+        {
+          "document": "spec/source/programs/adlbc.r",
+          "section": "L135",
+          "quote": "PARCAT1 = \"CHEM\" # changed to match prod dataset"
+        }
+      ],
+      "clauses": [],
+      "probes": [],
+      "interpretations": [],
+      "assessment": "Undocumented; the cited program line shows how the reference computes it.",
+      "question": ""
+    },
+    {
+      "variable": "ABLFL",
+      "rule": "No retained document states this derivation; the Pilot 3 program adlbc.r line 143 copies LB.LBBLFL into ABLFL.",
+      "citations": [
+        {
+          "document": "spec/source/programs/adlbc.r",
+          "section": "L143",
+          "quote": "mutate(ABLFL = LBBLFL)"
+        }
+      ],
+      "clauses": [],
+      "probes": [],
+      "interpretations": [],
+      "assessment": "Undocumented; the cited program line shows how the reference computes it.",
       "question": ""
     }
   ]
