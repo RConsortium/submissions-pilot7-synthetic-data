@@ -94,15 +94,8 @@ def check_workbook(workbook):
     expect(panels).to_have_count(1)
 
 
-def displayed_source(page, specification):
-    """The source document the specification pane shows."""
-    view = page.locator("#spec-view").input_value()
-    index = int(view.removeprefix("source:")) if view.startswith("source:") else 0
-    return specification["documents"][index]
-
-
 def assert_yaml_context(page, specification, inputs, intermediates):
-    focus = displayed_source(page, specification)["lineage"]["focus"]
+    focus = specification["resolved"]["lineage"]["focus"]
     for name, span in focus["inputs"].items():
         line = page.locator(f'#spec-L{span["start"]}')
         if name in inputs:
@@ -245,37 +238,25 @@ def check(browser, base, site_dir, screenshots):
             assert second['y'] >= first['y'] + first['height']
             assert page.evaluate('document.documentElement.scrollWidth <= innerWidth')
             page.set_viewport_size({'width': 1600, 'height': 1000})
-    # A layered column opens the shared layer that writes its rule; its entry
-    # keeps this package's historical metadata; the model resolves both.
+    # A layered column always shows its executable composed rule, including
+    # when an older shared link requests an authored source view.
     copied = json.loads((site_dir / "evidence/dashboard/cdiscpilot01/specs/adtte.json").read_text())
-    page.goto(base + "/studies/cdiscpilot01/#cdiscpilot01/datasets/ADTTE?focus=output.AGE")
-    expect(page.locator("#spec-caption")).to_contain_text("Focused view")
-    paths = [document["path"] for document in copied["documents"]]
-    defining = paths.index(copied["lineage"]["definitions"]["AGE"]["path"])
-    assert defining > 0
-    expect(page.locator("#spec-view")).to_have_value(f"source:{defining}")
-    rule = "\n".join(page.locator(".spec-line.node-selected code").all_text_contents())
-    assert "derivation: ADSL.AGE" in rule
-    assert page.locator(".spec-omission:visible").count() > 0
-    page.get_by_role("button", name="Copy source file", exact=True).click()
-    expect(page.get_by_role("button", name="Copied", exact=True)).to_be_visible()
-    assert page.evaluate("navigator.clipboard.readText()") == copied["documents"][defining]["text"]
-    page.locator("#spec-view").select_option("source:0")
-    selected = page.locator(".spec-line.node-selected code").all_text_contents()
-    span = copied["lineage"]["spans"]["AGE"]
-    authored = copied["text"].split("\n")[span["start"] - 1:span["end"]]
-    assert selected == [line or " " for line in authored]
-    assert "data_type: integer" in "\n".join(selected)
-    page.locator("#spec-view").select_option("resolved")
-    expect(page.locator("#spec-caption")).to_contain_text("composed lines")
-    expect(page.locator(".spec-pane .pane-footer")).to_contain_text("Generated composed specification")
-    assert "ADSL.AGE" in "\n".join(page.locator(".spec-line.node-selected code").all_text_contents())
-    capture(page, screenshots, "resolved-copy-specification.png")
-    page.reload()
-    expect(page.locator("#spec-view")).to_have_value("resolved")
-    page.locator("#spec-view").select_option("source:1")
-    expect(page.get_by_role("link", name="Open source", exact=True)).to_have_attribute(
-        "href", re.compile(re.escape(copied["documents"][1]["path"])))
+    for view in ["", "&specView=resolved", "&specView=source:1"]:
+        page.goto(base + "/studies/cdiscpilot01/#cdiscpilot01/datasets/ADTTE?focus=output.AGE" + view)
+        expect(page.locator(".spec-line.node-selected").first).to_be_visible()
+        expect(page.locator("#spec-view, #copy-specification, #spec-caption, .review-footnote")).to_have_count(0)
+        expect(page.locator(".spec-pane .pane-footer")).to_contain_text("Generated composed specification")
+        selected = page.locator(".spec-line.node-selected code").all_text_contents()
+        span = copied["resolved"]["lineage"]["spans"]["AGE"]
+        composed = copied["resolved"]["text"].split("\n")[span["start"] - 1:span["end"]]
+        assert selected == [line or " " for line in composed]
+        assert "ADSL.AGE" in "\n".join(selected)
+        assert page.locator(".spec-omission:visible").count() > 0
+        expect(page.locator(".spec-pane").get_by_role("link", name="Open source", exact=True)).to_have_attribute(
+            "href", re.compile(re.escape(copied["resolved"]["path"])))
+        page.reload()
+        expect(page.locator(".spec-line.node-selected code")).to_have_text(selected)
+    capture(page, screenshots, "composed-specification.png")
     page.goto(study)
     expect(page.locator("#output-table tbody tr")).to_have_count(3)
     expect(page.locator("#subject-summary")).to_contain_text("3 /")
@@ -856,13 +837,7 @@ def check(browser, base, site_dir, screenshots):
     expect(page.frame_locator("#source-frame").locator("table").first).to_be_visible()
     page.locator('.review-tabs [data-view="datasets"]').click()
     page.locator("#dataset-select").select_option("ADADAS")
-    # The shared version 1 template writes ADADAS's row templates.
-    adadas = json.loads(
-        (site_dir / "evidence/dashboard/submission-pilot3/specs/adadas.json").read_text()
-    )
-    paths = [document["path"] for document in adadas["documents"]]
-    template = paths.index("spec/yamaa/pilot-program/adadas_v1.yaml")
-    page.locator("#spec-view").select_option(f"source:{template}")
+    # Composed row templates retain selectable column and row rules.
     expression = page.locator(
         '.spec-line[data-row-node="row.obs"][data-line-node="spec.ADT"]'
     ).first
@@ -882,7 +857,6 @@ def check(browser, base, site_dir, screenshots):
     page.locator(
         '.spec-line[data-row-node="row.obs"][data-line-node="row.obs"]'
     ).first.click()
-    expect(page.locator("#spec-view")).to_have_value(f"source:{template}")
     expect(page.locator('.spec-line[data-row-node="row.obs"]')).not_to_have_count(0)
     expect(
         page.locator('.spec-line[data-row-node="row.obs"]:not(.node-selected)')
@@ -938,8 +912,8 @@ def check(browser, base, site_dir, screenshots):
                 assert_page_fits(page, "#output-table")
             elif view == "findings":
                 expect(page.get_by_role("region", name="Consistency findings", exact=True)).to_be_visible()
-                page.locator("[data-trace-issue]").first.click()
-                expect(page.locator(".finding-evidence").first).to_be_visible()
+                trace = open_trace(page.locator(".consistency-table tbody tr.review-issue").first)
+                expect(trace.locator("#trace-sources")).to_be_visible()
             elif view == "materials":
                 expect(page.locator("#source-frame")).to_be_visible()
             else:

@@ -13,21 +13,7 @@ import {
 
 /** Shared specification and independently paged, resizable dataset panels. */
 export function createWorkspace(ctx) {
-  const displayedSpec = () => specificationView(ctx.specification, ctx.state.specView, ctx.state.focus);
-  function specificationPicker() {
-    const { specification, state, esc, sourceUrl, link } = ctx;
-    const shown = displayedSpec();
-    const sources = specification.documents || [{ path: specification.path }];
-    return `<div class="spec-controls"><label>View<select id="spec-view">${sources.map((source, i) => `<option value="source:${i}" ${!shown.inspection && shown.sourceIndex === i ? "selected" : ""}>Source: ${esc(source.path.split("/").slice(-2).join("/"))}</option>`).join("")}${specification.resolved ? `<option value="resolved" ${shown.inspection ? "selected" : ""}>Composed specification</option>` : ""}</select></label><button id="copy-specification">${shown.inspection ? "Copy composed YAML" : "Copy source file"}</button>${link(sourceUrl(shown.path), "Open source")}</div>`;
-  }
-  async function copySpecification() {
-    try {
-      await navigator.clipboard.writeText(displayedSpec().text);
-      ctx.byId("copy-specification").textContent = "Copied";
-    } catch {
-      ctx.byId("spec-caption").textContent = "Copy unavailable. Open source to read the complete file.";
-    }
-  }
+  const displayedSpec = () => specificationView(ctx.specification);
   const observedSizes = new WeakMap();
   const sizes = new ResizeObserver((entries) => {
     let changed = false;
@@ -85,7 +71,7 @@ export function createWorkspace(ctx) {
   }
   function workspace() {
     const { model, specification, state, layout, esc, sourceUrl, link } = ctx;
-    return `<div class="workspace-toolbar"><label class="select-field">Specification<select id="dataset-select">${model.datasets.map((d) => `<option value="${d.name}" ${state.dataset === d.name ? "selected" : ""}>${d.name}</option>`).join("")}</select></label>${subjectPicker()}<label class="search-field"><span class="field-label">Search records</span><input id="record-search" type="search" placeholder="Subject or value across displayed datasets..." value="${esc(state.rowSearch)}"></label><label class="select-field">Columns<select id="column-mode"><option value="related" ${state.relatedOnly ? "selected" : ""}>Related columns</option><option value="all" ${!state.relatedOnly ? "selected" : ""}>All columns</option></select></label><button class="button" id="clear-selection">Clear highlight</button><button class="button" id="reset-layout">Reset layout</button></div><div class="lineage-toolbar"><div id="lineage-summary" role="status"></div><span class="lineage-legend"><i class="swatch key"></i>Key / ID <i class="swatch selected"></i>Selected <i class="swatch related"></i>Related</span></div><div class="review-workbench" style="--spec-width:${layout.spec}%;--input-height:${layout.inputs ?? 50}%"><section class="spec-pane pane" aria-labelledby="spec-heading"><header class="pane-header"><div><h2 id="spec-heading">yamaa specification</h2><span id="spec-caption">${state.dataset} / ${specification.text.split("\n").length} lines${specification.lineage.unresolved.length ? " / " + specification.lineage.unresolved.length + " unresolved references" : ""}</span></div>${specificationPicker()}</header><div class="spec-scroll" id="spec-scroll" tabindex="0" aria-label="YAML specification">${renderSpec()}</div><footer class="pane-footer">${displayedSpec().inspection ? "Generated composed specification. " : ""}Declared column dependencies; contributing rows are not traced.</footer></section><div class="spec-resizer" id="spec-resizer" role="separator" aria-label="Resize specification panel" aria-orientation="vertical" aria-valuemin="25" aria-valuemax="60" aria-valuenow="${Math.round(layout.spec)}" tabindex="0"></div><div class="data-panes">${group("input")}<div id="data-resizer" class="data-resizer" role="separator" aria-label="Resize input and output areas" aria-orientation="horizontal" aria-valuemin="25" aria-valuemax="75" aria-valuenow="${Math.round(layout.inputs ?? 50)}" tabindex="0"></div>${group("output")}</div></div><div id="data-status" role="status" class="data-status"></div><div id="evidence-drawer"></div>`;
+    return `<div class="workspace-toolbar"><label class="select-field">Specification<select id="dataset-select">${model.datasets.map((d) => `<option value="${d.name}" ${state.dataset === d.name ? "selected" : ""}>${d.name}</option>`).join("")}</select></label>${subjectPicker()}<label class="search-field"><span class="field-label">Search records</span><input id="record-search" type="search" placeholder="Subject or value across displayed datasets..." value="${esc(state.rowSearch)}"></label><label class="select-field">Columns<select id="column-mode"><option value="related" ${state.relatedOnly ? "selected" : ""}>Related columns</option><option value="all" ${!state.relatedOnly ? "selected" : ""}>All columns</option></select></label><button class="button" id="clear-selection">Clear highlight</button><button class="button" id="reset-layout">Reset layout</button></div><div class="lineage-toolbar"><div id="lineage-summary" role="status"></div><span class="lineage-legend"><i class="swatch key"></i>Key / ID <i class="swatch selected"></i>Selected <i class="swatch related"></i>Related</span></div><div class="review-workbench" style="--spec-width:${layout.spec}%;--input-height:${layout.inputs ?? 50}%"><section class="spec-pane pane" aria-labelledby="spec-heading"><header class="pane-header"><div><h2 id="spec-heading">yamaa specification</h2>${specification.lineage.unresolved.length ? `<span>${specification.lineage.unresolved.length} unresolved references</span>` : ""}</div>${link(sourceUrl(displayedSpec().path), "Open source")}</header><div class="spec-scroll" id="spec-scroll" tabindex="0" aria-label="YAML specification">${renderSpec()}</div><footer class="pane-footer">${displayedSpec().inspection ? "Generated composed specification. " : ""}Declared column dependencies; contributing rows are not traced.</footer></section><div class="spec-resizer" id="spec-resizer" role="separator" aria-label="Resize specification panel" aria-orientation="vertical" aria-valuemin="25" aria-valuemax="60" aria-valuenow="${Math.round(layout.spec)}" tabindex="0"></div><div class="data-panes">${group("input")}<div id="data-resizer" class="data-resizer" role="separator" aria-label="Resize input and output areas" aria-orientation="horizontal" aria-valuemin="25" aria-valuemax="75" aria-valuenow="${Math.round(layout.inputs ?? 50)}" tabindex="0"></div>${group("output")}</div></div><div id="data-status" role="status" class="data-status"></div><div id="evidence-drawer"></div>`;
   }
   function specLines() {
     const { state, specification, plan, model, graph } = ctx;
@@ -141,15 +127,12 @@ export function createWorkspace(ctx) {
       el.classList.toggle("node-related", line.related);
       el.querySelector(".line-number").setAttribute("aria-pressed", String(line.selected));
     }
-    const shown = sourceLines.filter((line) => line.visible).length;
     const gaps = specificationGaps(sourceLines);
     for (const el of root().querySelectorAll("[data-gap-before]")) {
       const count = gaps.get(Number(el.dataset.gapBefore));
       el.hidden = !count;
       el.textContent = `${count || 0} lines omitted`;
     }
-    const unresolved = ctx.specification.lineage.unresolved.length;
-    byId("spec-caption").textContent = `${state.dataset} / ${shown === sourceLines.length ? shown : "Focused view: " + shown + " of " + sourceLines.length} ${displayedSpec().inspection ? "composed" : "source"} lines${unresolved ? " / " + unresolved + " unresolved references" : ""}`;
     byId("lineage-summary").textContent = state.focus
       ? `${state.focus.replace(/^output\./, "Output ").replace(/^spec\./, "YAML ")} selected. ${state.relatedOnly ? "Related source datasets and columns are shown." : "Linked columns are highlighted across displayed datasets."}`
       : "Select an output column to reveal connected input datasets and columns. Drag pane edges or column separators to resize.";
@@ -318,5 +301,5 @@ export function createWorkspace(ctx) {
       el.style.height = "";
     }
   }
-  return { workspace, applyHighlight, paintTables, fitWorkbench, copySpecification };
+  return { workspace, applyHighlight, paintTables, fitWorkbench };
 }

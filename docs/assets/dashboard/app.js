@@ -118,7 +118,7 @@ import { developmentReport, mountDevelopment } from "./synthetic-development.js"
     },
   };
   const { frame } = createShell(ctx),
-    { workspace, applyHighlight, paintTables, fitWorkbench, copySpecification } =
+    { workspace, applyHighlight, paintTables, fitWorkbench } =
       createWorkspace(ctx);
   const { findingRows, findingsView, findingItems, drawer, ledger, ledgerStrip } = createReport(ctx),
     comments = createComments(ctx),
@@ -403,10 +403,6 @@ import { developmentReport, mountDevelopment } from "./synthetic-development.js"
       return;
     }
     if (sourceDocuments.click(target)) return;
-    if (target.id === "copy-specification") {
-      await copySpecification();
-      return;
-    }
     if (target.dataset.view) {
       navigate(target.dataset.view);
       return;
@@ -419,8 +415,6 @@ import { developmentReport, mountDevelopment } from "./synthetic-development.js"
       const owner = target.dataset.outputDataset;
       if (owner && owner !== state.dataset) changePrimary(state, owner);
       state.focus = clear ? "" : raw;
-      // A new selection shows its defining source again unless the model is chosen.
-      if (state.focus && state.specView !== "resolved") state.specView = "";
       state.relatedOnly = true;
       state.pages = {};
       save();
@@ -577,12 +571,6 @@ import { developmentReport, mountDevelopment } from "./synthetic-development.js"
       state.evidence = "";
       save();
       await renderView();
-      return;
-    }
-    if (el.id === "spec-view") {
-      state.specView = el.value;
-      save();
-      await redrawWorkspace(true, false);
       return;
     }
     if (el.hasAttribute("data-input-dataset")) {
