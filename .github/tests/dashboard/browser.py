@@ -173,8 +173,8 @@ def check(browser, base, site_dir, screenshots):
         issues = study_report["review"]["issues"]
         checks = study_report["review"]["counts"]["checks"]
         expect(page.locator(".consistency-summary")).to_contain_text(f"{len(issues)} findings awaiting review")
-        expect(page.locator(".reference-summary")).to_contain_text("100% of reference datasets matched")
-        expect(page.locator(".comparison-explanation")).to_contain_text("Findings can remain open even when reference agreement is 100%")
+        expect(page.locator(".reference-summary")).to_contain_text("100% of generated ADaM datasets matched")
+        expect(page.locator(".comparison-explanation")).to_contain_text("Findings can remain open even when generated ADaM dataset agreement is 100%")
         critical = sum(i["critical"]["status"] == "yes" for i in issues)
         expect(page.locator(".consistency-summary .critical-counts")).to_contain_text(f"{critical} critical;")
         page.get_by_role("button", name="View consistency findings", exact=True).click()
@@ -466,12 +466,12 @@ def check(browser, base, site_dir, screenshots):
     expect(page.locator(".finding-evidence")).to_have_count(0)
     trace = open_trace(page.locator(".consistency-table tbody tr"))
     expect(trace).to_contain_text("No issue-specific data comparison")
-    expect(trace.locator("#trace-finding .trace-basis")).to_contain_text("Automated criticality: Needs review.")
+    expect(trace.locator("#trace-assessment .trace-basis")).to_contain_text("Automated criticality: Needs review.")
     # The open finding is part of the shareable state; this one is alone in the filtered list.
     assert "review=" in page.url and "imputation" in page.url
     expect(trace.locator(".trace-review-footer")).to_contain_text("Finding 1 of 1 in the current list")
     expect(trace.get_by_role("button", name=re.compile(r"finding in list"))).to_have_count(0)
-    expect(trace.locator("#trace-finding .trace-basis")).to_contain_text("No agent adjudication: this is an authored question.")
+    expect(trace.locator("#trace-assessment .trace-basis")).to_contain_text("No agent adjudication: this is an authored question.")
     # The review shows example subjects itself; the workspace opens from the finding's row.
     expect(trace.locator("[data-finding]")).to_have_count(0)
     # The simplified review omits the separate GitHub and technical sections.
@@ -583,7 +583,7 @@ def check(browser, base, site_dir, screenshots):
     expect(trace).to_contain_text("Agent review: agreed")
     expect(trace.locator("#trace-sources")).not_to_contain_text("Specification:")
     expect(trace.locator("#trace-specifications pre.spec-lines").first).to_be_visible()
-    expect(trace.locator("#trace-examples h3")).to_have_text("3. Example Subject Difference")
+    expect(trace.locator("#trace-examples h3")).to_have_text("4. Subject examples")
     expect(trace.locator(".trace-data-table thead")).not_to_contain_text("yamaa output")
     expect(trace.locator(".trace-cell-difference").first).to_be_visible()
     expect(trace.locator("pre.spec-lines mark").first).to_be_visible()
@@ -628,7 +628,7 @@ def check(browser, base, site_dir, screenshots):
     expect(rule.locator(".finding-evidence")).to_have_count(0)
     for row in rule.all():
         trace = open_trace(row)
-        expect(trace.locator(".trace-measurements")).to_contain_text("published reference")
+        expect(trace.locator(".trace-measurements")).to_contain_text("generated ADaM datasets")
         page.keyboard.press("Escape")
     # The footer walks the filtered listing, and a reloaded link reopens the finding it names.
     trace = open_trace(rule.first)
@@ -814,10 +814,10 @@ def check(browser, base, site_dir, screenshots):
     expect(report.locator("details")).to_have_count(0)
     expect(report.locator(".report-provenance, #reading, #review-items")).to_have_count(0)
     expect(report).to_contain_text("Subject-Level Analysis Dataset")
-    expect(report.locator(".reference-summary")).to_contain_text("100% of reference datasets matched")
+    expect(report.locator(".reference-summary")).to_contain_text("100% of generated ADaM datasets matched")
     expect(report.locator(".consistency-summary")).to_contain_text("findings awaiting review")
     expect(report.locator(".comparison-explanation")).to_contain_text("Findings can remain open")
-    expect(report.locator("#dataset-results + .report-table .report-status.good").first).to_have_text("Reference matched")
+    expect(report.locator("#dataset-results + .report-table .report-status.good").first).to_have_text("Generated ADaM dataset matched")
     assert page.evaluate("document.documentElement.scrollWidth<=innerWidth")
     nav = page.locator(".md-nav--primary")
     expect(nav).to_contain_text("Pilot studies")
@@ -825,12 +825,12 @@ def check(browser, base, site_dir, screenshots):
     capture(page, screenshots, "study-report.png")
     page.goto(base + "/")
     home = page.locator(".pilot-metrics")
-    expect(home).to_contain_text("Datasets matching reference")
+    expect(home).to_contain_text("Datasets matching generated ADaM datasets")
     expect(home).to_contain_text("Cells in matching datasets")
     expect(home).to_contain_text("Consistency review")
     expect(home).to_contain_text("needing assessment")
     expect(home.locator("thead th")).to_have_text([
-        "Study", "Published ADaM reference agreement", "Consistency review"
+        "Study", "Generated ADaM dataset agreement", "Consistency review"
     ])
     assert home.evaluate("region => region.scrollWidth <= region.clientWidth + 1")
     capture(page, screenshots, "home-comparison-summary.png")
@@ -930,7 +930,7 @@ def check(browser, base, site_dir, screenshots):
         expect(page.locator(".review-workbench")).to_be_visible()
         expect(page.locator("#output-table tbody tr")).not_to_have_count(0)
         expect(page.locator('.input-group [data-domain="DM"]')).to_be_visible()
-        expect(page.locator(".metric-strip")).to_contain_text("No independent published reference")
+        expect(page.locator(".metric-strip")).to_contain_text("No independent generated ADaM comparison datasets")
         expect(page.locator(".md-sidebar--primary")).not_to_be_visible()
         capture(page, screenshots, name + "-workspace.png")
         page.get_by_role("button", name="Analysis development", exact=True).click()

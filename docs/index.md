@@ -37,7 +37,7 @@ complete contribution.
 
     ---
 
-    Reference agreement and consistency findings for every pilot study on one
+    Generated ADaM dataset agreement and consistency findings for every pilot study on one
     printable page.
 
     [Open the pilot study report](studies/index.md)
@@ -48,15 +48,15 @@ complete contribution.
 
 For each pilot submission package, AI agents review the package and write
 the derivation specifications, yamaa derives the ADaM datasets from the
-staged SDTM data, and the outputs are compared with the published ADaM
+staged SDTM data, and the outputs are compared with the generated ADaM
 datasets and with the study documents. Two measures are reported, and they
 answer different questions:
 
-- **Published ADaM reference agreement**: does the derived dataset reproduce
-  the published one under the study's comparison rules?
+- **Generated ADaM dataset agreement**: does the derived dataset reproduce
+  the generated ADaM dataset under the study's comparison rules?
 - **Consistency review**: do the documents, derivation rules and data agree
   with one another? Findings stay open until a person decides them, even
-  when reference agreement is 100%.
+  when generated ADaM dataset agreement is 100%.
 
 <div class="pilot-metrics" markdown="1" role="region" aria-label="Pilot study comparison metrics" tabindex="0">
 
@@ -66,8 +66,8 @@ answer different questions:
 
 </div>
 
-Reference values are **matching / reference total**. Column and cell counts
-come from datasets that pass the reference comparison; **M** means one
+Agreement values are **matching / generated ADaM total**. Column and cell counts
+come from datasets that pass the comparison with generated ADaM datasets; **M** means one
 million. Select a findings count to open its evidence. The
 [verification policy](verification.md) defines both measures and their
 limits, and the [pilot study report](studies/index.md) compares the packages
@@ -79,8 +79,8 @@ Synthetic studies exercise the complete workflow:
 
 > EDC data extraction -> SDTM mapping -> ADaM derivation -> define.xml generation.
 
-They have no published reference, so their dashboards support source
-exploration and analysis review rather than reference comparison. These
+They have no independent generated ADaM comparison datasets, so their dashboards support source
+exploration and analysis review rather than comparison with independent generated ADaM datasets. These
 outputs support eCTD submission package preparation.
 
 | Study | Scope | Review |

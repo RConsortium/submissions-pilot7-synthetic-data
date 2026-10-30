@@ -34,16 +34,17 @@ def run(browser_path=None):
               const doc = {id:'doc', type:'document', path:'study/define.xml', section:'ADSL.AGE',
                 quote:'Age rule', context:'Age rule', lines:[3588,3595], verified:true};
               const issue = {id:'age', dataset:'ADSL', variable:'AGE', kind:'conflict', title:'Age rule differs',
-                summary:'Review age', action:'Confirm rule', review:'agreed', check_ids:[],
-                impact:{status:'not_measured',subjects:[]},
-                trace:[{evidence_id:'rule',role:'context'},{evidence_id:'doc',role:'context'}]};
-              const report = {review:{schema_version:1, issues:[issue], checks:[], evidence:[rule,doc]},
+                summary:'Review age', expected:'Age follows the documented rule.', observed:'Age differs in generated data.', action:'Confirm rule', review:'agreed', check_ids:[],
+                impact:{status:'observed',subjects:['01'],subject_count:1},
+                trace:[{evidence_id:'rule',role:'context'},{evidence_id:'doc',role:'context'},{evidence_id:'comparison',role:'impact'}]};
+              const comparison = {id:'comparison',type:'comparison',method:'derive',reading:'literal',target:'reference',differ:1,compared:2,subjects:['01']};
+              const report = {review:{schema_version:1, issues:[issue], checks:[], evidence:[rule,doc,comparison]},
                 documents:[{path:doc.path,name:'define.xml',available:true,view:'rendered.html'}]};
               const specifications = {ADSL:{domain:'ADSL',path:'study/adsl.yaml',documents:[{path:rule.path}],
                 resolved:{path:'study/resolved/adsl.yaml',text:'domain: ADSL\\n- name: AGE\\n  derivation: age < 65',
                   lineage:{spans:{AGE:{start:2,end:3}}}}}};
               const ctx = {root:()=>document.querySelector('#study-dashboard'), report, specifications,
-                model:{id:'study',title:'Study',revision:'test-revision'},index:{comments:{repo:'org/repo',discussion_url:'https://github.com/org/repo/discussions',review_url:'https://github.com/org/repo/discussions/new'}},
+                model:{id:'study',title:'Study',revision:'test-revision',datasets:[{name:'ADSL',comparison:'passed'}]},index:{comments:{repo:'org/repo',discussion_url:'https://github.com/org/repo/discussions',review_url:'https://github.com/org/repo/discussions/new'}},
                 resource:()=> '/rendered.html', sourceUrl:()=> 'https://github.com/org/repo'};
               const sources = createReviewSources(ctx);
               window.review = createTraceReview(ctx, sources);
@@ -55,10 +56,23 @@ def run(browser_path=None):
               });
               window.review.open('age',document.querySelector('#open'));
             }""")
+            sections = page.locator('.trace-review-content > section').evaluate_all('(items)=>items.map(s=>s.id)')
+            assert sections == ['trace-finding', 'trace-sources', 'trace-specifications', 'trace-data',
+                                'trace-examples', 'trace-fix', 'trace-assessment']
+            assert page.locator('.issue-comparison').count() == 1
+            assert 'Expected behavior' in page.locator('#trace-finding').inner_text()
+            assert 'generated ADaM datasets' in page.locator('#trace-data').inner_text()
+            assert '1 / 2' in page.locator('#trace-data').inner_text()
+            assert 'matches the generated ADaM datasets' in page.locator('#trace-data').inner_text()
+            assert 'published reference' not in page.locator('.trace-review-content').inner_text()
+            page.get_by_role('button', name='3. Comparison with generated ADaM datasets', exact=True).click()
+            page.wait_for_function("document.querySelector('.trace-scroll').scrollTop > 0")
+            page.get_by_role('button', name='6. Automated assessments', exact=True).click()
+            page.locator('#trace-assessment').scroll_into_view_if_needed()
             expect(page.locator('#trace-discussion, .trace-technical')).to_have_count(0)
             expect(page.locator('[data-trace-section="trace-discussion"]')).to_have_count(0)
             page.locator('#trace-review-comment').fill('Keep my review draft')
-            basis = page.locator('#trace-finding .trace-basis')
+            basis = page.locator('#trace-assessment .trace-basis')
             assert 'Automated criticality: Needs review.' in basis.inner_text()
             assert 'Agent review: agreed.' in basis.inner_text()
             assert page.locator('.trace-review-dialog [data-finding]').count() == 0
