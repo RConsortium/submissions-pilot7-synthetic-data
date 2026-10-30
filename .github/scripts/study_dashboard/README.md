@@ -400,8 +400,8 @@ and uses those facts without installing the engine. Copies, includes, inheritanc
 and named windows require fresh resolved evidence; they are never approximated
 from authored YAML. Resolved dataset resources must be in the study's artifact
 inventory. Schema-default origins name engine schema modules, not study files.
-The browser can select each original file or the exact executable composed YAML.
-Focused views mark omitted lines, and clipboard actions retain the complete text.
+The workspace displays the exact executable composed YAML and links to its
+complete file in the repository. Focused views mark omitted lines.
 
 `domains.py` reads dataset descriptions from retained Define-XML, with browser
 fallbacks for common domains and lookup tables. Adding a domain does not require

@@ -42,7 +42,7 @@ export function createShell(ctx) {
       )
       .join(
         "",
-      )}</nav><div id="view-content"></div><div class="review-footnote">Build success, generated ADaM dataset agreement, and documentation consistency are separate checks. ${link(new URL("verification/", site).href, "Verification policy")}</div><section id="review-comments" class="review-comments" aria-label="Review comments"></section>`;
+      )}</nav><div id="view-content"></div><section id="review-comments" class="review-comments" aria-label="Review comments"></section>`;
   }
 
   return { metrics, frame };

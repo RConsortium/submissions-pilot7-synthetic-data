@@ -14,7 +14,6 @@ const fields = [
   "document",
   "compareDocument",
   "documentSection",
-  "specView",
 ];
 const unique = (values) => [...new Set(values)];
 export function readRoute(hash, model) {
@@ -73,8 +72,6 @@ export function readRoute(hash, model) {
     state.critical = "";
   if (!["agreed", "disputed", "stale", "mixed", "not_reviewed"].includes(state.agentReview))
     state.agentReview = "";
-  if (state.specView !== "resolved" && !/^source:\d{1,3}$/.test(state.specView))
-    state.specView = "";
   const keys = new Set([
     ...options.map((t) => `i-${t.id}`),
     ...model.datasets.map((d) => `o-${d.name}`),

@@ -30,13 +30,12 @@ test("criticality filters survive shared URLs and obsolete agent filters are dro
   assert.equal(state.critical, "");
   assert.equal(formatRoute(state, model), "#new-study/overview/CUSTOM");
 });
-test("authored and resolved model views survive shared URLs with invalid views discarded", () => {
-  for (const value of ["resolved", "source:1"]) {
+test("obsolete specification view parameters are dropped from shared URLs", () => {
+  for (const value of ["resolved", "source:1", "unknown"]) {
     const state = readRoute("#new-study/datasets/CUSTOM?specView=" + value, model);
-    assert.equal(state.specView, value);
+    assert.equal(formatRoute(state, model), "#new-study/datasets/CUSTOM");
     assert.deepEqual(readRoute(formatRoute(state, model), model), state);
   }
-  assert.equal(readRoute("#new-study/datasets/CUSTOM?specView=unknown", model).specView, "");
 });
 test("new study defaults and shared routes validate unknown and duplicate selections", () => {
   const state = readRoute("", model);
