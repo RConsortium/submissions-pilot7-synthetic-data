@@ -3,16 +3,40 @@
   "dataset": "ADAE",
   "author": {
     "kind": "agent",
-    "model": "Codex",
+    "model": "Codex; re-adjudication by claude-opus-5-5[1m]",
     "instructions": ".automation/consistency_review/adjudicate.md",
-    "date": "2026-10-26"
+    "date": "2026-10-29"
   },
   "decisions": [
     {
-      "finding": "ADAE.ADURN.CR-5",
-      "basis": "sha256:5e6884a5c0234b2f8d827d29447c75ed3c9e6354a0a4cacd431fbdfb3371e2a9",
+      "finding": "ADAE.STUDYID.CR-8.3",
+      "basis": "sha256:ed6f673f3f2bf76ec2c0112b23144b1db7c16cb86b08e09dc62dd95b70035005",
       "decision": "agree",
-      "reason": "Define-XML ADAE.ADURN states AENDT-ASTDT+1 without an imputation-flag restriction, and adae-documented-rules.yaml lines 158-167 apply that formula as written to the published dates. The reported nonmissing durations against missing reference values follow from that formula; adae_v1.yaml line 244 adds the ASTDTF = '' condition that withholds them, and no stated reading supplies it."
+      "reason": "adae.sas lines 19-20 keep no STUDYID from ADSL, and the final dataset at lines 128-131 takes STUDYID from the SDTM AE records read at line 7, not from the ADSL.STUDYID that Define-XML ADAE.STUDYID names. The value is the same study identifier, but the program's source differs from the documented one."
+    },
+    {
+      "finding": "ADAE.ASTDT.CR-8.6",
+      "basis": "sha256:7630e871d72463b66bda2dd94faeef58a23e034921cd4ebbd8fd6e2c905671a1",
+      "decision": "agree",
+      "reason": "adae.sas lines 28-31 impute only year-month start dates (length 7), so a completely missing start date stays missing, while SAP page 16 imputes it as the day of first dose. Define-XML ADAE.ASTDT says no events have completely missing start dates, so the contradiction lies in the stated rule rather than in the data."
+    },
+    {
+      "finding": "ADAE.ASTDT.CR-8.7",
+      "basis": "sha256:b8add805ecd10d69aba5174cfb18e8847ee485940b1dd8160fefd22c0c688ffe",
+      "decision": "agree",
+      "reason": "adae.sas line 28 imputes day 01 for every year-month start date because its treatment-start-year condition is commented out, so a year-month date wholly before first dose is imputed despite the SAP page-16 prohibition. Only year-only dates stay unimputed, which matches the narrower Define-XML ADAE.ASTDT reading of that prohibition."
+    },
+    {
+      "finding": "ADAE.ADURN.CR-8.3",
+      "basis": "sha256:0c05b4f0e84187cf1aa844ac049569d7182e465ec61580b444175e99afa60a04",
+      "decision": "agree",
+      "reason": "adae.sas line 15 computes the duration from the unimputed start date, before lines 28-31 impute a missing day, so an imputed-start event gets no duration, whereas Define-XML ADAE.ADURN applies AENDT-ASTDT+1 to the final ASTDT. The program names the variable ADUR (kept at line 131), and the ADURN__BEFORE_IMPUTATION reading reproduces the reference, so these lines produced the published values."
+    },
+    {
+      "finding": "ADAE.ADURN.CR-5",
+      "basis": "sha256:7e7dbeef7fb6e0f46da71764f83b9792b47c41f7b57ef21cdad9da2ab744eaf6",
+      "decision": "agree",
+      "reason": "adae-documented-rules.yaml lines 159-168 apply Define-XML ADAE.ADURN as written to the published dates, giving durations on the imputed-start records where the reference is missing. The reading at lines 169-186 follows adae.sas lines 13-15, which compute duration before lines 28-31 impute the start day, as the program's computation rather than documentation, and it reproduces the reference."
     },
     {
       "finding": "ADAE.TRTEMFL.CR-8.2",
@@ -39,10 +63,34 @@
       "reason": "The SAP page-33 serious-event table repeats the start, worsen, or recur definition. Define-XML ADAE.TRTEMFL applies only ASTDT >= TRTSDT and therefore states a narrower rule."
     },
     {
-      "finding": "ADAE.CQ01NAM.CR-5",
-      "basis": "sha256:a4cb1b3279fe7c61eba006e166806e71020fdf94ba14d1c5dec9c7f7e43ba3a3",
+      "finding": "ADAE.TRTEMFL.CR-8.9",
+      "basis": "sha256:ffd74fc0e97d91e95b9fcae0cacb93b1e2afef658f446367836f350d43effdf4",
       "decision": "agree",
-      "reason": "adae-documented-rules.yaml lines 328-338 keep Define-XML ADAE.CQ01NAM's substring tests, exclusions and its SOC string 'SKIN AND SUBC UTANEOUS TISSUE DISORDERS' as written, so the reported blank values against DERMATOLOGIC EVENTS follow from that spelling. The alternative at lines 339-349 changes only the SOC spelling, as data-guide page 5 and SAP page 16 support, and reproduces the reference."
+      "reason": "adae.sas lines 40-41 set TRTEMFL from ASTDT >= TRTSDT alone and no later step revises it, so a pre-dose event that worsens after first dose is N, contrary to the second criterion on SAP page 16."
+    },
+    {
+      "finding": "ADAE.TRTEMFL.CR-8.10",
+      "basis": "sha256:b3fe3ed9b3bd2e65f3bdfa15ba2ccb6040fc53bb3b22f8796f59b510a8ecb889",
+      "decision": "agree",
+      "reason": "adae.sas lines 40-41 flag on the start date alone and the program has no recurrence test anywhere, so an event that resolves before first dose and recurs afterward is N, contrary to the third criterion on SAP page 16."
+    },
+    {
+      "finding": "ADAE.TRTEMFL.CR-8.11",
+      "basis": "sha256:3ad8288f5820735ea099951243fa4ca127f5b48083304a00306a256f49714691",
+      "decision": "agree",
+      "reason": "adae.sas line 29 imputes day 01 for a year-month start date and line 40 compares that date with TRTSDT, so an event in the month of first dose but before its day is N. SAP page 16 counts an incomplete start date as treatment emergent when its year and month match the treatment start."
+    },
+    {
+      "finding": "ADAE.CQ01NAM.CR-8.3",
+      "basis": "sha256:e9eaebc5e63a9803087a5102e7c116c2a3a6e2c25d73e9f2804e1ddfef7463c5",
+      "decision": "agree",
+      "reason": "Define-XML ADAE.CQ01NAM, and the raw define-adam.xml, read 'SKIN AND SUBC UTANEOUS TISSUE DISORDERS', while adae.sas line 46 tests the SOC name spelled SUBCUTANEOUS when it sets the final CQ01NAM. The Define text is most likely a typo, and the program's spelling is the one the CQ01NAM__CORRECTED_SOC reading reproduces."
+    },
+    {
+      "finding": "ADAE.CQ01NAM.CR-5",
+      "basis": "sha256:4feeb596cefd61890dbea3997d683d637970c5a602bb7384638278f8d6ddde92",
+      "decision": "agree",
+      "reason": "adae-documented-rules.yaml lines 347-357 keep Define-XML ADAE.CQ01NAM's substring tests, exclusions and its SOC string with the embedded space as written, so the blank values against DERMATOLOGIC EVENTS follow from that spelling. The reading at lines 358-368 changes only the SOC spelling, as data-guide page 5 and SAP page 16 support, and reproduces the reference; adae.sas line 46 shows the same spelling in the computation."
     },
     {
       "finding": "ADAE.AOCC01FL.CR-8.4",
@@ -51,10 +99,16 @@
       "reason": "Define-XML ADAE.AOCC01FL explicitly selects CQ01NAM='', while data-guide page 5 says AOCC01FL flags treatment-emergent dermatological events. Define-XML ADAE.CQ01NAM assigns those events a nonblank dermatologic query name, so the subsets conflict."
     },
     {
-      "finding": "ADAE.AOCC01FL.CR-5",
-      "basis": "sha256:b2e343114b95485840ca194f7f51f4ac0d6fad63ffe8c5ace06d5ed4fd490e4a",
+      "finding": "ADAE.AOCC01FL.CR-8.6",
+      "basis": "sha256:ee050403af2af1b4e3bf12b5c34b1ab1151a1335def7dfc807cdd8a689decf0a",
       "decision": "agree",
-      "reason": "adae-documented-rules.yaml lines 350-372 state Define-XML ADAE.AOCC01FL as written, with the CQ01NAM='' subset and ASTDT/AESEQ order, so the reported differences follow from flagging non-dermatologic events. The alternative at lines 373-395 keeps that order but selects the dermatologic events named by the Define-XML parenthetical and data-guide page 5, and reproduces the reference."
+      "reason": "The flagfrst macro at adae.sas lines 56-62, called with derm=Y at line 90 and merged into the final dataset at line 96, subsets CQ01NAM='DERMATOLOGIC EVENTS', while Define-XML ADAE.AOCC01FL subsets CQ01NAM=''. The Define parenthetical names dermatological events, so its explicit subset is the likely error and the program does not follow it."
+    },
+    {
+      "finding": "ADAE.AOCC01FL.CR-5",
+      "basis": "sha256:59a60242cf897c22fc04bf7351cb3fc01bfa90ba7a0c582b68bea0b8bf2c5e60",
+      "decision": "agree",
+      "reason": "adae-documented-rules.yaml lines 369-391 state Define-XML ADAE.AOCC01FL as written, with the CQ01NAM='' subset and ASTDT/AESEQ order, so the reported differences follow from flagging non-dermatologic events. The reading at lines 392-414 keeps that order but selects the dermatologic events named by the Define-XML parenthetical and data-guide page 5, and reproduces the reference."
     },
     {
       "finding": "ADAE.STUDYID.CR-6.1",
@@ -270,20 +324,6 @@
       "section": "page-9",
       "quote": "Patients who are enrolled in the study are those who have been \nassigned to a treatment group.",
       "reason": "The SAP positive treatment-assignment definition of enrollment remains uncited record-selection context for all-aes, outside variable-rule coverage."
-    },
-    {
-      "variable": "TRTEMFL",
-      "document": "spec/source/SAP.pdf",
-      "section": "page-16",
-      "quote": "events with a start date that is equal to or greater than the date of first dose",
-      "reason": "SAP page 16 states the start-date criterion of treatment emergence that TRTEMFL implements; the TRTEMFL claim cites the page's other two criteria but not this one."
-    },
-    {
-      "variable": "ASTDT",
-      "document": "spec/source/SAP.pdf",
-      "section": "page-16",
-      "quote": "If the recording of an adverse event start date is not complete, imputation of the start date \nwill be done in a conservative manner.",
-      "reason": "SAP page 16 states the conservative partial start-date imputation rule; the ASTDT claim cites the Define-XML wording and the page's other imputation sentences but not this one."
     }
   ]
 }
