@@ -31,18 +31,24 @@ output:
   - ADT
   - PARAM
   - PARAM__CODELIST_LENGTH
+  - PARAM__CODELIST_DECODE
   - PARAMCD__LITERAL
   - PARAMN
   - PARCAT1
   - R2A1LO
   - R2A1LO__SAP_LIMIT
+  - R2A1LO__PROGRAM
   - R2A1HI
   - R2A1HI__SAP_LIMIT
+  - R2A1HI__PROGRAM
   - BR2A1LO
   - BR2A1LO__SAP_LIMIT
+  - BR2A1LO__PROGRAM
   - BR2A1HI
   - BR2A1HI__SAP_LIMIT
+  - BR2A1HI__PROGRAM
   - ALBTRVAL
+  - ALBTRVAL__ABSOLUTE
   - STUDYID__LITERAL
   - USUBJID__LITERAL
 intermediates:
@@ -386,3 +392,69 @@ columns:
   type: str
   label: Documented ADSL subject identifier copy
   derivation: _LBH3_ADSL.USUBJID
+- name: _LBH1_PARAM_DECODE_BASE
+  type: str
+  label: Source test name with its unit as the PARAM_ADLBH decodes print it
+  derivation:
+    case:
+    - when: _LBH1_UNIT IS NULL OR _LBH1_UNIT = '' OR _LBH1_UNIT = '1'
+      then: _LBH1_LB.LBTEST
+    - otherwise:
+        str_template: '{_LBH1_LB.LBTEST} ({_LBH1_UNIT})'
+- name: _LBH1_PARAM_DECODE_FULL
+  type: str
+  label: Laboratory parameter label as the PARAM_ADLBH decodes print it
+  derivation:
+    case:
+    - when: REF.PARAMN < 100
+      then: _LBH1_PARAM_DECODE_BASE
+    - when: REF.PARAMN > 100
+      then:
+        str_template: '{_LBH1_PARAM_DECODE_BASE} change from previous visit, relative
+          to normal range'
+    - otherwise: null
+- name: PARAM__CODELIST_DECODE
+  type: str
+  label: Enumerated PARAM_ADLBH decode reading
+  derivation:
+    case:
+    - when: REF.PARAMCD = '_MCHC'
+      then:
+        str_extract:
+          source: _LBH1_PARAM_DECODE_FULL
+          pattern: ^.{1,100}
+    - otherwise: _LBH1_PARAM_DECODE_FULL
+- name: R2A1LO__PROGRAM
+  type: float
+  label: Unrounded ratio to the lower limit as the Pilot 6 program computes it
+  derivation: _LBH2_REF.AVAL / _LBH2_REF.A1LO
+- name: R2A1HI__PROGRAM
+  type: float
+  label: Unrounded ratio to the upper limit as the Pilot 6 program computes it
+  derivation: _LBH2_REF.AVAL / _LBH2_REF.A1HI
+- name: BR2A1LO__PROGRAM
+  type: float
+  label: Unrounded baseline ratio to the lower limit as the Pilot 6 program computes it
+  derivation: _LBH2_REF.BASE / _LBH2_REF.A1LO
+- name: BR2A1HI__PROGRAM
+  type: float
+  label: Unrounded baseline ratio to the upper limit as the Pilot 6 program computes it
+  derivation: _LBH2_REF.BASE / _LBH2_REF.A1HI
+- name: _LBH3_ABS_HIGH
+  type: float
+  label: Absolute distance from the upper laboratory threshold
+  derivation: ABS(_LBH3_REF.LBSTRESN - 1.5 * _LBH3_LB.LBSTNRHI)
+- name: _LBH3_ABS_LOW
+  type: float
+  label: Absolute distance from the lower laboratory threshold
+  derivation: ABS(0.5 * _LBH3_LB.LBSTNRLO - _LBH3_REF.LBSTRESN)
+- name: ALBTRVAL__ABSOLUTE
+  type: float
+  label: Larger absolute threshold distance as the Pilot 6 program computes it
+  derivation:
+    case:
+    - when: _LBH3_ABS_HIGH IS NULL OR _LBH3_ABS_LOW IS NULL
+      then: null
+    - when: _LBH3_ABS_HIGH > _LBH3_ABS_LOW
+      then: _LBH3_ABS_HIGH
+    - otherwise: _LBH3_ABS_LOW
