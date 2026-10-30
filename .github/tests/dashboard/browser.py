@@ -174,7 +174,7 @@ def check(browser, base, site_dir, screenshots):
         checks = study_report["review"]["counts"]["checks"]
         expect(page.locator(".consistency-summary")).to_contain_text(f"{len(issues)} findings awaiting review")
         expect(page.locator(".reference-summary")).to_contain_text("100% of generated ADaM datasets matched")
-        expect(page.locator(".comparison-explanation")).to_contain_text("Findings can remain open even when reference agreement is 100%")
+        expect(page.locator(".comparison-explanation")).to_contain_text("Findings can remain open even when generated ADaM dataset agreement is 100%")
         critical = sum(i["critical"]["status"] == "yes" for i in issues)
         expect(page.locator(".consistency-summary .critical-counts")).to_contain_text(f"{critical} critical;")
         page.get_by_role("button", name="View consistency findings", exact=True).click()
