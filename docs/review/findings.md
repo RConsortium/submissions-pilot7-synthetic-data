@@ -126,11 +126,12 @@ comment text.
 
 ## Record your assessment
 
-Under **Your review**, choose **Agree**, **Disagree** or **Need
-clarification**, then **Critical**, **Not critical** or **Unsure**. When the
-finding sets a document against the specification, **Which side is right?**
-(**The document**, **The specification**, **Neither as written**, **Unsure**)
-is optional and answers the variable's open question; add a comment. Neither decision is preselected. Drafts save automatically in this
+Under **Your review**, first assess **Is current dataset correctly derived?**:
+**Yes, dataset is correct**, **No, define-xml is correct**, **Neither as written**
+or **Unsure**. This question is optional. Its four choices share one row on
+desktop and stack on smaller screens. Then choose **Agree**, **Disagree** or
+**Need clarification**, followed by **Critical**, **Not critical** or **Unsure**,
+and add a comment. No answer is preselected. Drafts save automatically in this
 browser, scoped to the study and the issue and bound to its current
 evidence; if the evidence changes in a later publication, your earlier
 assessment returns as a draft marked **evidence changed**.

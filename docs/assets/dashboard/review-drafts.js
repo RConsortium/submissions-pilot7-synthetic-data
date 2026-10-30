@@ -9,10 +9,10 @@ export const CRITICALITIES = {
   not_critical: "Not critical",
   unsure: "Unsure",
 };
-/** Which side the reviewer holds right, when a finding asks that; optional. */
+/** Dataset correctness assessment; retain side values for existing local drafts. */
 export const SIDES = {
-  document: "The document",
-  specification: "The specification",
+  specification: "Yes, dataset is correct",
+  document: "No, define-xml is correct",
   neither: "Neither as written",
   unsure: "Unsure",
 };
