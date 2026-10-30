@@ -94,7 +94,9 @@ reviewer needs them:
    and any documented rule that could not be checked and why. The
    measurements that follow say whether the yamaa output matches the
    published reference for the dataset, so a count of differing subjects
-   reads as a test of the written rule, not of the dataset.
+   reads as a test of the written rule, not of the dataset. When the dataset's
+   reference comparison passed, the duplicate comparison against yamaa output
+   is omitted; the published-reference comparison remains visible.
 2. **Source documents**: the cited clauses of the retained protocol, SAP or
    Define-XML, side by side. **Full context** reveals the complete passage
    when it is longer than the quotation. **View source** opens the cited

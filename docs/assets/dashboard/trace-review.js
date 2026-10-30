@@ -101,7 +101,10 @@ export function createTraceReview(ctx, comments, sources) {
       : `The ${esc(issue.dataset)} reference comparison is ${esc(String(dataset.comparison || "unavailable"))}; these counts compare the documented rule, run as written, with the data. `;
   }
   function measurements() {
-    const measured = measures().filter((e) => e.type !== "note");
+    const referenceMatches = ctx.model?.datasets?.find((d) => d.name === issue.dataset)?.comparison === "passed";
+    // A passed reference comparison makes the output comparison redundant here.
+    const measured = measures().filter((e) => e.type !== "note" && !(referenceMatches && e.target === "derived"));
+    if (!measured.length && measures().some((e) => e.type !== "note")) return `<p class="trace-scope">${agreement()}</p>`;
     if (!measured.length) return '<p class="trace-scope">No issue-specific data comparison: this finding compares source statements or specification text, so its effect on the data was not measured. Decide criticality from the rule itself and from the examples below.</p>';
     return `<div class="trace-measurements">${measured.map((e) => `<article class="trace-measurement"><h4>${esc(comparisonLabel(e))}</h4>${e.type === "comparison"
       ? `<p><strong>${e.differ.toLocaleString()} / ${e.compared.toLocaleString()}</strong> records differ</p><small>${plural(e.subjects.length, "subject")} with differences</small>`
