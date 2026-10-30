@@ -58,9 +58,8 @@ def run(browser_path=None):
             expect(page.locator('#trace-discussion, .trace-technical')).to_have_count(0)
             expect(page.locator('[data-trace-section="trace-discussion"]')).to_have_count(0)
             page.locator('#trace-review-comment').fill('Keep my review draft')
-            basis = page.locator('#trace-finding .trace-basis')
-            assert 'Automated criticality: Needs review.' in basis.inner_text()
-            assert 'Agent review: agreed.' in basis.inner_text()
+            expect(page.locator('#trace-finding .trace-introduction, #trace-finding .trace-basis, #trace-finding .trace-measurements')).to_have_count(0)
+            expect(page.locator('#trace-finding')).to_have_text('Finding 1 of 1 conflictAge rule differs')
             assert page.locator('.trace-review-dialog [data-finding]').count() == 0
             rule = page.locator('#trace-specifications [data-source-evidence="rule"]')
             rule.click()
