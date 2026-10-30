@@ -5,6 +5,7 @@ import json
 from collections import Counter
 from urllib.parse import quote
 
+from .programs import is_program
 from .summaries import review_breakdown, summary_cards
 
 UNMATCHED = {
@@ -175,7 +176,9 @@ def _overview(studies):
                 "SDTM Define-XML version": html.escape(define.get("sdtm_version") or "-"),
                 "ADaM Define-XML version": adam_version,
                 "Define-XML match": _status(status, tone),
-                "Documents": html.escape(", ".join(d["name"] for d in report["documents"])),
+                "Documents": html.escape(", ".join(
+                    d["name"] for d in report["documents"] if not is_program(d["path"])
+                )),
             }
         facts[catalog["id"]] = cells
     sections = []
