@@ -264,11 +264,14 @@ def build_report(root, study, outputs, target, revision, subject_key="USUBJID"):
             check(domain, "", "keys", "Explicit Define-XML keys", "No key declaration; uniqueness is not assessed.", "not_assessed")
         elif all(key in table.column_names for key in keys):
             counts = Counter(tuple(row[k] for k in keys) for row in rows)
-            bad = [row for row in rows if any(missing(row[k]) or row[k] == "" for k in keys)
-                   or counts[tuple(row[k] for k in keys)] > 1]
-            check(domain, "", "keys", f"Unique nonmissing keys: {', '.join(keys)}",
-                  f"{len(bad)} of {len(rows)} rows have duplicate or missing keys.",
+            bad = [row for row in rows if counts[tuple(row[k] for k in keys)] > 1]
+            check(domain, "", "keys", f"Unique keys: {', '.join(keys)}",
+                  f"{len(bad)} of {len(rows)} rows have duplicate key combinations.",
                   "different" if bad else "passed", rows=bad)
+            incomplete = sum(any(missing(row[k]) or row[k] == "" for k in keys) for row in rows)
+            if incomplete:
+                check(domain, "", "missing_key_values", "Review incomplete key combinations",
+                      f"{incomplete} rows have missing key values. KeySequence alone does not establish a nonmissing-value requirement.", "not_assessed")
         unavailable_labels, external_methods = [], []
 
         def inspect(var, item, selected, suffix="", section=None):

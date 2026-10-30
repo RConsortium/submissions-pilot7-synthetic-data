@@ -92,6 +92,11 @@ class DatasetDefineTests(unittest.TestCase):
         self.assertTrue(logical_type(pa.field('N', pa.float64()), item, [1., None]))
         self.assertFalse(logical_type(pa.field('N', pa.float64()), item, [1.5]))
 
+    def test_key_sequence_does_not_invent_a_nonmissing_requirement(self):
+        r = self.report({'USUBJID': ['001', None], 'CODE': ['Y', 'N'], 'AGE': [65., 70.]})
+        self.assertEqual(next(c['status'] for c in r['checks'] if c['check'] == 'keys'), 'passed')
+        self.assertEqual(next(c['status'] for c in r['checks'] if c['check'] == 'missing_key_values'), 'not_assessed')
+
     def test_literal_arithmetic_uses_only_this_dataset_and_preserves_missing(self):
         calculate = formula('ADSL.END - START + 1', 'ADSL', {'START', 'END'})
         from datetime import date
