@@ -138,6 +138,7 @@ def check(browser, base, site_dir, screenshots):
         row.get_by_role("button", name="Start review", exact=True).click()
         trace = page.locator("dialog.trace-review-dialog")
         expect(trace).to_be_visible()
+        expect(trace.locator(".trace-introduction, .trace-basis, .trace-measurements, #trace-data, #trace-assessment")).to_have_count(0)
         return trace
 
     def open_workspace(row):
@@ -465,13 +466,10 @@ def check(browser, base, site_dir, screenshots):
     expect(page.locator(".consistency-table tbody")).to_contain_text("ADAE.ASTDT")
     expect(page.locator(".finding-evidence")).to_have_count(0)
     trace = open_trace(page.locator(".consistency-table tbody tr"))
-    expect(trace).to_contain_text("No issue-specific data comparison")
-    expect(trace.locator("#trace-assessment .trace-basis")).to_contain_text("Automated criticality: Needs review.")
     # The open finding is part of the shareable state; this one is alone in the filtered list.
     assert "review=" in page.url and "imputation" in page.url
     expect(trace.locator(".trace-review-footer")).to_contain_text("Finding 1 of 1 in the current list")
     expect(trace.get_by_role("button", name=re.compile(r"finding in list"))).to_have_count(0)
-    expect(trace.locator("#trace-assessment .trace-basis")).to_contain_text("No agent adjudication: this is an authored question.")
     # The review shows example subjects itself; the workspace opens from the finding's row.
     expect(trace.locator("[data-finding]")).to_have_count(0)
     # The simplified review omits the separate GitHub and technical sections.
@@ -578,12 +576,12 @@ def check(browser, base, site_dir, screenshots):
     page.keyboard.press("Enter")
     trace = page.locator(".trace-review-dialog")
     expect(trace).to_be_visible()
-    expect(trace.locator(".trace-measurements")).to_contain_text("253 / 254")
     expect(trace.locator(".quote-source + blockquote").first).to_contain_text("WEIGHTBL / ((HEIGHTBL*100)**2)")
-    expect(trace).to_contain_text("Agent review: agreed")
+    expect(trace).not_to_contain_text("Agent review:")
+    expect(trace).not_to_contain_text("Automated criticality:")
     expect(trace.locator("#trace-sources")).not_to_contain_text("Specification:")
     expect(trace.locator("#trace-specifications pre.spec-lines").first).to_be_visible()
-    expect(trace.locator("#trace-examples h3")).to_have_text("4. Subject examples")
+    expect(trace.locator("#trace-examples h3")).to_have_text("3. Subject examples")
     expect(trace.locator(".trace-data-table thead")).not_to_contain_text("yamaa output")
     expect(trace.locator(".trace-cell-difference").first).to_be_visible()
     expect(trace.locator("pre.spec-lines mark").first).to_be_visible()
@@ -626,10 +624,6 @@ def check(browser, base, site_dir, screenshots):
     page.locator("#finding-search").fill("BMIBLGR1")
     expect(rule).to_have_count(2)
     expect(rule.locator(".finding-evidence")).to_have_count(0)
-    for row in rule.all():
-        trace = open_trace(row)
-        expect(trace.locator(".trace-measurements")).to_contain_text("generated ADaM datasets")
-        page.keyboard.press("Escape")
     # The footer walks the filtered listing, and a reloaded link reopens the finding it names.
     trace = open_trace(rule.first)
     expect(trace.locator(".trace-review-footer")).to_contain_text("Finding 1 of 2 in the current list")
@@ -645,7 +639,6 @@ def check(browser, base, site_dir, screenshots):
     page.keyboard.press("Escape")
     missing = rule.filter(has_text="Missing BMI is assigned")
     trace = open_trace(missing)
-    expect(trace.locator(".trace-measurements")).to_contain_text("1 subject with differences")
     capture(page, screenshots, "missing-bmi-trace.png")
     open_workspace(missing)
     expect(page.locator("#subject-summary")).to_contain_text("1 /")
@@ -689,7 +682,6 @@ def check(browser, base, site_dir, screenshots):
     expect(trace.locator("[data-trace-status]")).to_have_count(0)
     expect(trace.get_by_role("button", name="Download review", exact=True)).to_have_count(0)
     expect(trace.locator("input:checked")).to_have_count(0)
-    expect(trace.locator(".trace-measurements")).to_contain_text("327 / 1,191")
     expect(trace.locator(".trace-data-table tbody tr")).to_have_count(3)
     expect(trace.locator(".trace-data-table")).to_contain_text("APPLICATION SITE ERYTHEMA")
     trace.get_by_role("tab", name="01-701-1181", exact=True).click()
@@ -758,7 +750,6 @@ def check(browser, base, site_dir, screenshots):
     assert page.evaluate("window.originalCommentsHost===document.querySelector('#comments-host')")
     expect(trace.locator("[data-trace-prepared]")).to_be_hidden()
     expect(trace.locator("input:checked")).to_have_count(0)
-    expect(trace.locator(".trace-measurements")).to_contain_text("0 / 1,191")
     expect(trace.locator("#trace-examples")).to_contain_text("do not demonstrate a failure")
     trace.locator(".trace-review-nav [data-trace-sibling]", has_text="Define-XML selects the wrong event group").click()
     expect(trace.get_by_role("radio", name="Agree", exact=True)).to_be_checked()

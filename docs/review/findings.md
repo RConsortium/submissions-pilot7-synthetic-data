@@ -83,8 +83,8 @@ agreement is not resolution.
 the other findings for the same variable listed beside it, in the order a
 reviewer needs them:
 
-The opening **The finding** summary states the issue and its expected and
-observed behavior. The sections then follow the navigation:
+The opening **The finding** section shows the issue title and its expected
+and observed behavior. The sections then follow the navigation:
 
 1. **Source documents**: cited clauses from the protocol, SAP or Define-XML,
    side by side. **Full context** reveals the longer passage. **View source**
@@ -92,21 +92,12 @@ observed behavior. The sections then follow the navigation:
    keeping your place and draft.
 2. **YAML specification**: the resolved study rule beside document-based
    translations, with file names and highlighted source lines.
-3. **Comparison with generated ADaM datasets**: each measurement names both
-   sides, such as **Documented rule vs generated ADaM datasets**, and counts
-   the records and distinct subjects that differ. Context comparisons are
-   excluded from impact. **Not measured** differs from **No differences in
-   tested data**. A separate status states whether the yamaa output matches
-   the generated ADaM datasets. When that comparison passes, the duplicate
-   comparison against yamaa output is omitted.
-4. **Subject examples**: generated ADaM records beside document-based
+3. **Subject examples**: generated ADaM records beside document-based
    calculations, with differences highlighted. Examples illustrate the
-   calculation; the measurements above supply the impact count.
-5. **Recommended fix**: the proposed correction or decision. A question shared
+   calculation; they do not determine the finding's reported impact.
+4. **Recommended fix**: the proposed correction or decision. A question shared
    by multiple findings is headed **Open question for this variable**; decide
    each finding on its own evidence.
-6. **Automated assessments**: automated criticality and agent adjudication,
-   with their reasons and any documented rule that could not be checked.
 
 **Your review** follows the evidence; see
 [Record your assessment](#record-your-assessment).

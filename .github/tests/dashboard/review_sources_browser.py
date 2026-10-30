@@ -57,24 +57,17 @@ def run(browser_path=None):
               window.review.open('age',document.querySelector('#open'));
             }""")
             sections = page.locator('.trace-review-content > section').evaluate_all('(items)=>items.map(s=>s.id)')
-            assert sections == ['trace-finding', 'trace-sources', 'trace-specifications', 'trace-data',
-                                'trace-examples', 'trace-fix', 'trace-assessment']
+            assert sections == ['trace-finding', 'trace-sources', 'trace-specifications',
+                                'trace-examples', 'trace-fix']
             assert page.locator('.issue-comparison').count() == 1
             assert 'Expected behavior' in page.locator('#trace-finding').inner_text()
-            assert 'generated ADaM datasets' in page.locator('#trace-data').inner_text()
-            assert '1 / 2' in page.locator('#trace-data').inner_text()
-            assert 'matches the generated ADaM datasets' in page.locator('#trace-data').inner_text()
             assert 'published reference' not in page.locator('.trace-review-content').inner_text()
-            page.get_by_role('button', name='3. Comparison with generated ADaM datasets', exact=True).click()
+            page.get_by_role('button', name='3. Subject examples', exact=True).click()
             page.wait_for_function("document.querySelector('.trace-scroll').scrollTop > 0")
-            page.get_by_role('button', name='6. Automated assessments', exact=True).click()
-            page.locator('#trace-assessment').scroll_into_view_if_needed()
             expect(page.locator('#trace-discussion, .trace-technical')).to_have_count(0)
             expect(page.locator('[data-trace-section="trace-discussion"]')).to_have_count(0)
             page.locator('#trace-review-comment').fill('Keep my review draft')
-            basis = page.locator('#trace-assessment .trace-basis')
-            assert 'Automated criticality: Needs review.' in basis.inner_text()
-            assert 'Agent review: agreed.' in basis.inner_text()
+            expect(page.locator('.trace-introduction, .trace-basis, .trace-measurements, #trace-data, #trace-assessment')).to_have_count(0)
             assert page.locator('.trace-review-dialog [data-finding]').count() == 0
             rule = page.locator('#trace-specifications [data-source-evidence="rule"]')
             rule.click()
