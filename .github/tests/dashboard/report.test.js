@@ -313,17 +313,18 @@ test("former issue links resolve to the combined source-pair row and trace", () 
   assert.doesNotMatch(host.innerHTML, /finding-evidence/);
 });
 
-test("an exact variable search excludes mentions in another variable's source context", () => {
+test("an exact variable search excludes other variables even when it has no findings", () => {
   const other = { ...issue, id: "other", variable: "OTHER" };
-  const data = {
-    ...report,
-    review: { ...report.review, issues: [issue, other] },
-  };
-  const s = { ...state(), findingSearch: "ADX.DATE" };
-  assert.deepEqual(
-    createReport({ report: data, state: s, esc }).findingItems(),
-    [issue],
-  );
+  const model = { datasets: [{ name: "ADX", output: "adx" }],
+    tables: { adx: { columns: [{ name: "DATE" }, { name: "OTHER" }] } } };
+  for (const [label, issues, expected] of [
+    ["variable with a finding", [issue, other], [issue]],
+    ["declared variable without a finding", [other], []],
+  ]) {
+    const data = { ...report, review: { ...report.review, issues } };
+    const s = { ...state(), findingSearch: "ADX.DATE" };
+    assert.deepEqual(createReport({ model, report: data, state: s, esc }).findingItems(), expected, label);
+  }
 });
 
 test("unmeasured impact stays distinct from zero observed differences and context is labelled", () => {

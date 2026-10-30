@@ -61,10 +61,12 @@ export function createReport(ctx) {
       [i.dataset, i.variable, `${i.dataset}.${i.variable}`]
         .map((v) => v.toLowerCase())
         .includes(q);
-    // A dataset name scopes exactly even when it has no issue, so a
-    // zero-count dataset chip lists nothing instead of text matches.
+    // Dataset and declared dataset.variable queries stay scoped even without
+    // findings, rather than matching another variable's source context.
     const exactScope = q && (allFindings().some(scope) ||
-      (ctx.model?.datasets || []).some((d) => d.name.toLowerCase() === q));
+      (ctx.model?.datasets || []).some((d) => d.name.toLowerCase() === q ||
+        (ctx.model?.tables?.[d.output]?.columns || []).some(
+          (c) => `${d.name}.${c.name}`.toLowerCase() === q)));
     // Critical findings first, then the ones needing assessment; within each, findings the
     // adjudicating agent disputed, or whose decision is stale or mixed, come last. The report
     // order holds otherwise: a measured count compares the documented rule as written.
