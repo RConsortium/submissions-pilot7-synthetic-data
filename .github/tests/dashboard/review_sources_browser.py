@@ -47,6 +47,7 @@ def run(browser_path=None):
                 model:{id:'study',title:'Study',revision:'test-revision',datasets:[{name:'ADSL',comparison:'passed'}]},index:{comments:{repo:'org/repo',discussion_url:'https://github.com/org/repo/discussions',review_url:'https://github.com/org/repo/discussions/new'}},
                 resource:()=> '/rendered.html', sourceUrl:()=> 'https://github.com/org/repo'};
               const sources = createReviewSources(ctx);
+              window.reviewContext = ctx;
               window.review = createTraceReview(ctx, sources);
               document.addEventListener('click', event => {
                 const target = event.target.closest('[data-source-evidence]');
@@ -97,7 +98,9 @@ def run(browser_path=None):
             assert page.locator('#trace-review-comment').input_value() == 'Keep my review draft'
             assert len(browser.contexts[0].pages) == 1
             assert page.url.endswith('/docs/assets/dashboard/')
-            # Removing the sharing section must preserve submission and clipboard fallback.
+            # The review has a single sharing action and keeps selectable prepared text.
+            expect(page.get_by_role('button', name='Copy review instead', exact=True)).to_have_count(0)
+            expect(page.locator('.trace-review-actions button')).to_have_count(1)
             page.get_by_role('radio', name='Agree', exact=True).check()
             page.get_by_role('radio', name='Not critical', exact=True).check()
             page.evaluate("window.open=url=>{window.openedReview=url;return {}}")
@@ -105,8 +108,10 @@ def run(browser_path=None):
             assert 'body=' in page.evaluate('window.openedReview')
             prepared = page.locator('#trace-your-review #trace-github-comment')
             expect(prepared).to_have_value(re.compile('Keep my review draft'))
+            # With no GitHub composer configured, the primary action still copies the review.
+            page.evaluate("delete window.reviewContext.index.comments.review_url; window.review.open('age')")
             page.evaluate("Object.defineProperty(navigator,'clipboard',{configurable:true,value:{writeText:async()=>{throw Error('Blocked')}}})")
-            page.get_by_role('button', name='Copy review instead', exact=True).click()
+            page.get_by_role('button', name='Copy review', exact=True).click()
             expect(page.locator('.trace-review-feedback')).to_contain_text('Clipboard access is unavailable')
             expect(prepared).to_be_focused()
             page.evaluate('window.review.close()')

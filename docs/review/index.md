@@ -56,8 +56,7 @@ browser and are not shared until you submit them.
 **Submit review on GitHub** needs both decisions. It opens a new GitHub
 discussion in a new tab with your assessment filled in. Sign in with GitHub
 if asked, then select **Start discussion** to publish it under your own
-account. **Copy review instead** copies the same text to paste into the
-dataset comment box, where **Comment** publishes it.
+account.
 
 Maintainers assess feedback, record the human decision and apply agreed
 changes before rebuilding. A comment does not approve a dataset.

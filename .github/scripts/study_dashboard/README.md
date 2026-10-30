@@ -153,10 +153,9 @@ a reviewer's behalf by itself. A link over 8,000 characters is not sent: the
 composer then opens with the title only and the dialog keeps the text to paste.
 Without `review_url`, the dialog falls back to **Copy review**.
 
-**Copy review instead** copies the same text for a GitHub discussion or the
-workspace's dataset **Review comments** box. Clipboard failure leaves selectable
-review text under **Your review**. Opening the composer, copying or saving
-locally never reports a successful GitHub post. Browser checks intercept the
+Prepared review text remains selectable under **Your review** for manual copying.
+Opening the composer, copying or saving locally never reports a successful
+GitHub post. Browser checks intercept the
 composer tab; they do not exercise GitHub sign-in or post real discussions.
 
 ## Build and verify
