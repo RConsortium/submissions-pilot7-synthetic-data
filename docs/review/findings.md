@@ -90,8 +90,10 @@ and observed behavior. The sections then follow the navigation:
    side by side. **Full context** reveals the longer passage. **View source**
    opens the retained original at its cited row, page or YAML lines while
    keeping your place and draft.
-2. **YAML specification**: the resolved study rule beside document-based
-   translations, with file names and highlighted source lines.
+2. **YAML specification**: YAML derivations side by side, with
+   `documented-rules.yaml` on the left and the study's resolved dataset
+   specification on the right. Submission metadata and prose descriptions
+   are omitted. Line numbers and **View source** link to the complete source.
 3. **Subject examples**: generated ADaM records beside document-based
    calculations, with differences highlighted. Examples illustrate the
    calculation; they do not determine the finding's reported impact.
@@ -137,10 +139,8 @@ assessment returns as a draft marked **evidence changed**.
 **Submit review on GitHub** needs both decisions. It opens GitHub's new
 discussion composer in a new tab with your assessment in the title and body;
 sign in if asked and select **Start discussion** to publish under your own
-account. **Copy review instead** copies the same text to paste into the
-dataset's **Review comments** box, where **Comment** publishes it. The text
-keeps the source revision and the check IDs so maintainers can locate the
-evidence.
+account. The review keeps the source revision and the check IDs so
+maintainers can locate the evidence.
 
 No review is posted automatically, and a posted review does not resolve the
 finding or approve the dataset: maintainers record the human decision and
@@ -160,10 +160,9 @@ does not resolve a finding or approve a dataset.
 
 A finding's row says **Your review: Draft** until both decisions are chosen,
 **Saved locally** once they are, **Opened in GitHub composer** once **Submit
-review on GitHub** has opened the composer, and **Copied for GitHub** once you
-copied the review; editing the assessment afterwards returns it to **Saved
-locally** or to a draft. The dashboard never confirms what was published on
-GitHub: only the discussion itself shows that. The hand-over document starts
+review on GitHub** has opened the composer; editing the assessment afterwards
+returns it to **Saved locally** or to a draft. The dashboard never confirms
+what was published on GitHub: only the discussion itself shows that. The hand-over document starts
 with a line for your name, the date and the filters the list was under.
 
 ## Review comments
