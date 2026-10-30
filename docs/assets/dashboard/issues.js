@@ -85,7 +85,7 @@ export const CRITICAL_LABELS = {
   needs_review: "Needs review",
 };
 
-function citation(e, preview = false, yamlOnly = false) {
+export function citation(e, preview = false, yamlOnly = false) {
   const quote = normalize(e.quote || e.context),
     snippet = shorten(quote);
   const location = e.section.startsWith("page-")
