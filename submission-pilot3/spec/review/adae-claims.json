@@ -3,9 +3,9 @@
   "dataset": "ADAE",
   "author": {
     "kind": "agent",
-    "model": "Codex",
+    "model": "Codex; program tracing round by claude-opus-5-5[1m]",
     "instructions": ".automation/consistency_review/extract.md",
-    "date": "2026-10-26"
+    "date": "2026-10-29"
   },
   "claims": [
     {
@@ -26,6 +26,16 @@
           "document": "spec/source/adrg.pdf",
           "section": "page-43",
           "quote": "#AE.AESTDTC, converted to a numeric SAS date. Some events with partial dates\n#are imputed in a conservative manner. If the day component is missing, a value\n#of '01' is used. If both the month and day are missing no imputation is\n#performed as these dates clearly indicate a start prior to the beginning of\n#treatment. There are no events with completely missing start dates."
+        },
+        {
+          "document": "spec/source/programs/adae.r",
+          "section": "L94-L98",
+          "quote": "derive_vars_dtm( dtc = AESTDTC, new_vars_prefix = \"AST\", highest_imputation = \"D\" )"
+        },
+        {
+          "document": "spec/source/programs/adae.r",
+          "section": "L109",
+          "quote": "derive_vars_dtm_to_dt(exprs(ASTDTM, AENDTM))"
         }
       ],
       "clauses": [
@@ -92,6 +102,11 @@
           "document": "spec/define/define-adam.xml",
           "section": "ADAE.ASTDT",
           "quote": "If the day component is missing, a value of '01' is used."
+        },
+        {
+          "document": "spec/source/programs/adae.r",
+          "section": "L94-L98",
+          "quote": "derive_vars_dtm( dtc = AESTDTC, new_vars_prefix = \"AST\", highest_imputation = \"D\" )"
         }
       ],
       "clauses": [
@@ -129,6 +144,11 @@
           "document": "spec/define/define-adam.xml",
           "section": "ADAE.ASTDY",
           "quote": "IF ASTDT>=TRTSDT>MISSING then ASTDY=ASTDT-TRTSDT+1 Else if TRTSDT>ASTDT>MISSING then ASTDY=ASTDT-TRTSDT"
+        },
+        {
+          "document": "spec/source/programs/adae.r",
+          "section": "L112-L115",
+          "quote": "derive_vars_dy( reference_date = TRTSDT, source_vars = exprs(TRTSDT, ASTDT, AENDT) )"
         }
       ],
       "clauses": [
@@ -163,6 +183,16 @@
           "document": "spec/define/define-adam.xml",
           "section": "ADAE.AENDT",
           "quote": "AE.AEENDTC, converted to a numeric SAS date"
+        },
+        {
+          "document": "spec/source/programs/adae.r",
+          "section": "L101-L106",
+          "quote": "derive_vars_dtm( dtc = AEENDTC, new_vars_prefix = \"AEN\", highest_imputation = \"h\", max_dates = NULL )"
+        },
+        {
+          "document": "spec/source/programs/adae.r",
+          "section": "L109",
+          "quote": "derive_vars_dtm_to_dt(exprs(ASTDTM, AENDTM))"
         }
       ],
       "clauses": [
@@ -195,7 +225,7 @@
       "interpretations": [
         "Incomplete end-date text remains missing in the literal conversion because no end-date completion policy is stated."
       ],
-      "assessment": "The implementation adds a first-month, first-day completion policy absent from the retained end-date rule.",
+      "assessment": "The implementation adds a first-month, first-day completion policy absent from the retained end-date rule. The submission program (adae.r lines 101-106) converts AEENDTC with highest_imputation = \"h\", which completes no date part, as the literal conversion does.",
       "question": "Document or remove the end-date partial-date completion policy."
     },
     {
@@ -206,6 +236,11 @@
           "document": "spec/define/define-adam.xml",
           "section": "ADAE.AENDY",
           "quote": "IF AENDT>=TRTSDT>MISSING then AENDY=AENDT-TRTSDT+1 Else if TRTSDT>AENDT>MISSING then AENDY=AENDT-TRTSDT"
+        },
+        {
+          "document": "spec/source/programs/adae.r",
+          "section": "L112-L115",
+          "quote": "derive_vars_dy( reference_date = TRTSDT, source_vars = exprs(TRTSDT, ASTDT, AENDT) )"
         }
       ],
       "clauses": [
@@ -255,6 +290,11 @@
           "document": "spec/source/adrg.pdf",
           "section": "page-44",
           "quote": "ADURN values will be populated in Pilot 3 (i.e. under BASE), following the latter deriva-\ntion approach (i.e. ADURN=AENDT-ASTDT+1)"
+        },
+        {
+          "document": "spec/source/programs/adae.r",
+          "section": "L116-L122",
+          "quote": "derive_vars_duration( new_var = ADURN, new_var_unit = ADURU, start_date = ASTDT, end_date = AENDT, out_unit = \"days\" )"
         }
       ],
       "clauses": [
@@ -325,6 +365,11 @@
           "document": "spec/source/adrg.pdf",
           "section": "page-44",
           "quote": "ADURU should be set to \u2018DAYS\u2019 (i.e. under BASE) instead of \u2018DAY\u2019 when ADURN is\nnot missing. Updated in Pilot 3 define."
+        },
+        {
+          "document": "spec/source/programs/adae.r",
+          "section": "L116-L122",
+          "quote": "derive_vars_duration( new_var = ADURN, new_var_unit = ADURU, start_date = ASTDT, end_date = AENDT, out_unit = \"days\" )"
         }
       ],
       "clauses": [
@@ -373,6 +418,11 @@
           "document": "spec/define/define-adam.xml",
           "section": "ADAE.TRTEMFL",
           "quote": "If ASTDT >= TRTSDT > . then TRTEMFL='Y'. Otherwise TRTEMFL='N'"
+        },
+        {
+          "document": "spec/source/programs/adae.r",
+          "section": "L125-L133",
+          "quote": "restrict_derivation( derivation = derive_var_trtemfl, args = params( start_date = ASTDT, end_date = AENDT, trt_start_date = TRTSDT ), filter = !is.na(ASTDT) )"
         }
       ],
       "clauses": [
@@ -398,16 +448,34 @@
             "quote": "otherwise: \"''\""
           },
           "note": "The specification states the false branch as a blank value instead of N."
+        },
+        {
+          "relation": "contradicts",
+          "document": {
+            "citation": 1,
+            "quote": "Otherwise TRTEMFL='N'"
+          },
+          "against": {
+            "citation": 2,
+            "quote": "derivation = derive_var_trtemfl, args = params( start_date = ASTDT, end_date = AENDT, trt_start_date = TRTSDT ), filter = !is.na(ASTDT)"
+          },
+          "note": "The submission program never assigns N: admiral derive_var_trtemfl sets only Y, leaving events that start before TRTSDT missing, and the restriction filter = !is.na(ASTDT) leaves events without a start date unset."
         }
       ],
       "probes": [
         {
           "column": "TRTEMFL",
           "reading": "literal"
+        },
+        {
+          "column": "TRTEMFL__PROGRAM_BLANK",
+          "reading": "As adae.r lines 125-133 compute it: admiral derive_var_trtemfl, run only on events with a start date (filter = !is.na(ASTDT)), sets Y when ASTDT is on or after TRTSDT and leaves every other event blank. The program does not implement the Define branch Otherwise TRTEMFL='N', so non-emergent events carry no value instead of N."
         }
       ],
-      "interpretations": [],
-      "assessment": "The true condition agrees, but the specification leaves other records blank where the document assigns N.",
+      "interpretations": [
+        "The program reading relies on admiral derive_var_trtemfl assigning no false value; adae.r lines 125-133 name the function and its restriction but not that value."
+      ],
+      "assessment": "The true condition agrees, but the specification leaves other records blank where the document assigns N. The submission program (adae.r lines 125-133) assigns only Y and leaves other events blank, which is what the specification states and the Define 'N' branch does not.",
       "question": "Decide whether non-treatment-emergent records should carry N or an unpopulated flag, and align the retained rule and implementation."
     },
     {
@@ -423,6 +491,11 @@
           "document": "spec/source/adrg.pdf",
           "section": "page-11",
           "quote": "Events of particular interest (dermatologic) are captured in the customized query\nvariable (CQ01NAM) in this dataset."
+        },
+        {
+          "document": "spec/source/programs/adae.r",
+          "section": "L202-L210",
+          "quote": "mutate(CQ01NAM = ifelse(str_detect(AEDECOD, \"APPLICATION\") | str_detect(AEDECOD, \"DERMATITIS\") | str_detect(AEDECOD, \"ERYTHEMA\") | str_detect(AEDECOD, \"BLISTER\") | str_detect(AEBODSYS, \"SKIN AND SUBCUTANEOUS TISSUE DISORDERS\") & !str_detect(AEDECOD, \"COLD SWEAT|HYPERHIDROSIS|ALOPECIA\"), \"DERMATOLOGIC EVENTS\", NA_character_ ))"
         }
       ],
       "clauses": [
@@ -477,6 +550,30 @@
             "quote": "then: \"'DERMATOLOGIC EVENTS'\""
           },
           "note": "The ADRG identifies the dermatological-event purpose of the populated query variable."
+        },
+        {
+          "relation": "contradicts",
+          "document": {
+            "citation": 1,
+            "quote": "AEBODSYS='SKIN AND SUBC UTANEOUS TISSUE DISORDERS'"
+          },
+          "against": {
+            "citation": 3,
+            "quote": "str_detect(AEBODSYS, \"SKIN AND SUBCUTANEOUS TISSUE DISORDERS\")"
+          },
+          "note": "The submission program matches the SOC by substring and spells it SUBCUTANEOUS without the embedded blank that Define-XML prints."
+        },
+        {
+          "relation": "contradicts",
+          "document": {
+            "citation": 1,
+            "quote": "AEDECOD is not in ('COLD SWEAT', 'HYPERHIDROSIS', 'ALOPECIA')"
+          },
+          "against": {
+            "citation": 3,
+            "quote": "!str_detect(AEDECOD, \"COLD SWEAT|HYPERHIDROSIS|ALOPECIA\")"
+          },
+          "note": "The submission program excludes any preferred term containing one of the three strings, a substring test, where Define-XML states exact membership."
         }
       ],
       "probes": [
@@ -495,7 +592,7 @@
         "The alternative treats only the internal SOC-word blank as a typographical error; it does not broaden equality to substring matching or exact exclusions to substring exclusions.",
         "The rule does not prescribe case conversion, trimming, or matching beyond the stated character strings; the probe introduces none."
       ],
-      "assessment": "The query label and its empty otherwise value agree; the specification replaces the documented substring, SOC and exclusion conditions with a fixed list of preferred terms.",
+      "assessment": "The query label and its empty otherwise value agree; the specification replaces the documented substring, SOC and exclusion conditions with a fixed list of preferred terms. The submission program (adae.r lines 202-210) states the documented substring, SOC and exclusion structure, with the SOC spelled without the embedded blank, as the SOC-spelling reading assumes.",
       "question": "Decide whether CQ01NAM follows the documented substring, SOC and exclusion conditions or a fixed preferred-term list, and confirm the intended SOC spelling."
     },
     {
@@ -511,6 +608,11 @@
           "document": "spec/source/adrg.pdf",
           "section": "page-50",
           "quote": "AOCCFL 1st Occurrence of Any AE\nFlag\n1st Occurrence within Subject\nFlag"
+        },
+        {
+          "document": "spec/source/programs/adae.r",
+          "section": "L136-L144",
+          "quote": "restrict_derivation( derivation = derive_var_extreme_flag, args = params( by_vars = exprs(USUBJID), order = exprs(ASTDT, AESEQ), new_var = AOCCFL, mode = \"first\" ), filter = TRTEMFL == \"Y\" )"
         }
       ],
       "clauses": [
@@ -612,6 +714,11 @@
           "document": "spec/define/define-adam.xml",
           "section": "ADAE.AOCCSFL",
           "quote": "Subset to TRTEMFL='Y' and sort by Subject (USUBJID), System Organ Class (AEBODSYS), Start Date (ASTDT), and Sequence Number (AESEQ) and flag the first record (set AOCCSFL=?Y?) within each Subject and SOC"
+        },
+        {
+          "document": "spec/source/programs/adae.r",
+          "section": "L147-L155",
+          "quote": "restrict_derivation( derivation = derive_var_extreme_flag, args = params( by_vars = exprs(USUBJID, AEBODSYS), order = exprs(ASTDT, AESEQ), new_var = AOCCSFL, mode = \"first\" ), filter = TRTEMFL == \"Y\" )"
         }
       ],
       "clauses": [
@@ -701,6 +808,11 @@
           "document": "spec/define/define-adam.xml",
           "section": "ADAE.AOCCPFL",
           "quote": "Subset to TRTEMFL='Y' and sort by Subject (USUBJID), System Organ Class (AEBODSYS), Preferred Term (AEDECOD), Start Date (ASTDT), and Sequence Number (AESEQ) and flag the first record (set AOCCPFL=?Y?) within each Subject, SOC, and PT"
+        },
+        {
+          "document": "spec/source/programs/adae.r",
+          "section": "L158-L166",
+          "quote": "restrict_derivation( derivation = derive_var_extreme_flag, args = params( by_vars = exprs(USUBJID, AEBODSYS, AEDECOD), order = exprs(ASTDT, AESEQ), new_var = AOCCPFL, mode = \"first\" ), filter = TRTEMFL == \"Y\" )"
         }
       ],
       "clauses": [
@@ -790,6 +902,11 @@
           "document": "spec/define/define-adam.xml",
           "section": "ADAE.AOCC02FL",
           "quote": "Subset to TRTEMFL='Y' and AESER='Y' and sort by Subject (USUBJID), Start Date (ASTDT), and Sequence Number (AESEQ) and flag the first record (set AOCC02FL=?Y?) within each Subject"
+        },
+        {
+          "document": "spec/source/programs/adae.r",
+          "section": "L169-L177",
+          "quote": "restrict_derivation( derivation = derive_var_extreme_flag, args = params( by_vars = exprs(USUBJID), order = exprs(ASTDT, AESEQ), new_var = AOCC02FL, mode = \"first\" ), filter = TRTEMFL == \"Y\" & AESER == \"Y\" )"
         }
       ],
       "clauses": [
@@ -879,6 +996,11 @@
           "document": "spec/define/define-adam.xml",
           "section": "ADAE.AOCC03FL",
           "quote": "Subset to TRTEMFL='Y' and AESER='Y' and sort by Subject (USUBJID), System Organ Class (AEBODSYS), Start Date (ASTDT), and Sequence Number (AESEQ) and flag the first record (set AOCC03FL=?Y?) within each Subject and SOC"
+        },
+        {
+          "document": "spec/source/programs/adae.r",
+          "section": "L180-L188",
+          "quote": "restrict_derivation( derivation = derive_var_extreme_flag, args = params( by_vars = exprs(USUBJID, AEBODSYS), order = exprs(ASTDT, AESEQ), new_var = AOCC03FL, mode = \"first\" ), filter = TRTEMFL == \"Y\" & AESER == \"Y\" )"
         }
       ],
       "clauses": [
@@ -969,6 +1091,11 @@
           "document": "spec/define/define-adam.xml",
           "section": "ADAE.AOCC04FL",
           "quote": "Subset to TRTEMFL='Y' and AESER='Y' and sort by Subject (USUBJID), System Organ Class (AEBODSYS), Preferred Term (AEDECOD), Start Date (ASTDT), and Sequence Number (AESEQ) and flag the first record (set AOCC04FL=?Y?) within each Subject, SOC, and PT"
+        },
+        {
+          "document": "spec/source/programs/adae.r",
+          "section": "L191-L199",
+          "quote": "restrict_derivation( derivation = derive_var_extreme_flag, args = params( by_vars = exprs(USUBJID, AEBODSYS, AEDECOD), order = exprs(ASTDT, AESEQ), new_var = AOCC04FL, mode = \"first\" ), filter = TRTEMFL == \"Y\" & AESER == \"Y\" )"
         }
       ],
       "clauses": [
@@ -1074,6 +1201,11 @@
           "document": "spec/define/define-adam.xml",
           "section": "ADAE.CQ01NAM",
           "quote": "If AEDECOD contains any of the character strings of ('APPLICATION', 'DERMATITIS', 'ERYTHEMA', 'BLISTER') OR if AEBODSYS='SKIN AND SUBC UTANEOUS TISSUE DISORDERS' but AEDECOD is not in ('COLD SWEAT', 'HYPERHIDROSIS', 'ALOPECIA') then CQ01NAM='DERMATOLOGIC EVENTS' Otherwise CQ01NAM=NULL"
+        },
+        {
+          "document": "spec/source/programs/adae.r",
+          "section": "L213-L221",
+          "quote": "restrict_derivation( derivation = derive_var_extreme_flag, args = params( by_vars = exprs(USUBJID), order = exprs(ASTDT, AESEQ), new_var = AOCC01FL, mode = \"first\" ), filter = TRTEMFL == \"Y\" & CQ01NAM == \"DERMATOLOGIC EVENTS\" )"
         }
       ],
       "clauses": [
@@ -1187,6 +1319,18 @@
             "quote": "nulls: last"
           },
           "note": "The retained method gives sort variables without explicitly stating missing-value placement."
+        },
+        {
+          "relation": "contradicts",
+          "document": {
+            "citation": 1,
+            "quote": "Subset to CQ01NAM=''"
+          },
+          "against": {
+            "citation": 5,
+            "quote": "filter = TRTEMFL == \"Y\" & CQ01NAM == \"DERMATOLOGIC EVENTS\""
+          },
+          "note": "The submission program flags the first treatment-emergent event with the populated DERMATOLOGIC EVENTS query name, not an empty one."
         }
       ],
       "probes": [
@@ -1206,8 +1350,50 @@
         "Unqualified sort order is read as ascending; null placement is not stated, and the probe uses nulls last. Unselected flags are serialized as empty text.",
         "The full ADRG QC appendix discusses historical original-CDISC duration, unit and label differences; it does not override the Pilot3 dermatological-event description in pages 11-12."
       ],
-      "assessment": "The literal query subset disagrees with both the specification and the dermatological-event purpose stated in Define and the ADRG. The separately retained dermatological reading follows that purpose without altering the literal test. The specification orders by the start date, then sequence number, that Define and the ADRG name.",
+      "assessment": "The literal query subset disagrees with both the specification and the dermatological-event purpose stated in Define and the ADRG. The separately retained dermatological reading follows that purpose without altering the literal test. The specification orders by the start date, then sequence number, that Define and the ADRG name. The submission program (adae.r lines 213-221) selects CQ01NAM == \"DERMATOLOGIC EVENTS\", as the dermatological-event reading does.",
       "question": "Confirm whether AOCC01FL should select an empty CQ01NAM or the populated DERMATOLOGIC EVENTS query name, and align the rule statements. Confirm study-qualified grouping and null placement if those choices should be explicit."
+    },
+    {
+      "variable": "STUDYID",
+      "rule": "No retained document states a derivation; adae.r carries STUDYID from SDTM AE and merges ADSL on it.",
+      "citations": [
+        {
+          "document": "spec/source/programs/adae.r",
+          "section": "L32",
+          "quote": "ae <- read_xpt(file.path(path$sdtm, \"ae.xpt\"))"
+        },
+        {
+          "document": "spec/source/programs/adae.r",
+          "section": "L80-L85",
+          "quote": "adae0 <- ae %>% derive_vars_merged( dataset_add = adsl, new_vars = adsl_vars, by = exprs(STUDYID, USUBJID) )"
+        }
+      ],
+      "clauses": [],
+      "probes": [],
+      "interpretations": [],
+      "assessment": "adae.r reads AE and keeps its STUDYID, using it with the other subject key to merge ADSL variables; no document states this derivation.",
+      "question": ""
+    },
+    {
+      "variable": "USUBJID",
+      "rule": "No retained document states a derivation; adae.r carries USUBJID from SDTM AE and merges ADSL on it.",
+      "citations": [
+        {
+          "document": "spec/source/programs/adae.r",
+          "section": "L32",
+          "quote": "ae <- read_xpt(file.path(path$sdtm, \"ae.xpt\"))"
+        },
+        {
+          "document": "spec/source/programs/adae.r",
+          "section": "L80-L85",
+          "quote": "adae0 <- ae %>% derive_vars_merged( dataset_add = adsl, new_vars = adsl_vars, by = exprs(STUDYID, USUBJID) )"
+        }
+      ],
+      "clauses": [],
+      "probes": [],
+      "interpretations": [],
+      "assessment": "adae.r reads AE and keeps its USUBJID, using it with the other subject key to merge ADSL variables; no document states this derivation.",
+      "question": ""
     }
   ]
 }
