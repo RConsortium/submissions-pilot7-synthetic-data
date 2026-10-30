@@ -1,11 +1,11 @@
 # Consistency findings
 
-The **Consistency findings** tab of a pilot study lists every actionable
-issue that the automated consistency review found among the study's
-documents, derivation rules and data. It is separate from **Generated ADaM dataset agreement**: a derived dataset can match the generated ADaM datasets
-while a document states a different rule, and that finding stays open until
-a person decides it. The [verification policy](../verification.md) defines
-both measures.
+The **Consistency findings** tab of every pilot study lists observed differences
+between ADaM data and a verified Define-XML rule. Document disagreements,
+unmeasured specification differences, alternative interpretations and comparisons
+with no observed difference do not create findings. Complete automated checks
+remain in the verification audit. This review is separate from **Generated ADaM
+dataset agreement**; see the [verification policy](../verification.md).
 
 **How to review a finding**, above the filters, states the two decisions
 every finding asks for, the working definition of critical and the issue
@@ -42,8 +42,7 @@ alone, or **All** to list every dataset. The search matches a variable, issue
 title, document name, quotation or rule ID; an exact name, such as
 `ADSL.TRTSDT` or `ADSL`, selects that variable or dataset alone.
 
-- **Comparison** separates input-to-output logic checks, source-document
-  questions and documented-rule checks.
+- **Comparison** filters the retained comparison category.
 - **Issue type** filters the types below.
 - **Agent review** filters by the adjudicating agent's decision: agreed,
   disputed, stale, mixed or not adjudicated. The list places disputed,
@@ -86,22 +85,16 @@ reviewer needs them:
 The opening **The finding** section shows the issue title and its expected
 and observed behavior. The sections then follow the navigation:
 
-1. **Source documents**: cited clauses from the protocol, SAP or Define-XML,
-   side by side. **Full context** reveals the longer passage. **View source**
-   opens the retained original at its cited row, page or YAML lines while
-   keeping your place and draft.
-2. **YAML specification**: YAML derivations side by side, with
-   `documented-rules.yaml` on the left and the study's resolved dataset
-   specification on the right. Submission metadata and prose descriptions
-   are omitted. Line numbers and **View source** link to the complete source.
-3. **Subject examples**: generated ADaM records beside document-based
-   calculations, with differences highlighted. Examples illustrate the
-   calculation; they do not determine the finding's reported impact.
-4. **Recommended fix**: the proposed correction or decision. A question shared
-   by multiple findings is headed **Open question for this variable**; decide
-   each finding on its own evidence.
+1. **Define-XML and resolved YAML**: the identified Define-XML item beside
+   the selected variable in the executable resolved YAML. Only these two
+   sources appear in this panel. Original YAML line numbers are retained;
+   **View source** opens the complete file without losing your draft.
+2. **Subject examples**: two columns, **ADaM data** and **Documented Rule**,
+   with differences highlighted. Record keys and input values appear with
+   the data value. Alternative calculations are omitted. Examples illustrate
+   the calculation; they do not determine the finding's reported impact.
 
-**Your review** follows the evidence; see
+**Human Review** follows the evidence; see
 [Record your assessment](#record-your-assessment).
 
 **Next finding in list** and **Previous finding in list** walk the
@@ -111,8 +104,8 @@ the list, the buttons walk its variable's findings instead.
 
 ## Documented rules
 
-Reviewed datasets add **Documented rules** issues, which run each derivation
-as the documents state it and compare the result with the generated ADaM datasets and the yamaa output. An authored grouping gives each issue a short
+Reviewed datasets run documented rules against ADaM data and the yamaa output.
+Only observed ADaM differences backed by verified Define-XML appear as findings. An authored grouping gives each issue a short
 title, expected and observed behavior, a proposed action and links to its
 supporting checks; a change to the check evidence requires the grouping to be
 reviewed before publication. Without authored grouping, verified clause
@@ -126,12 +119,13 @@ comment text.
 
 ## Record your assessment
 
-Under **Your review**, first assess **Is current dataset correctly derived?**:
-**Yes, dataset is correct**, **No, define-xml is correct**, **Neither as written**
-or **Unsure**. This question is optional. Its four choices share one row on
-desktop and stack on smaller screens. Then choose **Agree**, **Disagree** or
-**Need clarification**, followed by **Critical**, **Not critical** or **Unsure**,
-and add a comment. No answer is preselected. Drafts save automatically in this
+Under **Human Review**, answer **Do you agree with this finding?** first:
+**Agree**, **Disagree** or **Need clarification**. Next answer **Is this
+finding critical?**: **Critical**, **Not critical** or **Unsure**. Third,
+optionally assess **Is current dataset correctly derived?**: **Yes, dataset
+is correct**, **No, define-xml is correct**, **Neither as written** or **Unsure**.
+Add review comments if needed. The choices share a row on desktop and stack
+on smaller screens. No answer is preselected. Drafts save automatically in this
 browser, scoped to the study and the issue and bound to its current
 evidence; if the evidence changes in a later publication, your earlier
 assessment returns as a draft marked **evidence changed**.

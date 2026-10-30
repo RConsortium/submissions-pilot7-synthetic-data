@@ -7,8 +7,7 @@ The reviewer guide is `docs/review/index.md`; the pages beside it describe
 each dashboard screen.
 
 All pilot studies share the same tabs, finding filters and Start review
-sections: source documents, YAML specifications, subject examples, recommended
-fix and human assessment. Studies supply their own data, documents and review
+sections: Define-XML and resolved YAML, subject examples and Human Review. Studies supply their own data, documents and review
 claims; committed claims require the same derivation verification for publication.
 
 ## Source layout
@@ -161,7 +160,7 @@ a reviewer's behalf by itself. A link over 8,000 characters is not sent: the
 composer then opens with the title only and the dialog keeps the text to paste.
 Without `review_url`, the dialog falls back to **Copy review**.
 
-Prepared review text remains selectable under **Your review** for manual copying.
+Prepared review text remains selectable under **Human Review** for manual copying.
 Opening the composer, copying or saving locally never reports a successful
 GitHub post. Browser checks intercept the
 composer tab; they do not exercise GitHub sign-in or post real discussions.
@@ -287,13 +286,20 @@ exact source-file pair; all supporting checks and quotations remain available.
 Both the metric and the static study
 report count issues. The table separately counts unique supporting checks.
 The Start review button opens an expanded dialog, keeping complete evidence out of the
-initial listing DOM. It separates the finding, source-document previews, YAML specification comparison,
-Example Subject Difference, recommended fix, and human review. Source previews
-contain only retained documents; YAML citations and document-based translations
-are compared separately. Subject examples compare current reference values with
-document-based calculations, omit the yamaa output column, and highlight differing
-cells while preserving blank, missing, absent-variable and absent-record states. Related issues for the same variable
-are independently selectable; source context remains expandable. The data workspace links back to the same dialog.
+initial listing DOM. Its first panel pairs only the cited Define-XML item with
+the selected variable's resolved YAML, preserving source links and line numbers.
+The second panel shows **ADaM data** and **Documented Rule** in two columns;
+record keys and inputs accompany the data value. Alternative interpretations
+and open-question panels are omitted. **Human Review** asks for agreement,
+criticality, then optional dataset correctness.
+
+`review_scope.py` projects the complete check audit into published findings.
+A finding needs an observed literal, copy or codelist difference against ADaM
+data and a verified Define-XML citation in the same supporting check. Context
+comparisons, alternatives and yamaa-only differences do not contribute impact.
+Raw findings, logic checks and the standalone verification report retain the
+audit. The projected review keeps valid check/evidence relationships so dataset
+badges, counts, sibling navigation and direct links share the same scope.
 
 Human agreement, criticality and comments are browser-local assessments. Neither
 decision is preselected. Drafts save automatically as the reviewer edits; there

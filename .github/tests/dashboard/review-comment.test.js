@@ -26,7 +26,7 @@ test("missing or unknown decisions cannot produce a ready-to-publish assessment"
 
 test("dataset correctness leads the decisions, and is omitted when unset", () => {
   const text = reviewComment(model, issue, { ...review, side: "document" }, "https://example.org/");
-  assert.ok(text.indexOf("**Is current dataset correctly derived?** No, define-xml is correct\n**Agreement:** Disagree\n**Criticality:** Critical\n") > 0, text);
+  assert.ok(text.indexOf("**Agreement:** Disagree\n**Criticality:** Critical\n**Is current dataset correctly derived?** No, define-xml is correct\n") > 0, text);
   assert.doesNotMatch(reviewComment(model, issue, review, "https://example.org/"), /Is current dataset/);
 });
 
