@@ -100,7 +100,6 @@ def _kpis(studies, validated):
     reference = [sum(c["metrics"]["reference"][i] for c, _ in validated) for i in range(3)]
     issues = [issue for _, report in validated for issue in report["review"]["issues"]]
     return [
-        f'<p class="report-scope">{len(validated)} / {len(studies)} studies validated</p>',
         summary_cards(matched, reference, issues),
     ]
 
@@ -175,7 +174,7 @@ def _overview(studies):
                 f'<small>{review_breakdown(report["review"]["issues"])}</small>',
                 "SDTM Define-XML version": html.escape(define.get("sdtm_version") or "-"),
                 "ADaM Define-XML version": adam_version,
-                "Define-XML match": _status(status, tone),
+                "Define-XML match yamaa specification": _status(status, tone),
                 "Documents": html.escape(", ".join(
                     d["name"] for d in report["documents"] if not is_program(d["path"])
                 )),
@@ -186,7 +185,7 @@ def _overview(studies):
         ("Study information", ["Description", "Source", "Documents", "Subjects"]),
         ("SDTM", ["SDTM inputs", "SDTM Define-XML version"]),
         ("Generated ADaM dataset agreement", ["ADaM datasets matched", "Columns matched", "Cells matched",
-                  "ADaM Define-XML version", "Define-XML match"]),
+                  "ADaM Define-XML version", "Define-XML match yamaa specification"]),
         ("Consistency review", ["Consistency review"]),
     ]:
         rows = []

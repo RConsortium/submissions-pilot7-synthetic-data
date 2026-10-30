@@ -151,7 +151,7 @@ columns:
         page = (self.root / "docs/studies/index.md").read_text()
         for expected in [
             "This report summarizes the findings. 1 study is pending validation.</p>",
-            "1 / 2 studies validated",
+            "Define-XML match yamaa specification",
             "No generated ADaM comparison datasets",
             '<a href="pending-study/">Pending study</a><small>Pending</small></th>',
             '<td class="report-cell"><span class="report-status neutral">No generated ADaM dataset</span>'
@@ -166,6 +166,7 @@ columns:
             with self.subTest(expected=expected):
                 self.assertIn(expected, page)
         self.assertNotIn("Study validation records", page)
+        self.assertNotIn("studies validated", page)
 
     def test_study_report_documents_exclude_r_and_sas_programs(self):
         target = self.generate()
