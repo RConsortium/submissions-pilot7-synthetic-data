@@ -3,8 +3,7 @@
 The **SDTM -> ADaM** tab of a study shows an output dataset, the SDTM inputs
 its derivations read and the yamaa specification that produced it, side by
 side for the selected subjects. The pilot studies and the KN189 and KN564
-synthetic studies share this workspace. Pilot 5 keeps this full workspace;
-its focused dataset-versus-Define-XML evidence opens under **Start review**.
+synthetic studies share this workspace.
 
 ## Subjects and datasets
 

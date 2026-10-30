@@ -13,18 +13,8 @@ from .specifications import resource_path
 
 
 def build_report(
-    root, study, specifications, target, revision, validation=None, verification=None,
-    review_scope="full", subject_key="USUBJID",
+    root, study, specifications, target, revision, validation=None, verification=None
 ):
-    if review_scope == "dataset_define":
-        from .dataset_define import build_report as pair_report
-
-        outputs = {
-            spec["domain"]: resource_path(root, path, lineage.get("resources", {}),
-                                          "output.path", spec["output"]["path"])
-            for path, spec, lineage in specifications
-        }
-        return pair_report(root, study, outputs, target, revision, subject_key)
     define_path = root / study / "spec/define/define-adam.xml"
     metadata = define_metadata(define_path) if define_path.exists() else {}
     manifest, documents = materials(root, study, target, metadata)
