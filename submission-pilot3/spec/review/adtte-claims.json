@@ -3,9 +3,9 @@
   "dataset": "ADTTE",
   "author": {
     "kind": "agent",
-    "model": "Codex",
+    "model": "Codex; program tracing round by claude-opus-5-5[1m]",
     "instructions": ".automation/consistency_review/extract.md",
-    "date": "2026-10-26"
+    "date": "2026-10-29"
   },
   "claims": [
     {
@@ -26,6 +26,11 @@
           "document": "spec/source/adrg.pdf",
           "section": "page-12",
           "quote": "ADTTE contains one observation per parameter per subject. ADTTE is specifically for safety\nanalyses of the time to the first dermatologic adverse event. Dermatologic AEs are considered\nan adverse event of special interest. The key parameter used for the analysis of time to the\nfirst dermatological event is with PARAMCD of \u201cTTDE\u201d ."
+        },
+        {
+          "document": "spec/source/programs/adtte.r",
+          "section": "L97-L104",
+          "quote": "set_values_to = exprs(PARAMCD = \"TTDE\", PARAM = \"Time to First Dermatologic Event\")"
         }
       ],
       "clauses": [
@@ -100,6 +105,11 @@
           "document": "spec/source/adrg.pdf",
           "section": "page-17",
           "quote": "tlf-kmplot.r tlf.kmplot-\npilot3.pdf\nADSL.STUDYID\nADSL.USUBJID\nADSL.SAFFL\nADSL.TRT01A\nADTTE.STUDYID\nADTTE.USUBJID\nADTTE.PARAMCD\nADTTE.A V AL\nADTTE.CNSR\nSTUDYID==\n\u201cCDISCPILOT01\u201d\nPopulation:\nADSL.SAFFL == \u201cY\u201d\nTreatment Groups:\nADSL.TRT01A Placebo\nXanomeline Low Dose\nXanomeline High Dose\nParameters:\nADTTE.PARAMCD ==\n\u201cTTDE\u201d"
+        },
+        {
+          "document": "spec/source/programs/adtte.r",
+          "section": "L97-L104",
+          "quote": "set_values_to = exprs(PARAMCD = \"TTDE\", PARAM = \"Time to First Dermatologic Event\")"
         }
       ],
       "clauses": [
@@ -201,6 +211,21 @@
           "document": "spec/source/adrg.pdf",
           "section": "page-9",
           "quote": "ADTTE ADSL, ADAE"
+        },
+        {
+          "document": "spec/source/programs/adtte.r",
+          "section": "L48-L58",
+          "quote": "filter = AOCC01FL == \"Y\" & CQ01NAM == \"DERMATOLOGIC EVENTS\" & SAFFL == \"Y\",\n  date = ASTDT,"
+        },
+        {
+          "document": "spec/source/programs/adtte.r",
+          "section": "L72-L94",
+          "quote": "new_vars = exprs(EOSDT = DSSTDT),\n    filter_add = DSCAT == \"DISPOSITION EVENT\" & DSDECOD != \"SCREEN FAILURE\" & DSDECOD != \"FINAL LAB VISIT\"\n  ) %>%\n  # Analysis uses DEATH date rather than discontinuation when subject dies even if discontinuation occurs before death\n  # Observed through QC - However not described in specs\n  mutate(EOS2DT = case_when(\n    DCDECOD == \"DEATH\" ~ as.Date(RFENDTC),\n    DCDECOD != \"DEATH\" ~ EOSDT\n  ))\n\ncensor <- censor_source(\n  dataset_name = \"adsl\",\n  date = EOS2DT,"
+        },
+        {
+          "document": "spec/source/programs/adtte.r",
+          "section": "L97-L104",
+          "quote": "adtte_pre <- derive_param_tte(\n  dataset_adsl = adsl,\n  start_date = TRTSDT,\n  event_conditions = list(event),\n  censor_conditions = list(censor),"
         }
       ],
       "clauses": [
@@ -283,6 +308,30 @@
             "quote": "ADSL.RFENDT"
           },
           "note": "The ADRG dependency table also repeats ADSL as an analysis source; the specification's censor date reads ADSL.RFENDT."
+        },
+        {
+          "relation": "contradicts",
+          "document": {
+            "citation": 1,
+            "quote": "if ADAE.ASTDT is not missing and occurred after TRTSDT then ADAE.ASTDT"
+          },
+          "against": {
+            "citation": 8,
+            "quote": "filter = AOCC01FL == \"Y\" & CQ01NAM == \"DERMATOLOGIC EVENTS\" & SAFFL == \"Y\","
+          },
+          "note": "The submission program takes the date of the flagged first dermatologic event of a safety subject, with no test that it falls after TRTSDT; the AOCC01FL flag carries the inclusive treatment-emergent boundary instead of the strict one."
+        },
+        {
+          "relation": "contradicts",
+          "document": {
+            "citation": 1,
+            "quote": "else convert ADSL.RFENDTC to a SAS numeric date"
+          },
+          "against": {
+            "citation": 9,
+            "quote": "mutate(EOS2DT = case_when(\n    DCDECOD == \"DEATH\" ~ as.Date(RFENDTC),\n    DCDECOD != \"DEATH\" ~ EOSDT\n  ))"
+          },
+          "note": "The submission program censors at the DS disposition date (EOSDT), or at RFENDTC only for a subject who died, and its own comment says this is not described in the specifications."
         }
       ],
       "probes": [
@@ -297,6 +346,10 @@
         {
           "column": "ADT__FIRST_AFTER",
           "reading": "Apply the strict after-TRTSDT eligibility in citation 1 before selecting the first chronological treatment-emergent dermatologic event described in citations 2-3; a later qualifying event can then supply ADT."
+        },
+        {
+          "column": "ADT__PROGRAM",
+          "reading": "Compute ADT as the Pilot 3 program adtte.r does: the start date of the first ADAE record with AOCC01FL=Y, CQ01NAM=DERMATOLOGIC EVENTS and SAFFL=Y, with no after-TRTSDT test (lines 48-58), and otherwise the censor date EOS2DT, the DS disposition date or, for a subject who died, RFENDTC (lines 72-94), combined by derive_param_tte (lines 97-104). The Define-XML method instead states a strict after-TRTSDT test and the RFENDTC date for every censored subject."
         }
       ],
       "interpretations": [
@@ -306,9 +359,10 @@
         "The documents do not specify null placement or a final tie-break when ASTDT and AESEQ are both tied. Probes put null dates last and retain the first tied record; selected dates and branch labels do not use any additional tie-break field.",
         "The literal conversion parses ADSL.RFENDTC as a date without imputing absent components. The retained ADTTE method supplies no month/day imputation rule for that fallback.",
         "Citation 5 defines treatment emergence inclusively while the ADT method says after TRTSDT. These govern related, separately stated conditions; the inclusive reading tests a possible alignment and does not assert that the two statements are necessarily contradictory.",
-        "Citation 6 documents the safety population for the downstream KM analysis; it does not explicitly add ADAE.SAFFL to the first-event selection condition."
+        "Citation 6 documents the safety population for the downstream KM analysis; it does not explicitly add ADAE.SAFFL to the first-event selection condition.",
+        "The PROGRAM reading follows the admiral derive_param_tte call in adtte.r lines 97-104: an event record, when present, supplies ADT; otherwise the censor date does. The DS end-of-study date keeps DISPOSITION EVENT records other than SCREEN FAILURE and FINAL LAB VISIT, as lines 72-78 filter them, and is parsed without imputation."
       ],
-      "assessment": "The retained method and source-event context leave date-boundary and selection-order choices visible. The specification's fallback reads ADSL.RFENDT, the documented conversion of RFENDTC, but its event branch tests only for a flagged first dermatologic record.",
+      "assessment": "The retained method and source-event context leave date-boundary and selection-order choices visible. The specification's fallback reads ADSL.RFENDT, the documented conversion of RFENDTC, but its event branch tests only for a flagged first dermatologic record. The submission program adtte.r applies no strict after-TRTSDT test and censors at the DS disposition date (death date for deaths), so both branches of the documented method differ from the program that produced the reference.",
       "question": "Should ADT use a strict or inclusive treatment-date boundary, and should eligibility be applied before first-event selection?"
     },
     {
@@ -349,6 +403,16 @@
           "document": "spec/source/adrg.pdf",
           "section": "page-9",
           "quote": "ADTTE ADSL, ADAE"
+        },
+        {
+          "document": "spec/source/programs/adtte.r",
+          "section": "L48-L58",
+          "quote": "event <- event_source(\n  dataset_name = \"adae\",\n  filter = AOCC01FL == \"Y\" & CQ01NAM == \"DERMATOLOGIC EVENTS\" & SAFFL == \"Y\",\n  date = ASTDT,"
+        },
+        {
+          "document": "spec/source/programs/adtte.r",
+          "section": "L97-L104",
+          "quote": "adtte_pre <- derive_param_tte(\n  dataset_adsl = adsl,\n  start_date = TRTSDT,\n  event_conditions = list(event),\n  censor_conditions = list(censor),"
         }
       ],
       "clauses": [
@@ -419,6 +483,18 @@
             "quote": "dataset: ADAE"
           },
           "note": "The dependency table confirms the analysis source used for the event/censor decision."
+        },
+        {
+          "relation": "contradicts",
+          "document": {
+            "citation": 1,
+            "quote": "if ADAE.TRTEMFL =\"Y\" then CNSR=0, else CNSR=1"
+          },
+          "against": {
+            "citation": 8,
+            "quote": "filter = AOCC01FL == \"Y\" & CQ01NAM == \"DERMATOLOGIC EVENTS\" & SAFFL == \"Y\","
+          },
+          "note": "The submission program makes a subject an event (CNSR=0 through event_source) when a flagged first dermatologic record of a safety subject exists, not by testing ADAE.TRTEMFL; every other subject is censored through censor_source."
         }
       ],
       "probes": [
@@ -434,7 +510,7 @@
         "The documented first-event context limits the source to dermatologic treatment-emergent events; the probe does not mark a subject with an unrelated treatment-emergent AE as an event.",
         "CNSR explicitly reads the published source TRTEMFL. The literal ADT method uses a stricter date boundary; the CNSR probe does not silently replace its flag rule with the ADT condition."
       ],
-      "assessment": "The specification substitutes the presence of a flagged first dermatologic record for the documented source treatment-emergent flag test.",
+      "assessment": "The specification substitutes the presence of a flagged first dermatologic record for the documented source treatment-emergent flag test. The submission program adtte.r decides the event from the AOCC01FL, CQ01NAM and SAFFL filter of its event source rather than from TRTEMFL.",
       "question": "Confirm that the first dermatologic event identified through the published source flag is the intended ADAE record for CNSR and how its rule should align with the ADT date boundary."
     },
     {
@@ -450,6 +526,16 @@
           "document": "spec/define/define-adam.xml",
           "section": "ADTTE.CNSR",
           "quote": "Codelist CL.CENSOR: 0 = Event; 1 = Censored"
+        },
+        {
+          "document": "spec/source/programs/adtte.r",
+          "section": "L48-L58",
+          "quote": "EVNTDESC = \"Dematologic Event Occured\","
+        },
+        {
+          "document": "spec/source/programs/adtte.r",
+          "section": "L86-L94",
+          "quote": "EVNTDESC = \"Study Completion Date\","
         }
       ],
       "clauses": [
@@ -533,6 +619,16 @@
           "document": "spec/source/adrg.pdf",
           "section": "page-9",
           "quote": "ADTTE ADSL, ADAE"
+        },
+        {
+          "document": "spec/source/programs/adtte.r",
+          "section": "L48-L58",
+          "quote": "SRCDOM = \"ADAE\","
+        },
+        {
+          "document": "spec/source/programs/adtte.r",
+          "section": "L86-L94",
+          "quote": "SRCDOM = \"ADSL\","
         }
       ],
       "clauses": [
@@ -700,6 +796,16 @@
           "document": "spec/source/adrg.pdf",
           "section": "page-9",
           "quote": "ADTTE ADSL, ADAE"
+        },
+        {
+          "document": "spec/source/programs/adtte.r",
+          "section": "L48-L58",
+          "quote": "SRCVAR = \"ASTDT\","
+        },
+        {
+          "document": "spec/source/programs/adtte.r",
+          "section": "L86-L94",
+          "quote": "date = EOS2DT,\n  set_values_to = exprs(\n    EVNTDESC = \"Study Completion Date\",\n    SRCDOM = \"ADSL\",\n    SRCVAR = \"RFENDT\""
         }
       ],
       "clauses": [
@@ -794,6 +900,18 @@
             "quote": "dataset: ADAE"
           },
           "note": "The ADRG dependency table repeats the analysis source that supplies the ASTDT event variable."
+        },
+        {
+          "relation": "contradicts",
+          "document": {
+            "citation": 1,
+            "quote": "The Source variable referred to in order to populate ADT"
+          },
+          "against": {
+            "citation": 12,
+            "quote": "date = EOS2DT,\n  set_values_to = exprs(\n    EVNTDESC = \"Study Completion Date\",\n    SRCDOM = \"ADSL\",\n    SRCVAR = \"RFENDT\""
+          },
+          "note": "The submission program labels a censored record RFENDT while populating its ADT from EOS2DT, the DS disposition date or the RFENDTC death date, so the label does not name the variable that populates ADT."
         }
       ],
       "probes": [
@@ -828,7 +946,7 @@
         "The literal method names RFENDT. The ADT method names RFENDTC and its conversion; the RFENDTC reading exposes that literal naming difference instead of silently replacing the requested output text.",
         "Within the documented event/censor codes, the source label follows the branch even when its date is missing. The documents do not state another source label for a missing date."
       ],
-      "assessment": "The specification preserves the listed output names and reads the RFENDT censor date its label names, while omitting the documented ADT treatment-date condition.",
+      "assessment": "The specification preserves the listed output names and reads the RFENDT censor date its label names, while omitting the documented ADT treatment-date condition. The submission program adtte.r writes the RFENDT label for every censored record although its censor date is EOS2DT.",
       "question": "Should the censor-source label identify the raw RFENDTC input named by the ADT method or its RFENDT converted form, which the specification reads?"
     },
     {
@@ -874,6 +992,11 @@
           "document": "spec/define/define-adam.xml",
           "section": "ADTTE.SRCDOM",
           "quote": "The Source domain referred to in order to populate ADT (either ADAE or ADSL)"
+        },
+        {
+          "document": "spec/source/programs/adtte.r",
+          "section": "L48-L58",
+          "quote": "SRCSEQ = AESEQ"
         }
       ],
       "clauses": [
@@ -989,6 +1112,11 @@
           "document": "spec/define/define-adam.xml",
           "section": "ADTTE.AVAL",
           "quote": "ADT-STARTDT+1"
+        },
+        {
+          "document": "spec/source/programs/adtte.r",
+          "section": "L105-L109",
+          "quote": "derive_vars_duration(\n    new_var = AVAL,\n    start_date = STARTDT,\n    end_date = ADT\n  ) %>%"
         }
       ],
       "clauses": [
@@ -1015,6 +1143,38 @@
         "The probe reads published REF.ADT and REF.STARTDT so that it tests AVAL alone; it does not use this batch's ADT probe or recompute STARTDT. No additional precision rule is stated for this integer-day calculation."
       ],
       "assessment": "The specification states the documented inclusive duration calculation.",
+      "question": ""
+    },
+    {
+      "variable": "STUDYID",
+      "rule": "No retained document states this derivation; the submission program carries the study identifier of each ADSL subject into the time-to-event record.",
+      "citations": [
+        {
+          "document": "spec/source/programs/adtte.r",
+          "section": "L97-L104",
+          "quote": "adtte_pre <- derive_param_tte(\n  dataset_adsl = adsl,"
+        }
+      ],
+      "clauses": [],
+      "probes": [],
+      "interpretations": [],
+      "assessment": "Undocumented: adtte.r builds one record per subject of the ADSL dataset it passes to derive_param_tte, keyed by STUDYID and USUBJID.",
+      "question": ""
+    },
+    {
+      "variable": "USUBJID",
+      "rule": "No retained document states this derivation; the submission program carries the unique subject identifier of each ADSL subject into the time-to-event record.",
+      "citations": [
+        {
+          "document": "spec/source/programs/adtte.r",
+          "section": "L97-L104",
+          "quote": "adtte_pre <- derive_param_tte(\n  dataset_adsl = adsl,"
+        }
+      ],
+      "clauses": [],
+      "probes": [],
+      "interpretations": [],
+      "assessment": "Undocumented: adtte.r builds one record per subject of the ADSL dataset it passes to derive_param_tte, keyed by STUDYID and USUBJID.",
       "question": ""
     }
   ]
