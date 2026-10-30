@@ -90,8 +90,10 @@ and observed behavior. The sections then follow the navigation:
    side by side. **Full context** reveals the longer passage. **View source**
    opens the retained original at its cited row, page or YAML lines while
    keeping your place and draft.
-2. **YAML specification**: the resolved study rule beside document-based
-   translations, with file names and highlighted source lines.
+2. **YAML specification**: YAML derivations side by side, with
+   `documented-rules.yaml` on the left and the study's resolved dataset
+   specification on the right. Submission metadata and prose descriptions
+   are omitted. Line numbers and **View source** link to the complete source.
 3. **Subject examples**: generated ADaM records beside document-based
    calculations, with differences highlighted. Examples illustrate the
    calculation; they do not determine the finding's reported impact.
