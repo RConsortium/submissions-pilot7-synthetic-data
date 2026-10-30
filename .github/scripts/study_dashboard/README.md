@@ -151,20 +151,13 @@ App stands between the static site and GitHub. GitHub's OAuth token exchange
 has no CORS support and needs a client secret, so a static page cannot post on
 a reviewer's behalf by itself. A link over 8,000 characters is not sent: the
 composer then opens with the title only and the dialog keeps the text to paste.
-Without `review_url`, the dialog falls back to **Copy review & open GitHub
-comments**.
+Without `review_url`, the dialog falls back to **Copy review**.
 
-**Copy review instead** copies the same text and opens the dataset discussion
-inside the dialog. Reviewers paste it into giscus and select Comment
-to publish with their GitHub identity. The widget is moved from the workspace
-and restored on close; a second giscus embed would replace the first container.
-Opening the composer, copying or saving locally never reports a successful
-GitHub post. Clipboard failure leaves selectable review text, and the repository
-link remains available when the embed cannot load. Browser checks intercept
-giscus and the composer tab; they do not exercise GitHub sign-in or post real
-discussions or comments.
-The open finding is kept in session storage so the sign-in round trip restores
-its discussion and the review draft. Closing the dialog clears that return state.
+**Copy review instead** copies the same text for a GitHub discussion or the
+workspace's dataset **Review comments** box. Clipboard failure leaves selectable
+review text under **Your review**. Opening the composer, copying or saving
+locally never reports a successful GitHub post. Browser checks intercept the
+composer tab; they do not exercise GitHub sign-in or post real discussions.
 
 ## Build and verify
 
@@ -293,8 +286,7 @@ contain only retained documents; YAML citations and document-based translations
 are compared separately. Subject examples compare current reference values with
 document-based calculations, omit the yamaa output column, and highlight differing
 cells while preserving blank, missing, absent-variable and absent-record states. Related issues for the same variable
-are independently selectable; source context and the full check audit remain
-expandable. The data workspace links back to the same dialog.
+are independently selectable; source context remains expandable. The data workspace links back to the same dialog.
 
 Human agreement, criticality and comments are browser-local assessments. Neither
 decision is preselected. Drafts save automatically as the reviewer edits; there
@@ -302,8 +294,8 @@ is no separate local-save action. A draft does not resolve the finding or
 replace agent adjudication or automated criticality. Drafts are scoped to the
 study and issue and bound to its current evidence; changed evidence returns an
 earlier assessment as a draft. The copied GitHub comment retains source revision
-and check IDs. No review is posted to GitHub automatically. Use the dialog's
-GitHub comments section to publish the copied assessment.
+and check IDs. No review is posted to GitHub automatically. Use a GitHub discussion or the workspace's dataset Review comments box to
+publish the copied assessment.
 
 The verifier retains row-aligned examples from the actual reference, yamaa and
 probe tables. It chooses complementary subjects from measured differences where
@@ -312,7 +304,7 @@ subject records. The browser shows at most two subjects. Examples do not supply
 impact counts, and an unavailable example never becomes invented data. Optional
 claim `example_columns` adds reference context such as an event term; dependencies
 read from REF are included automatically. Alternate calculations use their
-plain-language `reading` descriptions; VARIABLE__READING names remain in the audit.
+plain-language `reading` descriptions; VARIABLE__READING names remain in the generated verification report.
 
 Retained ADaM programs, listed in a study's source manifest with the role
 `adam_program` or `reference_reimplementation`, are cited by line range
