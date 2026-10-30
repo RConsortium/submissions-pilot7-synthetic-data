@@ -33,7 +33,7 @@ REPORTS = ROOT / ".build" / "validation"
 
 BEGIN = "<!-- pilot-metrics:begin -->"
 END = "<!-- pilot-metrics:end -->"
-HEADER = ["| Study | Published ADaM reference agreement | Consistency review |",
+HEADER = ["| Study | Generated ADaM dataset agreement | Consistency review |",
           "| --- | --- | --- |"]
 
 
@@ -49,9 +49,9 @@ def _millions(value):
 
 def reference_cell(matched, reference):
     if not reference[0]:
-        return "No official reference"
+        return "No generated ADaM comparison datasets"
     return (
-        f"Datasets matching reference: **{matched[0]} / {reference[0]} "
+        f"Datasets matching generated ADaM datasets: **{matched[0]} / {reference[0]} "
         f"({_percent(matched[0], reference[0])})**<br>"
         f"Columns in matching datasets: {matched[1]} / {reference[1]}<br>"
         f"Cells in matching datasets: {_millions(matched[2])} / {_millions(reference[2])}"
@@ -95,7 +95,7 @@ def build_table(root, reports_dir):
             if entry["comparison"] == "official":
                 raise ValueError(f"{name}: official reference datasets are missing")
             rows.append(f"| [{title}](studies/{name}.md) | "
-                        f"No official reference | {status} |")
+                        f"No generated ADaM comparison datasets | {status} |")
             continue
         matched = matched_totals(report)
         for i in range(3):

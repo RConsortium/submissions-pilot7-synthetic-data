@@ -2,8 +2,7 @@
 
 The **Consistency findings** tab of a pilot study lists every actionable
 issue that the automated consistency review found among the study's
-documents, derivation rules and data. It is separate from **Published ADaM
-reference agreement**: a derived dataset can match the published reference
+documents, derivation rules and data. It is separate from **Generated ADaM dataset agreement**: a derived dataset can match the generated ADaM datasets
 while a document states a different rule, and that finding stays open until
 a person decides it. The [verification policy](../verification.md) defines
 both measures.
@@ -24,7 +23,7 @@ Each row is one issue.
 | Status | Under Review until maintainers record a human decision. When the adjudicating agent disputed the finding, or its decision is stale or mixed, the cell says so. |
 | Critical finding | The automated criticality assessment: Yes, No or Needs review. |
 | Type | The issue type, listed below. |
-| Documented rule vs data | How many subjects differ when the documented rule, run as written, is compared with the data; **No differences in tested data**; or **Not measured** when the finding compares statements only. A count here measures the written rule, not the dataset: the review states whether the yamaa output matches the published reference. |
+| Documented rule vs data | How many subjects differ when the documented rule, run as written, is compared with the data; **No differences in tested data**; or **Not measured** when the finding compares statements only. A count here measures the written rule, not the dataset: the review states whether the yamaa output matches the generated ADaM datasets. |
 | Issue | A short title and a one-sentence summary. |
 | Evidence | **Start review** opens the complete evidence. Your own draft assessment, if you have one, appears underneath. |
 
@@ -84,41 +83,24 @@ agreement is not resolution.
 the other findings for the same variable listed beside it, in the order a
 reviewer needs them:
 
-1. **The finding**: expected and observed behavior, and the measured
-   impact. Each comparison names both sides, such as **Documented rule vs
-   published reference**, and counts the distinct subjects that differ.
-   Comparisons labeled as context are excluded from impact. **Impact not
-   measured** is different from **No differences in tested data**. The
-   review basis, first in the section, states the automated criticality
-   with its reason, the agent adjudication with the adjudicator's reason,
-   and any documented rule that could not be checked and why. The
-   measurements that follow say whether the yamaa output matches the
-   published reference for the dataset, so a count of differing subjects
-   reads as a test of the written rule, not of the dataset. When the dataset's
-   reference comparison passed, the duplicate comparison against yamaa output
-   is omitted; the published-reference comparison remains visible.
-2. **Source documents**: the cited clauses of the retained protocol, SAP or
-   Define-XML, side by side. **Full context** reveals the complete passage
-   when it is longer than the quotation. **View source** opens the cited
-   file in a popup over the review, keeping your place and your draft:
-   Define-XML uses the retained rendered document with the cited row
-   highlighted, a PDF opens at the cited page, and YAML shows the numbered
-   source with the cited lines highlighted. The popup also links to the
-   file in the repository when the citation retains that link.
-3. **YAML specification**: the rule as the study's resolved specification
-   states it, with its line numbers, next to the rule as the documents
-   state it. Document-based translations keep their own YAML; the original
-   layer citations remain in the generated verification report.
-4. **Example subject difference**: representative records from the published
-   reference next to the document-based calculation, with differing cells
-   highlighted. Examples illustrate the calculation; they do not supply the
-   impact count.
-5. **Recommended fix**: the proposed correction or decision. When the
-   text is the extraction agent's question about the whole variable, the
-   section is headed **Open question for this variable** and says how many
-   findings share it; decide each finding on its own evidence.
-6. **Your review**: see
-   [Record your assessment](#record-your-assessment).
+The opening **The finding** section shows the issue title and its expected
+and observed behavior. The sections then follow the navigation:
+
+1. **Source documents**: cited clauses from the protocol, SAP or Define-XML,
+   side by side. **Full context** reveals the longer passage. **View source**
+   opens the retained original at its cited row, page or YAML lines while
+   keeping your place and draft.
+2. **YAML specification**: the resolved study rule beside document-based
+   translations, with file names and highlighted source lines.
+3. **Subject examples**: generated ADaM records beside document-based
+   calculations, with differences highlighted. Examples illustrate the
+   calculation; they do not determine the finding's reported impact.
+4. **Recommended fix**: the proposed correction or decision. A question shared
+   by multiple findings is headed **Open question for this variable**; decide
+   each finding on its own evidence.
+
+**Your review** follows the evidence; see
+[Record your assessment](#record-your-assessment).
 
 **Next finding in list** and **Previous finding in list** walk the
 findings the table currently lists, in its order, without closing the page;
@@ -128,8 +110,7 @@ the list, the buttons walk its variable's findings instead.
 ## Documented rules
 
 Reviewed datasets add **Documented rules** issues, which run each derivation
-as the documents state it and compare the result with the published
-reference and the yamaa output. An authored grouping gives each issue a short
+as the documents state it and compare the result with the generated ADaM datasets and the yamaa output. An authored grouping gives each issue a short
 title, expected and observed behavior, a proposed action and links to its
 supporting checks; a change to the check evidence requires the grouping to be
 reviewed before publication. Without authored grouping, verified clause

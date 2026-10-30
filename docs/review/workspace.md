@@ -16,7 +16,7 @@ The dataset tabs choose the output dataset. **Select domain** under the input
 area opens further input datasets, named by domain and description, such as
 **DM - Demographics**; the output area's **Select domain** adds output
 datasets beside the current one. **Output dataset type** switches a pilot
-output between the yamaa-derived dataset and the official reference.
+output between the yamaa-derived dataset and the generated ADaM datasets.
 **Specification** chooses the YAML currently shown; selecting a column in
 another output focuses that output's specification. Comparisons you opened
 stay open.

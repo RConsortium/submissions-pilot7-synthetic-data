@@ -37,7 +37,7 @@ function comparisonSources(e) {
       : e.method === "copy" ? "Documented source"
       : e.reading === "literal" ? "Documented rule"
       : `Alternative interpretation: ${e.reading || "see calculation details"}`,
-    target: e.target === "derived" ? "yamaa output" : "published reference",
+    target: e.target === "derived" ? "yamaa output" : "generated ADaM datasets",
   };
 }
 
@@ -201,7 +201,7 @@ export function issueTrace(issue, report, { sourcesOnly = false, specificationsO
     const gap = files.size < 2
       ? `<p class="trace-limit">${files.size ? "Only one " : "No "}${sourcesOnly ? "source document" : "YAML specification"} retained for this finding. ${files.size ? "A second side is unavailable; no comparison is inferred." : "There is no retained preview to compare."}</p>`
       : "";
-    return `<div class="finding-evidence">${specificationsOnly ? comparisons : ""}${gap}<div class="trace-source-grid" aria-label="${sourcesOnly ? "Source document" : "YAML specification"} comparison">${[...files].map(([path, entries]) => `<section class="trace-source-file" aria-label="${esc(path)}"><p class="trace-scope">${esc(path)}</p>${entries.map((e) => citation(e, true)).join("")}</section>`).join("")}</div></div>`;
+    return `<div class="finding-evidence">${gap}<div class="trace-source-grid" aria-label="${sourcesOnly ? "Source document" : "YAML specification"} comparison">${[...files].map(([path, entries]) => `<section class="trace-source-file" aria-label="${esc(path)}"><p class="trace-scope">${esc(path)}</p>${entries.map((e) => citation(e, true)).join("")}</section>`).join("")}</div></div>`;
   }
   const audit = checks
     .map(

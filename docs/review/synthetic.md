@@ -1,7 +1,7 @@
 # Synthetic analysis review
 
-KN189, KN564 and CAR-T for ALL are synthetic studies with no published
-reference. The [synthetic data report](../synthetic/index.md) inventories
+KN189, KN564 and CAR-T for ALL are synthetic studies with no independent generated ADaM comparison
+datasets. The [synthetic data report](../synthetic/index.md) inventories
 their staged ODM archives and the availability of source, SDTM, ADaM and
 submission-metadata files; missing stages are shown as **Not staged**, and
 availability alone does not establish a successful derivation.
@@ -27,7 +27,7 @@ opens the cited source line.
 Download the study package for Parquet and XPT datasets, both Define-XML
 files, the maintained yamaa specifications, the retained source documents and
 the exact build evidence. XPT read-back and XML schema checks are distinct
-from an independent reference comparison or regulatory validation.
+from a comparison with independent generated ADaM datasets or regulatory validation.
 
 ## Review drafts
 

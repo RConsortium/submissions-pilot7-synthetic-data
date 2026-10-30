@@ -63,7 +63,7 @@ function readiness(models) {
     ["define", "Submission metadata"],
   ];
   return `<h2 id="workflow-readiness">Workflow readiness</h2>${table("Workflow readiness", ["Stage", ...models.map((m) => esc(m.title))], stages.map(([id, title]) =>
-    `<tr><th scope="row">${title}</th>${models.map((m) => `<td class="report-cell">${status(count(m, id))}<span class="report-dims">${stageFiles(m, id)}</span></td>`).join("")}</tr>`))}<p class="report-foot">Availability counts staged files. It does not establish a successful derivation, reference agreement, or regulatory validation.</p>`;
+    `<tr><th scope="row">${title}</th>${models.map((m) => `<td class="report-cell">${status(count(m, id))}<span class="report-dims">${stageFiles(m, id)}</span></td>`).join("")}</tr>`))}<p class="report-foot">Availability counts staged files. It does not establish a successful derivation, generated ADaM dataset agreement, or regulatory validation.</p>`;
 }
 
 function inventory(models, gallery) {
@@ -102,7 +102,7 @@ export function syntheticReport(models, site, gallery, dataRoot = new URL("evide
     <p class="report-lede">Synthetic clinical trial sources support development of the EDC-to-submission workflow. This report summarizes source archives and staged files${gallery ? " across the synthetic studies" : ` for ${esc(models[0].title)}`}.</p>
     ${!gallery ? `<p class="report-screen"><a href="${esc(new URL("synthetic/", site).href)}">All synthetic studies</a></p>` : ""}
     ${models.length ? `${metrics(models, gallery)}${overview(models, site, gallery)}${!gallery ? developmentReport(models[0], dataRoot) : ""}${readiness(models)}${inventory(models, gallery)}${workflow()}` : "<p>No synthetic studies are configured.</p>"}
-    <p class="report-foot">Source members are files inside the available archives, not counts of subjects or clinical records. Reference comparisons are reported separately in the <a href="${esc(new URL("studies/", site).href)}">pilot study report</a>.</p>`;
+    <p class="report-foot">Source members are files inside the available archives, not counts of subjects or clinical records. Comparisons with generated ADaM datasets are reported separately in the <a href="${esc(new URL("studies/", site).href)}">pilot study report</a>.</p>`;
 }
 
 export async function mountSynthetic(main, get, dataRoot, site) {

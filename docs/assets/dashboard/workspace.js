@@ -71,7 +71,7 @@ export function createWorkspace(ctx) {
     const version =
       panel.kind === "output"
         ? state.output === "reference" && panel.dataset.reference
-          ? "Official reference"
+          ? "Generated ADaM datasets"
           : "yamaa derived"
         : panel.linked
           ? "Linked source"
@@ -81,7 +81,7 @@ export function createWorkspace(ctx) {
   function group(kind) {
     const { model, state, plan } = ctx,
       panels = kind === "input" ? plan.inputs : plan.outputs;
-    return `<section class="dataset-group ${kind}-group" aria-label="${kind === "input" ? "Input" : "Output"} datasets"><header class="dataset-group-header"><h2>${kind === "input" ? "Input datasets" : "Output datasets"}</h2>${datasetPicker(kind)}${kind === "output" ? `<label class="output-version"><span class="sr-only">Output dataset type</span><select id="output-select"><option value="derived">yamaa derived</option>${plan.outputs.some((p) => p.dataset.reference) ? `<option value="reference" ${state.output === "reference" ? "selected" : ""}>Official reference</option>` : ""}</select></label>` : ""}</header><div class="panel-strip" data-panel-count="${panels.length}" style="--panel-count:${Math.max(1, Math.min(panels.length, 4))}">${panels.length ? panels.map(panelMarkup).join("") : '<p class="empty-state">Select input domains to display datasets here.</p>'}</div></section>`;
+    return `<section class="dataset-group ${kind}-group" aria-label="${kind === "input" ? "Input" : "Output"} datasets"><header class="dataset-group-header"><h2>${kind === "input" ? "Input datasets" : "Output datasets"}</h2>${datasetPicker(kind)}${kind === "output" ? `<label class="output-version"><span class="sr-only">Output dataset type</span><select id="output-select"><option value="derived">yamaa derived</option>${plan.outputs.some((p) => p.dataset.reference) ? `<option value="reference" ${state.output === "reference" ? "selected" : ""}>Generated ADaM datasets</option>` : ""}</select></label>` : ""}</header><div class="panel-strip" data-panel-count="${panels.length}" style="--panel-count:${Math.max(1, Math.min(panels.length, 4))}">${panels.length ? panels.map(panelMarkup).join("") : '<p class="empty-state">Select input domains to display datasets here.</p>'}</div></section>`;
   }
   function workspace() {
     const { model, specification, state, layout, esc, sourceUrl, link } = ctx;
