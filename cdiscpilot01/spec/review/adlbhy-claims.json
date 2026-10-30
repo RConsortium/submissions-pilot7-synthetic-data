@@ -3,9 +3,9 @@
   "dataset": "ADLBHY",
   "author": {
     "kind": "agent",
-    "model": "Codex",
+    "model": "Codex; program tracing round by claude-opus-5-5[1m]",
     "instructions": ".automation/consistency_review/extract.md",
-    "date": "2026-10-26"
+    "date": "2026-10-29"
   },
   "claims": [
     {
@@ -26,6 +26,16 @@
           "document": "spec/source/dataguide.pdf",
           "section": "page-6",
           "quote": "ADLBHY is derived from the ADLBC (Laboratory Results Chemistry Analysis Data) analysis dataset."
+        },
+        {
+          "document": "spec/source/programs/pilot6/adlbhy.r",
+          "section": "L50-L54",
+          "quote": "adlbhy_pre <- adlbc %>%"
+        },
+        {
+          "document": "spec/source/programs/pilot6/adlbhy.r",
+          "section": "L107-L134",
+          "quote": "group_by(STUDYID, USUBJID, VISIT, VISITNUM, ADT) %>%\nsummarise(\nacross(\nc(\nSUBJID, TRTP, TRTPN, TRTA, TRTAN, TRTSDT, TRTEDT,\nAGE, AGEGR1, AGEGR1N, RACE, RACEN, SEX,\nCOMP24FL, DSRAEFL, SAFFL, AVISIT, AVISITN, ADY, ABLFL\n),\nfirst\n),"
         }
       ],
       "clauses": [
@@ -78,7 +88,7 @@
         "The ordinary base row and each of bilihy, transhy and hylaw take USUBJID from ADLBC.USUBJID; none reads ADSL for this field.",
         "Only sibling source pointers and keys were inspected to resolve the actual input path. No ADLBC derivation rule is substituted for the own ADLBHY ADSL-copy rule."
       ],
-      "assessment": "The Define comment and the guide both name ADSL, while the executable own source path uses ADLBC. The formal probe reads the documented published ADSL field with the original comparison keys retained.",
+      "assessment": "The Define comment and the guide both name ADSL, while the executable own source path uses ADLBC. The formal probe reads the documented published ADSL field with the original comparison keys retained. Pilot 6's later R reimplementation (spec/source/programs/pilot6/adlbhy.r), which reproduces this reference, reads every row from ADLBC (lines 50-54) and groups the HYLAW rows by STUDYID and USUBJID (lines 107-118); it does not read ADSL.",
       "question": ""
     },
     {
@@ -154,6 +164,21 @@
           "document": "spec/source/SAP.pdf",
           "section": "page-39",
           "quote": "The treatment period is defined as any planned visit after Week 0 (Visit 3), up to and including Week 24 (Visit 12)."
+        },
+        {
+          "document": "spec/source/programs/pilot6/adlbhy.r",
+          "section": "L48",
+          "quote": "allowed_avisit <- c(\"Baseline\", \"Week 2\", \"Week 4\", \"Week 6\", \"Week 8\", \"Week 12\", \"Week 16\", \"Week 20\", \"Week 24\")"
+        },
+        {
+          "document": "spec/source/programs/pilot6/adlbhy.r",
+          "section": "L50-L54",
+          "quote": "AVISIT %in% allowed_avisit"
+        },
+        {
+          "document": "spec/source/programs/pilot6/adlbhy.r",
+          "section": "L107-L134",
+          "quote": "group_by(STUDYID, USUBJID, VISIT, VISITNUM, ADT) %>%\nsummarise(\nacross(\nc(\nSUBJID, TRTP, TRTPN, TRTA, TRTAN, TRTSDT, TRTEDT,\nAGE, AGEGR1, AGEGR1N, RACE, RACEN, SEX,\nCOMP24FL, DSRAEFL, SAFFL, AVISIT, AVISITN, ADY, ABLFL\n),\nfirst\n),"
         }
       ],
       "clauses": [
@@ -264,7 +289,7 @@
         "The retained baseline rule names Week -2 (Visit 1). The upstream ADLBC derivation maps SCREENING 1 to Baseline and that label is inherited by ADLBHY.",
         "The derived-row grouping and any-liver-test existence condition occur in each of bilihy, transhy and hylaw; VINFO is declared but is not referenced by these target derivations."
       ],
-      "assessment": "The implementation inherits laboratory visits and builds the derived parameters at subject/visit level. The SAP states actual-date window selection and the Hy\u2019s Law treatment visit period, while the data guide describes sample-level records. The retained assessment-window table names efficacy measures without supplying a laboratory-specific set of boundaries.",
+      "assessment": "The implementation inherits laboratory visits and builds the derived parameters at subject/visit level. The SAP states actual-date window selection and the Hy\u2019s Law treatment visit period, while the data guide describes sample-level records. The retained assessment-window table names efficacy measures without supplying a laboratory-specific set of boundaries. Pilot 6's later R reimplementation (spec/source/programs/pilot6/adlbhy.r), which reproduces this reference, keeps the ADLBC rows whose AVISIT is Baseline or Week 2, 4, 6, 8, 12, 16, 20 or 24 (lines 48-54), and gives each HYLAW row the first AVISIT of its STUDYID, USUBJID, VISIT, VISITNUM and ADT group (lines 107-118). That list is the SAP page-17 laboratory summary list (citation 11) without Week 26.",
       "question": "Which laboratory date-window boundaries and source-sample selection govern AVISIT, and should the guide\u2019s per-sample description be implemented for derived parameters?",
       "not_probed_reason": "The SAP includes laboratory assessments in actual-date window assignment and target selection, but the retained table specifies windows for ADAS-Cog/CIBIC+ and NPI-X only. A complete laboratory AVISIT rule cannot be reconstructed without choosing unstated laboratory boundaries and sample-to-analysis-record selection. Copying REF.AVISIT would not test that rule independently."
     },
@@ -296,6 +321,21 @@
           "document": "spec/source/dataguide.pdf",
           "section": "page-6",
           "quote": "ADLBHY is derived from the ADLBC (Laboratory Results Chemistry Analysis Data) analysis dataset."
+        },
+        {
+          "document": "spec/source/programs/pilot6/adlbhy.r",
+          "section": "L48",
+          "quote": "allowed_avisit <- c(\"Baseline\", \"Week 2\", \"Week 4\", \"Week 6\", \"Week 8\", \"Week 12\", \"Week 16\", \"Week 20\", \"Week 24\")"
+        },
+        {
+          "document": "spec/source/programs/pilot6/adlbhy.r",
+          "section": "L50-L54",
+          "quote": "AVISIT %in% allowed_avisit"
+        },
+        {
+          "document": "spec/source/programs/pilot6/adlbhy.r",
+          "section": "L107-L134",
+          "quote": "group_by(STUDYID, USUBJID, VISIT, VISITNUM, ADT) %>%\nsummarise(\nacross(\nc(\nSUBJID, TRTP, TRTPN, TRTA, TRTAN, TRTSDT, TRTEDT,\nAGE, AGEGR1, AGEGR1N, RACE, RACEN, SEX,\nCOMP24FL, DSRAEFL, SAFFL, AVISIT, AVISITN, ADY, ABLFL\n),\nfirst\n),"
         }
       ],
       "clauses": [
@@ -344,7 +384,7 @@
       "interpretations": [
         "Leading and trailing storage padding is removed before matching the enumerated visit label. The REF key AVISITN is preserved; the independently calculated result uses AVISITN__LITERAL."
       ],
-      "assessment": "The rule can be isolated by mapping the published upstream analysis-visit label to the enumerated code. Eligibility and visit assignment are reviewed separately under AVISIT.",
+      "assessment": "The rule can be isolated by mapping the published upstream analysis-visit label to the enumerated code. Eligibility and visit assignment are reviewed separately under AVISIT. Pilot 6's later R reimplementation (spec/source/programs/pilot6/adlbhy.r), which reproduces this reference, copies AVISITN from ADLBC for the visits listed on line 48 and takes the first AVISITN of each HYLAW group (lines 107-118).",
       "question": ""
     },
     {
@@ -365,6 +405,16 @@
           "document": "spec/source/dataguide.pdf",
           "section": "page-6",
           "quote": "ADLBHY is derived from the ADLBC (Laboratory Results Chemistry Analysis Data) analysis dataset."
+        },
+        {
+          "document": "spec/source/programs/pilot6/adlbhy.r",
+          "section": "L50-L54",
+          "quote": "adlbhy_pre <- adlbc %>%"
+        },
+        {
+          "document": "spec/source/programs/pilot6/adlbhy.r",
+          "section": "L107-L134",
+          "quote": "group_by(STUDYID, USUBJID, VISIT, VISITNUM, ADT) %>%\nsummarise(\nacross(\nc(\nSUBJID, TRTP, TRTPN, TRTA, TRTAN, TRTSDT, TRTEDT,\nAGE, AGEGR1, AGEGR1N, RACE, RACEN, SEX,\nCOMP24FL, DSRAEFL, SAFFL, AVISIT, AVISITN, ADY, ABLFL\n),\nfirst\n),"
         }
       ],
       "clauses": [
@@ -417,7 +467,7 @@
         "Every own row family inherits the global STUDYID derivation from VINFO, a visit-level ADLBC lookup ordered by source parameter with first-record selection; none reads the documented ADSL source for this field.",
         "Only sibling source pointers and keys were inspected to resolve the actual input path. No ADLBC derivation rule is substituted for the own ADLBHY ADSL-copy rule."
       ],
-      "assessment": "The Define comment and the guide both name ADSL, while the executable own source path uses ADLBC. The formal probe reads the documented published ADSL field with the original comparison keys retained.",
+      "assessment": "The Define comment and the guide both name ADSL, while the executable own source path uses ADLBC. The formal probe reads the documented published ADSL field with the original comparison keys retained. Pilot 6's later R reimplementation (spec/source/programs/pilot6/adlbhy.r), which reproduces this reference, reads every row from ADLBC (lines 50-54) and groups the HYLAW rows by STUDYID and USUBJID (lines 107-118); it does not read ADSL.",
       "question": ""
     },
     {
@@ -443,6 +493,16 @@
           "document": "spec/source/dataguide.pdf",
           "section": "page-6",
           "quote": "ADLBHY contains one record per lab test code per sample, per subject for the Hy\u2019s Law based analysis parameters."
+        },
+        {
+          "document": "spec/source/programs/pilot6/adlbhy.r",
+          "section": "L107-L134",
+          "quote": "group_by(STUDYID, USUBJID, VISIT, VISITNUM, ADT)"
+        },
+        {
+          "document": "spec/source/programs/pilot6/adlbhy.r",
+          "section": "L137-L176",
+          "quote": "ADT = as.Date(NA)"
         }
       ],
       "clauses": [
@@ -471,7 +531,7 @@
       "interpretations": [
         "No retained ADLBHY.ADT value-level list was found in the original Define-XML; the source-link and derived-date choices are distinct from the VLM adapter limitations for PARAMTYP and PARCAT1."
       ],
-      "assessment": "The original-test branch obtains its analysis date through the documented chemistry source. Each derived-parameter branch clears the date. The variable-level date comment gives the conversion but does not identify a source sample for a derived row or state its missing exception.",
+      "assessment": "The original-test branch obtains its analysis date through the documented chemistry source. Each derived-parameter branch clears the date. The variable-level date comment gives the conversion but does not identify a source sample for a derived row or state its missing exception. Pilot 6's later R reimplementation (spec/source/programs/pilot6/adlbhy.r), which reproduces this reference, copies ADT from ADLBC for ALT, AST and BILI, builds the HYLAW rows per sample date (line 109), and then sets ADT to missing on every BILIHY, TRANSHY and HYLAW row (line 165).",
       "question": "What source-sample link identifies LB.LBDTC for ADLBHY, and is ADT explicitly intended to be missing for each derived Hy\u2019s Law parameter?",
       "not_probed_reason": "ADLBHY does not retain LBSEQ or another source-sample identifier. The retained date rule does not state how to identify a unique LB.LBDTC for an ADLBHY record or how to choose a date across the tests contributing to a derived visit-level parameter. A complete literal probe would require an unstated sample link or selection, and treating derived dates as missing would import an implementation exception."
     },
@@ -513,6 +573,26 @@
           "document": "spec/source/SAP.pdf",
           "section": "page-39",
           "quote": "Bilirubin 2 x ULN and Transaminase 1.5 x ULN"
+        },
+        {
+          "document": "spec/source/programs/pilot6/adlbhy.r",
+          "section": "L50-L54",
+          "quote": "PARAMCD %in% c(\"ALT\", \"AST\", \"BILI\")"
+        },
+        {
+          "document": "spec/source/programs/pilot6/adlbhy.r",
+          "section": "L79-L88",
+          "quote": "PARAM = \"Bilirubin 1.5 x ULN\""
+        },
+        {
+          "document": "spec/source/programs/pilot6/adlbhy.r",
+          "section": "L91-L104",
+          "quote": "PARAM = \"Transaminase 1.5 x ULN\""
+        },
+        {
+          "document": "spec/source/programs/pilot6/adlbhy.r",
+          "section": "L107-L134",
+          "quote": "PARAM = \"Total Bili 1.5 x ULN and Transaminase 1.5 x ULN\""
         }
       ],
       "clauses": [
@@ -591,7 +671,7 @@
         "The enumeration illustrates parentheses around a nonblank standard unit, but it does not provide an independent source-sample key for applying the concatenation rule.",
         "The separate PARAM__CODELIST diagnostic maps REF.PARAMCD to the decode explicitly enumerated by PARAMCD_ADLBHY. It does not test whether the raw LBTEST and LBSTRESU fields produce that label."
       ],
-      "assessment": "The enumerated derived labels support the row constants, and the code codelist supplies a separate label correspondence. The original-test rule explicitly names laboratory test-name and unit concatenation, so a code-to-label dictionary would not be its literal probe. The combined label also differs between Define and the SAP shell.",
+      "assessment": "The enumerated derived labels support the row constants, and the code codelist supplies a separate label correspondence. The original-test rule explicitly names laboratory test-name and unit concatenation, so a code-to-label dictionary would not be its literal probe. The combined label also differs between Define and the SAP shell. Pilot 6's later R reimplementation (spec/source/programs/pilot6/adlbhy.r), which reproduces this reference, copies PARAM from the ADLBC ALT, AST and BILI rows (lines 50-54) rather than concatenating LBTEST and LBSTRESU, and assigns the three Hy's Law labels as constants (lines 83, 98 and 125).",
       "question": "Which source-sample link governs the literal LBTEST/LBSTRESU concatenation, and should the combined parameter use the Define/narrative bilirubin threshold or the SAP shell\u2019s label?",
       "not_probed_reason": "The literal original-test computation requires LBTEST and LBSTRESU from the linked source sample, but ADLBHY retains no LBSEQ/sample key and the retained text does not state a unique source-sample selection. The exception for Hy\u2019s Law parameters has enumerated labels, but a complete literal PARAM probe cannot be replaced by a codelist-only lookup. PARAM__CODELIST is supplied only as an unused diagnostic of the explicit codelist correspondence and is not a claimed literal or alternate reading."
     },
@@ -623,6 +703,26 @@
           "document": "spec/define/define-adam.xml",
           "section": "ADLBC.PARAMCD",
           "quote": "ALT = Alanine Aminotransferase (U/L); AST = Aspartate Aminotransferase (U/L); BILI = Bilirubin (umol/L)"
+        },
+        {
+          "document": "spec/source/programs/pilot6/adlbhy.r",
+          "section": "L50-L54",
+          "quote": "PARAMCD %in% c(\"ALT\", \"AST\", \"BILI\")"
+        },
+        {
+          "document": "spec/source/programs/pilot6/adlbhy.r",
+          "section": "L79-L88",
+          "quote": "PARAMCD = \"BILIHY\""
+        },
+        {
+          "document": "spec/source/programs/pilot6/adlbhy.r",
+          "section": "L91-L104",
+          "quote": "PARAMCD = \"TRANSHY\""
+        },
+        {
+          "document": "spec/source/programs/pilot6/adlbhy.r",
+          "section": "L107-L134",
+          "quote": "PARAMCD = \"HYLAW\""
         }
       ],
       "clauses": [
@@ -681,7 +781,7 @@
       "interpretations": [
         "Leading and trailing storage padding is removed before matching the enumerated parameter label."
       ],
-      "assessment": "The codelist explicitly pairs each parameter code with its label, allowing the code rule to be isolated using the published upstream PARAM label.",
+      "assessment": "The codelist explicitly pairs each parameter code with its label, allowing the code rule to be isolated using the published upstream PARAM label. Pilot 6's later R reimplementation (spec/source/programs/pilot6/adlbhy.r), which reproduces this reference, keeps the ADLBC ALT, AST and BILI codes (lines 50-54) and assigns BILIHY, TRANSHY and HYLAW as constants (lines 82, 97 and 124).",
       "question": ""
     },
     {
@@ -702,6 +802,26 @@
           "document": "spec/define/define-adam.xml",
           "section": "ADLBHY.PARAMCD",
           "quote": "Codelist PARAMCD_ADLBHY: ALT = Alanine Aminotransferase (U/L); AST = Aspartate Aminotransferase (U/L); BILI = Bilirubin (umol/L); BILIHY = Bilirubin 1.5 x ULN; TRANSHY = Transaminase 1.5 x ULN; HYLAW = Total Bili 1.5 x ULN and Transaminase 1.5 x ULN"
+        },
+        {
+          "document": "spec/source/programs/pilot6/adlbhy.r",
+          "section": "L50-L75",
+          "quote": "PARAMN = case_when(\nPARAMCD == \"ALT\" ~ 1,\nPARAMCD == \"AST\" ~ 2,\nPARAMCD == \"BILI\" ~ 3\n),"
+        },
+        {
+          "document": "spec/source/programs/pilot6/adlbhy.r",
+          "section": "L79-L88",
+          "quote": "PARAMN = 4"
+        },
+        {
+          "document": "spec/source/programs/pilot6/adlbhy.r",
+          "section": "L91-L104",
+          "quote": "PARAMN = 5"
+        },
+        {
+          "document": "spec/source/programs/pilot6/adlbhy.r",
+          "section": "L107-L134",
+          "quote": "PARAMN = 6"
         }
       ],
       "clauses": [
@@ -760,7 +880,7 @@
       "interpretations": [
         "Leading and trailing storage padding is removed before matching the enumerated parameter label. The matching key PARAMN remains REF.PARAMN; PARAMN__LITERAL carries the computed result."
       ],
-      "assessment": "The specification uses the enumerated parameter codes. The isolated probe reads the published upstream PARAM label and calculates a separate numeric output so the REF key is preserved.",
+      "assessment": "The specification uses the enumerated parameter codes. The isolated probe reads the published upstream PARAM label and calculates a separate numeric output so the REF key is preserved. Pilot 6's later R reimplementation (spec/source/programs/pilot6/adlbhy.r), which reproduces this reference, codes ALT, AST and BILI as 1, 2 and 3 (lines 56-60) and the derived parameters as 4, 5 and 6 (lines 84, 99 and 126).",
       "question": ""
     },
     {
@@ -781,6 +901,26 @@
           "document": "spec/source/dataguide.pdf",
           "section": "page-6",
           "quote": "It contains derived parameters based on Hy\u2019s law."
+        },
+        {
+          "document": "spec/source/programs/pilot6/adlbhy.r",
+          "section": "L79-L88",
+          "quote": "PARAMTYP = \"DERIVED\""
+        },
+        {
+          "document": "spec/source/programs/pilot6/adlbhy.r",
+          "section": "L91-L104",
+          "quote": "PARAMTYP = \"DERIVED\""
+        },
+        {
+          "document": "spec/source/programs/pilot6/adlbhy.r",
+          "section": "L107-L134",
+          "quote": "PARAMTYP = \"DERIVED\""
+        },
+        {
+          "document": "spec/source/programs/pilot6/adlbhy.r",
+          "section": "L179-L181",
+          "quote": "adlbhy <- bind_rows(adlbhy_pre, derived_params) %>%\narrange(STUDYID, USUBJID, PARAMN, ADT) %>%\nconvert_na_to_blanks()"
         }
       ],
       "clauses": [],
@@ -788,7 +928,7 @@
       "interpretations": [
         "Original retained metadata independently inspected at the listed OIDs supplies parameter-specific missing/type applicability; the omitted raw XML text is not substituted for a formal section quotation."
       ],
-      "assessment": "The citable variable-level section provides the type label and its enumerated nonmissing code. Independent inspection of the retained Define-XML confirms a PARAMTYP ValueListRef and parameter-specific ItemDefs. Those rules are also represented in the specification submission metadata, but the section adapter omits their comments. This is an evidence-interface limitation, not absent retained documentation.",
+      "assessment": "The citable variable-level section provides the type label and its enumerated nonmissing code. Independent inspection of the retained Define-XML confirms a PARAMTYP ValueListRef and parameter-specific ItemDefs. Those rules are also represented in the specification submission metadata, but the section adapter omits their comments. This is an evidence-interface limitation, not absent retained documentation. Pilot 6's later R reimplementation (spec/source/programs/pilot6/adlbhy.r), which reproduces this reference, sets PARAMTYP to DERIVED on BILIHY, TRANSHY and HYLAW (lines 86, 101 and 129) and never sets it for ALT, AST and BILI, which stay blank after convert_na_to_blanks (lines 179-181).",
       "question": "Expose the retained ValueList.ADLBHY.PARAMTYP and its parameter ItemDefs in the citable evidence interface before judging the complete type rule.",
       "not_probed_reason": "The section adapter omits ValueList.ADLBHY.PARAMTYP and ItemDefs ADLBHY.PARAMTYP.ALT, .AST, .BILI, .BILIHY, .TRANSHY and .HYLAW. Their parameter-specific missing/type assignments cannot be formally cited from the supplied exact sections. A literal probe must not be inferred solely from the executable row constants or from the variable-level codelist."
     },
@@ -820,6 +960,21 @@
           "document": "spec/define/define-adam.xml",
           "section": "ADLBC.PARCAT1",
           "quote": "harcoded to 'CHEM'"
+        },
+        {
+          "document": "spec/source/programs/pilot6/adlbhy.r",
+          "section": "L79-L88",
+          "quote": "PARCAT1 = \"HYLAW\""
+        },
+        {
+          "document": "spec/source/programs/pilot6/adlbhy.r",
+          "section": "L91-L104",
+          "quote": "PARCAT1 = \"HYLAW\""
+        },
+        {
+          "document": "spec/source/programs/pilot6/adlbhy.r",
+          "section": "L107-L134",
+          "quote": "PARCAT1 = \"HYLAW\""
         }
       ],
       "clauses": [],
@@ -827,7 +982,7 @@
       "interpretations": [
         "Original retained metadata at the listed OIDs distinguishes the chemistry-source category from the derived-parameter category. No original XML text is substituted for a formal citable-section quotation."
       ],
-      "assessment": "The citable section enumerates the category codes and the data guide names the chemistry source and derived Hy\u2019s Law parameters. Independent retained-XML inspection confirms ValueList.ADLBHY.PARCAT1 and parameter-specific source/constant rules, also represented in the specification submission metadata. The current section adapter omits those comments; their absence from this interface is not missing retained documentation.",
+      "assessment": "The citable section enumerates the category codes and the data guide names the chemistry source and derived Hy\u2019s Law parameters. Independent retained-XML inspection confirms ValueList.ADLBHY.PARCAT1 and parameter-specific source/constant rules, also represented in the specification submission metadata. The current section adapter omits those comments; their absence from this interface is not missing retained documentation. Pilot 6's later R reimplementation (spec/source/programs/pilot6/adlbhy.r), which reproduces this reference, keeps the ADLBC PARCAT1 of ALT, AST and BILI and sets HYLAW on the three derived parameters (lines 87, 102 and 128).",
       "question": "Expose ValueList.ADLBHY.PARCAT1 and its parameter ItemDefs before judging the complete category rule, including whether copying ADLBC.PARCAT1 and fixing the original-test category to CHEM are intended to be interchangeable.",
       "not_probed_reason": "The section adapter omits ValueList.ADLBHY.PARCAT1 and ItemDefs ADLBHY.PARCAT1.ALT, .AST, .BILI, .BILIHY, .TRANSHY and .HYLAW. Their parameter-specific copy versus constant assignments cannot be formally quoted from the exact section text. The general category codelist and chemistry-source description do not independently state the complete per-parameter rule."
     },
@@ -869,6 +1024,21 @@
           "document": "spec/source/SAP.pdf",
           "section": "page-12",
           "quote": "the ratio of the value to its\nLLN (i.e., value/LLN) and to its ULN (i.e., value/ULN) will be calculated for inclusion in\nthe datasets, but not analyzed."
+        },
+        {
+          "document": "spec/source/programs/pilot6/adlbhy.r",
+          "section": "L79-L88",
+          "quote": "AVAL = if_else(R2A1HI > 1.5, 1, 0)"
+        },
+        {
+          "document": "spec/source/programs/pilot6/adlbhy.r",
+          "section": "L91-L104",
+          "quote": "mutate(has_elevated = if_else(R2A1HI > 1.5, 1, 0)) %>%\narrange(STUDYID, USUBJID, VISIT, VISITNUM, ADT, desc(has_elevated)) %>%\ndistinct(STUDYID, USUBJID, VISIT, VISITNUM, ADT, .keep_all = TRUE) %>%\nmutate(\nPARAMCD = \"TRANSHY\",\nPARAM = \"Transaminase 1.5 x ULN\",\nPARAMN = 5,\nAVAL = has_elevated,"
+        },
+        {
+          "document": "spec/source/programs/pilot6/adlbhy.r",
+          "section": "L107-L134",
+          "quote": "has_bili = any(PARAMCD == \"BILI\" & R2A1HI > 1.5, na.rm = TRUE),\nhas_trans = any(PARAMCD %in% c(\"ALT\", \"AST\") & R2A1HI > 1.5, na.rm = TRUE),\n.groups = \"drop\"\n) %>%\nmutate(\nPARAMCD = \"HYLAW\",\nPARAM = \"Total Bili 1.5 x ULN and Transaminase 1.5 x ULN\",\nPARAMN = 6,\nAVAL = if_else(has_bili & has_trans, 1, 0),"
         }
       ],
       "clauses": [
@@ -956,7 +1126,7 @@
         "Per-visit REF component helpers use the unchanged study, subject and analysis-visit identity plus the required source parameter code. They never read the current target AVAL as its own expected result.",
         "Exploratory output descriptions are recorded in adlbhy2-notes.json. No diagnostic is attached as a formal probe because its complete governing rule cannot be quoted from the exact citable sections."
       ],
-      "assessment": "The proposal separates the retained native branch rules from the narrower rules available to citation verification.",
+      "assessment": "The proposal separates the retained native branch rules from the narrower rules available to citation verification. Pilot 6's later R reimplementation (spec/source/programs/pilot6/adlbhy.r), which reproduces this reference, copies AVAL from ADLBC for ALT, AST and BILI; BILIHY is 1 when the bilirubin R2A1HI exceeds 1.5 (line 85); TRANSHY keeps, per sample date, the ALT or AST row with the elevated ratio (lines 93-100); HYLAW is 1 when, on one sample date, bilirubin and ALT or AST each have R2A1HI above 1.5, counting a missing ratio as not elevated (lines 119-127). It thresholds the stored ratio, not the value against 2 x ULN.",
       "question": "Expose the retained native AVAL VLM rules, then decide whether HYLAW should read literal BILHY or enumerated BILIHY, whether source ratios or direct upper-limit comparisons govern the derived flags, how missing components affect the otherwise-zero clauses, and whether the combined bilirubin threshold follows SAP page-12 or page-39.",
       "not_probed_reason": "The exact-section adapter omits the governing native ADLBHY.AVAL value-level rules. The exposed precision and general source-dataset statement do not supply a complete per-parameter derivation. Original XML OIDs and line ranges are recorded in adlbhy2-notes.json. The accompanying native and SAP outputs are unclaimed exploratory diagnostics; none is presented as a verified literal probe for this complete variable."
     },
@@ -993,6 +1163,11 @@
           "document": "spec/source/SAP.pdf",
           "section": "page-12",
           "quote": "An abnormal flag will be assigned to indicate whether a subject\nmeets the criteria for a modified Hy\u2019s Law assessment of liver function, defined as:\n1.            Transaminase (SGPT/ALT or SGOT/AST) elevations (i.e., >1.5*ULN) and\n2.            Bilirubin elevated to greater than 1.5*ULN."
+        },
+        {
+          "document": "spec/source/programs/pilot6/adlbhy.r",
+          "section": "L137-L176",
+          "quote": "group_by(USUBJID, PARAMCD) %>%\nmutate(\nBASE = if_else(ABLFL == \"Y\", AVAL, NA_real_),\nBASE = max(BASE, na.rm = TRUE)\n) %>%\nungroup() %>%\nmutate(\nBASE = if_else(is.infinite(BASE), NA_real_, BASE),"
         }
       ],
       "clauses": [
@@ -1047,7 +1222,7 @@
         "The repeated derived-parameter selection instruction leaves unclear whether ADLBC was intended to contain derived Hy's Law parameters, whether a component mapping was omitted, or whether the intended source was the derived ADLBHY baseline category. The probe preserves the stated source without choosing a repair.",
         "Exploratory output descriptions are recorded in adlbhy2-notes.json. No diagnostic is attached as a formal probe because its complete governing rule cannot be quoted from the exact citable sections."
       ],
-      "assessment": "The proposal separates the retained native branch rules from the narrower rules available to citation verification.",
+      "assessment": "The proposal separates the retained native branch rules from the narrower rules available to citation verification. Pilot 6's later R reimplementation (spec/source/programs/pilot6/adlbhy.r), which reproduces this reference, copies BASE from ADLBC for ALT, AST and BILI and, for each derived parameter, takes the largest AVAL among the subject's ABLFL = 'Y' rows and carries it to every row of that subject and parameter, missing when there is none (lines 138-145).",
       "question": "Expose the retained BASE VLM rules and resolve the repeated ADLBC.AVAL/ABLFL selection for derived parameters, the ordinary ADLBC.BASE copy, the baseline visit/flag relationship, and the current-value or BL_ANY presence conditions used by the implementation.",
       "not_probed_reason": "The exact-section adapter omits the governing native ADLBHY.BASE value-level rules. The exposed precision and general source-dataset statement do not supply a complete per-parameter derivation. Original XML OIDs and line ranges are recorded in adlbhy2-notes.json. The accompanying native and SAP outputs are unclaimed exploratory diagnostics; none is presented as a verified literal probe for this complete variable."
     },
@@ -1064,6 +1239,11 @@
           "document": "spec/source/dataguide.pdf",
           "section": "page-6",
           "quote": "ADLBHY is derived from the ADLBC (Laboratory Results Chemistry\nAnalysis Data) analysis dataset. It contains derived parameters based on Hy\u2019s law."
+        },
+        {
+          "document": "spec/source/programs/pilot6/adlbhy.r",
+          "section": "L137-L176",
+          "quote": "A1LO = NA_real_"
         }
       ],
       "clauses": [
@@ -1100,7 +1280,7 @@
         "The source copy is tested using the published ADLBC data, matched by study, subject, source parameter, analysis visit and assessment date. The assessment date disambiguates samples; no arbitrary first-record selection is used.",
         "Exploratory output descriptions are recorded in adlbhy2-notes.json. No diagnostic is attached as a formal probe because its complete governing rule cannot be quoted from the exact citable sections."
       ],
-      "assessment": "The proposal separates the retained native branch rules from the narrower rules available to citation verification.",
+      "assessment": "The proposal separates the retained native branch rules from the narrower rules available to citation verification. Pilot 6's later R reimplementation (spec/source/programs/pilot6/adlbhy.r), which reproduces this reference, copies A1LO from ADLBC for ALT, AST and BILI and sets it to missing on every BILIHY, TRANSHY and HYLAW row (lines 163-176).",
       "question": "Expose the retained A1LO value-level rules in the citation adapter before treating the copy and missing branches as fully verified.",
       "not_probed_reason": "The exact-section adapter omits the governing native ADLBHY.A1LO value-level rules. The exposed precision and general source-dataset statement do not supply a complete per-parameter derivation. Original XML OIDs and line ranges are recorded in adlbhy2-notes.json. The accompanying native and SAP outputs are unclaimed exploratory diagnostics; none is presented as a verified literal probe for this complete variable."
     },
@@ -1117,6 +1297,11 @@
           "document": "spec/source/dataguide.pdf",
           "section": "page-6",
           "quote": "ADLBHY is derived from the ADLBC (Laboratory Results Chemistry\nAnalysis Data) analysis dataset. It contains derived parameters based on Hy\u2019s law."
+        },
+        {
+          "document": "spec/source/programs/pilot6/adlbhy.r",
+          "section": "L137-L176",
+          "quote": "A1HI = NA_real_"
         }
       ],
       "clauses": [
@@ -1153,7 +1338,7 @@
         "The source copy is tested using the published ADLBC data, matched by study, subject, source parameter, analysis visit and assessment date. The assessment date disambiguates samples; no arbitrary first-record selection is used.",
         "Exploratory output descriptions are recorded in adlbhy2-notes.json. No diagnostic is attached as a formal probe because its complete governing rule cannot be quoted from the exact citable sections."
       ],
-      "assessment": "The proposal separates the retained native branch rules from the narrower rules available to citation verification.",
+      "assessment": "The proposal separates the retained native branch rules from the narrower rules available to citation verification. Pilot 6's later R reimplementation (spec/source/programs/pilot6/adlbhy.r), which reproduces this reference, copies A1HI from ADLBC for ALT, AST and BILI and sets it to missing on every BILIHY, TRANSHY and HYLAW row (lines 163-176).",
       "question": "Expose the retained A1HI value-level rules in the citation adapter before treating the copy and missing branches as fully verified.",
       "not_probed_reason": "The exact-section adapter omits the governing native ADLBHY.A1HI value-level rules. The exposed precision and general source-dataset statement do not supply a complete per-parameter derivation. Original XML OIDs and line ranges are recorded in adlbhy2-notes.json. The accompanying native and SAP outputs are unclaimed exploratory diagnostics; none is presented as a verified literal probe for this complete variable."
     },
@@ -1175,6 +1360,11 @@
           "document": "spec/source/SAP.pdf",
           "section": "page-12",
           "quote": "the ratio of the value to its\nLLN (i.e., value/LLN) and to its ULN (i.e., value/ULN) will be calculated for inclusion in\nthe datasets, but not analyzed."
+        },
+        {
+          "document": "spec/source/programs/pilot6/adlbhy.r",
+          "section": "L137-L176",
+          "quote": "R2A1LO = NA_real_"
         }
       ],
       "clauses": [
@@ -1212,7 +1402,7 @@
         "The SAP describes value/LLN and value/ULN generically, but this variable's own retained VLM states a copy source. The unclaimed native diagnostic copies that field and does not import sibling ADLBC/ADLBH reciprocal formulas or assume a baseline numerator and denominator that this own rule does not state.",
         "Exploratory output descriptions are recorded in adlbhy2-notes.json. No diagnostic is attached as a formal probe because its complete governing rule cannot be quoted from the exact citable sections."
       ],
-      "assessment": "The proposal separates the retained native branch rules from the narrower rules available to citation verification.",
+      "assessment": "The proposal separates the retained native branch rules from the narrower rules available to citation verification. Pilot 6's later R reimplementation (spec/source/programs/pilot6/adlbhy.r), which reproduces this reference, copies R2A1LO from ADLBC for ALT, AST and BILI and sets it to missing on every BILIHY, TRANSHY and HYLAW row (lines 163-176).",
       "question": "Expose the retained R2A1LO value-level rules in the citation adapter before treating the copy and missing branches as fully verified.",
       "not_probed_reason": "The exact-section adapter omits the governing native ADLBHY.R2A1LO value-level rules. The exposed precision and general source-dataset statement do not supply a complete per-parameter derivation. Original XML OIDs and line ranges are recorded in adlbhy2-notes.json. The accompanying native and SAP outputs are unclaimed exploratory diagnostics; none is presented as a verified literal probe for this complete variable."
     },
@@ -1234,6 +1424,11 @@
           "document": "spec/source/SAP.pdf",
           "section": "page-12",
           "quote": "the ratio of the value to its\nLLN (i.e., value/LLN) and to its ULN (i.e., value/ULN) will be calculated for inclusion in\nthe datasets, but not analyzed."
+        },
+        {
+          "document": "spec/source/programs/pilot6/adlbhy.r",
+          "section": "L137-L176",
+          "quote": "R2A1HI = NA_real_"
         }
       ],
       "clauses": [
@@ -1271,7 +1466,7 @@
         "The SAP describes value/LLN and value/ULN generically, but this variable's own retained VLM states a copy source. The unclaimed native diagnostic copies that field and does not import sibling ADLBC/ADLBH reciprocal formulas or assume a baseline numerator and denominator that this own rule does not state.",
         "Exploratory output descriptions are recorded in adlbhy2-notes.json. No diagnostic is attached as a formal probe because its complete governing rule cannot be quoted from the exact citable sections."
       ],
-      "assessment": "The proposal separates the retained native branch rules from the narrower rules available to citation verification.",
+      "assessment": "The proposal separates the retained native branch rules from the narrower rules available to citation verification. Pilot 6's later R reimplementation (spec/source/programs/pilot6/adlbhy.r), which reproduces this reference, copies R2A1HI from ADLBC for ALT, AST and BILI and sets it to missing on every BILIHY, TRANSHY and HYLAW row (lines 163-176).",
       "question": "Expose the retained R2A1HI value-level rules in the citation adapter before treating the copy and missing branches as fully verified.",
       "not_probed_reason": "The exact-section adapter omits the governing native ADLBHY.R2A1HI value-level rules. The exposed precision and general source-dataset statement do not supply a complete per-parameter derivation. Original XML OIDs and line ranges are recorded in adlbhy2-notes.json. The accompanying native and SAP outputs are unclaimed exploratory diagnostics; none is presented as a verified literal probe for this complete variable."
     },
@@ -1293,6 +1488,11 @@
           "document": "spec/source/SAP.pdf",
           "section": "page-12",
           "quote": "the ratio of the value to its\nLLN (i.e., value/LLN) and to its ULN (i.e., value/ULN) will be calculated for inclusion in\nthe datasets, but not analyzed."
+        },
+        {
+          "document": "spec/source/programs/pilot6/adlbhy.r",
+          "section": "L137-L176",
+          "quote": "BR2A1LO = NA_real_"
         }
       ],
       "clauses": [
@@ -1330,7 +1530,7 @@
         "The SAP describes value/LLN and value/ULN generically, but this variable's own retained VLM states a copy source. The unclaimed native diagnostic copies that field and does not import sibling ADLBC/ADLBH reciprocal formulas or assume a baseline numerator and denominator that this own rule does not state.",
         "Exploratory output descriptions are recorded in adlbhy2-notes.json. No diagnostic is attached as a formal probe because its complete governing rule cannot be quoted from the exact citable sections."
       ],
-      "assessment": "The proposal separates the retained native branch rules from the narrower rules available to citation verification.",
+      "assessment": "The proposal separates the retained native branch rules from the narrower rules available to citation verification. Pilot 6's later R reimplementation (spec/source/programs/pilot6/adlbhy.r), which reproduces this reference, copies BR2A1LO from ADLBC for ALT, AST and BILI and sets it to missing on every BILIHY, TRANSHY and HYLAW row (lines 163-176).",
       "question": "Expose the retained BR2A1LO value-level rules in the citation adapter before treating the copy and missing branches as fully verified.",
       "not_probed_reason": "The exact-section adapter omits the governing native ADLBHY.BR2A1LO value-level rules. The exposed precision and general source-dataset statement do not supply a complete per-parameter derivation. Original XML OIDs and line ranges are recorded in adlbhy2-notes.json. The accompanying native and SAP outputs are unclaimed exploratory diagnostics; none is presented as a verified literal probe for this complete variable."
     },
@@ -1352,6 +1552,11 @@
           "document": "spec/source/SAP.pdf",
           "section": "page-12",
           "quote": "the ratio of the value to its\nLLN (i.e., value/LLN) and to its ULN (i.e., value/ULN) will be calculated for inclusion in\nthe datasets, but not analyzed."
+        },
+        {
+          "document": "spec/source/programs/pilot6/adlbhy.r",
+          "section": "L137-L176",
+          "quote": "BR2A1HI = NA_real_"
         }
       ],
       "clauses": [
@@ -1389,7 +1594,7 @@
         "The SAP describes value/LLN and value/ULN generically, but this variable's own retained VLM states a copy source. The unclaimed native diagnostic copies that field and does not import sibling ADLBC/ADLBH reciprocal formulas or assume a baseline numerator and denominator that this own rule does not state.",
         "Exploratory output descriptions are recorded in adlbhy2-notes.json. No diagnostic is attached as a formal probe because its complete governing rule cannot be quoted from the exact citable sections."
       ],
-      "assessment": "The proposal separates the retained native branch rules from the narrower rules available to citation verification.",
+      "assessment": "The proposal separates the retained native branch rules from the narrower rules available to citation verification. Pilot 6's later R reimplementation (spec/source/programs/pilot6/adlbhy.r), which reproduces this reference, copies BR2A1HI from ADLBC for ALT, AST and BILI and sets it to missing on every BILIHY, TRANSHY and HYLAW row (lines 163-176).",
       "question": "Expose the retained BR2A1HI value-level rules in the citation adapter before treating the copy and missing branches as fully verified.",
       "not_probed_reason": "The exact-section adapter omits the governing native ADLBHY.BR2A1HI value-level rules. The exposed precision and general source-dataset statement do not supply a complete per-parameter derivation. Original XML OIDs and line ranges are recorded in adlbhy2-notes.json. The accompanying native and SAP outputs are unclaimed exploratory diagnostics; none is presented as a verified literal probe for this complete variable."
     },
@@ -1431,6 +1636,11 @@
           "document": "spec/source/SAP.pdf",
           "section": "page-39",
           "quote": "Bilirubin 2 x ULN and Transaminase 1.5 x ULN"
+        },
+        {
+          "document": "spec/source/programs/pilot6/adlbhy.r",
+          "section": "L137-L176",
+          "quote": "SHIFT1 = case_when(\nis.na(BASE) ~ NA_character_,\nBASE == 1 & AVAL == 0 ~ \"High to Normal\",\nBASE == 0 & AVAL == 0 ~ \"Normal to Normal\",\nBASE == 0 & AVAL == 1 ~ \"Normal to High\",\nBASE == 1 & AVAL == 1 ~ NA_character_ # Not specified in define.xml\n),"
         }
       ],
       "clauses": [
@@ -1469,7 +1679,7 @@
         "The SAP separate modified-Hy assessment uses the narrative bilirubin threshold, whereas the treatment-table shell labels a different bilirubin threshold. That scope difference requires a mapping decision before it can be treated as a same-rule disagreement for SHIFT1. Upstream category definitions are not rederived by this shift probe.",
         "SHIFT1__NATIVE_DIAGNOSTIC reads published REF.BASE and REF.AVAL and applies only the native branch summary. It is an unclaimed diagnostic, not a complete verified literal or alternate probe."
       ],
-      "assessment": "The citable section establishes the shift labels, while the original XML contains parameter-specific logic omitted by the adapter. The treatment-table passages do not establish a replacement derivation for the per-assessment field.",
+      "assessment": "The citable section establishes the shift labels, while the original XML contains parameter-specific logic omitted by the adapter. The treatment-table passages do not establish a replacement derivation for the per-assessment field. Pilot 6's later R reimplementation (spec/source/programs/pilot6/adlbhy.r), which reproduces this reference, derives SHIFT1 only for BILIHY, TRANSHY and HYLAW, from BASE and AVAL, leaving high-to-high and a missing BASE blank (lines 151-157); ALT, AST and BILI stay blank. The baseline rows themselves carry a shift.",
       "question": "Expose the native SHIFT1 branches in the citation adapter and confirm handling of high-to-high, missing categories and baseline rows. Separately, which treatment-summary interpretation is intended, and how is that summary related to SHIFT1?",
       "not_probed_reason": "The exact section provides a codelist but omits every governing parameter-specific SHIFT1 branch. The SAP passages describe treatment-summary scope and do not supply a complete sample-level formula or missing/fallback behavior. A complete literal probe cannot be verified from the available sections; the native diagnostic is unclaimed."
     },
@@ -1491,6 +1701,11 @@
           "document": "spec/define/define-adam.xml",
           "section": "ADLBHY.SHIFT1",
           "quote": "Codelist SHIFT: High to Normal = High to Normal; Normal to Normal = Normal to Normal; Normal to High = Normal to High"
+        },
+        {
+          "document": "spec/source/programs/pilot6/adlbhy.r",
+          "section": "L137-L176",
+          "quote": "SHIFT1N = case_when(\nSHIFT1 == \"High to Normal\" ~ 0,\nSHIFT1 == \"Normal to Normal\" ~ 1,\nSHIFT1 == \"Normal to High\" ~ 2\n),"
         }
       ],
       "clauses": [
@@ -1526,7 +1741,7 @@
         "The exposed top-level numeric mapping alone is executable. It is retained as SHIFT1N__CODELIST_DIAGNOSTIC, without claiming that a mapping applied indiscriminately to every row verifies the complete native parameter-scoped variable.",
         "SHIFT1N__NATIVE_DIAGNOSTIC applies the native parameter applicability and maps published REF.SHIFT1. The mapping uses the upstream text field so this diagnostic does not retest SHIFT1 or its upstream baseline/current categories."
       ],
-      "assessment": "The numeric code correspondence is citable. The complete parameter applicability is retained in the original XML but absent from the citation adapter.",
+      "assessment": "The numeric code correspondence is citable. The complete parameter applicability is retained in the original XML but absent from the citation adapter. Pilot 6's later R reimplementation (spec/source/programs/pilot6/adlbhy.r), which reproduces this reference, codes High to Normal, Normal to Normal and Normal to High as 0, 1 and 2 (lines 158-162), blank otherwise.",
       "question": "Expose the native ordinary-parameter missing branches and derived-parameter code branches before accepting a complete literal SHIFT1N probe. Is the top-level code mapping intended to govern all records independently of those overrides?",
       "not_probed_reason": "The native SHIFT1N ValueListRef adds parameter-specific missing and numeric-code branches that the exact-section adapter omits. A top-level mapping from SHIFT1 would omit those governing overrides. Only unclaimed top-level and native-applicability diagnostics are supplied."
     },
@@ -1553,6 +1768,16 @@
           "document": "spec/source/SAP.pdf",
           "section": "page-39",
           "quote": "Bilirubin 2 x ULN and Transaminase 1.5 x ULN"
+        },
+        {
+          "document": "spec/source/programs/pilot6/adlbhy.r",
+          "section": "L50-L75",
+          "quote": "CRIT1 = case_when(\nPARAMCD %in% c(\"ALT\", \"AST\", \"BILI\") ~ \"R2A1HI > 1.5\",\nTRUE ~ NA_character_\n),"
+        },
+        {
+          "document": "spec/source/programs/pilot6/adlbhy.r",
+          "section": "L137-L176",
+          "quote": "CRIT1 = NA_character_"
         }
       ],
       "clauses": [],
@@ -1563,7 +1788,7 @@
         "The SAP explains ratios and the modified-Hy thresholds, but does not identify CRIT1 or prescribe which parameter rows carry this descriptive text. The treatment-table shell does not specify that placement either.",
         "CRIT1__NATIVE_DIAGNOSTIC applies the native parameter placement as an unclaimed diagnostic. It is not a complete verified literal or an approved correction to the maintained specification."
       ],
-      "assessment": "The governing criterion-text assignment exists in native XML and differs in branch placement from the executable specification. The adapter exposes only a label and cannot verify that comparison.",
+      "assessment": "The governing criterion-text assignment exists in native XML and differs in branch placement from the executable specification. The adapter exposes only a label and cannot verify that comparison. Pilot 6's later R reimplementation (spec/source/programs/pilot6/adlbhy.r), which reproduces this reference, puts 'R2A1HI > 1.5' on ALT, AST and BILI (lines 61-64); line 130 also sets it on HYLAW, but line 173 then clears CRIT1 on every derived parameter, so the final text sits on the ordinary rows only.",
       "question": "Should CRIT1 carry the threshold description on ordinary chemistry rows, on derived Hy parameters as the native ItemDefs state, or on both? Expose the native branches before resolving that placement.",
       "not_probed_reason": "The exact CRIT1 section has no derivation statement and omits the retained native VLM criterion-text and missing branches. The SAP supplies threshold context but no CRIT1 row applicability. The complete variable therefore has no citable literal probe."
     },
@@ -1590,6 +1815,16 @@
           "document": "spec/source/SAP.pdf",
           "section": "page-12",
           "quote": "Laboratory values will be assigned a flag of abnormal (high or low) if the value is outside the threshold range (defined as significantly beyond the normal range, i.e., >1.5*ULN or <.5*LLN) or if the value is significantly different from the value observed at the preceding scheduled visit (i.e., absolute value of the change from previous value is larger than the 50% of the normal range, ULN-LLN)."
+        },
+        {
+          "document": "spec/source/programs/pilot6/adlbhy.r",
+          "section": "L50-L75",
+          "quote": "CRIT1FL = case_when(\nPARAMCD %in% c(\"ALT\", \"AST\", \"BILI\") & R2A1HI > 1.5 ~ \"Y\",\n!is.na(R2A1HI) ~ \"N\",\nTRUE ~ NA_character_\n),"
+        },
+        {
+          "document": "spec/source/programs/pilot6/adlbhy.r",
+          "section": "L137-L176",
+          "quote": "CRIT1FL = NA_character_"
         }
       ],
       "clauses": [
@@ -1614,7 +1849,7 @@
         "The generic laboratory abnormality flag described on SAP page-12 includes low thresholds and change from the preceding visit. Its wording does not identify CRIT1FL and is not imported into this separate criterion evaluation. The separate modified-Hy assessment also includes a combined transaminase/bilirubin condition; it does not define this individual-test flag.",
         "CRIT1FL__R2A1HI_DIAGNOSTIC is an unclaimed source-spelling reading. It does not claim the native literal with the unresolved identifier, and does not copy REF.CRIT1FL."
       ],
-      "assessment": "The Y/N domain is citable. The actual native parameter-level conditions are omitted by the adapter and contain an unresolved source spelling.",
+      "assessment": "The Y/N domain is citable. The actual native parameter-level conditions are omitted by the adapter and contain an unresolved source spelling. Pilot 6's later R reimplementation (spec/source/programs/pilot6/adlbhy.r), which reproduces this reference, flags ALT, AST and BILI Y when R2A1HI exceeds 1.5 and N when the ratio is present otherwise (lines 65-69); line 131 also sets HYLAW, but line 174 clears CRIT1FL on every derived parameter.",
       "question": "Expose the native CRIT1FL branches. Does the positive condition intend R2A1HI, and are the following nonmissing and missing assignments mutually exclusive else branches?",
       "not_probed_reason": "The exact-section adapter omits the governing CRIT1FL value-level conditions and missing applicability. Independent native inspection also identifies an unresolved positive-condition source spelling. Neither a complete native literal nor a documented correction can be cited through the current sections; the spelling-normalized diagnostic remains unclaimed."
     },
@@ -1636,6 +1871,16 @@
           "document": "spec/define/define-adam.xml",
           "section": "ADLBHY.CRIT1FL",
           "quote": "Codelist YN: N = No; Y = Yes"
+        },
+        {
+          "document": "spec/source/programs/pilot6/adlbhy.r",
+          "section": "L50-L75",
+          "quote": "CRIT1FN = case_when(\nPARAMCD %in% c(\"ALT\", \"AST\", \"BILI\") & R2A1HI > 1.5 ~ 1,\n!is.na(R2A1HI) ~ 0,\nTRUE ~ NA_real_\n)"
+        },
+        {
+          "document": "spec/source/programs/pilot6/adlbhy.r",
+          "section": "L137-L176",
+          "quote": "CRIT1FN = NA_real_"
         }
       ],
       "clauses": [
@@ -1687,7 +1932,7 @@
         "Whitespace padding is removed from the published upstream flag before applying the codelist crosswalk. Missing or non-enumerated flag text maps to missing; no category outside the two documented source codes is invented.",
         "The own implementation computes the flag and its numeric representation from the same upstream ratio for ordinary rows and assigns both missing on every derived row family. The formal probe tests only the documented flag-to-code rule, not the correctness of that upstream ratio or flag."
       ],
-      "assessment": "The exposed top-level numeric-code relation and the two enumerated codelists state a complete crosswalk from the published upstream flag.",
+      "assessment": "The exposed top-level numeric-code relation and the two enumerated codelists state a complete crosswalk from the published upstream flag. Pilot 6's later R reimplementation (spec/source/programs/pilot6/adlbhy.r), which reproduces this reference, codes the same condition as 1 or 0 on ALT, AST and BILI (lines 70-74) and clears it on every derived parameter (line 175).",
       "question": ""
     }
   ]
