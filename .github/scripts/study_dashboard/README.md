@@ -56,6 +56,7 @@ independent reference data or loosen comparator policies to resolve a finding.
     document_views.py                    workbook tables and original XML HTML
     define_comparison.py                 exact compared XML and numbered source views
     consistency.py                       metadata checks and source-backed review questions
+    dataset_define.py                    actual derived tables versus retained ADaM Define-XML
     rule_review.py                       documented-rule checks from the verification report
     issues.py                            validated issue grouping and normalized evidence
     artifacts.py                         versioned study and gallery manifests
