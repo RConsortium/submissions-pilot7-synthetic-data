@@ -105,10 +105,12 @@ reviewer needs them:
    highlighted, a PDF opens at the cited page, and YAML shows the numbered
    source with the cited lines highlighted. The popup also links to the
    file in the repository when the citation retains that link.
-3. **YAML specification**: the rule as the study's resolved specification
-   states it, with its line numbers, next to the rule as the documents
-   state it. Document-based translations keep their own YAML; the original
-   layer citations remain in the generated verification report.
+3. **YAML specification**: YAML derivations side by side, with
+   `documented-rules.yaml` on the left and the study's resolved dataset
+   specification on the right. Submission
+   metadata and prose descriptions are omitted. Line numbers and **View source**
+   link to the complete source; original layer citations remain in the
+   generated verification report.
 4. **Example subject difference**: representative records from the published
    reference next to the document-based calculation, with differing cells
    highlighted. Examples illustrate the calculation; they do not supply the
