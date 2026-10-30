@@ -8,6 +8,7 @@ import xml.etree.ElementTree as ET
 from pypdf import PdfReader
 
 from .document_views import render_xml, workbook_body, workbook_html
+from .programs import PROGRAM_ROLES, ProgramSections, is_program
 
 
 def save_json(path, data):
@@ -134,8 +135,44 @@ def define_section_text(item):
     return "\n".join(lines)
 
 
+def program_view(path, entry):
+    """Numbered program lines; the fragment #L<a>-L<b> marks a cited range."""
+    upstream = entry.get("upstream") or {}
+    origin = ""
+    if upstream.get("url"):
+        origin = (
+            f'<p>Upstream: <a id="upstream" href="{html.escape(upstream["url"])}">'
+            f'{html.escape(upstream["repository"])} at {html.escape(upstream["commit"][:12])}, '
+            f'{html.escape(upstream["path"])}</a></p>'
+        )
+    lines = path.read_text().splitlines()
+    width = len(str(len(lines)))
+    body = (
+        f'<p>{html.escape(PROGRAM_ROLES.get(entry.get("role"), "Retained program."))}</p>{origin}'
+        '<pre class="program">'
+        + "".join(
+            f'<span id="L{n}" class="line"><span class="n">{n:>{width}}</span> {html.escape(text)}\n</span>'
+            for n, text in enumerate(lines, 1)
+        )
+        + "</pre>"
+        # The dashboard opens this page in a frame at #L<a>-L<b>; mark and show that range.
+        + "<script>(function(){var m=/^#L(\\d+)(?:-L(\\d+))?$/.exec(location.hash);if(!m)return;"
+        "var a=+m[1],b=+(m[2]||m[1]),u=document.getElementById('upstream');"
+        "for(var n=a;n<=b;n++){var e=document.getElementById('L'+n);if(e)e.className+=' cited';}"
+        "var f=document.getElementById('L'+a);if(f)f.scrollIntoView({block:'center'});"
+        "if(u)u.href=u.href.split('#')[0]+'#L'+a+(b>a?'-L'+b:'');})();</script>"
+    )
+    style = (
+        "<style>pre.program{white-space:pre;overflow-x:auto;font:13px/1.5 ui-monospace,monospace}"
+        ".n{color:#7a8699;user-select:none}.cited{background:#fff5d6;display:inline-block;min-width:100%}</style>"
+    )
+    return document_html(path.name, style + body, wide=True)
+
+
 def document_sections(path, metadata):
-    """Stable, citable sections: PDF pages and Define-XML variables."""
+    """Stable, citable sections: PDF pages, Define-XML variables and program lines."""
+    if is_program(path):
+        return list(ProgramSections(path.read_text().splitlines()).values())
     if path.suffix.lower() == ".pdf":
         return [
             {"id": f"page-{number}", "title": f"Page {number}", "text": page.extract_text() or ""}
@@ -217,6 +254,13 @@ def materials(root, study, target, metadata):
             "available": True,
             "sections": [],
         }
+        if is_program(path):
+            # Citations link to the reading copy at #L<a>-L<b>; the view marks that range.
+            reading = str(relative) + ".html"
+            (folder / reading).write_text(program_view(path, entry), encoding="utf-8")
+            record.update(view=f"documents/{reading}", view_label="Program lines", reading=f"documents/{reading}")
+            documents.append(record)
+            continue
         if path.suffix.lower() == ".pdf":
             record.update(view=record["original"], view_label="Original PDF")
         elif path.suffix.lower() == '.mmd':

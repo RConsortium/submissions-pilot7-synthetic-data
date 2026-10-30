@@ -1,5 +1,6 @@
 """Original document views retain structure, escape text and confine XSLT reads."""
 
+import json
 from pathlib import Path
 import sys
 import tempfile
@@ -32,6 +33,34 @@ class DocumentViewTests(unittest.TestCase):
             tree = etree.HTML(view)
             self.assertEqual(tree.xpath('string(//pre)'), text)
             self.assertEqual(tree.xpath('//script'), [])
+
+    def test_program_view_numbers_escaped_lines_and_names_its_provenance(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            source = root / 'study/spec/source/programs/adlbc.r'
+            source.parent.mkdir(parents=True)
+            text = 'ONE <- abs(x)\nif (a < b) "</pre>"\n'
+            source.write_text(text, encoding='ascii')
+            upstream = {'repository': 'o/r', 'commit': '0123456789abcdef', 'path': 'programs/adlbc.r',
+                        'url': 'https://github.com/o/r/blob/0123456789abcdef/programs/adlbc.r'}
+            (root / 'study/spec/source/manifest.json').write_text(json.dumps({'files': [
+                {'path': 'study/spec/source/programs/adlbc.r', 'role': 'reference_reimplementation', 'upstream': upstream}]}))
+            target = root / 'bundle'
+            target.mkdir()
+            _, documents = materials(root, 'study', target, {})
+            document = documents[0]
+            self.assertEqual(
+                {k: document[k] for k in ('view', 'reading', 'view_label', 'sections')},
+                {'view': 'documents/study/spec/source/programs/adlbc.r.html',
+                 'reading': 'documents/study/spec/source/programs/adlbc.r.html',
+                 'view_label': 'Program lines', 'sections': []})
+            self.assertEqual((target / document['original']).read_bytes(), source.read_bytes())
+            tree = etree.HTML((target / document['view']).read_text(encoding='utf-8'))
+            self.assertEqual(
+                [(line.get('id'), line.xpath('string(.)')) for line in tree.xpath('//pre/span[@class="line"]')],
+                [('L1', '1 ONE <- abs(x)\n'), ('L2', '2 if (a < b) "</pre>"\n')])
+            self.assertEqual(tree.xpath('string(//a[@id="upstream"]/@href)'), upstream['url'])
+            self.assertIn('not what the original authors intended', tree.xpath('string(//p[1])'))
 
     def test_workbook_keeps_coordinates_merges_formulas_and_escaped_cell_text(self):
         with tempfile.TemporaryDirectory() as tmp:

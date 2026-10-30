@@ -42,6 +42,12 @@ Read each quote in its full section, not only the quoted span. Then:
 - **CR-1.** Is the quote absent from its location, or present with a typo? A
   CR-1 finding is never `agree` if the statement exists elsewhere; give its
   location.
+- **Program lines** (a section `L<first>-L<last>` in a retained program).
+  Do the cited lines compute this variable in the final value, read with the
+  whole program? A program shows how the reference was computed, never what
+  the documents state; dispute a finding that treats it as documentation. A
+  `reference_reimplementation` in the manifest is a later program, so judge
+  only whether its lines support the reading, not the authors' intent.
 
 Decide `agree` when the finding is right as stated, and `dispute` otherwise.
 Give a reason of at most two sentences that names the section or line you

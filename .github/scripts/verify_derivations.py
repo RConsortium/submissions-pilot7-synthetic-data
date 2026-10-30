@@ -31,6 +31,7 @@ import yaml
 from consistency_report import render
 from study_dashboard.config import reference_path, settings
 from study_dashboard.lineage import source_locations
+from study_dashboard.programs import ProgramSections, is_program, line_range
 from study_evidence import catalog, engine_revision, project_specs, reviewed_datasets
 from resolved_specs import specification_packet
 
@@ -107,21 +108,30 @@ def load_rules(path=RULES):
 
 
 def evidence_index(root, study, metadata):
-    """Citable sections of the retained documents, by study-relative path."""
+    """Citable sections of the retained documents, by study-relative path.
+
+    A retained program is cited by line range, so its sections answer any
+    L<a>-L<b> inside the file.
+    """
     from study_dashboard.documents import document_sections
 
     base = root / study
-    manifest = base / "spec/source/manifest.json"
-    entries = json.loads(manifest.read_text()).get("files", []) if manifest.is_file() else []
-    paths = [root / entry["path"] for entry in entries]
+    paths = [root / entry["path"] for entry in manifest_entries(root, study)]
     paths += [p for p in sorted((base / "spec/define").glob("*.xml")) if p not in paths]
     return {
-        path.relative_to(base).as_posix(): {
-            section["id"]: section for section in document_sections(path, metadata)
-        }
+        path.relative_to(base).as_posix(): (
+            ProgramSections(path.read_text().splitlines())
+            if is_program(path)
+            else {section["id"]: section for section in document_sections(path, metadata)}
+        )
         for path in paths
         if path.is_file()
     }
+
+
+def manifest_entries(root, study):
+    manifest = root / study / "spec/source/manifest.json"
+    return json.loads(manifest.read_text()).get("files", []) if manifest.is_file() else []
 
 
 def write_sections(index, target):
@@ -170,6 +180,16 @@ def document_links(root, study, revision, citation, metadata):
     path = f"{study}/{document}"
     published = f"{SITE}/evidence/dashboard/{study}/documents/{path}"
     links = {"reading_copy": f"{published}.html#{section}", "repository": f"{REPOSITORY}/blob/{revision}/{path}"}
+    if is_program(document):
+        lines = line_range(section)
+        if lines:
+            fragment = f"#L{lines[0]}" + (f"-L{lines[1]}" if lines[1] > lines[0] else "")
+            links["repository"] += fragment
+            links["original_lines"] = lines
+            entry = next((e for e in manifest_entries(root, study) if e["path"] == path), {})
+            if (entry.get("upstream") or {}).get("url"):
+                links["upstream"] = entry["upstream"]["url"] + fragment
+        return links
     if section.startswith("page-"):
         links["original"] = f"{published}#page={section.removeprefix('page-')}"
     elif document.endswith(".xml"):
@@ -210,6 +230,7 @@ def verify_citation(index, citation):
         "section_title": section["title"] if section else None,
         "verified": reason is None,
         "reason": reason,
+        "program": is_program(citation["document"]),
     }
 
 
@@ -576,7 +597,9 @@ def load_claims(path, probe_columns):
         probes = claim.get("probes", [])
         if probes and probes[0].get("reading") != "literal":
             raise ValueError(f"{path}: {name} must state its literal reading first")
-        if not probes and not claim.get("not_probed_reason"):
+        # Program lines alone document nothing, so they state no rule to probe.
+        documented = any(not is_program(c["document"]) for c in citations)
+        if documented and not probes and not claim.get("not_probed_reason"):
             raise ValueError(f"{path}: {name} needs probes or a not_probed_reason")
         for probe in probes:
             if probe["column"] not in probe_columns:
@@ -646,8 +669,9 @@ def verdict(record):
             return "conflict"
         return "consistent" if copy["spec_matches"] else "equivalent_on_data"
     citations = record.get("citations", [])
-    if not citations:
-        # Define-XML states a rule that no claim has cited yet.
+    if all(c.get("program") for c in citations):
+        # Define-XML states a rule that no claim has cited yet. A program shows
+        # how the reference was computed; it does not document the rule.
         return "not_reviewed" if record.get("documented") else "document_silent"
     if not all(c["verified"] for c in citations) or not all(c.get("verified", True) for c in record.get("clauses", [])):
         return "missing_evidence"
@@ -687,6 +711,7 @@ def quote_side(citation, quote, role):
         "links": citation.get("links", {}),
         "verified": verified,
         "reason": None if verified else citation.get("reason") or "clause quote not found in its citation",
+        **({"program": True} if citation.get("program") else {}),
     }
 
 
@@ -705,9 +730,11 @@ def verify_clauses(record, spec_file):
 
 
 def source_label(side):
-    """Define-XML ADSL.TRTSDT, or SAP.pdf page 13."""
+    """Define-XML ADSL.TRTSDT, SAP.pdf page 13, or adlbc.r lines 224-226."""
     if side["section"].startswith("page-"):
         return f'{Path(side["document"]).name} page {side["section"].removeprefix("page-")}'
+    if side.get("program"):
+        return f'{Path(side["document"]).name} {(side.get("section_title") or side["section"]).lower()}'
     return f'Define-XML {side["section"]}'
 
 
@@ -824,6 +851,7 @@ def variable_findings(record, rules, spec_file, define_citation):
                 spec = own
             add(rule, number, documents, spec, summary, note=clause.get("note", ""), extra=relation, relation=relation)
         verified = all(c["verified"] for c in citations) and all(c["verified"] for c in record.get("clauses", []))
+        verified = verified and record.get("verdict") != "document_silent"
         probes = record.get("probes", [])
         if verified and probes and probes[0]["reference"]["differ"]:
             literal, *readings = probes
@@ -836,7 +864,9 @@ def variable_findings(record, rules, spec_file, define_citation):
             documents = [quote_side(c, c["quote"], "states") for c in citations]
             add("CR-10", 0, documents, own, "The documented rule cannot be stated as a probe.", {"not_probed_reason": record["not_probed_reason"]}, note=record["not_probed_reason"])
     if record.get("verdict") == "document_silent":
-        add("CR-11", 0, [], own, "No retained document states this derivation.")
+        # Cited program lines show how the reference computes the undocumented derivation.
+        programs = [quote_side(c, c["quote"], "implements") for c in record.get("citations", []) if c.get("program")]
+        add("CR-11", 0, programs, own, "No retained document states this derivation.")
     codelist = record.get("codelist") or {}
     if codelist.get("status") == "values_outside_codelist":
         line = next(l for l in record["define"]["text"].splitlines() if l.startswith("Codelist "))

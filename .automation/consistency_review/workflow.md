@@ -6,9 +6,11 @@ specification with the retained submission documents, cite and quote each
 inconsistency under a rule from `rules.yaml`, and open a PR whose report traces
 each finding to its sources. Follow `AGENTS.md`.
 
-Agents propose and the verifier decides. Two agents take part, each with its
-own context: the extraction agent (`extract.md`) writes claims and probes, and
-the adjudicator (`adjudicate.md`) checks every finding against the sources.
+Agents propose and the verifier decides. Three agents take part, each with
+its own context: the extraction agent (`extract.md`) writes claims and probes,
+the adjudicator (`adjudicate.md`) checks every finding against the sources,
+and the issue author (`issues.md`) groups the findings into plain-language
+issues traced to the documents and the retained programs.
 `.github/scripts/verify_derivations.py` checks every quote, runs every probe,
 assigns every rule and writes the report. You orchestrate; you do not judge
 findings yourself.
@@ -20,12 +22,13 @@ Without one, take the studies in `.github/yamaa-studies.json` order and choose
 the first project dataset with no `<study>/spec/review/<dataset>-claims.json`;
 if every dataset has one, print `SKIP: every dataset has claims` and stop.
 
-State lives in three committed files under `<study>/spec/review/`, with the
+State lives in four committed files under `<study>/spec/review/`, with the
 dataset name in lowercase:
 
 - `<dataset>-claims.json`: the extraction agent's citations, clauses and readings.
 - `<dataset>-documented-rules.yaml`: the documented rules as yamaa columns.
 - `<dataset>-adjudication.json`: the adjudicator's decisions.
+- `<dataset>-issues.json`: the issue author's grouping of every finding.
 
 Generated reports stay under `.build/` and are never committed. If an open PR
 already reviews the same dataset, stop and report its link.
@@ -106,7 +109,16 @@ round:
 3. Start a new adjudicator subagent with the "Re-adjudication" section of
    `adjudicate.md`. It decides only the stale and pending findings.
 
-## 5. Report
+## 5. Group into issues
+
+Start one issue-author subagent with `issues.md`, the study and the dataset,
+after the last adjudication round. It must be neither an extraction subagent
+nor the adjudicator. It writes `<dataset>-issues.json`; do not edit its text.
+Build the study pages (`AGENTS.md`) to check the file: a stale basis, an
+unresolved selector or an ungrouped finding fails the build. Send the failure
+back to the same subagent; allow two rounds.
+
+## 6. Report
 
 Run the verifier a final time. It merges the adjudication and writes
 `report.md`: every finding with its rule statement, the document quote with
@@ -116,9 +128,9 @@ the adjudication. Read the report once in full. If a finding's two sides do
 not show the inconsistency to a reader, fix the claim's quotes or note, not
 the report.
 
-## 6. Deliver
+## 7. Deliver
 
-Run the shared checks in `AGENTS.md`. Commit only the three state files, push
+Run the shared checks in `AGENTS.md`. Commit only the four state files, push
 the branch, and open a non-draft PR against `main` with `--body-file`. The body
 contains the `Summary` section of `report.md`, the conflict findings in full,
 and the list of other finding IDs with their rule and one-line summary. State

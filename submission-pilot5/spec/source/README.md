@@ -14,6 +14,7 @@ eCTD tree does not contain Define-XML files.
 | [ADaM Define-XML](../define/define-adam.xml) | Published machine-readable analysis metadata. |
 | [SDTM Define-XML](../define/define-sdtm.xml) | Published input metadata. |
 | [Shared study SAP](../../../cdiscpilot01/spec/source/SAP.pdf) | Supporting study definitions; applicability to Pilot 5 remains to be reviewed. |
+| [programs/](programs/) | The submission's ADaM programs, byte-identical to `pilot5-submission/pilot5-programs/` in the development repository, which produced the reference datasets. Review findings cite their lines to show how a reference value was computed. |
 
 Source document identity was verified; alignment of the staged
 Parquet references was not revalidated. Do not substitute Pilot 3's workbook

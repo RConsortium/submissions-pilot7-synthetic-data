@@ -11,6 +11,8 @@ four study manifests are relative to the Pilot 7 repository root.
 | [SAP.pdf](SAP.pdf) | The original study SAP, retained from Pilot 6's `documents/SAP.pdf`: populations, endpoints, assessment windows, and missing-data conventions. |
 | [ADaM Define-XML](../define/define-adam.xml) | Published dataset, variable, value-level, and derivation metadata. |
 | [SDTM Define-XML](../define/define-sdtm.xml) | Published input metadata and traceability context. |
+| [programs/adae.sas](programs/adae.sas) | The only ADaM program the submission package publishes. |
+| [programs/pilot6/](programs/pilot6/) | R Consortium Pilot 6's R programs, a later reimplementation that reproduces these reference datasets. They show how a reference value can be computed, not what the original authors intended. |
 
 The SAP is stored once here and referenced by Pilots 3, 5, and 6. Its
 applicability must be reviewed against each pilot's own workbook,

@@ -73,6 +73,10 @@ def location(side):
     if section.startswith("page-"):
         page = section.removeprefix("page-")
         parts = [link(f"{name}, page {page}", links.get("original")), link("reading copy", links.get("reading_copy")), link("repository file", links.get("repository"))]
+    elif side.get("program"):
+        lines = links.get("original_lines")
+        shown = f"{name}, lines {lines[0]}-{lines[1]}" if lines else f"{name}, {code(section)}"
+        parts = [link(shown, links.get("upstream")), link("reading copy", links.get("reading_copy")), link("repository lines", links.get("repository"))]
     else:
         lines = links.get("original_lines")
         parts = [f"{name}, {code(section)}", link("reading copy", links.get("reading_copy")), link(f"XML lines {lines[0]}-{lines[1]}" if lines else "repository file", links.get("repository"))]
@@ -80,7 +84,9 @@ def location(side):
 
 
 def document_block(side):
-    heading = {"states": "Document says", "against": "Another statement says"}[side["role"]]
+    heading = {"states": "Document says", "against": "Another statement says", "implements": "Program computes"}[side["role"]]
+    if side.get("program") and side["role"] != "implements":
+        heading = "Program computes" if side["role"] == "states" else "The program instead computes"
     out = [f"**{heading}** ({location(side)})", ""]
     out.append("> " + highlight(side["context"], side["quote"]))
     if not side["verified"]:

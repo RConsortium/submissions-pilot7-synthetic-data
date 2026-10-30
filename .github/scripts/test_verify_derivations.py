@@ -9,6 +9,7 @@ import unittest
 import consistency_report as cr
 import verify_derivations as vd
 from study_dashboard.lineage import source_locations
+from study_dashboard.programs import ProgramSections
 
 SECTION = "Label: Date of First Exposure to Treatment\nData type: integer\nComment: SV.SVSTDTC when SV.VISITNUM=3,\n converted to SAS date"
 DEFINE = "spec/define/define-adam.xml"
@@ -496,6 +497,68 @@ class ClaimsTests(unittest.TestCase):
                         vd.load_claims(path, {"TRTSDT"})
 
 
+PROGRAM = "spec/source/programs/adlbc.r"
+PROGRAM_LINES = [
+    "adlb <- adlb %>%",
+    "  mutate(",
+    "    ONE = abs((LBSTRESN - (1.5 * LBSTNRHI))),",
+    "    TWO = abs(((.5 * LBSTNRLO) - LBSTRESN)),",
+    "    ALBTRVAL = ifelse(ONE > TWO, ONE, TWO)",
+    "  )",
+]
+UPSTREAM = "https://github.com/o/r/blob/c/programs/adlbc.r"
+
+
+class ProgramTests(unittest.TestCase):
+    def test_program_lines_are_cited_by_range_and_quoted_only_inside_it(self):
+        index = {PROGRAM: ProgramSections(PROGRAM_LINES)}
+        cases = [
+            ("across lines", "L3-L5", "abs((LBSTRESN - (1.5 * LBSTNRHI))), TWO = abs(", (True, None, "Lines 3-5")),
+            ("one line", "L5", "ALBTRVAL = ifelse(ONE > TWO, ONE, TWO)", (True, None, "Line 5")),
+            ("outside the range", "L3-L4", "ALBTRVAL = ifelse", (False, "quote not found in the cited section", "Lines 3-4")),
+            ("past the last line", "L5-L9", "ALBTRVAL", (False, "document or section not retained", None)),
+            ("reversed range", "L5-L3", "ALBTRVAL", (False, "document or section not retained", None)),
+        ]
+        for label, section, quote, expected in cases:
+            with self.subTest(case=label):
+                result = vd.verify_citation(index, {"document": PROGRAM, "section": section, "quote": quote})
+                self.assertEqual((result["verified"], result["reason"], result["section_title"]), expected, label)
+                self.assertTrue(result["program"], label)
+
+    def test_program_links_name_the_repository_lines_and_the_upstream_permalink(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            manifest = root / "s/spec/source/manifest.json"
+            manifest.parent.mkdir(parents=True)
+            manifest.write_text(json.dumps({"files": [{"path": f"s/{PROGRAM}", "role": "adam_program", "upstream": {"url": UPSTREAM}}]}))
+            links = vd.document_links(root, "s", "r", {"document": PROGRAM, "section": "L3-L5", "quote": "TWO"}, {})
+        self.assertEqual(links, {
+            "reading_copy": f"{vd.SITE}/evidence/dashboard/s/documents/s/{PROGRAM}.html#L3-L5",
+            "repository": f"{vd.REPOSITORY}/blob/r/s/{PROGRAM}#L3-L5",
+            "original_lines": [3, 5],
+            "upstream": f"{UPSTREAM}#L3-L5",
+        })
+
+    def test_a_variable_only_a_program_computes_stays_undocumented_and_shows_the_lines(self):
+        citation = {"document": PROGRAM, "section": "L5", "quote": "ALBTRVAL = ifelse(ONE > TWO, ONE, TWO)"}
+        with tempfile.TemporaryDirectory() as tmp:
+            path = Path(tmp) / "adlbc-claims.json"
+            path.write_text(json.dumps({"schema_version": 2, "claims": [{"variable": "TRTSDT", "citations": [citation]}]}))
+            _, claims = vd.load_claims(path, set())
+        record = {
+            "dataset": "ADSL", "variable": "TRTSDT", "label": "", "check": "rule",
+            "citations": [vd.verify_citation({PROGRAM: ProgramSections(PROGRAM_LINES)}, c) for c in claims["TRTSDT"]["citations"]],
+            "clauses": [], "probes": [], "define": {"comment": "", "text": ""},
+        }
+        record["verdict"] = vd.verdict(record)
+        findings = vd.variable_findings(record, RULES, spec_file(), None)
+        self.assertEqual(record["verdict"], "document_silent")
+        self.assertEqual(
+            [(f["id"], [(d["role"], d["document"], d["section"], d["quote"], d["verified"], d.get("program")) for d in f["documents"]]) for f in findings],
+            [("ADSL.TRTSDT.CR-11", [("implements", PROGRAM, "L5", citation["quote"], True, True)])],
+        )
+
+
 class RenderTests(unittest.TestCase):
     def test_the_clause_is_marked_inside_its_citation_and_document_characters_stay_literal(self):
         cases = [
@@ -512,6 +575,19 @@ class RenderTests(unittest.TestCase):
             "**Specification says** `ADAE.AOCC01FL = 'Y'` in `EVTSRC` (`s/adsl.yaml`)",
             "",
             "Not found: specification element EVTSRC not found.",
+            "",
+        ])
+
+    def test_program_lines_link_upstream_and_read_as_what_the_program_computes(self):
+        side = {
+            "role": "states", "document": PROGRAM, "section": "L3-L5", "program": True,
+            "quote": "TWO", "context": "TWO = abs(x)", "verified": True,
+            "links": {"upstream": f"{UPSTREAM}#L3-L5", "reading_copy": "copy#L3-L5", "repository": "repo#L3-L5", "original_lines": [3, 5]},
+        }
+        self.assertEqual(cr.document_block(side), [
+            f"**Program computes** ([adlbc.r, lines 3-5]({UPSTREAM}#L3-L5) | [reading copy](copy#L3-L5) | [repository lines](repo#L3-L5))",
+            "",
+            "> **TWO** = abs(x)",
             "",
         ])
 
