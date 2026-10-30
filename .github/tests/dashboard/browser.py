@@ -474,24 +474,10 @@ def check(browser, base, site_dir, screenshots):
     expect(trace.locator("#trace-assessment .trace-basis")).to_contain_text("No agent adjudication: this is an authored question.")
     # The review shows example subjects itself; the workspace opens from the finding's row.
     expect(trace.locator("[data-finding]")).to_have_count(0)
-    # The YAML comparison shows the resolved specification; the original
-    # layer citation stays in the check audit, where View source opens the
-    # numbered file in a popup with its repository link.
-    expect(trace.locator('a[href*="pilot-program/adae_v1.yaml"]')).to_have_count(0)
-    technical = trace.locator(".trace-technical")
-    technical.evaluate("(el) => { el.open = true; el.querySelectorAll('details').forEach((d) => { d.open = true; }); }")
-    technical.locator(".issue-citation").filter(has_text="adae_v1.yaml").first.get_by_role(
-        "button", name="View source", exact=True).click()
+    # The simplified review omits the separate GitHub and technical sections.
+    expect(trace.locator("#trace-discussion, .trace-technical")).to_have_count(0)
+    expect(trace.locator('[data-trace-section="trace-discussion"]')).to_have_count(0)
     popup = page.locator("dialog.review-source-dialog")
-    expect(popup).to_be_visible()
-    expect(popup.locator("h2")).to_contain_text("pilot-program/adae_v1.yaml")
-    expect(popup.locator("pre.spec-lines .context-line-number").first).to_have_text("1")
-    expect(popup.locator("footer a")).to_have_attribute(
-        "href", re.compile(r"spec/yamaa/pilot-program/adae_v1\.yaml#L\d+$"))
-    popup.get_by_role("button", name="Close source", exact=True).click()
-    expect(popup).to_have_count(0)
-    expect(trace).to_be_visible()
-    technical.evaluate("(el) => { el.querySelectorAll('details').forEach((d) => { d.open = false; }); el.open = false; }")
     capture(page, screenshots, "consistency-review.png")
     open_workspace(page.locator(".consistency-table tbody tr.review-issue"))
     capture(page, screenshots, "source-evidence.png")
@@ -594,9 +580,7 @@ def check(browser, base, site_dir, screenshots):
     expect(trace).to_be_visible()
     expect(trace.locator(".trace-measurements")).to_contain_text("253 / 254")
     expect(trace.locator(".quote-source + blockquote").first).to_contain_text("WEIGHTBL / ((HEIGHTBL*100)**2)")
-    trace.locator(".trace-technical > summary").click()
     expect(trace).to_contain_text("Agent review: agreed")
-    trace.locator(".trace-technical > summary").click()
     expect(trace.locator("#trace-sources")).not_to_contain_text("Specification:")
     expect(trace.locator("#trace-specifications pre.spec-lines").first).to_be_visible()
     expect(trace.locator("#trace-examples h3")).to_have_text("4. Subject examples")
@@ -694,8 +678,7 @@ def check(browser, base, site_dir, screenshots):
     row = page.locator(f'[data-finding-id="{combined["id"]}"]')
     expect(row).to_have_count(1)
     trace = open_trace(row)
-    trace.locator(".trace-technical > summary").click()
-    expect(trace.locator(".issue-checks > summary")).to_have_text("4 supporting checks and agent review")
+    expect(trace.locator(".issue-checks")).to_have_count(0)
     capture(page, screenshots, "combined-trtemfl-trace.png")
     page.keyboard.press("Escape")
     page.get_by_role("button", name="Clear filters", exact=True).click()
@@ -746,8 +729,7 @@ def check(browser, base, site_dir, screenshots):
     expect(page.locator("#review-comments #comments-host script")).to_have_attribute("data-term", original_term)
     copy_review = trace.get_by_role("button", name="Copy review instead", exact=True)
     copy_review.click()
-    expect(trace.locator("#comments-host script")).to_have_attribute(
-        "data-term", "pilot7/studies/cdiscpilot01/ADAE")
+    expect(page.locator("#review-comments #comments-host script")).to_have_attribute("data-term", original_term)
     expect(page.locator("#comments-host")).to_have_count(1)
     assert prepared.input_value() == text
     assert page.evaluate("navigator.clipboard.readText()") == text
@@ -756,28 +738,18 @@ def check(browser, base, site_dir, screenshots):
     expect(trace.locator("[data-trace-comment-stale]")).to_be_visible()
     page.evaluate("Object.defineProperty(navigator.clipboard,'writeText',{configurable:true,value:async()=>{throw Error('Clipboard blocked')}})")
     copy_review.click()
-    expect(trace.locator(".trace-share-feedback")).to_contain_text("Clipboard access is unavailable")
+    expect(trace.locator(".trace-review-feedback")).to_contain_text("Clipboard access is unavailable")
     expect(prepared).to_have_value(re.compile("Confirm the dermatologic group"))
     expect(prepared).to_be_focused()
     page.evaluate("delete navigator.clipboard.writeText")
     trace.get_by_role("textbox", name="Review comments").fill("Correct the blank query condition; reference flags follow the guide.")
     copy_review.click()
-    expect(trace.locator(".trace-share-feedback")).to_contain_text("Review copied")
+    expect(trace.locator(".trace-review-feedback")).to_contain_text("Review copied")
     # The listing behind the dialog keeps the reviewer's own ledger current.
     expect(page.locator("#review-ledger")).to_contain_text("1 of ")
     expect(page.locator("#review-ledger")).to_contain_text("1 with both decisions; 0 drafts; 1 opened in GitHub or copied")
     expect(page.locator('[data-human-review="cdiscpilot01:ADAE.AOCC01FL.selection-rule"]')).to_have_text("Your review: Copied for GitHub")
     capture(page, screenshots, "trace-github-comments.png")
-    # Giscus sign-in navigates the top page; return state must restore the finding.
-    page.goto(study + "?trace-return-test=1#cdiscpilot01/overview/ADSL")
-    trace = page.locator("dialog.trace-review-dialog")
-    expect(trace).to_be_visible()
-    expect(trace.locator("#trace-review-title")).to_contain_text("Define-XML selects the wrong event group")
-    expect(trace.locator(".trace-share-feedback")).to_contain_text("Your review was restored")
-    expect(trace.locator("#trace-github-comment")).to_have_value(re.compile("blank query"))
-    expect(trace.locator("#comments-host script")).to_have_attribute("data-term", "pilot7/studies/cdiscpilot01/ADAE")
-    original_term = "pilot7/studies/cdiscpilot01/ADSL"
-    page.evaluate("window.originalCommentsHost=document.querySelector('#comments-host')")
     # The footer walks the full listing here; the aside still moves between this variable's findings.
     expect(trace.locator(".trace-review-footer")).to_contain_text("in the current list")
     trace.locator(".trace-review-nav [data-trace-sibling]", has_text="Sequence-only ordering").click()
@@ -806,8 +778,8 @@ def check(browser, base, site_dir, screenshots):
     expect(discussion_page.locator("#comments-host script")).to_have_attribute("data-term", "pilot7/studies/cdiscpilot01/ADSL")
     discussion_page.locator(".consistency-table [data-trace-issue]").first.click()
     discussion_trace = discussion_page.locator("dialog.trace-review-dialog")
-    discussion_trace.get_by_role("button", name="Open GitHub comments", exact=True).click()
-    expect(discussion_trace.locator("#comments-host script")).to_have_attribute("data-term", "pilot7/studies/cdiscpilot01/ADAE")
+    expect(discussion_trace.locator("#trace-discussion, .trace-technical, #comments-host")).to_have_count(0)
+    expect(discussion_page.locator("#review-comments #comments-host script")).to_have_attribute("data-term", "pilot7/studies/cdiscpilot01/ADSL")
     discussion_page.set_viewport_size({"width": 390, "height": 844})
     assert discussion_page.evaluate("document.documentElement.scrollWidth<=innerWidth")
     capture(discussion_page, screenshots, "trace-github-comments-mobile.png")

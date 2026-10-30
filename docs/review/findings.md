@@ -97,7 +97,8 @@ observed behavior. The sections then follow the navigation:
    the records and distinct subjects that differ. Context comparisons are
    excluded from impact. **Not measured** differs from **No differences in
    tested data**. A separate status states whether the yamaa output matches
-   the generated ADaM datasets.
+   the generated ADaM datasets. When that comparison passes, the duplicate
+   comparison against yamaa output is omitted.
 4. **Subject examples**: generated ADaM records beside document-based
    calculations, with differences highlighted. Examples illustrate the
    calculation; the measurements above supply the impact count.
@@ -107,12 +108,10 @@ observed behavior. The sections then follow the navigation:
 6. **Automated assessments**: automated criticality and agent adjudication,
    with their reasons and any documented rule that could not be checked.
 
-**Your review** and **GitHub comments** follow the evidence; see
+**Your review** follows the evidence; see
 [Record your assessment](#record-your-assessment).
 
-**Supporting checks and agent review** keeps the rule statements, the
-complete check evidence and the adjudicator's reasons; source quotations stay
-literal. **Next finding in list** and **Previous finding in list** walk the
+**Next finding in list** and **Previous finding in list** walk the
 findings the table currently lists, in its order, without closing the page;
 the footer counts your place in that list. When the open finding is not in
 the list, the buttons walk its variable's findings instead.
@@ -125,7 +124,7 @@ title, expected and observed behavior, a proposed action and links to its
 supporting checks; a change to the check evidence requires the grouping to be
 reviewed before publication. Without authored grouping, verified clause
 discrepancies for the same variable and exact source-file pair share one
-issue, and their complete checks remain in the trace.
+issue, and their complete checks remain in the generated verification report.
 
 Define-XML 2.x derivation citations follow the variable's referenced
 `MethodDef`; comment and codelist citations open their own elements.

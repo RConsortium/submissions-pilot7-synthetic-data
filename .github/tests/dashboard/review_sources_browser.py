@@ -1,12 +1,13 @@
 """Exercise source popups over the real review dialog without validation artifacts."""
 
 import argparse
+import re
 from functools import partial
 from http.server import SimpleHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 from threading import Thread
 
-from playwright.sync_api import sync_playwright
+from playwright.sync_api import expect, sync_playwright
 
 ROOT = Path(__file__).resolve().parents[3]
 
@@ -43,10 +44,10 @@ def run(browser_path=None):
                 resolved:{path:'study/resolved/adsl.yaml',text:'domain: ADSL\\n- name: AGE\\n  derivation: age < 65',
                   lineage:{spans:{AGE:{start:2,end:3}}}}}};
               const ctx = {root:()=>document.querySelector('#study-dashboard'), report, specifications,
-                model:{id:'study',title:'Study',datasets:[{name:'ADSL',comparison:'passed'}]},index:{comments:{repo:'org/repo',discussion_url:'https://github.com/org/repo/discussions'}},
+                model:{id:'study',title:'Study',revision:'test-revision',datasets:[{name:'ADSL',comparison:'passed'}]},index:{comments:{repo:'org/repo',discussion_url:'https://github.com/org/repo/discussions',review_url:'https://github.com/org/repo/discussions/new'}},
                 resource:()=> '/rendered.html', sourceUrl:()=> 'https://github.com/org/repo'};
               const sources = createReviewSources(ctx);
-              window.review = createTraceReview(ctx, {}, sources);
+              window.review = createTraceReview(ctx, sources);
               document.addEventListener('click', event => {
                 const target = event.target.closest('[data-source-evidence]');
                 if (!target) return;
@@ -57,7 +58,7 @@ def run(browser_path=None):
             }""")
             sections = page.locator('.trace-review-content > section').evaluate_all('(items)=>items.map(s=>s.id)')
             assert sections == ['trace-finding', 'trace-sources', 'trace-specifications', 'trace-data',
-                                'trace-examples', 'trace-fix', 'trace-assessment', 'trace-discussion']
+                                'trace-examples', 'trace-fix', 'trace-assessment']
             assert page.locator('.issue-comparison').count() == 1
             assert 'Expected behavior' in page.locator('#trace-finding').inner_text()
             assert 'generated ADaM datasets' in page.locator('#trace-data').inner_text()
@@ -68,6 +69,8 @@ def run(browser_path=None):
             page.wait_for_function("document.querySelector('.trace-scroll').scrollTop > 0")
             page.get_by_role('button', name='6. Automated assessments', exact=True).click()
             page.locator('#trace-assessment').scroll_into_view_if_needed()
+            expect(page.locator('#trace-discussion, .trace-technical')).to_have_count(0)
+            expect(page.locator('[data-trace-section="trace-discussion"]')).to_have_count(0)
             page.locator('#trace-review-comment').fill('Keep my review draft')
             basis = page.locator('#trace-assessment .trace-basis')
             assert 'Automated criticality: Needs review.' in basis.inner_text()
@@ -101,6 +104,18 @@ def run(browser_path=None):
             assert page.locator('#trace-review-comment').input_value() == 'Keep my review draft'
             assert len(browser.contexts[0].pages) == 1
             assert page.url.endswith('/docs/assets/dashboard/')
+            # Removing the sharing section must preserve submission and clipboard fallback.
+            page.get_by_role('radio', name='Agree', exact=True).check()
+            page.get_by_role('radio', name='Not critical', exact=True).check()
+            page.evaluate("window.open=url=>{window.openedReview=url;return {}}")
+            page.get_by_role('button', name='Submit review on GitHub', exact=True).click()
+            assert 'body=' in page.evaluate('window.openedReview')
+            prepared = page.locator('#trace-your-review #trace-github-comment')
+            expect(prepared).to_have_value(re.compile('Keep my review draft'))
+            page.evaluate("Object.defineProperty(navigator,'clipboard',{configurable:true,value:{writeText:async()=>{throw Error('Blocked')}}})")
+            page.get_by_role('button', name='Copy review instead', exact=True).click()
+            expect(page.locator('.trace-review-feedback')).to_contain_text('Clipboard access is unavailable')
+            expect(prepared).to_be_focused()
             page.evaluate('window.review.close()')
             assert page.locator('dialog').count() == 0
             assert not errors, errors
