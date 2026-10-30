@@ -9,6 +9,7 @@ from .documents import define_metadata, define_section_text, materials
 from .rule_review import rule_findings, verification_summary
 from .datasets import clean
 from .issues import build_review
+from .review_scope import dataset_define_review
 from .specifications import resource_path
 
 
@@ -252,7 +253,7 @@ def build_report(
         "revision": revision,
         "findings": findings,
         "logic_checks": logic_checks,
-        "review": build_review(root, study, revision, findings + logic_checks),
+        "review": dataset_define_review(build_review(root, study, revision, findings + logic_checks)),
         "trace_examples": {
             f'{d["dataset"]}.{v["variable"]}': v["examples"]
             for d in (verification or {}).get("datasets", [])
@@ -269,7 +270,7 @@ def build_report(
             "clinical_judgement": "Requires human review.",
         },
         "verification": verification_summary(study, verification, documents),
-        "note": "Automated observations and pending review tasks are not confirmed clinical defects.",
+        "note": "Published findings show observed ADaM data differences backed by verified Define-XML. The raw checks retain the complete audit. Findings require human review and are not confirmed clinical defects.",
     }
 
 

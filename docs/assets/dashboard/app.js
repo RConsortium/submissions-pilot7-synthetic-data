@@ -16,7 +16,7 @@ import { findIssue } from "./issues.js";
 import { createTraceReview } from "./trace-review.js";
 import { createReviewDrafts } from "./review-drafts.js";
 import { reviewLedgerDocument } from "./review-comment.js";
-import { createReviewSources, resolvedReviewReport } from "./review-sources.js";
+import { createReviewSources, reviewComparisonEvidence } from "./review-sources.js";
 import { createSourceDocuments } from "./source-documents.js";
 import { defineComparisonView } from "./define-comparison.js";
 import { createComments } from "./comments.js";
@@ -391,9 +391,10 @@ import { developmentReport, mountDevelopment } from "./synthetic-development.js"
     const target = event.target.closest("button,[data-line-node]");
     if (!target || !root()?.contains(target)) return;
     if (target.dataset.sourceEvidence) {
-      const sourceReport = target.closest("#trace-specifications")
-        ? resolvedReviewReport(report, specifications, target.closest(".trace-review-dialog")?.dataset.reviewDataset) : report;
-      const evidence = sourceReport.review.evidence.find((e) => e.id === target.dataset.sourceEvidence);
+      const issue = findIssue(report, state.review);
+      const evidence = (issue && target.closest("#trace-sources")
+        ? reviewComparisonEvidence(issue, report, specifications)
+        : report.review.evidence).find((e) => e.id === target.dataset.sourceEvidence);
       if (evidence) reviewSources.open(evidence, target);
       return;
     }
