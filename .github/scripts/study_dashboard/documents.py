@@ -6,6 +6,9 @@ import shutil
 import xml.etree.ElementTree as ET
 
 from pypdf import PdfReader
+from pygments import highlight
+from pygments.formatters import HtmlFormatter
+from pygments.lexers import SLexer
 
 from .document_views import render_xml, workbook_body, workbook_html
 from .programs import PROGRAM_ROLES, ProgramSections, is_program
@@ -136,7 +139,7 @@ def define_section_text(item):
 
 
 def program_view(path, entry):
-    """Numbered program lines; the fragment #L<a>-L<b> marks a cited range."""
+    """Numbered program lines with R syntax colors and #L<a>-L<b> citations."""
     upstream = entry.get("upstream") or {}
     origin = ""
     if upstream.get("url"):
@@ -147,11 +150,24 @@ def program_view(path, entry):
         )
     lines = path.read_text().splitlines()
     width = len(str(len(lines)))
+    syntax_style = ""
+    if path.suffix.lower() == ".r":
+        formatter = HtmlFormatter(nowrap=True)
+        # Lex the whole program so multiline strings retain their token type.
+        # Keep blank lines and tabs; the formatter closes spans on each line.
+        lines = highlight(
+            "\n".join(lines) + ("\n" if lines else ""),
+            SLexer(stripnl=False, ensurenl=False),
+            formatter,
+        ).splitlines()
+        syntax_style = formatter.get_style_defs(".program")
+    else:
+        lines = [html.escape(text) for text in lines]
     body = (
         f'<p>{html.escape(PROGRAM_ROLES.get(entry.get("role"), "Retained program."))}</p>{origin}'
         '<pre class="program">'
         + "".join(
-            f'<span id="L{n}" class="line"><span class="n">{n:>{width}}</span> {html.escape(text)}\n</span>'
+            f'<span id="L{n}" class="line"><span class="line-number">{n:>{width}}</span> {text}\n</span>'
             for n, text in enumerate(lines, 1)
         )
         + "</pre>"
@@ -163,8 +179,8 @@ def program_view(path, entry):
         "if(u)u.href=u.href.split('#')[0]+'#L'+a+(b>a?'-L'+b:'');})();</script>"
     )
     style = (
-        "<style>pre.program{white-space:pre;overflow-x:auto;font:13px/1.5 ui-monospace,monospace}"
-        ".n{color:#7a8699;user-select:none}.cited{background:#fff5d6;display:inline-block;min-width:100%}</style>"
+        f"<style>{syntax_style}pre.program{{white-space:pre;overflow-x:auto;font:13px/1.5 ui-monospace,monospace}}"
+        ".line-number{color:#7a8699;user-select:none}.cited{background:#fff5d6;display:block;min-width:100%}</style>"
     )
     return document_html(path.name, style + body, wide=True)
 
