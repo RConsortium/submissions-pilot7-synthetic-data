@@ -936,6 +936,18 @@ def check(browser, base, site_dir, screenshots):
         capture(page, screenshots, name + "-development.png")
         page.get_by_role("link", name="All synthetic studies", exact=True).click()
         expect(page.locator("#synthetic-dashboard h1")).to_have_text("Synthetic data report")
+    page.goto(base + '/studies/submission-pilot5/#submission-pilot5/materials/ADSL'
+              '?document=submission-pilot5%2Fspec%2Fsource%2Fprograms%2Fadsl.r&documentSection=L60-L65')
+    program = page.frame_locator('#source-frame')
+    expect(program.locator('.cited')).to_have_count(6)
+    expect(program.locator('#upstream')).to_have_attribute('href', re.compile(r'#L60-L65$'))
+    colors = program.locator('.program .c1, .program .s, .program .kr, .program .o').evaluate_all(
+        '(nodes) => new Set(nodes.map(node => getComputedStyle(node).color)).size')
+    assert colors >= 3, 'R comments, strings and operators have syntax colors'
+    positions = program.locator('.cited').evaluate_all(
+        '(nodes) => nodes.map(node => ({x: node.getBoundingClientRect().x, y: node.getBoundingClientRect().y}))')
+    assert all(b['x'] == a['x'] and b['y'] > a['y'] for a, b in zip(positions, positions[1:])), positions
+    capture(page, screenshots, 'r-source-highlighting.png')
     for width in [375, 768, 1600, 2560]:
         page.set_viewport_size({"width": width, "height": 1000})
         for view in ["datasets", "findings", "materials", "define"]:

@@ -128,6 +128,9 @@ official pilot results explicitly omitted when their evidence is unavailable.
    screens stack them. Row citations reveal their worksheet automatically.
    Source documents use the original views only, with one or
    two independent tabbed panes; extracted text is kept for consistency checks.
+   Retained R programs have syntax colors generated with Pygments and embedded
+   styles, so viewing code needs no external scripts or network requests. Program
+   text, line numbers, citation ranges and upstream links are preserved.
 5. Optionally add `spec/review/questions.json`, with `schema_version: 1` and a
    `questions` array. Each question needs unique `id`, `dataset`, optional
    `variable`, `title`, study-relative `document`, `section`, exact `excerpt`,

@@ -11,7 +11,7 @@ from openpyxl import Workbook
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[2] / "scripts"))
 from study_dashboard.document_views import render_xml, workbook_body
-from study_dashboard.documents import materials
+from study_dashboard.documents import materials, program_view
 
 
 class DocumentViewTests(unittest.TestCase):
@@ -61,6 +61,48 @@ class DocumentViewTests(unittest.TestCase):
                 [('L1', '1 ONE <- abs(x)\n'), ('L2', '2 if (a < b) "</pre>"\n')])
             self.assertEqual(tree.xpath('string(//a[@id="upstream"]/@href)'), upstream['url'])
             self.assertIn('not what the original authors intended', tree.xpath('string(//p[1])'))
+            self.assertEqual(tree.xpath('//pre//span[@class="kr"]/text()'), ['if'])
+            self.assertEqual(tree.xpath('//pre//span[@class="o"]/text()'), ['<-', '<'])
+            self.assertEqual(tree.xpath('//pre//span[@class="s"]/text()'), ['"</pre>"'])
+            self.assertEqual(tree.xpath('//pre//script | //script[@src] | //link[@href]'), [])
+
+    def test_r_highlighting_preserves_blank_lines_tabs_and_multiline_strings(self):
+        cases = [
+            ('empty.r', ''),
+            ('blank.R', '\n\n'),
+            ('adsl.r', '\n# <script>source</script>\nx <- "first\n\tsecond & last"\n\n'),
+            ('ADSL.R', '\tx <- 42 # no final newline'),
+        ]
+        with tempfile.TemporaryDirectory() as tmp:
+            for name, text in cases:
+                with self.subTest(name=name):
+                    path = Path(tmp) / name
+                    path.write_text(text, encoding='ascii')
+                    tree = etree.HTML(program_view(path, {}))
+                    lines = text.splitlines()
+                    width = len(str(len(lines)))
+                    self.assertEqual(
+                        [(line.get('id'), line.xpath('string(.)'))
+                         for line in tree.xpath('//pre/span[@class="line"]')],
+                        [(f'L{n}', f'{n:>{width}} {line}\n')
+                         for n, line in enumerate(lines, 1)])
+                    self.assertEqual(tree.xpath('//pre//script'), [])
+                    if name == 'adsl.r':
+                        self.assertEqual(tree.xpath('//pre//span[@class="c1"]/text()'),
+                                         ['# <script>source</script>'])
+                        self.assertEqual(tree.xpath('//pre//span[@class="s"]/text()'),
+                                         ['"first', '\tsecond & last"'])
+                    if name == 'ADSL.R':
+                        self.assertEqual(tree.xpath('//pre//span[@class="m"]/text()'), ['42'])
+
+    def test_other_programs_keep_escaped_plain_text(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            path = Path(tmp) / 'adsl.sas'
+            path.write_text('if a < b then label = "</pre>";\n', encoding='ascii')
+            tree = etree.HTML(program_view(path, {}))
+            self.assertEqual(tree.xpath('string(//pre)'), '1 if a < b then label = "</pre>";\n')
+            self.assertEqual(tree.xpath('//pre//span/@class'), ['line', 'line-number'])
+            self.assertEqual(tree.xpath('//pre//script'), [])
 
     def test_workbook_keeps_coordinates_merges_formulas_and_escaped_cell_text(self):
         with tempfile.TemporaryDirectory() as tmp:
