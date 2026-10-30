@@ -167,6 +167,21 @@ columns:
                 self.assertIn(expected, page)
         self.assertNotIn("Study validation records", page)
 
+    def test_study_report_documents_exclude_r_and_sas_programs(self):
+        target = self.generate()
+        catalog = json.loads((target / "future-study/catalog.json").read_text())
+        report = json.loads((target / "future-study/report.json").read_text())
+        names = ["sap.pdf", "spec.xlsx", "define.xml", "adsl.R", "adae.r", "adlbc.SAS", "adtte.sas"]
+        report["documents"] = [
+            {"name": name, "path": f"future-study/spec/source/{name}"} for name in names
+        ]
+        page = "".join(pages._overview([(catalog, report)]))
+        self.assertIn(
+            '<tr><th scope="row">Documents</th><td>sap.pdf, spec.xlsx, define.xml</td></tr>',
+            page,
+        )
+        self.assertEqual([d["name"] for d in report["documents"]], names)
+
     def test_complete_reference_agreement_retains_open_review_and_criticality(self):
         issues = [{"critical": {"status": "yes"}}, {"critical": {"status": "no"}}, {}]
         page = summary_cards([5, 100, 2300000], [5, 100, 2300000], issues)
