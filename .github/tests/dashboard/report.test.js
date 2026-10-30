@@ -213,7 +213,7 @@ test("source context preserves indentation, blank lines and escaped code with ac
       }, comparison],
     },
   }, { specificationsOnly: true });
-  assert.match(html, /<details class="issue-context" open><summary><span>Full context<\/span><small>Lines 2-4<\/small>/);
+  assert.doesNotMatch(html, /<details|<blockquote|issue-comparison/);
   assert.match(html, /tabindex="0" aria-label="spec.yaml source context"/);
   assert.match(html, /<span class="context-line-text">  when: &quot;DATE &lt; END &amp; VALID&quot;<\/span>/);
   assert.match(html, /<mark class="context-line"><span class="context-line-number" aria-hidden="true">3<\/span><span class="context-line-text"> <\/span><\/mark>/);
@@ -414,8 +414,25 @@ test("YAML comparison includes the selected translated rule but no sibling calcu
   } };
   const html = issueTrace(issue, data, { specificationsOnly: true });
   assert.match(html, /Specification: documented-rules.yaml/);
+  assert.ok(html.indexOf('aria-label="study/documented-rules.yaml"') < html.indexOf(`aria-label="${spec.path}"`));
   assert.doesNotMatch(html, /other.yaml|Only one YAML/);
   assert.equal((html.match(/class="trace-source-file"/g) || []).length, 2);
+});
+
+test("YAML comparison omits prose and submission blocks while preserving derivation source lines", () => {
+  const context = '- name: ADT\n  submission:\n    label: Analysis date\n    origins:\n      - type: Derived\n  derivation:\n    value: AE.AESTDT\n  submission: {length: 8}\n  label: Date';
+  const rule = { ...spec, context, context_lines: [10, 18], lines: [15, 16] };
+  const translation = { ...rule, id: "translation", path: "study/documented-rules.yaml", section: comparison.column };
+  const data = { ...report, review: { ...report.review,
+    evidence: [source, rule, comparison, translation],
+    checks: report.review.checks.map((c) => ({ ...c, evidence_ids: [...c.evidence_ids, translation.id] })),
+  } };
+  const html = issueTrace(issue, data, { specificationsOnly: true });
+  assert.equal((html.match(/class="trace-source-file"/g) || []).length, 2);
+  assert.doesNotMatch(html, /<blockquote|<details|issue-comparison|submission:|Analysis date|origins:|Derived|length:/);
+  assert.match(html, /<mark class="context-line"><span class="context-line-number" aria-hidden="true">16<\/span><span class="context-line-text">    value: AE.AESTDT<\/span>/);
+  assert.match(html, />18<\/span><span class="context-line-text">  label: Date/);
+  assert.equal(data.review.evidence[1].context, context);
 });
 
 test("findings by dataset count the current filters and mark the selected dataset", () => {
