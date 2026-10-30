@@ -8,8 +8,8 @@ from urllib.parse import quote
 from .summaries import review_breakdown, summary_cards
 
 UNMATCHED = {
-    "Not compared": "a reference is staged but the comparator did not check it",
-    "No reference": "no official reference is staged",
+    "Not compared": "a generated ADaM dataset is staged but the comparator did not check it",
+    "No generated ADaM dataset": "no generated ADaM comparison dataset is staged",
 }
 
 
@@ -36,7 +36,7 @@ def _metric(value):
 
 def _share(matched, total):
     if not total:
-        return "No official reference"
+        return "No generated ADaM comparison datasets"
     return f"{_metric(matched)} / {_metric(total)} ({100 * matched / total:.0f}%)"
 
 
@@ -47,10 +47,10 @@ def _status(label, tone):
 def _comparison(dataset):
     """Validation compares only the default reference path; a configured one may stay unchecked."""
     if dataset["comparison"] == "passed":
-        return "Reference matched", "good"
+        return "Generated ADaM dataset matched", "good"
     if dataset["reference"]:
         return "Not compared", "attention"
-    return "No reference", "neutral"
+    return "No generated ADaM dataset", "neutral"
 
 
 def _load(bundle):
@@ -182,7 +182,7 @@ def _overview(studies):
     for title, names in [
         ("Study information", ["Description", "Source", "Documents", "Subjects"]),
         ("SDTM", ["SDTM inputs", "SDTM Define-XML version"]),
-        ("Published ADaM reference agreement", ["ADaM datasets matched", "Columns matched", "Cells matched",
+        ("Generated ADaM dataset agreement", ["ADaM datasets matched", "Columns matched", "Cells matched",
                   "ADaM Define-XML version", "Define-XML match"]),
         ("Consistency review", ["Consistency review"]),
     ]:
@@ -191,8 +191,8 @@ def _overview(studies):
             values = [facts[c["id"]].get(name, "") for c, _ in studies]
             if any(values):
                 label = {
-                    "Columns matched": "Columns in reference-matched datasets",
-                    "Cells matched": "Cells in reference-matched datasets",
+                    "Columns matched": "Columns in datasets matching generated ADaM data",
+                    "Cells matched": "Cells in datasets matching generated ADaM data",
                     "Consistency review": "Findings awaiting review",
                 }.get(name, "Define-XML version" if name.endswith("Define-XML version") else name)
                 rows.append(
@@ -273,14 +273,14 @@ def _matrix(studies):
         '<h2 id="dataset-results">Dataset results</h2>',
         _table(["Dataset", "Description"], studies, body, link=True, keep=True),
         '<p class="report-foot">Status with rows &#215; columns of the yamaa output. '
-        "Reference matched: the study comparator found the output equal to the official ADaM "
+        "Generated ADaM dataset matched: the study comparator found the yamaa output equal to the generated ADaM "
         "dataset, labels included, under that study's comparison policy. "
         + "".join(f"{k}: {v}. " for k, v in UNMATCHED.items() if k in labels)
         + "A dash means the dataset is not part of that study.</p>",
         '<p id="dataset-issues-note" class="report-foot">Issue badges count distinct '
         "consistency review items for each study and dataset, including documentation "
         "gaps and questions awaiting human review. Each issue counts once even "
-        "when it has multiple supporting checks. Issue counts are separate from ADaM reference agreement. "
+        "when it has multiple supporting checks. Issue counts are separate from generated ADaM dataset agreement. "
         "Select a nonzero badge to view the issues.</p>",
     ]
 

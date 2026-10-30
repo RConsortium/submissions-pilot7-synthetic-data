@@ -120,5 +120,5 @@ class TraceExamples:
             "input_columns": fields,
             "calculations": [{"column": p["column"], "reading": p["reading"]} for p in probes],
             "subjects": list(profiles.values()),
-            "scope": "Recalculates this variable using reference upstream values; it does not rerun the full analysis pipeline. Reference inputs are shown; other lookups remain in calculation details.",
+            "scope": "Recalculates this variable using upstream values from the generated ADaM datasets; it does not rerun the full analysis pipeline. Generated ADaM inputs are shown; other lookups remain in calculation details.",
         }

@@ -39,9 +39,9 @@ the affected subjects, the specification and the linked SDTM inputs, select
 the finding's variable name in the findings table;
 [SDTM to ADaM workspace](workspace.md) explains its controls.
 
-**A 100% published-reference match does not establish correctness or human
+**A 100% match with generated ADaM datasets does not establish correctness or human
 approval.** Documents, specifications and data can still disagree, and a
-reference difference alone does not identify which source is wrong.
+dataset difference alone does not identify which source is wrong.
 Automated checks and agent assessments support your review; they do not
 resolve findings. See the [verification policy](../verification.md) for the
 comparison scope and limits.
@@ -71,6 +71,6 @@ or **Download your reviews**) for a study lead;
 
 CDISC Pilot 01 and Submission Pilot 3 use the same dashboard; the
 [pilot study report](../studies/index.md) opens each one. KN189, KN564 and
-CAR-T for ALL have no published reference;
+CAR-T for ALL have no independent generated ADaM comparison datasets;
 [synthetic analysis review](synthetic.md) describes how to review their
 coverage and findings.

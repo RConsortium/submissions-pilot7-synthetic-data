@@ -13,9 +13,9 @@ def _page(src_uri):
 class IndexTableTests(unittest.TestCase):
     def test_reference_cell_scopes_counts_and_handles_unavailable_references(self):
         cell = reference_cell([5, 216, 2300000], [5, 216, 2300000])
-        self.assertIn("Datasets matching reference: **5 / 5 (100%)**", cell)
+        self.assertIn("Datasets matching generated ADaM datasets: **5 / 5 (100%)**", cell)
         self.assertIn("Cells in matching datasets: 2.3M / 2.3M", cell)
-        self.assertEqual(reference_cell([0, 0, 0], [0, 0, 0]), "No official reference")
+        self.assertEqual(reference_cell([0, 0, 0], [0, 0, 0]), "No generated ADaM comparison datasets")
 
     def test_percent_uses_whole_percent(self):
         self.assertEqual(_percent(18, 20), "90%")

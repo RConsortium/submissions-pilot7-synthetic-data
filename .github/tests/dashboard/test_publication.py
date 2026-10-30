@@ -152,16 +152,16 @@ columns:
         for expected in [
             "This report summarizes the findings. 1 study is pending validation.</p>",
             "1 / 2 studies validated",
-            "No official reference",
+            "No generated ADaM comparison datasets",
             '<a href="pending-study/">Pending study</a><small>Pending</small></th>',
-            '<td class="report-cell"><span class="report-status neutral">No reference</span>'
+            '<td class="report-cell"><span class="report-status neutral">No generated ADaM dataset</span>'
             '<span class="report-dims">3 &#215; 2</span>'
             '<span class="report-status report-issues neutral" '
             'aria-label="0 issues for Future study / CUSTOM" '
             'aria-describedby="dataset-issues-note">0 issues</span></td><td class="report-cell">-</td>',
-            "No reference: no official reference is staged.",
+            "No generated ADaM dataset: no generated ADaM comparison dataset is staged.",
             "<td>New study</td><td>Unstarted<small>Validation pending. No project yet.</small></td>",
-            '<tr><th scope="row">ADaM datasets matched</th><td>No official reference</td><td>-</td></tr>',
+            '<tr><th scope="row">ADaM datasets matched</th><td>No generated ADaM comparison datasets</td><td>-</td></tr>',
         ]:
             with self.subTest(expected=expected):
                 self.assertIn(expected, page)
@@ -170,19 +170,19 @@ columns:
     def test_complete_reference_agreement_retains_open_review_and_criticality(self):
         issues = [{"critical": {"status": "yes"}}, {"critical": {"status": "no"}}, {}]
         page = summary_cards([5, 100, 2300000], [5, 100, 2300000], issues)
-        self.assertIn("<strong>100%</strong> of reference datasets matched", page)
+        self.assertIn("<strong>100%</strong> of generated ADaM datasets matched", page)
         self.assertIn("<strong>3</strong> findings awaiting review", page)
         self.assertIn("1 critical; 1 non-critical; 1 needing assessment", page)
         self.assertIn("Cells in matching datasets</dt><dd>2.3M / 2.3M", page)
-        self.assertIn("Findings can remain open even when reference agreement is 100%", page)
+        self.assertIn("Findings can remain open even when generated ADaM dataset agreement is 100%", page)
         self.assertEqual(review_counts(issues), {"yes": 1, "no": 1, "needs_review": 1})
 
     @patch.dict("os.environ", {"GITHUB_SHA": "commit"})
     def test_home_page_shows_review_counts_separately_and_rejects_stale_summary(self):
         target = self.generate()
         table = "\n".join(build_table(self.root, self.root / ".build/validation"))
-        self.assertIn("Published ADaM reference agreement", table)
-        self.assertIn("No official reference", table)
+        self.assertIn("Generated ADaM dataset agreement", table)
+        self.assertIn("No generated ADaM comparison datasets", table)
         self.assertIn("[0 findings](studies/future-study.md#future-study/overview)", table)
         self.assertIn("0 critical; 0 non-critical; 0 needing assessment", table)
         self.assertIn("Review pending", table)
@@ -210,8 +210,8 @@ columns:
         page = (self.root / "docs/studies/index.md").read_text()
         for expected in [
             '<span class="report-status attention">Not compared</span>',
-            "Not compared: a reference is staged but the comparator did not check it.",
-            "<strong>0%</strong> of reference datasets matched",
+            "Not compared: a generated ADaM dataset is staged but the comparator did not check it.",
+            "<strong>0%</strong> of generated ADaM datasets matched",
         ]:
             with self.subTest(expected=expected):
                 self.assertIn(expected, page)
