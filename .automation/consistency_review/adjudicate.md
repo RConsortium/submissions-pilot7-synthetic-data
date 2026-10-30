@@ -45,7 +45,11 @@ Read each quote in its full section, not only the quoted span. Then:
 - **Program lines** (a section `L<first>-L<last>` in a retained program).
   Do the cited lines compute this variable in the final value, read with the
   whole program? A program shows how the reference was computed, never what
-  the documents state; dispute a finding that treats it as documentation. A
+  the documents state: dispute a finding that uses program lines as the only
+  statement of a documented rule. A CR-8 finding whose `against` side is an
+  `adam_program` is valid by design: it shows that the submission's own
+  program departs from a document statement. Judge whether the program really
+  computes that clause differently, not whether a program may be cited. A
   `reference_reimplementation` in the manifest is a later program, so judge
   only whether its lines support the reading, not the authors' intent.
 
