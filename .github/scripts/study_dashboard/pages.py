@@ -82,16 +82,20 @@ def _inputs(catalog):
 def _header(studies, validated):
     """Summarize the agents' work and identify any pending studies."""
     pending = len(studies) - len(validated)
-    result = ""
-    if pending:
-        result += f" {pending} {'study is' if pending == 1 else 'studies are'} pending validation."
     lines = [
         "<h1>Pilot study report</h1>",
-        '<p class="report-lede">AI agents create yamaa specifications and derive ADaM '
-        "datasets from SDTM data in pilot submission packages. AI agents also check "
-        "consistency between the datasets and documents in those packages. "
-        f"This report summarizes the findings.{html.escape(result)}</p>",
+        '<ul class="report-lede">',
+        '<li><strong>ADaM agreement:</strong> AI agents use '
+        '<a href="https://elong0527.github.io/yamaa/">yamaa</a> specifications '
+        'to create ADaM datasets from SDTM datasets.</li>',
+        '<li><strong>Consistency review:</strong> AI agents compare derived datasets '
+        'and submitted Define-XML.</li>',
+        "</ul>",
     ]
+    if pending:
+        lines.append(
+            f"<p>{pending} {'study is' if pending == 1 else 'studies are'} pending validation.</p>"
+        )
     return lines
 
 

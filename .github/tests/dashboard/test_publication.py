@@ -150,7 +150,7 @@ columns:
         self.generate()
         page = (self.root / "docs/studies/index.md").read_text()
         for expected in [
-            "This report summarizes the findings. 1 study is pending validation.</p>",
+            "<p>1 study is pending validation.</p>",
             "1 / 2 studies validated",
             "No generated ADaM comparison datasets",
             '<a href="pending-study/">Pending study</a><small>Pending</small></th>',
