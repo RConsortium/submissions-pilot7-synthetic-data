@@ -24,11 +24,16 @@ unsupported metadata stay Not assessed, with separate coverage counts. Source
 citations retain exact original XML lines. Origins and methods remain review
 evidence; this is not a reconstruction of the derivation pipeline.
 
+The focused findings and Start review dialog use only those two sources.
+The SDTM -> ADaM workspace, generated XML comparison, source documents,
+reference-data selection and reproduction summary remain available. Their
+additional evidence does not contribute to the focused findings.
+
 This mode publishes neither the multisource verification report nor the old
 claim-based issue groupings. `reviewed_datasets` omits it from that publication
 prerequisite. Existing claims, programs and reference files remain retained;
 explicit derivation review and dataset reproduction tools still work separately.
-The mode is opt-in; other studies keep their current review. Do not change
+The finding scope is opt-in; other studies keep their current review. Do not change
 independent reference data or loosen comparator policies to resolve a finding.
 
 ## Source layout

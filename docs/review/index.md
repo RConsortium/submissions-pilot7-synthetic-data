@@ -31,10 +31,11 @@ Missing dataset label metadata, unsupported conditions, external dictionaries,
 rounding-dependent rules and derivations needing SDTM or another document
 remain explicit. The review does not substitute YAML labels for stored labels.
 
-Use **Dataset and Define-XML** to inspect selected subjects beside the retained
-XML. The checks cover all records, independently of the displayed subjects.
-The retained reference datasets, generated Define-XML, YAML, workbook, SAP,
-ADRG and original programs do not contribute findings to this Pilot 5 view.
+Use **Start review** for the focused dataset-versus-Define-XML evidence.
+The checks cover all records, independently of the displayed subjects.
+The **SDTM -> ADaM**, **Define-XML comparison** and **Source documents** tabs
+retain the full workspace, including YAML, input data and original documents.
+Those additional sources do not contribute to the focused Pilot 5 findings.
 Build and independent dataset reproduction checks continue separately in CI.
 
 ## Record a recommendation
@@ -47,7 +48,7 @@ A draft or posted comment does not resolve the finding.
 
 **Your reviews** exports your assessments with their evidence revision.
 [Consistency findings](findings.md) explains the statuses and controls;
-[Dataset review](workspace.md) describes the side-by-side view.
+[SDTM to ADaM workspace](workspace.md) describes the linked data and YAML views.
 
 ## Other studies
 
