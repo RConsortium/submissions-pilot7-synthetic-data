@@ -406,16 +406,16 @@
     {
       "id": "selection-rule",
       "variable": "AOCC01FL",
-      "title": "Define-XML subsets blank query names instead of dermatologic events",
-      "summary": "Define-XML subsets AOCC01FL to CQ01NAM=''; the data guide, adae.sas and the specification flag dermatologic events. Run as written, the Define rule differs on 327 of 1191 records.",
-      "expected": "Data guide page 5: the first chronological occurrence of the treatment emergent dermatological events is flagged (AOCC01FL); the Define-XML parenthetical names the same flag.",
-      "observed": "CQ01NAM='' flags 175 records the reference leaves blank and misses 152 it flags. adae.sas lines 54-76 and 90 subset CQ01NAM='DERMATOLOGIC EVENTS'; that reading reproduces the reference.",
-      "action": "Correct the AOCC01FL subset in Define-XML to CQ01NAM='DERMATOLOGIC EVENTS', keeping TRTEMFL='Y' and the documented ASTDT, AESEQ order.",
+      "title": "Define-XML selects the wrong event group",
+      "summary": "The blank-query condition selects events outside the dermatologic group, conflicting with the guide and the reference flags. The implementation already selects dermatologic events.",
+      "expected": "Select CQ01NAM='DERMATOLOGIC EVENTS' and TRTEMFL='Y', then flag the first event by ASTDT and AESEQ within each subject.",
+      "observed": "Define-XML says CQ01NAM='', which excludes the populated dermatologic query. Applying that condition flags different records from the reference.",
+      "action": "Correct the AOCC01FL condition in Define-XML to CQ01NAM='DERMATOLOGIC EVENTS'. Keep TRTEMFL='Y' and the documented ASTDT, AESEQ order. The guide interpretation reproduces all reference flags.",
       "checks": [
         "ADAE.AOCC01FL.CR-8.4",
-        "ADAE.AOCC01FL.CR-8.6",
         "ADAE.AOCC01FL.CR-5",
-        "ADAE.AOCC01FL.CR-6.1"
+        "ADAE.AOCC01FL.CR-6.1",
+        "ADAE.AOCC01FL.CR-8.6"
       ],
       "data": [
         {
@@ -445,30 +445,9 @@
           "section": "page-5"
         },
         {
-          "check": "ADAE.AOCC01FL.CR-8.6",
-          "type": "document",
-          "section": "L54-L76"
-        },
-        {
-          "check": "ADAE.AOCC01FL.CR-5",
-          "type": "document",
-          "section": "L90"
-        },
-        {
           "check": "ADAE.AOCC01FL.CR-6.1",
           "type": "specification",
           "section": "DERM_RN"
-        },
-        {
-          "check": "ADAE.AOCC01FL.CR-5",
-          "type": "specification",
-          "section": "AOCC01FL",
-          "path": "cdiscpilot01/spec/review/adae-documented-rules.yaml"
-        },
-        {
-          "check": "ADAE.AOCC01FL.CR-5",
-          "type": "specification",
-          "section": "AOCC01FL__DERMATOLOGIC"
         }
       ],
       "aliases": [
@@ -481,15 +460,31 @@
       "id": "sorting-rule",
       "variable": "AOCC01FL",
       "title": "Sequence-only ordering omits the documented start-date priority",
-      "summary": "Define-XML and the data guide pick the first dermatologic event by ASTDT, then AESEQ; DERM_RN in the specification orders by AESEQ alone.",
-      "expected": "Data guide page 5: 'the first chronological occurrence based on the start dates (and sequence numbers)'. Define-XML sorts by USUBJID, ASTDT and AESEQ.",
-      "observed": "DERM_RN orders eligible treatment-emergent dermatologic events within subject by AESEQ only, with no ASTDT priority.",
-      "action": "Add ASTDT before AESEQ in the DERM_RN order, keeping the dermatologic-event filter.",
+      "summary": "The documented rule orders eligible dermatologic events by ASTDT, then AESEQ. DERM_RN uses AESEQ alone. The chronological interpretation matches both the reference and yamaa flags on this dataset.",
+      "expected": "Within each subject, select the earliest treatment-emergent dermatologic event by ASTDT; use AESEQ to break ties.",
+      "observed": "DERM_RN orders by AESEQ alone. No difference from the chronological interpretation was observed in the tested flags.",
+      "action": "Add ASTDT before AESEQ in DERM_RN. Keep the dermatologic-event filter. This states the documented chronology; the tested data does not demonstrate an ordering failure.",
       "checks": [
         "ADAE.AOCC01FL.CR-6.2",
-        "ADAE.AOCC01FL.CR-6.5"
+        "ADAE.AOCC01FL.CR-6.5",
+        "ADAE.AOCC01FL.CR-5"
       ],
-      "data": [],
+      "data": [
+        {
+          "check": "ADAE.AOCC01FL.CR-5",
+          "kind": "probe",
+          "column": "AOCC01FL__DERMATOLOGIC",
+          "target": "derived",
+          "role": "impact"
+        },
+        {
+          "check": "ADAE.AOCC01FL.CR-5",
+          "kind": "probe",
+          "column": "AOCC01FL__DERMATOLOGIC",
+          "target": "reference",
+          "role": "context"
+        }
+      ],
       "citations": [
         {
           "check": "ADAE.AOCC01FL.CR-6.2",
