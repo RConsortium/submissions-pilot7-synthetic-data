@@ -3,9 +3,9 @@
   "dataset": "ADQSADAS",
   "author": {
     "kind": "agent",
-    "model": "claude-opus-5-5",
+    "model": "claude-opus-5-5; program tracing round by claude-opus-5-5[1m]",
     "instructions": ".automation/consistency_review/extract.md",
-    "date": "2026-10-28"
+    "date": "2026-10-29"
   },
   "claims": [
     {
@@ -26,6 +26,11 @@
           "document": "spec/source/dataguide.pdf",
           "section": "page-3",
           "quote": "The ADSL (Subject Level Analysis Data) dataset contains all subject-level variables for\ndemographics, subject characteristics, and population flags."
+        },
+        {
+          "document": "spec/source/programs/pilot6/adadas.r",
+          "section": "L41-L44",
+          "quote": "adadas_pred <- build_from_derived(\n  adadas_spec,\n  ds_list = list(\"ADSL\" = adsl, \"QS\" = qs, \"DM\" = dm)\n)"
         }
       ],
       "clauses": [
@@ -54,7 +59,7 @@
         "Actual ordinary-row identity flows from the QS input into the global QS.STUDYID derivation. Added locf8/locf16/locf24 rows also use dataset QS and group_by QS.STUDYID/QS.USUBJID; none overrides the global identity from its donor or from ADSL. DONOR8/16/24 are themselves keyed on the same STUDYID/USUBJID. Thus both ordinary and derived branches keep the raw subject identity while ADSL contributes other subject attributes through its keyed input.",
         "The data guide repeats the ADSL source for both identifiers in its explicit core-variable merge list. It gives no observed/derived record exception. Using preserved identity as the lookup key establishes source membership and the returned ADSL identifier without altering the reference row set."
       ],
-      "assessment": "Define-XML and the data guide name the same independent ADSL source; the executable ordinary and derived row flows take this identifier from QS.",
+      "assessment": "Define-XML and the data guide name the same independent ADSL source; the executable ordinary and derived row flows take this identifier from QS. Pilot 6's R reimplementation (adadas.r L41-L44) builds the predecessor variables from ADSL, QS and DM as its own specification workbook directs; the program text does not show which of these supplies STUDYID.",
       "question": ""
     },
     {
@@ -75,6 +80,11 @@
           "document": "spec/source/dataguide.pdf",
           "section": "page-3",
           "quote": "The ADSL (Subject Level Analysis Data) dataset contains all subject-level variables for\ndemographics, subject characteristics, and population flags."
+        },
+        {
+          "document": "spec/source/programs/pilot6/adadas.r",
+          "section": "L41-L44",
+          "quote": "adadas_pred <- build_from_derived(\n  adadas_spec,\n  ds_list = list(\"ADSL\" = adsl, \"QS\" = qs, \"DM\" = dm)\n)"
         }
       ],
       "clauses": [
@@ -103,7 +113,7 @@
         "Actual ordinary-row identity flows from the QS input into the global QS.USUBJID derivation. Added locf8/locf16/locf24 rows also use dataset QS and group_by QS.STUDYID/QS.USUBJID; none overrides the global identity from its donor or from ADSL. DONOR8/16/24 are themselves keyed on the same STUDYID/USUBJID. Thus both ordinary and derived branches keep the raw subject identity while ADSL contributes other subject attributes through its keyed input.",
         "The data guide repeats the ADSL source for both identifiers in its explicit core-variable merge list. It gives no observed/derived record exception. Using preserved identity as the lookup key establishes source membership and the returned ADSL identifier without altering the reference row set."
       ],
-      "assessment": "Define-XML and the data guide name the same independent ADSL source; the executable ordinary and derived row flows take this identifier from QS.",
+      "assessment": "Define-XML and the data guide name the same independent ADSL source; the executable ordinary and derived row flows take this identifier from QS. Pilot 6's R reimplementation (adadas.r L41-L44) builds the predecessor variables from ADSL, QS and DM as its own specification workbook directs; the program text does not show which of these supplies USUBJID.",
       "question": ""
     },
     {
@@ -164,6 +174,21 @@
           "document": "spec/define/define-adam.xml",
           "section": "ADQSADAS.ADY",
           "quote": "ADY = ADT - TRTSDT + 1, if ADT>=TRTSDT. ADY = ADT - TRTSDT, if ADT<TRTSDT."
+        },
+        {
+          "document": "spec/source/programs/pilot6/adadas.r",
+          "section": "L69-L75",
+          "quote": "AVISIT = case_when(\n      ADY <= 1 ~ \"Baseline\",\n      ADY >= 2 & ADY <= 84 ~ \"Week 8\",\n      ADY >= 85 & ADY <= 140 ~ \"Week 16\",\n      ADY > 140 ~ \"Week 24\",\n      TRUE ~ NA_character_\n    ),"
+        },
+        {
+          "document": "spec/source/programs/pilot6/adadas.r",
+          "section": "L117-L123",
+          "quote": "~PARAMCD, ~AVISITN, ~AVISIT,\n  \"ACTOT\", 0, \"Baseline\",\n  \"ACTOT\", 8, \"Week 8\",\n  \"ACTOT\", 16, \"Week 16\",\n  \"ACTOT\", 24, \"Week 24\""
+        },
+        {
+          "document": "spec/source/programs/pilot6/adadas.r",
+          "section": "L125-L139",
+          "quote": "adas_locf2 <- adas4 %>%\n  restrict_derivation(\n    derivation = derive_locf_records,\n    args = params(\n      dataset_ref = actot_expected_obsv,\n      by_vars = exprs(\n        STUDYID, SITEID, SITEGR1, USUBJID, TRTSDT, TRTEDT,\n        TRTP, TRTPN, AGE, AGEGR1, AGEGR1N, RACE, RACEN, SEX,\n        ITTFL, EFFFL, COMP24FL, PARAMCD\n      ),\n      order = exprs(AVISITN, AVISIT),\n      keep_vars = exprs(VISIT, VISITNUM, ADY, ADT, PARAM, PARAMN, QSSEQ)\n    ),\n    filter = !is.na(ANL01FL)\n  ) %>%"
         }
       ],
       "clauses": [
@@ -276,7 +301,7 @@
         "Native retained upstream implementation pointer: cdiscpilot01/spec/yamaa/adsl.yaml, EX_MINDTC and TRTSDT (around lines 384-407), and cdiscpilot01/spec/yamaa/adqsadas.yaml input ADSL plus column TRTSDT. ADQSADAS reads adsl-yamaa.parquet; upstream TRTSDT uses MIN(EX.EXSTDTC) and date imputation despite a metadata comment naming SV Visit 3. That implementation pointer explains the executable-source clauses; it is not a substitute formal document quotation or a measured equality/difference of the submitted dates.",
         "Any eventual probe must retain original matching columns STUDYID, USUBJID, PARAMCD, AVISITN and QSSEQ unchanged. It must not copy REF.AVISIT, invert REF.AVISITN as proof of its own label, use REF.ADY as SAP calendar difference, or introduce a first/last raw-date or missing-input default unsupported by the documents. New helpers would use _ADAS_FU_ names."
       ],
-      "assessment": "The retained protocol and source definition now identify a faithful operational Visit-3 date anchor. The executable chain uses the separately documented ADY arithmetic and derived upstream exposure date. A complete whole-variable literal still requires an independently specified application of date windows versus recipient labels across created LOCF records; the native inclusive baseline remains an exact-section representation caveat.",
+      "assessment": "The retained protocol and source definition now identify a faithful operational Visit-3 date anchor. The executable chain uses the separately documented ADY arithmetic and derived upstream exposure date. A complete whole-variable literal still requires an independently specified application of date windows versus recipient labels across created LOCF records; the native inclusive baseline remains an exact-section representation caveat. Pilot 6's R reimplementation windows collected records on ADY (adadas.r L69-L75, with the baseline window ADY <= 1) and takes the visit of created ACTOT LOCF records from its expected-visit table (L117-L123) through derive_locf_records (L125-L139), which carries donor ADT and ADY (L136); it thus assigns the recipient visit from the expected schedule rather than from donor dates.",
       "question": "What retained rule independently identifies created LOCF recipient records and assigns their recipient analysis visit when donor ADT/VISIT is retained? Expose the native inclusive baseline boundary in the supported exact sections, and reconcile the SAP calendar-day window input with the executable ADY/upstream source chain."
     },
     {
@@ -297,6 +322,16 @@
           "document": "spec/source/dataguide.pdf",
           "section": "page-6",
           "quote": "It contains one record per subject per parameter (ADAS-Cog questionnaire\nitem) per VISIT. Visits are placed into analysis visits (represented by AVISIT and AVISITN)\nbased on the date of the visit and the visit windows. If multiple visits fall into the same visit\nwindow, then the one closest to the target date is chosen for analysis."
+        },
+        {
+          "document": "spec/source/programs/pilot6/adadas.r",
+          "section": "L79",
+          "quote": "create_var_from_codelist(adadas_spec, AVISIT, AVISITN) %>%"
+        },
+        {
+          "document": "spec/source/programs/pilot6/adadas.r",
+          "section": "L117-L123",
+          "quote": "~PARAMCD, ~AVISITN, ~AVISIT,\n  \"ACTOT\", 0, \"Baseline\",\n  \"ACTOT\", 8, \"Week 8\",\n  \"ACTOT\", 16, \"Week 16\",\n  \"ACTOT\", 24, \"Week 24\""
         }
       ],
       "clauses": [
@@ -333,7 +368,7 @@
       "interpretations": [
         "The probe codes published REF.AVISIT and tests the coding rule independently of visit window derivation. All enumerated AVISITN codes are retained, while SAP identifies the ADAS-Cog schedule as Baseline, Week 8, Week 16, and Week 24. The codelist gives exact integer codes, so no extra precision or rounding is inferred."
       ],
-      "assessment": "The explicit codelist provides an operational coding rule.",
+      "assessment": "The explicit codelist provides an operational coding rule. Pilot 6's R reimplementation codes AVISITN from its specification codelist (adadas.r L79) and sets it on created LOCF records from its expected-visit table (L117-L123).",
       "question": ""
     },
     {
@@ -344,6 +379,16 @@
           "document": "spec/define/define-adam.xml",
           "section": "ADQSADAS.ADY",
           "quote": "ADY = ADT - TRTSDT + 1, if ADT>=TRTSDT. ADY = ADT - TRTSDT, if ADT<TRTSDT."
+        },
+        {
+          "document": "spec/source/programs/pilot6/adadas.r",
+          "section": "L64",
+          "quote": "derive_vars_dy(reference_date = TRTSDT, source_vars = exprs(ADT))"
+        },
+        {
+          "document": "spec/source/programs/pilot6/adadas.r",
+          "section": "L136",
+          "quote": "keep_vars = exprs(VISIT, VISITNUM, ADY, ADT, PARAM, PARAMN, QSSEQ)"
         }
       ],
       "clauses": [
@@ -368,7 +413,7 @@
       "interpretations": [
         "The probe reads published REF.ADT and REF.TRTSDT so it isolates the ADY calculation from source-date and treatment-date derivations. LOCF rows carry donor ADY and donor ADT together in the specification; the same documented arithmetic is tested on all reference rows. SAP window-day wording is addressed in AVISIT, where the calendar-day definition is used."
       ],
-      "assessment": "Define-XML supplies the full date arithmetic.",
+      "assessment": "Define-XML supplies the full date arithmetic. Pilot 6's R reimplementation derives ADY from ADT and TRTSDT (adadas.r L64) and carries the donor ADY onto created LOCF records (L136).",
       "question": ""
     },
     {
@@ -384,6 +429,21 @@
           "document": "spec/source/dataguide.pdf",
           "section": "page-6",
           "quote": "Source data can be traced back to the SDTM.QS domain using USUBJID and\nQSSEQ."
+        },
+        {
+          "document": "spec/source/programs/pilot6/adadas.r",
+          "section": "L49-L53",
+          "quote": "derive_vars_merged(\n    dataset_add = qs,\n    new_vars = exprs(QSDTC, QSSTRESN, QSTEST),\n    by_vars = exprs(STUDYID, USUBJID, QSSEQ)\n  ) %>%"
+        },
+        {
+          "document": "spec/source/programs/pilot6/adadas.r",
+          "section": "L58-L62",
+          "quote": "# ADT\n  derive_vars_dt(\n    new_vars_prefix = \"A\",\n    dtc = QSDTC\n  ) %>%"
+        },
+        {
+          "document": "spec/source/programs/pilot6/adadas.r",
+          "section": "L136",
+          "quote": "keep_vars = exprs(VISIT, VISITNUM, ADY, ADT, PARAM, PARAMN, QSSEQ)"
         }
       ],
       "clauses": [
@@ -417,7 +477,7 @@
         "The raw QS lookup uses STUDYID, USUBJID, and QSSEQ and must be unique; it does not select one of several source records. The probe converts complete QSDTC dates and leaves partial dates missing instead of inventing an imputation rule.",
         "Original Define-XML ACTOT QSSEQ value-level metadata at OID ADQSADAS.QSSEQ.ACTOT, cdiscpilot01/spec/define/define-adam.xml around lines 14207-14214, states that post-baseline ACTOT QSSEQ is missing. The exact-section adapter omits this value-level rule. This is a native source/traceability qualification for reviewer inspection, not a formally quoted absent rule."
       ],
-      "assessment": "The date source and trace keys are stated; first-day imputation is an additional implementation choice.",
+      "assessment": "The date source and trace keys are stated; first-day imputation is an additional implementation choice. Pilot 6's R reimplementation merges QSDTC by STUDYID, USUBJID and QSSEQ (adadas.r L49-L53), converts it with derive_vars_dt without an imputation argument (L58-L62), and carries the donor ADT onto created LOCF records (L136).",
       "question": "Should partial QS.QSDTC dates remain missing, or is there an additional retained source authorizing the specification first-day imputation? Review ACTOT traceability using the native QSSEQ value-level metadata."
     },
     {
@@ -438,6 +498,21 @@
           "document": "spec/source/dataguide.pdf",
           "section": "page-6",
           "quote": "Source data can be traced back to the SDTM.QS domain using USUBJID and\nQSSEQ."
+        },
+        {
+          "document": "spec/source/programs/pilot6/adadas.r",
+          "section": "L54-L57",
+          "quote": "filter(\n    PARAMCD %in%\n      c(str_c(\"ACITM\", str_pad(1:14, 2, pad = \"0\")), \"ACTOT\")\n  ) %>%"
+        },
+        {
+          "document": "spec/source/programs/pilot6/adadas.r",
+          "section": "L117-L123",
+          "quote": "~PARAMCD, ~AVISITN, ~AVISIT,\n  \"ACTOT\", 0, \"Baseline\",\n  \"ACTOT\", 8, \"Week 8\",\n  \"ACTOT\", 16, \"Week 16\",\n  \"ACTOT\", 24, \"Week 24\""
+        },
+        {
+          "document": "spec/source/programs/pilot6/adadas.r",
+          "section": "L125-L139",
+          "quote": "adas_locf2 <- adas4 %>%\n  restrict_derivation(\n    derivation = derive_locf_records,\n    args = params(\n      dataset_ref = actot_expected_obsv,\n      by_vars = exprs(\n        STUDYID, SITEID, SITEGR1, USUBJID, TRTSDT, TRTEDT,\n        TRTP, TRTPN, AGE, AGEGR1, AGEGR1N, RACE, RACEN, SEX,\n        ITTFL, EFFFL, COMP24FL, PARAMCD\n      ),\n      order = exprs(AVISITN, AVISIT),\n      keep_vars = exprs(VISIT, VISITNUM, ADY, ADT, PARAM, PARAMN, QSSEQ)\n    ),\n    filter = !is.na(ANL01FL)\n  ) %>%"
         }
       ],
       "clauses": [
@@ -474,7 +549,7 @@
       "interpretations": [
         "The native PARAMCD ItemDef ADQSADAS.PARAMCD at cdiscpilot01/spec/define/define-adam.xml lines 5482-5491 has a blank Comment and a CodeListRef; unlike AVAL, its missing scalar source rule is not merely hidden value-level metadata."
       ],
-      "assessment": "The code list is explicit, but the complete assignment rule is not.",
+      "assessment": "The code list is explicit, but the complete assignment rule is not. Pilot 6's R reimplementation keeps predecessor PARAMCD values restricted to ACITM01-ACITM14 and ACTOT (adadas.r L54-L57) and creates ACTOT-only LOCF records from its expected-visit table (L117-L123, L125-L139).",
       "question": "Confirm the raw source-to-analysis parameter-code mapping and the conditions that create ACTOT-only LOCF records."
     },
     {
@@ -495,6 +570,21 @@
           "document": "spec/source/dataguide.pdf",
           "section": "page-6",
           "quote": "ADQSADAS contains analysis data from the ADAS-Cog questionnaire, one of the primary\nefficacy endpoints."
+        },
+        {
+          "document": "spec/source/programs/pilot6/adadas.r",
+          "section": "L51",
+          "quote": "new_vars = exprs(QSDTC, QSSTRESN, QSTEST),"
+        },
+        {
+          "document": "spec/source/programs/pilot6/adadas.r",
+          "section": "L77",
+          "quote": "PARAM = QSTEST %>% str_to_title()"
+        },
+        {
+          "document": "spec/source/programs/pilot6/adadas.r",
+          "section": "L136",
+          "quote": "keep_vars = exprs(VISIT, VISITNUM, ADY, ADT, PARAM, PARAMN, QSSEQ)"
         }
       ],
       "clauses": [
@@ -519,7 +609,7 @@
       "interpretations": [
         "The PARAMCD codelist pairs each analysis code with its parameter description and the PARAM codelist enumerates the same strings. The probe uses these exact pairs and preserves capitalization and truncated descriptions. It reads published REF.PARAMCD without inferring its raw source."
       ],
-      "assessment": "The code-description pairs provide an operational label crosswalk.",
+      "assessment": "The code-description pairs provide an operational label crosswalk. Pilot 6's R reimplementation title-cases QS.QSTEST (adadas.r L51, L77) and carries the donor PARAM onto created LOCF records (L136).",
       "question": ""
     },
     {
@@ -535,6 +625,16 @@
           "document": "spec/define/define-adam.xml",
           "section": "ADQSADAS.PARAMCD",
           "quote": "Codelist PARAMCD_ADQSADAS: ACITM01 = Word Recall Task; ACITM02 = Naming Objects And Fingers (Refer To 5 C; ACITM03 = Delayed Word Recall; ACITM04 = Commands; ACITM05 = Constructional Praxis; ACITM06 = Ideational Praxis; ACITM07 = Orientation; ACITM08 = Word Recognition; ACITM09 = Attention/Visual Search Task; ACITM10 = Maze Solution; ACITM11 = Spoken Language Ability; ACITM12 = Comprehension Of Spoken Language; ACITM13 = Word Finding Difficulty In Spontaneous S; ACITM14 = Recall Of Test Instructions; ACTOT = Adas-Cog(11) Subscore"
+        },
+        {
+          "document": "spec/source/programs/pilot6/adadas.r",
+          "section": "L80",
+          "quote": "create_var_from_codelist(adadas_spec, PARAM, PARAMN)"
+        },
+        {
+          "document": "spec/source/programs/pilot6/adadas.r",
+          "section": "L136",
+          "quote": "keep_vars = exprs(VISIT, VISITNUM, ADY, ADT, PARAM, PARAMN, QSSEQ)"
         }
       ],
       "clauses": [
@@ -560,7 +660,7 @@
       "interpretations": [
         "Use published REF.PARAMCD so the parameter-number probe tests the documented crosswalk without also testing parameter-code provenance. No precision rule beyond the enumerated integer codes is added."
       ],
-      "assessment": "The numeric codes and their pairing to PARAMCD are explicit.",
+      "assessment": "The numeric codes and their pairing to PARAMCD are explicit. Pilot 6's R reimplementation codes PARAMN from PARAM through its specification codelist (adadas.r L80) and carries it onto created LOCF records (L136).",
       "question": ""
     },
     {
@@ -621,6 +721,21 @@
           "document": "spec/source/SAP.pdf",
           "section": "page-45",
           "quote": "ITEM09a Attention/Visual Search Task\n\n0-5\nBased on number of correct answers:\n>30 = 0\n24-30 = 1\n18-23 = 2\n12-17 = 3\n6-11 = 4\n0-5 = 5\nITEM10a Maze Solution\n\n0-5\nBased on time (in seconds) and number of\nerrors:\nIf <2 errors then:\n0-30 seconds = 0\n31-60 = 1\n61-90 = 2\n91-120 = 3\n121-239 = 4\n\u2265 240 = 5\nIf 2 or more errors then the score is a 5\nITEM11 Spoken Language Ability\n\n0-5\nITEM12 Comprehension of Spoken Language\n\n0-5"
+        },
+        {
+          "document": "spec/source/programs/pilot6/adadas.r",
+          "section": "L51",
+          "quote": "new_vars = exprs(QSDTC, QSSTRESN, QSTEST),"
+        },
+        {
+          "document": "spec/source/programs/pilot6/adadas.r",
+          "section": "L76",
+          "quote": "AVAL = QSSTRESN,"
+        },
+        {
+          "document": "spec/source/programs/pilot6/adadas.r",
+          "section": "L125-L139",
+          "quote": "adas_locf2 <- adas4 %>%\n  restrict_derivation(\n    derivation = derive_locf_records,\n    args = params(\n      dataset_ref = actot_expected_obsv,\n      by_vars = exprs(\n        STUDYID, SITEID, SITEGR1, USUBJID, TRTSDT, TRTEDT,\n        TRTP, TRTPN, AGE, AGEGR1, AGEGR1N, RACE, RACEN, SEX,\n        ITTFL, EFFFL, COMP24FL, PARAMCD\n      ),\n      order = exprs(AVISITN, AVISIT),\n      keep_vars = exprs(VISIT, VISITNUM, ADY, ADT, PARAM, PARAMN, QSSEQ)\n    ),\n    filter = !is.na(ANL01FL)\n  ) %>%"
         }
       ],
       "clauses": [
@@ -711,7 +826,7 @@
         "SAP permits retrieval assessments after study drug in windowing. The generic QSTESTCD filter does not exclude retrieval or off-drug assessments, which is compatible with that instruction. The remaining candidate tie-break and complete added-row construction need review.",
         "SAP page-45 also gives task 9 conversion from number of correct answers and task 10 conversion from time and errors, followed by task 11 and 12 ranges. Their native AVAL item metadata instead identifies standardized QSSTRESN as the analysis source. The raw count/time/error variables and any upstream standardization are not named in the citable sections, so copying an already scored standardized item cannot by itself establish failure to apply the scoring table. A literal whole-variable probe cannot invent those input links."
       ],
-      "assessment": "Citable scoring and LOCF statements expose implementation choices, but full independent AVAL execution requires the retained value-level methods and clarified source grouping and row construction.",
+      "assessment": "Citable scoring and LOCF statements expose implementation choices, but full independent AVAL execution requires the retained value-level methods and clarified source grouping and row construction. Pilot 6's R reimplementation copies QS.QSSTRESN for every kept parameter, including ACTOT, without recomputing the total from items (adadas.r L51, L76), and fills missing ACTOT expected visits by derive_locf_records over ANL01FL-flagged records (L125-L139).",
       "question": "Expose the native AVAL value-level methods to exact-section review, confirm whether ACTOT must be recomputed from items, specify item/total matching and not-applicable coding, and decide the LOCF recipient, tie-break, donor, and added-row conventions."
     },
     {
@@ -757,6 +872,16 @@
           "document": "spec/source/SAP.pdf",
           "section": "page-48",
           "quote": "The protocol states that efficacy assessments are invalid if no study drug has been taken\nwithin 3 days prior to the assessment. This will not be considered in the pilot project. In\naddition, efficacy assessments occurring after the last dose of drug will be considered for\nwindowing and for the efficacy analysis if they are collected at visit number 201."
+        },
+        {
+          "document": "spec/source/programs/pilot6/adadas.r",
+          "section": "L102-L113",
+          "quote": "adas4 <- adas3 %>%\n  mutate(diff = AWTARGET - ADY) %>%\n  restrict_derivation(\n    derivation = derive_var_extreme_flag,\n    args = params(\n      by_vars = exprs(USUBJID, PARAMCD, AVISIT),\n      order = exprs(AWTDIFF, diff),\n      new_var = ANL01FL,\n      mode = \"first\"\n    ),\n    filter = !is.na(AVISIT)\n  )"
+        },
+        {
+          "document": "spec/source/programs/pilot6/adadas.r",
+          "section": "L141",
+          "quote": "mutate(ANL01FL = if_else(is.na(DTYPE), ANL01FL, \"Y\")) %>%"
         }
       ],
       "clauses": [
@@ -823,7 +948,7 @@
         "SAP.pdf physical page 11 (printed page 10), Section 8.2 ADAS-Cog/CIBIC+ baseline row, visibly uses an underlined less-than sign, meaning <=1. The supplied exact-section text drops the underline and reads <1. This is an extraction artifact, not a confirmed source-versus-specification boundary difference. The independent first-batch render is .build/extraction/adqsadas1-sap-window.png.",
         "The nearest-assessment rule applies to records within the same subject, parameter and analysis window. Exact behavior for nonselected duplicate records, incomplete dates and added LOCF rows needs operational clarification before the whole variable can be probed."
       ],
-      "assessment": "Closest-to-target choice and the direction of an equidistant tie are stated; complete candidate and synthetic-row coverage remains an operational question.",
+      "assessment": "Closest-to-target choice and the direction of an equidistant tie are stated; complete candidate and synthetic-row coverage remains an operational question. Pilot 6's R reimplementation flags the first record per USUBJID, PARAMCD and AVISIT ordered by AWTDIFF and then diff = AWTARGET - ADY (adadas.r L102-L113); ascending diff puts the assessment after the target day first, so on an equidistant tie it flags the later assessment, the opposite of the SAP preference. Created LOCF records get ANL01FL = Y (L141). The program is a reimplementation, not the authors' program.",
       "question": "Specify candidate eligibility, the randomization-date source, same-date duplicate handling, and flagging/emission of added LOCF rows; confirm that pre-target assessments win equidistant ties."
     },
     {
@@ -859,6 +984,11 @@
           "document": "spec/source/SAP.pdf",
           "section": "page-28",
           "quote": "ADAS Cog (11) \u2013 Mean and Mean Change from Baseline over Time"
+        },
+        {
+          "document": "spec/source/programs/pilot6/adadas.r",
+          "section": "L125-L139",
+          "quote": "adas_locf2 <- adas4 %>%\n  restrict_derivation(\n    derivation = derive_locf_records,\n    args = params(\n      dataset_ref = actot_expected_obsv,\n      by_vars = exprs(\n        STUDYID, SITEID, SITEGR1, USUBJID, TRTSDT, TRTEDT,\n        TRTP, TRTPN, AGE, AGEGR1, AGEGR1N, RACE, RACEN, SEX,\n        ITTFL, EFFFL, COMP24FL, PARAMCD\n      ),\n      order = exprs(AVISITN, AVISIT),\n      keep_vars = exprs(VISIT, VISITNUM, ADY, ADT, PARAM, PARAMN, QSSEQ)\n    ),\n    filter = !is.na(ANL01FL)\n  ) %>%"
         }
       ],
       "clauses": [
@@ -929,7 +1059,7 @@
         "SAP distinguishes missing baseline from missing post-baseline values, and the data guide restricts donor candidates to analysis records. These rules do not authorize replacing every observed ACTOT recipient or marking imputation solely by numerical inequality.",
         "The page-28 table separates observed/windowed and LOCF summaries but does not identify row-level imputation history or give a separate DTYPE decision algorithm."
       ],
-      "assessment": "Citable documents define LOCF-use semantics and candidate scope; the specification observation rule instead tests score inequality. Native parameter-specific DTYPE methods remain outside the citable adapter.",
+      "assessment": "Citable documents define LOCF-use semantics and candidate scope; the specification observation rule instead tests score inequality. Native parameter-specific DTYPE methods remain outside the citable adapter. Pilot 6's R reimplementation sets DTYPE only on the ACTOT records that derive_locf_records creates for expected visits missing among ANL01FL-flagged records (adadas.r L125-L139); it does not compare scores.",
       "question": "Expose the native DTYPE VLM and specify an independent operational imputation-use rule, including equal-score cases, baseline restrictions, recipient scope and synthetic rows."
     },
     {
@@ -955,6 +1085,16 @@
           "document": "spec/source/dataguide.pdf",
           "section": "page-6",
           "quote": "If multiple visits fall into the same visit\nwindow, then the one closest to the target date is chosen for analysis."
+        },
+        {
+          "document": "spec/source/programs/pilot6/adadas.r",
+          "section": "L83-L89",
+          "quote": "aw_lookup <- tribble(\n  ~AVISIT, ~AWRANGE, ~AWTARGET, ~AWLO, ~AWHI,\n  \"Baseline\", \"<=1\", 1, NA_integer_, 1,\n  \"Week 8\", \"2-84\", 56, 2, 84,\n  \"Week 16\", \"85-140\", 112, 85, 140,\n  \"Week 24\", \">140\", 168, 141, NA_integer_\n)"
+        },
+        {
+          "document": "spec/source/programs/pilot6/adadas.r",
+          "section": "L142-L147",
+          "quote": "# re-derive AWRANGE/AWTARGET/AWTDIFF/AWLO/AWHI/AWU\n  select(-c(\"AWRANGE\", \"AWTARGET\", \"AWLO\", \"AWHI\")) %>%\n  derive_vars_merged(\n    dataset_add = aw_lookup,\n    by_vars = exprs(AVISIT)\n  ) %>%"
         }
       ],
       "clauses": [
@@ -1005,7 +1145,7 @@
         "The SAP target column is explicit despite lost baseline interval underlining. It gives the target of the analysis window, including a recipient LOCF analysis visit, rather than a donor-date-based new target.",
         "No extra precision rule is needed beyond the explicit integer target days. Unlisted analysis visits have no mapped target; no fallback target is invented."
       ],
-      "assessment": "The four visit-to-target-day assignments are explicit and are expressed in the observation and LOCF templates.",
+      "assessment": "The four visit-to-target-day assignments are explicit and are expressed in the observation and LOCF templates. Pilot 6's R reimplementation looks the target day up by AVISIT from a fixed table (adadas.r L83-L89) and repeats the lookup after creating LOCF records (L142-L147).",
       "question": ""
     },
     {
@@ -1026,6 +1166,16 @@
           "document": "spec/source/dataguide.pdf",
           "section": "page-6",
           "quote": "If multiple visits fall into the same visit\nwindow, then the one closest to the target date is chosen for analysis."
+        },
+        {
+          "document": "spec/source/programs/pilot6/adadas.r",
+          "section": "L97",
+          "quote": "AWTDIFF = abs(AWTARGET - ADY),"
+        },
+        {
+          "document": "spec/source/programs/pilot6/adadas.r",
+          "section": "L149",
+          "quote": "AWTDIFF = abs(AWTARGET - ADY),"
         }
       ],
       "clauses": [
@@ -1064,7 +1214,7 @@
         "The unsigned distance supplies closest-to-target ranking. The SAP separately specifies pre-target preference at equal distance; that directional choice is reviewed under ANL01FL and is not encoded by AWTDIFF itself.",
         "No significant-digits declaration or rounding computation is given; the probe states the absolute difference directly."
       ],
-      "assessment": "The absolute-difference formula is explicit; source-date and visit-assignment questions belong to its upstream variables.",
+      "assessment": "The absolute-difference formula is explicit; source-date and visit-assignment questions belong to its upstream variables. Pilot 6's R reimplementation computes abs(AWTARGET - ADY) (adadas.r L97) and recomputes it after creating LOCF records, using the donor ADY (L149).",
       "question": ""
     },
     {
@@ -1095,6 +1245,16 @@
           "document": "spec/source/SAP.pdf",
           "section": "page-11",
           "quote": "In situations\nwhere imputation of missing values is also involved, imputation will use the targeted\nassessments within the windows."
+        },
+        {
+          "document": "spec/source/programs/pilot6/adadas.r",
+          "section": "L52",
+          "quote": "by_vars = exprs(STUDYID, USUBJID, QSSEQ)"
+        },
+        {
+          "document": "spec/source/programs/pilot6/adadas.r",
+          "section": "L136",
+          "quote": "keep_vars = exprs(VISIT, VISITNUM, ADY, ADT, PARAM, PARAMN, QSSEQ)"
         }
       ],
       "clauses": [
@@ -1131,7 +1291,7 @@
         "The documented targeted-assessment candidate rule is relevant to donor sequence provenance even when a donor record already contains an AVAL carried from a selected assessment. A score's earlier selected predecessor and the later record from which a sequence is copied are separate operations.",
         "Expose the native VLM in exact sections before making formal item/ACTOT missingness comparisons or adding an executable whole-variable reading. The original matching key QSSEQ must remain intact; any eventual computed probe target must be QSSEQ__LITERAL."
       ],
-      "assessment": "Available citable statements establish source traceability and restrict LOCF candidates. The actual predecessor flow is broader, and the precise native parameter applicability cannot yet be cited through the supplied scalar section.",
+      "assessment": "Available citable statements establish source traceability and restrict LOCF candidates. The actual predecessor flow is broader, and the precise native parameter applicability cannot yet be cited through the supplied scalar section. Pilot 6's R reimplementation traces QS by QSSEQ (adadas.r L52) and carries the donor QSSEQ onto created ACTOT LOCF records (L136), so its created records keep a sequence number.",
       "question": "Expose the retained QSSEQ VLM in supported exact sections, specify independently identifiable baseline source selection, and reconcile ACTOT postbaseline missingness with sequence-carrying observed and synthetic LOCF branches."
     },
     {
@@ -1152,6 +1312,16 @@
           "document": "spec/source/dataguide.pdf",
           "section": "page-6",
           "quote": "Visits are placed into analysis visits (represented by AVISIT and AVISITN)\nbased on the date of the visit and the visit windows."
+        },
+        {
+          "document": "spec/source/programs/pilot6/adadas.r",
+          "section": "L83-L89",
+          "quote": "aw_lookup <- tribble(\n  ~AVISIT, ~AWRANGE, ~AWTARGET, ~AWLO, ~AWHI,\n  \"Baseline\", \"<=1\", 1, NA_integer_, 1,\n  \"Week 8\", \"2-84\", 56, 2, 84,\n  \"Week 16\", \"85-140\", 112, 85, 140,\n  \"Week 24\", \">140\", 168, 141, NA_integer_\n)"
+        },
+        {
+          "document": "spec/source/programs/pilot6/adadas.r",
+          "section": "L142-L147",
+          "quote": "# re-derive AWRANGE/AWTARGET/AWTDIFF/AWLO/AWHI/AWU\n  select(-c(\"AWRANGE\", \"AWTARGET\", \"AWLO\", \"AWHI\")) %>%\n  derive_vars_merged(\n    dataset_add = aw_lookup,\n    by_vars = exprs(AVISIT)\n  ) %>%"
         }
       ],
       "clauses": [
@@ -1185,7 +1355,7 @@
         "The specification maps Baseline to <=1 and the original PDF supports that inclusive boundary. Formal citations preserve the supplied <1 text verbatim. No contradicts/differs clause is manufactured from lost underlining.",
         "A source-faithful mapping would read published REF.AVISIT and return <=1, 2-84, 85-140 or >140. It would test interval labels independently of upstream visit assignment; this is recorded for later execution once the source-fidelity issue can be cited."
       ],
-      "assessment": "The nonbaseline intervals are directly citable and the native baseline boundary supports the implementation; complete source-faithful formal probing is limited by the extracted typography.",
+      "assessment": "The nonbaseline intervals are directly citable and the native baseline boundary supports the implementation; complete source-faithful formal probing is limited by the extracted typography. Pilot 6's R reimplementation stores the range strings <=1, 2-84, 85-140 and >140 from a fixed table by AVISIT (adadas.r L83-L89, L142-L147), which supports the inclusive baseline boundary.",
       "question": "Preserve the baseline equality in a supported exact section and confirm the range-string representation for each permitted analysis visit."
     },
     {
@@ -1206,6 +1376,16 @@
           "document": "spec/source/dataguide.pdf",
           "section": "page-6",
           "quote": "Visits are placed into analysis visits (represented by AVISIT and AVISITN)\nbased on the date of the visit and the visit windows."
+        },
+        {
+          "document": "spec/source/programs/pilot6/adadas.r",
+          "section": "L83-L89",
+          "quote": "aw_lookup <- tribble(\n  ~AVISIT, ~AWRANGE, ~AWTARGET, ~AWLO, ~AWHI,\n  \"Baseline\", \"<=1\", 1, NA_integer_, 1,\n  \"Week 8\", \"2-84\", 56, 2, 84,\n  \"Week 16\", \"85-140\", 112, 85, 140,\n  \"Week 24\", \">140\", 168, 141, NA_integer_\n)"
+        },
+        {
+          "document": "spec/source/programs/pilot6/adadas.r",
+          "section": "L142-L147",
+          "quote": "# re-derive AWRANGE/AWTARGET/AWTDIFF/AWLO/AWHI/AWU\n  select(-c(\"AWRANGE\", \"AWTARGET\", \"AWLO\", \"AWHI\")) %>%\n  derive_vars_merged(\n    dataset_add = aw_lookup,\n    by_vars = exprs(AVISIT)\n  ) %>%"
         }
       ],
       "clauses": [
@@ -1248,7 +1428,7 @@
         "The nonbaseline lower endpoints agree with the SAP intervals. Baseline underlining does not introduce a finite lower endpoint, so its loss is not used to manufacture an AWLO difference.",
         "No precision or rounding algorithm is stated beyond the day intervals and integer metadata. The open issue is representation and applicability, not rounding."
       ],
-      "assessment": "The finite starts are documented. The complete stored-variable rule needs an explicit encoding for the open baseline endpoint and record applicability.",
+      "assessment": "The finite starts are documented. The complete stored-variable rule needs an explicit encoding for the open baseline endpoint and record applicability. Pilot 6's R reimplementation stores the open Baseline lower endpoint as missing (NA_integer_ in adadas.r L83-L89) and applies the lookup by AVISIT to every record, including created LOCF records (L142-L147).",
       "question": "What documented AWLO encoding represents the unbounded baseline endpoint, and should window metadata be populated on each observed item, observed ACTOT and added LOCF record?"
     },
     {
@@ -1269,6 +1449,16 @@
           "document": "spec/source/dataguide.pdf",
           "section": "page-6",
           "quote": "Visits are placed into analysis visits (represented by AVISIT and AVISITN)\nbased on the date of the visit and the visit windows."
+        },
+        {
+          "document": "spec/source/programs/pilot6/adadas.r",
+          "section": "L83-L89",
+          "quote": "aw_lookup <- tribble(\n  ~AVISIT, ~AWRANGE, ~AWTARGET, ~AWLO, ~AWHI,\n  \"Baseline\", \"<=1\", 1, NA_integer_, 1,\n  \"Week 8\", \"2-84\", 56, 2, 84,\n  \"Week 16\", \"85-140\", 112, 85, 140,\n  \"Week 24\", \">140\", 168, 141, NA_integer_\n)"
+        },
+        {
+          "document": "spec/source/programs/pilot6/adadas.r",
+          "section": "L142-L147",
+          "quote": "# re-derive AWRANGE/AWTARGET/AWTDIFF/AWLO/AWHI/AWU\n  select(-c(\"AWRANGE\", \"AWTARGET\", \"AWLO\", \"AWHI\")) %>%\n  derive_vars_merged(\n    dataset_add = aw_lookup,\n    by_vars = exprs(AVISIT)\n  ) %>%"
         }
       ],
       "clauses": [
@@ -1310,7 +1500,7 @@
         "The native baseline interval supports the implemented upper boundary of day 1. No absent-in-document or differs clause is assigned to that boundary on the basis of lost PDF underlining.",
         "The Week 24 interval >140 establishes an open upper side, not a numeric value to put in AWHI. A nullable encoding would require an explicit documented convention before it can serve as a whole-variable literal probe."
       ],
-      "assessment": "The middle-window ends are directly citable and the native baseline boundary is inclusive. Open-endpoint representation and full record applicability remain unspecified for a literal stored-variable probe.",
+      "assessment": "The middle-window ends are directly citable and the native baseline boundary is inclusive. Open-endpoint representation and full record applicability remain unspecified for a literal stored-variable probe. Pilot 6's R reimplementation stores Baseline AWHI as 1 and the open Week 24 upper endpoint as missing (NA_integer_ in adadas.r L83-L89) and applies the lookup by AVISIT to every record, including created LOCF records (L142-L147).",
       "question": "Expose the native inclusive baseline boundary in the exact sections and specify the documented AWHI encoding for the unbounded Week 24 endpoint and its applicability across record kinds."
     },
     {
@@ -1326,6 +1516,16 @@
           "document": "spec/source/SAP.pdf",
           "section": "page-11",
           "quote": "Time Interval\n(Day)\nTarget Time\nPoint (Day)"
+        },
+        {
+          "document": "spec/source/programs/pilot6/adadas.r",
+          "section": "L98",
+          "quote": "AWU = \"DAYS\""
+        },
+        {
+          "document": "spec/source/programs/pilot6/adadas.r",
+          "section": "L150",
+          "quote": "AWU = \"DAYS\""
         }
       ],
       "clauses": [
@@ -1353,7 +1553,7 @@
         "The specification defines AWU globally; obs and all added LOCF templates inherit this assignment. A potentially different target-data missingness pattern would require an explicit scope rule rather than being inferred as a permitted exception.",
         "This constant is independent of the open-endpoint encoding and source-date questions for the other window fields. It does not copy REF.AWU."
       ],
-      "assessment": "The explicit unit assignment and its codelist support a complete literal probe.",
+      "assessment": "The explicit unit assignment and its codelist support a complete literal probe. Pilot 6's R reimplementation assigns DAYS on every record (adadas.r L98, L150).",
       "question": ""
     },
     {
@@ -1384,6 +1584,11 @@
           "document": "spec/source/dataguide.pdf",
           "section": "page-6",
           "quote": "Source data can be traced back to the SDTM.QS domain using USUBJID and\nQSSEQ."
+        },
+        {
+          "document": "spec/source/programs/pilot6/adadas.r",
+          "section": "L156-L160",
+          "quote": "derive_var_base(\n    by_vars = exprs(STUDYID, USUBJID, PARAMCD),\n    source_var = AVAL,\n    new_var = BASE\n  ) %>%"
         }
       ],
       "clauses": [
@@ -1424,7 +1629,7 @@
         "The literal BASE rule explicitly names standardized QSSTRESN, including the submitted ACTOT baseline source. It does not instruct this variable to recompute that baseline total from its items. SAP Section 14.2 controls computed totals and belongs to the upstream AVAL/score review; its missing-item threshold is not silently substituted for the explicit BASE copy source.",
         "No significant-digits declaration or rounding algorithm is stated for BASE. Integer type metadata and table summary placeholders do not supply one."
       ],
-      "assessment": "The baseline copy source and qualifying raw flag/visit are explicit; executable aggregation through AVAL adds an upstream analysis-value dependency.",
+      "assessment": "The baseline copy source and qualifying raw flag/visit are explicit; executable aggregation through AVAL adds an upstream analysis-value dependency. Pilot 6's R reimplementation takes BASE from AVAL on the ABLFL record per STUDYID, USUBJID and PARAMCD (adadas.r L156-L160), that is the analysis value rather than a fresh QS lookup.",
       "question": "Confirm whether the parenthetical Visit 3 is mandatory or descriptive, and whether BASE should read raw QSSTRESN or the analysis AVAL after total-score and carry-forward processing."
     },
     {
@@ -1460,6 +1665,11 @@
           "document": "spec/source/SAP.pdf",
           "section": "page-28",
           "quote": "ADAS Cog (11) \u2013 Mean and Mean Change from Baseline over Time"
+        },
+        {
+          "document": "spec/source/programs/pilot6/adadas.r",
+          "section": "L162-L165",
+          "quote": "restrict_derivation(\n    derivation = derive_var_chg,\n    filter = is.na(ABLFL)\n  ) %>%"
         }
       ],
       "clauses": [
@@ -1495,6 +1705,10 @@
         {
           "column": "CHG__POSTBASELINE",
           "reading": "Apply the post-baseline applicability stated in citation 2 to the post-baseline analysis visits named in citation 3, leaving Baseline rows missing."
+        },
+        {
+          "column": "CHG__PROGRAM",
+          "reading": "AVAL minus BASE on every record that is not the baseline-flagged record (ABLFL not Y), as Pilot 6's R reimplementation adadas.r lines 162-165 compute it (restrict_derivation of derive_var_chg with filter is.na(ABLFL)); the Define formula states no applicability."
         }
       ],
       "interpretations": [
@@ -1503,7 +1717,7 @@
         "A reviewer must resolve whether the SAP sentence only defines change within its MMRM display or also restricts the dataset-wide CHG applicability. The formula and post-baseline phrase are preserved without declaring the generic Define formula to contradict the scoped SAP note.",
         "No significant-digits declaration or individual-score rounding is stated. No rounding is added."
       ],
-      "assessment": "The subtraction order is explicit in Define and the SAP note; the record applicability needs a precise baseline/post-baseline definition.",
+      "assessment": "The subtraction order is explicit in Define and the SAP note; the record applicability needs a precise baseline/post-baseline definition. Pilot 6's R reimplementation computes CHG on records without ABLFL (adadas.r L162-L165); reading CHG__PROGRAM states that applicability.",
       "question": "Should CHG be populated on every record by the Define formula, only on post-baseline analysis visits, or on every row except ABLFL=Y?"
     },
     {
@@ -1519,6 +1733,11 @@
           "document": "spec/source/dataguide.pdf",
           "section": "page-7",
           "quote": "SAS Version 9.2 was used for the generation of ADaM datasets and analysis displays."
+        },
+        {
+          "document": "spec/source/programs/pilot6/adadas.r",
+          "section": "L167-L170",
+          "quote": "restrict_derivation(\n    derivation = derive_var_pchg,\n    filter = is.na(ABLFL)\n  ) %>%"
         }
       ],
       "clauses": [
@@ -1546,7 +1765,7 @@
         "Division by a zero baseline has no mathematical quotient. NULLIF(BASE,0) represents this undefined arithmetic as missing in the nullable probe, consistent with the documented SAS-origin analysis data. It leaves every record present and provides no numerical replacement, baseline imputation or clinical exclusion rule. The documents do not explicitly spell out zero-denominator behavior; the nullable interpretation is recorded transparently for reviewer confirmation rather than inventing a competing numerical result.",
         "The retained SAP and data guide do not provide a separate ADAS-Cog percent-change computation or individual precision rule. Integer type metadata is not a rounding algorithm; no rounding is added."
       ],
-      "assessment": "The arithmetic dependency on CHG and BASE is stated. The probe represents its undefined denominator-zero cases as missing and preserves the distinction between the documented CHG dependency and the executable baseline gate.",
+      "assessment": "The arithmetic dependency on CHG and BASE is stated. The probe represents its undefined denominator-zero cases as missing and preserves the distinction between the documented CHG dependency and the executable baseline gate. Pilot 6's R reimplementation computes PCHG on records without ABLFL (adadas.r L167-L170).",
       "question": "Confirm nullable missing representation for undefined division, the intended baseline applicability of PCHG, and consumption of CHG as documented."
     }
   ]
