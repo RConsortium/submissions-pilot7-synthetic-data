@@ -57,6 +57,8 @@ class DatasetDefineTests(unittest.TestCase):
         self.assertEqual(r['sources']['datasets'][0]['path'], 'study/data/adam/adsl-yamaa.parquet')
         self.assertEqual(r['sources']['datasets'][0]['rows'], 2)
         self.assertEqual([d['path'] for d in r['documents']], ['study/spec/define/define-adam.xml'])
+        self.assertEqual(r['documents'][0]['view'], r['documents'][0]['source'])
+        self.assertIn('id="ADSL.USUBJID"', (self.target / r['documents'][0]['view']).read_text())
         self.assertNotIn('different', r['check_counts'])
         self.assertTrue(all(c['comparison'] == 'dataset_define' for c in r['review']['checks']))
         self.assertFalse(any(e['type'] == 'specification' for e in r['review']['evidence']))

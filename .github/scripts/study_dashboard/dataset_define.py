@@ -160,9 +160,16 @@ def build_report(root, study, outputs, target, revision, subject_key="USUBJID"):
                 citations[(domain, item.get("Name"))] = linked
         numbered = target / (doc.get("original", "documents/define-adam.xml") + ".source.html")
         numbered.parent.mkdir(parents=True, exist_ok=True)
+        aliases = {}
+        for (domain, variable), linked in citations.items():
+            if variable:
+                aliases.setdefault(linked[0].sourceline, []).append(f"{domain}.{variable}")
         numbered.write_text(document_html("Retained ADaM Define-XML source",
-            '<ol>' + ''.join(f'<li id="L{n}"><pre>{html.escape(line)}</pre></li>' for n, line in enumerate(lines, 1)) + '</ol>', wide=True))
+            '<ol>' + ''.join(f'<li id="L{n}">' + ''.join(f'<span id="{html.escape(alias)}"></span>' for alias in aliases.get(n, []))
+                            + f'<pre>{html.escape(line)}</pre></li>' for n, line in enumerate(lines, 1)) + '</ol>', wide=True))
         doc["source"] = numbered.relative_to(target).as_posix()
+        if doc.get("view_label") == "XML source":
+            doc["view"] = doc["source"]
         write_json(target / "documents.json", documents)
 
     def original_citations(domain, variable):
