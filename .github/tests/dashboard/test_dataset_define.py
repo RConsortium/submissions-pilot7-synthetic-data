@@ -1,8 +1,6 @@
 """The two-source review must use actual output bytes and explicit XML scope."""
 
 from pathlib import Path
-import hashlib
-import json
 import sys
 from tempfile import TemporaryDirectory
 import unittest
@@ -12,9 +10,6 @@ import pyarrow.parquet as pq
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[2] / 'scripts'))
 from study_dashboard.dataset_define import build_report, formula, logical_type, selected_rows
-from study_evidence import reviewed_datasets
-from study_artifacts import artifact_snapshot
-from study_dashboard.workspace import build_workspace
 
 
 XML = '''<ODM xmlns="http://www.cdisc.org/ns/odm/v1.3" xmlns:def="http://www.cdisc.org/ns/def/v2.0">
@@ -134,77 +129,6 @@ class DatasetDefineTests(unittest.TestCase):
         finding = next(f for f in r['findings'] if f['check'] == 'codelist_value_level_1')
         self.assertEqual((finding['evidence']['dataset_check']['compared'], finding['evidence']['dataset_check']['differ']), (1, 1))
 
-    def test_scoped_study_does_not_require_multisource_claim_reports(self):
-        import json
-        (self.base / 'spec/yamaa').mkdir()
-        (self.base / 'spec/yamaa/project.yaml').write_text('adam: {specs: [adsl.yaml]}')
-        (self.base / 'spec/yamaa/adsl.yaml').write_text('domain: ADSL')
-        (self.base / 'spec/review').mkdir()
-        (self.base / 'spec/review/adsl-claims.json').write_text('{}')
-        (self.root / '.github').mkdir()
-        (self.root / '.github/yamaa-studies.json').write_text(json.dumps({'study': {'dashboard': {'review_scope': 'dataset_define'}}}))
-        self.assertEqual(reviewed_datasets(self.root, 'study'), [])
-
-    def workspace(self, destination):
-        """Full navigation fixture with a separately scoped finding report."""
-        from openpyxl import Workbook
-
-        self.report({'USUBJID': ['001', '002', '003'], 'CODE': ['Y', 'X', 'N'], 'AGE': [65., 70., 75.]})
-        sdtm = self.base / 'data/sdtm/dm.parquet'
-        sdtm.parent.mkdir()
-        pq.write_table(pa.table({'USUBJID': ['001', '004'], 'AGE': [65., 80.]}), sdtm)
-        source = self.base / 'spec/source'
-        source.mkdir()
-        workbook = Workbook()
-        workbook.active.append(['Variable', 'Description'])
-        workbook.active.append(['AGE', 'Age in years'])
-        workbook.save(source / 'guide.xlsx')
-        (source / 'manifest.json').write_text(json.dumps({'files': [
-            {'path': 'study/spec/source/guide.xlsx', 'role': 'specification'}]}))
-        specs = self.base / 'spec/yamaa'
-        specs.mkdir()
-        (specs / 'project.yaml').write_text('adam: {specs: [adsl.yaml], define: ../../data/adam/define.xml}')
-        (specs / 'adsl.yaml').write_text('''domain: ADSL
-keys: [USUBJID]
-input: {DM: {path: ../../data/sdtm/dm.parquet}}
-output: {path: ../../data/adam/adsl-yamaa.parquet, columns: [USUBJID, CODE, AGE]}
-columns:
-  - {name: USUBJID, type: str, label: ID, derivation: DM.USUBJID}
-  - {name: CODE, type: str, label: Code, derivation: "'Y'"}
-  - {name: AGE, type: float, label: Age, derivation: DM.AGE}
-''')
-        candidate = self.output.with_name('define.xml')
-        candidate.write_bytes(self.define.read_bytes())
-        digest = hashlib.sha256(self.define.read_bytes()).hexdigest()
-        validation = {'status': 'succeeded', 'datasets': [{'domain': 'ADSL', 'build': 'succeeded',
-                       'comparison': 'unavailable', 'rows': 3, 'columns': 3}],
-                      'define_xml': {'comparison': 'matched', 'reference_sha256': digest,
-                                     'candidate_sha256': digest},
-                      'artifacts': artifact_snapshot(self.root, 'study')}
-        entry = {'title': 'Two-source browser fixture', 'description': 'Synthetic fixture; no study results.',
-                 'source': 'https://example.test', 'dashboard': {'review_scope': 'dataset_define'}}
-        return build_workspace(self.root, destination, 'study', entry, validation, 'fixture')
-
-    def test_focused_findings_retain_full_workspace_artifacts(self):
-        catalog = self.workspace(self.target)
-        target = self.target / 'study'
-        report = json.loads((target / 'report.json').read_text())
-        self.assertEqual(report['scope'], 'dataset_define')
-        self.assertIn('study/spec/source/guide.xlsx', [d['path'] for d in report['documents']])
-        define = next(d for d in report['documents'] if d['path'] == 'study/spec/define/define-adam.xml')
-        self.assertTrue((target / define['source']).is_file())
-        self.assertEqual(json.loads((target / 'documents.json').read_text()), report['documents'])
-        self.assertTrue(all(e['path'] == define['path'] for e in report['review']['evidence'] if e['type'] == 'document'))
-        self.assertFalse(any(e['type'] == 'specification' for e in report['review']['evidence']))
-        self.assertEqual(catalog['subjects'], ['001', '002', '003', '004', '999'])
-        dataset = catalog['datasets'][0]
-        self.assertTrue(dataset['inputs'])
-        self.assertIsNotNone(dataset['reference'])
-        output = catalog['tables'][dataset['output']]
-        self.assertEqual(output['key_source'], 'study/spec/yamaa/adsl.yaml')
-        self.assertEqual(output['columns'][0]['declared_label'], 'ID')
-        for side in ('reference', 'candidate'):
-            self.assertTrue(catalog['define_comparison'][side]['available'])
 
 
 if __name__ == '__main__':

@@ -1,38 +1,5 @@
 # Consistency findings
 
-## Pilot 5: dataset and Define-XML
-
-Pilot 5 findings compare only the current derived datasets and the retained
-ADaM Define-XML. **Compared files and coverage** identifies the exact files
-and their SHA256 hashes. Coverage explains which metadata and narrative rules
-were assessed. Independent-reference agreement remains separate from these
-consistency checks.
-
-- **Inconsistent:** an actual dataset schema or observed value contradicts
-  an explicit XML declaration.
-- **Gap:** a dataset variable or required metadata declaration is absent
-  from the other source.
-- **Unclear:** the two sources cannot establish the check, such as a missing
-  stored label, an external dictionary, or a derivation requiring SDTM.
-
-Use **By dataset**, search, issue type and criticality to narrow the list.
-**Start review** shows the exact XML source declarations beside evidence
-from the identified derived dataset. Measured counts cover all applicable
-records; examples and selected subjects never determine those counts.
-Checks of enumerated codelists use nonmissing, nonblank values; blank values
-are not independently declared errors. Numeric storage widths are mapped to
-logical types, and text length checks measure observed UTF-8 bytes rather
-than SAS allocation. Unsupported value-level conditions remain not assessed.
-
-Record your agreement and criticality under **Your review**. The same local
-draft, sharing and export controls described below apply. The
-**Which side is right?** document/specification question is omitted in this
-scope. Pilot 5 retains the **SDTM -> ADaM**, **Define-XML comparison** and
-**Source documents** tabs for broader inspection. The other sections on this
-page describe the broader finding-review workflow used by other pilot studies.
-
-## Other pilot studies
-
 The **Consistency findings** tab of a pilot study lists every actionable
 issue that the automated consistency review found among the study's
 documents, derivation rules and data. It is separate from **Generated ADaM dataset agreement**: a derived dataset can match the generated ADaM datasets

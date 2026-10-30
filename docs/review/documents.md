@@ -1,9 +1,5 @@
 # Source documents and Define-XML
 
-Pilot 5 keeps the **Source documents** and **Define-XML comparison** tabs.
-Its **Start review** dialog focuses on current derived data and retained
-ADaM Define-XML; finding citations open the unchanged XML with line numbers.
-
 ## Source documents
 
 The **Source documents** tab shows the retained study documents in their

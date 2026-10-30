@@ -6,35 +6,10 @@ GitHub Discussions through giscus supplies comments without an application serve
 The reviewer guide is `docs/review/index.md`; the pages beside it describe
 each dashboard screen.
 
-## Pilot 5 two-source review
-
-Pilot 5 sets `dashboard.review_scope: dataset_define` in the publication catalog.
-`dataset_define.py` reads the validated output paths and retained ADaM Define-XML.
-It never reads reference datasets, source documents other than that XML, review
-claims or YAML labels to decide a finding. Files and hashes identify the two
-sources. The normal artifact checks still run before and after export.
-
-The checker covers bidirectional variable inventory, stored labels, logical
-storage mappings, observed UTF-8 text lengths, XML-declared keys, enumerated
-codelists, EQ/IN value-level conditions and literal numeric arithmetic over the
-same dataset. Numeric/date expressions support +, -, *, / at absolute tolerance
-1e-10; methods with declared precision or unsupported expressions are not
-recalculated. Full applicable populations determine counts. Missing evidence and
-unsupported metadata stay Not assessed, with separate coverage counts. Source
-citations retain exact original XML lines. Origins and methods remain review
-evidence; this is not a reconstruction of the derivation pipeline.
-
-The focused findings and Start review dialog use only those two sources.
-The SDTM -> ADaM workspace, generated XML comparison, source documents,
-reference-data selection and reproduction summary remain available. Their
-additional evidence does not contribute to the focused findings.
-
-This mode publishes neither the multisource verification report nor the old
-claim-based issue groupings. `reviewed_datasets` omits it from that publication
-prerequisite. Existing claims, programs and reference files remain retained;
-explicit derivation review and dataset reproduction tools still work separately.
-The finding scope is opt-in; other studies keep their current review. Do not change
-independent reference data or loosen comparator policies to resolve a finding.
+All pilot studies share the same tabs, finding filters and Start review
+sections: source documents, YAML specifications, subject examples, recommended
+fix and human assessment. Studies supply their own data, documents and review
+claims; committed claims require the same derivation verification for publication.
 
 ## Source layout
 
@@ -61,7 +36,6 @@ independent reference data or loosen comparator policies to resolve a finding.
     document_views.py                    workbook tables and original XML HTML
     define_comparison.py                 exact compared XML and numbered source views
     consistency.py                       metadata checks and source-backed review questions
-    dataset_define.py                    actual derived tables versus retained ADaM Define-XML
     rule_review.py                       documented-rule checks from the verification report
     issues.py                            validated issue grouping and normalized evidence
     artifacts.py                         versioned study and gallery manifests

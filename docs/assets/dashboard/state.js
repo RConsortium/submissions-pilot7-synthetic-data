@@ -69,10 +69,6 @@ export function readRoute(hash, model) {
   }
   for (const field of fields)
     state[field] = (params.get(field) || "").slice(0, 500);
-  if (model.settings?.review_scope === "dataset_define") {
-    state.comparison = "";
-    state.agentReview = "";
-  }
   if (!["yes", "no", "needs_review"].includes(state.critical))
     state.critical = "";
   if (!["agreed", "disputed", "stale", "mixed", "not_reviewed"].includes(state.agentReview))

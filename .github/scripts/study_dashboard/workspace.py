@@ -14,7 +14,6 @@ from .specifications import defining_sources, inspection_specification, resource
 from .consistency import build_report
 from .domains import domain_labels, domain_keys
 from .define_comparison import export_comparison
-from .documents import define_metadata, materials
 
 
 def build_workspace(root, destination, study, entry, validation, revision, verification=None):
@@ -189,24 +188,7 @@ def build_workspace(root, destination, study, entry, validation, revision, verif
         revision,
         validation,
         verification,
-        review_scope=options.get("review_scope", "full"),
-        subject_key=options["subject_key"],
     )
-    if options.get("review_scope") == "dataset_define":
-        # The finding checker stays scoped; navigation retains the full package.
-        focused_documents = {d["path"]: d for d in report["documents"]}
-        define_path = define_paths["adam"]
-        _, documents = materials(
-            root, study, target,
-            define_metadata(define_path) if define_path.is_file() else {},
-        )
-        documents = [
-            focused_documents.get(d["path"],
-                                  {k: v for k, v in d.items() if k != "sections"})
-            for d in documents
-        ]
-        report["documents"] = documents
-        write_json(target / "documents.json", documents)
     write_json(target / "report.json", report)
     if entry.get("category") != "synthetic":
         comparison = export_comparison(root, study, target, validation)

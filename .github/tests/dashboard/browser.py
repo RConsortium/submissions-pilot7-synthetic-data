@@ -49,53 +49,6 @@ def assert_page_fits(page, selector):
     }"""), selector + " clips the selected page of rows"
 
 
-def check_dataset_define(page, url, screenshots=None):
-    """Keep the full study workspace around the focused Start review dialog."""
-    page.goto(url)
-    expect(page.locator('.spec-pane')).to_be_visible()
-    expect(page.locator('.input-group [data-panel]')).not_to_have_count(0)
-    expect(page.locator('#output-table tbody tr')).not_to_have_count(0)
-    expect(page.locator('.reference-summary')).to_be_visible()
-    page.locator('#output-select').select_option('reference')
-    expect(page.locator('#output-select')).to_have_value('reference')
-    page.reload()
-    expect(page.locator('#output-select')).to_have_value('reference')
-    page.locator('#output-select').select_option('derived')
-    page.get_by_role('button', name='Define-XML comparison', exact=True).click()
-    expect(page.locator('.define-comparison iframe')).to_have_count(2)
-    page.reload()
-    expect(page.locator('.define-comparison iframe')).to_have_count(2)
-    page.get_by_role('button', name='Source documents', exact=True).click()
-    expect(page.get_by_role('tablist', name='Document 1 files')).to_be_visible()
-    tabs = page.get_by_role('tablist', name='Document 1 files').get_by_role('tab')
-    assert tabs.count() > 1
-    tabs.filter(has_text='.xlsx').first.click()
-    expect(page.locator('#source-frame')).to_have_attribute('src', re.compile(r'\.table\.html'))
-    page.get_by_role('button', name='Consistency findings', exact=True).click()
-    expect(page.locator('#finding-comparison, #finding-agent')).to_have_count(0)
-    expect(page.locator('.reference-summary')).to_be_visible()
-    page.locator('[data-trace-issue]').first.click()
-    dialog = page.locator('.trace-review-dialog')
-    expect(dialog).to_contain_text('Current derived dataset')
-    expect(dialog).to_contain_text('Define-XML declaration')
-    expect(dialog).not_to_contain_text('YAML specification')
-    expect(dialog.locator('input[name="side"]')).to_have_count(0)
-    dialog.get_by_role('button', name='View source', exact=True).first.click()
-    expect(page.locator('.review-source-dialog iframe')).to_have_attribute('src', re.compile(r'\.source\.html#L\d+$'))
-    page.get_by_role('button', name='Close source', exact=True).click()
-    dialog.locator('input[name="agreement"][value="agree"]').check()
-    dialog.locator('input[name="criticality"][value="unsure"]').check()
-    dialog.get_by_role('button', name='Close', exact=True).click()
-    expect(page.locator('[data-human-review]').first).to_contain_text('Saved locally')
-    for width in (375, 1600):
-        page.set_viewport_size({'width': width, 'height': 1000})
-        page.get_by_role('button', name='SDTM -> ADaM', exact=True).click()
-        expect(page.locator('.spec-pane')).to_be_visible()
-        assert page.evaluate('document.documentElement.scrollWidth <= innerWidth'), width
-        if screenshots:
-            capture(page, screenshots, f'pilot5-workspace-{width}.png')
-
-
 def check_workbook(workbook):
     """Exercise sheet selection, keyboard access and independent comparison tables."""
     tabs = workbook.get_by_role('tablist', name='Worksheets').get_by_role('tab')
@@ -201,12 +154,12 @@ def check(browser, base, site_dir, screenshots):
     for name in ["cdiscpilot01", "submission-pilot3", "submission-pilot5"]:
         url = base + f"/studies/{name}/#{name}/datasets/ADSL?focus=output."
         study_model = json.loads((site_dir / f"evidence/dashboard/{name}/catalog.json").read_text())
-        if study_model['settings'].get('review_scope') == 'dataset_define':
-            check_dataset_define(page, url + 'TRT01AN', screenshots)
-            continue
         dataset = next(d for d in study_model["datasets"] if d["name"] == "ADSL")
         spec = json.loads((site_dir / f'evidence/dashboard/{name}/{dataset["spec"]}').read_text())
         page.goto(url + "TRT01AN")
+        expect(page.locator('.review-tabs button')).to_have_text([
+            'SDTM -> ADaM', 'Consistency findings', 'Define-XML comparison', 'Source documents'
+        ])
         expect(page.locator('.input-group [data-panel]')).to_have_count(1)
         expect(page.locator('.input-group [data-domain="DM"]')).to_be_visible()
         expect(page.locator('.input-group [data-domain="EX"]')).to_have_count(0)
@@ -254,6 +207,14 @@ def check(browser, base, site_dir, screenshots):
             ["Under Review"] * len(issues)
         )
         expect(page.locator(".consistency-table .finding-evidence")).to_have_count(0)
+        expect(page.locator('#finding-comparison')).to_be_visible()
+        expect(page.locator('#finding-agent')).to_be_visible()
+        trace = open_trace(page.locator('.consistency-table tbody tr.review-issue').first)
+        expect(trace.locator('#trace-finding, #trace-sources, #trace-specifications, #trace-examples, #trace-fix, #trace-your-review')).to_have_count(6)
+        expect(trace.locator('input[name="side"]')).not_to_have_count(0)
+        capture(page, screenshots, f'{name}-shared-review.png')
+        page.keyboard.press('Escape')
+        expect(trace).to_have_count(0)
         expect(page.get_by_role("button", name="Copy review context", exact=True)).to_have_count(0)
         page.get_by_role("button", name="Define-XML comparison", exact=True).click()
         expect(page.locator('.define-comparison iframe')).to_have_count(2)
