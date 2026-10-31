@@ -257,6 +257,12 @@ New consistency checks belong in `consistency.py`, document adapters in
 `documents.py`, dataset adapters in `datasets.py`, and UI components alongside
 `workspace.js`. Add meaningful boundary coverage with each new capability.
 
+The workspace report publishes only the fields consumed by the dashboard. The
+complete generated report, including raw findings and logic checks, remains in
+`audit.json` with a download link from Consistency findings. Workspace and
+Define-XML views load without requesting the finding report. Finding and source
+document views load the compact report when selected.
+
 ## Derivation verification
 
 `.github/scripts/verify_derivations.py` compares each derivation with the
@@ -467,9 +473,3 @@ and a linked workspace. Studies validated through the pilot build worker can
 set `category: synthetic` in `.github/yamaa-studies.json` to appear under
 Synthetic data and in its overview while retaining their existing validation
 path. They do not contribute to the pilot report or landing-page pilot metrics.
-
-The workspace report publishes only the fields consumed by the dashboard. The
-complete generated report, including raw findings and logic checks, remains in
-`audit.json` with a download link from Consistency findings. Workspace and
-Define-XML views load without requesting the finding report. Finding and source
-document views load the compact report when selected.

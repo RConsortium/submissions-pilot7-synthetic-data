@@ -1125,27 +1125,6 @@ def check(browser, base, site_dir, screenshots):
     assert not errors, errors
     context.close()
     # A failure affects its own panel and remains retryable.
-    independent = browser.new_context()
-    independent.route('https://giscus.app/client.js', lambda route: route.fulfill(body=''))
-    blocked = []
-    audit_requests = []
-    independent.route('**/cdiscpilot01/report.json', lambda route: blocked.append(route))
-    independent.on('request', lambda request: audit_requests.append(request.url) if '/audit.json' in request.url else None)
-    independent_page = independent.new_page()
-    independent_page.goto(study)
-    expect(independent_page.locator('#output-table tbody tr')).to_have_count(3)
-    assert not blocked, 'The workspace must not request the findings report'
-    with independent_page.expect_request('**/cdiscpilot01/report.json'):
-        independent_page.get_by_role('button', name='Consistency findings', exact=True).click()
-    independent_page.get_by_role('button', name='SDTM -> ADaM', exact=True).click()
-    expect(independent_page.locator('#output-table tbody tr')).to_have_count(3)
-    for route in blocked:
-        route.continue_()
-    independent_page.get_by_role('button', name='Consistency findings', exact=True).click()
-    expect(independent_page.get_by_role('link', name='Download complete audit (JSON)', exact=True)).to_have_attribute('href', re.compile('/audit.json$'))
-    assert not audit_requests, 'Raw audit is downloaded only on demand'
-    independent.close()
-
     failure_context = browser.new_context()
     failure_context.route(
         "https://giscus.app/client.js",
@@ -1210,6 +1189,28 @@ def check(browser, base, site_dir, screenshots):
         route.continue_()
     expect(page.locator("#input-table tbody tr")).to_have_count(1)
     delayed.close()
+
+
+    independent = browser.new_context()
+    independent.route('https://giscus.app/client.js', lambda route: route.fulfill(body=''))
+    blocked = []
+    audit_requests = []
+    independent.route('**/cdiscpilot01/report.json', lambda route: blocked.append(route))
+    independent.on('request', lambda request: audit_requests.append(request.url) if '/audit.json' in request.url else None)
+    independent_page = independent.new_page()
+    independent_page.goto(study)
+    expect(independent_page.locator('#output-table tbody tr')).to_have_count(3)
+    assert not blocked, 'The workspace must not request the findings report'
+    with independent_page.expect_request('**/cdiscpilot01/report.json'):
+        independent_page.get_by_role('button', name='Consistency findings', exact=True).click()
+    independent_page.get_by_role('button', name='SDTM -> ADaM', exact=True).click()
+    expect(independent_page.locator('#output-table tbody tr')).to_have_count(3)
+    for route in blocked:
+        route.continue_()
+    independent_page.get_by_role('button', name='Consistency findings', exact=True).click()
+    expect(independent_page.get_by_role('link', name='Download complete audit (JSON)', exact=True)).to_have_attribute('href', re.compile('/audit.json$'))
+    assert not audit_requests, 'Raw audit is downloaded only on demand'
+    independent.close()
 
 
 def main():

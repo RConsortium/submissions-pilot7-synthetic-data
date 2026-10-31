@@ -223,11 +223,12 @@ export function createReport(ctx) {
   }
   /** A short reminder above the finding filters. */
   function howToReview() {
-    return `<p class="review-howto">Open <strong>Start review</strong> for the finding's evidence, record both decisions under <strong>Human Review</strong>.</p>`;
+    const audit = ctx.model?.audit ? `<p><a href="${ctx.esc(ctx.resource(ctx.model.audit))}" download>Download complete audit (JSON)</a></p>` : "";
+    return `<p class="review-howto">Open <strong>Start review</strong> for the finding's evidence, record both decisions under <strong>Human Review</strong>.</p>${audit}`;
   }
   function findingsView() {
     const { state, esc } = ctx;
-    return `${howToReview()}${ctx.model?.audit ? `<p><a href="${esc(ctx.resource(ctx.model.audit))}" download>Download complete audit (JSON)</a></p>` : ""}<div class="finding-tools"><label class="search-field"><span class="field-label">Search issues</span><input id="finding-search" type="search" value="${esc(state.findingSearch)}" placeholder="Variable, issue, document or rule..."></label><button type="button" class="text-link" id="clear-findings">Clear filters</button></div><div id="finding-results">${findingRows()}</div>`;
+    return `${howToReview()}<div class="finding-tools"><label class="search-field"><span class="field-label">Search issues</span><input id="finding-search" type="search" value="${esc(state.findingSearch)}" placeholder="Variable, issue, document or rule..."></label><button type="button" class="text-link" id="clear-findings">Clear filters</button></div><div id="finding-results">${findingRows()}</div>`;
   }
   function drawer() {
     const { state, esc, byId, root, report } = ctx;
