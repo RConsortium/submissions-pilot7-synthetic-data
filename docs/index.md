@@ -7,53 +7,49 @@ standardization. AI agents draft derivation specifications in YAML, the
 automated checks compare the outputs with the published submissions and the
 study documents. Every result on this site is a draft pending human review.
 
-## Start reviewing
+## Start here
 
-Statistical programmers and biostatisticians can review one finding at a
-time. Nothing is installed, and one evidence-backed recommendation is a
-complete contribution.
+Explore the results, then review one finding against its source documents,
+specification and data. No installation is needed; one evidence-backed
+recommendation is a complete contribution.
 
 <div class="grid cards" markdown>
 
--   **Review Pilot 5 findings**
+-   **Results**
 
     ---
 
-    Open the Submission Pilot 5 dashboard at its consistency findings, pick a
-    dataset and start with the critical findings.
+    Compare ADaM dataset agreement and consistency findings across the pilot
+    studies, or explore synthetic study coverage and workflow readiness.
 
-    [Open the findings](studies/submission-pilot5.md#submission-pilot5/overview/ADSL?findingSearch=ADSL)
+    - [Pilot study report](studies/index.md)
+    - [Synthetic data report](synthetic/index.md)
 
--   **Learn how to review**
+-   **Review guide**
 
     ---
 
-    What a finding is, how to check its evidence and how to record your
-    assessment on GitHub.
+    Check the evidence and submit your assessment on GitHub. Start with
+    critical findings or those marked **Needs review**.
 
     [Read the review guide](review/index.md)
 
--   **See the results**
+    Pilot study review pages:
 
-    ---
-
-    Generated ADaM dataset agreement and consistency findings for every pilot study on one
-    printable page.
-
-    [Open the pilot study report](studies/index.md)
+    - [CDISC Pilot 01](studies/cdiscpilot01.md#cdiscpilot01/overview/ADSL?findingSearch=ADSL)
+    - [Submission Pilot 3](studies/submission-pilot3.md#submission-pilot3/overview/ADSL?findingSearch=ADSL)
+    - [Submission Pilot 5](studies/submission-pilot5.md#submission-pilot5/overview/ADSL?findingSearch=ADSL)
 
 </div>
 
 ## Pilot studies
 
-For each pilot submission package, AI agents review the package and write
-the derivation specifications, yamaa derives the ADaM datasets from the
-staged SDTM data, and the outputs are compared with the generated ADaM
-datasets and with the study documents. Two measures are reported, and they
-answer different questions:
+AI agents draft specifications from each submission package, and yamaa
+derives ADaM datasets from the staged SDTM data. Two measures answer
+different questions:
 
 - **Generated ADaM dataset agreement**: does the derived dataset reproduce
-  the generated ADaM dataset under the study's comparison rules?
+  the submission's ADaM dataset under the study's comparison rules?
 - **Consistency review**: do the documents, derivation rules and data agree
   with one another? Findings stay open until a person decides them, even
   when generated ADaM dataset agreement is 100%.
@@ -79,9 +75,9 @@ Synthetic studies exercise the complete workflow:
 
 > EDC data extraction -> SDTM mapping -> ADaM derivation -> define.xml generation.
 
-They have no independent generated ADaM comparison datasets, so their dashboards support source
-exploration and analysis review rather than comparison with independent generated ADaM datasets. These
-outputs support eCTD submission package preparation.
+These studies have no independent ADaM reference datasets. Their dashboards
+support source exploration and analysis review for eCTD submission package
+preparation; they do not establish reference agreement.
 
 | Study | Scope | Review |
 | --- | --- | --- |
