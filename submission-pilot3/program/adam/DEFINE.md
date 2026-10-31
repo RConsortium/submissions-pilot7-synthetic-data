@@ -20,17 +20,17 @@ From the repository root:
 python -m pip install -r submission-pilot3/program/adam/python/requirements-define.txt
 
 git clone https://github.com/elong0527/yamaa.git .build/define-schema-source
-git -C .build/define-schema-source checkout --detach 5976b74fddfbcbcad4d53ba550cb1e3773e07a5b
+git -C .build/define-schema-source checkout --detach c039509082b545fe913c00d1686426c3d245778c
 
 python .github/scripts/generate_define.py submission-pilot3 \
   --schemas .build/define-schema-source/rust/tests/schemas
 ```
 
-The required engine changes are proposed in
+The required engine changes came in
 [yamaa PR #4030](https://github.com/elong0527/yamaa/pull/4030), addressing
-issues #4028 and #4029. The source revision in
-`requirements.txt` includes both changes; an older released engine cannot
-reproduce this metadata profile.
+issues #4028 and #4029, and were first released in yamaa 0.7.0, the revision
+`requirements.txt` pins; an older released engine cannot reproduce this
+metadata profile.
 
 The command checks and runs the five specifications, saves the derived
 Parquet files, and compares every dataset with the original published data

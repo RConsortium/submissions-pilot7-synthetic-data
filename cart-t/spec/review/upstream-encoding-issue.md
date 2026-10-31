@@ -2,7 +2,8 @@
 
 [yamaa issue #4060](https://github.com/elong0527/yamaa/issues/4060) is fixed in
 [merged PR #4063](https://github.com/elong0527/yamaa/pull/4063). The study pins
-merge revision `5976b74fddfbcbcad4d53ba550cb1e3773e07a5b`.
+the yamaa 0.7.0 release, commit `c039509082b545fe913c00d1686426c3d245778c`,
+which includes that fix.
 
 The OpenClinica export declares `US-ASCII`. The native reader now accepts this
 declaration when all source bytes are ASCII, including numeric character
