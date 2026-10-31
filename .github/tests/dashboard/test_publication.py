@@ -186,11 +186,18 @@ columns:
     def test_complete_reference_agreement_retains_open_review_and_criticality(self):
         issues = [{"critical": {"status": "yes"}}, {"critical": {"status": "no"}}, {}]
         page = summary_cards([5, 100, 2300000], [5, 100, 2300000], issues)
-        self.assertIn("<strong>100%</strong> of generated ADaM datasets matched", page)
+        self.assertIn("<h2>ADaM derivation</h2>", page)
+        self.assertIn("<strong>100%</strong> of ADaM datasets matched by using yamaa framework", page)
         self.assertIn("<strong>3</strong> findings awaiting review", page)
         self.assertIn("1 critical; 1 non-critical; 1 needing assessment", page)
         self.assertIn("Cells in matching datasets</dt><dd>2.3M / 2.3M", page)
-        self.assertIn("Findings can remain open even when generated ADaM dataset agreement is 100%", page)
+        self.assertIn(
+            '<ul class="comparison-explanation">'
+            '<li>Generated ADaM dataset agreement measures reproduction of the generated ADaM datasets using yamaa framework.</li>'
+            '<li>Consistency review checks agreement between ADaM dataset and Define-XML.</li>'
+            '<li>Findings can remain open even when reproduced ADaM dataset agreement is 100%.</li>'
+            '</ul>', page,
+        )
         self.assertEqual(review_counts(issues), {"yes": 1, "no": 1, "needs_review": 1})
 
     @patch.dict("os.environ", {"GITHUB_SHA": "commit"})
@@ -227,7 +234,7 @@ columns:
         for expected in [
             '<span class="report-status attention">Not compared</span>',
             "Not compared: a generated ADaM dataset is staged but the comparator did not check it.",
-            "<strong>0%</strong> of generated ADaM datasets matched",
+            "<strong>0%</strong> of ADaM datasets matched by using yamaa framework",
         ]:
             with self.subTest(expected=expected):
                 self.assertIn(expected, page)

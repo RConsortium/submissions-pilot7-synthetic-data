@@ -132,11 +132,12 @@ test("the metric and listing count issues separately from supporting checks", ()
     report,
     model: { metrics: { matched: [1, 2, 3], reference: [1, 2, 3] } },
   }).metrics();
-  assert.match(html, /Generated ADaM dataset agreement/);
-  assert.match(html, /<strong>100%<\/strong> of generated ADaM datasets matched/);
+  assert.match(html, /<h2>ADaM derivation<\/h2>/);
+  assert.match(html, /<strong>100%<\/strong> of ADaM datasets matched by using yamaa framework/);
   assert.match(html, /<strong>1<\/strong> finding awaiting review/);
   assert.match(html, /1 critical; 0 non-critical; 0 needing assessment/);
-  assert.match(html, /Findings can remain open even when generated ADaM dataset agreement is 100%/);
+  assert.match(html, /<ul class="comparison-explanation"><li>Generated ADaM dataset agreement measures reproduction of the generated ADaM datasets using yamaa framework\.<\/li><li>Consistency review checks agreement between ADaM dataset and Define-XML\.<\/li><li>Findings can remain open even when reproduced ADaM dataset agreement is 100%\.<\/li><\/ul>/);
+  assert.doesNotMatch(html, /Your reviews:|View consistency findings/);
   const listing = createReport({ report, state: state(), esc }).findingsView();
   assert.match(listing, /1 of 1 issue &middot; 2 supporting checks/);
   assert.equal((listing.match(/<tr class="review-issue"/g) || []).length, 1);
@@ -144,13 +145,13 @@ test("the metric and listing count issues separately from supporting checks", ()
   assert.ok(!listing.includes("Agent review: agreed"));
   assert.ok(listing.includes('id="finding-agent"'));
   assert.ok(!listing.includes('id="issue-review"'));
-  assert.deepEqual([...listing.matchAll(/<th scope="col">([^<]+)<\/th>/g)].map((m) => m[1]), [
-    "Dataset / variable", "Status", "Critical finding", "Type", "Documented rule vs data", "Issue", "Evidence",
+  assert.deepEqual([...listing.matchAll(/<th scope="col">([^<]+)/g)].map((m) => m[1]), [
+    "Dataset", "Variable", "Status", "Critical finding", "Type", "Documented rule vs data", "Issue", "Evidence",
   ]);
   assert.ok(listing.includes('<th scope="col">Status</th>'));
   assert.match(listing, /class="issue-status"[^]*?class="status attention">Under Review<\/span>/);
   assert.deepEqual([...issueRow(issue, report).matchAll(/<td class="([^"]+)"/g)].map((m) => m[1]), [
-    "issue-status", "issue-critical", "issue-type", "issue-impact", "issue-summary",
+    "issue-dataset", "issue-status", "issue-critical", "issue-type", "issue-impact", "issue-summary",
   ]);
   for (const name of ["issue-critical", "issue-type"]) {
     const cell = listing.match(new RegExp(`<td class="${name}">([^]*?)</td>`))[1];
@@ -161,6 +162,46 @@ test("the metric and listing count issues separately from supporting checks", ()
   // The row states the measured impact in one line; the comparison labels stay in the review.
   assert.ok(listing.includes("2 subjects differ"));
   assert.ok(!listing.includes("Documented rule vs generated ADaM datasets"));
+});
+
+test("coverage gaps remain separate from findings, escaped and explicitly study-wide", () => {
+  const data = { ...report, coverage_items: [
+    { id: "sap", dataset: "ADX", variable: "DATE", reason: "Confirm <governing SAP> & its visit windows." },
+    { id: "dictionary", dataset: "ADAE", variable: "AEDECOD", reason: "External dictionary unavailable." },
+  ] };
+  const s = state(), view = createReport({ report: data, state: s, esc });
+  let html = view.findingRows();
+  assert.match(html, /1 of 1 issue &middot; 2 supporting checks/);
+  assert.match(html, /Study coverage gaps: 2 checks not assessed/);
+  assert.match(html, /<strong>ADX.DATE<\/strong>: Confirm &lt;governing SAP&gt; &amp; its visit windows\./);
+  assert.match(html, /<strong>ADAE.AEDECOD<\/strong>: External dictionary unavailable\./);
+  assert.match(html, /separate from the findings and do not establish a data discrepancy/);
+  assert.doesNotMatch(html, /<governing SAP>|3 of 3 issues/);
+  assert.deepEqual(consistencyFindings(data), [issue]);
+  s.findingSearch = "does not match";
+  html = view.findingRows();
+  assert.match(html, /0 of 1 issue/);
+  assert.match(html, /Study coverage gaps: 2 checks not assessed/);
+  assert.match(html, /ADAE.AEDECOD/);
+});
+
+test("older reports and empty coverage do not invent a coverage result", () => {
+  for (const data of [report, { ...report, coverage_items: [] }]) {
+    const html = createReport({ report: data, state: state(), esc }).findingRows();
+    assert.doesNotMatch(html, /coverage-gaps|checks not assessed|No coverage gaps/);
+    assert.match(html, /1 of 1 issue &middot; 2 supporting checks/);
+  }
+});
+
+test("comparison-scoped links include direct dataset metadata findings", () => {
+  const metadata = { ...issue, id: "metadata", variable: "LABEL", comparison: "dataset_define", kind: "inconsistent" };
+  const data = { ...report, review: { ...report.review, issues: [issue, metadata] } };
+  const s = { ...state(), comparison: "dataset_define" };
+  const view = createReport({ report: data, state: s, esc });
+  assert.deepEqual(view.findingItems().map((item) => item.id), ["metadata"]);
+  assert.match(view.findingsView(), /Comparison: Dataset vs Define-XML/);
+  assert.match(view.findingsView(), /aria-label="Remove comparison filter"/);
+  assert.match(view.findingRows(), /1 of 2 issues/);
 });
 
 test("trace shows selected quotes and comparisons once, with full context and check audit expandable", () => {
@@ -280,7 +321,7 @@ test("criticality filters all assessments, preserves long issues and handles old
   assert.equal(view.findingItems().length, 3);
   assert.equal(criticalFinding({}).status, "needs_review");
   s.findingSearch = "absent";
-  assert.match(view.findingRows(), /colspan="7"/);
+  assert.match(view.findingRows(), /colspan="8"/);
 });
 
 test("workspace drawer resolves old check links to the issue and uses the same evidence", () => {
@@ -313,17 +354,18 @@ test("former issue links resolve to the combined source-pair row and trace", () 
   assert.doesNotMatch(host.innerHTML, /finding-evidence/);
 });
 
-test("an exact variable search excludes mentions in another variable's source context", () => {
+test("an exact variable search excludes other variables even when it has no findings", () => {
   const other = { ...issue, id: "other", variable: "OTHER" };
-  const data = {
-    ...report,
-    review: { ...report.review, issues: [issue, other] },
-  };
-  const s = { ...state(), findingSearch: "ADX.DATE" };
-  assert.deepEqual(
-    createReport({ report: data, state: s, esc }).findingItems(),
-    [issue],
-  );
+  const model = { datasets: [{ name: "ADX", output: "adx" }],
+    tables: { adx: { columns: [{ name: "DATE" }, { name: "OTHER" }] } } };
+  for (const [label, issues, expected] of [
+    ["variable with a finding", [issue, other], [issue]],
+    ["declared variable without a finding", [other], []],
+  ]) {
+    const data = { ...report, review: { ...report.review, issues } };
+    const s = { ...state(), findingSearch: "ADX.DATE" };
+    assert.deepEqual(createReport({ model, report: data, state: s, esc }).findingItems(), expected, label);
+  }
 });
 
 test("unmeasured impact stays distinct from zero observed differences and context is labelled", () => {
@@ -515,13 +557,12 @@ test("the listing puts critical findings first, then those needing assessment, k
   assert.ok(html.indexOf('data-finding-id="third"') < html.indexOf('data-finding-id="second"'));
 });
 
-test("the findings tab explains the two decisions and the types before the filters, linking the guide when the site is known", () => {
-  const html = createReport({ report, state: state(), esc, site: "https://example.org/project/" }).findingsView();
-  assert.ok(html.indexOf("review-howto") < html.indexOf("report-filters"));
-  for (const fragment of ["How to review a finding", "Do you agree with this finding?", "Is this finding critical?",
-    "Conflict: documents disagree", "Agent agreement is not resolution.", 'href="https://example.org/project/review/findings/"'])
-    assert.ok(html.includes(fragment), fragment);
-  assert.doesNotMatch(createReport({ report, state: state(), esc }).findingsView(), /href="[^"]*review\/findings/);
+test("the findings tab shows a single review message before the filters", () => {
+  const html = createReport({ report, state: state(), esc }).findingsView();
+  assert.ok(html.indexOf("review-howto") < html.indexOf("finding-filters"));
+  assert.equal(html.match(/<p class="review-howto">([^]*?)<\/p>/)?.[1],
+    "Open <strong>Start review</strong> for the finding's evidence, record both decisions under <strong>Human Review</strong>.");
+  assert.doesNotMatch(html, /<details class="review-howto"|How to review a finding|Read the full guide/);
 });
 
 test("the documented-rule column states subjects, no differences or not measured, without reordering a criticality", () => {
@@ -552,9 +593,83 @@ test("disputed, stale and mixed agent reviews list after agreed ones within a cr
   assert.deepEqual(view.findingItems().map((i) => i.id), ["disputed"]);
 });
 
-test("the how-to panel stays open until the reviewer has started a review of the study", () => {
-  const started = { load: (study, i) => ({ status: i.id === issue.id ? "draft" : "unreviewed", shared: "", stale: false }) },
-    none = { load: () => ({ status: "unreviewed", shared: "", stale: false }) };
-  assert.match(createReport({ report, state: state(), esc, drafts: none, model: { id: "study" } }).findingsView(), /<details class="review-howto" open>/);
-  assert.match(createReport({ report, state: state(), esc, drafts: started, model: { id: "study" } }).findingsView(), /<details class="review-howto"><summary>/);
+
+test("column text filters combine and stay scoped to their displayed cells", () => {
+  const other = { ...issue, id: "other", dataset: "OTHER", variable: "AGE", check_ids: [],
+    title: "Unrelated query", summary: "Different summary", critical: { status: "no", reason: "Label only." },
+    impact: { status: "not_measured", subject_count: 0, subjects: [] } };
+  const data = { ...report, review: { ...report.review, issues: [issue, other] } };
+  const s = { ...state(), datasetSearch: " aDx ", variableSearch: "DATE", impactSearch: "2 SUBJECTS", issueSearch: "PARTIAL-DATE" },
+    view = createReport({ report: data, state: s, esc });
+  assert.deepEqual(view.findingItems(), [issue]);
+  s.issueSearch = "<first>"; // A quotation belongs to global search, not the Issue cell.
+  assert.deepEqual(view.findingItems(), []);
+  s.issueSearch = "";
+  s.impactSearch = "Not measured";
+  assert.deepEqual(view.findingItems(), []);
+  s.datasetSearch = "other";
+  s.variableSearch = "";
+  assert.deepEqual(view.findingItems(), [other]);
+  s.critical = "yes";
+  assert.deepEqual(view.findingItems(), []);
+  s.critical = "no";
+  assert.deepEqual(view.findingItems(), [other]);
+  s.datasetSearch = "";
+  s.variableSearch = "CR-5";
+  s.critical = s.impactSearch = "";
+  assert.deepEqual(view.findingItems(), [issue]);
+});
+
+test("each column has an inline filter and both text columns have resize handles", () => {
+  const drafts = { load: () => ({ status: "unreviewed", shared: "", stale: false }) },
+    html = createReport({ report, state: state(), esc, drafts, model: { id: "study" } }).findingsView();
+  const filters = html.match(/<tr class="finding-filters">([^]*?)<\/tr>/)[1];
+  assert.equal((filters.match(/<td /g) || []).length, 8);
+  assert.match(filters, /value="agreed"[^>]*>Agreed \(agent\)/);
+  for (const id of ["finding-dataset", "finding-variable", "finding-agent", "finding-critical", "finding-kind", "finding-impact", "finding-issue", "finding-review"])
+    assert.ok(filters.includes(`id="${id}"`), id);
+  assert.deepEqual([...html.matchAll(/data-resize-column="([^"]+)"/g)].map((m) => m[1]), ["impact", "issue"]);
+  assert.doesNotMatch(html, /report-filters|id="finding-comparison"/);
+});
+
+test("comparison-scoped links retain an explicit removable filter", () => {
+  const html = createReport({ report, state: { ...state(), comparison: "documented_rules" }, esc }).findingsView();
+  assert.match(html, /Comparison: Documented rules/);
+  assert.match(html, /id="clear-finding-comparison"/);
+});
+
+
+test("column filters wait for loaded study data and refresh their rule names for a new report", () => {
+  let loaded = null;
+  const s = { ...state(), variableSearch: "CR-5" },
+    view = createReport({ get report() { return loaded; }, state: s, esc });
+  loaded = report;
+  assert.deepEqual(view.findingItems(), [issue]);
+  loaded = { ...report, review: { ...report.review, checks: checks.map((c) => ({ ...c, rule: { ...c.rule, id: "CR-NEW" } })) } };
+  assert.deepEqual(view.findingItems(), []);
+  s.variableSearch = "CR-NEW";
+  assert.deepEqual(view.findingItems(), [issue]);
+});
+
+
+test("dataset and variable filters select independently and combine across datasets", () => {
+  const other = { ...issue, id: "other-dataset", dataset: "OTHER", check_ids: [] },
+    datasetWide = { ...issue, id: "whole-dataset", variable: "" },
+    data = { ...report, review: { ...report.review, issues: [issue, other, datasetWide] } },
+    s = { ...state(), datasetSearch: "", variableSearch: " date " },
+    view = createReport({ report: data, state: s, esc });
+  assert.deepEqual(view.findingItems(), [issue, other]);
+  s.datasetSearch = "adx";
+  assert.deepEqual(view.findingItems(), [issue]);
+  s.datasetSearch = "other";
+  assert.deepEqual(view.findingItems(), [other]);
+  s.datasetSearch = "DATE";
+  s.variableSearch = "";
+  assert.deepEqual(view.findingItems(), []);
+  s.datasetSearch = "";
+  s.variableSearch = "OTHER";
+  assert.deepEqual(view.findingItems(), []);
+  s.variableSearch = "dataset-wide";
+  assert.deepEqual(view.findingItems(), [datasetWide]);
+  assert.match(issueRow(datasetWide, data), /class="issue-variable"[^]*?>Dataset-wide<\/button>/);
 });
