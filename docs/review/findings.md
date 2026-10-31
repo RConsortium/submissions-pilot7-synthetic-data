@@ -7,11 +7,10 @@ with no observed difference do not create findings. Complete automated checks
 remain in the verification audit. This review is separate from **Generated ADaM
 dataset agreement**; see the [verification policy](../verification.md).
 
-**How to review a finding**, above the filters, states the two decisions
-every finding asks for, the working definition of critical and the issue
-types, so the tab can be used without this page. It stays open until you
-have started a review of the study. The **Consistency review** card above
-the tabs counts your reviews over the whole study.
+The message bar above the filters reminds you to open **Start review** for
+a finding's evidence and record both decisions under **Human Review**.
+The **Consistency review** card above the tabs counts your reviews over
+the whole study.
 
 ## The findings table
 
