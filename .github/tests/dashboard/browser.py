@@ -1277,8 +1277,8 @@ def check(browser, base, site_dir, screenshots):
     for route in blocked:
         route.continue_()
     independent_page.get_by_role('button', name='Consistency findings', exact=True).click()
-    expect(independent_page.get_by_role('link', name='Download complete audit (JSON)', exact=True)).to_have_attribute('href', re.compile('/audit.json$'))
-    assert not audit_requests, 'Raw audit is downloaded only on demand'
+    expect(independent_page.locator('a[href$="/audit.json"]')).to_have_count(0)
+    assert not audit_requests, 'The dashboard never requests the raw audit'
     independent.close()
 
 

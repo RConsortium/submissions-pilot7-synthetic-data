@@ -258,7 +258,7 @@ New consistency checks belong in `consistency.py`, document adapters in
 
 The workspace report publishes only the fields consumed by the dashboard. The
 complete generated report, including raw findings and logic checks, remains in
-`audit.json` with a download link from Consistency findings. Workspace and
+the published `audit.json`; the dashboard does not link it. Workspace and
 Define-XML views load without requesting the finding report. Finding and source
 document views load the compact report when selected.
 

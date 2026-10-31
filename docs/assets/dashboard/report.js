@@ -220,8 +220,7 @@ export function createReport(ctx) {
   }
   /** A short reminder above the finding filters. */
   function howToReview() {
-    const audit = ctx.model?.audit ? `<p><a href="${ctx.esc(ctx.resource(ctx.model.audit))}" download>Download complete audit (JSON)</a></p>` : "";
-    return `<p class="review-howto">Open <strong>Start review</strong> for the finding's evidence, record both decisions under <strong>Human Review</strong>.</p>${audit}`;
+    return `<p class="review-howto">Open <strong>Start review</strong> for the finding's evidence, record both decisions under <strong>Human Review</strong>.</p>`;
   }
   function findingsView() {
     const { state, esc } = ctx;
