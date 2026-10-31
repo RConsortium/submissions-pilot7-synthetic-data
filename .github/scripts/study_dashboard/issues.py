@@ -16,7 +16,7 @@ CHECK_TITLES = {
     "CR-2": "Documented source variable is absent",
     "CR-3": "Documented source differs from generated ADaM datasets",
     "CR-4": "Specification uses a different copy source",
-    "CR-5": "Documented rule differs from generated ADaM datasets",
+    "CR-5": "Define-XML differs from derived ADaM datasets",
     "CR-6": "Specification differs from a documented clause",
     "CR-7": "Specification clause is undocumented",
     "CR-8": "Source documents disagree",
@@ -267,7 +267,7 @@ def check_record(f, pool):
         add(key)
         selectors[("codelist", None, target)] = key
     for title, note in (
-        ("Current derived dataset", f.get("data", {}).get("summary")
+        ("Reviewed ADaM dataset", f.get("data", {}).get("summary")
          if f["comparison"] == "dataset_define" else None),
         ("Documented rule check unavailable", e.get("not_probed_reason")),
         ("Copy source", copy.get("reason")),
