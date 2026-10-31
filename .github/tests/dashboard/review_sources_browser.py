@@ -74,8 +74,8 @@ def run(browser_path=None):
             sections = page.locator('.trace-review-content > section').evaluate_all('(items)=>items.map(s=>s.id)')
             assert sections == ['trace-finding', 'trace-sources', 'trace-examples']
             expect(page.locator('#trace-sources .trace-source-file')).to_have_count(2)
-            expect(page.locator('.trace-data-table thead th')).to_have_text(['ADaM data', 'Documented Rule'])
-            expect(page.locator('.trace-data-table tbody td')).to_have_count(2)
+            expect(page.locator('.trace-data-table thead th')).to_have_text(['SEQ', 'INPUT', 'ADaM data', 'Documented Rule'])
+            expect(page.locator('.trace-data-table tbody td')).to_have_text(['1', '65', 'Difference: 64', 'Difference: 65'])
             expect(page.locator('.trace-cell-difference')).to_have_count(2)
             expect(page.locator('.trace-data-table')).not_to_contain_text('999')
             expect(page.locator('#trace-your-review h3')).to_have_text('Human Review')

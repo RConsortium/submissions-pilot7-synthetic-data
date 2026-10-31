@@ -887,7 +887,8 @@ def check(browser, base, site_dir, screenshots):
         }
     expect(trace.locator('#trace-specifications, #trace-fix')).to_have_count(0)
     expect(trace.locator('#trace-your-review h3')).to_have_text('Human Review')
-    expect(trace.locator('.trace-data-table thead th')).to_have_text(['ADaM data', 'Documented Rule'])
+    expect(trace.locator('.trace-data-table thead th')).to_have_text([key for key in examples['keys'] if key != examples['subject_key']] +
+        examples['input_columns'] + ['ADaM data', 'Documented Rule'])
     expect(page.locator("#review-comments #comments-host script")).to_have_attribute("data-term", original_term)
     assert page.evaluate("window.originalCommentsHost===document.querySelector('#comments-host')")
     expect(trace.get_by_role("radio", name="Agree", exact=True)).to_be_checked()
