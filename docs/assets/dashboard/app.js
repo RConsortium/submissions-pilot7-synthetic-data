@@ -11,12 +11,12 @@ import {
 } from "./review-model.js";
 import { createShell } from "./shell.js";
 import { createWorkspace } from "./workspace.js";
-import { createReport } from "./report.js";
+import { createReport, FINDING_FILTERS } from "./report.js";
 import { findIssue } from "./issues.js";
 import { createTraceReview } from "./trace-review.js";
 import { createReviewDrafts } from "./review-drafts.js";
 import { reviewLedgerDocument } from "./review-comment.js";
-import { createReviewSources, resolvedReviewReport } from "./review-sources.js";
+import { createReviewSources, reviewComparisonEvidence } from "./review-sources.js";
 import { createSourceDocuments } from "./source-documents.js";
 import { defineComparisonView } from "./define-comparison.js";
 import { createComments } from "./comments.js";
@@ -118,9 +118,9 @@ import { developmentReport, mountDevelopment } from "./synthetic-development.js"
     },
   };
   const { frame } = createShell(ctx),
-    { workspace, applyHighlight, paintTables, fitWorkbench, copySpecification } =
+    { workspace, applyHighlight, paintTables, fitWorkbench } =
       createWorkspace(ctx);
-  const { findingRows, findingsView, findingItems, drawer, ledger, ledgerStrip } = createReport(ctx),
+  const { refreshFindings, findingsView, findingItems, drawer, ledger, ledgerStrip } = createReport(ctx),
     comments = createComments(ctx),
     { commentsView, loadComments } = comments;
   // The review dialog walks the findings the listing currently shows.
@@ -136,10 +136,6 @@ import { developmentReport, mountDevelopment } from "./synthetic-development.js"
   const resizing = createResizing(ctx, fitWorkbench);
   function updatePlan() {
     plan = reviewPlan(model, state, graph);
-    if (report.scope === "dataset_define") {
-      plan.inputs = [];
-      plan.panels = plan.outputs;
-    }
   }
   async function refreshRows() {
     const token = ++refreshRows.token,
@@ -211,6 +207,7 @@ import { developmentReport, mountDevelopment } from "./synthetic-development.js"
     byId("review-comments").innerHTML = commentsView();
     loadComments();
     traceReview.refreshRows();
+    resizing.refreshFindings();
     if (state.view === "datasets") {
       await refreshRows();
       if (token === ticket) {
@@ -334,6 +331,7 @@ import { developmentReport, mountDevelopment } from "./synthetic-development.js"
   }, true);
   document.addEventListener("scroll", placeRuleLegends, true);
   window.addEventListener("resize", placeRuleLegends);
+  window.addEventListener("resize", resizing.refreshFindings);
   document.addEventListener("keydown", (event) => {
     if (!root()) return;
     if (traceReview.isOpen) return;
@@ -395,9 +393,10 @@ import { developmentReport, mountDevelopment } from "./synthetic-development.js"
     const target = event.target.closest("button,[data-line-node]");
     if (!target || !root()?.contains(target)) return;
     if (target.dataset.sourceEvidence) {
-      const sourceReport = target.closest("#trace-specifications")
-        ? resolvedReviewReport(report, specifications, target.closest(".trace-review-dialog")?.dataset.reviewDataset) : report;
-      const evidence = sourceReport.review.evidence.find((e) => e.id === target.dataset.sourceEvidence);
+      const issue = findIssue(report, state.review);
+      const evidence = (issue && target.closest("#trace-sources")
+        ? reviewComparisonEvidence(issue, report, specifications)
+        : report.review.evidence).find((e) => e.id === target.dataset.sourceEvidence);
       if (evidence) reviewSources.open(evidence, target);
       return;
     }
@@ -406,10 +405,6 @@ import { developmentReport, mountDevelopment } from "./synthetic-development.js"
       return;
     }
     if (sourceDocuments.click(target)) return;
-    if (target.id === "copy-specification") {
-      await copySpecification();
-      return;
-    }
     if (target.dataset.view) {
       navigate(target.dataset.view);
       return;
@@ -422,8 +417,6 @@ import { developmentReport, mountDevelopment } from "./synthetic-development.js"
       const owner = target.dataset.outputDataset;
       if (owner && owner !== state.dataset) changePrimary(state, owner);
       state.focus = clear ? "" : raw;
-      // A new selection shows its defining source again unless the model is chosen.
-      if (state.focus && state.specView !== "resolved") state.specView = "";
       state.relatedOnly = true;
       state.pages = {};
       save();
@@ -466,8 +459,7 @@ import { developmentReport, mountDevelopment } from "./synthetic-development.js"
     if (target.dataset.findingDataset !== undefined) {
       state.findingSearch = target.dataset.findingDataset;
       save();
-      byId("finding-search").value = state.findingSearch;
-      byId("finding-results").innerHTML = findingRows();
+      refreshFindings();
       traceReview.refreshRows();
       return;
     }
@@ -532,21 +524,12 @@ import { developmentReport, mountDevelopment } from "./synthetic-development.js"
       await redrawWorkspace();
       return;
     }
-    if (target.id === "clear-findings") {
-      state.findingSearch = "";
-      state.kind = "";
+    if (target.id === "clear-findings" || target.id === "clear-finding-comparison") {
+      if (target.id === "clear-findings")
+        for (const field of Object.values(FINDING_FILTERS)) state[field] = "";
       state.comparison = "";
-      state.critical = "";
-      state.agentReview = "";
-      state.yourReview = "";
       save();
-      byId("finding-search").value = "";
-      byId("finding-kind").value = "";
-      byId("finding-comparison").value = "";
-      byId("finding-critical").value = "";
-      byId("finding-agent").value = "";
-      byId("finding-review").value = "";
-      byId("finding-results").innerHTML = findingRows();
+      refreshFindings();
       traceReview.refreshRows();
       return;
     }
@@ -580,12 +563,6 @@ import { developmentReport, mountDevelopment } from "./synthetic-development.js"
       state.evidence = "";
       save();
       await renderView();
-      return;
-    }
-    if (el.id === "spec-view") {
-      state.specView = el.value;
-      save();
-      await redrawWorkspace(true, false);
       return;
     }
     if (el.hasAttribute("data-input-dataset")) {
@@ -633,20 +610,10 @@ import { developmentReport, mountDevelopment } from "./synthetic-development.js"
       paintTables();
       return;
     }
-    if (
-      ["finding-kind", "finding-comparison", "finding-critical", "finding-agent", "finding-review"].includes(el.id)
-    ) {
-      state[
-        {
-          "finding-kind": "kind",
-          "finding-comparison": "comparison",
-          "finding-critical": "critical",
-          "finding-agent": "agentReview",
-          "finding-review": "yourReview",
-        }[el.id]
-      ] = el.value;
+    if (el.tagName === "SELECT" && FINDING_FILTERS[el.id]) {
+      state[FINDING_FILTERS[el.id]] = el.value;
       save();
-      byId("finding-results").innerHTML = findingRows();
+      refreshFindings();
       traceReview.refreshRows();
     }
   });
@@ -664,10 +631,10 @@ import { developmentReport, mountDevelopment } from "./synthetic-development.js"
       save();
       paintTables();
     }
-    if (el.id === "finding-search") {
-      state.findingSearch = el.value;
+    if (el.tagName === "INPUT" && FINDING_FILTERS[el.id]) {
+      state[FINDING_FILTERS[el.id]] = el.value;
       save();
-      byId("finding-results").innerHTML = findingRows();
+      refreshFindings();
       traceReview.refreshRows();
     }
   });

@@ -1,10 +1,9 @@
 """Separate reference reproduction from open consistency review findings."""
 
 EXPLANATION = (
-    "Generated ADaM dataset agreement measures reproduction of the generated ADaM datasets under "
-    "the study's comparison rules. Consistency review checks agreement among "
-    "documents, derivation rules, and data. Findings can remain open even when "
-    "generated ADaM dataset agreement is 100%."
+    "Generated ADaM dataset agreement measures reproduction of the generated ADaM datasets using yamaa framework.",
+    "Consistency review checks agreement between ADaM dataset and Define-XML.",
+    "Findings can remain open even when reproduced ADaM dataset agreement is 100%.",
 )
 
 
@@ -29,7 +28,7 @@ def summary_cards(matched, reference, issues):
         return f"{value / 1e6:.1f}M" if value >= 1e6 else f"{value:,}"
 
     status = (
-        f"<strong>{100 * matched[0] / reference[0]:.0f}%</strong> of generated ADaM datasets matched"
+        f"<strong>{100 * matched[0] / reference[0]:.0f}%</strong> of ADaM datasets matched by using yamaa framework"
         if reference[0] else "No generated ADaM comparison datasets"
     )
     labels = ["Datasets matching generated ADaM datasets", "Columns in matching datasets", "Cells in matching datasets"]
@@ -42,12 +41,14 @@ def summary_cards(matched, reference, issues):
     review = "awaiting review" if count else "reported"
     return (
         '<div class="review-summaries">'
-        '<section class="summary-card reference-summary" aria-label="Generated ADaM dataset agreement">'
-        '<h2>Generated ADaM dataset agreement</h2>'
+        '<section class="summary-card reference-summary" aria-label="ADaM derivation">'
+        '<h2>ADaM derivation</h2>'
         f'<p class="summary-value">{status}</p><dl class="summary-metrics">{metrics}</dl></section>'
         '<section class="summary-card consistency-summary" aria-label="Consistency review">'
         '<h2>Consistency review</h2>'
         f'<p class="summary-value"><strong>{count}</strong> {finding} {review}</p>'
         f'<p class="critical-counts">{review_breakdown(issues)}</p></section></div>'
-        f'<p class="comparison-explanation">{EXPLANATION}</p>'
+        '<ul class="comparison-explanation">'
+        + ''.join(f'<li>{text}</li>' for text in EXPLANATION)
+        + '</ul>'
     )
