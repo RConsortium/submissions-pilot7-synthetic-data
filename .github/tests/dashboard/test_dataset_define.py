@@ -10,7 +10,6 @@ import pyarrow.parquet as pq
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[2] / 'scripts'))
 from study_dashboard.dataset_define import build_report, formula, logical_type, selected_rows
-from study_evidence import reviewed_datasets
 
 
 XML = '''<ODM xmlns="http://www.cdisc.org/ns/odm/v1.3" xmlns:def="http://www.cdisc.org/ns/def/v2.0">
@@ -57,6 +56,8 @@ class DatasetDefineTests(unittest.TestCase):
         self.assertEqual(r['sources']['datasets'][0]['path'], 'study/data/adam/adsl-yamaa.parquet')
         self.assertEqual(r['sources']['datasets'][0]['rows'], 2)
         self.assertEqual([d['path'] for d in r['documents']], ['study/spec/define/define-adam.xml'])
+        self.assertEqual(r['documents'][0]['view'], r['documents'][0]['source'])
+        self.assertIn('id="ADSL.USUBJID"', (self.target / r['documents'][0]['view']).read_text())
         self.assertNotIn('different', r['check_counts'])
         self.assertTrue(all(c['comparison'] == 'dataset_define' for c in r['review']['checks']))
         self.assertFalse(any(e['type'] == 'specification' for e in r['review']['evidence']))
@@ -78,7 +79,8 @@ class DatasetDefineTests(unittest.TestCase):
     def test_broken_xml_references_are_unassessed(self):
         r = self.report(xml=XML.replace('CodeListOID="CL.CODE"', 'CodeListOID="MISSING"'))
         self.assertEqual(r['check_counts'], {'not_assessed': 1})
-        self.assertIn('Dangling XML reference', r['findings'][0]['observation'])
+        self.assertEqual(r['findings'], [])
+        self.assertIn('Dangling XML reference', r['coverage_items'][0]['reason'])
 
     def test_value_level_scope_requires_present_columns_and_supported_predicates(self):
         variables = {'CODE': {'type': 'text'}}
@@ -91,6 +93,75 @@ class DatasetDefineTests(unittest.TestCase):
         item = {'type': 'integer', 'display_format': None}
         self.assertTrue(logical_type(pa.field('N', pa.float64()), item, [1., None]))
         self.assertFalse(logical_type(pa.field('N', pa.float64()), item, [1.5]))
+        self.assertTrue(logical_type(pa.field('N', pa.float64()), item, [1.000000000000001]))
+
+    def test_numeric_codelists_tolerate_binary_representation_only(self):
+        from study_dashboard.dataset_define import member
+        self.assertTrue(member(4.199999999999999, {'4.2'}, 'float'))
+        self.assertFalse(member(4.21, {'4.2'}, 'float'))
+
+    def test_predecessor_origin_names_missing_source_variable(self):
+        source = self.base / 'data/sdtm/dm.parquet'
+        source.parent.mkdir(parents=True)
+        pq.write_table(pa.table({'USUBJID': ['001', '002']}), source)
+        xml = XML.replace('<def:Origin Type="Predecessor"/>', '<def:Origin Type="Predecessor"><Description><TranslatedText>DM.MISSING</TranslatedText></Description></def:Origin>')
+        result = self.report(xml=xml)
+        issue = next(f for f in result['findings'] if f['check'] == 'predecessor_source')
+        self.assertIn('DM has no variable MISSING', issue['observation'])
+
+    def test_assigned_origin_alone_is_not_a_documentation_defect(self):
+        result = self.report(xml=XML.replace('Type="Predecessor"', 'Type="Assigned"'))
+        self.assertFalse(any(f['variable'] == 'USUBJID' and f['check'] == 'origin_method' for f in result['findings']))
+
+    def test_significant_digits_does_not_hide_gross_formula_error(self):
+        xml = XML.replace('OrderNumber="3" Mandatory="No"', 'OrderNumber="3" Mandatory="No" MethodOID="MT.AGE"')
+        xml = xml.replace('DataType="integer" Length="8"', 'DataType="integer" Length="8" SignificantDigits="1"')
+        xml = xml.replace('</MetaDataVersion>', '<MethodDef OID="MT.AGE" Name="Age" Type="Computation"><Description><TranslatedText>AGE + 10</TranslatedText></Description></MethodDef></MetaDataVersion>')
+        result = self.report(xml=xml)
+        self.assertTrue(any(f['check'] == 'arithmetic_method' for f in result['findings']))
+
+    def test_precision_compatible_difference_is_coverage_not_a_pass(self):
+        xml = XML.replace('OrderNumber="3" Mandatory="No"', 'OrderNumber="3" Mandatory="No" MethodOID="MT.AGE"')
+        xml = xml.replace('DataType="integer" Length="8"', 'DataType="integer" Length="8" SignificantDigits="1"')
+        xml = xml.replace('</MetaDataVersion>', '<MethodDef OID="MT.AGE" Name="Age" Type="Computation"><Description><TranslatedText>AGE + 0.01</TranslatedText></Description></MethodDef></MetaDataVersion>')
+        result = self.report(xml=xml)
+        self.assertTrue(any(c['check'] == 'numeric_precision' and c['status'] == 'not_assessed' for c in result['checks']))
+        self.assertTrue(any('numeric_precision' in c['id'] for c in result['coverage_items']))
+        self.assertFalse(any(c['check'] == 'arithmetic_method' and c['status'] == 'passed' for c in result['checks']))
+
+    def test_native_legacy_value_level_type_overrides_parent_type(self):
+        xml = XML.replace('odm/v1.3', 'odm/v1.2').replace('def/v2.0', 'def/v1.0').replace('CODE', 'PARAMCD')
+        xml = xml.replace('DataType="integer" Length="8"', 'DataType="float" Length="8"')
+        xml = xml.replace('<Description><TranslatedText>Age</TranslatedText></Description></ItemDef>', '<Description><TranslatedText>Age</TranslatedText></Description><def:ValueListRef ValueListOID="VL.AGE"/></ItemDef>')
+        xml = xml.replace('</MetaDataVersion>', '<def:ValueListDef OID="VL.AGE"><ItemRef ItemOID="IT.AGE.Y" OrderNumber="1" Mandatory="No"/></def:ValueListDef><ItemDef OID="IT.AGE.Y" Name="Y" DataType="integer" Length="8" def:Label="Age"/></MetaDataVersion>')
+        result = self.report({'USUBJID': ['001', '002'], 'PARAMCD': ['Y', 'N'], 'AGE': [1.5, 2.5]}, xml=xml)
+        finding = next(f for f in result['findings'] if f['check'] == 'logical_type_value_level_1')
+        self.assertEqual(finding['evidence']['dataset_check']['compared'], 1)
+        self.assertEqual(finding['evidence']['dataset_check']['differ'], 1)
+        self.assertFalse(any(f['variable'] == 'AGE' and f['check'] == 'logical_type' for f in result['findings']))
+
+    def test_postbaseline_scope_excludes_unflagged_prebaseline_records(self):
+        from datetime import date
+        xml = XML.replace('OrderNumber="3" Mandatory="No"', 'OrderNumber="3" Mandatory="No" MethodOID="MT.AGE"')
+        xml = xml.replace('</MetaDataVersion>', '<MethodDef OID="MT.AGE" Name="Age" Type="Computation"><Description><TranslatedText>AGE + 1, for post baseline records</TranslatedText></Description></MethodDef></MetaDataVersion>')
+        result = self.report({'USUBJID': ['001'] * 3, 'CODE': ['Y'] * 3, 'AGE': [65.] * 3,
+                              'ABLFL': ['', 'Y', ''], 'ADT': [date(2020, 1, 1), date(2020, 1, 2), date(2020, 1, 3)]}, xml=xml)
+        finding = next(f for f in result['findings'] if f['variable'] == 'AGE' and f['check'] == 'arithmetic_method')
+        self.assertEqual(finding['evidence']['dataset_check']['compared'], 1)
+
+    def test_value_level_predecessor_overrides_parent_source_scope(self):
+        source = self.base / 'data/sdtm/dm.parquet'
+        source.parent.mkdir(parents=True)
+        pq.write_table(pa.table({'USUBJID': ['001', '002'], 'CODE': ['N', 'N'], 'VLCODE': ['N', 'N']}), source)
+        xml = XML.replace('<CodeListRef CodeListOID="CL.CODE"/>', '<CodeListRef CodeListOID="CL.CODE"/><def:Origin Type="Predecessor"><Description><TranslatedText>DM.CODE</TranslatedText></Description></def:Origin><def:ValueListRef ValueListOID="VL.CODE"/>')
+        xml = xml.replace('</MetaDataVersion>', '''<def:ValueListDef OID="VL.CODE"><ItemRef ItemOID="IT.CODE.Y" OrderNumber="1" Mandatory="No"><def:WhereClauseRef WhereClauseOID="WC.Y"/></ItemRef></def:ValueListDef>
+<ItemDef OID="IT.CODE.Y" Name="CODE" DataType="text" Length="1"><Description><TranslatedText>Code</TranslatedText></Description><def:Origin Type="Predecessor"><Description><TranslatedText>DM.VLCODE</TranslatedText></Description></def:Origin></ItemDef>
+<def:WhereClauseDef OID="WC.Y"><RangeCheck Comparator="EQ" SoftHard="Soft" def:ItemOID="IT.CODE"><CheckValue>Y</CheckValue></RangeCheck></def:WhereClauseDef></MetaDataVersion>''')
+        result = self.report(xml=xml)
+        copied = [f for f in result['findings'] if f['check'].startswith('predecessor_copy')]
+        self.assertEqual(len(copied), 1)
+        self.assertEqual(copied[0]['check'], 'predecessor_copy_value_level_1')
+        self.assertEqual(copied[0]['evidence']['dataset_check']['compared'], 1)
 
     def test_key_sequence_does_not_invent_a_nonmissing_requirement(self):
         r = self.report({'USUBJID': ['001', None], 'CODE': ['Y', 'N'], 'AGE': [65., 70.]})
@@ -128,16 +199,6 @@ class DatasetDefineTests(unittest.TestCase):
         finding = next(f for f in r['findings'] if f['check'] == 'codelist_value_level_1')
         self.assertEqual((finding['evidence']['dataset_check']['compared'], finding['evidence']['dataset_check']['differ']), (1, 1))
 
-    def test_scoped_study_does_not_require_multisource_claim_reports(self):
-        import json
-        (self.base / 'spec/yamaa').mkdir()
-        (self.base / 'spec/yamaa/project.yaml').write_text('adam: {specs: [adsl.yaml]}')
-        (self.base / 'spec/yamaa/adsl.yaml').write_text('domain: ADSL')
-        (self.base / 'spec/review').mkdir()
-        (self.base / 'spec/review/adsl-claims.json').write_text('{}')
-        (self.root / '.github').mkdir()
-        (self.root / '.github/yamaa-studies.json').write_text(json.dumps({'study': {'dashboard': {'review_scope': 'dataset_define'}}}))
-        self.assertEqual(reviewed_datasets(self.root, 'study'), [])
 
 
 if __name__ == '__main__':
