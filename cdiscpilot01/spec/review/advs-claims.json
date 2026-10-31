@@ -3,9 +3,9 @@
   "dataset": "ADVS",
   "author": {
     "kind": "agent",
-    "model": "Codex",
+    "model": "Codex; program tracing round by claude-opus-5-5[1m]",
     "instructions": ".automation/consistency_review/extract.md",
-    "date": "2026-10-26"
+    "date": "2026-10-29"
   },
   "claims": [
     {
@@ -26,6 +26,11 @@
           "document": "spec/source/dataguide.pdf",
           "section": "page-3",
           "quote": "The ADSL (Subject Level Analysis Data) dataset contains all subject-level variables for\ndemographics, subject characteristics, and population flags."
+        },
+        {
+          "document": "spec/source/programs/pilot6/advs.r",
+          "section": "L108-L113",
+          "quote": "advs_adsl <- vs %>%\n  derive_vars_merged(\n    dataset_add = adsl,\n    new_vars = adsl_vars,\n    by_vars = exprs(STUDYID, USUBJID)\n  ) %>%"
         }
       ],
       "clauses": [
@@ -67,7 +72,7 @@
         "ADSL1 joins the derived ADSL input on STUDYID/USUBJID and keeps a first record for other subject attributes. The two identifier columns bypass that lookup in both row paths. The literal uses the documented published ADSL source without copying that first-record policy.",
         "The REF base preserves every ordinary and added End of Treatment row. Joining ADSL as a lookup does not rebuild, filter or duplicate either branch, and the data guide states no observed/derived exception to its core-variable merge."
       ],
-      "assessment": "Define-XML and the data guide identify the published ADSL source; the executable ordinary and endpoint paths take this identifier from VS.",
+      "assessment": "Define-XML and the data guide identify the published ADSL source; the executable ordinary and endpoint paths take this identifier from VS. Pilot 6's reimplementation advs.r (lines 108-113) starts from VS and merges ADSL by STUDYID and USUBJID, so its identifier is the VS value matched to ADSL.",
       "question": ""
     },
     {
@@ -88,6 +93,11 @@
           "document": "spec/source/dataguide.pdf",
           "section": "page-3",
           "quote": "The ADSL (Subject Level Analysis Data) dataset contains all subject-level variables for\ndemographics, subject characteristics, and population flags."
+        },
+        {
+          "document": "spec/source/programs/pilot6/advs.r",
+          "section": "L108-L113",
+          "quote": "advs_adsl <- vs %>%\n  derive_vars_merged(\n    dataset_add = adsl,\n    new_vars = adsl_vars,\n    by_vars = exprs(STUDYID, USUBJID)\n  ) %>%"
         }
       ],
       "clauses": [
@@ -129,7 +139,7 @@
         "ADSL1 joins the derived ADSL input on STUDYID/USUBJID and keeps a first record for other subject attributes. The two identifier columns bypass that lookup in both row paths. The literal uses the documented published ADSL source without copying that first-record policy.",
         "The REF base preserves every ordinary and added End of Treatment row. Joining ADSL as a lookup does not rebuild, filter or duplicate either branch, and the data guide states no observed/derived exception to its core-variable merge."
       ],
-      "assessment": "Define-XML and the data guide identify the published ADSL source; the executable ordinary and endpoint paths take this identifier from VS.",
+      "assessment": "Define-XML and the data guide identify the published ADSL source; the executable ordinary and endpoint paths take this identifier from VS. Pilot 6's reimplementation advs.r (lines 108-113) starts from VS and merges ADSL by STUDYID and USUBJID, so its identifier is the VS value matched to ADSL.",
       "question": ""
     },
     {
@@ -180,6 +190,21 @@
           "document": "spec/source/dataguide.pdf",
           "section": "page-3",
           "quote": "The analysis files for this study were derived from the submitted SDTM files. SDTM files were\nprepared from CRF data according to version 3.1.2 of the SDTM IG (with amendment 1). No\nnon-CRF or non-SDTM data were used to create the ADaM data."
+        },
+        {
+          "document": "spec/source/programs/pilot6/advs.r",
+          "section": "L66-L71",
+          "quote": "paramcd_codelist <- advs_spec$codelist %>%\n  filter(code_id == \"PARAMCD_ADVS\") %>%\n  pull(codes) %>%\n  pluck(1) %>%\n  select(code, decode) %>%\n  rename(PARAMCD = code, PARAM = decode)"
+        },
+        {
+          "document": "spec/source/programs/pilot6/advs.r",
+          "section": "L84-L87",
+          "quote": "param_lookup <- paramcd_codelist %>%\n  inner_join(paramn_codelist, by = \"PARAM\") %>%\n  select(PARAMCD, PARAM, PARAMN) %>%\n  mutate(VSTESTCD = PARAMCD)"
+        },
+        {
+          "document": "spec/source/programs/pilot6/advs.r",
+          "section": "L132-L134",
+          "quote": "advs_param <- advs_dt %>%\n  inner_join(param_lookup, by = \"VSTESTCD\")"
         }
       ],
       "clauses": [
@@ -275,7 +300,7 @@
         "SAP vital-sign summaries distinguish supine and standing measurement timepoints. The parameter label does not combine that timepoint dimension or convert the submitted standardized units.",
         "PARAM has a blank native ItemDef comment; its executable identity mapping is supported by the paired parameter codelists, rather than an invented free-text concatenation rule."
       ],
-      "assessment": "The specification enumerates the documented parameter labels and units.",
+      "assessment": "The specification enumerates the documented parameter labels and units. Pilot 6's reimplementation advs.r (lines 66-87, 133-134) joins the PARAMCD_ADVS codelist decode to VS by VSTESTCD.",
       "question": ""
     },
     {
@@ -296,6 +321,21 @@
           "document": "spec/define/define-adam.xml",
           "section": "ADVS.PARAMCD",
           "quote": "Codelist PARAMCD_ADVS: SYSBP = Systolic Blood Pressure (mmHg); DIABP = Diastolic Blood Pressure (mmHg); PULSE = Pulse Rate (BEATS/MIN); WEIGHT = Weight (kg); HEIGHT = Height (cm); TEMP = Temperature (C)"
+        },
+        {
+          "document": "spec/source/programs/pilot6/advs.r",
+          "section": "L73-L82",
+          "quote": "paramn_codelist <- advs_spec$codelist %>%\n  filter(code_id == \"PARAMN_ADVS\") %>%\n  pull(codes) %>%\n  pluck(1) %>%\n  select(code, decode) %>%\n  mutate(\n    code = str_trim(code),\n    code = as.integer((code))\n  ) %>%\n  rename(PARAMN = code, PARAM = decode)"
+        },
+        {
+          "document": "spec/source/programs/pilot6/advs.r",
+          "section": "L84-L87",
+          "quote": "param_lookup <- paramcd_codelist %>%\n  inner_join(paramn_codelist, by = \"PARAM\") %>%\n  select(PARAMCD, PARAM, PARAMN) %>%\n  mutate(VSTESTCD = PARAMCD)"
+        },
+        {
+          "document": "spec/source/programs/pilot6/advs.r",
+          "section": "L132-L134",
+          "quote": "advs_param <- advs_dt %>%\n  inner_join(param_lookup, by = \"VSTESTCD\")"
         }
       ],
       "clauses": [
@@ -332,7 +372,7 @@
       "interpretations": [
         "The probe maps upstream REF.PARAM to its documented numeric code; it does not copy REF.PARAMN."
       ],
-      "assessment": "The specification uses the codelist numbering for the corresponding source test codes.",
+      "assessment": "The specification uses the codelist numbering for the corresponding source test codes. Pilot 6's reimplementation advs.r (lines 73-87, 133-134) joins the PARAMN_ADVS codelist code to VS through the parameter label.",
       "question": ""
     },
     {
@@ -358,6 +398,11 @@
           "document": "spec/source/SAP.pdf",
           "section": "page-10",
           "quote": "Missing baseline values and missing safety data will not be imputed."
+        },
+        {
+          "document": "spec/source/programs/pilot6/advs.r",
+          "section": "L121-L126",
+          "quote": "advs_dt <- advs_adsl %>%\n  derive_vars_dt(\n    new_vars_prefix = \"A\",\n    dtc = VSDTC\n  ) %>%"
         }
       ],
       "clauses": [
@@ -393,7 +438,7 @@
         "The probe uses to_date on VS.VSDTC, taking its date part without supplying missing month/day. It reads no current target REF.ADT.",
         "The Define-XML date-source statement is applied on both observed and derived records using their documented raw sequence lineage; it does not select an end-of-treatment donor or replace the record date with a nominal visit date."
       ],
-      "assessment": "The specification adds partial-date completion to the documented date-part conversion.",
+      "assessment": "The specification adds partial-date completion to the documented date-part conversion. Pilot 6's reimplementation advs.r (lines 122-126) converts VSDTC with derive_vars_dt and passes no imputation argument.",
       "question": "Should incomplete vital-sign dates remain missing after date-part conversion, or is a specific partial-date completion policy intended?"
     },
     {
@@ -429,6 +474,16 @@
           "document": "spec/source/SAP.pdf",
           "section": "page-41",
           "quote": "Heart Rate (bpm) AFTER LYING DOWN 5 MIN.\n AFTER STANDING 1 MIN.\n AFTER STANDING 3 MIN."
+        },
+        {
+          "document": "spec/source/programs/pilot6/advs.r",
+          "section": "L43-L53",
+          "quote": "atpt_codelist <- advs_spec$codelist %>%\n  filter(code_id == \"ADVS.ATPTN\") %>%\n  pull(codes) %>%\n  pluck(1) %>%\n  select(code, decode) %>%\n  mutate(\n    code = str_trim(code),\n    code = as.integer((code))\n  ) %>%\n  rename(ATPTN = code, ATPT = decode)"
+        },
+        {
+          "document": "spec/source/programs/pilot6/advs.r",
+          "section": "L140-L143",
+          "quote": "advs_atpt <- advs_aval %>%\n  mutate(ATPT = VSTPT) %>%\n  left_join(atpt_codelist, by = \"ATPT\")"
         }
       ],
       "clauses": [
@@ -469,7 +524,7 @@
         "SAP lists the supine/standing measurement positions and elapsed times but supplies no analysis-timepoint numeric coding. The displayed minute values must not be substituted for numeric codes by assumption.",
         "The supplied exact-section files contain no ADVS.ATPTN codelist. This is distinct from claiming that numeric timepoint metadata are absent from all retained native material."
       ],
-      "assessment": "The intended timepoint labels are documented, while the complete citable analysis numeric-code mapping is unavailable.",
+      "assessment": "The intended timepoint labels are documented, while the complete citable analysis numeric-code mapping is unavailable. Pilot 6's reimplementation advs.r (lines 44-53, 141-143) sets ATPT = VSTPT and takes ATPTN from its own ADVS.ATPTN specification codelist joined on ATPT, not from VSTPTNUM.",
       "question": "Should ADVS.ATPTN use the retained SDTM VSTPTNUM codes for the corresponding VSTPT, or a separate analysis numeric coding? Please expose the intended mapping in citable ADaM metadata, including the code for records with no timepoint.",
       "not_probed_reason": "The citable ADVS.ATPTN rule says only Numeric code for ATPT and supplies no numeric codelist or explicit source. Native SDTM has VSTPTNUM metadata, outside the supplied exact sections, but importing that source and its numeric values into a literal ADaM probe would resolve an unstated analysis coding choice."
     },
@@ -541,6 +596,16 @@
           "document": "spec/source/dataguide.pdf",
           "section": "page-3",
           "quote": "The analysis files for this study were derived from the submitted SDTM files. SDTM files were\nprepared from CRF data according to version 3.1.2 of the SDTM IG (with amendment 1). No\nnon-CRF or non-SDTM data were used to create the ADaM data."
+        },
+        {
+          "document": "spec/source/programs/pilot6/advs.r",
+          "section": "L145-L154",
+          "quote": "advs_avisit <- advs_atpt %>%\n  mutate(\n    AVISIT = case_when(\n      str_detect(VISIT, \"SCREENING|UNSCH|AMBUL ECG|RETRIEVAL\") ~ NA_character_,\n      TRUE ~ str_to_title(VISIT)\n    )\n  ) %>%\n  left_join(avisit_codelist, by = \"AVISIT\")"
+        },
+        {
+          "document": "spec/source/programs/pilot6/advs.r",
+          "section": "L156-L168",
+          "quote": "advs_eot <- advs_avisit %>%\n  derive_extreme_records(\n    dataset_add = advs_avisit,\n    by_vars = exprs(STUDYID, USUBJID, PARAMCD, ATPT),\n    order = exprs(ADT, AVISITN, ATPTN, AVAL),\n    mode = \"last\",\n    filter_add = (AVISITN > 2),\n    set_values_to = exprs(\n      AVISIT = \"End of Treatment\",\n      AVISITN = 99\n    )\n  )"
         }
       ],
       "clauses": [
@@ -656,7 +721,7 @@
         "The data guide limits analysis datasets to enrolled subjects. No enrollment criterion is invented from source labels; subject inclusion is a shared dataset-row review question.",
         "The first whole-variable probe is withheld instead of presenting an observed-only visit map as the complete rule. Any future computed AVISIT probe must use AVISIT__LITERAL and preserve the supplied AVISIT matching key."
       ],
-      "assessment": "Collected-visit labeling is specified, while the implemented endpoint selection departs from the retained Week 24 and on-treatment conditions and leaves material choices unresolved.",
+      "assessment": "Collected-visit labeling is specified, while the implemented endpoint selection departs from the retained Week 24 and on-treatment conditions and leaves material choices unresolved. Pilot 6's reimplementation advs.r (lines 147-168) title-cases VS.VISIT except screening, unscheduled, ambulatory ECG and retrieval visits, then adds End of Treatment as the last record by ADT, AVISITN, ATPTN and AVAL among records with AVISITN > 2, with no Week 24 upper bound or on-treatment test.",
       "question": "Which retained EOT definition governs ADVS: designated Week 24/early-termination visit or last on-treatment assessment on or before Week 24? Specify candidate visits, the on-treatment date test, repeated-assessment tie handling and no-candidate behavior; also confirm enrolled-subject selection.",
       "not_probed_reason": "A whole-variable literal rule must cover both observed and derived End of Treatment records. The retained definitions differ in designated-visit versus last-on-treatment eligibility and do not specify the operational treatment-date test, early-termination/unscheduled candidate handling, residual ties or no-candidate behavior. Using current REF.AVISIT, borrowing the executable latest-mapped-visit rule, or probing only observed records would not independently state the complete documented rule."
     },
@@ -678,6 +743,21 @@
           "document": "spec/define/define-adam.xml",
           "section": "ADVS.AVISIT",
           "quote": "Codelist AVISIT: Baseline = Baseline; Week 2 = Week 2; Week 4 = Week 4; Week 6 = Week 6; Week 8 = Week 8; Week 10 = Week 10; Week 12 = Week 12; Week 14 = Week 14; Week 16 = Week 16; Week 18 = Week 18; Week 20 = Week 20; Week 22 = Week 22; Week 24 = Week 24; Week 26 = Week 26; Weeks 4-24 = Weeks 4-24; End of Treatment = End of Treatment"
+        },
+        {
+          "document": "spec/source/programs/pilot6/advs.r",
+          "section": "L55-L64",
+          "quote": "avisit_codelist <- advs_spec$codelist %>%\n  filter(code_id == \"ADVS.AVISITN\") %>%\n  pull(codes) %>%\n  pluck(1) %>%\n  select(code, decode) %>%\n  mutate(\n    code = str_trim(code),\n    code = as.integer((code))\n  ) %>%\n  rename(AVISITN = code, AVISIT = decode)"
+        },
+        {
+          "document": "spec/source/programs/pilot6/advs.r",
+          "section": "L145-L154",
+          "quote": "advs_avisit <- advs_atpt %>%\n  mutate(\n    AVISIT = case_when(\n      str_detect(VISIT, \"SCREENING|UNSCH|AMBUL ECG|RETRIEVAL\") ~ NA_character_,\n      TRUE ~ str_to_title(VISIT)\n    )\n  ) %>%\n  left_join(avisit_codelist, by = \"AVISIT\")"
+        },
+        {
+          "document": "spec/source/programs/pilot6/advs.r",
+          "section": "L156-L168",
+          "quote": "advs_eot <- advs_avisit %>%\n  derive_extreme_records(\n    dataset_add = advs_avisit,\n    by_vars = exprs(STUDYID, USUBJID, PARAMCD, ATPT),\n    order = exprs(ADT, AVISITN, ATPTN, AVAL),\n    mode = \"last\",\n    filter_add = (AVISITN > 2),\n    set_values_to = exprs(\n      AVISIT = \"End of Treatment\",\n      AVISITN = 99\n    )\n  )"
         }
       ],
       "clauses": [
@@ -726,7 +806,7 @@
         "The probe maps published upstream REF.AVISIT through the complete numeric codelist, including derived-visit labels, and never copies REF.AVISITN.",
         "Using the supplied AVISIT matching key as an upstream value for numeric encoding does not test whether the record was assigned to the correct analysis visit; that independent question is retained under AVISIT."
       ],
-      "assessment": "The emitted visit-number encodings have documented codelist counterparts.",
+      "assessment": "The emitted visit-number encodings have documented codelist counterparts. Pilot 6's reimplementation advs.r (lines 55-64, 147-168) joins the AVISITN codelist code on AVISIT and sets 99 on the added End of Treatment records.",
       "question": ""
     },
     {
@@ -772,6 +852,11 @@
           "document": "spec/source/SAP.pdf",
           "section": "page-22",
           "quote": "Baseline\nWeight, Baseline Height, Baseline BMI (cont. and as normal(<25), overweight(25-<30), obese(>=30))"
+        },
+        {
+          "document": "spec/source/programs/pilot6/advs.r",
+          "section": "L170-L181",
+          "quote": "advs_baseline <- advs_eot %>%\n  mutate(\n    ABLFL = VSBLFL,\n    BASETYPE = VSTPT\n  ) %>%\n  derive_var_base(\n    by_vars = exprs(STUDYID, USUBJID, PARAMCD, BASETYPE),\n    source_var = AVAL,\n    new_var = BASE,\n    filter = ABLFL == \"Y\"\n  ) %>%"
         }
       ],
       "clauses": [
@@ -842,7 +927,7 @@
         "The raw-source selection needs a same-subject, same-parameter and same-timepoint match. Native ADVS structure identifies those dimensions, but the exact sections do not expose the structure, explicit baseline lookup keys or repeated-baseline handling.",
         "The SAP height Visit 1 statement is in demographic/baseline summaries, not an express ADVS-specific override. The apparent mismatch is retained for reviewer scope resolution, rather than silently changing the baseline selector."
       ],
-      "assessment": "The standardized source and baseline flag are stated, but the specification replaces the flag predicate and the complete precision/selection evidence is not represented in the citable interface.",
+      "assessment": "The standardized source and baseline flag are stated, but the specification replaces the flag predicate and the complete precision/selection evidence is not represented in the citable interface. Pilot 6's reimplementation advs.r (lines 171-181) sets ABLFL = VSBLFL and BASETYPE = VSTPT and takes BASE from the AVAL of the ABLFL = Y record within STUDYID, USUBJID, PARAMCD and BASETYPE.",
       "question": "Does the SAP demographic baseline-height Visit 1 rule apply to ADVS.BASE, or does the submitted VSBLFL govern every parameter? Confirm the same-subject/parameter/timepoint lookup and repeated-baseline handling, and expose the retained parameter-level precision metadata to the citation interface.",
       "not_probed_reason": "A complete literal BASE probe cannot be claimed from the supplied exact sections without resolving baseline lookup grouping/repeated flagged records and precision. The retained native parameter-level ItemDefs supply integer versus one-decimal metadata, but the required exact-section adapter omits them; this is an evidence-interface limitation, not an absence of retained VLM. Applying the general Significant digits:1 indiscriminately, selecting the first flagged record, or borrowing BASE1 matching/visit rules would introduce unsupported choices."
     },
@@ -884,6 +969,11 @@
           "document": "spec/source/SAP.pdf",
           "section": "page-10",
           "quote": "Missing baseline values and missing safety data will not be imputed."
+        },
+        {
+          "document": "spec/source/programs/pilot6/advs.r",
+          "section": "L170-L182",
+          "quote": "derive_var_base(\n    by_vars = exprs(STUDYID, USUBJID, PARAMCD, BASETYPE),\n    source_var = AVAL,\n    new_var = BASE,\n    filter = ABLFL == \"Y\"\n  ) %>%\n  derive_var_chg() %>%"
         }
       ],
       "clauses": [
@@ -942,7 +1032,7 @@
         "Template 22 displays Week 24 and End of Treatment summaries. That summary scope does not state that CHG is missing on baseline, screening, unscheduled or other retained records; no suppression condition is invented.",
         "The literal subtraction formula is complete; the obstacle to a complete precision-aware formal probe is specifically the missing VLM in the supplied citation interface."
       ],
-      "assessment": "The arithmetic agrees with the retained rule; parameter-level precision is present natively but omitted by the exact-section adapter.",
+      "assessment": "The arithmetic agrees with the retained rule; parameter-level precision is present natively but omitted by the exact-section adapter. Pilot 6's reimplementation advs.r (lines 176-182) derives CHG with derive_var_chg() after the baseline step and has no rounding step.",
       "question": "Please expose the retained parameter-specific CHG ItemDefs in the citable sections so their integer versus one-decimal precision can support the complete literal arithmetic probe.",
       "not_probed_reason": "The exact citable CHG section gives the complete AVAL-BASE arithmetic and a general Significant digits:1 field, but omits retained native parameter-level integer and one-decimal ItemDefs. A precision-aware whole-variable literal probe cannot be supported entirely by the required exact citable source until that VLM is exposed. This is an evidence-interface limitation; no missing arithmetic rule, baseline suppression or substitute precision policy is asserted."
     },
@@ -969,6 +1059,11 @@
           "document": "spec/source/SAP.pdf",
           "section": "page-10",
           "quote": "Missing baseline values and missing safety data will not be imputed."
+        },
+        {
+          "document": "spec/source/programs/pilot6/advs.r",
+          "section": "L170-L183",
+          "quote": "derive_var_chg() %>%\n  derive_var_pchg()"
         }
       ],
       "clauses": [
@@ -1012,6 +1107,10 @@
         {
           "column": "PCHG",
           "reading": "literal"
+        },
+        {
+          "column": "PCHG__UNROUNDED",
+          "reading": "Percent change 100 * CHG / BASE kept at full precision, as R Consortium Pilot 6's reimplementation advs.r lines 182-183 compute it with derive_var_chg() and derive_var_pchg(); that program applies no rounding step, so the Define-XML 'Significant digits: 1' is not applied to the stored value."
         }
       ],
       "interpretations": [
@@ -1022,7 +1121,7 @@
         "The probe uses round_half_away_from_zero with digits=1 after computing the quotient. The exact citable PCHG rule has no treatment-date, source-visit or ANL01FL qualification.",
         "Native retained pointer: cdiscpilot01/spec/define/define-adam.xml ItemDef ADVS.PCHG at lines 7299-7307. Unlike ADVS.AVAL/BASE/CHG, this ItemDef has no parameter-level ValueList reference. This is an inspection pointer, not an additional formal quotation."
       ],
-      "assessment": "The quotient and declared precision are directly documented; the executable numerator is the documented change formula expanded algebraically.",
+      "assessment": "The quotient and declared precision are directly documented; the executable numerator is the documented change formula expanded algebraically. Pilot 6's reimplementation advs.r (lines 182-183) derives PCHG with derive_var_pchg() and has no rounding step; reading PCHG__UNROUNDED tests whether the reference keeps full precision rather than the declared one decimal.",
       "question": ""
     },
     {
@@ -1113,6 +1212,11 @@
           "document": "spec/source/SAP.pdf",
           "section": "page-42",
           "quote": "Population: Safety\nTemplate 23\nSummary of Weight Change from Baseline at End of Treatment"
+        },
+        {
+          "document": "spec/source/programs/pilot6/advs.r",
+          "section": "L185-L192",
+          "quote": "advs_anl01fl <- advs_baseline %>%\n  mutate(\n    ANL01FL = case_when(\n      !is.na(AVISIT) ~ \"Y\",\n      TRUE ~ NA_character_\n    )\n  )"
         }
       ],
       "clauses": [
@@ -1251,7 +1355,7 @@
         "Native retained pointer: cdiscpilot01/spec/define/define-adam.xml ItemDef ADVS.ANL01FL at lines 7337-7347 contains the same scalar comment and Y_BLANK codelist, without a ValueListRef. No missing parameter-level ANL01FL rule is inferred. The ItemGroupDef ADVS at lines 3297-3305 describes subject/parameter/analysis-visit/analysis-timepoint structure; it does not provide a repeated-source-record winner rule.",
         "The supplied exact-section interface omits native dataset structure metadata but does expose the complete scalar flag comment. The blocker is substantive selected-record eligibility, not an assumed absence of native VLM."
       ],
-      "assessment": "The explicit exclusion and coding clauses have counterparts. The complete selected-record flag needs a governing vital-sign eligibility and endpoint-selection rule before an independent literal can be stated.",
+      "assessment": "The explicit exclusion and coding clauses have counterparts. The complete selected-record flag needs a governing vital-sign eligibility and endpoint-selection rule before an independent literal can be stated. Pilot 6's reimplementation advs.r (lines 186-192) sets ANL01FL = Y whenever AVISIT is nonmissing, which includes every added End of Treatment record.",
       "question": "Specify the governing ADVS per-visit eligible set for each parameter/timepoint, missing and repeated-assessment handling, and any vital-sign tie rule. Reconcile designated Week 24/early-termination versus last-on-treatment endpoints, define the on-treatment test and candidate visits, and state residual-tie and no-candidate behavior."
     }
   ]
