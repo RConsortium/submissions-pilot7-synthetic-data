@@ -417,7 +417,7 @@ def check(browser, base, site_dir, screenshots):
         page.reload()
         expect(page.locator(".spec-line.node-selected code")).to_have_text(selected)
     capture(page, screenshots, "composed-specification.png")
-    page.goto(study)
+    page.goto(study + "#cdiscpilot01/datasets/ADSL")
     expect(page.locator("#output-table tbody tr")).to_have_count(3)
     expect(page.locator("#subject-summary")).to_contain_text("3 /")
     expect(page.locator(".md-sidebar--primary")).not_to_be_visible()
@@ -1030,11 +1030,13 @@ def check(browser, base, site_dir, screenshots):
     page.go_back()
     # Instant navigation makes the report's relative links absolute.
     report.locator("#studies + .report-table").get_by_role("link", name="CDISC Pilot 01", exact=True).click()
-    expect(page.locator('.review-tabs [data-view="datasets"]')).to_have_attribute(
+    expect(page.locator('.review-tabs [data-view="overview"]')).to_have_attribute(
         "aria-current", "page"
     )
     page.go_back()
     report.locator("#dataset-results + .report-table").get_by_role("link", name="Submission Pilot 3", exact=True).click()
+    expect(page.locator('.review-tabs [data-view="overview"]')).to_have_attribute("aria-current", "page")
+    page.locator('.review-tabs [data-view="datasets"]').click()
     expect(page.locator("#output-table tbody tr")).to_have_count(3)
     page.locator('.review-tabs [data-view="materials"]').click()
     page.get_by_role("tablist", name="Document 1 files", exact=True).get_by_role("tab", name="adam-pilot-3.xlsx", exact=True).click()
@@ -1204,7 +1206,7 @@ def check(browser, base, site_dir, screenshots):
             route.continue_()
 
     page.route("**/cdiscpilot01/tables/t000/0.json.gz", once)
-    page.goto(study)
+    page.goto(study + "#cdiscpilot01/datasets/ADSL")
     expect(page.locator("#input-table .error-state")).to_be_visible()
     expect(page.locator("#output-table tbody tr")).to_have_count(3)
     page.locator("#input-table [data-retry]").click()
@@ -1223,7 +1225,7 @@ def check(browser, base, site_dir, screenshots):
             body=gzip.decompress(chunk.read_bytes()), content_type="application/json"
         ),
     )
-    page.goto(study)
+    page.goto(study + "#cdiscpilot01/datasets/ADSL")
     expect(page.locator("#input-table tbody tr")).to_have_count(3)
     decoded_context.close()
 
@@ -1237,7 +1239,7 @@ def check(browser, base, site_dir, screenshots):
     page.route(
         "**/cdiscpilot01/tables/t000/1.json.gz", lambda route: pending.append(route)
     )
-    page.goto(study)
+    page.goto(study + "#cdiscpilot01/datasets/ADSL")
     expect(page.locator("#output-table tbody tr")).to_have_count(3)
     page.locator("#subject-summary").click()
     page.get_by_role("button", name="Select all", exact=True).click()

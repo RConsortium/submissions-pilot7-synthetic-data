@@ -153,7 +153,7 @@ columns:
             "<p>1 study is pending validation.</p>",
             "Define-XML match yamaa specification",
             "No generated ADaM comparison datasets",
-            '<a href="pending-study/">Pending study</a><small>Pending</small></th>',
+            '<a href="pending-study/#pending-study/overview">Pending study</a><small>Pending</small></th>',
             '<td class="report-cell"><span class="report-status neutral">No generated ADaM dataset</span>'
             '<span class="report-dims">3 &#215; 2</span>'
             '<span class="report-status report-issues neutral" '
