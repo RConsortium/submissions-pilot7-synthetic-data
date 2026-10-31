@@ -70,6 +70,8 @@ output:
   - MMSETOT
   - DISCONFL
   - DSRAEFL
+  - DISCONFL__PROGRAM
+  - VISNUMEN__PROGRAM
 intermediates:
 - id: REF
   dataset: ADSL_REF
@@ -188,6 +190,28 @@ intermediates:
   - variable: DS.DSSTDTC
     nulls: last
   keep: first
+- id: P6_DS00
+  dataset: DS
+  key:
+  - STUDYID
+  - USUBJID
+  filter: DS.DSCAT = 'DISPOSITION EVENT' AND DS.DSDECOD <> 'SCREEN FAILURE'
+  order_by:
+  - variable: DS.DSSEQ
+    nulls: last
+  keep: first
+- id: P6_SV_LAST
+  dataset: SV
+  key:
+  - STUDYID
+  - USUBJID
+  filter: SV.VISITNUM < 100
+  order_by:
+  - variable: SV.SVSTDTC
+    nulls: last
+  - variable: SV.VISITNUM
+    nulls: last
+  keep: last
 columns:
 - name: STUDYID
   type: str
@@ -486,3 +510,38 @@ columns:
     - when: REF.DCSREAS = 'Adverse Event'
       then: '''Y'''
     - otherwise: ''''''
+- name: _P6_EOSDT
+  type: date
+  label: _P6_EOSDT
+  derivation:
+    impute:
+      type: date
+      source: P6_DS00.DSSTDTC
+      invalid: null
+- name: DISCONFL__PROGRAM
+  type: str
+  label: Discontinuation flag as the submission program computes it
+  derivation:
+    case:
+    - when: _P6_EOSDT IS NOT NULL AND P6_DS00.DSDECOD <> 'COMPLETED'
+      then: '''Y'''
+    - otherwise: ''''''
+- name: _P6_SV_LAST_VISITNUM
+  type: float
+  label: _P6_SV_LAST_VISITNUM
+  derivation: P6_SV_LAST.VISITNUM
+- name: _P6_SV_LAST_VISIT
+  type: float
+  label: _P6_SV_LAST_VISIT
+  derivation:
+    round_half_away_from_zero:
+      source: _P6_SV_LAST_VISITNUM
+      digits: 0
+- name: VISNUMEN__PROGRAM
+  type: float
+  label: End visit as the submission program computes it
+  derivation:
+    case:
+    - when: _P6_SV_LAST_VISIT = 13
+      then: 12
+    - otherwise: _P6_SV_LAST_VISIT

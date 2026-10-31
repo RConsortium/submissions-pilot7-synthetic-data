@@ -3,9 +3,9 @@
   "dataset": "ADSL",
   "author": {
     "kind": "agent",
-    "model": "Codex",
+    "model": "Codex; program tracing round by claude-opus-5-5[1m]",
     "instructions": ".automation/consistency_review/extract.md",
-    "date": "2026-10-26"
+    "date": "2026-10-29"
   },
   "claims": [
     {
@@ -16,6 +16,11 @@
           "document": "spec/define/define-adam.xml",
           "section": "ADSL.SITEGR1",
           "quote": "refer to SAP, Section 7.1 - if not pooled then SITEGR1=SITEID. If pooled, SITEGR1 will be 900"
+        },
+        {
+          "document": "spec/source/programs/adsl.r",
+          "section": "L150-L152",
+          "quote": "SITEGR1 = format_sitegr1(SITEID)"
         }
       ],
       "clauses": [
@@ -37,7 +42,7 @@
         "The fixed list in the specification cannot independently establish the documented pooling criterion.",
         "The workbook was inspected for coverage but is not a supported citation source; shared SAP applicability needs confirmation."
       ],
-      "assessment": "The output code is stated, but the applicable pooling criterion remains unresolved in the supported study evidence.",
+      "assessment": "The output code is stated, but the applicable pooling criterion remains unresolved in the supported study evidence. The submission program (adsl.r lines 150-152) sets SITEGR1 through format_sitegr1 from the pilot3utils package, which is not retained, so the program lines do not show the pooling criterion either.",
       "question": "Confirm the applicable SAP and pooling algorithm before accepting the fixed site list."
     },
     {
@@ -53,6 +58,11 @@
           "document": "spec/define/define-adam.xml",
           "section": "ADSL.TRT01PN",
           "quote": "Codelist CL.ARMN: 0 = Placebo; 54 = Xanomeline Low Dose; 81 = Xanomeline High Dose"
+        },
+        {
+          "document": "spec/source/programs/adsl.r",
+          "section": "L104-L108",
+          "quote": "TRT01PN = case_when( ARM == \"Placebo\" ~ 0, ARM == \"Xanomeline High Dose\" ~ 81, ARM == \"Xanomeline Low Dose\" ~ 54 )"
         }
       ],
       "clauses": [
@@ -78,7 +88,7 @@
       "interpretations": [
         "The treatment descriptions in the codelist identify the source treatment categories."
       ],
-      "assessment": "The documented dose mapping can be tested independently using the published upstream treatment variable.",
+      "assessment": "The documented dose mapping can be tested independently using the published upstream treatment variable. The submission program (adsl.r lines 104-108) maps ARM to 0, 81 and 54 as the codelist states.",
       "question": ""
     },
     {
@@ -104,6 +114,11 @@
           "document": "spec/source/adrg.pdf",
           "section": "page-8",
           "quote": "All subjects received the treatment arm to which they were randomised and so\nthe planned treatment is equivalent to the actual treatment for all subjects."
+        },
+        {
+          "document": "spec/source/programs/adsl.r",
+          "section": "L110-L113",
+          "quote": "# actual treatment - It is assumed TRT01A=TRT01P which is not really true. mutate( TRT01A = TRT01P, TRT01AN = TRT01PN"
         }
       ],
       "clauses": [
@@ -139,7 +154,7 @@
         }
       ],
       "interpretations": [],
-      "assessment": "The specification uses the same treatment description as the documented planned treatment.",
+      "assessment": "The specification uses the same treatment description as the documented planned treatment. The submission program (adsl.r lines 110-113) sets TRT01A to TRT01P as documented, though its comment calls that assumption not really true, which sits uneasily with the ADRG statement.",
       "question": ""
     },
     {
@@ -155,6 +170,16 @@
           "document": "spec/define/define-adam.xml",
           "section": "ADSL.TRT01AN",
           "quote": "Codelist CL.ARMN: 0 = Placebo; 54 = Xanomeline Low Dose; 81 = Xanomeline High Dose"
+        },
+        {
+          "document": "spec/source/programs/adsl.r",
+          "section": "L110-L113",
+          "quote": "# actual treatment - It is assumed TRT01A=TRT01P which is not really true. mutate( TRT01A = TRT01P, TRT01AN = TRT01PN"
+        },
+        {
+          "document": "spec/source/programs/adsl.r",
+          "section": "L104-L108",
+          "quote": "TRT01PN = case_when( ARM == \"Placebo\" ~ 0, ARM == \"Xanomeline High Dose\" ~ 81, ARM == \"Xanomeline Low Dose\" ~ 54 )"
         }
       ],
       "clauses": [
@@ -180,7 +205,7 @@
       "interpretations": [
         "The treatment descriptions in the codelist identify the source treatment categories."
       ],
-      "assessment": "The documented dose mapping can be tested independently using the published upstream treatment variable.",
+      "assessment": "The documented dose mapping can be tested independently using the published upstream treatment variable. The submission program (adsl.r lines 104-113) copies TRT01PN, whose mapping matches the codelist.",
       "question": ""
     },
     {
@@ -191,6 +216,16 @@
           "document": "spec/define/define-adam.xml",
           "section": "ADSL.TRTSDT",
           "quote": "SV.SVSTDTC when SV.VISITNUM=3, converted to SAS date"
+        },
+        {
+          "document": "spec/source/programs/adsl.r",
+          "section": "L69-L74",
+          "quote": "derive_vars_dt( dtc = EXSTDTC, new_vars_prefix = \"EXST\", highest_imputation = \"n\", )"
+        },
+        {
+          "document": "spec/source/programs/adsl.r",
+          "section": "L115-L126",
+          "quote": "# treatment start derive_vars_merged( dataset_add = ex_dt, filter_add = (EXDOSE > 0 | (EXDOSE == 0 & grepl(\"PLACEBO\", EXTRT, fixed = TRUE))) & !is.na(EXSTDT), new_vars = exprs(TRTSDT = EXSTDT), order = exprs(EXSTDT, EXSEQ), mode = \"first\","
         }
       ],
       "clauses": [
@@ -213,6 +248,18 @@
             "quote": "month: 1 day: 1"
           },
           "note": "The specification completes a missing month and day with January and day 1; the ADSL rule only states date conversion. The ADRG partial-date rule is specific to ADAE.ASTDT."
+        },
+        {
+          "relation": "contradicts",
+          "document": {
+            "citation": 1,
+            "quote": "SV.SVSTDTC when SV.VISITNUM=3"
+          },
+          "against": {
+            "citation": 3,
+            "quote": "new_vars = exprs(TRTSDT = EXSTDT), order = exprs(EXSTDT, EXSEQ), mode = \"first\","
+          },
+          "note": "The submission program takes the earliest complete EX start date of a dosing record, not the Visit 3 SV start date that Define-XML states; it imputes no partial dates."
         }
       ],
       "probes": [
@@ -225,7 +272,7 @@
         "When Visit 3 has more than one record, the probe reads its earliest SVSTDTC.",
         "Incomplete date text is left missing because no partial-date completion is stated for this variable."
       ],
-      "assessment": "The documented and implemented dates use different SDTM sources, and the implemented completion policy is not stated for ADSL.TRTSDT.",
+      "assessment": "The documented and implemented dates use different SDTM sources, and the implemented completion policy is not stated for ADSL.TRTSDT. The submission program (adsl.r lines 69-74 and 115-126) computes the reference from the first EX start date, as the specification does, without the specification's partial-date completion.",
       "question": "Confirm the intended first-dose source and whether ADSL treatment dates permit partial-date completion."
     },
     {
@@ -236,6 +283,16 @@
           "document": "spec/define/define-adam.xml",
           "section": "ADSL.TRTEDT",
           "quote": "The date of final dose (from the CRF) is EX.EXENDTC on the subject's last EX record. If the date of final dose is missing for the subject and the subject discontinued after visit 3, use the date of discontinuation as the date of last dose. Convert the date to a SAS date."
+        },
+        {
+          "document": "spec/source/programs/adsl.r",
+          "section": "L75-L89",
+          "quote": "# treatment end is imputed by discontinuation if subject discontinued after visit 3 = randomization as per protocol derive_vars_merged( dataset_add = ds00, by_vars = exprs(STUDYID, USUBJID), new_vars = exprs(EOSDT = EOSDT), filter_add = DCDECOD != \"COMPLETED\" ) %>% derive_vars_dt( dtc = EXENDTC, new_vars_prefix = \"EXEN\", highest_imputation = \"Y\", max_dates = exprs(EOSDT), date_imputation = \"last\", flag_imputation = \"none\" )"
+        },
+        {
+          "document": "spec/source/programs/adsl.r",
+          "section": "L127-L137",
+          "quote": "# treatment end derive_vars_merged( dataset_add = ex_dt, filter_add = (EXDOSE > 0 | (EXDOSE == 0 & grepl(\"PLACEBO\", EXTRT, fixed = TRUE))) & !is.na(EXENDT), new_vars = exprs(TRTEDT = EXENDT), order = exprs(EXENDT, EXSEQ), mode = \"last\","
         }
       ],
       "clauses": [
@@ -270,6 +327,30 @@
             "quote": "source: LAST_EXENDTC month: 1 day: 1"
           },
           "note": "The specification completes partial end dates with January and day 1; the retained ADSL rule does not state partial-date completion for exposure end dates."
+        },
+        {
+          "relation": "contradicts",
+          "document": {
+            "citation": 1,
+            "quote": "If the date of final dose is missing for the subject and the subject discontinued after visit 3"
+          },
+          "against": {
+            "citation": 2,
+            "quote": "filter_add = DCDECOD != \"COMPLETED\" ) %>% derive_vars_dt( dtc = EXENDTC, new_vars_prefix = \"EXEN\", highest_imputation = \"Y\", max_dates = exprs(EOSDT), date_imputation = \"last\","
+          },
+          "note": "The submission program imputes a missing or partial EXENDTC on any EX record up to the disposition date of any non-completed subject; despite its comment, it does not test that discontinuation followed Visit 3."
+        },
+        {
+          "relation": "contradicts",
+          "document": {
+            "citation": 1,
+            "quote": "EX.EXENDTC on the subject's last EX record"
+          },
+          "against": {
+            "citation": 3,
+            "quote": "new_vars = exprs(TRTEDT = EXENDT), order = exprs(EXENDT, EXSEQ), mode = \"last\","
+          },
+          "note": "The submission program takes the latest end date among dosing records rather than the end date on the last EX record."
         }
       ],
       "probes": [
@@ -283,7 +364,7 @@
         "Discontinuation means a non-COMPLETED disposition event whose VISITNUM exceeds 3; the earliest disposition record is used when multiple events exist.",
         "Incomplete dates remain missing; no general treatment-date completion policy is stated."
       ],
-      "assessment": "The specification reads the documented last-record end date, but falls back on the first disposition date whenever that date is missing, without the documented discontinued-after-Visit-3 condition.",
+      "assessment": "The specification reads the documented last-record end date, but falls back on the first disposition date whenever that date is missing, without the documented discontinued-after-Visit-3 condition. The submission program (adsl.r lines 75-89 and 127-137) imputes end dates from the disposition date without the Visit 3 condition and takes the latest end date of a dosing record.",
       "question": "Confirm the disposition event selection and whether the fallback requires discontinuation after Visit 3."
     },
     {
@@ -294,6 +375,11 @@
           "document": "spec/define/define-adam.xml",
           "section": "ADSL.TRTDURD",
           "quote": "TRTEDT-TRTSDT+1"
+        },
+        {
+          "document": "spec/source/programs/adsl.r",
+          "section": "L139-L140",
+          "quote": "# treatment duration derive_var_trtdurd() %>%"
         }
       ],
       "clauses": [
@@ -317,7 +403,7 @@
         }
       ],
       "interpretations": [],
-      "assessment": "The inclusive date difference states the documented arithmetic.",
+      "assessment": "The inclusive date difference states the documented arithmetic. The submission program (adsl.r lines 139-140) derives TRTDURD with admiral's derive_var_trtdurd from TRTSDT and TRTEDT.",
       "question": ""
     },
     {
@@ -333,6 +419,11 @@
           "document": "spec/define/define-adam.xml",
           "section": "ADSL.CUMDOSE",
           "quote": "Significant digits: 1"
+        },
+        {
+          "document": "spec/source/programs/adsl.r",
+          "section": "L90-L94",
+          "quote": "mutate(DOSE = EXDOSE * (EXENDT - EXSTDT + 1)) ex_dose <- ex_dt %>% group_by(STUDYID, USUBJID, EXTRT) %>% summarise(cnt = n_distinct(EXTRT), CUMDOSE = sum(DOSE))"
         }
       ],
       "clauses": [
@@ -363,6 +454,18 @@
             "quote": "source: LAST_EXSTDTC month: 1 day: 1"
           },
           "note": "The specification completes a partial start date of the last exposure record before counting its days; the quoted dose formula states no such date completion."
+        },
+        {
+          "relation": "contradicts",
+          "document": {
+            "citation": 1,
+            "quote": "For ARMN=0 or 1: CUMDOSE=TRT01PN*TRTDUR. --- For ARMN=2: CUMDOSE will be based on 54mg per day for the # of days subj was in 1st dosing interval"
+          },
+          "against": {
+            "citation": 3,
+            "quote": "mutate(DOSE = EXDOSE * (EXENDT - EXSTDT + 1)) ex_dose <- ex_dt %>% group_by(STUDYID, USUBJID, EXTRT) %>% summarise(cnt = n_distinct(EXTRT), CUMDOSE = sum(DOSE))"
+          },
+          "note": "The submission program sums dose times inclusive exposure days over the EX records, with end dates imputed as for TRTEDT, rather than applying the arm-specific planned-dose or visit-interval formula."
         }
       ],
       "not_probed_reason": "The literal rule requires ARMN values 0, 1 and 2, TRTDUR and TRTSTDT, none of which is a published ADSL variable in this study. The retained codelist instead assigns TRT01PN values 0, 54 and 81, and the dataset names duration TRTDURD and first-dose date TRTSDT; no supported document explicitly defines the required aliases or recoding.",
@@ -372,7 +475,7 @@
         "The retained workbook repeats the unresolved names, and its duration method is named ADSL.TRTDUR despite the published variable being TRTDURD.",
         "The cited precision field does not repair the missing identifier definitions."
       ],
-      "assessment": "The literal documented formula cannot be executed without resolving its absent identifiers, and the specification uses a different exposure-based computation.",
+      "assessment": "The literal documented formula cannot be executed without resolving its absent identifiers, and the specification uses a different exposure-based computation. The submission program (adsl.r lines 90-94) computes the reference from the EX records, as the specification does, not from the documented visit-interval formula.",
       "question": "Correct or explicitly define ARMN, TRTDUR and TRTSTDT, then decide whether cumulative dose should follow visit intervals or exposure records."
     },
     {
@@ -388,6 +491,11 @@
           "document": "spec/define/define-adam.xml",
           "section": "ADSL.AVGDD",
           "quote": "Significant digits: 1"
+        },
+        {
+          "document": "spec/source/programs/adsl.r",
+          "section": "L144",
+          "quote": "mutate(AVGDD = round_half_up(as.numeric(CUMDOSE) / TRTDURD, digits = 1))"
         }
       ],
       "clauses": [
@@ -433,7 +541,7 @@
       "interpretations": [
         "Significant digits: 1 is interpreted as rounding to one decimal place, half away from zero."
       ],
-      "assessment": "The formula and stated precision can be tested separately from the implemented zero-duration guard.",
+      "assessment": "The formula and stated precision can be tested separately from the implemented zero-duration guard. The submission program (adsl.r line 144) divides CUMDOSE by TRTDURD and rounds half up to one decimal, as documented.",
       "question": "Confirm the intended behavior when treatment duration is zero and whether the precision field means decimal places."
     },
     {
@@ -449,6 +557,11 @@
           "document": "spec/define/define-adam.xml",
           "section": "ADSL.AGEGR1N",
           "quote": "Codelist CL.AGEGR1N: 1 = <65; 2 = 65-80; 3 = >80"
+        },
+        {
+          "document": "spec/source/programs/adsl.r",
+          "section": "L147-L148",
+          "quote": "adsl01 <- adsl00 %>% create_cat_var(adsl_spec, AGE, AGEGR1, AGEGR1N) %>%"
         }
       ],
       "clauses": [
@@ -463,6 +576,18 @@
             "quote": "when: \"DM.AGE < 65\""
           },
           "note": "The specification computes the character group from age and then obtains its numeric code, reversing the documented source dependency."
+        },
+        {
+          "relation": "contradicts",
+          "document": {
+            "citation": 1,
+            "quote": "derived from ADSL.AGEGR1N"
+          },
+          "against": {
+            "citation": 3,
+            "quote": "create_cat_var(adsl_spec, AGE, AGEGR1, AGEGR1N)"
+          },
+          "note": "The submission program groups AGE into AGEGR1 with the workbook's grouping and then codes AGEGR1N from it, so the character group comes from AGE rather than from AGEGR1N."
         }
       ],
       "probes": [
@@ -472,7 +597,7 @@
         }
       ],
       "interpretations": [],
-      "assessment": "The numeric-to-character documented dependency can be tested independently using the published numeric group.",
+      "assessment": "The numeric-to-character documented dependency can be tested independently using the published numeric group. The submission program (adsl.r lines 147-148) derives AGEGR1 from AGE, in the order the specification uses.",
       "question": "Confirm whether the documented dependency or the implementation order should define the age-group pair."
     },
     {
@@ -488,6 +613,11 @@
           "document": "spec/define/define-adam.xml",
           "section": "ADSL.AGEGR1N",
           "quote": "Codelist CL.AGEGR1N: 1 = <65; 2 = 65-80; 3 = >80"
+        },
+        {
+          "document": "spec/source/programs/adsl.r",
+          "section": "L147-L148",
+          "quote": "adsl01 <- adsl00 %>% create_cat_var(adsl_spec, AGE, AGEGR1, AGEGR1N) %>%"
         }
       ],
       "clauses": [
@@ -514,7 +644,7 @@
         "The method names AGEGR1 although its numeric codes and attached codelist identify AGEGR1N.",
         "The age interval 65-80 includes both endpoints; missing ages are not assigned a group by the literal probe."
       ],
-      "assessment": "The documented age conditions are complete, but the variable name in the method and direction of dependency need clarification.",
+      "assessment": "The documented age conditions are complete, but the variable name in the method and direction of dependency need clarification. The submission program (adsl.r lines 147-148) derives the age groups from AGE with the workbook's grouping codelist.",
       "question": "Correct the numeric variable name in the method and confirm handling of missing age."
     },
     {
@@ -530,6 +660,11 @@
           "document": "spec/define/define-adam.xml",
           "section": "ADSL.RACEN",
           "quote": "Codelist CL.RACEN: 1 = WHITE; 2 = BLACK OR AFRICAN AMERICAN; 6 = AMERICAN INDIAN OR ALASKA NATIVE; 7 = ASIAN; 5 = NATIVE HAWAIIAN OR OTHER PACIFIC ISLANDER"
+        },
+        {
+          "document": "spec/source/programs/adsl.r",
+          "section": "L149",
+          "quote": "create_var_from_codelist(adsl_spec, RACE, RACEN) %>%"
         }
       ],
       "clauses": [
@@ -560,7 +695,7 @@
         }
       ],
       "interpretations": [],
-      "assessment": "The implementation only maps a subset of the documented categories.",
+      "assessment": "The implementation only maps a subset of the documented categories. The submission program (adsl.r line 149) codes RACEN from the workbook codelist, which carries every documented category.",
       "question": "Add or explicitly justify the omitted race mappings even if these categories are absent from the retained subjects."
     },
     {
@@ -576,6 +711,11 @@
           "document": "spec/source/adrg.pdf",
           "section": "page-11",
           "quote": "SAFFL \u2013 Safety Population Flag (all patients having received any study treatment)"
+        },
+        {
+          "document": "spec/source/programs/adsl.r",
+          "section": "L170-L174",
+          "quote": "SAFFL = case_when( ARMCD != \"Scrnfail\" & ARMCD != \"\" & !is.na(TRTSDT) ~ \"Y\", ARMCD == \"Scrnfail\" ~ NA_character_, TRUE ~ \"N\" ),"
         }
       ],
       "clauses": [
@@ -613,7 +753,7 @@
       "interpretations": [
         "The literal probe reads published ITTFL and TRTSDT, isolating the safety-flag rule from upstream derivation choices."
       ],
-      "assessment": "The specification states the documented ITTFL and TRTSDT predicate, and first exposure is compatible with the ADRG population description.",
+      "assessment": "The specification states the documented ITTFL and TRTSDT predicate, and first exposure is compatible with the ADRG population description. The submission program (adsl.r lines 170-174) inlines the ITTFL condition and requires a nonmissing TRTSDT.",
       "question": ""
     },
     {
@@ -629,6 +769,11 @@
           "document": "spec/source/adrg.pdf",
           "section": "page-11",
           "quote": "ITTFL \u2013 Intent-to-Treat Population Flag (all randomized patients)"
+        },
+        {
+          "document": "spec/source/programs/adsl.r",
+          "section": "L175-L179",
+          "quote": "ITTFL = case_when( ARMCD != \"Scrnfail\" & ARMCD != \"\" ~ \"Y\", ARMCD == \"Scrnfail\" ~ NA_character_, TRUE ~ \"N\" ),"
         }
       ],
       "clauses": [
@@ -656,7 +801,7 @@
         "The ADRG describes the intended population as randomized patients but does not define an ARMCD-to-randomization mapping.",
         "The row filter DM.ACTARM <> 'Screen Failure' removes screen failures before this flag is derived."
       ],
-      "assessment": "The specification states the documented nonblank-ARMCD predicate; the ADRG gives a broader population description.",
+      "assessment": "The specification states the documented nonblank-ARMCD predicate; the ADRG gives a broader population description. The submission program (adsl.r lines 175-179) tests a nonblank ARMCD that is not Scrnfail.",
       "question": "Clarify how randomized status is identified."
     },
     {
@@ -667,6 +812,16 @@
           "document": "spec/define/define-adam.xml",
           "section": "ADSL.EFFFL",
           "quote": "Y if SAFFL='Y AND subject has at least one record in QS for ADAS-Cog with VISITNUM>3 AND at least one record in QS for CIBIC+ with VISITNUM>3, N otherwise"
+        },
+        {
+          "document": "spec/source/programs/adsl.r",
+          "section": "L162-L165",
+          "quote": "eff <- qs %>% filter(VISITNUM > 3, QSTESTCD %in% c(\"CIBIC\", \"ACTOT\")) %>% group_by(STUDYID, USUBJID) %>% summarise(effcnt = n_distinct(QSTESTCD))"
+        },
+        {
+          "document": "spec/source/programs/adsl.r",
+          "section": "L180-L184",
+          "quote": "EFFFL = case_when( ARMCD != \"Scrnfail\" & ARMCD != \"\" & !is.na(TRTSDT) & effcnt == 2 ~ \"Y\", ARMCD == \"Scrnfail\" ~ NA_character_, TRUE ~ \"N\" )"
         }
       ],
       "clauses": [
@@ -704,6 +859,18 @@
             "quote": "QS.QSCAT = 'CLINICIAN''S INTERVIEW-BASED IMPRESSION OF CHANGE (CIBIC+)' AND QS.VISITNUM > 3"
           },
           "note": "The specification requires any post-Visit-3 record in the CIBIC+ questionnaire category."
+        },
+        {
+          "relation": "contradicts",
+          "document": {
+            "citation": 1,
+            "quote": "at least one record in QS for ADAS-Cog with VISITNUM>3"
+          },
+          "against": {
+            "citation": 2,
+            "quote": "filter(VISITNUM > 3, QSTESTCD %in% c(\"CIBIC\", \"ACTOT\"))"
+          },
+          "note": "The submission program requires a post-Visit-3 ADAS-Cog total record (QSTESTCD ACTOT) rather than any ADAS-Cog record."
         }
       ],
       "probes": [
@@ -716,7 +883,7 @@
         "The missing closing quote after SAFFL=Y is treated as a typographical omission.",
         "ADAS-Cog and CIBIC+ identify questionnaire categories in QSCAT; the probe requires a qualifying record from each category."
       ],
-      "assessment": "The specification requires a post-Visit-3 record in each named questionnaire category, as documented.",
+      "assessment": "The specification requires a post-Visit-3 record in each named questionnaire category, as documented. The submission program (adsl.r lines 162-165 and 180-184) narrows the ADAS-Cog condition to the total score record.",
       "question": ""
     },
     {
@@ -727,6 +894,11 @@
           "document": "spec/define/define-adam.xml",
           "section": "ADSL.COMP8FL",
           "quote": "Y if subject has a SV.VISITNUM=8 and ENDDT >= date of visit 8, N otherwise"
+        },
+        {
+          "document": "spec/source/programs/adsl.r",
+          "section": "L193-L203",
+          "quote": "FLG = \"Y\", VISITCMP = case_when( VISIT == \"WEEK 8\" ~ \"COMP8FL\", VISIT == \"WEEK 16\" ~ \"COMP16FL\", VISIT == \"WEEK 24\" ~ \"COMP24FL\", TRUE ~ \"ZZZ\" # ensures every subject with one visit will get a row with minimally 'N' ) ) %>% arrange(STUDYID, USUBJID, VISITDY) %>% distinct(STUDYID, USUBJID, VISITCMP, FLG) %>% pivot_wider(names_from = VISITCMP, values_from = FLG, values_fill = \"N\")"
         }
       ],
       "clauses": [
@@ -752,6 +924,18 @@
             "quote": "RFENDT >= SV8DT"
           },
           "note": "The specification compares RFENDT with the Visit 8 date; the document names ENDDT, which no supported section defines."
+        },
+        {
+          "relation": "contradicts",
+          "document": {
+            "citation": 1,
+            "quote": "ENDDT >= date of visit 8"
+          },
+          "against": {
+            "citation": 2,
+            "quote": "VISIT == \"WEEK 8\" ~ \"COMP8FL\""
+          },
+          "note": "The submission program sets Y whenever the subject has a WEEK 8 visit record and compares no end date with the visit date."
         }
       ],
       "not_probed_reason": "ENDDT is not a published ADSL variable or a defined identifier in the supported study sections. RFENDT and TRTEDT are distinct documented dates, and no supported statement identifies which, if either, ENDDT denotes.",
@@ -759,7 +943,7 @@
         "The retained workbook repeats ENDDT without defining its source.",
         "The shared SAP applicability is marked pending_review, so an external completer definition is not asserted as governing this study."
       ],
-      "assessment": "The specification compares RFENDT with the visit date for the stated end-date condition; the document's ENDDT has no defined source.",
+      "assessment": "The specification compares RFENDT with the visit date for the stated end-date condition; the document's ENDDT has no defined source. The submission program (adsl.r lines 193-203) derives the flag from the presence of the WEEK 8 visit alone, so neither ENDDT nor RFENDT enters the reference computation.",
       "question": "Define ENDDT and confirm whether it is the RFENDT the specification compares."
     },
     {
@@ -770,6 +954,11 @@
           "document": "spec/define/define-adam.xml",
           "section": "ADSL.COMP16FL",
           "quote": "Y if subject has a SV.VISITNUM=10 and ENDDT>=date of visit 10, N otherwise"
+        },
+        {
+          "document": "spec/source/programs/adsl.r",
+          "section": "L193-L203",
+          "quote": "FLG = \"Y\", VISITCMP = case_when( VISIT == \"WEEK 8\" ~ \"COMP8FL\", VISIT == \"WEEK 16\" ~ \"COMP16FL\", VISIT == \"WEEK 24\" ~ \"COMP24FL\", TRUE ~ \"ZZZ\" # ensures every subject with one visit will get a row with minimally 'N' ) ) %>% arrange(STUDYID, USUBJID, VISITDY) %>% distinct(STUDYID, USUBJID, VISITCMP, FLG) %>% pivot_wider(names_from = VISITCMP, values_from = FLG, values_fill = \"N\")"
         }
       ],
       "clauses": [
@@ -795,6 +984,18 @@
             "quote": "RFENDT >= SV10DT"
           },
           "note": "The specification compares RFENDT with the Visit 10 date; the document names ENDDT, which no supported section defines."
+        },
+        {
+          "relation": "contradicts",
+          "document": {
+            "citation": 1,
+            "quote": "ENDDT>=date of visit 10"
+          },
+          "against": {
+            "citation": 2,
+            "quote": "VISIT == \"WEEK 16\" ~ \"COMP16FL\""
+          },
+          "note": "The submission program sets Y whenever the subject has a WEEK 16 (Visit 10) record and compares no end date with the visit date."
         }
       ],
       "not_probed_reason": "ENDDT is not a published ADSL variable or a defined identifier in the supported study sections. RFENDT and TRTEDT are distinct documented dates, and no supported statement identifies which, if either, ENDDT denotes.",
@@ -802,7 +1003,7 @@
         "The retained workbook repeats ENDDT without defining its source.",
         "The shared SAP applicability is marked pending_review, so an external completer definition is not asserted as governing this study."
       ],
-      "assessment": "The specification compares RFENDT with the visit date for the stated end-date condition; the document's ENDDT has no defined source.",
+      "assessment": "The specification compares RFENDT with the visit date for the stated end-date condition; the document's ENDDT has no defined source. The submission program (adsl.r lines 193-203) derives the flag from the presence of the WEEK 16 visit alone, so neither ENDDT nor RFENDT enters the reference computation.",
       "question": "Define ENDDT and confirm whether it is the RFENDT the specification compares."
     },
     {
@@ -813,6 +1014,11 @@
           "document": "spec/define/define-adam.xml",
           "section": "ADSL.COMP24FL",
           "quote": "Y if subject has a SV.VISITNUM=12 and ENDDT>= date of visit 12 , N otherwise"
+        },
+        {
+          "document": "spec/source/programs/adsl.r",
+          "section": "L193-L203",
+          "quote": "FLG = \"Y\", VISITCMP = case_when( VISIT == \"WEEK 8\" ~ \"COMP8FL\", VISIT == \"WEEK 16\" ~ \"COMP16FL\", VISIT == \"WEEK 24\" ~ \"COMP24FL\", TRUE ~ \"ZZZ\" # ensures every subject with one visit will get a row with minimally 'N' ) ) %>% arrange(STUDYID, USUBJID, VISITDY) %>% distinct(STUDYID, USUBJID, VISITCMP, FLG) %>% pivot_wider(names_from = VISITCMP, values_from = FLG, values_fill = \"N\")"
         }
       ],
       "clauses": [
@@ -838,6 +1044,18 @@
             "quote": "RFENDT >= SV12DT"
           },
           "note": "The specification compares RFENDT with the Visit 12 date; the document names ENDDT, which no supported section defines."
+        },
+        {
+          "relation": "contradicts",
+          "document": {
+            "citation": 1,
+            "quote": "ENDDT>= date of visit 12"
+          },
+          "against": {
+            "citation": 2,
+            "quote": "VISIT == \"WEEK 24\" ~ \"COMP24FL\""
+          },
+          "note": "The submission program sets Y whenever the subject has a WEEK 24 (Visit 12) record and compares no end date with the visit date."
         }
       ],
       "not_probed_reason": "ENDDT is not a published ADSL variable or a defined identifier in the supported study sections. RFENDT and TRTEDT are distinct documented dates, and no supported statement identifies which, if either, ENDDT denotes.",
@@ -845,7 +1063,7 @@
         "The retained workbook repeats ENDDT without defining its source.",
         "The shared SAP applicability is marked pending_review, so an external completer definition is not asserted as governing this study."
       ],
-      "assessment": "The specification compares RFENDT with the visit date for the stated end-date condition; the document's ENDDT has no defined source.",
+      "assessment": "The specification compares RFENDT with the visit date for the stated end-date condition; the document's ENDDT has no defined source. The submission program (adsl.r lines 193-203) derives the flag from the presence of the WEEK 24 visit alone, so neither ENDDT nor RFENDT enters the reference computation.",
       "question": "Define ENDDT and confirm whether it is the RFENDT the specification compares."
     },
     {
@@ -866,6 +1084,11 @@
           "document": "spec/define/define-adam.xml",
           "section": "ADSL.DCSREAS",
           "quote": "Codelist CL.DISCREAS: Completed = Completed; Adverse Event = Adverse Event"
+        },
+        {
+          "document": "spec/source/programs/adsl.r",
+          "section": "L53-L61",
+          "quote": "ds00 <- ds %>% filter(DSCAT == \"DISPOSITION EVENT\", DSDECOD != \"SCREEN FAILURE\") %>% derive_vars_dt( dtc = DSSTDTC, new_vars_prefix = \"EOS\", highest_imputation = \"n\", ) %>% mutate( DISCONFL = ifelse(!is.na(EOSDT) & DSDECOD != \"COMPLETED\", \"Y\", NA),"
         }
       ],
       "clauses": [
@@ -880,6 +1103,18 @@
             "quote": "DCREASCD <> 'Completed'"
           },
           "note": "The specification tests its unpublished grouped reason DCREASCD, which keeps Completed before DCSREAS blanks it; a missing DCREASCD falls to the blank branch, where SAS ^= would give Y."
+        },
+        {
+          "relation": "contradicts",
+          "document": {
+            "citation": 1,
+            "quote": "DCREASCD ^= 'Completed'"
+          },
+          "against": {
+            "citation": 4,
+            "quote": "DISCONFL = ifelse(!is.na(EOSDT) & DSDECOD != \"COMPLETED\", \"Y\", NA)"
+          },
+          "note": "The submission program flags a disposition event with a complete date whose DSDECOD is not COMPLETED; it does not read the grouped reason, which it leaves blank for completers."
         }
       ],
       "interpretations": [
@@ -888,12 +1123,20 @@
         "Null otherwise is represented as an unpopulated SAS character flag serialized as empty text.",
         "The comparison is preserved exactly against the documented Completed or Adverse Event label; the grouped source is read from REF to isolate this flag from upstream mapping choices."
       ],
-      "assessment": "The legacy name can be linked to the published grouped reason through its retained method binding, making the documented predicate executable without substituting the implementation predicate.",
+      "assessment": "The legacy name can be linked to the published grouped reason through its retained method binding, making the documented predicate executable without substituting the implementation predicate. The submission program (adsl.r lines 53-61) tests DSDECOD rather than the grouped reason; the literal test on DCSREAS flags completers because the published DCSREAS is blank for them.",
       "question": "Confirm that the legacy DCREASCD name denotes the grouped reason published as DCSREAS.",
       "probes": [
         {
           "column": "DISCONFL",
           "reading": "literal"
+        },
+        {
+          "column": "DISCONFL__PROGRAM",
+          "reading": "Y when the subject's disposition event (DSCAT DISPOSITION EVENT, not SCREEN FAILURE) has a complete DSSTDTC and DSDECOD is not COMPLETED, as adsl.r lines 53-61 compute it; the Define-XML test on the grouped reason fails for completers, whose published DCSREAS is blank rather than Completed.",
+          "example_columns": [
+            "DCDECOD",
+            "DCSREAS"
+          ]
         }
       ]
     },
@@ -915,6 +1158,11 @@
           "document": "spec/define/define-adam.xml",
           "section": "ADSL.DCSREAS",
           "quote": "Codelist CL.DISCREAS: Completed = Completed; Adverse Event = Adverse Event"
+        },
+        {
+          "document": "spec/source/programs/adsl.r",
+          "section": "L62",
+          "quote": "DSRAEFL = ifelse(DSTERM == \"ADVERSE EVENT\", \"Y\", NA),"
         }
       ],
       "clauses": [
@@ -929,6 +1177,18 @@
             "quote": "DCREASCD = 'Adverse Event'"
           },
           "note": "The specification tests its unpublished grouped reason DCREASCD, as documented."
+        },
+        {
+          "relation": "contradicts",
+          "document": {
+            "citation": 1,
+            "quote": "DCREASCD='Adverse Event'"
+          },
+          "against": {
+            "citation": 4,
+            "quote": "DSRAEFL = ifelse(DSTERM == \"ADVERSE EVENT\", \"Y\", NA)"
+          },
+          "note": "The submission program tests the verbatim disposition term DSTERM, not the grouped reason."
         }
       ],
       "interpretations": [
@@ -937,7 +1197,7 @@
         "Null otherwise is represented as an unpopulated SAS character flag serialized as empty text.",
         "The comparison is preserved exactly against the documented Completed or Adverse Event label; the grouped source is read from REF to isolate this flag from upstream mapping choices."
       ],
-      "assessment": "The legacy name can be linked to the published grouped reason through its retained method binding, making the documented predicate executable without substituting the implementation predicate.",
+      "assessment": "The legacy name can be linked to the published grouped reason through its retained method binding, making the documented predicate executable without substituting the implementation predicate. The submission program (adsl.r line 62) tests DSTERM = ADVERSE EVENT rather than the grouped reason.",
       "question": "Confirm that the legacy DCREASCD name denotes the grouped reason published as DCSREAS.",
       "probes": [
         {
@@ -959,6 +1219,11 @@
           "document": "spec/define/define-adam.xml",
           "section": "ADSL.HEIGHTBL",
           "quote": "Significant digits: 1"
+        },
+        {
+          "document": "spec/source/programs/adsl.r",
+          "section": "L235-L239",
+          "quote": "filter((VSTESTCD == \"HEIGHT\" & VISITNUM == 1) | (VSTESTCD == \"WEIGHT\" & VISITNUM == 3)) %>% mutate(AVAL = round_half_up(VSSTRESN, digits = 1)) %>% select(STUDYID, USUBJID, VSTESTCD, AVAL) %>% pivot_wider(names_from = VSTESTCD, values_from = AVAL, names_glue = \"{VSTESTCD}BL\")"
         }
       ],
       "clauses": [
@@ -1015,7 +1280,7 @@
         "Significant digits: 1 is interpreted as one decimal place, half away from zero.",
         "If multiple records meet the stated selection, the probe reads the earliest VSDTC; the selection is an open choice."
       ],
-      "assessment": "The source and test code agree with the documented Visit 1 selection, with an additional record-order choice.",
+      "assessment": "The source and test code agree with the documented Visit 1 selection, with an additional record-order choice. The submission program (adsl.r lines 235-239) reads Visit 1 HEIGHT VSSTRESN and rounds half up to one decimal; it does not choose among repeated records.",
       "question": "Confirm which Visit 1 HEIGHT record should govern when several qualify."
     },
     {
@@ -1031,6 +1296,11 @@
           "document": "spec/define/define-adam.xml",
           "section": "ADSL.WEIGHTBL",
           "quote": "Significant digits: 1"
+        },
+        {
+          "document": "spec/source/programs/adsl.r",
+          "section": "L235-L239",
+          "quote": "filter((VSTESTCD == \"HEIGHT\" & VISITNUM == 1) | (VSTESTCD == \"WEIGHT\" & VISITNUM == 3)) %>% mutate(AVAL = round_half_up(VSSTRESN, digits = 1)) %>% select(STUDYID, USUBJID, VSTESTCD, AVAL) %>% pivot_wider(names_from = VSTESTCD, values_from = AVAL, names_glue = \"{VSTESTCD}BL\")"
         }
       ],
       "clauses": [
@@ -1087,7 +1357,7 @@
         "Significant digits: 1 is interpreted as one decimal place, half away from zero.",
         "If multiple records meet the stated selection, the probe reads the earliest VSDTC; the selection is an open choice."
       ],
-      "assessment": "The source and test code agree with the documented Visit 3 selection, with an additional record-order choice.",
+      "assessment": "The source and test code agree with the documented Visit 3 selection, with an additional record-order choice. The submission program (adsl.r lines 235-239) reads Visit 3 WEIGHT VSSTRESN and rounds half up to one decimal; it does not choose among repeated records.",
       "question": "Confirm which Visit 3 WEIGHT record should govern when several qualify."
     },
     {
@@ -1103,6 +1373,11 @@
           "document": "spec/define/define-adam.xml",
           "section": "ADSL.BMIBL",
           "quote": "Significant digits: 1"
+        },
+        {
+          "document": "spec/source/programs/adsl.r",
+          "section": "L240-L242",
+          "quote": "mutate( BMIBL = round_half_up(WEIGHTBL / (HEIGHTBL / 100)^2, digits = 1) )"
         }
       ],
       "clauses": [
@@ -1148,7 +1423,7 @@
       "interpretations": [
         "Significant digits: 1 is interpreted as one decimal place, half away from zero."
       ],
-      "assessment": "The retained formula now converts centimetres to metres as the specification does; the implementation adds a zero-height guard.",
+      "assessment": "The retained formula now converts centimetres to metres as the specification does; the implementation adds a zero-height guard. The submission program (adsl.r lines 240-242) applies the documented formula to the rounded baseline height and weight, with no zero-height guard.",
       "question": "Document the intended zero-height behavior and confirm the interpretation of the precision field."
     },
     {
@@ -1169,6 +1444,11 @@
           "document": "spec/source/adrg.pdf",
           "section": "page-42",
           "quote": "this subject\u2019s BMI at baseline (BMIBL) is missing and therefore the subject shouldn\u2019t\nbe assigned a BMI at baseline group."
+        },
+        {
+          "document": "spec/source/programs/adsl.r",
+          "section": "L243",
+          "quote": "create_cat_var(adsl_spec, BMIBL, BMIBLGR1)"
         }
       ],
       "clauses": [
@@ -1207,7 +1487,7 @@
         "The SAS comparison . < BMIBL explicitly excludes a missing BMI.",
         "An unassigned SAS character category is serialized as empty text in the literal probe; this represents a missing group rather than assigning a codelist category."
       ],
-      "assessment": "The retained Pilot 3 method and ADRG agree that a missing BMI must not receive a category.",
+      "assessment": "The retained Pilot 3 method and ADRG agree that a missing BMI must not receive a category. The submission program (adsl.r line 243) groups BMIBL with the workbook's grouping codelist.",
       "question": ""
     },
     {
@@ -1218,6 +1498,11 @@
           "document": "spec/define/define-adam.xml",
           "section": "ADSL.EDUCLVL",
           "quote": "SC.SCSTRESN where SC.SCTESTCD=EDLEVEL"
+        },
+        {
+          "document": "spec/source/programs/adsl.r",
+          "section": "L245-L248",
+          "quote": "sc00 <- sc %>% filter(SCTESTCD == \"EDLEVEL\") %>% select(STUDYID, USUBJID, SCTESTCD, SCSTRESN) %>% pivot_wider(names_from = SCTESTCD, values_from = SCSTRESN, names_glue = \"EDUCLVL\")"
         }
       ],
       "clauses": [
@@ -1262,7 +1547,7 @@
         "EDLEVEL is read as the literal SCTESTCD value, despite missing quotes in the method.",
         "The earliest qualifying SCDTC is selected if records repeat; the document leaves that choice open."
       ],
-      "assessment": "The source and test code agree with the documented method, with an additional record-order choice.",
+      "assessment": "The source and test code agree with the documented method, with an additional record-order choice. The submission program (adsl.r lines 245-248) reads SCSTRESN for EDLEVEL and does not choose among repeated records.",
       "question": "Confirm which EDLEVEL record should govern when the source repeats."
     },
     {
@@ -1273,6 +1558,11 @@
           "document": "spec/define/define-adam.xml",
           "section": "ADSL.DISONSDT",
           "quote": "MH.MHSTDTC where MHCAT='PRIMARY DIAGNOSIS' converted to SAS date"
+        },
+        {
+          "document": "spec/source/programs/adsl.r",
+          "section": "L273-L279",
+          "quote": "disonsdt <- mh %>% filter(MHCAT == \"PRIMARY DIAGNOSIS\") %>% derive_vars_dt( dtc = MHSTDTC, new_vars_prefix = \"DISONS\", ) %>%"
         }
       ],
       "clauses": [
@@ -1326,7 +1616,7 @@
         "The earliest primary-diagnosis start date is selected if source records repeat.",
         "Incomplete date text remains missing in the literal probe because the rule states no completion policy."
       ],
-      "assessment": "The selection concept agrees, but the implementation adds partial-date completion and a record-order choice.",
+      "assessment": "The selection concept agrees, but the implementation adds partial-date completion and a record-order choice. The submission program (adsl.r lines 273-279) converts the primary-diagnosis MHSTDTC with admiral's default, which imputes no partial dates.",
       "question": "Document the intended partial-date policy and which primary-diagnosis record should govern."
     },
     {
@@ -1337,6 +1627,11 @@
           "document": "spec/define/define-adam.xml",
           "section": "ADSL.VISIT1DT",
           "quote": "SV.SVSTDTC when SV.VISITNUM=1, converted to SAS date"
+        },
+        {
+          "document": "spec/source/programs/adsl.r",
+          "section": "L256-L262",
+          "quote": "visit1dt <- sv %>% filter(VISITNUM == 1) %>% derive_vars_dt( dtc = SVSTDTC, new_vars_prefix = \"VISIT1\", ) %>%"
         }
       ],
       "clauses": [
@@ -1390,7 +1685,7 @@
         "The earliest Visit 1 start date is selected if records repeat.",
         "Incomplete date text remains missing because no partial-date completion policy is stated."
       ],
-      "assessment": "The named visit and source agree, while partial-date and repeat-record behavior need documentation.",
+      "assessment": "The named visit and source agree, while partial-date and repeat-record behavior need documentation. The submission program (adsl.r lines 256-262) converts the Visit 1 SVSTDTC with admiral's default, which imputes no partial dates.",
       "question": "Confirm the intended partial-date completion and repeat-record selection rules."
     },
     {
@@ -1406,6 +1701,16 @@
           "document": "spec/define/define-adam.xml",
           "section": "ADSL.DURDIS",
           "quote": "Significant digits: 1"
+        },
+        {
+          "document": "spec/source/programs/adsl.r",
+          "section": "L285-L300",
+          "quote": "derive_vars_duration( new_var = DURDIS, start_date = DISONSDT, end_date = VISIT1DT, out_unit = \"days\", add_one = TRUE ) %>% # derive_vars_duration(..., out_unit = \"months\") is not used here because # it calculates months based on date internals, while the original CDISC # adsl.DURDIS was derived assuming each month has the same number of days, # i.e., 365.25/12=30.4375."
+        },
+        {
+          "document": "spec/source/programs/adsl.r",
+          "section": "L298-L300",
+          "quote": "DURDIS = round_half_up(DURDIS / (365.25 / 12), digits = 1)"
         }
       ],
       "clauses": [
@@ -1456,7 +1761,7 @@
         "Calendar-month counts, fractional elapsed months and inclusive days divided by a mean month length are distinct possible readings.",
         "The workbook repeats the undefined identifier without defining an alias."
       ],
-      "assessment": "The specification chooses a source alias and a specific fractional-month formula that cannot be reconstructed literally from the retained method.",
+      "assessment": "The specification chooses a source alias and a specific fractional-month formula that cannot be reconstructed literally from the retained method. The submission program (adsl.r lines 285-300) reads DISONSDT, counts inclusive days to VISIT1DT and divides by 365.25/12, so the specification's choices follow the program; the program comment, not a retained document, states the month convention.",
       "question": "Define DISONSET and the month-count convention before accepting the implemented inclusive-days/30.4375 calculation."
     },
     {
@@ -1472,6 +1777,11 @@
           "document": "spec/define/define-adam.xml",
           "section": "ADSL.DURDSGR1",
           "quote": "Codelist CL.DURDISC: <12 = <12; >=12 = >=12"
+        },
+        {
+          "document": "spec/source/programs/adsl.r",
+          "section": "L301",
+          "quote": "create_cat_var(adsl_spec, DURDIS, DURDSGR1) %>%"
         }
       ],
       "clauses": [
@@ -1504,7 +1814,7 @@
       "interpretations": [
         "A missing duration is left without a group."
       ],
-      "assessment": "The threshold and labels match the documented groups; the specification also places a missing duration in >=12.",
+      "assessment": "The threshold and labels match the documented groups; the specification also places a missing duration in >=12. The submission program (adsl.r line 301) groups DURDIS with the workbook's grouping codelist.",
       "question": "Confirm how a missing disease duration should be grouped."
     },
     {
@@ -1515,6 +1825,11 @@
           "document": "spec/define/define-adam.xml",
           "section": "ADSL.VISNUMEN",
           "quote": "if DS.VISITNUM=13 where DSTERM='PROTCOL COMPLETED' then VISNUMEN=12, otherwise VISNUMEN=DS.VISITNUM where DSTERM='PROTCOL COMPLETED'"
+        },
+        {
+          "document": "spec/source/programs/adsl.r",
+          "section": "L264-L271",
+          "quote": "visnumen <- sv %>% filter(VISITNUM < 100) %>% arrange(STUDYID, USUBJID, SVSTDTC) %>% group_by(STUDYID, USUBJID) %>% slice(n()) %>% ungroup() %>% mutate(VISNUMEN = ifelse(round_half_up(VISITNUM, digits = 0) == 13, 12, round_half_up(VISITNUM, digits = 0))) %>%"
         }
       ],
       "clauses": [
@@ -1541,19 +1856,35 @@
             "quote": "when: \"DS_VISITNUM = 13\" then: 12"
           },
           "note": "Both remap visit 13 to 12."
+        },
+        {
+          "relation": "contradicts",
+          "document": {
+            "citation": 1,
+            "quote": "DS.VISITNUM where DSTERM='PROTCOL COMPLETED'"
+          },
+          "against": {
+            "citation": 2,
+            "quote": "filter(VISITNUM < 100) %>% arrange(STUDYID, USUBJID, SVSTDTC) %>% group_by(STUDYID, USUBJID) %>% slice(n())"
+          },
+          "note": "The submission program reads the subject's last scheduled or unscheduled SV visit before VISITNUM 100, ordered by SVSTDTC and rounded to a whole visit, not a DS completion record."
         }
       ],
       "probes": [
         {
           "column": "VISNUMEN",
           "reading": "literal"
+        },
+        {
+          "column": "VISNUMEN__PROGRAM",
+          "reading": "VISITNUM of the subject's latest SV record with VISITNUM below 100 (by SVSTDTC, ties in file order), rounded half up to a whole visit with Visit 13 replaced by 12, as adsl.r lines 264-271 compute it; Define-XML instead names the DS record with the misspelled term PROTCOL COMPLETED, which no record carries."
         }
       ],
       "interpretations": [
         "PROTCOL is preserved literally; the supported retained sections and workbook do not provide another spelling of the governing rule.",
         "If multiple matching completion records exist, the probe reads the greatest DSSEQ; the retained method leaves this choice open."
       ],
-      "assessment": "Both read the end visit from DS, but the specification takes the first disposition event rather than the record with the literal completion term.",
+      "assessment": "Both read the end visit from DS, but the specification takes the first disposition event rather than the record with the literal completion term. The submission program (adsl.r lines 264-271) takes the end visit from SV rather than DS; the literal probe finds no DSTERM spelled PROTCOL COMPLETED.",
       "question": "Correct or confirm the completion-term spelling and decide whether the end visit comes from the completion record or the first disposition event."
     },
     {
@@ -1569,6 +1900,11 @@
           "document": "spec/define/define-adam.xml",
           "section": "ADSL.RFENDTC",
           "quote": "DM.RFENDTC"
+        },
+        {
+          "document": "spec/source/programs/adsl.r",
+          "section": "L302-L305",
+          "quote": "derive_vars_dt( dtc = RFENDTC, new_vars_prefix = \"RFEN\", )"
         }
       ],
       "clauses": [
@@ -1602,7 +1938,7 @@
       "interpretations": [
         "Incomplete RFENDTC remains missing in the literal probe because no completion rule is stated."
       ],
-      "assessment": "The source matches its documented predecessor; the implementation adds a partial-date policy.",
+      "assessment": "The source matches its documented predecessor; the implementation adds a partial-date policy. The submission program (adsl.r lines 302-305) converts RFENDTC with admiral's default, which imputes no partial dates.",
       "question": "Document whether partial reference end dates may be completed and how."
     },
     {
@@ -1613,6 +1949,16 @@
           "document": "spec/define/define-adam.xml",
           "section": "ADSL.DCDECOD",
           "quote": "DS.DSDECOD where DSCAT='DISPOSITION EVENT'"
+        },
+        {
+          "document": "spec/source/programs/adsl.r",
+          "section": "L53-L54",
+          "quote": "ds00 <- ds %>% filter(DSCAT == \"DISPOSITION EVENT\", DSDECOD != \"SCREEN FAILURE\") %>%"
+        },
+        {
+          "document": "spec/source/programs/adsl.r",
+          "section": "L63",
+          "quote": "DCDECOD = DSDECOD"
         }
       ],
       "clauses": [
@@ -1656,7 +2002,7 @@
       "interpretations": [
         "If multiple disposition events qualify, the earliest DSSTDTC is used by the probe; the retained text leaves this choice open."
       ],
-      "assessment": "The source and category match, with additional source-selection choices in the specification.",
+      "assessment": "The source and category match, with additional source-selection choices in the specification. The submission program (adsl.r lines 53-54 and 63) copies DSDECOD from the disposition event, excluding SCREEN FAILURE, and does not choose among repeated events.",
       "question": "Document which disposition record governs when several qualify."
     },
     {
@@ -1672,6 +2018,11 @@
           "document": "spec/define/define-adam.xml",
           "section": "ADSL.DCDECOD",
           "quote": "DS.DSDECOD where DSCAT='DISPOSITION EVENT'"
+        },
+        {
+          "document": "spec/source/programs/adsl.r",
+          "section": "L214-L221",
+          "quote": "derive_var_merged_cat( dataset_add = ds00, by_vars = exprs(STUDYID, USUBJID), new_var = EOSSTT, source_var = DSDECOD, cat_fun = format_eosstt,"
         }
       ],
       "clauses": [
@@ -1709,7 +2060,7 @@
       "interpretations": [
         "The stated otherwise branch includes an unpopulated DCDECOD, as in the implementation."
       ],
-      "assessment": "The implementation states the documented status logic through the same disposition source.",
+      "assessment": "The implementation states the documented status logic through the same disposition source. The submission program (adsl.r lines 214-221) maps DSDECOD through format_eosstt from the pilot3utils package, which is not retained.",
       "question": ""
     },
     {
@@ -1725,6 +2076,11 @@
           "document": "spec/define/define-adam.xml",
           "section": "ADSL.DCSREAS",
           "quote": "Codelist CL.DISCREAS: Completed = Completed; Adverse Event = Adverse Event; Death = Death; I/E Not Met = I/E Not Met; Lack of Efficacy = Lack of Efficacy; Lost to Follow-up = Lost to Follow-up; Physician Decision = Physician Decision; Protocol Violation = Protocol Violation; Sponsor Decision = Sponsor Decision; Withdrew Consent = Withdrew Consent"
+        },
+        {
+          "document": "spec/source/programs/adsl.r",
+          "section": "L222-L230",
+          "quote": "derive_var_merged_cat( dataset_add = ds00, by_vars = exprs(STUDYID, USUBJID), new_var = DCSREAS, source_var = DSDECOD, cat_fun = format_dcsreas, # could not include dsterm in formatting logic filter_add = !is.na(USUBJID), ) %>% mutate(DCSREAS = ifelse(DSTERM == \"PROTOCOL ENTRY CRITERIA NOT MET\", \"I/E Not Met\", DCSREAS))"
         }
       ],
       "clauses": [
@@ -1751,6 +2107,18 @@
             "quote": "STUDY TERMINATED BY SPONSOR: Sponsor Decision WITHDRAWAL BY SUBJECT: Withdrew Consent"
           },
           "note": "The retained text enumerates target categories without explicitly pairing each source disposition term with its target label."
+        },
+        {
+          "relation": "contradicts",
+          "document": {
+            "citation": 1,
+            "quote": "Grouping of DCDECOD values"
+          },
+          "against": {
+            "citation": 3,
+            "quote": "mutate(DCSREAS = ifelse(DSTERM == \"PROTOCOL ENTRY CRITERIA NOT MET\", \"I/E Not Met\", DCSREAS))"
+          },
+          "note": "The submission program overrides the DCDECOD grouping with I/E Not Met from the verbatim term DSTERM, so that category does not come from DCDECOD."
         }
       ],
       "not_probed_reason": "The retained method names grouping DCDECOD and lists permitted output categories, but supplies no complete source-to-group mapping or source condition for I/E Not Met. It does not establish whether Completed is assigned or left blank, despite allowing that coded value.",
@@ -1758,7 +2126,7 @@
         "Several source/target labels have similar meanings, but semantic similarity does not establish the entire grouping algorithm.",
         "The workbook repeats the grouping description and codelist; its method name still uses ADSL.DCREASCD rather than DCSREAS."
       ],
-      "assessment": "The specification supplies mapping and override choices that cannot be reconstructed fully from the retained rule.",
+      "assessment": "The specification supplies mapping and override choices that cannot be reconstructed fully from the retained rule. The submission program (adsl.r lines 222-230) groups DSDECOD through format_dcsreas from the pilot3utils package, which is not retained, and overrides it from DSTERM for I/E Not Met.",
       "question": "Document the complete mapping, the I/E Not Met condition, and how completed subjects should be represented."
     },
     {
@@ -1769,6 +2137,11 @@
           "document": "spec/define/define-adam.xml",
           "section": "ADSL.MMSETOT",
           "quote": "sum of QS.QSORRES values for the subject when QSCAT = MINI-MENTAL STATE"
+        },
+        {
+          "document": "spec/source/programs/adsl.r",
+          "section": "L307-L311",
+          "quote": "mmsetot <- qs %>% filter(QSCAT == \"MINI-MENTAL STATE\") %>% group_by(STUDYID, USUBJID) %>% summarise(MMSETOT = sum(as.numeric(QSORRES), na.rm = TRUE))"
         }
       ],
       "clauses": [
@@ -1801,7 +2174,7 @@
         "The standardized numeric result may agree with a numeric interpretation of original results, but no retained statement explicitly equates the two fields for this calculation.",
         "QSORRES is converted to a numeric typed helper inside the aggregate before summation; this preserves the original-result source rather than substituting standardized results."
       ],
-      "assessment": "The questionnaire filter is stated and implemented in this study; a literal original-result sum can be tested independently of the implemented standardized-result sum.",
+      "assessment": "The questionnaire filter is stated and implemented in this study; a literal original-result sum can be tested independently of the implemented standardized-result sum. The submission program (adsl.r lines 307-311) sums QSORRES converted to numbers, as documented, rather than QSSTRESN.",
       "question": "Confirm whether the documented rule should retain the original QSORRES source or name the standardized numeric QSSTRESN source used by the implementation.",
       "probes": [
         {
@@ -1809,6 +2182,36 @@
           "reading": "literal"
         }
       ]
+    },
+    {
+      "variable": "STUDYID",
+      "rule": "No retained document states this derivation; the submission program carries it from SDTM DM.",
+      "citations": [
+        {
+          "document": "spec/source/programs/adsl.r",
+          "section": "L98-L100",
+          "quote": "adsl00 <- dm %>% select(-DOMAIN) %>% filter(ACTARMCD != \"Scrnfail\")"
+        }
+      ],
+      "clauses": [],
+      "interpretations": [],
+      "assessment": "The submission program (adsl.r lines 98-100) keeps DM's value for every non-screen-failure subject; the program shows how the reference was built but does not document the rule.",
+      "question": ""
+    },
+    {
+      "variable": "USUBJID",
+      "rule": "No retained document states this derivation; the submission program carries it from SDTM DM.",
+      "citations": [
+        {
+          "document": "spec/source/programs/adsl.r",
+          "section": "L98-L100",
+          "quote": "adsl00 <- dm %>% select(-DOMAIN) %>% filter(ACTARMCD != \"Scrnfail\")"
+        }
+      ],
+      "clauses": [],
+      "interpretations": [],
+      "assessment": "The submission program (adsl.r lines 98-100) keeps DM's value for every non-screen-failure subject; the program shows how the reference was built but does not document the rule.",
+      "question": ""
     }
   ]
 }
