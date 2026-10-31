@@ -267,7 +267,7 @@ def check_record(f, pool):
         add(key)
         selectors[("codelist", None, target)] = key
     for title, note in (
-        ("Current derived dataset", f.get("data", {}).get("summary")
+        ("Reviewed ADaM dataset", f.get("data", {}).get("summary")
          if f["comparison"] == "dataset_define" else None),
         ("Documented rule check unavailable", e.get("not_probed_reason")),
         ("Copy source", copy.get("reason")),
