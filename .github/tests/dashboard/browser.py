@@ -45,8 +45,13 @@ def check_finding_columns(page, issues, screenshots):
     """Column filtering keeps input focus and adjustable widths on both layouts."""
     rows = page.locator('.consistency-table tbody tr.review-issue')
     expect(page.locator('.report-filters, #finding-comparison')).to_have_count(0)
-    expect(page.locator('.finding-filters input, .finding-filters select')).to_have_count(7)
-    page.locator('#finding-dataset').fill('ADSL.BMIBL')
+    expect(page.locator('.finding-filters input, .finding-filters select')).to_have_count(8)
+    page.locator('#finding-dataset').fill('ADSL')
+    page.locator('#finding-variable').fill('BMIBL')
+    expect(rows).to_have_count(sum(i['dataset'] == 'ADSL' and 'BMIBL' in i.get('variable', '') for i in issues))
+    page.locator('#finding-dataset').fill('BMIBL')
+    expect(rows).to_have_count(0)
+    page.locator('#finding-dataset').fill('ADSL')
     query = page.locator('#finding-issue')
     query.press_sequentially('height conversion', delay=10)
     expect(query).to_be_focused()
@@ -63,7 +68,8 @@ def check_finding_columns(page, issues, screenshots):
     assert 'issueSearch=height+conversion' in page.url
     page.reload()
     expect(query).to_have_value('height conversion')
-    expect(page.locator('#finding-dataset')).to_have_value('ADSL.BMIBL')
+    expect(page.locator('#finding-dataset')).to_have_value('ADSL')
+    expect(page.locator('#finding-variable')).to_have_value('BMIBL')
     expect(page.locator('#finding-impact')).to_have_value('subjects differ')
     expect(page.locator('#finding-review')).to_have_value('')
     expect(rows).to_have_count(1)
@@ -91,14 +97,15 @@ def check_finding_columns(page, issues, screenshots):
     expect(page.locator('.consistency-table tbody')).to_contain_text('No issues match')
     page.get_by_role('button', name='Clear filters', exact=True).click()
     expect(rows).to_have_count(len(issues))
-    for selector in ['#finding-search', '#finding-dataset', '#finding-issue', '#finding-impact', '#finding-kind', '#finding-agent', '#finding-critical', '#finding-review']:
+    for selector in ['#finding-search', '#finding-dataset', '#finding-variable', '#finding-issue', '#finding-impact', '#finding-kind', '#finding-agent', '#finding-critical', '#finding-review']:
         expect(page.locator(selector)).to_have_value('')
     page.get_by_role('button', name='SDTM -> ADaM', exact=True).click()
     page.get_by_role('button', name='Consistency findings', exact=True).click()
     for key, width in widths.items():
         expect(page.locator(f'[data-finding-table] [data-resize-column="{key}"]')).to_have_attribute('aria-valuenow', str(width))
     page.set_viewport_size({'width': 375, 'height': 1000})
-    page.locator('#finding-dataset').fill('ADSL.BMIBL')
+    page.locator('#finding-dataset').fill('ADSL')
+    page.locator('#finding-variable').fill('BMIBL')
     page.locator('#finding-issue').fill('height conversion')
     expect(rows).to_have_count(1)
     expect(page.locator('#finding-critical')).to_be_visible()
@@ -254,7 +261,7 @@ def check(browser, base, site_dir, screenshots):
         expect(page.locator(".result-count")).to_have_text(f"{len(issues)} of {len(issues)} issues \u00b7 {checks} supporting checks")
         expect(page.locator(".consistency-table tbody tr[data-finding-id]")).to_have_count(len(issues))
         expect(page.locator(".consistency-table thead th")).to_have_text([
-            "Dataset / variable", "Status", "Critical finding", "Type", "Documented rule vs data", "Issue", "Evidence"
+            "Dataset", "Variable", "Status", "Critical finding", "Type", "Documented rule vs data", "Issue", "Evidence"
         ])
         expect(page.locator("#issue-review")).to_have_count(0)
         for issue in issues:
@@ -276,7 +283,7 @@ def check(browser, base, site_dir, screenshots):
             ["Under Review"] * len(issues)
         )
         expect(page.locator(".consistency-table .finding-evidence")).to_have_count(0)
-        expect(page.locator('.finding-filters input, .finding-filters select')).to_have_count(7)
+        expect(page.locator('.finding-filters input, .finding-filters select')).to_have_count(8)
         expect(page.locator('#finding-agent')).to_be_visible()
         trace = open_trace(page.locator('.consistency-table tbody tr.review-issue').first)
         expect(trace.locator('#trace-finding, #trace-sources, #trace-examples, #trace-your-review')).to_have_count(4)

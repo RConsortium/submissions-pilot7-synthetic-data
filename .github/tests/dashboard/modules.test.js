@@ -31,9 +31,9 @@ test("criticality filters survive shared URLs and obsolete agent filters are dro
   assert.equal(formatRoute(state, model), "#new-study/overview/CUSTOM");
 });
 test("column text filters survive a shared URL while personal review filters stay local", () => {
-  const state = readRoute("#new-study/overview/CUSTOM?datasetSearch=CUSTOM.AGE&impactSearch=2+subjects&issueSearch=rule+%26+date&yourReview=reviewed", model);
-  assert.deepEqual([state.datasetSearch, state.impactSearch, state.issueSearch, state.yourReview],
-    ["CUSTOM.AGE", "2 subjects", "rule & date", ""]);
+  const state = readRoute("#new-study/overview/CUSTOM?datasetSearch=CUSTOM&variableSearch=AGE&impactSearch=2+subjects&issueSearch=rule+%26+date&yourReview=reviewed", model);
+  assert.deepEqual([state.datasetSearch, state.variableSearch, state.impactSearch, state.issueSearch, state.yourReview],
+    ["CUSTOM", "AGE", "2 subjects", "rule & date", ""]);
   state.yourReview = "draft";
   const route = formatRoute(state, model);
   assert.doesNotMatch(route, /yourReview/);

@@ -6,6 +6,7 @@ const fields = [
   "rowSearch",
   "findingSearch",
   "datasetSearch",
+  "variableSearch",
   "impactSearch",
   "issueSearch",
   "kind",

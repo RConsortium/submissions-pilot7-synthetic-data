@@ -3,6 +3,7 @@ import {
   criticalFinding,
   CRITICAL_LABELS,
   findIssue,
+  findingVariable,
   impactText,
   impactSummary,
   issueRow,
@@ -40,6 +41,7 @@ export const YOUR_REVIEW = {
 export const FINDING_FILTERS = {
   "finding-search": "findingSearch",
   "finding-dataset": "datasetSearch",
+  "finding-variable": "variableSearch",
   "finding-agent": "agentReview",
   "finding-critical": "critical",
   "finding-kind": "kind",
@@ -48,7 +50,8 @@ export const FINDING_FILTERS = {
   "finding-review": "yourReview",
 };
 const COLUMNS = [
-  { key: "dataset", label: "Dataset / variable", width: 145 },
+  { key: "dataset", label: "Dataset", width: 110 },
+  { key: "variable", label: "Variable", width: 145 },
   { key: "status", label: "Status", width: 145 },
   { key: "critical", label: "Critical finding", width: 135 },
   { key: "type", label: "Type", width: 135 },
@@ -66,13 +69,12 @@ export function createReport(ctx) {
   const allFindings = () => consistencyFindings(ctx.report);
   const draftOf = (issue) => ctx.drafts?.load(ctx.model.id, issue, ctx.report);
   let checkReport, ruleIds;
-  function datasetText(i) {
+  function variableText(i) {
     if (checkReport !== ctx.report) {
       checkReport = ctx.report;
       ruleIds = new Map(readReview(checkReport).checks.map((c) => [c.id, c.rule?.id || ""]));
     }
-    return [i.dataset, i.variable, `${i.dataset}.${i.variable}`,
-      ...i.check_ids.map((id) => ruleIds.get(id) || "")].join(" ");
+    return [findingVariable(i), ...i.check_ids.map((id) => ruleIds.get(id) || "")].join(" ");
   }
   const matches = (text, query) => !query?.trim() ||
     text.toLowerCase().includes(query.trim().toLowerCase());
@@ -85,7 +87,8 @@ export function createReport(ctx) {
       (!state.critical || criticalFinding(i).status === state.critical) &&
       (!state.agentReview || i.review === state.agentReview) &&
       (!state.yourReview || !ctx.drafts || draftOf(i).status === state.yourReview) &&
-      matches(datasetText(i), state.datasetSearch) &&
+      matches(i.dataset, state.datasetSearch) &&
+      matches(variableText(i), state.variableSearch) &&
       matches(impactSummary(i), state.impactSearch) &&
       matches(`${i.title} ${i.summary}`, state.issueSearch)
     );
@@ -158,7 +161,7 @@ export function createReport(ctx) {
     return `${items.length} of ${allFindings().length} issue${allFindings().length === 1 ? "" : "s"} &middot; ${count} supporting check${count === 1 ? "" : "s"}${comparison}`;
   }
   function findingBody(items) {
-    return items.length ? items.map((i) => issueRow(i, ctx.report)).join("") : '<tr><td colspan="7">No issues match. Clear the filters to see all issues.</td></tr>';
+    return items.length ? items.map((i) => issueRow(i, ctx.report)).join("") : `<tr><td colspan="${COLUMNS.length}">No issues match. Clear the filters to see all issues.</td></tr>`;
   }
   function columnFilters() {
     const { esc, state } = ctx;
@@ -169,7 +172,8 @@ export function createReport(ctx) {
       return `<select id="${id}" aria-label="Filter ${label}"><option value="">${empty}</option>${entries.map(([key, text]) => `<option value="${key}" ${state[FINDING_FILTERS[id]] === key ? "selected" : ""}>${esc(text)}</option>`).join("")}</select>`;
     }
     const filters = [
-      input("finding-dataset", "Dataset / variable", "Filter..."),
+      input("finding-dataset", "Dataset", "Filter..."),
+      input("finding-variable", "Variable", "Name or rule"),
       select("finding-agent", "Status by agent review", Object.entries(AGENT_REVIEW).map(([key, text]) => [key, `${text} (agent)`]), "All agents"),
       select("finding-critical", "Critical finding", Object.entries(CRITICAL_LABELS)),
       select("finding-kind", "Issue type", KINDS.map((v) => [v, v.replaceAll("_", " ")]), "All types"),
@@ -177,7 +181,7 @@ export function createReport(ctx) {
       input("finding-issue", "Issue", "Title or summary"),
       ctx.drafts ? select("finding-review", "Your review", Object.entries(YOUR_REVIEW), "All reviews") : '<span class="sr-only">All evidence</span>',
     ];
-    return `<tr class="finding-filters">${COLUMNS.map((c, n) => `<td data-label="${n === 1 ? "Agent review" : n === 6 ? "Your review" : c.label}">${filters[n]}</td>`).join("")}</tr>`;
+    return `<tr class="finding-filters">${COLUMNS.map((c, n) => `<td data-label="${c.key === "status" ? "Agent review" : c.key === "evidence" ? "Your review" : c.label}">${filters[n]}</td>`).join("")}</tr>`;
   }
   function findingTable(items) {
     const { esc } = ctx, widths = ctx.layout?.findingColumns || {},
