@@ -32,7 +32,6 @@ export function findIssue(report, id) {
 }
 
 function comparisonSources(e) {
-  if (e.method === "dataset_define") return { source: "Define-XML declaration", target: "current derived dataset" };
   return {
     source: e.type === "codelist" ? "Documented codelist"
       : e.method === "copy" ? "Documented source"
@@ -86,7 +85,7 @@ export const CRITICAL_LABELS = {
   needs_review: "Needs review",
 };
 
-function citation(e, preview = false, yamlOnly = false) {
+export function citation(e, preview = false, yamlOnly = false) {
   const quote = normalize(e.quote || e.context),
     snippet = shorten(quote);
   const location = e.section.startsWith("page-")
@@ -121,7 +120,7 @@ function citation(e, preview = false, yamlOnly = false) {
       .join("")}</code></pre>`;
   } else context = `<blockquote>${esc(normalize(e.context))}</blockquote>`;
   const contextLocation = e.context_lines ? `Lines ${e.context_lines.join("-")}` : location;
-  if (yamlOnly) return `<div class="issue-citation"><p class="quote-source">${esc("Specification: " + e.path.split("/").pop())}${location ? ", " + esc(location) : ""}</p>${context}${!e.verified ? `<p>Quote not verified: ${esc(e.reason || "source unavailable")}</p>` : ""}<p class="finding-links"><button class="text-link" data-source-evidence="${esc(e.id)}">View source</button></p></div>`;
+  if (yamlOnly) return `<div class="issue-citation"><p class="quote-source">${esc("ADaM Specification: " + e.path.split("/").pop())}${location ? ", " + esc(location) : ""}</p>${context}${!e.verified ? `<p>Quote not verified: ${esc(e.reason || "source unavailable")}</p>` : ""}<p class="finding-links"><button class="text-link" data-source-evidence="${esc(e.id)}">View source</button></p></div>`;
   // A preview quotes the cited clause in full; a document's longer passage stays one click away.
   return `<div class="issue-citation"><p class="quote-source">${esc((e.type === "specification" ? "Specification: " : "Document: ") + e.path.split("/").pop())}${location ? ", " + esc(location) : ""}</p>${quote ? `<blockquote>${esc(preview ? quote : snippet)}</blockquote>` : '<p class="trace-limit">No quotation was retained for this citation; open the source to read the element.</p>'}${!e.verified ? `<p>Quote not verified: ${esc(e.reason || "source unavailable")}</p>` : ""}<p class="finding-links"><button class="text-link" data-source-evidence="${esc(e.id)}">View source</button></p>${e.context && (normalize(e.context) !== quote || (!preview && quote.length > 240) || e.type === "specification") ? `<details class="issue-context"${preview && e.type === "specification" ? " open" : ""}><summary><span>Full context</span><small>${esc(contextLocation)}</small></summary>${context}</details>` : ""}</div>`;
 }
@@ -177,7 +176,7 @@ export function issueSearchText(issue, report) {
   ].join(" ");
 }
 
-export function issueTrace(issue, report, { sourcesOnly = false, specificationsOnly = false, auditOnly = false, datasetDefineOnly = false } = {}) {
+export function issueTrace(issue, report, { sourcesOnly = false, specificationsOnly = false, auditOnly = false } = {}) {
   const r = readReview(report),
     evidence = new Map(r.evidence.map((e) => [e.id, e]));
   const trace = issue.trace.map((t) => ({
@@ -195,8 +194,6 @@ export function issueTrace(issue, report, { sourcesOnly = false, specificationsO
     issue.expected || issue.observed
       ? `<dl class="issue-comparison">${issue.expected ? `<dt>Expected</dt><dd>${esc(issue.expected)}</dd>` : ""}${issue.observed ? `<dt>Observed</dt><dd>${esc(issue.observed)}</dd>` : ""}</dl>`
       : "";
-  if (datasetDefineOnly)
-    return `<div class="finding-evidence">${comparisons}<h3>Define-XML declaration</h3>${quotes.map(({ e }) => citation(e)).join("")}<h3>Current derived dataset</h3>${data.map(({ e, role }) => measurement(e, role)).join("")}</div>`;
   if (sourcesOnly || specificationsOnly) {
     const kind = sourcesOnly ? "document" : "specification";
     const selected = quotes.filter(({ e }) => e.type === kind);
@@ -243,6 +240,9 @@ export function issueTrace(issue, report, { sourcesOnly = false, specificationsO
   return `<div class="finding-evidence"><p><strong>Critical finding: ${esc(CRITICAL_LABELS[critical.status])}.</strong> ${esc(critical.reason)}</p><p>Agent review: ${esc(issue.review.replaceAll("_", " "))}</p><section><h4>1. Rule comparison</h4>${comparisons}${quotes.length ? quotes.map(({ e }) => citation(e)).join("") : "<p>No source statements retained for this issue.</p>"}</section><section><h4>2. Data comparison</h4><p>${esc(impactText(issue, report))}</p>${data.length ? data.map(({ e, role }) => measurement(e, role)).join("") : "<p>No issue-specific data comparison.</p>"}</section>${issue.action ? `<section><h4>3. Proposed action</h4><p>${esc(issue.action)}</p></section>` : ""}<section><details class="issue-checks"><summary>${plural(checks.length, "supporting check")} and agent review</summary>${audit}</details></section><button class="text-link" data-finding="${esc(issue.id)}">Open evidence in workspace${issue.impact.subject_count ? ` (${plural(issue.impact.subject_count, "subject")})` : ""}</button></div>`;
 }
 
+/** The variable column also identifies findings that apply to a whole dataset. */
+export const findingVariable = (issue) => issue.variable || "Dataset-wide";
+
 export function issueRow(issue, report) {
   const checks = readReview(report).checks.filter((c) =>
     issue.check_ids.includes(c.id),
@@ -250,5 +250,5 @@ export function issueRow(issue, report) {
   const rules = [...new Map(checks.filter((c) => c.rule).map((c) => [c.rule.id, c.rule])).values()];
   const critical = criticalFinding(issue);
   const agent = ["disputed", "stale", "mixed"].includes(issue.review) ? `<small class="agent-review-status">Agent review: ${esc(issue.review)}</small>` : "";
-  return `<tr class="review-issue" data-finding-id="${esc(issue.id)}"><th scope="row"><button class="text-link" data-finding="${esc(issue.id)}">${esc(issue.dataset + (issue.variable ? "." + issue.variable : ""))}</button><span class="rule-id">${rules.map(ruleLegend).join(", ")}</span></th><td class="issue-status"><span class="sr-only">Status: </span><span class="status attention">Under Review</span>${agent}</td><td class="issue-critical"><span class="sr-only">Critical finding: </span><span class="status ${critical.status === "yes" ? "attention" : "neutral"}">${esc(CRITICAL_LABELS[critical.status])}</span></td><td class="issue-type"><span class="sr-only">Type: </span><span class="status ${["conflict", "evidence", "inconsistent"].includes(issue.kind) ? "attention" : "neutral"}">${esc(issue.kind.replaceAll("_", " "))}</span></td><td class="issue-impact"><span class="sr-only">Documented rule vs data: </span>${esc(impactSummary(issue))}</td><td class="issue-summary"><h3>${esc(issue.title)}</h3><p>${esc(issue.summary)}</p></td><td><button class="button" data-trace-issue="${esc(issue.id)}">Start review</button><small class="human-review-status" data-human-review="${esc(issue.id)}"></small></td></tr>`;
+  return `<tr class="review-issue" data-finding-id="${esc(issue.id)}"><td class="issue-dataset">${esc(issue.dataset)}</td><th scope="row" class="issue-variable"><button class="text-link" data-finding="${esc(issue.id)}" aria-label="${esc(issue.dataset + (issue.variable ? "." + issue.variable : ""))}">${esc(findingVariable(issue))}</button><span class="rule-id">${rules.map(ruleLegend).join(", ")}</span></th><td class="issue-status"><span class="sr-only">Status: </span><span class="status attention">Under Review</span>${agent}</td><td class="issue-critical"><span class="sr-only">Critical finding: </span><span class="status ${critical.status === "yes" ? "attention" : "neutral"}">${esc(CRITICAL_LABELS[critical.status])}</span></td><td class="issue-type"><span class="sr-only">Type: </span><span class="status ${["conflict", "evidence", "inconsistent"].includes(issue.kind) ? "attention" : "neutral"}">${esc(issue.kind.replaceAll("_", " "))}</span></td><td class="issue-impact"><span class="sr-only">Documented rule vs data: </span>${esc(impactSummary(issue))}</td><td class="issue-summary"><h3>${esc(issue.title)}</h3><p>${esc(issue.summary)}</p></td><td><button class="button" data-trace-issue="${esc(issue.id)}">Start review</button><small class="human-review-status" data-human-review="${esc(issue.id)}"></small></td></tr>`;
 }

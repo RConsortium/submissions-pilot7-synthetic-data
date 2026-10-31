@@ -26,14 +26,38 @@ export function createResizing(ctx, refit) {
       .byId(isSpec ? "spec-resizer" : "data-resizer")
       ?.setAttribute("aria-valuenow", String(Math.round(adjusted)));
   }
+  function refreshFindings() {
+    for (const handle of ctx.root()?.querySelectorAll("[data-finding-table] [data-resize-column]") || []) {
+      const value = Math.round(handle.closest("th").getBoundingClientRect().width);
+      if (!value) continue;
+      handle.setAttribute("aria-valuenow", String(value));
+      handle.setAttribute("aria-valuemax", String(Math.max(value, Number(handle.getAttribute("aria-valuemax")))));
+    }
+  }
   function column(handle, width) {
-    const value = Math.round(clamp(width, 72, 640)),
-      card = handle.closest("[data-panel]"),
+    const value = Math.round(clamp(width,
+        Number(handle.getAttribute("aria-valuemin")) || 72,
+        Number(handle.getAttribute("aria-valuemax")) || 640)),
+      card = handle.closest("[data-panel], [data-finding-table]"),
       name = handle.dataset.resizeColumn;
     if (!card?.isConnected) return;
+    const cols = [...card.querySelectorAll("col[data-column]")];
+    if (card.hasAttribute("data-finding-table")) {
+      const widths = ctx.layout.findingColumns ||= {},
+        headers = card.querySelectorAll(".finding-headings th");
+      cols.forEach((col, n) => {
+        widths[col.dataset.column] = Math.round(headers[n].getBoundingClientRect().width);
+      });
+      widths[name] = value;
+      for (const col of cols) col.style.width = widths[col.dataset.column] + "px";
+      const table = card.querySelector("table");
+      table.style.minWidth = "0";
+      table.style.width = Object.values(widths).reduce((sum, n) => sum + n, 0) + "px";
+      refreshFindings();
+      return;
+    }
     const widths = (ctx.layout.columns[card.dataset.panel] ||= {});
     widths[name] = value;
-    const cols = [...card.querySelectorAll("col[data-column]")];
     cols.find((c) => c.dataset.column === name).style.width = value + "px";
     card.querySelector("table").style.width =
       36 + cols.reduce((sum, c) => sum + parseFloat(c.style.width), 0) + "px";
@@ -95,9 +119,9 @@ export function createResizing(ctx, refit) {
       column(
         handle,
         event.key === "Home"
-          ? 72
+          ? Number(handle.getAttribute("aria-valuemin")) || 72
           : event.key === "End"
-            ? 640
+            ? Number(handle.getAttribute("aria-valuemax")) || 640
             : Number(handle.getAttribute("aria-valuenow")) +
               (event.key === "ArrowLeft" ? -10 : 10),
       );
@@ -120,5 +144,5 @@ export function createResizing(ctx, refit) {
             (event.key === keys[0] ? -2 : 2),
     );
   }
-  return { rememberPanels, split, column, panel, pointer, keyboard };
+  return { rememberPanels, split, column, panel, pointer, keyboard, refreshFindings };
 }
