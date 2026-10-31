@@ -23,7 +23,7 @@ def review_breakdown(issues):
     )
 
 
-def summary_cards(matched, reference, issues):
+def summary_cards(matched, reference, issues, *, include_explanation=True):
     def number(value):
         return f"{value / 1e6:.1f}M" if value >= 1e6 else f"{value:,}"
 
@@ -39,6 +39,12 @@ def summary_cards(matched, reference, issues):
     count = len(issues)
     finding = "finding" if count == 1 else "findings"
     review = "awaiting review" if count else "reported"
+    explanation = (
+        '<ul class="comparison-explanation">'
+        + ''.join(f'<li>{text}</li>' for text in EXPLANATION)
+        + '</ul>'
+        if include_explanation else ''
+    )
     return (
         '<div class="review-summaries">'
         '<section class="summary-card reference-summary" aria-label="ADaM derivation">'
@@ -48,7 +54,5 @@ def summary_cards(matched, reference, issues):
         '<h2>Consistency review</h2>'
         f'<p class="summary-value"><strong>{count}</strong> {finding} {review}</p>'
         f'<p class="critical-counts">{review_breakdown(issues)}</p></section></div>'
-        '<ul class="comparison-explanation">'
-        + ''.join(f'<li>{text}</li>' for text in EXPLANATION)
-        + '</ul>'
+        + explanation
     )

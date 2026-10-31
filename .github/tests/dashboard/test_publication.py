@@ -167,6 +167,10 @@ columns:
                 self.assertIn(expected, page)
         self.assertNotIn("Study validation records", page)
         self.assertNotIn("studies validated", page)
+        self.assertLess(page.index('class="review-summaries"'), page.index('id="method"'))
+        self.assertLess(page.index('id="method"'), page.index('id="studies"'))
+        self.assertEqual(page.count('class="comparison-explanation"'), 1)
+        self.assertNotIn('<strong>ADaM agreement:</strong>', page)
 
     def test_study_report_documents_exclude_r_and_sas_programs(self):
         target = self.generate()
@@ -368,6 +372,11 @@ columns:
         catalog = json.loads((target / "future-study/catalog.json").read_text())
         self.assertIsNotNone(catalog["datasets"][0]["reference"])
         self.assertEqual(catalog["metrics"]["matched"], [1, 2, 6])
+        page = (self.root / "docs/studies/index.md").read_text()
+        matrix = page.split('<h2 id="dataset-results">')[1]
+        self.assertNotIn("Generated ADaM dataset matched", matrix)
+        self.assertIn('<span class="report-dims">3 &#215; 2</span>', matrix)
+        self.assertIn('aria-label="0 issues for Future study / CUSTOM"', matrix)
 
     def test_missing_question_source_is_visible_without_an_invented_citation(self):
         self.write(

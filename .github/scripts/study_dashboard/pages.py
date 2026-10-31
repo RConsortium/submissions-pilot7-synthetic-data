@@ -6,7 +6,7 @@ from collections import Counter
 from urllib.parse import quote
 
 from .programs import is_program
-from .summaries import review_breakdown, summary_cards
+from .summaries import EXPLANATION, review_breakdown, summary_cards
 
 UNMATCHED = {
     "Not compared": "a generated ADaM dataset is staged but the comparator did not check it",
@@ -48,7 +48,7 @@ def _status(label, tone):
 def _comparison(dataset):
     """Validation compares only the default reference path; a configured one may stay unchecked."""
     if dataset["comparison"] == "passed":
-        return "Generated ADaM dataset matched", "good"
+        return None
     if dataset["reference"]:
         return "Not compared", "attention"
     return "No generated ADaM dataset", "neutral"
@@ -80,18 +80,9 @@ def _inputs(catalog):
 
 
 def _header(studies, validated):
-    """Summarize the agents' work and identify any pending studies."""
+    """Title the report and identify any pending studies."""
     pending = len(studies) - len(validated)
-    lines = [
-        "<h1>Pilot study report</h1>",
-        '<ul class="report-lede">',
-        '<li><strong>ADaM agreement:</strong> AI agents use '
-        '<a href="https://elong0527.github.io/yamaa/">yamaa</a> specifications '
-        'to create ADaM datasets from SDTM datasets.</li>',
-        '<li><strong>Consistency review:</strong> AI agents compare derived datasets '
-        'and submitted Define-XML.</li>',
-        "</ul>",
-    ]
+    lines = ["<h1>Pilot study report</h1>"]
     if pending:
         lines.append(
             f"<p>{pending} {'study is' if pending == 1 else 'studies are'} pending validation.</p>"
@@ -104,7 +95,22 @@ def _kpis(studies, validated):
     reference = [sum(c["metrics"]["reference"][i] for c, _ in validated) for i in range(3)]
     issues = [issue for _, report in validated for issue in report["review"]["issues"]]
     return [
-        summary_cards(matched, reference, issues),
+        summary_cards(matched, reference, issues, include_explanation=False),
+    ]
+
+
+def _method():
+    return [
+        '<h2 id="method">Method</h2>',
+        '<ol><li>AI agents use <a href="https://elong0527.github.io/yamaa/">yamaa</a> '
+        'to reproduce derivation specifications. Executing these specifications on '
+        'the SDTM data produces ADaM datasets that fully match those submitted '
+        'in each pilot.</li>'
+        '<li>AI agents compare the specifications in the submitted Define-XML '
+        'with the reproduced yamaa specifications to identify differences.</li></ol>',
+        '<ul class="comparison-explanation">'
+        + ''.join(f'<li>{text}</li>' for text in EXPLANATION)
+        + '</ul>',
     ]
 
 
@@ -257,10 +263,14 @@ def _matrix(studies):
             if label:
                 row["descriptions"].setdefault(label, []).append(catalog["title"])
             size = dimensions[dataset["name"]]
-            text, tone = _comparison(dataset)
-            labels.add(text)
+            comparison = _comparison(dataset)
+            status = ""
+            if comparison:
+                text, tone = comparison
+                labels.add(text)
+                status = _status(text, tone)
             row["cells"][catalog["id"]] = (
-                _status(text, tone)
+                status
                 + f'<span class="report-dims">{size["rows"]:,} &#215; {size["columns"]}</span>'
                 + _issue_badge(catalog, dataset["name"], issues[dataset["name"]])
             )
@@ -278,9 +288,7 @@ def _matrix(studies):
     return [
         '<h2 id="dataset-results">Dataset results</h2>',
         _table(["Dataset", "Description"], studies, body, link=True, keep=True),
-        '<p class="report-foot">Status with rows &#215; columns of the yamaa output. '
-        "Generated ADaM dataset matched: the study comparator found the yamaa output equal to the generated ADaM "
-        "dataset, labels included, under that study's comparison policy. "
+        '<p class="report-foot">Rows &#215; columns of the yamaa output. '
         + "".join(f"{k}: {v}. " for k, v in UNMATCHED.items() if k in labels)
         + "A dash means the dataset is not part of that study.</p>",
         '<p id="dataset-issues-note" class="report-foot">Issue badges count distinct '
@@ -298,6 +306,7 @@ def report_page(bundle):
     body = [
         *_header(studies, validated),
         *(_kpis(studies, validated) if validated else []),
+        *_method(),
         *_overview(studies),
         *_matrix(studies),
     ]
