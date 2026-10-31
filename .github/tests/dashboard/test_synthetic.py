@@ -82,7 +82,7 @@ class SyntheticTests(unittest.TestCase):
                 study_navigation(root, []),
                 [
                     {"Pilot study report": "studies/index.md"},
-                    {"Pilot": "studies/pilot.md"},
+                    {"Pilot": "studies/pilot.md#pilot/overview"},
                 ],
             )
 

@@ -140,8 +140,8 @@ columns:
             study_navigation(self.root, [{"Manual": "studies/manual.md"}]),
             [
                 {"Pilot study report": "studies/index.md"},
-                {"Future study": "studies/future-study.md"},
-                {"Pending study": "studies/pending-study.md"},
+                {"Future study": "studies/future-study.md#future-study/overview"},
+                {"Pending study": "studies/pending-study.md#pending-study/overview"},
                 {"Manual": "studies/manual.md"},
             ],
         )
@@ -153,7 +153,7 @@ columns:
             "<p>1 study is pending validation.</p>",
             "Define-XML match yamaa specification",
             "No generated ADaM comparison datasets",
-            '<a href="pending-study/">Pending study</a><small>Pending</small></th>',
+            '<a href="pending-study/#pending-study/overview">Pending study</a><small>Pending</small></th>',
             '<td class="report-cell"><span class="report-status neutral">No generated ADaM dataset</span>'
             '<span class="report-dims">3 &#215; 2</span>'
             '<span class="report-status report-issues neutral" '

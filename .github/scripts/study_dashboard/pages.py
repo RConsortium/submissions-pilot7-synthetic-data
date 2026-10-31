@@ -113,7 +113,7 @@ def _heads(studies, link=False):
     for catalog, report in studies:
         title = html.escape(catalog["title"])
         if link:
-            title = f'<a href="{catalog["id"]}/">{title}</a>'
+            title = f'<a href="{catalog["id"]}/#{catalog["id"]}/overview">{title}</a>'
         pending = "<small>Pending</small>" if report is None else ""
         cells.append(f'<th scope="col">{title}{pending}</th>')
     return "".join(cells)

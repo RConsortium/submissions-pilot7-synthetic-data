@@ -17,7 +17,7 @@ def study_navigation(root, manual):
     tail = [item for item in manual if not any(path in owned for path in item.values())]
     return [
         {"Pilot study report": "studies/index.md"},
-        *({entry["title"]: f"studies/{name}.md"} for name, entry in entries.items()),
+        *({entry["title"]: f"studies/{name}.md#{name}/overview"} for name, entry in entries.items()),
         *tail,
     ]
 
