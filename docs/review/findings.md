@@ -18,7 +18,8 @@ Each row is one issue.
 
 | Column | Meaning |
 | --- | --- |
-| Dataset / variable | The output variable the issue concerns, with the IDs of the consistency rules its checks apply; select a rule ID to read what the rule requires. Select the name to open the variable in the workspace with the affected subjects. |
+| Dataset | The output dataset the finding concerns. |
+| Variable | The output variable, or **Dataset-wide** for a finding about the whole dataset. Its consistency rule IDs appear underneath; select a rule ID to read its requirements. Select the variable to open the workspace with the affected subjects. |
 | Status | Under Review until maintainers record a human decision. When the adjudicating agent disputed the finding, or its decision is stale or mixed, the cell says so. |
 | Critical finding | The automated criticality assessment: Yes, No or Needs review. |
 | Type | The issue type, listed below. |
@@ -35,29 +36,43 @@ separate.
 
 ## Filters and search
 
-**By dataset** shows how many issues each dataset has under the current
-comparison, type and criticality filters; select a dataset to list its issues
-alone, or **All** to list every dataset. The search matches a variable, issue
-title, document name, quotation or rule ID; an exact name, such as
-`ADSL.TRTSDT` or `ADSL`, selects that variable or dataset alone.
+Filters sit directly below the table's column headings. Text filters match
+without regard to case, and all active filters apply together:
 
-- **Comparison** filters the retained comparison category.
-- **Issue type** filters the types below.
-- **Agent review** filters by the adjudicating agent's decision: agreed,
-  disputed, stale, mixed or not adjudicated. The list places disputed,
-  stale and mixed findings after the agreed ones of the same criticality;
-  they stay listed, because agent agreement is not resolution.
+- **Dataset** matches only the dataset name.
+- **Variable** matches the variable name or a displayed rule ID. Combine it with
+  **Dataset** to narrow the same variable across different datasets.
+- **Status** filters the agent review: agreed, disputed, stale, mixed or not
+  adjudicated. Every finding remains Under Review until a human decision is
+  recorded; agent agreement is not resolution.
 - **Critical finding** filters Yes, No and Needs review. Incorrect source,
   derivation, category and output rules are critical; differences limited to
   significant digits or variable labels are not. Incomplete evidence and
   documentation gaps need review. Criticality is independent of the number of
   affected subjects.
+- **Type** filters the issue types below.
+- **Documented rule vs data** matches a subject count or result text, such as
+  `No differences` or `Not measured`.
+- **Issue** matches the title or summary.
+- **Evidence** filters **Your review**: Not reviewed, Draft or Both decisions
+  saved. This filter stays in your browser.
+
+**Search issues** searches across variables, issue text, documents, quotations
+and rule IDs. An exact name, such as `ADSL.TRTSDT` or `ADSL`, selects that variable
+or dataset alone. **By dataset** offers shortcuts and counts under the current
+column filters.
+
+**Issue** starts wider than **Documented rule vs data**. Drag either column's
+right header edge to resize it, or focus that edge and use the Left and Right
+arrow keys. Widths remain while filtering or switching tabs. On small screens,
+the column filters appear above the stacked finding rows.
 
 **Clear filters** restores the full list. The list puts findings marked
 **Critical finding: Yes** first, then **Needs review**, then **No**, in the
-report's order within each group. The dataset, filters, search and open
-finding are part of the page URL, so a copied link reproduces them,
-including the finding open in **Start review**.
+report's order within each group. Disputed, stale and mixed agent reviews
+follow agreed ones within the same criticality. The dataset, shared column
+filters, search and open finding are part of the page URL, so a copied link
+reproduces them, including the finding open in **Start review**.
 
 ## Issue types
 

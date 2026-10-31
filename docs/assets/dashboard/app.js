@@ -11,7 +11,7 @@ import {
 } from "./review-model.js";
 import { createShell } from "./shell.js";
 import { createWorkspace } from "./workspace.js";
-import { createReport } from "./report.js";
+import { createReport, FINDING_FILTERS } from "./report.js";
 import { findIssue } from "./issues.js";
 import { createTraceReview } from "./trace-review.js";
 import { createReviewDrafts } from "./review-drafts.js";
@@ -120,7 +120,7 @@ import { developmentReport, mountDevelopment } from "./synthetic-development.js"
   const { frame } = createShell(ctx),
     { workspace, applyHighlight, paintTables, fitWorkbench } =
       createWorkspace(ctx);
-  const { findingRows, findingsView, findingItems, drawer, ledger, ledgerStrip } = createReport(ctx),
+  const { refreshFindings, findingsView, findingItems, drawer, ledger, ledgerStrip } = createReport(ctx),
     comments = createComments(ctx),
     { commentsView, loadComments } = comments;
   // The review dialog walks the findings the listing currently shows.
@@ -207,6 +207,7 @@ import { developmentReport, mountDevelopment } from "./synthetic-development.js"
     byId("review-comments").innerHTML = commentsView();
     loadComments();
     traceReview.refreshRows();
+    resizing.refreshFindings();
     if (state.view === "datasets") {
       await refreshRows();
       if (token === ticket) {
@@ -330,6 +331,7 @@ import { developmentReport, mountDevelopment } from "./synthetic-development.js"
   }, true);
   document.addEventListener("scroll", placeRuleLegends, true);
   window.addEventListener("resize", placeRuleLegends);
+  window.addEventListener("resize", resizing.refreshFindings);
   document.addEventListener("keydown", (event) => {
     if (!root()) return;
     if (traceReview.isOpen) return;
@@ -457,8 +459,7 @@ import { developmentReport, mountDevelopment } from "./synthetic-development.js"
     if (target.dataset.findingDataset !== undefined) {
       state.findingSearch = target.dataset.findingDataset;
       save();
-      byId("finding-search").value = state.findingSearch;
-      byId("finding-results").innerHTML = findingRows();
+      refreshFindings();
       traceReview.refreshRows();
       return;
     }
@@ -523,21 +524,12 @@ import { developmentReport, mountDevelopment } from "./synthetic-development.js"
       await redrawWorkspace();
       return;
     }
-    if (target.id === "clear-findings") {
-      state.findingSearch = "";
-      state.kind = "";
+    if (target.id === "clear-findings" || target.id === "clear-finding-comparison") {
+      if (target.id === "clear-findings")
+        for (const field of Object.values(FINDING_FILTERS)) state[field] = "";
       state.comparison = "";
-      state.critical = "";
-      state.agentReview = "";
-      state.yourReview = "";
       save();
-      byId("finding-search").value = "";
-      byId("finding-kind").value = "";
-      byId("finding-comparison").value = "";
-      byId("finding-critical").value = "";
-      byId("finding-agent").value = "";
-      byId("finding-review").value = "";
-      byId("finding-results").innerHTML = findingRows();
+      refreshFindings();
       traceReview.refreshRows();
       return;
     }
@@ -618,20 +610,10 @@ import { developmentReport, mountDevelopment } from "./synthetic-development.js"
       paintTables();
       return;
     }
-    if (
-      ["finding-kind", "finding-comparison", "finding-critical", "finding-agent", "finding-review"].includes(el.id)
-    ) {
-      state[
-        {
-          "finding-kind": "kind",
-          "finding-comparison": "comparison",
-          "finding-critical": "critical",
-          "finding-agent": "agentReview",
-          "finding-review": "yourReview",
-        }[el.id]
-      ] = el.value;
+    if (el.tagName === "SELECT" && FINDING_FILTERS[el.id]) {
+      state[FINDING_FILTERS[el.id]] = el.value;
       save();
-      byId("finding-results").innerHTML = findingRows();
+      refreshFindings();
       traceReview.refreshRows();
     }
   });
@@ -649,10 +631,10 @@ import { developmentReport, mountDevelopment } from "./synthetic-development.js"
       save();
       paintTables();
     }
-    if (el.id === "finding-search") {
-      state.findingSearch = el.value;
+    if (el.tagName === "INPUT" && FINDING_FILTERS[el.id]) {
+      state[FINDING_FILTERS[el.id]] = el.value;
       save();
-      byId("finding-results").innerHTML = findingRows();
+      refreshFindings();
       traceReview.refreshRows();
     }
   });
