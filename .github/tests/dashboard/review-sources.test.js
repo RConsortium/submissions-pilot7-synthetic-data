@@ -1,6 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { resolvedReviewReport, sourcePreview } from "../../../docs/assets/dashboard/review-sources.js";
+import { resolvedReviewReport, sourcePreview, reviewComparison, reviewComparisonEvidence } from "../../../docs/assets/dashboard/review-sources.js";
 
 const original = { id: "rule", type: "specification", path: "spec/template.yaml", section: "AGE",
   quote: "obsolete rule", context: "original", lines: [100, 101], verified: true };
@@ -13,6 +13,24 @@ const specifications = Object.fromEntries(["ADAE", "ADSL"].map((domain) => [doma
   resolved: { path: `study/resolved/${domain}.yaml`, text: `domain: ${domain}\n- name: AGE\n  derivation: 'age < 65'\n`,
     lineage: { spans: { AGE: { start: 2, end: 3 } } } },
 }]));
+
+test("the first panel pairs only the identified Define-XML item and resolved variable", () => {
+  const doc = { id: "define", type: "document", path: "study/spec/define/define-adam.xml",
+    section: "ADSL.AGE", quote: "Define age rule", context: "Define age rule", verified: true };
+  const adrg = { ...doc, id: "adrg", path: "study/spec/source/adrg.pdf", quote: "Guide rule" };
+  const data = { ...report, review: { ...report.review, evidence: [doc, adrg, original, probe] } };
+  const issue = { dataset: "ADSL", variable: "AGE", trace: data.review.evidence.map((e) => ({ evidence_id: e.id })) };
+  const entries = reviewComparisonEvidence(issue, data, specifications);
+  assert.deepEqual(entries.map((e) => [e.type, e.path]), [
+    ["document", doc.path], ["specification", "study/resolved/ADSL.yaml"],
+  ]);
+  const html = reviewComparison(issue, data, specifications);
+  assert.equal((html.match(/class="trace-source-file"/g) || []).length, 2);
+  assert.match(html, /Define age rule/);
+  assert.match(html, /age &lt; 65/);
+  assert.doesNotMatch(html, /Guide rule|adrg.pdf|obsolete rule|domain: ADAE/);
+  assert.match(reviewComparison(issue, data, {}), /resolved YAML item is unavailable/);
+});
 
 test("review shows the selected dataset's resolved rule while preserving independent translations and audit identity", () => {
   const shown = resolvedReviewReport(report, specifications, "ADSL");
