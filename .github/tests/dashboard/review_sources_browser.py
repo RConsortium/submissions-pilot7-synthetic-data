@@ -25,13 +25,18 @@ def run(browser_path=None):
             page.route("**/rendered.html*", lambda route: route.fulfill(content_type="text/html", body="<h1>Rendered XML</h1>"))
             page.goto(f"http://127.0.0.1:{server.server_port}/docs/assets/dashboard/")
             page.evaluate("""async () => {
-              document.head.innerHTML = '<link rel="stylesheet" href="/docs/stylesheets/dashboard.css">';
+              document.head.innerHTML = `<link rel="stylesheet" href="/docs/stylesheets/dashboard.css"><style>
+                :root { --md-default-fg-color:#24292f; --md-default-bg-color:#fff;
+                  --md-default-fg-color--lightest:#e7ebef; --md-typeset-a-color:#326c9e;
+                  --md-accent-fg-color--transparent:#eaf2f8; --md-code-font-family:monospace;
+                  --md-text-font-family:Arial,sans-serif; font-family:Arial,sans-serif; }
+              </style>`;
               document.body.innerHTML = '<div id="study-dashboard" class="study-dashboard"><button id="open">Start review</button></div>';
               const { createTraceReview } = await import('/docs/assets/dashboard/trace-review.js');
-              const { createReviewSources, resolvedReviewReport } = await import('/docs/assets/dashboard/review-sources.js');
+              const { createReviewSources, reviewComparisonEvidence } = await import('/docs/assets/dashboard/review-sources.js');
               const rule = {id:'rule', type:'specification', path:'spec/template.yaml', section:'AGE',
                 quote:'old rule', context:'original', lines:[100,101], verified:true};
-              const doc = {id:'doc', type:'document', path:'study/define.xml', section:'ADSL.AGE',
+              const doc = {id:'doc', type:'document', path:'study/spec/define/define-adam.xml', section:'ADSL.AGE',
                 quote:'Age rule', context:'Age rule', lines:[3588,3595], verified:true};
               const issue = {id:'age', dataset:'ADSL', variable:'AGE', kind:'conflict', title:'Age rule differs',
                 summary:'Review age', expected:'Age follows the documented rule.', observed:'Age differs in generated data.', action:'Confirm rule', review:'agreed', check_ids:[],
@@ -39,7 +44,16 @@ def run(browser_path=None):
                 trace:[{evidence_id:'rule',role:'context'},{evidence_id:'doc',role:'context'},{evidence_id:'comparison',role:'impact'}]};
               const comparison = {id:'comparison',type:'comparison',method:'derive',reading:'literal',target:'reference',differ:1,compared:2,subjects:['01']};
               const report = {review:{schema_version:1, issues:[issue], checks:[], evidence:[rule,doc,comparison]},
-                documents:[{path:doc.path,name:'define.xml',available:true,view:'rendered.html'}]};
+                documents:[{path:doc.path,name:'define-adam.xml',available:true,view:'rendered.html'}]};
+              report.trace_examples = {'ADSL.AGE': {
+                subject_key:'USUBJID', keys:['USUBJID','SEQ'], input_columns:['INPUT'],
+                calculations:[{column:'AGE',reading:'literal'},{column:'OTHER',reading:'alternative'}],
+                subjects:[{id:'01',total_rows:1,rows:[{
+                  keys:{USUBJID:'01',SEQ:1},inputs:{INPUT:65},
+                  reference:{present:true,value:64},
+                  calculations:{AGE:{present:true,value:65},OTHER:{present:true,value:999}},
+                }]}],
+              }};
               const specifications = {ADSL:{domain:'ADSL',path:'study/adsl.yaml',documents:[{path:rule.path}],
                 resolved:{path:'study/resolved/adsl.yaml',text:'domain: ADSL\\n- name: AGE\\n  derivation: age < 65',
                   lineage:{spans:{AGE:{start:2,end:3}}}}}};
@@ -52,25 +66,35 @@ def run(browser_path=None):
               document.addEventListener('click', event => {
                 const target = event.target.closest('[data-source-evidence]');
                 if (!target) return;
-                const shown = target.closest('#trace-specifications') ? resolvedReviewReport(report,specifications,'ADSL') : report;
-                sources.open(shown.review.evidence.find(e=>e.id===target.dataset.sourceEvidence), target);
+                const evidence = reviewComparisonEvidence(issue, report, specifications);
+                sources.open(evidence.find(e=>e.id===target.dataset.sourceEvidence), target);
               });
               window.review.open('age',document.querySelector('#open'));
             }""")
             sections = page.locator('.trace-review-content > section').evaluate_all('(items)=>items.map(s=>s.id)')
-            assert sections == ['trace-finding', 'trace-sources', 'trace-specifications',
-                                'trace-examples', 'trace-fix']
+            assert sections == ['trace-finding', 'trace-sources', 'trace-examples']
+            expect(page.locator('#trace-sources .trace-source-file')).to_have_count(2)
+            expect(page.locator('.trace-data-table thead th')).to_have_text(['ADaM data', 'Documented Rule'])
+            expect(page.locator('.trace-data-table tbody td')).to_have_count(2)
+            expect(page.locator('.trace-cell-difference')).to_have_count(2)
+            expect(page.locator('.trace-data-table')).not_to_contain_text('999')
+            expect(page.locator('#trace-your-review h3')).to_have_text('Human Review')
+            expect(page.locator('#trace-your-review legend')).to_have_text([
+                'Do you agree with this finding? Required', 'Is this finding critical? Required',
+                'Is current dataset correctly derived? Optional'])
+            expect(page.locator('#trace-fix, #trace-specifications')).to_have_count(0)
+            expect(page.locator('.trace-review-content')).not_to_contain_text('Agreement and criticality are separate decisions')
             assert page.locator('.issue-comparison').count() == 1
             assert 'Expected behavior' in page.locator('#trace-finding').inner_text()
             assert 'published reference' not in page.locator('.trace-review-content').inner_text()
-            page.get_by_role('button', name='3. Subject examples', exact=True).click()
+            page.get_by_role('button', name='Subject examples', exact=True).click()
             page.wait_for_function("document.querySelector('.trace-scroll').scrollTop > 0")
             expect(page.locator('#trace-discussion, .trace-technical')).to_have_count(0)
             expect(page.locator('[data-trace-section="trace-discussion"]')).to_have_count(0)
             page.locator('#trace-review-comment').fill('Keep my review draft')
             expect(page.locator('.trace-introduction, .trace-basis, .trace-measurements, #trace-data, #trace-assessment')).to_have_count(0)
             assert page.locator('.trace-review-dialog [data-finding]').count() == 0
-            rule = page.locator('#trace-specifications [data-source-evidence="rule"]')
+            rule = page.locator('#trace-sources [data-source-evidence="resolved:ADSL.AGE"]')
             rule.click()
             assert page.locator('.review-source-dialog').is_visible()
             assert 'study/resolved/adsl.yaml' in page.locator('#review-source-title').inner_text()
@@ -116,6 +140,13 @@ def run(browser_path=None):
             expect(prepared).to_be_focused()
             page.evaluate('window.review.close()')
             assert page.locator('dialog').count() == 0
+            page.evaluate("window.review.open('age')")
+            page.locator('body').evaluate("(b)=>b.dataset.mdColorScheme='default'")
+            page.set_viewport_size({'width': 1440, 'height': 1000})
+            page.screenshot(path=str(ROOT / '.build/review-desktop.png'))
+            page.set_viewport_size({'width': 390, 'height': 844})
+            page.screenshot(path=str(ROOT / '.build/review-mobile.png'))
+            assert page.locator('.trace-review-dialog').evaluate('(d)=>d.scrollWidth<=d.clientWidth')
             assert not errors, errors
             browser.close()
     finally:
