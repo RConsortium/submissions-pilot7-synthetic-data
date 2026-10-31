@@ -20,10 +20,9 @@ recommendation is a complete contribution.
     ---
 
     Compare ADaM dataset agreement and consistency findings across the pilot
-    studies, or explore synthetic study coverage and workflow readiness.
+    studies.
 
-    - [Pilot study report](studies/index.md)
-    - [Synthetic data report](synthetic/index.md)
+    [Pilot study report](studies/index.md)
 
 -   **Review guide**
 
@@ -36,9 +35,9 @@ recommendation is a complete contribution.
 
     Pilot study review pages:
 
-    - [CDISC Pilot 01](studies/cdiscpilot01.md#cdiscpilot01/overview/ADSL?findingSearch=ADSL)
-    - [Submission Pilot 3](studies/submission-pilot3.md#submission-pilot3/overview/ADSL?findingSearch=ADSL)
-    - [Submission Pilot 5](studies/submission-pilot5.md#submission-pilot5/overview/ADSL?findingSearch=ADSL)
+    - [CDISC Pilot 01](studies/cdiscpilot01.md)
+    - [Submission Pilot 3](studies/submission-pilot3.md)
+    - [Submission Pilot 5](studies/submission-pilot5.md)
 
 </div>
 
