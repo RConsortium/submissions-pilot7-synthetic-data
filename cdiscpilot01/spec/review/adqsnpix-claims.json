@@ -3,9 +3,9 @@
   "dataset": "ADQSNPIX",
   "author": {
     "kind": "agent",
-    "model": "Codex",
+    "model": "Codex; program tracing round by claude-opus-5-5[1m]",
     "instructions": ".automation/consistency_review/extract.md",
-    "date": "2026-10-26"
+    "date": "2026-10-29"
   },
   "claims": [
     {
@@ -21,6 +21,16 @@
           "document": "spec/source/dataguide.pdf",
           "section": "page-4",
           "quote": "The following core variables were merged from ADSL into all analysis datasets: STUDYID,\nSITEID, USUBJID, TRTSDT, TRTEDT, AGE, AGEGR1, AGEGR1N, SEX, RACE, and\nRACEN."
+        },
+        {
+          "document": "spec/source/programs/pilot6/adqsnpix.r",
+          "section": "L66-L68",
+          "quote": "filter(startsWith(as.character(QSTESTCD), \"NPTOT\")) %>%\n  select(STUDYID, USUBJID, VISIT, VISITNUM, QSDTC, QSSTRESN, QSSEQ)"
+        },
+        {
+          "document": "spec/source/programs/pilot6/adqsnpix.r",
+          "section": "L93-L98",
+          "quote": "derive_vars_merged(\n    dataset_add = adsl,\n    new_vars = adsl_vars,\n    by = exprs(STUDYID, USUBJID)"
         }
       ],
       "clauses": [
@@ -71,7 +81,7 @@
         "The probe reads the independently published ADSL reference, not adsl-yamaa. Its subject lookup uses the original REF.USUBJID solely to establish row correspondence, then returns ADSL.STUDYID.",
         "The original STUDYID, USUBJID, PARAMCD, AVISITN, ANL01FL, and VISIT remain unchanged as matching keys; the identity result is emitted in a separate __LITERAL column."
       ],
-      "assessment": "The documented ADSL identity source is citable for all row branches. Executable source choices are compared without assuming sample identity or using the current target REF field as the expected result.",
+      "assessment": "The documented ADSL identity source is citable for all row branches. Executable source choices are compared without assuming sample identity or using the current target REF field as the expected result. Program tracing: the retained Pilot 6 R program spec/source/programs/pilot6/adqsnpix.r (a reference_reimplementation, not the submission's own program) reads STUDYID from QS at lines 66-68 and uses it as a merge key with ADSL at lines 93-98; it shows how the values can be produced, not the documented rule.",
       "question": ""
     },
     {
@@ -87,6 +97,16 @@
           "document": "spec/source/dataguide.pdf",
           "section": "page-4",
           "quote": "The following core variables were merged from ADSL into all analysis datasets: STUDYID,\nSITEID, USUBJID, TRTSDT, TRTEDT, AGE, AGEGR1, AGEGR1N, SEX, RACE, and\nRACEN."
+        },
+        {
+          "document": "spec/source/programs/pilot6/adqsnpix.r",
+          "section": "L66-L68",
+          "quote": "filter(startsWith(as.character(QSTESTCD), \"NPTOT\")) %>%\n  select(STUDYID, USUBJID, VISIT, VISITNUM, QSDTC, QSSTRESN, QSSEQ)"
+        },
+        {
+          "document": "spec/source/programs/pilot6/adqsnpix.r",
+          "section": "L93-L98",
+          "quote": "derive_vars_merged(\n    dataset_add = adsl,\n    new_vars = adsl_vars,\n    by = exprs(STUDYID, USUBJID)"
         }
       ],
       "clauses": [
@@ -137,7 +157,7 @@
         "The probe reads the independently published ADSL reference, not adsl-yamaa. Its subject lookup uses the original REF.USUBJID solely to establish row correspondence, then returns ADSL.USUBJID.",
         "The original STUDYID, USUBJID, PARAMCD, AVISITN, ANL01FL, and VISIT remain unchanged as matching keys; the identity result is emitted in a separate __LITERAL column."
       ],
-      "assessment": "The documented ADSL identity source is citable for all row branches. Executable source choices are compared without assuming sample identity or using the current target REF field as the expected result.",
+      "assessment": "The documented ADSL identity source is citable for all row branches. Executable source choices are compared without assuming sample identity or using the current target REF field as the expected result. Program tracing: the retained Pilot 6 R program spec/source/programs/pilot6/adqsnpix.r (a reference_reimplementation, not the submission's own program) reads USUBJID from QS at lines 66-68 and uses it as a merge key with ADSL at lines 93-98; it creates no NPTOTMN records, so it shows no source for the aggregate rows.",
       "question": ""
     },
     {
@@ -173,6 +193,11 @@
           "document": "spec/source/dataguide.pdf",
           "section": "page-7",
           "quote": "The \nanalysis visits (represented by AVISIT and AVISITN) are derived from days between \nassessment date and randomization date and based on the visit windows that were specified in \nthe statistical analysis plan (SAP)."
+        },
+        {
+          "document": "spec/source/programs/pilot6/adqsnpix.r",
+          "section": "L118-L126",
+          "quote": "AVISIT = case_when(\n      ADY <= 1 ~ \"Baseline\",\n      ADY >= 2 & ADY <= 84 ~ \"Week 8\",\n      ADY >= 85 & ADY <= 140 ~ \"Week 16\",\n      ADY > 140 ~ \"Week 24\",\n      TRUE ~ NA_character_"
         }
       ],
       "clauses": [
@@ -247,7 +272,7 @@
         "Leading blanks are not requested by the citable labels. The literal probe states unpadded labels.",
         "SAP page-11 extraction shows < 1, but the original PDF has a separate underline below < and visibly means <= 1. This is text extraction loss, not a competing baseline-boundary rule."
       ],
-      "assessment": "Both retained label conventions are stated as separate readings.",
+      "assessment": "Both retained label conventions are stated as separate readings. Program tracing: the retained Pilot 6 R program spec/source/programs/pilot6/adqsnpix.r (a reference_reimplementation, not the submission's own program) assigns AVISIT from ADY at lines 118-126 with four windows (Baseline, Week 8, Week 16, Week 24), which is not the SAP page-11 two-week scheme of this reference; its reading is stated as AVISIT__PILOT6_WINDOWS. No program line or retained document states the leading blanks that right-justify every reference AVISIT value (for example '        Baseline'), so no justified reading reproduces the reference; the literal and SAP readings differ on padding alone where their labels agree.",
       "question": "Which telephone-visit label convention is intended for AVISIT?",
       "probes": [
         {
@@ -257,6 +282,10 @@
         {
           "column": "AVISIT__SAP_LABELS",
           "reading": "Use the SAP page-11 Time Interval (label on output) telephone labels Week 10 (Tel), Week 14 (Tel), Week 18 (Tel), and Week 22 (Tel), as cited in citation 4; other mappings retain Define-XML labels."
+        },
+        {
+          "column": "AVISIT__PILOT6_WINDOWS",
+          "reading": "Assign AVISIT from ADY with the four windows of the Pilot 6 R program adqsnpix.r lines 118-126: ADY <= 1 Baseline, 2-84 Week 8, 85-140 Week 16, above 140 Week 24, otherwise missing."
         }
       ]
     },
@@ -308,6 +337,11 @@
           "document": "spec/source/dataguide.pdf",
           "section": "page-7",
           "quote": "The last observation carried forward (LOCF) \nalgorithm was not used for these data."
+        },
+        {
+          "document": "spec/source/programs/pilot6/adqsnpix.r",
+          "section": "L130",
+          "quote": "create_var_from_codelist(adnpix_spec, AVISIT, AVISITN)"
         }
       ],
       "clauses": [
@@ -384,7 +418,7 @@
         "The SAP windows concern assessments. NPTOTMN includes a baseline value and an aggregate Weeks 4-24 endpoint, and its codelist supplies corresponding numeric labels; the documents do not explicitly specify how the day-window method applies to an aggregate row lacking an assessment day.",
         "The general SAP postbaseline-LOCF instruction and the dataset-specific no-LOCF statement have different applicability. The dataset-specific statement prevents assuming carried-forward records or a LOCF-derived analysis visit in this dataset."
       ],
-      "assessment": "The assessment windows and numeric labels are stated, while a complete independently executable whole-variable rule needs source and applicability decisions.",
+      "assessment": "The assessment windows and numeric labels are stated, while a complete independently executable whole-variable rule needs source and applicability decisions. Program tracing: the retained Pilot 6 R program spec/source/programs/pilot6/adqsnpix.r (a reference_reimplementation, not the submission's own program) derives AVISITN from AVISIT through the Pilot 6 specification codelist at line 130, after the four-window AVISIT of lines 118-126.",
       "question": "What randomization-date source and day convention govern assessment windows, and what documented discriminator assigns NPTOTMN baseline versus Weeks 4-24 rows?",
       "not_probed_reason": "A full-column literal probe would require inventing a randomization-date source and a derived-row assignment policy for NPTOTMN aggregate records. The codelist establishes codes but does not by itself establish those conditions. The observed-record window algorithm is preserved in the clauses and notes, including the original PDF <= 1 boundary."
     },
@@ -396,6 +430,11 @@
           "document": "spec/define/define-adam.xml",
           "section": "ADQSNPIX.ADY",
           "quote": "Comment: ADY = ADT - TRTSDT + 1, if ADT>=TRTSDT. ADY = ADT - TRTSDT, if ADT<TRTSDT."
+        },
+        {
+          "document": "spec/source/programs/pilot6/adqsnpix.r",
+          "section": "L112-L115",
+          "quote": "derive_vars_dy(\n    reference_date = TRTSDT,\n    source_vars = exprs(ADT)\n  )"
         }
       ],
       "clauses": [
@@ -415,7 +454,7 @@
       "interpretations": [
         "The probe reads published upstream ADT and TRTSDT. It makes no independent date-imputation or randomization-date assumption."
       ],
-      "assessment": "The literal date-relative formula is executable independently of the copied SDTM day.",
+      "assessment": "The literal date-relative formula is executable independently of the copied SDTM day. Program tracing: the retained Pilot 6 R program spec/source/programs/pilot6/adqsnpix.r (a reference_reimplementation, not the submission's own program) derives ADY from ADT relative to TRTSDT at lines 112-115, the same anchor as the Define-XML formula.",
       "question": "",
       "probes": [
         {
@@ -437,6 +476,11 @@
           "document": "spec/source/dataguide.pdf",
           "section": "page-7",
           "quote": "Source data can be traced back to the SDTM.QS domain using USUBJID and \nQSSEQ.    Details on how to derive the primary efficacy result based on CIBIC+ data can be \nfound in the analysis results metadata in the define.xml.  \n \nADQSNPIX \u2013  NPI-X Item Analysis Data \nADQSNPIX contains one record per subject per parameter (NPI-X questionnaire item, total \nscore, and mean total score from Week 4 through Week 24) per analysis visit (AVISIT).   The \nanalysis visits (represented by AVISIT and AVISITN) are derived from days between \nassessment date and randomization date and based on the visit windows that were specified in \nthe statistical analysis plan (SAP).  If multiple assessments fall into the same visit window, then \nthe one closest to the target day is chosen for analysis.  Records where analysis flag (ANL01FL) \n= \u2019Y\u2019 are the ones that were used for analysis. The last observation carried forward (LOCF) \nalgorithm was not used for these data.  Source data can be traced back to the SDTM.QS domain \nusing USUBJID and QSSEQ.  All the NPI-X parameters, except for the mean total score from \nWeek 4 through Week 24 (NPTOTMN), are from SDTM.QS domain."
+        },
+        {
+          "document": "spec/source/programs/pilot6/adqsnpix.r",
+          "section": "L107-L111",
+          "quote": "derive_vars_dt(\n    new_vars_prefix = \"A\",\n    dtc = QSDTC\n  )"
         }
       ],
       "clauses": [
@@ -484,7 +528,7 @@
         "The conversion probe returns no source date where a record has no linked QSSEQ. That is a source-traceability limitation, not evidence for a derived-row date policy.",
         "Baseline NPTOTMN source-sequence handling exists in native Define-XML ADQSNPIX.QSSEQ.NPTOTMN but is outside the exposed variable-section interface; the current probe uses published QSSEQ as an upstream traceability key."
       ],
-      "assessment": "The documented source conversion can be probed; partial-date imputation and aggregate-date applicability remain reviewer questions.",
+      "assessment": "The documented source conversion can be probed; partial-date imputation and aggregate-date applicability remain reviewer questions. Program tracing: the retained Pilot 6 R program spec/source/programs/pilot6/adqsnpix.r (a reference_reimplementation, not the submission's own program) converts QSDTC to ADT at lines 107-111; the call passes no imputation argument.",
       "question": "Should partial QS dates be imputed, and where is the intended aggregate-row ADT policy documented?",
       "probes": [
         {
@@ -526,6 +570,11 @@
           "document": "spec/source/SAP.pdf",
           "section": "page-30",
           "quote": "Mean NPI-X Total Score from Week 4 through Week 24 - Windowed \n \n \n    \n Xanomeline  \nPlacebo Low Dose \nXanomeline  \nHigh Dose \n(N=xxx)\n \n(N=xxx)\n \n(N=xxx)\n Baseline \n    N      xxx      xxx      xxx \n    Mean (SD)      xx.x (xx.xx)      xx.x (xx.xx)      xx.x (xx.xx) \n    Median (Range) \n \n     xx.x (xx;xxx)\n \n     xx.x (xx;xxx)\n \n     xx.x (xx;xxx)\n \nMean of Weeks 4-24"
+        },
+        {
+          "document": "spec/source/programs/pilot6/adqsnpix.r",
+          "section": "L128",
+          "quote": "PARAM = \"NPI-X (9) Total Score\""
         }
       ],
       "clauses": [
@@ -568,7 +617,7 @@
         "The probe maps published REF.PARAMCD, so it isolates the label mapping from score construction and source-row selection.",
         "The SAP describes the nine-domain total and mean endpoint, while the dataguide identifies QS as source for all parameters except NPTOTMN. These construct definitions do not authorize respelling the codelist strings, including Agression and Eupohoria."
       ],
-      "assessment": "The literal labels are fully stated by the code-to-label codelist.",
+      "assessment": "The literal labels are fully stated by the code-to-label codelist. Program tracing: the retained Pilot 6 R program spec/source/programs/pilot6/adqsnpix.r (a reference_reimplementation, not the submission's own program) keeps only QSTESTCD values starting with NPTOT (line 67) and sets one label at line 128, the same string as the literal NPTOT label. It states no item labels, so it neither supports nor explains the doubled blank in the reference Hallucination label; no justified reading reproduces the reference.",
       "question": "Is the doubled internal blank in the executable Hallucination label intended?",
       "probes": [
         {
@@ -600,6 +649,11 @@
           "document": "spec/source/dataguide.pdf",
           "section": "page-7",
           "quote": "The value of parameter, \nNPTOTMN, contains the mean total score for each patient who had any assessments from Week \n4 through Week 24.  The baseline value of the parameter, NPTOTMN, is the same as the \nbaseline value of total score."
+        },
+        {
+          "document": "spec/source/programs/pilot6/adqsnpix.r",
+          "section": "L132",
+          "quote": "create_var_from_codelist(adnpix_spec, PARAM, PARAMCD)"
         }
       ],
       "clauses": [
@@ -662,7 +716,7 @@
         "To avoid reading its own key target, the probe reconstructs PARAMCD from upstream REF.PARAMN through the PARAMN and PARAMCD codelists paired on their common labels. This isolates coding and does not independently test the raw-source copy or row inclusion.",
         "The dataguide establishes the SDTM.QS source family but does not explicitly name QSTESTCD as the analysis-code source variable. The codelists state code assignments, while the source-variable choice remains a separate question."
       ],
-      "assessment": "The codelists support independent code reconstruction without reusing the current PARAMCD target.",
+      "assessment": "The codelists support independent code reconstruction without reusing the current PARAMCD target. Program tracing: the retained Pilot 6 R program spec/source/programs/pilot6/adqsnpix.r (a reference_reimplementation, not the submission's own program) derives PARAMCD from PARAM through the Pilot 6 specification codelist at line 132.",
       "question": "Does the intended source rule explicitly identify QS.QSTESTCD for observed item and total codes?",
       "probes": [
         {
@@ -689,6 +743,11 @@
           "document": "spec/define/define-adam.xml",
           "section": "ADQSNPIX.PARAMCD",
           "quote": "Codelist PARAMCD_ADQSNPIX: NPITM01S = NPI-X Item A (Delusion) Score; NPITM02S = NPI-X Item B (Hallucination) Score; NPITM03S = NPI-X Item C (Agitation/Agression) Score; NPITM04S = NPI-X Item D (Depression/Dysphoria) Score; NPITM05S = NPI-X Item E (Anxiety) Score; NPITM06S = NPI-X Item F (Eupohoria/Elation) Score; NPITM07S = NPI-X Item G (Apathy/Indifference) Score; NPITM08S = NPI-X Item H (Disinhibition) Score; NPITM09S = NPI-X Item I (Irritability/Lability) Score; NPITM10S = NPI-X Item J (Aberrant Motor Behavior) Score; NPITM11S = NPI-X Item K (Night-time Behavior) Score; NPITM12S = NPI-X Item L (Appetite/Eating Change) Score; NPTOT = NPI-X (9) Total Score; NPTOTMN = Mean NPI-X (9) Total (Week 4 to 24)"
+        },
+        {
+          "document": "spec/source/programs/pilot6/adqsnpix.r",
+          "section": "L131",
+          "quote": "create_var_from_codelist(adnpix_spec, PARAM, PARAMN)"
         }
       ],
       "clauses": [
@@ -729,7 +788,7 @@
       "interpretations": [
         "The comment uses legacy codelist name PRMNNPIX; the linked retained codelist is PARAMN_ADQSNPIX and supplies the label-to-number assignments."
       ],
-      "assessment": "The paired codelists state the numeric mapping.",
+      "assessment": "The paired codelists state the numeric mapping. Program tracing: the retained Pilot 6 R program spec/source/programs/pilot6/adqsnpix.r (a reference_reimplementation, not the submission's own program) derives PARAMN from PARAM through the Pilot 6 specification codelist at line 131.",
       "question": "",
       "probes": [
         {
@@ -746,6 +805,11 @@
           "document": "spec/define/define-adam.xml",
           "section": "ADQSNPIX.PARAMTYP",
           "quote": "Codelist PARAMTYP: DERIVED = DERIVED"
+        },
+        {
+          "document": "spec/source/programs/pilot6/adqsnpix.r",
+          "section": "L206-L214",
+          "quote": "PARAMTYP = \"DERIVED\""
         }
       ],
       "clauses": [
@@ -767,7 +831,7 @@
         "The native instructions and source locations are preserved as interface observations, not fabricated formal citations or a claim that retained documentation is absent.",
         "A sole DERIVED codelist constrains nonmissing values but does not establish whole-variable branch gating."
       ],
-      "assessment": "The citable interface exposes the enum and omits the retained native branching instructions.",
+      "assessment": "The citable interface exposes the enum and omits the retained native branching instructions. Program tracing: the retained Pilot 6 R program spec/source/programs/pilot6/adqsnpix.r (a reference_reimplementation, not the submission's own program) sets PARAMTYP to DERIVED on every record at line 213. The final output is built from adnpix05 at lines 206-214, so the LOCF records of adnpix_locf (lines 177-204) never reach the saved dataset.",
       "question": "Expose the existing native PARAMTYP value-level instructions in a later evidence interface so their branch rule can be cited and probed.",
       "not_probed_reason": "The native Define-XML contains PARAMCD-specific PARAMTYP assignment comments, but the supplied exact-citation section omits all corresponding value-level ItemDefs. The exposed DERIVED codelist alone cannot establish missing versus DERIVED gating. A literal whole-variable probe cannot be made fully citable without repairing or augmenting that interface, which is outside this extraction scope."
     },
@@ -829,6 +893,11 @@
           "document": "spec/source/SAP.pdf",
           "section": "page-48",
           "quote": "Average of all postrandomization NPI-X scorces including Weeks 2 and 26."
+        },
+        {
+          "document": "spec/source/programs/pilot6/adqsnpix.r",
+          "section": "L127",
+          "quote": "AVAL = QSSTRESN"
         }
       ],
       "clauses": [
@@ -949,7 +1018,7 @@
         "The ordinary score and total scoring rules may be delegated to the submitted QS values. No observed scoring values were inspected to decide that ownership.",
         "No rounding precision for NPTOTMN AVAL is supplied in the citable sections; the diagnostic means are not rounded."
       ],
-      "assessment": "The citable mean period differs from the four executable SELF lookup visits. Ordinary score source, composite baseline equality, scoring requirements, and the LOCF applicability question are documented separately; complete target arithmetic remains outside the current citation interface.",
+      "assessment": "The citable mean period differs from the four executable SELF lookup visits. Ordinary score source, composite baseline equality, scoring requirements, and the LOCF applicability question are documented separately; complete target arithmetic remains outside the current citation interface. Program tracing: the retained Pilot 6 R program spec/source/programs/pilot6/adqsnpix.r (a reference_reimplementation, not the submission's own program) copies AVAL from QSSTRESN at line 127 and computes no Week 4-24 mean.",
       "question": "Should the composite average all window-selected available NPTOT scores from Week 4 through Week 24, or all assessments in those windows; does the NPI-X-specific no-LOCF guide override the SAP general efficacy convention; and are the total-score domain and missing-item adjustments wholly delegated to QS? Confirm the native NPTOTMN baseline exception and expose its value-level instructions for a complete literal probe."
     },
     {
@@ -975,6 +1044,11 @@
           "document": "spec/source/SAP.pdf",
           "section": "page-30",
           "quote": "[1] Based on Analysis of covariance (ANCOVA) model with treatment and site as factors, and baseline NPI-X\nvalue as a covariate."
+        },
+        {
+          "document": "spec/source/programs/pilot6/adqsnpix.r",
+          "section": "L206-L214",
+          "quote": "BASE = QSSTRESN"
         }
       ],
       "clauses": [
@@ -1008,7 +1082,7 @@
       "interpretations": [
         "The native source selects QS baseline records; its tie handling is unstated if more than one source record satisfies the subject/parameter baseline condition. The diagnostic chooses the first QSSEQ and does not claim this choice as documented."
       ],
-      "assessment": "The citable composite baseline equality is represented by the NPTOT baseline lookup. Ordinary baseline copy conditions require the omitted value-level metadata.",
+      "assessment": "The citable composite baseline equality is represented by the NPTOT baseline lookup. Ordinary baseline copy conditions require the omitted value-level metadata. Program tracing: the retained Pilot 6 R program spec/source/programs/pilot6/adqsnpix.r (a reference_reimplementation, not the submission's own program) sets BASE to each record's own QSSTRESN at line 208, not to a baseline-visit value. The final output is built from adnpix05 at lines 206-214, so the LOCF records of adnpix_locf (lines 177-204) never reach the saved dataset.",
       "question": "Confirm the native ordinary QS baseline source and its selection policy, including whether the ADaM window restriction is intended when the QS baseline flag is present."
     },
     {
@@ -1019,6 +1093,11 @@
           "document": "spec/define/define-adam.xml",
           "section": "ADQSNPIX.CHG",
           "quote": "Label: Change from Baseline\nData type: integer\nOrigin: Derived"
+        },
+        {
+          "document": "spec/source/programs/pilot6/adqsnpix.r",
+          "section": "L206-L214",
+          "quote": "CHG = (AVAL - BASE)"
         }
       ],
       "clauses": [],
@@ -1028,7 +1107,7 @@
         "Post baseline is read in the diagnostic as ordinary PARAMCD with AVISITN>0; the citable sections do not define the post-baseline boundary for this arithmetic.",
         "The diagnostic uses published REF.AVAL and REF.BASE as upstream arithmetic inputs; it never copies the current target REF.CHG."
       ],
-      "assessment": "A whole-variable literal probe would otherwise rely on uncitable native value-level instructions. The interface limitation must not be reported as absent retained documentation.",
+      "assessment": "A whole-variable literal probe would otherwise rely on uncitable native value-level instructions. The interface limitation must not be reported as absent retained documentation. Program tracing: the retained Pilot 6 R program spec/source/programs/pilot6/adqsnpix.r (a reference_reimplementation, not the submission's own program) computes CHG as AVAL minus BASE at line 209, with BASE set to the record's own result at line 208. The final output is built from adnpix05 at lines 206-214, so the LOCF records of adnpix_locf (lines 177-204) never reach the saved dataset.",
       "question": "Expose and confirm the native ordinary post-baseline and NPTOTMN missing-value instructions for CHG, including the post-baseline boundary."
     },
     {
@@ -1039,6 +1118,16 @@
           "document": "spec/define/define-adam.xml",
           "section": "ADQSNPIX.PCHG",
           "quote": "Label: Percent Change from Baseline\nData type: integer\nOrigin: Derived"
+        },
+        {
+          "document": "spec/source/programs/pilot6/adqsnpix.r",
+          "section": "L206-L214",
+          "quote": "PCHG = 100 * (CHG / BASE)"
+        },
+        {
+          "document": "spec/source/programs/pilot6/adqsnpix.r",
+          "section": "L216-L217",
+          "quote": "mutate_if(is.numeric, as.integer)"
         }
       ],
       "clauses": [],
@@ -1048,7 +1137,7 @@
         "Post baseline is read in the diagnostic as ordinary PARAMCD with AVISITN>0; the citable sections do not define the post-baseline boundary for this arithmetic.",
         "The diagnostic uses REF.CHG and REF.BASE as published upstream variables. Division by zero is represented by nullable undefined arithmetic via NULLIF(BASE,0), without a numeric replacement or imputation. Integer metadata alone is not treated as a rounding instruction."
       ],
-      "assessment": "A whole-variable literal probe would otherwise rely on uncitable native value-level instructions. The interface limitation must not be reported as absent retained documentation.",
+      "assessment": "A whole-variable literal probe would otherwise rely on uncitable native value-level instructions. The interface limitation must not be reported as absent retained documentation. Program tracing: the retained Pilot 6 R program spec/source/programs/pilot6/adqsnpix.r (a reference_reimplementation, not the submission's own program) computes PCHG as 100 * (CHG / BASE) at line 210 and converts every numeric variable to integer at lines 216-217. The final output is built from adnpix05 at lines 206-214, so the LOCF records of adnpix_locf (lines 177-204) never reach the saved dataset.",
       "question": "Expose and confirm the native ordinary post-baseline and NPTOTMN missing-value instructions for PCHG, including the post-baseline boundary."
     },
     {
@@ -1064,6 +1153,11 @@
           "document": "spec/source/SAP.pdf",
           "section": "page-11",
           "quote": "3 Baseline < 1 1\n4 Week 2 2-21 14\n5 Week 4 22-35 28\n7 Week 6 36-49 42\n8 Week 8 50-63 56\n8.1 Week 10 (Tel) 64-77 70\n9 Week 12 78-91 84\n9.1 Week 14 (Tel) 92-105 98\n10 Week 16 106-119 112\n10.1 Week 18 (Tel) 120-133 126\n11 Week 20 134-147 140\n11.1 Week 22 (Tel) 148-161 154\n12 Week 24 162-175 168\nNPI-X\n13 Week 26 >175 182"
+        },
+        {
+          "document": "spec/source/programs/pilot6/adqsnpix.r",
+          "section": "L206-L214",
+          "quote": "ABLFL = \"Y\""
         }
       ],
       "clauses": [],
@@ -1072,7 +1166,7 @@
       "interpretations": [
         "The PDF baseline window is <= 1 even though the supplied text displays < 1. The window does not by itself establish when a composite record should carry a baseline flag."
       ],
-      "assessment": "The ordinary QS copy and composite flag branch cannot be claimed as a fully citable literal rule from the supplied sections.",
+      "assessment": "The ordinary QS copy and composite flag branch cannot be claimed as a fully citable literal rule from the supplied sections. Program tracing: the retained Pilot 6 R program spec/source/programs/pilot6/adqsnpix.r (a reference_reimplementation, not the submission's own program) sets ABLFL to Y on every record at line 212. The final output is built from adnpix05 at lines 206-214, so the LOCF records of adnpix_locf (lines 177-204) never reach the saved dataset.",
       "question": "Confirm the native NPTOTMN missing-flag instruction applies to its baseline row as well, and confirm whether ordinary raw QS flags should be additionally restricted by the ADaM baseline window."
     },
     {
@@ -1108,6 +1202,11 @@
           "document": "spec/source/SAP.pdf",
           "section": "page-48",
           "quote": "The protocol states that efficacy assessments are invalid if no study drug has been taken\nwithin 3 days prior to the assessment.  This will not be considered in the pilot project.  In\naddition, efficacy assessments occurring after the last dose of drug will be considered for\nwindowing and for the efficacy analysis if they are collected at visit number 201."
+        },
+        {
+          "document": "spec/source/programs/pilot6/adqsnpix.r",
+          "section": "L154-L165",
+          "quote": "mutate(diff = ADY - AWTARGET) %>%\n  restrict_derivation(\n    derivation = derive_var_extreme_flag,\n    args = params(\n      by_vars = exprs(USUBJID, PARAMCD, AVISIT),\n      order = exprs(AWTDIFF, diff),\n      new_var = ANL01FL,\n      mode = \"first\"\n    ),\n    filter = !is.na(AVISIT)"
         }
       ],
       "clauses": [
@@ -1175,7 +1274,7 @@
         "The citable tie rule does not resolve multiple assessments on the same assessment day. The diagnostic dense rank preserves same-day ties instead of inventing the additional QSSEQ tie break.",
         "Target-day selection may include a missing score; no citable NPI-X instruction restricts candidates to nonmissing numeric results."
       ],
-      "assessment": "Observed-record closest-target and earlier-day selection are citable and represented in the specification. Complete composite applicability requires the omitted native instruction, so no whole-variable literal probe is claimed.",
+      "assessment": "Observed-record closest-target and earlier-day selection are citable and represented in the specification. Complete composite applicability requires the omitted native instruction, so no whole-variable literal probe is claimed. Program tracing: the retained Pilot 6 R program spec/source/programs/pilot6/adqsnpix.r (a reference_reimplementation, not the submission's own program) flags, within subject, parameter and AVISIT, the first record ordered by AWTDIFF then ADY minus AWTARGET (pre-target first on a tie) at lines 154-165. The final output is built from adnpix05 at lines 206-214, so the LOCF records of adnpix_locf (lines 177-204) never reach the saved dataset.",
       "question": "Confirm the unconditional native flag for both NPTOTMN rows, choose a tie policy for same-day assessments, and clarify whether retrieval visit 201 requires Week 24 assignment even when outside its nominal assessment-day window."
     },
     {
@@ -1196,6 +1295,11 @@
           "document": "spec/source/SAP.pdf",
           "section": "page-10",
           "quote": "Missing postbaseline efficacy values will be imputed using last observation carried\nforward (LOCF)."
+        },
+        {
+          "document": "spec/source/programs/pilot6/adqsnpix.r",
+          "section": "L206-L214",
+          "quote": "DTYPE = \"\""
         }
       ],
       "clauses": [
@@ -1229,7 +1333,7 @@
       "interpretations": [
         "The general SAP efficacy LOCF convention may exclude NPI-X under the more specific endpoint/guide instructions."
       ],
-      "assessment": "LOCF applicability is citable, but the complete DTYPE assignment cannot be claimed from the exposed codelist alone.",
+      "assessment": "LOCF applicability is citable, but the complete DTYPE assignment cannot be claimed from the exposed codelist alone. Program tracing: the retained Pilot 6 R program spec/source/programs/pilot6/adqsnpix.r (a reference_reimplementation, not the submission's own program) sets DTYPE to blank on every record at line 211. The final output is built from adnpix05 at lines 206-214, so the LOCF records of adnpix_locf (lines 177-204) never reach the saved dataset.",
       "question": "Confirm the native ordinary missing/NPTOTMN AVERAGE assignments and the intended precedence of the NPI-X-specific no-LOCF guide over the general SAP efficacy statement."
     },
     {
@@ -1260,6 +1364,11 @@
           "document": "spec/source/dataguide.pdf",
           "section": "page-7",
           "quote": "The baseline value of the parameter, NPTOTMN, is the same as the\nbaseline value of total score."
+        },
+        {
+          "document": "spec/source/programs/pilot6/adqsnpix.r",
+          "section": "L135-L147",
+          "quote": "aw_lookup <- tribble(\n  ~AVISIT, ~AWRANGE, ~AWTARGET, ~AWLO, ~AWHI,\n  \"Baseline\", \"<=1\", 1, NA_integer_, 1,\n  \"Week 8\", \"2-84\", 56, 2, 84,\n  \"Week 16\", \"85-140\", 112, 85, 140,\n  \"Week 24\", \">140\", 168, 141, NA_integer_\n)"
         }
       ],
       "clauses": [
@@ -1321,7 +1430,7 @@
         "The output range strings are rendered with the specification's ASCII spacing; their mathematical bounds follow the SAP. The original PDF confirms <= 1 for baseline.",
         "For the aggregate AVISITN=98, the period is represented by the union of documented Week 4 through Week 24 visit windows. The exposed codelist does not add a separate numeric time window for End of Treatment (AVISITN=99); the probe leaves it undefined."
       ],
-      "assessment": "The ordinary and aggregate day bounds can be stated without omitted value-level metadata by combining the exposed range definition, visit codelist, SAP window table, and documented composite period.",
+      "assessment": "The ordinary and aggregate day bounds can be stated without omitted value-level metadata by combining the exposed range definition, visit codelist, SAP window table, and documented composite period. Program tracing: the retained Pilot 6 R program spec/source/programs/pilot6/adqsnpix.r (a reference_reimplementation, not the submission's own program) assigns AWRANGE from a four-window lookup at lines 135-147, not the SAP page-11 two-week windows of this reference.",
       "question": "Confirm that AWRANGE for the derived Weeks 4-24 row should represent the union of the constituent visit windows, and specify a range if an End of Treatment analysis row is introduced."
     },
     {
@@ -1352,6 +1461,11 @@
           "document": "spec/source/dataguide.pdf",
           "section": "page-7",
           "quote": "The baseline value of the parameter, NPTOTMN, is the same as the\nbaseline value of total score."
+        },
+        {
+          "document": "spec/source/programs/pilot6/adqsnpix.r",
+          "section": "L135-L147",
+          "quote": "aw_lookup <- tribble(\n  ~AVISIT, ~AWRANGE, ~AWTARGET, ~AWLO, ~AWHI,\n  \"Baseline\", \"<=1\", 1, NA_integer_, 1,\n  \"Week 8\", \"2-84\", 56, 2, 84,\n  \"Week 16\", \"85-140\", 112, 85, 140,\n  \"Week 24\", \">140\", 168, 141, NA_integer_\n)"
         }
       ],
       "clauses": [
@@ -1405,7 +1519,7 @@
         "The original PDF displays an underline below the baseline < symbol, giving <= 1; the supplied extracted < 1 loses that underline. This is an extraction limitation, not a conflict between documents.",
         "The diagnostic reads upstream REF.AVISITN to identify documented scheduled visits, including the baseline label. It leaves the aggregate and End of Treatment outside its scope; those missing diagnostic results are not asserted expected values."
       ],
-      "assessment": "Scheduled visit targets are directly documented. The aggregate target is a genuinely unstated convention rather than an omitted value-level section.",
+      "assessment": "Scheduled visit targets are directly documented. The aggregate target is a genuinely unstated convention rather than an omitted value-level section. Program tracing: the retained Pilot 6 R program spec/source/programs/pilot6/adqsnpix.r (a reference_reimplementation, not the submission's own program) assigns AWTARGET from a four-window lookup at lines 135-147, not the SAP page-11 two-week windows of this reference.",
       "question": "What relative target day, if any, should be assigned to the derived Weeks 4-24 row, and should AWTARGET be missing when a row represents a period rather than a single assessment?"
     },
     {
@@ -1416,6 +1530,11 @@
           "document": "spec/define/define-adam.xml",
           "section": "ADQSNPIX.AWTDIFF",
           "quote": "Absolute difference between AWTARGET and ADY"
+        },
+        {
+          "document": "spec/source/programs/pilot6/adqsnpix.r",
+          "section": "L148-L151",
+          "quote": "AWTDIFF = abs(AWTARGET - ADY)"
         }
       ],
       "clauses": [
@@ -1467,7 +1586,7 @@
         "Undefined arithmetic from missing upstream inputs remains missing. No zero substitution or aggregate day is inferred. The upstream relative-day date anchor is reviewed with ADY rather than recomputed for this target.",
         "The integer data-type declaration is not treated as a rounding instruction; no significant-digits rule is supplied for this variable."
       ],
-      "assessment": "The top-level formula is fully citable and applies without a documented parameter-specific exception; the aggregate constant is separately visible in the specification.",
+      "assessment": "The top-level formula is fully citable and applies without a documented parameter-specific exception; the aggregate constant is separately visible in the specification. Program tracing: the retained Pilot 6 R program spec/source/programs/pilot6/adqsnpix.r (a reference_reimplementation, not the submission's own program) computes AWTDIFF = abs(AWTARGET - ADY) at lines 148-151, the same formula as the literal probe. It creates no NPTOTMN aggregate rows, and its formula gives a missing value where ADY is missing, so no program line or retained document justifies the zero distance on the Weeks 4-24 rows; no justified reading reproduces the reference.",
       "question": "Should the documented absolute-difference formula apply to the Weeks 4-24 aggregate when ADY is missing, or is a special aggregate distance intended?"
     },
     {
@@ -1498,6 +1617,11 @@
           "document": "spec/source/dataguide.pdf",
           "section": "page-7",
           "quote": "The baseline value of the parameter, NPTOTMN, is the same as the\nbaseline value of total score."
+        },
+        {
+          "document": "spec/source/programs/pilot6/adqsnpix.r",
+          "section": "L135-L147",
+          "quote": "aw_lookup <- tribble(\n  ~AVISIT, ~AWRANGE, ~AWTARGET, ~AWLO, ~AWHI,\n  \"Baseline\", \"<=1\", 1, NA_integer_, 1,\n  \"Week 8\", \"2-84\", 56, 2, 84,\n  \"Week 16\", \"85-140\", 112, 85, 140,\n  \"Week 24\", \">140\", 168, 141, NA_integer_\n)"
         }
       ],
       "clauses": [
@@ -1544,7 +1668,7 @@
         "The aggregate endpoint in the specification can be read as the union of the SAP Week 4 through Week 24 windows. This is distinguished from an explicit target-day or endpoint-encoding instruction.",
         "The diagnostic uses upstream REF.AVISITN and returns only finite scheduled-visit endpoints. The aggregate, End of Treatment, and the unbounded endpoint are outside its scope; diagnostic missing values do not assert a missing-value encoding for those cases."
       ],
-      "assessment": "Finite scheduled bounds are stated in the SAP. Open-ended and composite-period representation choices prevent a fully citable literal for the entire variable.",
+      "assessment": "Finite scheduled bounds are stated in the SAP. Open-ended and composite-period representation choices prevent a fully citable literal for the entire variable. Program tracing: the retained Pilot 6 R program spec/source/programs/pilot6/adqsnpix.r (a reference_reimplementation, not the submission's own program) assigns AWLO from a four-window lookup at lines 135-147, missing for Baseline, not the SAP page-11 two-week windows of this reference.",
       "question": "How should the unbounded baseline beginning be encoded, and should the Weeks 4-24 aggregate use the union endpoint of its constituent visit windows?"
     },
     {
@@ -1575,6 +1699,11 @@
           "document": "spec/source/dataguide.pdf",
           "section": "page-7",
           "quote": "The baseline value of the parameter, NPTOTMN, is the same as the\nbaseline value of total score."
+        },
+        {
+          "document": "spec/source/programs/pilot6/adqsnpix.r",
+          "section": "L135-L147",
+          "quote": "aw_lookup <- tribble(\n  ~AVISIT, ~AWRANGE, ~AWTARGET, ~AWLO, ~AWHI,\n  \"Baseline\", \"<=1\", 1, NA_integer_, 1,\n  \"Week 8\", \"2-84\", 56, 2, 84,\n  \"Week 16\", \"85-140\", 112, 85, 140,\n  \"Week 24\", \">140\", 168, 141, NA_integer_\n)"
         }
       ],
       "clauses": [
@@ -1633,7 +1762,7 @@
         "The aggregate endpoint in the specification can be read as the union of the SAP Week 4 through Week 24 windows. This is distinguished from an explicit target-day or endpoint-encoding instruction.",
         "The diagnostic uses upstream REF.AVISITN and returns only finite scheduled-visit endpoints. The aggregate, End of Treatment, and the unbounded endpoint are outside its scope; diagnostic missing values do not assert a missing-value encoding for those cases."
       ],
-      "assessment": "Finite scheduled bounds are stated in the SAP. Open-ended and composite-period representation choices prevent a fully citable literal for the entire variable.",
+      "assessment": "Finite scheduled bounds are stated in the SAP. Open-ended and composite-period representation choices prevent a fully citable literal for the entire variable. Program tracing: the retained Pilot 6 R program spec/source/programs/pilot6/adqsnpix.r (a reference_reimplementation, not the submission's own program) assigns AWHI from a four-window lookup at lines 135-147, missing for Week 24, not the SAP page-11 two-week windows of this reference.",
       "question": "How should the unbounded Week 26 ending be encoded, and should the Weeks 4-24 aggregate use the union endpoint of its constituent visit windows?"
     },
     {
@@ -1644,6 +1773,11 @@
           "document": "spec/define/define-adam.xml",
           "section": "ADQSNPIX.AWU",
           "quote": "Assigned as \"DAYS\".\nCodelist AWU: DAYS = DAYS"
+        },
+        {
+          "document": "spec/source/programs/pilot6/adqsnpix.r",
+          "section": "L148-L151",
+          "quote": "AWU = \"DAYS\""
         }
       ],
       "clauses": [
@@ -1668,7 +1802,7 @@
       "interpretations": [
         "The assignment is a top-level instruction without ordinary, baseline, or composite-row exceptions."
       ],
-      "assessment": "The documented constant and specification use the same unit for the entire dataset.",
+      "assessment": "The documented constant and specification use the same unit for the entire dataset. Program tracing: the retained Pilot 6 R program spec/source/programs/pilot6/adqsnpix.r (a reference_reimplementation, not the submission's own program) sets AWU to DAYS at lines 148-151.",
       "question": ""
     },
     {
@@ -1689,6 +1823,11 @@
           "document": "spec/source/dataguide.pdf",
           "section": "page-7",
           "quote": "The baseline value of the parameter, NPTOTMN, is the same as the\nbaseline value of total score."
+        },
+        {
+          "document": "spec/source/programs/pilot6/adqsnpix.r",
+          "section": "L66-L68",
+          "quote": "filter(startsWith(as.character(QSTESTCD), \"NPTOT\")) %>%\n  select(STUDYID, USUBJID, VISIT, VISITNUM, QSDTC, QSSTRESN, QSSEQ)"
         }
       ],
       "clauses": [
@@ -1712,7 +1851,7 @@
         "The native composite baseline condition refers to the QS baseline visit and total-score test; the specification instead takes BASE_LKP.QSSEQ from a QSBLFL-driven analysis-baseline lookup. Exposing the native value-level section is required before a formal source-condition comparison can be made.",
         "If more than one raw QS record shares the non-sequence identifying fields, the retained citable guide does not resolve the sequence lookup. A source check needs independent correspondence or a stated ambiguity policy."
       ],
-      "assessment": "Ordinary traceability is citable. Complete raw-versus-composite sequence applicability requires the retained value-level instructions that the exact section exporter currently omits.",
+      "assessment": "Ordinary traceability is citable. Complete raw-versus-composite sequence applicability requires the retained value-level instructions that the exact section exporter currently omits. Program tracing: the retained Pilot 6 R program spec/source/programs/pilot6/adqsnpix.r (a reference_reimplementation, not the submission's own program) keeps QSSEQ from the NPTOT records of QS at lines 66-68.",
       "question": "Expose the QSSEQ value-level instructions and confirm the composite baseline source condition and ambiguity handling; does the QS baseline visit condition intentionally differ from the specification's QSBLFL and analysis-window lookup?"
     }
   ]
