@@ -517,13 +517,12 @@ test("the listing puts critical findings first, then those needing assessment, k
   assert.ok(html.indexOf('data-finding-id="third"') < html.indexOf('data-finding-id="second"'));
 });
 
-test("the findings tab explains the two decisions and the types before the filters, linking the guide when the site is known", () => {
-  const html = createReport({ report, state: state(), esc, site: "https://example.org/project/" }).findingsView();
+test("the findings tab shows a single review message before the filters", () => {
+  const html = createReport({ report, state: state(), esc }).findingsView();
   assert.ok(html.indexOf("review-howto") < html.indexOf("report-filters"));
-  for (const fragment of ["How to review a finding", "Do you agree with this finding?", "Is this finding critical?",
-    "Conflict: documents disagree", "Agent agreement is not resolution.", 'href="https://example.org/project/review/findings/"'])
-    assert.ok(html.includes(fragment), fragment);
-  assert.doesNotMatch(createReport({ report, state: state(), esc }).findingsView(), /href="[^"]*review\/findings/);
+  assert.equal(html.match(/<p class="review-howto">([^]*?)<\/p>/)?.[1],
+    "Open <strong>Start review</strong> for the finding's evidence, record both decisions under <strong>Human Review</strong>.");
+  assert.doesNotMatch(html, /<details class="review-howto"|How to review a finding|Read the full guide/);
 });
 
 test("the documented-rule column states subjects, no differences or not measured, without reordering a criticality", () => {
@@ -552,11 +551,4 @@ test("disputed, stale and mixed agent reviews list after agreed ones within a cr
   assert.match(view.findingRows(), /data-finding-id="disputed"[^]*?<small class="agent-review-status">Agent review: disputed<\/small>/);
   s.agentReview = "disputed";
   assert.deepEqual(view.findingItems().map((i) => i.id), ["disputed"]);
-});
-
-test("the how-to panel stays open until the reviewer has started a review of the study", () => {
-  const started = { load: (study, i) => ({ status: i.id === issue.id ? "draft" : "unreviewed", shared: "", stale: false }) },
-    none = { load: () => ({ status: "unreviewed", shared: "", stale: false }) };
-  assert.match(createReport({ report, state: state(), esc, drafts: none, model: { id: "study" } }).findingsView(), /<details class="review-howto" open>/);
-  assert.match(createReport({ report, state: state(), esc, drafts: started, model: { id: "study" } }).findingsView(), /<details class="review-howto"><summary>/);
 });
