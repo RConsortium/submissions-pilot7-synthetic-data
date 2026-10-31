@@ -54,7 +54,10 @@ def assert_text_contrast(page, selector):
           const c = rgb(getComputedStyle(node).backgroundColor);
           if (c.length === 3 || c[3] === 1) { bg = c; break; }
         }
-        const a = lum(rgb(getComputedStyle(el).color)), b = lum(bg);
+        let opacity = 1;
+        for (let n = el; n; n = n.parentElement) opacity *= Number(getComputedStyle(n).opacity);
+        const fg = rgb(getComputedStyle(el).color).map((v, i) => v * opacity + bg[i] * (1 - opacity));
+        const a = lum(fg), b = lum(bg);
         const ratio = (Math.max(a, b) + .05) / (Math.min(a, b) + .05);
         return ratio >= 4.5 ? [] : [{ text: el.textContent, ratio }];
       });
@@ -330,6 +333,7 @@ def check(browser, base, site_dir, screenshots):
         for issue in issues:
             row = page.locator(f'[data-finding-id="{issue["id"]}"]')
             expect(row.locator(".issue-summary-detail p")).to_have_text(issue["summary"])
+            expect(row.locator(".agent-review-status")).to_have_text("Agent review: " + issue["review"].replace("_", " "))
             expect(row.locator(".issue-impact")).to_have_text(re.compile(r"^Documented rule vs data: (\d+ subjects? differ|Differences observed|No differences in tested data|Not measured)$"))
             for cell_class in ("issue-critical", "issue-type"):
                 expect(row.locator(f".{cell_class} .status")).to_have_count(1)
@@ -339,9 +343,6 @@ def check(browser, base, site_dir, screenshots):
             "&& getComputedStyle(cell).whiteSpace === 'normal')"
         )
         expect(page.locator(".issue-status")).to_have_count(0)
-        expect(page.locator(".consistency-table .agent-review-status")).to_have_text(
-            ["Agent review: " + item["review"].replace("_", " ") for item in issues]
-        )
         page.locator(".skip-findings").focus()
         page.keyboard.press("Enter")
         expect(page.locator("#finding-table")).to_be_focused()
@@ -1178,7 +1179,11 @@ def check(browser, base, site_dir, screenshots):
         first_visit = browser.new_context(color_scheme=mode)
         first_visit.route('https://giscus.app/client.js', lambda route: route.fulfill(body=''))
         themed_page = first_visit.new_page()
-        themed_page.goto(base + '/')
+        themed_page.goto(base + '/studies/kn189/')
+        expect(themed_page.locator('.spec-line').first).to_be_visible()
+        assert_text_contrast(themed_page, '.review-table th button small, .line-number')
+        themed_page.locator('.review-table th button:has(small):not(:disabled)').first.click()
+        assert_text_contrast(themed_page, '.review-table th button small, .line-number')
         expect(themed_page.locator('body')).to_have_attribute('data-md-color-scheme', scheme)
         first_visit.close()
 

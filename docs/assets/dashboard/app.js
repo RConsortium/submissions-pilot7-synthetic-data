@@ -392,6 +392,13 @@ import { developmentReport, mountDevelopment } from "./synthetic-development.js"
       mount();
       return;
     }
+    const skip = event.target.closest(".skip-findings");
+    if (skip && root()?.contains(skip)) {
+      event.preventDefault();
+      byId("finding-table")?.focus();
+      byId("finding-table")?.scrollIntoView({ block: "start" });
+      return;
+    }
     const target = event.target.closest("button,[data-line-node]");
     if (!target || !root()?.contains(target)) return;
     if (target.dataset.sourceEvidence) {

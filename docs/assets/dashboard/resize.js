@@ -44,7 +44,7 @@ export function createResizing(ctx, refit) {
     const cols = [...card.querySelectorAll("col[data-column]")];
     if (card.hasAttribute("data-finding-table")) {
       const widths = ctx.layout.findingColumns ||= {},
-        headers = card.querySelectorAll(".finding-headings th");
+        headers = card.querySelectorAll(".finding-filters th");
       cols.forEach((col, n) => {
         widths[col.dataset.column] = Math.round(headers[n].getBoundingClientRect().width);
       });
