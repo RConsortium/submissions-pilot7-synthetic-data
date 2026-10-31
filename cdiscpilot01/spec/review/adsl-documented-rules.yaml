@@ -98,6 +98,8 @@ output:
     - MMSETOT__MMSE_ORIGINAL_ONLY
     - VISNUMEN__END_OF_TREATMENT
     - VISNUMEN__ON_OR_BEFORE_WEEK24
+    - BMIBLGR1__SAP_CATEGORIES
+    - VISNUMEN__LAST_SV_VISIT
   order_by:
     - variable: USUBJID
       nulls: last
@@ -246,6 +248,18 @@ intermediates:
       - variable: MH.MHSEQ
         nulls: last
     keep: first
+
+  # Pilot 6 adsl.r L275-L287: the last scheduled SV record by SVSTDTC.
+  - id: LAST_SV
+    dataset: SV
+    key: [STUDYID, USUBJID]
+    filter: "SV.VISITNUM < 100"
+    order_by:
+      - variable: SV.SVSTDTC
+        nulls: last
+      - variable: SV.VISITNUM
+        nulls: last
+    keep: last
 
 columns:
   - name: STUDYID
@@ -716,6 +730,20 @@ columns:
         - when: "REF.BMIBL >= 30"
           then: "'>=30'"
 
+  # SAP page 13 categories as written, without the Define-XML ". <" guard,
+  # evaluated as SAS (data guide page 7) compares: a missing value is below 25.
+  - name: BMIBLGR1__SAP_CATEGORIES
+    type: str
+    label: Pooled Baseline BMI Group 1, SAP categories with SAS missing below 25
+    derivation:
+      case:
+        - when: "REF.BMIBL IS NULL OR REF.BMIBL < 25"
+          then: "'<25'"
+        - when: "REF.BMIBL >= 25 AND REF.BMIBL < 30"
+          then: "'25-<30'"
+        - when: "REF.BMIBL >= 30"
+          then: "'>=30'"
+
   - name: _HT_RAW
     type: float
     label: Visit 1 height before rounding (helper)
@@ -929,6 +957,25 @@ columns:
         - when: "DS_DISP.VISITNUM > 12"
           then: 12
         - otherwise: DS_DISP.VISITNUM
+
+  # Pilot 6 adsl.r L275-L287: the subject's last SV visit (VISITNUM < 100,
+  # ordered by SVSTDTC), VISITNUM rounded to a whole number, 13 reported as 12.
+  - name: _LAST_SV_VISITNUM
+    type: float
+    label: Last scheduled SV visit number, rounded (helper)
+    derivation:
+      round_half_away_from_zero:
+        source: LAST_SV.VISITNUM
+        digits: 0
+
+  - name: VISNUMEN__LAST_SV_VISIT
+    type: float
+    label: End of Trt Visit, last SV visit with 13 reported as 12
+    derivation:
+      case:
+        - when: "_LAST_SV_VISITNUM = 13"
+          then: 12
+        - otherwise: _LAST_SV_VISITNUM
 
 rows:
   - id: treated-subjects
