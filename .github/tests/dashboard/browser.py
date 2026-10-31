@@ -997,7 +997,7 @@ def check(browser, base, site_dir, screenshots):
     expect(report.locator(".reference-summary")).to_contain_text("100% of ADaM datasets matched by using yamaa framework")
     expect(report.locator(".consistency-summary")).to_contain_text("findings awaiting review")
     expect(report.locator(".comparison-explanation")).to_contain_text("Findings can remain open")
-    expect(report.locator("#dataset-results + .report-table .report-status.good").first).to_have_text("Generated ADaM dataset matched")
+    expect(report.locator("#dataset-results + .report-table .report-status.good")).to_have_count(0)
     assert page.evaluate("document.documentElement.scrollWidth<=innerWidth")
     nav = page.locator(".md-nav--primary")
     expect(nav).to_contain_text("Pilot studies")
