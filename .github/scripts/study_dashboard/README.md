@@ -3,8 +3,7 @@
 The production dashboard is part of the normal MkDocs site. There is one build
 path and no study-specific frontend build. It uses static JSON and gzip chunks;
 GitHub Discussions through giscus supplies comments without an application server.
-The reviewer guide is `docs/review/index.md`; the pages beside it describe
-each dashboard screen.
+The reviewer guide is `docs/review/index.md`.
 
 All pilot studies share the same tabs, finding filters and Start review
 sections: Define-XML vs. reproduced yamaa specification from ADaM data,
