@@ -14,10 +14,10 @@ const sameCell = (a, b) => Boolean(a?.present) === Boolean(b?.present) &&
   (!a?.present || (a.column_present !== false) === (b.column_present !== false) &&
     (a.column_present === false || Object.is(a.value, b.value)));
 
-export function subjectDifferenceCells(row, calculations, context = "") {
+export function subjectDifferenceCells(row, calculations) {
   const differs = calculations.map((p) => !sameCell(row.reference, row.calculations[p.column]));
-  const render = (item, different, details = "") => `<td${different ? ' class="trace-cell-difference" title="Differs from the compared value"' : ""}>${different ? '<span class="sr-only">Difference: </span>' : ""}${details}${cell(item)}</td>`;
-  return render(row.reference, differs.some(Boolean), context) + calculations.map((p, i) => render(row.calculations[p.column], differs[i])).join("");
+  const render = (item, different) => `<td${different ? ' class="trace-cell-difference" title="Differs from the compared value"' : ""}>${different ? '<span class="sr-only">Difference: </span>' : ""}${cell(item)}</td>`;
+  return render(row.reference, differs.some(Boolean)) + calculations.map((p, i) => render(row.calculations[p.column], differs[i])).join("");
 }
 
 export function createTraceReview(ctx, sources) {
@@ -73,8 +73,7 @@ export function createTraceReview(ctx, sources) {
     if (!choices.some((s) => s.id === subject)) subject = choices[0].id;
     const chosen = choices.find((s) => s.id === subject),
       columns = [...data.keys.filter((k) => k !== data.subject_key), ...data.input_columns];
-    const context = (row) => `<small class="trace-record-context">${columns.map((c) => `${esc(c)}: ${esc(display(Object.hasOwn(row.keys, c) ? row.keys[c] : row.inputs[c]))}`).join("; ")}</small>`;
-    return `<div class="trace-subject-tabs" role="tablist" aria-label="Example subjects">${choices.map((s, i) => `<button type="button" role="tab" id="trace-subject-${i}" aria-controls="trace-subject-panel" aria-selected="${s.id === subject}" tabindex="${s.id === subject ? 0 : -1}" data-trace-subject="${esc(s.id)}">${esc(s.id)}</button>`).join("")}</div><div id="trace-subject-panel" role="tabpanel" aria-labelledby="trace-subject-${choices.indexOf(chosen)}"><p class="trace-scope"><strong>${esc(chosen.id)}</strong>: ${chosen.rows.length} of ${chosen.total_rows} subject records shown${chosen.rows.length < chosen.total_rows ? "; the example is abbreviated" : ""}.</p><div class="trace-data-scroll" role="region" aria-label="Subject example calculations" tabindex="0"><table class="trace-data-table"><caption>${esc(issue.dataset + "." + issue.variable)}</caption><thead><tr><th scope="col">ADaM data</th><th scope="col">Documented Rule</th></tr></thead><tbody>${chosen.rows.map((r) => `<tr>${subjectDifferenceCells(r, calculations, context(r))}</tr>`).join("")}</tbody></table></div><p class="trace-scope">Highlighted cells differ between ADaM data and the Define-XML rule as written. Missing values, blank text, absent variables and absent records remain distinct.</p></div>`;
+    return `<div class="trace-subject-tabs" role="tablist" aria-label="Example subjects">${choices.map((s, i) => `<button type="button" role="tab" id="trace-subject-${i}" aria-controls="trace-subject-panel" aria-selected="${s.id === subject}" tabindex="${s.id === subject ? 0 : -1}" data-trace-subject="${esc(s.id)}">${esc(s.id)}</button>`).join("")}</div><div id="trace-subject-panel" role="tabpanel" aria-labelledby="trace-subject-${choices.indexOf(chosen)}"><p class="trace-scope"><strong>${esc(chosen.id)}</strong>: ${chosen.rows.length} of ${chosen.total_rows} subject records shown${chosen.rows.length < chosen.total_rows ? "; the example is abbreviated" : ""}.</p><div class="trace-data-scroll" role="region" aria-label="Subject example calculations" tabindex="0"><table class="trace-data-table"><caption>${esc(issue.dataset + "." + issue.variable)}</caption><thead><tr>${columns.map((c) => `<th scope="col">${esc(c)}</th>`).join("")}<th scope="col">ADaM data</th><th scope="col">Documented Rule</th></tr></thead><tbody>${chosen.rows.map((r) => `<tr>${columns.map((c) => `<td>${esc(display(Object.hasOwn(r.keys, c) ? r.keys[c] : r.inputs[c]))}</td>`).join("")}${subjectDifferenceCells(r, calculations)}</tr>`).join("")}</tbody></table></div><p class="trace-scope">Highlighted cells differ between ADaM data and the Define-XML rule as written. Missing values, blank text, absent variables and absent records remain distinct.</p></div>`;
   }
   function reviewForm() {
     const draft = currentDraft(), target = destination();

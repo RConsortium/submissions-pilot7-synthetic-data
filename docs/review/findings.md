@@ -115,9 +115,9 @@ and observed behavior. The sections then follow the navigation:
   resolved YAML. Only these two sources appear in this panel. Original YAML
   line numbers are retained;
   **View source** opens the complete file without losing your draft.
-- **Subject examples**: two columns, **ADaM data** and **Documented Rule**,
-  with differences highlighted. Record keys and input values appear with
-  the data value. Alternative calculations are omitted. Examples illustrate
+- **Subject examples**: record keys and input values each have their own
+  column, followed by **ADaM data** and **Documented Rule**, with differences
+  highlighted. Alternative calculations are omitted. Examples illustrate
   the calculation; they do not determine the finding's reported impact.
 
 **Human Review** follows the evidence; see
