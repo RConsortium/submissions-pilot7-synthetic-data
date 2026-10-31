@@ -3,22 +3,40 @@
   "dataset": "ADAE",
   "author": {
     "kind": "agent",
-    "model": "Codex",
+    "model": "claude-opus-5-5",
     "instructions": ".automation/consistency_review/adjudicate.md",
-    "date": "2026-10-26"
+    "date": "2026-10-29"
   },
   "decisions": [
     {
-      "finding": "ADAE.TRTEMFL.CR-5",
-      "basis": "sha256:68f463870c5fecc58000ebbedeafb0df3b70ad8a8b8027ec676ea3dff03823f2",
+      "finding": "ADAE.TRTEMFL.CR-8.3",
+      "basis": "sha256:e33e89bf06c92d989ef69e209ed37d7d437eccaa3081107b48f886d9af7503a2",
       "decision": "agree",
-      "reason": "Define-XML ADAE.TRTEMFL assigns 'N' otherwise, and the literal probe at adae-documented-rules.yaml lines 140-147 applies that branch after the documented nonmissing date comparison. The 65 differences are reference blanks where the documented rule gives 'N', the blank that adae_v2.yaml lines 576-582 also assign."
+      "reason": "Define-XML ADAE.TRTEMFL assigns 'N' to every event that is not treatment emergent, while adae.r lines 125-133 run admiral derive_var_trtemfl only on events with ASTDT and set no 'N' value, so other events stay blank in the final ADAE. The program reading TRTEMFL__PROGRAM_BLANK reproduces the reference, confirming the program leaves those events blank."
+    },
+    {
+      "finding": "ADAE.TRTEMFL.CR-5",
+      "basis": "sha256:5dd40ec2a0da9a61e302e078b8bf975ebc3c090998939e14d821be4f78274a13",
+      "decision": "agree",
+      "reason": "The literal probe (adae-documented-rules.yaml TRTEMFL) states Define-XML ADAE.TRTEMFL as written, 'Y' when ASTDT >= TRTSDT with both present and 'N' otherwise, and the 65 differences are reference blanks where it gives 'N'. The reading from adae.r lines 125-133, which assign only 'Y', reproduces the reference and is offered as how the reference was computed, not as documentation."
+    },
+    {
+      "finding": "ADAE.CQ01NAM.CR-8.6",
+      "basis": "sha256:72279627f54108a2ce61996788109de35ba2c8305a3dcccd5f2ed5ee68e1a83d",
+      "decision": "agree",
+      "reason": "Define-XML ADAE.CQ01NAM tests AEBODSYS='SKIN AND SUBC UTANEOUS TISSUE DISORDERS', an exact comparison with an embedded blank, while adae.r lines 202-210 detect the substring 'SKIN AND SUBCUTANEOUS TISSUE DISORDERS', and that mutate is the final CQ01NAM value. The program clause therefore differs from the document in both spelling and match type."
+    },
+    {
+      "finding": "ADAE.CQ01NAM.CR-8.7",
+      "basis": "sha256:8b0446d4b52d970448140105d669be273fcbb6075fbd76544e33b62216307768",
+      "decision": "agree",
+      "reason": "Define-XML ADAE.CQ01NAM excludes AEDECOD in ('COLD SWEAT', 'HYPERHIDROSIS', 'ALOPECIA'), exact membership, while adae.r line 207 excludes any AEDECOD containing one of those strings via str_detect. This is a different computation of the exclusion clause, not a paraphrase, though no record evidence shows it changing a value."
     },
     {
       "finding": "ADAE.CQ01NAM.CR-5",
-      "basis": "sha256:3a17c9943b62e9390bc5468368f07cdabd15eddce35f0f43eb94d772016f8db4",
+      "basis": "sha256:56523618db9d8113d1e5191addf49c38497d9cbae64d0f8b4b413412b35ca417",
       "decision": "agree",
-      "reason": "Define-XML ADAE.CQ01NAM compares AEBODSYS with the literal 'SKIN AND SUBC UTANEOUS TISSUE DISORDERS', which the probe keeps with the substring test and exact exclusions, so the 181 differences follow from that spelling. Removing only the embedded blank reproduces the reference, consistent with the dermatologic query that ADRG page-11 describes."
+      "reason": "The literal probe keeps Define-XML ADAE.CQ01NAM as written, substring test on the four strings OR the SOC 'SKIN AND SUBC UTANEOUS TISSUE DISORDERS' with exact exclusions, so the 181 differences are reference query members its misspelled SOC misses. The SOC_SPELLING reading, removing only that blank, reproduces the reference and matches the SOC spelling adae.r lines 202-210 used."
     },
     {
       "finding": "ADAE.AOCC01FL.CR-8.5",
@@ -33,10 +51,16 @@
       "reason": "Define-XML ADAE.AOCC01FL selects empty CQ01NAM, whereas ADRG pages 11-12 explicitly flag the first chronological treatment-emergent dermatological event. Define-XML ADAE.CQ01NAM identifies dermatological query members by the populated 'DERMATOLOGIC EVENTS' value, making the subsets contradictory."
     },
     {
-      "finding": "ADAE.AOCC01FL.CR-5",
-      "basis": "sha256:312cfdcf6a007be6ca5fc891dd9a5ad9c719a8c498ae5d2a265d2ef20996ccff",
+      "finding": "ADAE.AOCC01FL.CR-8.11",
+      "basis": "sha256:7d127d4ff09349122b630815ef6978c5c1b682854976225fae075c7dd99cc870",
       "decision": "agree",
-      "reason": "Define-XML ADAE.AOCC01FL literally subsets to CQ01NAM='', and the probe applies that filter with TRTEMFL='Y', subject grouping and ASTDT then AESEQ ordering, giving the 327 differences. The populated-query reading, supported by the method's own parenthetical and ADRG pages 11-12, reproduces the reference."
+      "reason": "Define-XML ADAE.AOCC01FL subsets to CQ01NAM='' and TRTEMFL='Y', while adae.r lines 213-221, the last step that sets AOCC01FL, filter TRTEMFL == 'Y' & CQ01NAM == 'DERMATOLOGIC EVENTS'. The program computes the query subset differently from the documented clause."
+    },
+    {
+      "finding": "ADAE.AOCC01FL.CR-5",
+      "basis": "sha256:d2d1d392bad8cef6ce3b24a093e6b90cc6198061e8431379ad28a194808e65a4",
+      "decision": "agree",
+      "reason": "The literal probe applies Define-XML ADAE.AOCC01FL as printed, CQ01NAM='' with TRTEMFL='Y', USUBJID grouping and ASTDT then AESEQ order, from the published upstream values, giving the 327 differences. The DERM_EVENTS reading, justified by the method's own parenthetical and ADRG pages 11-12 and matching adae.r lines 213-221, reproduces the reference."
     },
     {
       "finding": "ADAE.TRTEMFL.CR-6.2",
@@ -70,15 +94,15 @@
     },
     {
       "finding": "ADAE.STUDYID.CR-11",
-      "basis": "sha256:8190defd39ffd478aa9c780767a534f6d9f102ad9091d5e6caa9b5f4af0fe5d2",
+      "basis": "sha256:b68fb6cc67bda5edd4a3370b9be70d367a89b797cf90b8e73cc2a17d3a5f9aee",
       "decision": "dispute",
-      "reason": "Native Define-XML IT.ADAE.STUDYID at define-adam.xml lines 2015-2025 has a Predecessor origin 'ADSL.STUDYID', and workbook Variables row 42 repeats it; the projected section ADAE.STUDYID omits origins. The derivation is therefore documented, although adae_v1.yaml line 107 reads AE.STUDYID rather than the documented ADSL source."
+      "reason": "The retained Define-XML states a source: IT.ADAE.STUDYID (define-adam.xml lines 2015-2025) has a Predecessor origin 'ADSL.STUDYID', which the projected section ADAE.STUDYID omits. The cited adae.r lines 32 and 80-85 show only how the reference was computed and do not make the variable undocumented."
     },
     {
       "finding": "ADAE.USUBJID.CR-11",
-      "basis": "sha256:e393c6d5823c18dfa1530d98163d17448c490b1502128b345c4f2150a9e63c90",
+      "basis": "sha256:ee265a6261efe20755778bb06b91a9b70076a0eeebb9c65ec13aaf17d0fce8fc",
       "decision": "dispute",
-      "reason": "Native Define-XML IT.ADAE.USUBJID at define-adam.xml lines 2033-2043 has a Predecessor origin 'ADSL.USUBJID', and workbook Variables row 44 repeats it; the projected section ADAE.USUBJID omits origins. The derivation is therefore documented, although adae_v1.yaml line 112 reads AE.USUBJID rather than the documented ADSL source."
+      "reason": "The retained Define-XML states a source: IT.ADAE.USUBJID (define-adam.xml lines 2033-2043) has a Predecessor origin 'ADSL.USUBJID', which the projected section ADAE.USUBJID omits. The cited adae.r lines 32 and 80-85 show only how the reference was computed and do not make the variable undocumented."
     },
     {
       "finding": "ADAE.AENDT.CR-7.2",
