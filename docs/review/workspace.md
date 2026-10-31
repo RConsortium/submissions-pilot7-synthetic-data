@@ -14,7 +14,7 @@ press Escape to close it.
 
 The dataset tabs choose the output dataset. **Select domain** under the input
 area opens further input datasets, named by domain and description, such as
-**DM - Demographics**; the output area's **Select domain** adds output
+`DM - Demographics`; the output area's **Select domain** adds output
 datasets beside the current one. **Output dataset type** switches a pilot
 output between the yamaa-derived dataset and the generated ADaM datasets.
 **Specification** chooses the YAML currently shown; selecting a column in
@@ -63,7 +63,7 @@ intermediate derivations to related entries. The selected definition is
 highlighted, omitted line ranges are marked, and composed line numbers are
 kept. **All columns** or **Clear highlight** restores the complete specification.
 
-The pane shows the **Composed specification**. The composed YAML combines
+The pane shows the **yamaa specification**. The composed YAML combines
 inherited declarations, copied producer columns and named windows, and it
 passes the pinned engine's checks. Its file is under the study's
 `spec/yamaa/resolved/`, with the engine's inspection record beside it as
@@ -84,7 +84,6 @@ your browser.
 ## Share a view
 
 Copy the browser URL to preserve the specification, subjects, compared
-datasets, row counts, column focus, searches and open evidence. **Review
-comments** below the workspace holds a GitHub Discussion for the focused
+datasets, row counts, column focus, searches and open evidence. **Comments** below the workspace holds a GitHub Discussion for the focused
 dataset; GitHub sign-in is required to post. If the embedded discussion
 cannot load, the review-issue link remains available.

@@ -128,6 +128,8 @@ import { developmentReport, mountDevelopment } from "./synthetic-development.js"
   ctx.refreshLedger = () => {
     const strip = byId("review-ledger");
     if (strip) strip.outerHTML = ledgerStrip();
+    const progress = root()?.querySelector(".study-review-progress");
+    if (progress) progress.textContent = `${ctx.report.review.issues.filter((i) => drafts.load(model.id, i, report).status === "reviewed").length} / ${report.review.issues.length} reviewed in this study`;
   };
   const reviewSources = createReviewSources(ctx);
   const traceReview = createTraceReview(ctx, reviewSources);
@@ -388,6 +390,13 @@ import { developmentReport, mountDevelopment } from "./synthetic-development.js"
   document.addEventListener("click", async (event) => {
     if (event.target.closest("#reload-synthetic")) {
       mount();
+      return;
+    }
+    const skip = event.target.closest(".skip-findings");
+    if (skip && root()?.contains(skip)) {
+      event.preventDefault();
+      byId("finding-table")?.focus();
+      byId("finding-table")?.scrollIntoView({ block: "start" });
       return;
     }
     const target = event.target.closest("button,[data-line-node]");

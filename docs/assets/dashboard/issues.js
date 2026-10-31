@@ -176,7 +176,11 @@ export function issueSearchText(issue, report) {
   ].join(" ");
 }
 
-export function issueTrace(issue, report, { sourcesOnly = false, specificationsOnly = false, auditOnly = false } = {}) {
+export function issueTrace(issue, report, { sourcesOnly = false, specificationsOnly = false, auditOnly = false, summaryOnly = false } = {}) {
+  if (summaryOnly) {
+    const critical = criticalFinding(issue);
+    return `<div class="finding-assessment"><p>${esc(issue.summary)}</p><p><strong>Measured impact:</strong> ${esc(impactSummary(issue))}</p><p><strong>Automated criticality assessment: ${esc(CRITICAL_LABELS[critical.status])}.</strong> ${esc(critical.reason)}</p><p>Agent review: ${esc(issue.review.replaceAll("_", " "))}</p><h3>Question for you</h3><p>${esc(issue.action || "What correction or clarification does this finding require?")}</p></div>`;
+  }
   const r = readReview(report),
     evidence = new Map(r.evidence.map((e) => [e.id, e]));
   const trace = issue.trace.map((t) => ({
@@ -249,6 +253,6 @@ export function issueRow(issue, report) {
   );
   const rules = [...new Map(checks.filter((c) => c.rule).map((c) => [c.rule.id, c.rule])).values()];
   const critical = criticalFinding(issue);
-  const agent = ["disputed", "stale", "mixed"].includes(issue.review) ? `<small class="agent-review-status">Agent review: ${esc(issue.review)}</small>` : "";
-  return `<tr class="review-issue" data-finding-id="${esc(issue.id)}"><td class="issue-dataset">${esc(issue.dataset)}</td><th scope="row" class="issue-variable"><button class="text-link" data-finding="${esc(issue.id)}" aria-label="${esc(issue.dataset + (issue.variable ? "." + issue.variable : ""))}">${esc(findingVariable(issue))}</button><span class="rule-id">${rules.map(ruleLegend).join(", ")}</span></th><td class="issue-status"><span class="sr-only">Status: </span><span class="status attention">Under Review</span>${agent}</td><td class="issue-critical"><span class="sr-only">Critical finding: </span><span class="status ${critical.status === "yes" ? "attention" : "neutral"}">${esc(CRITICAL_LABELS[critical.status])}</span></td><td class="issue-type"><span class="sr-only">Type: </span><span class="status ${["conflict", "evidence", "inconsistent"].includes(issue.kind) ? "attention" : "neutral"}">${esc(issue.kind.replaceAll("_", " "))}</span></td><td class="issue-impact"><span class="sr-only">Documented rule vs data: </span>${esc(impactSummary(issue))}</td><td class="issue-summary"><h3>${esc(issue.title)}</h3><p>${esc(issue.summary)}</p></td><td><button class="button" data-trace-issue="${esc(issue.id)}">Start review</button><small class="human-review-status" data-human-review="${esc(issue.id)}"></small></td></tr>`;
+  const agent = `<small class="agent-review-status">Agent review: ${esc(issue.review.replaceAll("_", " "))}</small>`;
+  return `<tr class="review-issue" data-finding-id="${esc(issue.id)}"><td class="issue-dataset">${esc(issue.dataset)}</td><th scope="row" class="issue-variable"><button class="text-link" data-finding="${esc(issue.id)}" aria-label="${esc(issue.dataset + (issue.variable ? "." + issue.variable : ""))}">${esc(findingVariable(issue))}</button><span class="rule-id">${rules.map(ruleLegend).join(", ")}</span></th><td class="issue-critical"><span class="sr-only">Critical finding: </span><span class="status ${critical.status === "yes" ? "attention" : "neutral"}">${esc(CRITICAL_LABELS[critical.status])}</span></td><td class="issue-type"><span class="sr-only">Type: </span><span class="status ${["conflict", "evidence", "inconsistent"].includes(issue.kind) ? "attention" : "neutral"}">${esc(issue.kind.replaceAll("_", " "))}</span></td><td class="issue-impact"><span class="sr-only">Documented rule vs data: </span>${esc(impactSummary(issue))}</td><td class="issue-summary"><h3>${esc(issue.title)}</h3><details class="issue-summary-detail"><summary>${esc(shorten(normalize(issue.summary), 130))}</summary><p>${esc(issue.summary)}</p></details>${issue.action ? `<p class="issue-question"><strong>Question for you:</strong> ${esc(issue.action)}</p>` : ""}${agent}</td><td><button class="button" data-trace-issue="${esc(issue.id)}">Start review</button><small class="human-review-status" data-human-review="${esc(issue.id)}"></small></td></tr>`;
 }

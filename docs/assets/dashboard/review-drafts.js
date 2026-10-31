@@ -11,9 +11,9 @@ export const CRITICALITIES = {
 };
 /** Dataset correctness assessment; retain side values for existing local drafts. */
 export const SIDES = {
-  specification: "Yes, dataset is correct",
-  document: "No, define-xml is correct",
-  neither: "Neither as written",
+  specification: "Dataset",
+  document: "Define-XML",
+  neither: "Neither",
   unsure: "Unsure",
 };
 /** How a completed assessment left this browser; the dashboard never confirms publication. */
@@ -36,6 +36,13 @@ export function reviewLedger(drafts, study, issues, report) {
     else counts.drafts++;
   }
   return { entries, counts };
+}
+
+/** Continue through the whole study, including stale assessments and partially filled drafts. */
+export function nextUnreviewed(drafts, study, issues, report, currentId) {
+  const at = issues.findIndex((issue) => issue.id === currentId);
+  const ordered = [...issues.slice(at + 1), ...issues.slice(0, Math.max(0, at))];
+  return ordered.find((issue) => drafts.load(study, issue, report).status !== "reviewed") || null;
 }
 
 export function evidenceSignature(issue, report) {

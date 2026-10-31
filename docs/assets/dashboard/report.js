@@ -52,7 +52,6 @@ export const FINDING_FILTERS = {
 const COLUMNS = [
   { key: "dataset", label: "Dataset", width: 110 },
   { key: "variable", label: "Variable", width: 145 },
-  { key: "status", label: "Status", width: 145 },
   { key: "critical", label: "Critical finding", width: 135 },
   { key: "type", label: "Type", width: 135 },
   { key: "impact", label: "Documented rule vs data", width: 200, min: 140, max: 640 },
@@ -152,7 +151,7 @@ export function createReport(ctx) {
       parts = [`${counts.reviewed} with both decisions`, `${counts.drafts} draft${counts.drafts === 1 ? "" : "s"}`];
     if (counts.shared) parts.push(`${counts.shared} opened in GitHub or copied`);
     if (counts.stale) parts.push(`${counts.stale} with changed evidence`);
-    return `<div id="review-ledger" class="review-ledger" role="group" aria-label="Your reviews"><span class="field-label">Your reviews</span><strong>${counts.started} of ${counts.listed}</strong> listed${counts.started ? ` <span class="ledger-detail">(${parts.join("; ")})</span>` : ""}<span class="ledger-actions"><button type="button" class="text-link" data-review-ledger="copy" ${counts.started ? "" : "disabled"}>Copy your reviews</button><button type="button" class="text-link" data-review-ledger="download" ${counts.started ? "" : "disabled"}>Download your reviews</button></span><span class="ledger-feedback" role="status" aria-live="polite"></span></div>`;
+    return `<div id="review-ledger" class="review-ledger" role="group" aria-label="Your reviews"><span class="field-label">Your reviews</span><strong>${reviewLedger(ctx.drafts, ctx.model.id, allFindings(), ctx.report).counts.reviewed} of ${allFindings().length} reviewed in this study</strong> <span>(${counts.started} of ${counts.listed} listed started)</span>${counts.started ? ` <span class="ledger-detail">(${parts.join("; ")})</span>` : ""}<span class="ledger-actions"><button type="button" class="text-link" data-review-ledger="copy" ${counts.started ? "" : "disabled"}>Copy your reviews</button><button type="button" class="text-link" data-review-ledger="download" ${counts.started ? "" : "disabled"}>Download your reviews</button></span><span class="ledger-feedback" role="status" aria-live="polite"></span></div>`;
   }
   /** Assessment limits remain visible without adding findings or measured impact. */
   function coverageGaps() {
@@ -185,22 +184,20 @@ export function createReport(ctx) {
     const filters = [
       input("finding-dataset", "Dataset", "Filter..."),
       input("finding-variable", "Variable", "Name or rule"),
-      select("finding-agent", "Status by agent review", Object.entries(AGENT_REVIEW).map(([key, text]) => [key, `${text} (agent)`]), "All agents"),
       select("finding-critical", "Critical finding", Object.entries(CRITICAL_LABELS)),
       select("finding-kind", "Issue type", KINDS.map((v) => [v, v.replaceAll("_", " ")]), "All types"),
       input("finding-impact", "Documented rule vs data", "Count or result"),
       input("finding-issue", "Issue", "Title or summary"),
       ctx.drafts ? select("finding-review", "Your review", Object.entries(YOUR_REVIEW), "All reviews") : '<span class="sr-only">All evidence</span>',
     ];
-    return `<tr class="finding-filters">${COLUMNS.map((c, n) => `<td data-label="${c.key === "status" ? "Agent review" : c.key === "evidence" ? "Your review" : c.label}">${filters[n]}</td>`).join("")}</tr>`;
+    return `<tr class="finding-filters">${COLUMNS.map((c, n) => `<th scope="col" aria-label="${esc(c.label)}" data-label="${c.key === "evidence" ? "Your review" : c.label}"><span class="filter-label">${esc(c.label)}</span>${filters[n]}${c.min ? `<span class="column-resizer" data-resize-column="${c.key}" role="separator" tabindex="0" aria-label="Resize ${c.label} column" aria-orientation="vertical" aria-valuemin="${c.min}" aria-valuemax="${c.max}" aria-valuenow="${ctx.layout?.findingColumns?.[c.key] || c.width}"></span>` : ""}</th>`).join("")}</tr>`;
   }
   function findingTable(items) {
     const { esc } = ctx, widths = ctx.layout?.findingColumns || {},
       custom = Object.keys(widths).length > 0,
       width = (c) => widths[c.key] || c.width,
-      total = COLUMNS.reduce((sum, c) => sum + width(c), 0),
-      resize = (c) => c.min ? `<span class="column-resizer" data-resize-column="${c.key}" role="separator" tabindex="0" aria-label="Resize ${c.label} column" aria-orientation="vertical" aria-valuemin="${c.min}" aria-valuemax="${c.max}" aria-valuenow="${width(c)}" title="Drag to resize, or use the Left and Right arrow keys"></span>` : "";
-    return `<div class="overview-table consistency-table" data-finding-table role="region" aria-label="Consistency findings" tabindex="0"><table class="review-table" style="width:${custom ? total + "px" : "100%"};min-width:${custom ? 0 : total}px"><colgroup>${COLUMNS.map((c) => `<col data-column="${c.key}"${c.key === "issue" && !custom ? "" : ` style="width:${width(c)}px"`}>`).join("")}</colgroup><thead><tr class="finding-headings">${COLUMNS.map((c) => `<th scope="col">${esc(c.label)}${resize(c)}</th>`).join("")}</tr>${columnFilters()}</thead><tbody>${findingBody(items)}</tbody></table></div>`;
+      total = COLUMNS.reduce((sum, c) => sum + width(c), 0);
+    return `<div id="finding-table" class="overview-table consistency-table" data-finding-table role="region" aria-label="Consistency findings" tabindex="0"><table class="review-table" style="width:${custom ? total + "px" : "100%"};min-width:${custom ? 0 : total}px"><colgroup>${COLUMNS.map((c) => `<col data-column="${c.key}"${c.key === "issue" && !custom ? "" : ` style="width:${width(c)}px"`}>`).join("")}</colgroup><thead>${columnFilters()}</thead><tbody>${findingBody(items)}</tbody></table></div>`;
   }
   function findingRows() {
     const items = findingItems();
@@ -227,7 +224,7 @@ export function createReport(ctx) {
   }
   function findingsView() {
     const { state, esc } = ctx;
-    return `${howToReview()}<div class="finding-tools"><label class="search-field"><span class="field-label">Search issues</span><input id="finding-search" type="search" value="${esc(state.findingSearch)}" placeholder="Variable, issue, document or rule..."></label><button type="button" class="text-link" id="clear-findings">Clear filters</button></div><div id="finding-results">${findingRows()}</div>`;
+    return `${howToReview()}<div class="finding-tools"><label class="search-field"><span class="field-label">Search issues</span><input id="finding-search" type="search" value="${esc(state.findingSearch)}" placeholder="Variable, issue, document or rule..."></label><label class="agent-filter"><span class="field-label">Agent review</span><select id="finding-agent" aria-label="Filter Status by agent review"><option value="">All agents</option>${Object.entries(AGENT_REVIEW).map(([key, label]) => `<option value="${key}" ${state.agentReview === key ? "selected" : ""}>${esc(label)}</option>`).join("")}</select></label><button type="button" class="text-link" id="clear-findings">Clear filters</button></div><div id="finding-results">${findingRows()}</div>`;
   }
   function drawer() {
     const { state, esc, byId, root, report } = ctx;
