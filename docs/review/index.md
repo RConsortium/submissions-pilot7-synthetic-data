@@ -31,11 +31,4 @@ Select **Submit review on GitHub** after both decisions. Sign in if asked,
 check the prefilled assessment, then select **Start discussion** to publish
 it. Opening the GitHub form does not submit your review.
 
-## More help
-
-- [Consistency findings](findings.md): filters, issue types and exporting your reviews.
-- [SDTM to ADaM workspace](workspace.md): inspect variables and linked inputs.
-- [Source documents and Define-XML](documents.md): original documents and side-by-side comparison.
-- [Pilot study report](../studies/index.md): review another pilot study.
-- [Synthetic analysis review](synthetic.md): review synthetic study coverage and findings.
-- [Verification policy](../verification.md): comparison scope and limits.
+[Open the pilot study report](../studies/index.md) to review another pilot study.

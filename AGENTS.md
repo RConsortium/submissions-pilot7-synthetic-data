@@ -29,7 +29,7 @@ Keep explanations short, concrete, and easy to follow.
   reference datasets or relax comparison policies to make a check pass.
 - Distinguish a successful build from a passed reference comparison. Report
   coverage and remaining work explicitly; agreement with a reference is not
-  regulatory validation. See `docs/verification.md`.
+  regulatory validation.
 - Preserve user edits and keep changes focused on the requested task.
 - Write the framework name as lowercase `yamaa`.
 
@@ -37,10 +37,8 @@ Keep explanations short, concrete, and easy to follow.
 
 - Edit `docs/index.md` for the landing page. Its first section routes
   reviewers to the Pilot 5 findings, the review guide and the study report.
-- Edit `docs/review/index.md` for the community review guide and the pages
-  beside it, `findings.md`, `workspace.md`, `documents.md` and
-  `synthetic.md`, for the dashboard screen each one names. Keep the
-  headings of those pages aligned with the labels in the dashboard.
+- Edit `docs/review/index.md` for the review guide. Keep its control names
+  aligned with the labels in the dashboard.
 - Edit `docs/studies/kn189.md` and `docs/studies/kn564.md` for synthetic studies.
 - Generate pilot study pages and JSON evidence with
   `python3 .github/scripts/build_study_docs.py` after validating the studies.

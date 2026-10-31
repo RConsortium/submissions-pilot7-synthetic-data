@@ -69,9 +69,7 @@ answer different questions:
 Agreement values are **matching / generated ADaM total**. Column and cell counts
 come from datasets that pass the comparison with generated ADaM datasets; **M** means one
 million. Select a findings count to open its evidence. The
-[verification policy](verification.md) defines both measures and their
-limits, and the [pilot study report](studies/index.md) compares the packages
-dataset by dataset.
+[pilot study report](studies/index.md) compares the packages dataset by dataset.
 
 ## Synthetic studies
 
