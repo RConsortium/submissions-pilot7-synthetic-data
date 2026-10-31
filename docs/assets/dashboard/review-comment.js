@@ -18,9 +18,9 @@ export function reviewComment(model, issue, review, pageUrl) {
   return [
     `## Review: ${variableName(issue)} - ${issue.title}`,
     "",
-    ...(SIDES[review.side] ? [`**Is current dataset correctly derived?** ${SIDES[review.side]}`] : []),
     `**Agreement:** ${AGREEMENTS[review.agreement]}`,
     `**Criticality:** ${CRITICALITIES[review.criticality]}`,
+    ...(SIDES[review.side] ? [`**Is current dataset correctly derived?** ${SIDES[review.side]}`] : []),
     "", review.comment.trim() || "No additional comments.",
     "", `**Study:** ${model.id}`,
     `**Finding:** \`${issue.id}\``,
@@ -44,9 +44,9 @@ export function reviewLedgerDocument(model, entries, counts, pageUrl, context = 
   for (const { issue, draft } of entries) {
     if (draft.status === "unreviewed") continue;
     lines.push("", `## ${variableName(issue)} - ${issue.title}`, "",
-      ...(SIDES[draft.side] ? [`**Is current dataset correctly derived?** ${SIDES[draft.side]}`] : []),
       `**Agreement:** ${AGREEMENTS[draft.agreement] || "(not chosen)"}`,
       `**Criticality:** ${CRITICALITIES[draft.criticality] || "(not chosen)"}`,
+      ...(SIDES[draft.side] ? [`**Is current dataset correctly derived?** ${SIDES[draft.side]}`] : []),
       `**Status:** ${draftLabel(draft)}${draft.stale ? " (evidence changed)" : ""}`,
       "", draft.comment.trim() || "No additional comments.",
       "", `**Finding:** \`${issue.id}\``,
