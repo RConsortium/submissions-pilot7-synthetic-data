@@ -5,11 +5,18 @@ generated ADaM datasets are different results. The study pages show both.
 
 **Generated ADaM dataset agreement** measures reproduction of the generated ADaM
 datasets under the study's comparison rules. **Consistency review** checks
-agreement among documents, derivation rules, and data. Findings can remain open
+the ADaM datasets against the submitted Define-XML. Findings can remain open
 even when generated ADaM dataset agreement is 100%. For example, the yamaa output and generated ADaM
 datasets can contain the same BMI values while a document states a different
 formula. The dataset comparison passes, and the consistency finding remains
 open for review. Each measured finding names the sources it compares.
+
+The finding total counts grouped outstanding issues: observed value or metadata
+discrepancies, invalid documented sources, and contradictory or incomplete
+Define-XML rules requiring clarification. A documentation issue does not need
+a fabricated subject mismatch. Pure implementation differences stay in the
+audit. Coverage gaps, such as an unavailable referenced SAP or external
+dictionary, are shown and counted separately; they establish no data error.
 
 ## What is checked
 
@@ -53,9 +60,12 @@ inputs, yamaa outputs, generated ADaM comparison datasets, and submission docume
 inventories before and after exporting the dashboard. A failed validation job prevents
 publication of that source revision.
 
-The dashboard also publishes source-backed documentation observations and
-authored questions. These are distinct from dataset agreement, with partial
-narrative coverage stated explicitly. See the [review guide](review/index.md).
+The dashboard also publishes verified documentation issues and a separate
+coverage list. Original XML origins and value-level rules remain evidence even
+when an extracted reading copy omits them. Numeric representation noise,
+unsupported interpretations and inferred rounding are not promoted to proven
+data discrepancies. The finding, supporting-check and coverage counts come
+from the same reviewed report. See the [review guide](review/index.md).
 
 [Open the pilot study report](studies/index.md).
 
