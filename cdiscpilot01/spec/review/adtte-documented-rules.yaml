@@ -22,6 +22,9 @@ input:
   _TTE2_ADAE:
     path: ../../data/adam/adae.parquet
     empty_string: present
+  _TTE3_ADAE:
+    path: ../../data/adam/adae.parquet
+    empty_string: present
 base: REF
 output:
   path: ../../../.build/verification/cdiscpilot01/adtte-documented-rules.parquet
@@ -50,6 +53,7 @@ output:
   - SEX
   - TRTAN
   - SAFFL
+  - ADT__FLAGGED_EVENT
 intermediates:
 - id: _TTE1_SUBJECT
   dataset: _TTE1_ADSL
@@ -78,6 +82,18 @@ intermediates:
   - variable: _TTE2_ADAE.ASTDT
     nulls: last
   - variable: _TTE2_ADAE.AESEQ
+    nulls: last
+  keep: first
+- id: _TTE3_FIRST_DERM
+  dataset: _TTE3_ADAE
+  key:
+  - STUDYID
+  - USUBJID
+  filter: _TTE3_ADAE.AOCC01FL = 'Y' AND _TTE3_ADAE.CQ01NAM = 'DERMATOLOGIC EVENTS' AND _TTE3_ADAE.SAFFL = 'Y'
+  order_by:
+  - variable: _TTE3_ADAE.ASTDT
+    nulls: last
+  - variable: _TTE3_ADAE.AESEQ
     nulls: last
   keep: first
 columns:
@@ -205,3 +221,10 @@ columns:
 - name: SAFFL
   type: str
   derivation: _TTE1_SUBJECT.SAFFL
+- name: ADT__FLAGGED_EVENT
+  type: date
+  derivation:
+    case:
+    - when: _TTE3_FIRST_DERM.ASTDT IS NOT NULL
+      then: _TTE3_FIRST_DERM.ASTDT
+    - otherwise: _TTE1_RFENDTC_DATE
