@@ -87,7 +87,7 @@ def run(browser_path=None):
             assert page.locator('.issue-comparison').count() == 1
             assert 'Expected behavior' in page.locator('#trace-finding').inner_text()
             assert 'published reference' not in page.locator('.trace-review-content').inner_text()
-            page.get_by_role('button', name='2. Subject examples', exact=True).click()
+            page.get_by_role('button', name='Subject examples', exact=True).click()
             page.wait_for_function("document.querySelector('.trace-scroll').scrollTop > 0")
             expect(page.locator('#trace-discussion, .trace-technical')).to_have_count(0)
             expect(page.locator('[data-trace-section="trace-discussion"]')).to_have_count(0)

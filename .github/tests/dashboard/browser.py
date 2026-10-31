@@ -585,7 +585,7 @@ def check(browser, base, site_dir, screenshots):
     expect(trace).not_to_contain_text("Automated criticality:")
     expect(trace.locator("#trace-sources")).not_to_contain_text("adrg.pdf")
     expect(trace.locator("#trace-sources pre.spec-lines").first).to_be_visible()
-    expect(trace.locator("#trace-examples h3")).to_have_text("2. Subject examples")
+    expect(trace.locator("#trace-examples h3")).to_have_text("Subject examples")
     expect(trace.locator(".trace-data-table thead")).not_to_contain_text("yamaa output")
     expect(trace.locator(".trace-cell-difference").first).to_be_visible()
     expect(trace.locator("pre.spec-lines mark").first).to_be_visible()
