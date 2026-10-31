@@ -7,13 +7,25 @@ import tempfile
 import unittest
 from unittest.mock import patch
 
-from study_evidence import catalog, engine_revision, validate_reports, validate_verifications
+from study_evidence import catalog, engine_revision, reviewed_datasets, validate_reports, validate_verifications
+from study_dashboard.config import settings
 import validate_yamaa
 
 PIN = 'a' * 40
 
 
 class EvidenceTests(unittest.TestCase):
+    def test_every_official_pilot_uses_shared_review_and_committed_claims(self):
+        root = Path(__file__).resolve().parents[2]
+        for study, entry in catalog(root).items():
+            if entry['comparison'] != 'official':
+                continue
+            with self.subTest(study=study):
+                self.assertNotIn('review_scope', settings(root, entry))
+                claimed = {p.stem.removesuffix('-claims').upper()
+                           for p in (root / study / 'spec/review').glob('*-claims.json')}
+                self.assertEqual(set(reviewed_datasets(root, study)), claimed)
+
     def test_published_projects_share_one_engine_revision(self):
         root = Path(__file__).resolve().parents[2]
         revisions = {
