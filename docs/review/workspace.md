@@ -1,18 +1,4 @@
-# Dataset review and SDTM to ADaM workspace
-
-## Pilot 5: Dataset and Define-XML
-
-The **Dataset and Define-XML** tab shows the current derived dataset beside
-the retained ADaM Define-XML. Choose a dataset, select subjects, search records
-or page through the table. Select a column to focus its XML entry. The file
-path identifies the current derived output; the view does not switch to the
-retained reference dataset.
-
-Findings and counts cover the full dataset, regardless of the subjects or
-page displayed. **Define-XML** opens the same retained metadata separately.
-YAML and SDTM inputs are outside this focused review.
-
-## Other studies: SDTM to ADaM
+# SDTM to ADaM workspace
 
 The **SDTM -> ADaM** tab of a study shows an output dataset, the SDTM inputs
 its derivations read and the yamaa specification that produced it, side by
@@ -74,21 +60,16 @@ With a column selected, the YAML pane shows only the upstream rules needed
 to derive it: it hides `output.columns`, keeps the relevant input
 declarations and intermediate definitions, and narrows column, row and
 intermediate derivations to related entries. The selected definition is
-highlighted, omitted line ranges are marked, original line numbers are kept,
-and the caption shows how many source lines are visible. **All columns** or
-**Clear highlight** restores the complete specification.
+highlighted, omitted line ranges are marked, and composed line numbers are
+kept. **All columns** or **Clear highlight** restores the complete specification.
 
-**View** switches between the original source files and the generated
-**Composed specification**. The composed YAML combines inherited
-declarations, copied producer columns and named windows, and it passes the
-pinned engine's checks; its file is under the study's `spec/yamaa/resolved/`,
-with the engine's inspection record beside it as `*.inspection.json`. Until
-you choose a view, a layered specification shows the source file that writes
-the selected variable's rule, such as a pilot program template under
-`spec/yamaa/`. **Open source** opens the selected file in the repository;
-**Copy source file** and **Copy composed YAML** copy the complete text,
-including hidden lines. The selected view is part of the shared URL. For
-authoring conventions, see [Writing specifications](../yaml-authoring.md).
+The pane shows the **Composed specification**. The composed YAML combines
+inherited declarations, copied producer columns and named windows, and it
+passes the pinned engine's checks. Its file is under the study's
+`spec/yamaa/resolved/`, with the engine's inspection record beside it as
+`*.inspection.json`. **Open source** opens the complete composed file in the
+repository. For authoring conventions, see
+[Writing specifications](../yaml-authoring.md).
 
 ## Layout
 
