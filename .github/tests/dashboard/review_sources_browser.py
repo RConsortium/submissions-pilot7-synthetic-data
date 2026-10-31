@@ -80,7 +80,7 @@ def run(browser_path=None):
             expect(page.locator('.trace-data-table')).not_to_contain_text('999')
             expect(page.locator('#trace-your-review h3')).to_have_text('Human Review')
             expect(page.locator('#trace-your-review legend')).to_have_text([
-                'Do you agree with this finding? Required', 'Is this finding critical? Required',
+                'Do you agree with this finding? Required', 'Is this finding critical if an analysis use this variable Required',
                 'Which source is right? Optional'])
             expect(page.locator('#trace-fix, #trace-specifications')).to_have_count(0)
             expect(page.locator('.trace-review-content')).not_to_contain_text('Agreement and criticality are separate decisions')
