@@ -145,7 +145,7 @@ test("the metric and listing count issues separately from supporting checks", ()
   assert.ok(!listing.includes("Agent review: agreed"));
   assert.ok(listing.includes('id="finding-agent"'));
   assert.ok(!listing.includes('id="issue-review"'));
-  assert.deepEqual([...listing.matchAll(/<th scope="col">([^<]+)<\/th>/g)].map((m) => m[1]), [
+  assert.deepEqual([...listing.matchAll(/<th scope="col">([^<]+)/g)].map((m) => m[1]), [
     "Dataset / variable", "Status", "Critical finding", "Type", "Documented rule vs data", "Issue", "Evidence",
   ]);
   assert.ok(listing.includes('<th scope="col">Status</th>'));
@@ -519,7 +519,7 @@ test("the listing puts critical findings first, then those needing assessment, k
 
 test("the findings tab shows a single review message before the filters", () => {
   const html = createReport({ report, state: state(), esc }).findingsView();
-  assert.ok(html.indexOf("review-howto") < html.indexOf("report-filters"));
+  assert.ok(html.indexOf("review-howto") < html.indexOf("finding-filters"));
   assert.equal(html.match(/<p class="review-howto">([^]*?)<\/p>/)?.[1],
     "Open <strong>Start review</strong> for the finding's evidence, record both decisions under <strong>Human Review</strong>.");
   assert.doesNotMatch(html, /<details class="review-howto"|How to review a finding|Read the full guide/);
@@ -551,4 +551,60 @@ test("disputed, stale and mixed agent reviews list after agreed ones within a cr
   assert.match(view.findingRows(), /data-finding-id="disputed"[^]*?<small class="agent-review-status">Agent review: disputed<\/small>/);
   s.agentReview = "disputed";
   assert.deepEqual(view.findingItems().map((i) => i.id), ["disputed"]);
+});
+
+
+test("column text filters combine and stay scoped to their displayed cells", () => {
+  const other = { ...issue, id: "other", dataset: "OTHER", variable: "AGE", check_ids: [],
+    title: "Unrelated query", summary: "Different summary", critical: { status: "no", reason: "Label only." },
+    impact: { status: "not_measured", subject_count: 0, subjects: [] } };
+  const data = { ...report, review: { ...report.review, issues: [issue, other] } };
+  const s = { ...state(), datasetSearch: " aDx.DATE ", impactSearch: "2 SUBJECTS", issueSearch: "PARTIAL-DATE" },
+    view = createReport({ report: data, state: s, esc });
+  assert.deepEqual(view.findingItems(), [issue]);
+  s.issueSearch = "<first>"; // A quotation belongs to global search, not the Issue cell.
+  assert.deepEqual(view.findingItems(), []);
+  s.issueSearch = "";
+  s.impactSearch = "Not measured";
+  assert.deepEqual(view.findingItems(), []);
+  s.datasetSearch = "other";
+  assert.deepEqual(view.findingItems(), [other]);
+  s.critical = "yes";
+  assert.deepEqual(view.findingItems(), []);
+  s.critical = "no";
+  assert.deepEqual(view.findingItems(), [other]);
+  s.datasetSearch = "CR-5";
+  s.critical = s.impactSearch = "";
+  assert.deepEqual(view.findingItems(), [issue]);
+});
+
+test("each column has an inline filter and both text columns have resize handles", () => {
+  const drafts = { load: () => ({ status: "unreviewed", shared: "", stale: false }) },
+    html = createReport({ report, state: state(), esc, drafts, model: { id: "study" } }).findingsView();
+  const filters = html.match(/<tr class="finding-filters">([^]*?)<\/tr>/)[1];
+  assert.equal((filters.match(/<td /g) || []).length, 7);
+  assert.match(filters, /value="agreed"[^>]*>Agreed \(agent\)/);
+  for (const id of ["finding-dataset", "finding-agent", "finding-critical", "finding-kind", "finding-impact", "finding-issue", "finding-review"])
+    assert.ok(filters.includes(`id="${id}"`), id);
+  assert.deepEqual([...html.matchAll(/data-resize-column="([^"]+)"/g)].map((m) => m[1]), ["impact", "issue"]);
+  assert.doesNotMatch(html, /report-filters|id="finding-comparison"/);
+});
+
+test("comparison-scoped links retain an explicit removable filter", () => {
+  const html = createReport({ report, state: { ...state(), comparison: "documented_rules" }, esc }).findingsView();
+  assert.match(html, /Comparison: Documented rules/);
+  assert.match(html, /id="clear-finding-comparison"/);
+});
+
+
+test("column filters wait for loaded study data and refresh their rule names for a new report", () => {
+  let loaded = null;
+  const s = { ...state(), datasetSearch: "CR-5" },
+    view = createReport({ get report() { return loaded; }, state: s, esc });
+  loaded = report;
+  assert.deepEqual(view.findingItems(), [issue]);
+  loaded = { ...report, review: { ...report.review, checks: checks.map((c) => ({ ...c, rule: { ...c.rule, id: "CR-NEW" } })) } };
+  assert.deepEqual(view.findingItems(), []);
+  s.datasetSearch = "CR-NEW";
+  assert.deepEqual(view.findingItems(), [issue]);
 });

@@ -35,29 +35,41 @@ separate.
 
 ## Filters and search
 
-**By dataset** shows how many issues each dataset has under the current
-comparison, type and criticality filters; select a dataset to list its issues
-alone, or **All** to list every dataset. The search matches a variable, issue
-title, document name, quotation or rule ID; an exact name, such as
-`ADSL.TRTSDT` or `ADSL`, selects that variable or dataset alone.
+Filters sit directly below the table's column headings. Text filters match
+without regard to case, and all active filters apply together:
 
-- **Comparison** filters the retained comparison category.
-- **Issue type** filters the types below.
-- **Agent review** filters by the adjudicating agent's decision: agreed,
-  disputed, stale, mixed or not adjudicated. The list places disputed,
-  stale and mixed findings after the agreed ones of the same criticality;
-  they stay listed, because agent agreement is not resolution.
+- **Dataset / variable** matches a dataset, variable or displayed rule ID.
+- **Status** filters the agent review: agreed, disputed, stale, mixed or not
+  adjudicated. Every finding remains Under Review until a human decision is
+  recorded; agent agreement is not resolution.
 - **Critical finding** filters Yes, No and Needs review. Incorrect source,
   derivation, category and output rules are critical; differences limited to
   significant digits or variable labels are not. Incomplete evidence and
   documentation gaps need review. Criticality is independent of the number of
   affected subjects.
+- **Type** filters the issue types below.
+- **Documented rule vs data** matches a subject count or result text, such as
+  `No differences` or `Not measured`.
+- **Issue** matches the title or summary.
+- **Evidence** filters **Your review**: Not reviewed, Draft or Both decisions
+  saved. This filter stays in your browser.
+
+**Search issues** searches across variables, issue text, documents, quotations
+and rule IDs. An exact name, such as `ADSL.TRTSDT` or `ADSL`, selects that variable
+or dataset alone. **By dataset** offers shortcuts and counts under the current
+column filters.
+
+**Issue** starts wider than **Documented rule vs data**. Drag either column's
+right header edge to resize it, or focus that edge and use the Left and Right
+arrow keys. Widths remain while filtering or switching tabs. On small screens,
+the column filters appear above the stacked finding rows.
 
 **Clear filters** restores the full list. The list puts findings marked
 **Critical finding: Yes** first, then **Needs review**, then **No**, in the
-report's order within each group. The dataset, filters, search and open
-finding are part of the page URL, so a copied link reproduces them,
-including the finding open in **Start review**.
+report's order within each group. Disputed, stale and mixed agent reviews
+follow agreed ones within the same criticality. The dataset, shared column
+filters, search and open finding are part of the page URL, so a copied link
+reproduces them, including the finding open in **Start review**.
 
 ## Issue types
 

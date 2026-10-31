@@ -41,6 +41,75 @@ def capture(page, directory, name):
         )
 
 
+def check_finding_columns(page, issues, screenshots):
+    """Column filtering keeps input focus and adjustable widths on both layouts."""
+    rows = page.locator('.consistency-table tbody tr.review-issue')
+    expect(page.locator('.report-filters, #finding-comparison')).to_have_count(0)
+    expect(page.locator('.finding-filters input, .finding-filters select')).to_have_count(7)
+    page.locator('#finding-dataset').fill('ADSL.BMIBL')
+    query = page.locator('#finding-issue')
+    query.press_sequentially('height conversion', delay=10)
+    expect(query).to_be_focused()
+    expect(query).to_have_value('height conversion')
+    expect(rows).to_have_count(1)
+    expect(rows.locator('h3')).to_have_text('BMI formula uses the wrong height conversion')
+    selected = next(i for i in issues if i['title'] == 'BMI formula uses the wrong height conversion')
+    page.locator('#finding-impact').fill('subjects differ')
+    page.locator('#finding-kind').select_option(selected['kind'])
+    page.locator('#finding-critical').select_option(selected['critical']['status'])
+    page.locator('#finding-agent').select_option(selected['review'])
+    page.locator('#finding-review').select_option('unreviewed')
+    expect(rows).to_have_count(1)
+    assert 'issueSearch=height+conversion' in page.url
+    page.reload()
+    expect(query).to_have_value('height conversion')
+    expect(page.locator('#finding-dataset')).to_have_value('ADSL.BMIBL')
+    expect(page.locator('#finding-impact')).to_have_value('subjects differ')
+    expect(page.locator('#finding-review')).to_have_value('')
+    expect(rows).to_have_count(1)
+    if screenshots:
+        page.locator('.consistency-table').screenshot(path=str(screenshots / 'finding-column-filter-table.png'))
+    widths = {}
+    for key in ['impact', 'issue']:
+        handle = page.locator(f'[data-finding-table] [data-resize-column="{key}"]')
+        before = int(handle.get_attribute('aria-valuenow'))
+        handle.focus()
+        handle.press('ArrowRight')
+        expect(handle).to_have_attribute('aria-valuenow', str(before + 10))
+        widths[key] = before + 10
+    handle = page.locator('[data-finding-table] [data-resize-column="issue"]')
+    box = handle.bounding_box()
+    page.mouse.move(box['x'] + box['width'] / 2, box['y'] + box['height'] / 2)
+    page.mouse.down()
+    page.mouse.move(box['x'] + box['width'] / 2 + 40, box['y'] + box['height'] / 2, steps=4)
+    page.mouse.up()
+    widths['issue'] += 40
+    expect(handle).to_have_attribute('aria-valuenow', str(widths['issue']))
+    capture(page, screenshots, 'finding-column-filters.png')
+    query.fill('no such finding')
+    expect(query).to_be_focused()
+    expect(page.locator('.consistency-table tbody')).to_contain_text('No issues match')
+    page.get_by_role('button', name='Clear filters', exact=True).click()
+    expect(rows).to_have_count(len(issues))
+    for selector in ['#finding-search', '#finding-dataset', '#finding-issue', '#finding-impact', '#finding-kind', '#finding-agent', '#finding-critical', '#finding-review']:
+        expect(page.locator(selector)).to_have_value('')
+    page.get_by_role('button', name='SDTM -> ADaM', exact=True).click()
+    page.get_by_role('button', name='Consistency findings', exact=True).click()
+    for key, width in widths.items():
+        expect(page.locator(f'[data-finding-table] [data-resize-column="{key}"]')).to_have_attribute('aria-valuenow', str(width))
+    page.set_viewport_size({'width': 375, 'height': 1000})
+    page.locator('#finding-dataset').fill('ADSL.BMIBL')
+    page.locator('#finding-issue').fill('height conversion')
+    expect(rows).to_have_count(1)
+    expect(page.locator('#finding-critical')).to_be_visible()
+    expect(page.locator('#finding-review')).to_be_visible()
+    assert page.evaluate('document.documentElement.scrollWidth <= innerWidth')
+    capture(page, screenshots, 'finding-column-filters-phone.png')
+    page.get_by_role('button', name='Clear filters', exact=True).click()
+    page.set_viewport_size({'width': 1600, 'height': 1000})
+    expect(rows).to_have_count(len(issues))
+
+
 def assert_page_fits(page, selector):
     assert page.locator(selector).evaluate("""region => {
       const last = region.querySelector('tbody tr:last-child');
@@ -207,7 +276,7 @@ def check(browser, base, site_dir, screenshots):
             ["Under Review"] * len(issues)
         )
         expect(page.locator(".consistency-table .finding-evidence")).to_have_count(0)
-        expect(page.locator('#finding-comparison')).to_be_visible()
+        expect(page.locator('.finding-filters input, .finding-filters select')).to_have_count(7)
         expect(page.locator('#finding-agent')).to_be_visible()
         trace = open_trace(page.locator('.consistency-table tbody tr.review-issue').first)
         expect(trace.locator('#trace-finding, #trace-sources, #trace-examples, #trace-your-review')).to_have_count(4)
@@ -457,12 +526,16 @@ def check(browser, base, site_dir, screenshots):
         "Open Start review for the finding's evidence, record both decisions under Human Review."
     )
     expect(page.locator("#view-content h2, #view-content .uncited")).to_have_count(0)
-    page.locator("#finding-comparison").select_option("input_output")
-    expect(page.locator(".consistency-table tbody")).to_contain_text("No issues match")
-    expect(page.locator(".consistency-table tbody")).not_to_contain_text("Executed")
-    page.locator("#finding-comparison").select_option("source_documents")
-    expect(page.locator('.consistency-table tbody')).to_contain_text('No issues match')
-    page.locator('#finding-comparison').select_option('documented_rules')
+    check_finding_columns(page, cdisc_issues, screenshots)
+    # Older comparison-scoped links remain visible and removable without a toolbar.
+    for comparison in ['input_output', 'source_documents']:
+        route, _, query = page.url.partition('?')
+        params = dict(urllib.parse.parse_qsl(query))
+        params['comparison'] = comparison
+        page.goto(route + '?' + urllib.parse.urlencode(params))
+        expect(page.locator('.consistency-table tbody')).to_contain_text('No issues match')
+        page.get_by_role('button', name='Remove comparison filter', exact=True).click()
+        expect(page.locator('.consistency-table tbody tr.review-issue')).to_have_count(cdisc_issue_count)
     page.locator('#finding-search').fill('ADSL.BMIBL')
     expect(page.locator('.consistency-table tbody tr.review-issue')).to_have_count(1)
     expect(page.locator(".finding-evidence")).to_have_count(0)
@@ -563,7 +636,6 @@ def check(browser, base, site_dir, screenshots):
     # Related checks form one issue; the primary trace is concise and its full
     # evidence remains available. Source links and impact subjects still work.
     page.get_by_role("button", name="Clear filters", exact=True).click()
-    page.locator("#finding-comparison").select_option("documented_rules")
     page.locator("#finding-search").fill("HEIGHTBL*100")
     rule = page.locator(".consistency-table tbody tr.review-issue")
     expect(rule).to_have_count(1)
