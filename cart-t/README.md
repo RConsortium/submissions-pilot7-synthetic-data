@@ -54,7 +54,7 @@ git clone --filter=blob:none --no-checkout \
   https://github.com/elong0527/yamaa.git .build/define-engine
 git -C .build/define-engine sparse-checkout set rust/tests/schemas
 git -C .build/define-engine checkout --detach \
-  5976b74fddfbcbcad4d53ba550cb1e3773e07a5b
+  c039509082b545fe913c00d1686426c3d245778c
 .venv/bin/python cart-t/program/run.py
 .venv/bin/python -m unittest discover -s cart-t/program -p 'test_*.py' -v
 .venv/bin/python .github/scripts/validate_yamaa.py cart-t

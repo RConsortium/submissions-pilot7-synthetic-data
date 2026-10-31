@@ -18,7 +18,7 @@ from synthetic_evidence import artifact_inventory
 from resolved_specs import execution_project, process_study, specification_packet
 
 ROOT = Path(__file__).resolve().parents[2]
-ENGINE_PIN = '5976b74fddfbcbcad4d53ba550cb1e3773e07a5b'
+ENGINE_PIN = 'c039509082b545fe913c00d1686426c3d245778c'
 
 
 def review_register(root, study, observations):

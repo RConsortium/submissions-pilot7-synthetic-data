@@ -27,7 +27,7 @@ For R, build the package from the same pinned revision:
 ```bash
 mkdir -p .build/cdiscpilot01-r/library
 git clone https://github.com/elong0527/yamaa.git .build/cdiscpilot01-r/yamaa-source
-git -C .build/cdiscpilot01-r/yamaa-source checkout --detach 5976b74fddfbcbcad4d53ba550cb1e3773e07a5b
+git -C .build/cdiscpilot01-r/yamaa-source checkout --detach c039509082b545fe913c00d1686426c3d245778c
 python -m pip install py-yaml12==0.2.0
 (
   cd .build/cdiscpilot01-r/yamaa-source
