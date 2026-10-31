@@ -123,7 +123,7 @@ columns:
         self.assertEqual(catalog["datasets"][0]["comparison"], "unavailable")
         self.assertEqual(catalog["metrics"]["matched"], [0, 0, 0])
         self.assertEqual(
-            json.loads((target / "future-study/report.json").read_text())["coverage"][
+            json.loads((target / "future-study/audit.json").read_text())["coverage"][
                 "define_xml"
             ],
             "not_available",
@@ -392,7 +392,7 @@ columns:
         )
         self.refresh()
         target = self.generate()
-        finding = json.loads((target / "future-study/report.json").read_text())[
+        finding = json.loads((target / "future-study/audit.json").read_text())[
             "findings"
         ][0]
         self.assertEqual(finding["kind"], "missing_evidence")

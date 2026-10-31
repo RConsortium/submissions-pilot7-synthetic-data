@@ -13,6 +13,7 @@ export const COMPARISON_EXPLANATION = [
 export function createShell(ctx) {
   function metrics() {
     const { model, report } = ctx;
+    if (!report && model.kind !== "synthetic") return `<p class="review-loading" role="status">${model.findings ?? "Study"} consistency findings. Open Consistency findings to load the evidence.</p>`;
     if (model.kind === "synthetic")
       return `<div class="metric-strip"><span><strong>Subjects:</strong> ${metric(model.subjects.length)}</span><span><strong>ADaM datasets:</strong> ${model.datasets.length}</span><span>No independent generated ADaM comparison datasets</span><span>Human analysis review pending</span></div>`;
     const m = model.metrics, issues = consistencyFindings(report);

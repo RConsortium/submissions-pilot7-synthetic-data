@@ -307,6 +307,7 @@ def check(browser, base, site_dir, screenshots):
         # All three packages share the study layer's first-dose rule.
         assert_yaml_context(page, spec, {"DM", "EX"}, set())
         # The merged findings UI applies to every published pilot study.
+        page.get_by_role("button", name="Consistency findings", exact=True).click()
         study_report = json.loads((site_dir / f"evidence/dashboard/{name}/report.json").read_text())
         issues = study_report["review"]["issues"]
         checks = study_report["review"]["counts"]["checks"]
@@ -323,7 +324,6 @@ def check(browser, base, site_dir, screenshots):
         expect(page.get_by_role("button", name="View consistency findings", exact=True)).to_have_count(0)
         critical = sum(i["critical"]["status"] == "yes" for i in issues)
         expect(page.locator(".consistency-summary .critical-counts")).to_contain_text(f"{critical} critical;")
-        page.get_by_role("button", name="Consistency findings", exact=True).click()
         assert_issue_listing(issues, issues)
         assert_coverage(study_report)
         expect(page.locator(".consistency-table .filter-label")).to_have_text([
@@ -601,11 +601,11 @@ def check(browser, base, site_dir, screenshots):
     cdisc_issue_count = len(cdisc_issues)
     expect(page.locator('.review-tabs [data-view="datasets"]')).to_have_text("SDTM -> ADaM")
     expect(page.locator('.review-tabs [data-view="overview"]')).to_have_text("Consistency findings")
+    page.locator('.review-tabs [data-view="overview"]').click()
     expect(page.locator('.consistency-summary .summary-value')).to_have_text(
         f"{cdisc_issue_count} findings awaiting review"
     )
     expect(page.locator('.consistency-summary [data-view="overview"]')).to_have_count(0)
-    page.locator('.review-tabs [data-view="overview"]').click()
     expect(page.locator(".consistency-table")).to_be_visible()
     assert_issue_listing(cdisc_issues, cdisc_issues)
     assert_coverage(cdisc_report)
@@ -1254,6 +1254,28 @@ def check(browser, base, site_dir, screenshots):
         route.continue_()
     expect(page.locator("#input-table tbody tr")).to_have_count(1)
     delayed.close()
+
+
+    independent = browser.new_context()
+    independent.route('https://giscus.app/client.js', lambda route: route.fulfill(body=''))
+    blocked = []
+    audit_requests = []
+    independent.route('**/cdiscpilot01/report.json', lambda route: blocked.append(route))
+    independent.on('request', lambda request: audit_requests.append(request.url) if '/audit.json' in request.url else None)
+    independent_page = independent.new_page()
+    independent_page.goto(study + "#cdiscpilot01/datasets/ADSL")
+    expect(independent_page.locator('#output-table tbody tr')).to_have_count(3)
+    assert not blocked, 'The workspace must not request the findings report'
+    with independent_page.expect_request('**/cdiscpilot01/report.json'):
+        independent_page.get_by_role('button', name='Consistency findings', exact=True).click()
+    independent_page.get_by_role('button', name='SDTM -> ADaM', exact=True).click()
+    expect(independent_page.locator('#output-table tbody tr')).to_have_count(3)
+    for route in blocked:
+        route.continue_()
+    independent_page.get_by_role('button', name='Consistency findings', exact=True).click()
+    expect(independent_page.get_by_role('link', name='Download complete audit (JSON)', exact=True)).to_have_attribute('href', re.compile('/audit.json$'))
+    assert not audit_requests, 'Raw audit is downloaded only on demand'
+    independent.close()
 
 
 def main():

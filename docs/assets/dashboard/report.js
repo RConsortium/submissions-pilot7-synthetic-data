@@ -220,7 +220,8 @@ export function createReport(ctx) {
   }
   /** A short reminder above the finding filters. */
   function howToReview() {
-    return `<p class="review-howto">Open <strong>Start review</strong> for the finding's evidence, record both decisions under <strong>Human Review</strong>.</p>`;
+    const audit = ctx.model?.audit ? `<p><a href="${ctx.esc(ctx.resource(ctx.model.audit))}" download>Download complete audit (JSON)</a></p>` : "";
+    return `<p class="review-howto">Open <strong>Start review</strong> for the finding's evidence, record both decisions under <strong>Human Review</strong>.</p>${audit}`;
   }
   function findingsView() {
     const { state, esc } = ctx;
@@ -228,6 +229,7 @@ export function createReport(ctx) {
   }
   function drawer() {
     const { state, esc, byId, root, report } = ctx;
+    if (!report) return;
     const issue = findIssue(report, state.evidence),
       host = byId("evidence-drawer");
     if (!host) return;
