@@ -81,6 +81,37 @@ spec/yamaa/pilot-program/adadas_v1.yaml            CDISC Pilot 01 version
 A study-only dataset, such as CDISC Pilot 01's ADVS, stays in its study's
 `spec/yamaa/` folder until a second package needs it.
 
+## Working columns
+
+A working column is a column that the output does not list. Write one only
+where yamaa needs a named value:
+
+1. A verb argument that takes a variable name, such as the `source` of
+   `round_half_away_from_zero`, `impute` or `str_extract`, the `start` and
+   `end` of `diff`, a window's `group_by` or `order_by`, and `output.order_by`,
+   when the value is a computed one rather than a column or a lookup field.
+   `BMIBL_RAW` holds the unrounded BMI that `BMIBL` rounds.
+2. A verb result that an expression reads, such as `DURDIS_DAYS`, which
+   `DURDIS_RAW` divides into months, or a `row_number` that a flag tests.
+3. A missing value replaced by 0, written as a `case`, because the expression
+   language has no `COALESCE`, such as `_CUM0`.
+4. A value that each row template sets differently and later columns read.
+
+Everything else goes where it is used:
+
+- Read a lookup field directly, in an expression or as a verb's `source`:
+  `impute: {source: SV8.SVSTDTC}`, not a copy of `SV8.SVSTDTC` in its own column.
+- Write a verb inside the `case` branch that uses it, such as the `mapping`
+  in `DCREASCD`'s `otherwise`, or the rounding in ADLBC's `_U_AVAL`.
+- Round only with `round_half_away_from_zero`, the one rounding of yamaa
+  (FORMULA-16), never with `FLOOR(x * 10 + 0.5) / 10`. Its `source` is a
+  variable name, so a computed value it rounds is the one working column
+  that rounding needs.
+
+Label a working column with what it holds. Validate every study that
+inherits a template after removing one, and update review claims that quote
+it.
+
 ## Shared datasets
 
 Each file under `pilot-program/` is a shared dataset version, and the

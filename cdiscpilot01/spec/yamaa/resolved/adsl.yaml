@@ -391,16 +391,12 @@ columns:
     origins:
     - type: Derived
     comment: SV.SVSTDTC when SV.VISITNUM=3, converted to SAS date
-- name: LAST_EXENDTC
-  type: str
-  label: Last Exposure End (character)
-  derivation: LAST_EX.EXENDTC
 - name: TRTEDT
   type: date
   label: Date of Last Exposure to Treatment
   derivation:
     case:
-    - when: LAST_EXENDTC IS NULL OR LAST_EXENDTC = ''
+    - when: LAST_EX.EXENDTC IS NULL OR LAST_EX.EXENDTC = ''
       then:
         impute:
           type: date
@@ -411,7 +407,7 @@ columns:
     - otherwise:
         impute:
           type: date
-          source: LAST_EXENDTC
+          source: LAST_EX.EXENDTC
           month: 1
           day: 1
           invalid: null
@@ -448,30 +444,24 @@ columns:
   label: Cumulative dose from complete EX records
   derivation:
     aggregate: SUM(EX.EXDOSE * (EX.EXENDY - EX.EXSTDY + 1))
-- name: LAST_EXSTDTC
-  type: str
-  label: Last Exposure Start (character)
-  derivation: LAST_EX.EXSTDTC
 - name: LAST_EXSTDTC_DT
   type: date
   label: Last Exposure Start (date)
   derivation:
     impute:
       type: date
-      source: LAST_EXSTDTC
+      source: LAST_EX.EXSTDTC
       month: 1
       day: 1
       invalid: null
-- name: LAST_EX_DOSE
-  type: float
-  label: Last EX record dose
-  derivation: LAST_EX.EXDOSE
 - name: LAST_EX_DAYS
   type: float
-  label: Days on last EX record if end blank
+  label: Days on last EX record if end blank, else 0
   derivation:
     case:
-    - when: LAST_EXENDTC IS NULL OR LAST_EXENDTC = ''
+    - when: TRTEDT IS NULL OR LAST_EXSTDTC_DT IS NULL
+      then: 0
+    - when: LAST_EX.EXENDTC IS NULL OR LAST_EX.EXENDTC = ''
       then:
         diff:
           type: date
@@ -493,21 +483,13 @@ columns:
   label: _DOSE0 (helper)
   derivation:
     case:
-    - when: LAST_EX_DOSE IS NULL
+    - when: LAST_EX.EXDOSE IS NULL
       then: 0
-    - otherwise: LAST_EX_DOSE
-- name: _DAYS0
-  type: float
-  label: _DAYS0 (helper)
-  derivation:
-    case:
-    - when: LAST_EX_DAYS IS NULL
-      then: 0
-    - otherwise: LAST_EX_DAYS
+    - otherwise: LAST_EX.EXDOSE
 - name: CUMDOSE
   type: float
   label: Cumulative Dose (as planned)
-  derivation: _CUM0 + _DOSE0 * _DAYS0
+  derivation: _CUM0 + _DOSE0 * LAST_EX_DAYS
   submission:
     mandatory: false
     data_type: float
@@ -530,7 +512,10 @@ columns:
 - name: AVGDD
   type: float
   label: Avg Daily Dose (as planned)
-  derivation: FLOOR(AVGDD_RAW * 10 + 0.5) / 10
+  derivation:
+    round_half_away_from_zero:
+      source: AVGDD_RAW
+      digits: 1
   submission:
     mandatory: false
     data_type: float
@@ -704,17 +689,13 @@ columns:
     comment: Y if SAFFL='Y AND subject has at least one record in QS for ADAS-Cog
       with VISITNUM>3 AND at least one record in QS for CIBIC+ with VISITNUM>3, N
       otherwise
-- name: SV8_DTC
-  type: str
-  label: Visit 8 date (character)
-  derivation: SV8.SVSTDTC
 - name: SV8DT
   type: date
   label: Visit 8 date
   derivation:
     impute:
       type: date
-      source: SV8_DTC
+      source: SV8.SVSTDTC
       month: 1
       day: 1
       invalid: null
@@ -774,17 +755,13 @@ columns:
     origins:
     - type: Derived
     comment: Y if subject has a SV.VISITNUM=8 and ENDDT >= date of visit 8, N otherwise
-- name: SV10_DTC
-  type: str
-  label: Visit 10 date (character)
-  derivation: SV10.SVSTDTC
 - name: SV10DT
   type: date
   label: Visit 10 date
   derivation:
     impute:
       type: date
-      source: SV10_DTC
+      source: SV10.SVSTDTC
       month: 1
       day: 1
       invalid: null
@@ -804,17 +781,13 @@ columns:
     origins:
     - type: Derived
     comment: Y if subject has a SV.VISITNUM=10 and ENDDT>=date of visit 10, N otherwise
-- name: SV12_DTC
-  type: str
-  label: Visit 12 date (character)
-  derivation: SV12.SVSTDTC
 - name: SV12DT
   type: date
   label: Visit 12 date
   derivation:
     impute:
       type: date
-      source: SV12_DTC
+      source: SV12.SVSTDTC
       month: 1
       day: 1
       invalid: null
@@ -846,35 +819,27 @@ columns:
     origins:
     - type: Derived
     comment: DS.DSDECOD where DSCAT='DISPOSITION EVENT'
-- name: DS_DSTERM
-  type: str
-  label: Disposition term (character)
-  derivation: DS_DISP.DSTERM
-- name: DC_REAS_MAP
-  type: str
-  label: Discontinuation reason mapped
-  derivation:
-    mapping:
-      source: DCDECOD
-      dict:
-        ADVERSE EVENT: Adverse Event
-        COMPLETED: Completed
-        DEATH: Death
-        LACK OF EFFICACY: Lack of Efficacy
-        LOST TO FOLLOW-UP: Lost to Follow-up
-        PHYSICIAN DECISION: Physician Decision
-        PROTOCOL VIOLATION: Protocol Violation
-        STUDY TERMINATED BY SPONSOR: Sponsor Decision
-        WITHDRAWAL BY SUBJECT: Withdrew Consent
-      case_sensitive: true
 - name: DCREASCD
   type: str
   label: Reason for Discontinuation
   derivation:
     case:
-    - when: DS_DSTERM = 'PROTOCOL ENTRY CRITERIA NOT MET'
+    - when: DS_DISP.DSTERM = 'PROTOCOL ENTRY CRITERIA NOT MET'
       then: '''I/E Not Met'''
-    - otherwise: DC_REAS_MAP
+    - otherwise:
+        mapping:
+          source: DCDECOD
+          dict:
+            ADVERSE EVENT: Adverse Event
+            COMPLETED: Completed
+            DEATH: Death
+            LACK OF EFFICACY: Lack of Efficacy
+            LOST TO FOLLOW-UP: Lost to Follow-up
+            PHYSICIAN DECISION: Physician Decision
+            PROTOCOL VIOLATION: Protocol Violation
+            STUDY TERMINATED BY SPONSOR: Sponsor Decision
+            WITHDRAWAL BY SUBJECT: Withdrew Consent
+          case_sensitive: true
   submission:
     mandatory: false
     data_type: text
@@ -931,7 +896,10 @@ columns:
 - name: HEIGHTBL
   type: float
   label: Baseline Height (cm)
-  derivation: FLOOR(BASE_HT.VSSTRESN * 10 + 0.5) / 10
+  derivation:
+    round_half_away_from_zero:
+      source: BASE_HT.VSSTRESN
+      digits: 1
   submission:
     mandatory: false
     data_type: float
@@ -943,7 +911,10 @@ columns:
 - name: WEIGHTBL
   type: float
   label: Baseline Weight (kg)
-  derivation: FLOOR(BASE_WT.VSSTRESN * 10 + 0.5) / 10
+  derivation:
+    round_half_away_from_zero:
+      source: BASE_WT.VSSTRESN
+      digits: 1
   submission:
     mandatory: false
     data_type: float
@@ -959,7 +930,10 @@ columns:
 - name: BMIBL
   type: float
   label: Baseline BMI (kg/m^2)
-  derivation: FLOOR(BMIBL_RAW * 10 + 0.5) / 10
+  derivation:
+    round_half_away_from_zero:
+      source: BMIBL_RAW
+      digits: 1
   submission:
     mandatory: false
     data_type: float
@@ -1000,17 +974,13 @@ columns:
     origins:
     - type: Derived
     comment: SC.SCSTRESN where SC.SCTESTCD=YEARSEDU
-- name: MH_DTC
-  type: str
-  label: Diagnosis onset (character)
-  derivation: MH_DX.MHSTDTC
 - name: DISONSDT
   type: date
   label: Date of Onset of Disease
   derivation:
     impute:
       type: date
-      source: MH_DTC
+      source: MH_DX.MHSTDTC
       month: 1
       day: 1
       invalid: null
@@ -1022,17 +992,13 @@ columns:
     origins:
     - type: Derived
     comment: MH.MHSTDTC where MHCAT='PRIMARY DIAGNOSIS' converted to SAS date
-- name: SV1_DTC
-  type: str
-  label: Visit 1 date (character)
-  derivation: SV1.SVSTDTC
 - name: VISIT1DT
   type: date
   label: Date of Visit 1
   derivation:
     impute:
       type: date
-      source: SV1_DTC
+      source: SV1.SVSTDTC
       month: 1
       day: 1
       invalid: null
@@ -1054,10 +1020,17 @@ columns:
       end: VISIT1DT
       unit: day
       closed: both
+- name: DURDIS_RAW
+  type: float
+  label: Duration of Disease (Months) unrounded
+  derivation: DURDIS_DAYS / 30.4375
 - name: DURDIS
   type: float
   label: Duration of Disease (Months)
-  derivation: FLOOR(DURDIS_DAYS / 30.4375 * 10 + 0.5) / 10
+  derivation:
+    round_half_away_from_zero:
+      source: DURDIS_RAW
+      digits: 1
   submission:
     mandatory: false
     data_type: float
@@ -1082,18 +1055,14 @@ columns:
     origins:
     - type: Derived
     comment: grouping DURDIS values as <12 and >=12
-- name: DS_VISITNUM
-  type: float
-  label: Disposition visit number
-  derivation: DS_DISP.VISITNUM
 - name: VISNUMEN
   type: float
   label: End of Trt Visit (Vis 12 or Early Term.)
   derivation:
     case:
-    - when: DS_VISITNUM = 13
+    - when: DS_DISP.VISITNUM = 13
       then: 12
-    - otherwise: DS_VISITNUM
+    - otherwise: DS_DISP.VISITNUM
   submission:
     mandatory: false
     data_type: integer
