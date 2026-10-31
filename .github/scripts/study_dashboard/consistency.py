@@ -1,30 +1,22 @@
 """Metadata observations and authored review questions with source evidence."""
 
 import json
+import re
 
 import pyarrow.parquet as pq
 
-from .config import SCHEMA_VERSION
+from .config import SCHEMA_VERSION, reference_path, settings
 from .documents import define_metadata, define_section_text, materials
 from .rule_review import rule_findings, verification_summary
 from .datasets import clean
 from .issues import build_review
+from .review_scope import complete_decisions, load_publication, project_review
 from .specifications import resource_path
 
 
 def build_report(
-    root, study, specifications, target, revision, validation=None, verification=None,
-    review_scope="full", subject_key="USUBJID",
+    root, study, specifications, target, revision, validation=None, verification=None
 ):
-    if review_scope == "dataset_define":
-        from .dataset_define import build_report as pair_report
-
-        outputs = {
-            spec["domain"]: resource_path(root, path, lineage.get("resources", {}),
-                                          "output.path", spec["output"]["path"])
-            for path, spec, lineage in specifications
-        }
-        return pair_report(root, study, outputs, target, revision, subject_key)
     define_path = root / study / "spec/define/define-adam.xml"
     metadata = define_metadata(define_path) if define_path.exists() else {}
     manifest, documents = materials(root, study, target, metadata)
@@ -249,6 +241,62 @@ def build_report(
             }
     # Documented-rule findings were decided in the validation job; they keep their own data.
     findings += rule_findings(study, verification, documents)
+    from study_evidence import catalog
+    entry = catalog(root).get(study, {}) if (root / ".github/yamaa-studies.json").is_file() else {}
+    direct = {"findings": [], "coverage_items": [], "checks": [], "sources": {}}
+    if entry.get("comparison") == "official":
+        from .dataset_define import build_report as dataset_report
+        options = settings(root, entry)
+        outputs = {spec["domain"]: reference_path(root, study, spec["domain"], options)
+                   for _, spec, _ in specifications}
+        direct = dataset_report(root, study, outputs, target, revision, documents=documents,
+                                comparison_keys={spec["domain"]: spec.get("keys", []) for _, spec, _ in specifications},
+                                source_role="retained_adam")
+    findings += direct["findings"]
+    audit = build_review(root, study, revision, findings + logic_checks)
+    decisions = complete_decisions(audit, load_publication(root, study, audit, define_path))
+    published = project_review(audit, decisions)
+    coverage_items = []
+    for issue in published["coverage"]["issues"]:
+        coverage_items.append({"id": issue["id"], "dataset": issue["dataset"],
+                               "variable": issue["variable"], "title": issue["title"],
+                               "reason": issue["summary"], "check_ids": issue["check_ids"]})
+    native_checked = {(dataset["dataset"], record["variable"])
+                      for dataset in (verification or {}).get("datasets", [])
+                      for record in dataset.get("variables", [])
+                      if record.get("probes") or record.get("copy", {}).get("status") == "checked"}
+    direct_coverage = {}
+    for item in direct["coverage_items"]:
+        key = item["id"].rsplit(":", 1)[-1]
+        if key in {"derivation_verification", "missing_key_values"}:
+            continue
+        if key.startswith("arithmetic_unassessed") and any(
+            i["dataset"] == item["dataset"] and i["variable"] == item["variable"]
+            for i in published["review"]["issues"]
+        ):
+            continue
+        if (key.startswith("value_method_") or key.startswith("predecessor_unassessed")) and (
+            item["dataset"], item["variable"]
+        ) in native_checked:
+            continue
+        family = re.sub(r"_value_level_\d+$", "", key)
+        family = re.sub(r"^value_method_\d+$", "value_method", family)
+        if family in {"value_method", "arithmetic_unassessed", "postbaseline_scope", "predecessor_unassessed"} or re.fullmatch(r"value_level_\d+", family):
+            family = "method_assessment"
+        if family == "method_assessment":
+            authored = next((c for c in coverage_items if (c["dataset"], c["variable"]) == (item["dataset"], item["variable"])), None)
+            if authored:
+                authored["check_ids"] = list(dict.fromkeys([*authored.get("check_ids", []), item["id"]]))
+                authored.setdefault("supporting_reasons", []).append(item["reason"])
+                continue
+        identity = (item["dataset"], item["variable"], family)
+        if identity not in direct_coverage:
+            direct_coverage[identity] = {**item, "id": item["id"].rsplit(":", 1)[0] + ":" + family,
+                                         "check_ids": [item["id"]]}
+        else:
+            direct_coverage[identity]["check_ids"].append(item["id"])
+            direct_coverage[identity].setdefault("supporting_reasons", []).append(item["reason"])
+    coverage_items.extend(direct_coverage.values())
     reviewed = [d["dataset"] for d in (verification or {}).get("datasets", [])]
     narrative = "Not comprehensively reviewed; guide review tasks are explicitly marked Not reviewed."
     if reviewed:
@@ -262,7 +310,13 @@ def build_report(
         "revision": revision,
         "findings": findings,
         "logic_checks": logic_checks,
-        "review": build_review(root, study, revision, findings + logic_checks),
+        "review": published["review"],
+        "coverage_items": coverage_items,
+        "dataset_define_checks": direct["checks"],
+        "dataset_define_sources": direct["sources"],
+        "scope_summary": {"findings": len(published["review"]["issues"]),
+                          "checks": len(published["review"]["checks"]),
+                          "coverage": len(coverage_items)},
         "trace_examples": {
             f'{d["dataset"]}.{v["variable"]}': v["examples"]
             for d in (verification or {}).get("datasets", [])
@@ -279,7 +333,7 @@ def build_report(
             "clinical_judgement": "Requires human review.",
         },
         "verification": verification_summary(study, verification, documents),
-        "note": "Automated observations and pending review tasks are not confirmed clinical defects.",
+        "note": "Published findings include observed ADaM data and metadata discrepancies and reviewed documentation issues backed by original Define-XML. Coverage gaps are separate. The raw checks retain the complete audit; observations require human review.",
     }
 
 

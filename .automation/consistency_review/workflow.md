@@ -10,7 +10,11 @@ Agents propose and the verifier decides. Three agents take part, each with
 its own context: the extraction agent (`extract.md`) writes claims and probes,
 the adjudicator (`adjudicate.md`) checks every finding against the sources,
 and the issue author (`issues.md`) groups the findings into plain-language
-issues traced to the documents and the retained programs.
+issues traced to the documents and the retained programs. Publication is a
+separate reviewed projection: its goal is outstanding discrepancies between
+actual ADaM datasets and original Define-XML, including metadata and incomplete
+or contradictory documented rules. Implementation-only disagreements stay in
+the audit. Unavailable governing evidence is reported separately as coverage.
 `.github/scripts/verify_derivations.py` checks every quote, runs every probe,
 assigns every rule and writes the report. You orchestrate; you do not judge
 findings yourself.
@@ -22,13 +26,15 @@ Without one, take the studies in `.github/yamaa-studies.json` order and choose
 the first project dataset with no `<study>/spec/review/<dataset>-claims.json`;
 if every dataset has one, print `SKIP: every dataset has claims` and stop.
 
-State lives in four committed files under `<study>/spec/review/`, with the
+State lives in the committed files under `<study>/spec/review/`, with the
 dataset name in lowercase:
 
 - `<dataset>-claims.json`: the extraction agent's citations, clauses and readings.
 - `<dataset>-documented-rules.yaml`: the documented rules as yamaa columns.
 - `<dataset>-adjudication.json`: the adjudicator's decisions.
 - `<dataset>-issues.json`: the issue author's grouping of every finding.
+- `<dataset>-publication.json`: reviewed inclusion, clarification, coverage and
+  exclusion decisions, bound to the original Define-XML and current check basis.
 
 Generated reports stay under `.build/` and are never committed. If an open PR
 already reviews the same dataset, stop and report its link.
@@ -130,7 +136,7 @@ the report.
 
 ## 7. Deliver
 
-Run the shared checks in `AGENTS.md`. Commit only the four state files, push
+Run the shared checks in `AGENTS.md`. Commit only the review state files, push
 the branch, and open a non-draft PR against `main` with `--body-file`. The body
 contains the `Summary` section of `report.md`, the conflict findings in full,
 and the list of other finding IDs with their rule and one-line summary. State
