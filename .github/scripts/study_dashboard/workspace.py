@@ -17,7 +17,7 @@ from .define_comparison import export_comparison
 
 
 def export_review_report(target, report):
-    """Keep the full audit downloadable while the UI loads only its display contract."""
+    """Keep the full audit in audit.json while the UI loads only its display contract."""
     write_json(target / "audit.json", report)
     display = {key: report[key] for key in (
         "schema_version", "study", "revision", "review", "coverage_items",
@@ -215,7 +215,6 @@ def build_workspace(root, destination, study, entry, validation, revision, verif
         },
         findings=report["review"]["counts"]["issues"],
         report="report.json",
-        audit="audit.json",
     )
     write_json(target / "catalog.json", record)
     return record
