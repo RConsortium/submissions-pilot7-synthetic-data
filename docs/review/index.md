@@ -13,8 +13,7 @@ Yes** or **Needs review**. Use **By dataset** to choose another dataset.
 
 ## 2. Check the evidence
 
-Read **The finding** and **Question for you**. Compare the cited Define-XML
-item with the reproduced yamaa specification, then check **Subject examples**
+Read **The finding**. Compare the cited Define-XML item with the reproduced yamaa specification, then check **Subject examples**
 for the reported difference. Use **View source** to inspect a citation.
 
 Decide whether the evidence supports the finding and its criticality. A
