@@ -15,6 +15,9 @@ input:
   ADAE_SRC:
     path: ../../data/adam/adae.parquet
     empty_string: present
+  DS_SRC:
+    path: ../../data/sdtm/ds.parquet
+    empty_string: present
 base: ADTTE_REF
 output:
   path: ../../../.build/verification/submission-pilot3/adtte-documented-rules.parquet
@@ -27,6 +30,7 @@ output:
   - ADT
   - ADT__INCLUSIVE
   - ADT__FIRST_AFTER
+  - ADT__PROGRAM
   - CNSR
   - EVNTDESC
   - SRCDOM
@@ -97,6 +101,30 @@ intermediates:
   - variable: ADAE_SRC.AESEQ
     nulls: last
   keep: first
+- id: _ADT_PROG_EVENT
+  dataset: ADAE_SRC
+  key:
+  - STUDYID
+  - USUBJID
+  filter: ADAE_SRC.AOCC01FL = 'Y' AND ADAE_SRC.CQ01NAM = 'DERMATOLOGIC EVENTS' AND ADAE_SRC.SAFFL = 'Y' AND
+    ADAE_SRC.ASTDT IS NOT NULL
+  order_by:
+  - variable: ADAE_SRC.ASTDT
+    nulls: last
+  - variable: ADAE_SRC.AESEQ
+    nulls: last
+  keep: first
+- id: _ADT_PROG_EOS
+  dataset: DS_SRC
+  key:
+  - STUDYID
+  - USUBJID
+  filter: DS_SRC.DSCAT = 'DISPOSITION EVENT' AND DS_SRC.DSDECOD <> 'SCREEN FAILURE' AND DS_SRC.DSDECOD <>
+    'FINAL LAB VISIT'
+  order_by:
+  - variable: DS_SRC.DSSEQ
+    nulls: last
+  keep: first
 columns:
 - name: STUDYID
   type: str
@@ -155,6 +183,30 @@ columns:
     - when: P_TTE_AFTER_EVENT.ASTDT IS NOT NULL
       then: P_TTE_AFTER_EVENT.ASTDT
     - otherwise: _TTE_RFENDT
+- name: _ADT_PROG_EOSDT
+  type: date
+  label: _ADT_PROG_EOSDT
+  derivation:
+    impute:
+      type: date
+      source: _ADT_PROG_EOS.DSSTDTC
+- name: _ADT_PROG_EOS2DT
+  type: date
+  label: _ADT_PROG_EOS2DT
+  derivation:
+    case:
+    - when: P_ADSL.DCDECOD = 'DEATH'
+      then: _TTE_RFENDT
+    - when: P_ADSL.DCDECOD <> 'DEATH'
+      then: _ADT_PROG_EOSDT
+- name: ADT__PROGRAM
+  type: date
+  label: ADT__PROGRAM
+  derivation:
+    case:
+    - when: _ADT_PROG_EVENT.ASTDT IS NOT NULL
+      then: _ADT_PROG_EVENT.ASTDT
+    - otherwise: _ADT_PROG_EOS2DT
 - name: CNSR
   type: float
   label: CNSR
