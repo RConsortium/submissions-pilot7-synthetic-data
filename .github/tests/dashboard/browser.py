@@ -662,7 +662,9 @@ def check(browser, base, site_dir, screenshots):
     primary_tabs.get_by_role("tab", name="define-sdtm.xml", exact=True).click()
     assert page.evaluate("window.comparedSourceFrame===document.querySelector('#source-frame-compare')")
     primary_tabs.get_by_role("tab", name="define-adam.xml", exact=True).click()
-    page.wait_for_load_state("networkidle")
+    # Background requests (repository facts, PDF viewers) keep the network busy in CI.
+    expect(page.locator("#source-frame")).to_have_attribute("title", "Original XML HTML: define-adam.xml")
+    expect(page.frame_locator("#source-frame").locator("table").first).to_be_visible()
     capture(page, screenshots, "source-documents-side-by-side.png")
     page.reload()
     expect(page.locator(".source-pane")).to_have_count(2)
@@ -816,17 +818,17 @@ def check(browser, base, site_dir, screenshots):
     expect(trace.get_by_role('tablist', name='Example subjects').get_by_role('tab')).to_have_text(
         [item['id'] for item in displayed_examples])
     expect(trace.locator(".trace-data-table tbody tr")).to_have_count(len(displayed_examples[0]['rows']))
-    first_term = next((row['inputs']['AETERM'] for row in displayed_examples[0]['rows']
-                       if row.get('inputs', {}).get('AETERM')), None)
-    assert first_term, 'Actual event-term input is retained with the example calculation'
+    first_term = next((row['inputs']['AEDECOD'] for row in displayed_examples[0]['rows']
+                       if row.get('inputs', {}).get('AEDECOD')), None)
+    assert first_term, 'Actual dictionary-term input is retained with the example calculation'
     expect(trace.locator('.trace-data-table')).to_contain_text(first_term)
     second_subject = displayed_examples[1]['id']
     trace.get_by_role("tab", name=second_subject, exact=True).click()
     expect(trace.get_by_role("tab", name=second_subject, exact=True)).to_be_in_viewport()
     expect(trace.locator(".trace-data-table")).to_be_in_viewport()
     expect(trace.locator(".trace-data-table tbody tr")).to_have_count(len(displayed_examples[1]['rows']))
-    second_term = next((row['inputs']['AETERM'] for row in displayed_examples[1]['rows']
-                        if row.get('inputs', {}).get('AETERM')), None)
+    second_term = next((row['inputs']['AEDECOD'] for row in displayed_examples[1]['rows']
+                        if row.get('inputs', {}).get('AEDECOD')), None)
     assert second_term
     expect(trace.locator('.trace-data-table')).to_contain_text(second_term)
     capture(page, screenshots, "trace-review-evidence.png")
