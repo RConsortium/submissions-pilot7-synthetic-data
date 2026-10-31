@@ -291,7 +291,16 @@ import { developmentReport, mountDevelopment } from "./synthetic-development.js"
       // Workspace, Define-XML and development tabs use their own catalogs. Fetch
       // finding evidence only for a view or deep link that actually needs it.
       if (["overview", "materials"].includes(state.view) || state.evidence || state.review) {
-        const loadedReport = await get(resource(model.report));
+        document.body.classList.add("study-review-page");
+        main.innerHTML = frame();
+        byId("view-content").innerHTML = '<p class="loading" role="status">Loading finding evidence...</p>';
+        let loadedReport;
+        try { loadedReport = await get(resource(model.report)); }
+        catch (error) {
+          if (token === mount.token)
+            byId("view-content").innerHTML = `<div class="error-state" role="alert"><p>${esc(error.message)}</p><button class="button" id="reload-review">Retry</button></div>`;
+          return;
+        }
         if (token !== mount.token) return;
         report = loadedReport;
       }
