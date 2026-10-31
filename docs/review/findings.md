@@ -117,8 +117,12 @@ and observed behavior. The sections then follow the navigation:
   **View source** opens the complete file without losing your draft.
 - **Subject examples**: record keys and input values each have their own
   column, followed by **ADaM data** and **Documented Rule**, with differences
-  highlighted. Alternative calculations are omitted. Examples illustrate
-  the calculation; they do not determine the finding's reported impact.
+  highlighted. Input columns are selected automatically from the documented-rule
+  check and the reproduced YAML derivation, including upstream variables and
+  filtering, grouping and ordering fields available in the same ADaM dataset.
+  Their values come from that dataset's reference records. Alternative
+  calculations are omitted. Examples illustrate the calculation; they do not
+  determine the finding's reported impact.
 
 **Human Review** follows the evidence; see
 [Record your assessment](#record-your-assessment).

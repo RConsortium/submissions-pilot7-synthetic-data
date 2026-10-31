@@ -11,8 +11,18 @@ from .datasets import clean
 from .lineage import build_lineage
 
 
+def dependencies(edges, nodes):
+    seen, pending = set(), list(nodes)
+    while pending:
+        node = pending.pop()
+        if node not in seen:
+            seen.add(node)
+            pending.extend(edges.get(node, []))
+    return seen
+
+
 class TraceExamples:
-    def __init__(self, reference, derived, probe, spec, text, subject_key):
+    def __init__(self, reference, derived, probe, spec, text, subject_key, *, derivation_edges=None):
         self.keys = spec["keys"]
         self.subject_key = subject_key
         self.reference = reference.to_dicts()
@@ -24,7 +34,9 @@ class TraceExamples:
         schemas = {"REF": set(self.columns)}
         if spec.get("base"):
             schemas[spec["base"]] = set(self.columns)
+        self.reference_aliases = set(schemas)
         self.edges = build_lineage(text, spec, schemas)["edges"]
+        self.derivation_edges = derivation_edges or {}
         self.indexes = []
         self.reason = ""
         for rows in (self.reference, self.derived, self.probe):
@@ -42,16 +54,17 @@ class TraceExamples:
             self.rows_by_key.setdefault(key, row)
         self.subject_counts = Counter(str(r.get(subject_key)) for r in self.rows_by_key.values())
 
-    def inputs(self, probes, context):
-        seen, pending, names = set(), ["spec." + p["column"] for p in probes], set(context)
-        while pending:
-            node = pending.pop()
-            if node in seen:
-                continue
-            seen.add(node)
-            if node.startswith("REF."):
-                names.add(node.removeprefix("REF."))
-            pending.extend(self.edges.get(node, []))
+    def inputs(self, name, probes, context):
+        names = set(context)
+        for node in dependencies(self.edges, ["spec." + p["column"] for p in probes]):
+            alias, _, field = node.partition(".")
+            if alias in self.reference_aliases:
+                names.add(field)
+        # Only local YAML variables identify columns of this ADaM dataset. A
+        # similarly named field in an external input is not a row-aligned value.
+        names.update(node.removeprefix("spec.") for node in
+                     dependencies(self.derivation_edges, ["spec." + name])
+                     if node.startswith("spec."))
         return [n for n in self.columns if n in names and n not in self.keys]
 
     def variable(self, name, probes, context=(), max_rows=12):
@@ -81,7 +94,7 @@ class TraceExamples:
         if not selected:
             selected = sorted({str(r[self.subject_key]) for r in self.reference
                                if r.get(self.subject_key) is not None})[:2]
-        fields = [n for n in self.inputs(probes, context) if n != name]
+        fields = [n for n in self.inputs(name, probes, context) if n != name]
         # Include probe-only records, and distinguish their absence from a missing value.
         for subject in selected:
             rows = []
@@ -120,5 +133,5 @@ class TraceExamples:
             "input_columns": fields,
             "calculations": [{"column": p["column"], "reading": p["reading"]} for p in probes],
             "subjects": list(profiles.values()),
-            "scope": "Recalculates this variable using upstream values from the generated ADaM datasets; it does not rerun the full analysis pipeline. Generated ADaM inputs are shown; other lookups remain in calculation details.",
+            "scope": "Input columns show same-dataset ADaM reference values used by the documented-rule calculation or reproduced YAML derivation. Dependencies include upstream local variables and selection context; external lookup records are not row-aligned here. Examples do not rerun the full analysis pipeline.",
         }
