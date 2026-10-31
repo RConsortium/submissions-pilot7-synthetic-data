@@ -38,6 +38,12 @@ output:
   - BASE
   - BASE__AVAL_AT_BASELINE
   - LBSTRESN
+  - CHG__MISSING_AT_VISIT1
+  - R2A1LO__UNROUNDED
+  - R2A1HI__UNROUNDED
+  - BR2A1LO__CURRENT_LIMIT_UNROUNDED
+  - BR2A1HI__CURRENT_LIMIT_UNROUNDED
+  - ALBTRVAL__ABSOLUTE
 intermediates:
 - id: REF
   dataset: ADLBC_REF
@@ -311,3 +317,47 @@ columns:
     round_half_away_from_zero:
       source: P_LB.LBSTRESN
       digits: 5
+# Program readings: the Pilot 3 program adlbc.r computes these values
+# (lines 149-150 and 220-226).
+- name: CHG__MISSING_AT_VISIT1
+  type: float
+  label: CHG__MISSING_AT_VISIT1
+  derivation:
+    case:
+    - when: REF.VISITNUM = 1
+      then: null
+    - otherwise: REF.AVAL - REF.BASE
+- name: R2A1LO__UNROUNDED
+  type: float
+  label: R2A1LO__UNROUNDED
+  derivation: REF.AVAL / REF.A1LO
+- name: R2A1HI__UNROUNDED
+  type: float
+  label: R2A1HI__UNROUNDED
+  derivation: REF.AVAL / REF.A1HI
+- name: BR2A1LO__CURRENT_LIMIT_UNROUNDED
+  type: float
+  label: BR2A1LO__CURRENT_LIMIT_UNROUNDED
+  derivation: REF.BASE / REF.A1LO
+- name: BR2A1HI__CURRENT_LIMIT_UNROUNDED
+  type: float
+  label: BR2A1HI__CURRENT_LIMIT_UNROUNDED
+  derivation: REF.BASE / REF.A1HI
+- name: _P3_ALB_ONE
+  type: float
+  label: _P3_ALB_ONE
+  derivation: ABS(P_LB.LBSTRESN - 1.5 * P_LB.LBSTNRHI)
+- name: _P3_ALB_TWO
+  type: float
+  label: _P3_ALB_TWO
+  derivation: ABS(0.5 * P_LB.LBSTNRLO - P_LB.LBSTRESN)
+- name: ALBTRVAL__ABSOLUTE
+  type: float
+  label: ALBTRVAL__ABSOLUTE
+  derivation:
+    case:
+    - when: _P3_ALB_ONE IS NULL OR _P3_ALB_TWO IS NULL
+      then: null
+    - when: _P3_ALB_ONE > _P3_ALB_TWO
+      then: _P3_ALB_ONE
+    - otherwise: _P3_ALB_TWO
