@@ -85,9 +85,10 @@ reviewer needs them:
 The opening **The finding** section shows the issue title and its expected
 and observed behavior. The sections then follow the navigation:
 
-1. **Define-XML and resolved YAML**: the identified Define-XML item beside
-   the selected variable in the executable resolved YAML. Only these two
-   sources appear in this panel. Original YAML line numbers are retained;
+1. **Define-XML vs. reproduced yamaa specification from ADaM data**: the
+   identified Define-XML item beside the selected variable in the executable
+   resolved YAML. Only these two sources appear in this panel. Original YAML
+   line numbers are retained;
    **View source** opens the complete file without losing your draft.
 2. **Subject examples**: two columns, **ADaM data** and **Documented Rule**,
    with differences highlighted. Record keys and input values appear with

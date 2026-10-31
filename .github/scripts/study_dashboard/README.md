@@ -7,8 +7,10 @@ The reviewer guide is `docs/review/index.md`; the pages beside it describe
 each dashboard screen.
 
 All pilot studies share the same tabs, finding filters and Start review
-sections: Define-XML and resolved YAML, subject examples and Human Review. Studies supply their own data, documents and review
-claims; committed claims require the same derivation verification for publication.
+sections: Define-XML vs. reproduced yamaa specification from ADaM data,
+subject examples and Human Review. Studies supply their own data, documents
+and review claims; committed claims require the same derivation verification
+for publication.
 
 ## Source layout
 

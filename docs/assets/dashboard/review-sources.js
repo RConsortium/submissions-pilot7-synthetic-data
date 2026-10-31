@@ -18,7 +18,7 @@ export function reviewComparisonEvidence(issue, report, specifications = {}) {
 
 export function reviewComparison(issue, report, specifications) {
   const evidence = reviewComparisonEvidence(issue, report, specifications);
-  return `<div class="trace-source-grid" aria-label="Define-XML and resolved YAML comparison">${[
+  return `<div class="trace-source-grid" aria-label="Define-XML vs. reproduced yamaa specification from ADaM data">${[
     ["document", "Define-XML", "The identified Define-XML item is unavailable for this finding."],
     ["specification", "Resolved YAML", "The resolved YAML item is unavailable for this finding."],
   ].map(([type, label, missing]) => {
