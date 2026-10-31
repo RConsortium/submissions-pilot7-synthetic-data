@@ -758,8 +758,10 @@ def check(browser, base, site_dir, screenshots):
     trace = page.locator(".trace-review-dialog")
     expect(trace).to_be_visible()
     expect(trace.locator(".quote-source + blockquote").first).to_contain_text("WEIGHTBL / ((HEIGHTBL*100)**2)")
-    expect(trace).to_contain_text("Agent review:")
-    expect(trace).to_contain_text("Automated criticality assessment:")
+    # Start review keeps the evidence and human review; #249 removed the
+    # agent and automated criticality assessment prose from the dialog.
+    expect(trace).not_to_contain_text("Agent review:")
+    expect(trace).not_to_contain_text("Automated criticality assessment:")
     expect(trace.locator("#trace-sources")).not_to_contain_text("adrg.pdf")
     expect(trace.locator("#trace-sources pre.spec-lines").first).to_be_visible()
     expect(trace.locator("#trace-examples h3")).to_have_text("Subject examples")
