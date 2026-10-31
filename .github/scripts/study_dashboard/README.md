@@ -6,30 +6,11 @@ GitHub Discussions through giscus supplies comments without an application serve
 The reviewer guide is `docs/review/index.md`; the pages beside it describe
 each dashboard screen.
 
-## Pilot 5 two-source review
-
-Pilot 5 sets `dashboard.review_scope: dataset_define` in the publication catalog.
-`dataset_define.py` reads the validated output paths and retained ADaM Define-XML.
-It never reads reference datasets, source documents other than that XML, review
-claims or YAML labels to decide a finding. Files and hashes identify the two
-sources. The normal artifact checks still run before and after export.
-
-The checker covers bidirectional variable inventory, stored labels, logical
-storage mappings, observed UTF-8 text lengths, XML-declared keys, enumerated
-codelists, EQ/IN value-level conditions and literal numeric arithmetic over the
-same dataset. Numeric/date expressions support +, -, *, / at absolute tolerance
-1e-10; methods with declared precision or unsupported expressions are not
-recalculated. Full applicable populations determine counts. Missing evidence and
-unsupported metadata stay Not assessed, with separate coverage counts. Source
-citations retain exact original XML lines. Origins and methods remain review
-evidence; this is not a reconstruction of the derivation pipeline.
-
-This mode publishes neither the multisource verification report nor the old
-claim-based issue groupings. `reviewed_datasets` omits it from that publication
-prerequisite. Existing claims, programs and reference files remain retained;
-explicit derivation review and dataset reproduction tools still work separately.
-The mode is opt-in; other studies keep their current review. Do not change
-independent reference data or loosen comparator policies to resolve a finding.
+All pilot studies share the same tabs, finding filters and Start review
+sections: Define-XML vs. reproduced yamaa specification from ADaM data,
+subject examples and Human Review. Studies supply their own data, documents
+and review claims; committed claims require the same derivation verification
+for publication.
 
 ## Source layout
 
@@ -148,6 +129,9 @@ official pilot results explicitly omitted when their evidence is unavailable.
    screens stack them. Row citations reveal their worksheet automatically.
    Source documents use the original views only, with one or
    two independent tabbed panes; extracted text is kept for consistency checks.
+   Retained R programs have syntax colors generated with Pygments and embedded
+   styles, so viewing code needs no external scripts or network requests. Program
+   text, line numbers, citation ranges and upstream links are preserved.
 5. Optionally add `spec/review/questions.json`, with `schema_version: 1` and a
    `questions` array. Each question needs unique `id`, `dataset`, optional
    `variable`, `title`, study-relative `document`, `section`, exact `excerpt`,
@@ -178,7 +162,7 @@ a reviewer's behalf by itself. A link over 8,000 characters is not sent: the
 composer then opens with the title only and the dialog keeps the text to paste.
 Without `review_url`, the dialog falls back to **Copy review**.
 
-Prepared review text remains selectable under **Your review** for manual copying.
+Prepared review text remains selectable under **Human Review** for manual copying.
 Opening the composer, copying or saving locally never reports a successful
 GitHub post. Browser checks intercept the
 composer tab; they do not exercise GitHub sign-in or post real discussions.
@@ -304,13 +288,45 @@ exact source-file pair; all supporting checks and quotations remain available.
 Both the metric and the static study
 report count issues. The table separately counts unique supporting checks.
 The Start review button opens an expanded dialog, keeping complete evidence out of the
-initial listing DOM. It separates the finding, source-document previews, YAML specification comparison,
-Example Subject Difference, recommended fix, and human review. Source previews
-contain only retained documents; YAML citations and document-based translations
-are compared separately. Subject examples compare current reference values with
-document-based calculations, omit the yamaa output column, and highlight differing
-cells while preserving blank, missing, absent-variable and absent-record states. Related issues for the same variable
-are independently selectable; source context remains expandable. The data workspace links back to the same dialog.
+initial listing DOM. Its first panel pairs only the cited Define-XML item with
+the selected variable's resolved YAML, preserving source links and line numbers.
+The second panel shows **ADaM data** and **Documented Rule** in two columns;
+record keys and inputs accompany the data value. Alternative interpretations
+and open-question panels are omitted. **Human Review** asks for agreement,
+criticality, then optional dataset correctness.
+
+`review_scope.py` projects the complete check audit into outstanding findings
+between actual ADaM data and original Define-XML. It keeps observed data and
+metadata discrepancies, invalid documented sources, and verified contradictory
+or incomplete rules requiring clarification. YAML-only and program-only
+differences remain in the raw audit. A conditional interpretation does not supply
+literal-rule impact, and an assessment limit does not establish a data error.
+
+Direct dataset checks read original predecessor origins and legacy value-level
+metadata rather than treating reading-copy omissions as missing documentation.
+Integer checks inspect actual values, enumerated numeric codelists tolerate
+representation noise, and `SignificantDigits` does not imply an algorithmic
+rounding step. A key declaration establishes the declared key order; it does
+not by itself state that every key component must be nonmissing.
+
+Reviewed publication decisions live in
+`<study>/spec/review/publication.json` or per-dataset
+`<dataset>-publication.json`. Their versioned schema binds the original
+Define-XML SHA256 and identifies current check IDs, a reason and the disposition
+`finding`, `clarification`, `coverage` or `exclude`. An optional check basis
+binds a decision to its evidence, and a shared group can combine supporting
+checks for one root problem. Unknown IDs and changed bound evidence fail
+publication rather than silently dropping a review decision.
+
+`report.review.issues` counts grouped findings. Supporting checks are counted
+separately, and `report.coverage_items` lists checks awaiting evidence or a
+supported assessment as `{id, dataset, variable, title, reason}` entries.
+`scope_summary` records finding, check and coverage totals. The frontend shows
+study-wide coverage below the findings without adding it to findings or subject
+impact. Original raw findings, logic checks and the standalone verification
+report retain the complete audit. The projected review keeps valid check and
+evidence relationships so dataset badges, counts, sibling navigation and direct
+links share the same scope.
 
 Human agreement, criticality and comments are browser-local assessments. Neither
 decision is preselected. Drafts save automatically as the reviewer edits; there
@@ -318,7 +334,7 @@ is no separate local-save action. A draft does not resolve the finding or
 replace agent adjudication or automated criticality. Drafts are scoped to the
 study and issue and bound to its current evidence; changed evidence returns an
 earlier assessment as a draft. The copied GitHub comment retains source revision
-and check IDs. No review is posted to GitHub automatically. Use a GitHub discussion or the workspace's dataset Review comments box to
+and check IDs. No review is posted to GitHub automatically. Use a GitHub discussion or the workspace's dataset Comments box to
 publish the copied assessment.
 
 The verifier retains row-aligned examples from the actual reference, yamaa and
@@ -417,8 +433,8 @@ and uses those facts without installing the engine. Copies, includes, inheritanc
 and named windows require fresh resolved evidence; they are never approximated
 from authored YAML. Resolved dataset resources must be in the study's artifact
 inventory. Schema-default origins name engine schema modules, not study files.
-The browser can select each original file or the exact executable composed YAML.
-Focused views mark omitted lines, and clipboard actions retain the complete text.
+The workspace displays the exact executable composed YAML and links to its
+complete file in the repository. Focused views mark omitted lines.
 
 `domains.py` reads dataset descriptions from retained Define-XML, with browser
 fallbacks for common domains and lookup tables. Adding a domain does not require

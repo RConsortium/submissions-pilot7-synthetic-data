@@ -3,7 +3,9 @@ import {
   criticalFinding,
   CRITICAL_LABELS,
   findIssue,
+  findingVariable,
   impactText,
+  impactSummary,
   issueRow,
   issueSearchText,
   readReview,
@@ -35,15 +37,49 @@ export const YOUR_REVIEW = {
   reviewed: "Both decisions saved",
 };
 
+/** One mapping serves input events, repainting and clearing the table filters. */
+export const FINDING_FILTERS = {
+  "finding-search": "findingSearch",
+  "finding-dataset": "datasetSearch",
+  "finding-variable": "variableSearch",
+  "finding-agent": "agentReview",
+  "finding-critical": "critical",
+  "finding-kind": "kind",
+  "finding-impact": "impactSearch",
+  "finding-issue": "issueSearch",
+  "finding-review": "yourReview",
+};
+const COLUMNS = [
+  { key: "dataset", label: "Dataset", width: 110 },
+  { key: "variable", label: "Variable", width: 145 },
+  { key: "status", label: "Status", width: 145 },
+  { key: "critical", label: "Critical finding", width: 135 },
+  { key: "type", label: "Type", width: 135 },
+  { key: "impact", label: "Documented rule vs data", width: 200, min: 140, max: 640 },
+  { key: "issue", label: "Issue", width: 360, min: 240, max: 1600 },
+  { key: "evidence", label: "Evidence", width: 165 },
+];
+
 export function createReport(ctx) {
   const comparisons = {
     input_output: "Input -> output logic",
     source_documents: "Source documents",
     documented_rules: "Documented rules",
+    dataset_define: "Dataset vs Define-XML",
   };
   const allFindings = () => consistencyFindings(ctx.report);
   const draftOf = (issue) => ctx.drafts?.load(ctx.model.id, issue, ctx.report);
-  /** Comparison, type, criticality and own-review filters; the search is applied separately. */
+  let checkReport, ruleIds;
+  function variableText(i) {
+    if (checkReport !== ctx.report) {
+      checkReport = ctx.report;
+      ruleIds = new Map(readReview(checkReport).checks.map((c) => [c.id, c.rule?.id || ""]));
+    }
+    return [findingVariable(i), ...i.check_ids.map((id) => ruleIds.get(id) || "")].join(" ");
+  }
+  const matches = (text, query) => !query?.trim() ||
+    text.toLowerCase().includes(query.trim().toLowerCase());
+  /** Column filters combine; the global evidence search is applied separately. */
   function filtered(i) {
     const { state } = ctx;
     return (
@@ -51,7 +87,11 @@ export function createReport(ctx) {
       (!state.comparison || i.comparison === state.comparison) &&
       (!state.critical || criticalFinding(i).status === state.critical) &&
       (!state.agentReview || i.review === state.agentReview) &&
-      (!state.yourReview || !ctx.drafts || draftOf(i).status === state.yourReview)
+      (!state.yourReview || !ctx.drafts || draftOf(i).status === state.yourReview) &&
+      matches(i.dataset, state.datasetSearch) &&
+      matches(variableText(i), state.variableSearch) &&
+      matches(impactSummary(i), state.impactSearch) &&
+      matches(`${i.title} ${i.summary}`, state.issueSearch)
     );
   }
   function findingItems() {
@@ -61,10 +101,12 @@ export function createReport(ctx) {
       [i.dataset, i.variable, `${i.dataset}.${i.variable}`]
         .map((v) => v.toLowerCase())
         .includes(q);
-    // A dataset name scopes exactly even when it has no issue, so a
-    // zero-count dataset chip lists nothing instead of text matches.
+    // Dataset and declared dataset.variable queries stay scoped even without
+    // findings, rather than matching another variable's source context.
     const exactScope = q && (allFindings().some(scope) ||
-      (ctx.model?.datasets || []).some((d) => d.name.toLowerCase() === q));
+      (ctx.model?.datasets || []).some((d) => d.name.toLowerCase() === q ||
+        (ctx.model?.tables?.[d.output]?.columns || []).some(
+          (c) => `${d.name}.${c.name}`.toLowerCase() === q)));
     // Critical findings first, then the ones needing assessment; within each, findings the
     // adjudicating agent disputed, or whose decision is stale or mixed, come last. The report
     // order holds otherwise: a measured count compares the documented rule as written.
@@ -112,31 +154,80 @@ export function createReport(ctx) {
     if (counts.stale) parts.push(`${counts.stale} with changed evidence`);
     return `<div id="review-ledger" class="review-ledger" role="group" aria-label="Your reviews"><span class="field-label">Your reviews</span><strong>${counts.started} of ${counts.listed}</strong> listed${counts.started ? ` <span class="ledger-detail">(${parts.join("; ")})</span>` : ""}<span class="ledger-actions"><button type="button" class="text-link" data-review-ledger="copy" ${counts.started ? "" : "disabled"}>Copy your reviews</button><button type="button" class="text-link" data-review-ledger="download" ${counts.started ? "" : "disabled"}>Download your reviews</button></span><span class="ledger-feedback" role="status" aria-live="polite"></span></div>`;
   }
-  function findingRows() {
-    const items = findingItems(),
-      checks = new Set(items.flatMap((i) => i.check_ids)).size;
-    return `${datasetStrip()}${ledgerStrip()}<p class="result-count" role="status">${items.length} of ${allFindings().length} issue${allFindings().length === 1 ? "" : "s"} &middot; ${checks} supporting check${checks === 1 ? "" : "s"}</p><div class="overview-table consistency-table" role="region" aria-label="Consistency findings" tabindex="0"><table class="review-table"><thead><tr><th scope="col">Dataset / variable</th><th scope="col">Status</th><th scope="col">Critical finding</th><th scope="col">Type</th><th scope="col">${ctx.report.scope === "dataset_define" ? "Dataset vs Define-XML" : "Documented rule vs data"}</th><th scope="col">Issue</th><th scope="col">Evidence</th></tr></thead><tbody>${items.length ? items.map((i) => issueRow(i, ctx.report)).join("") : '<tr><td colspan="7">No issues match. Clear the filters to see all issues.</td></tr>'}</tbody></table></div>`;
+  /** Assessment limits remain visible without adding findings or measured impact. */
+  function coverageGaps() {
+    const items = Array.isArray(ctx.report?.coverage_items) ? ctx.report.coverage_items : [];
+    if (!items.length) return "";
+    const { esc } = ctx;
+    return `<details class="coverage-note coverage-gaps"><summary>Study coverage gaps: ${items.length} check${items.length === 1 ? "" : "s"} not assessed</summary><p>These checks need additional evidence or a supported assessment. They are separate from the findings and do not establish a data discrepancy.</p><ul>${items.map((item) => {
+      const scope = [item.dataset, item.variable].filter(Boolean).join(".") || "Study";
+      return `<li><strong>${esc(scope)}</strong>: ${esc(item.reason || item.title || "Assessment unavailable.")}</li>`;
+    }).join("")}</ul></details>`;
   }
-  /** The two decisions and the finding types, where the reviewer meets them. */
+  function findingCount(items) {
+    const { esc, state } = ctx,
+      count = new Set(items.flatMap((i) => i.check_ids)).size;
+    // Existing comparison-scoped links remain visible and can be cleared.
+    const comparison = state.comparison ? ` <span class="active-comparison">Comparison: ${esc(comparisons[state.comparison] || state.comparison)} <button type="button" class="text-link" id="clear-finding-comparison" aria-label="Remove comparison filter">Remove</button></span>` : "";
+    return `${items.length} of ${allFindings().length} issue${allFindings().length === 1 ? "" : "s"} &middot; ${count} supporting check${count === 1 ? "" : "s"}${comparison}`;
+  }
+  function findingBody(items) {
+    return items.length ? items.map((i) => issueRow(i, ctx.report)).join("") : `<tr><td colspan="${COLUMNS.length}">No issues match. Clear the filters to see all issues.</td></tr>`;
+  }
+  function columnFilters() {
+    const { esc, state } = ctx;
+    function input(id, label, placeholder) {
+      return `<input id="${id}" type="search" aria-label="Filter ${label}" placeholder="${placeholder}" value="${esc(state[FINDING_FILTERS[id]] || "")}">`;
+    }
+    function select(id, label, entries, empty = "All") {
+      return `<select id="${id}" aria-label="Filter ${label}"><option value="">${empty}</option>${entries.map(([key, text]) => `<option value="${key}" ${state[FINDING_FILTERS[id]] === key ? "selected" : ""}>${esc(text)}</option>`).join("")}</select>`;
+    }
+    const filters = [
+      input("finding-dataset", "Dataset", "Filter..."),
+      input("finding-variable", "Variable", "Name or rule"),
+      select("finding-agent", "Status by agent review", Object.entries(AGENT_REVIEW).map(([key, text]) => [key, `${text} (agent)`]), "All agents"),
+      select("finding-critical", "Critical finding", Object.entries(CRITICAL_LABELS)),
+      select("finding-kind", "Issue type", KINDS.map((v) => [v, v.replaceAll("_", " ")]), "All types"),
+      input("finding-impact", "Documented rule vs data", "Count or result"),
+      input("finding-issue", "Issue", "Title or summary"),
+      ctx.drafts ? select("finding-review", "Your review", Object.entries(YOUR_REVIEW), "All reviews") : '<span class="sr-only">All evidence</span>',
+    ];
+    return `<tr class="finding-filters">${COLUMNS.map((c, n) => `<td data-label="${c.key === "status" ? "Agent review" : c.key === "evidence" ? "Your review" : c.label}">${filters[n]}</td>`).join("")}</tr>`;
+  }
+  function findingTable(items) {
+    const { esc } = ctx, widths = ctx.layout?.findingColumns || {},
+      custom = Object.keys(widths).length > 0,
+      width = (c) => widths[c.key] || c.width,
+      total = COLUMNS.reduce((sum, c) => sum + width(c), 0),
+      resize = (c) => c.min ? `<span class="column-resizer" data-resize-column="${c.key}" role="separator" tabindex="0" aria-label="Resize ${c.label} column" aria-orientation="vertical" aria-valuemin="${c.min}" aria-valuemax="${c.max}" aria-valuenow="${width(c)}" title="Drag to resize, or use the Left and Right arrow keys"></span>` : "";
+    return `<div class="overview-table consistency-table" data-finding-table role="region" aria-label="Consistency findings" tabindex="0"><table class="review-table" style="width:${custom ? total + "px" : "100%"};min-width:${custom ? 0 : total}px"><colgroup>${COLUMNS.map((c) => `<col data-column="${c.key}"${c.key === "issue" && !custom ? "" : ` style="width:${width(c)}px"`}>`).join("")}</colgroup><thead><tr class="finding-headings">${COLUMNS.map((c) => `<th scope="col">${esc(c.label)}${resize(c)}</th>`).join("")}</tr>${columnFilters()}</thead><tbody>${findingBody(items)}</tbody></table></div>`;
+  }
+  function findingRows() {
+    const items = findingItems();
+    return `${datasetStrip()}${ledgerStrip()}<p id="finding-count" class="result-count" role="status">${findingCount(items)}</p>${findingTable(items)}${coverageGaps()}`;
+  }
+  /** Keep the filter controls, focus, selection and column widths while rows change. */
+  function refreshFindings() {
+    const host = ctx.byId("finding-results");
+    if (!host) return;
+    const items = findingItems();
+    host.querySelector("tbody").innerHTML = findingBody(items);
+    ctx.byId("finding-count").innerHTML = findingCount(items);
+    host.querySelector(".finding-datasets").outerHTML = datasetStrip();
+    const strip = ctx.byId("review-ledger");
+    if (strip) strip.outerHTML = ledgerStrip();
+    for (const [id, field] of Object.entries(FINDING_FILTERS)) {
+      const control = ctx.byId(id), value = ctx.state[field] || "";
+      if (control && control.value !== value) control.value = value;
+    }
+  }
+  /** A short reminder above the finding filters. */
   function howToReview() {
-    if (ctx.report.scope === "dataset_define")
-      return `<details class="review-howto" open><summary>How to review a finding</summary><p>Compare the current derived dataset with the retained ADaM Define-XML. Differences identify incompatible declarations or observed values; gaps identify missing metadata. Not assessed means these two sources cannot establish the answer. Open Start review, check both sources, and record your agreement and criticality. Passing checks do not establish derivation correctness.</p></details>`;
-    const { esc } = ctx, guide = ctx.site ? new URL("review/findings/", ctx.site).href : "";
-    // Open until the reviewer has started a review of this study, then out of the way.
-    const open = !ctx.drafts || reviewLedger(ctx.drafts, ctx.model.id, allFindings(), ctx.report).counts.started === 0;
-    return `<details class="review-howto"${open ? " open" : ""}><summary>How to review a finding</summary><div><p>Each row is one finding that asks for two decisions. <strong>Do you agree with this finding?</strong> The documents, the specification and the data disagree in the way the row describes. <strong>Is this finding critical?</strong> A critical issue could materially affect analysis results or their interpretation. Start with <strong>Critical finding: Yes</strong>, then <strong>Needs review</strong>; the automated criticality rates the kind of discrepancy, not the number of subjects.</p><p><strong>Types.</strong> Conflict: documents disagree with the data or with one another. Divergence: a documented rule is expressed differently in the specification. Gap: a rule or clause is undocumented. Evidence: a quoted passage was not found. Inconsistent: an input-to-output check failed. Unclear: a question the checks cannot settle. Missing evidence and not reviewed: authored questions. Agent agreement is not resolution.</p><p>Open <strong>Start review</strong> for the finding's evidence, record both decisions under <strong>Your review</strong>, then share them on GitHub or hand them over from <strong>Your reviews</strong> above the table.${guide ? ` <a class="text-link" href="${esc(guide)}">Read the full guide</a>` : ""}</p></div></details>`;
+    return `<p class="review-howto">Open <strong>Start review</strong> for the finding's evidence, record both decisions under <strong>Human Review</strong>.</p>`;
   }
   function findingsView() {
     const { state, esc } = ctx;
-    function select(id, label, entries, selected) {
-      return `<label class="select-field">${label}<select id="${id}"><option value="">All</option>${entries.map(([key, text]) => `<option value="${key}" ${selected === key ? "selected" : ""}>${esc(text)}</option>`).join("")}</select></label>`;
-    }
-    const entries = (values) => values.map((v) => [v, v.replaceAll("_", " ")]);
-    if (ctx.report.scope === "dataset_define") {
-      const sources = ctx.report.sources;
-      return `<p>Dataset source: current derived outputs. Metadata source: <code>${esc(sources.define.path)}</code>.</p><details><summary>Compared files and coverage</summary><ul>${sources.datasets.map((d) => `<li><code>${esc(d.path)}</code>: ${d.rows} rows, ${d.columns} columns; SHA256 <code>${esc(d.sha256)}</code></li>`).join("")}</ul><p>Define-XML SHA256: <code>${esc(sources.define.sha256 || "unavailable")}</code></p><p>${esc(ctx.report.coverage.metadata)}</p><p>${esc(ctx.report.coverage.narrative)}</p></details>${howToReview()}<div class="report-filters"><label class="search-field">Search findings<input id="finding-search" type="search" value="${esc(state.findingSearch)}" placeholder="Dataset, variable or check..."></label>${select("finding-kind", "Issue type", entries(["inconsistent", "gap", "unclear"]), state.kind)}${select("finding-critical", "Critical finding", Object.entries(CRITICAL_LABELS), state.critical)}${ctx.drafts ? select("finding-review", "Your review", Object.entries(YOUR_REVIEW), state.yourReview || "") : ""}<button class="button" id="clear-findings">Clear filters</button></div><div id="finding-results">${findingRows()}</div>`;
-    }
-    return `${howToReview()}<div class="report-filters"><label class="search-field"><span class="field-label">Search issues</span><input id="finding-search" type="search" value="${esc(state.findingSearch)}" placeholder="Variable, issue, document or rule..."></label>${select("finding-comparison", "Comparison", Object.entries(comparisons), state.comparison)}${select("finding-kind", "Issue type", entries(KINDS), state.kind)}${select("finding-critical", "Critical finding", Object.entries(CRITICAL_LABELS), state.critical)}${select("finding-agent", "Agent review", Object.entries(AGENT_REVIEW), state.agentReview || "")}${ctx.drafts ? select("finding-review", "Your review", Object.entries(YOUR_REVIEW), state.yourReview || "") : ""}<button class="button" id="clear-findings">Clear filters</button></div><div id="finding-results">${findingRows()}</div>`;
+    return `${howToReview()}<div class="finding-tools"><label class="search-field"><span class="field-label">Search issues</span><input id="finding-search" type="search" value="${esc(state.findingSearch)}" placeholder="Variable, issue, document or rule..."></label><button type="button" class="text-link" id="clear-findings">Clear filters</button></div><div id="finding-results">${findingRows()}</div>`;
   }
   function drawer() {
     const { state, esc, byId, root, report } = ctx;
@@ -155,6 +246,7 @@ export function createReport(ctx) {
     findingItems,
     findingRows,
     findingsView,
+    refreshFindings,
     ledger,
     ledgerStrip,
     drawer,

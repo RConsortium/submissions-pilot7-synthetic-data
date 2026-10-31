@@ -17,7 +17,29 @@ reference. You do not judge findings, and you never change one.
 - `.github/schemas/review-issues.schema.json`, the file format, and
   `cdiscpilot01/spec/review/adsl-issues.json`, a complete example.
 
-Write only `<study>/spec/review/<dataset>-issues.json`.
+Write `<study>/spec/review/<dataset>-issues.json` for the complete audit grouping.
+Record the separately reviewed publication scope in
+`<study>/spec/review/<dataset>-publication.json`, following
+`.github/schemas/review-publication.schema.json`.
+
+## Publication scope
+
+The reviewer-facing findings compare actual ADaM data and metadata with the
+original submitted Define-XML. Keep observed discrepancies and verified
+contradictory or incomplete rules that prevent assessment. A YAML or program
+difference alone stays in the audit. A program may explain an observed result;
+it does not establish that a documented requirement was violated.
+
+Inspect original Origin declarations and value-level ItemDefs before declaring
+a rule undocumented. A reader or probe limitation is not missing documentation.
+Do not turn numeric SignificantDigits metadata into an unstated rounding
+algorithm. Put an unavailable referenced SAP or external dictionary in coverage.
+
+Use one publication group for checks describing the same variable and the same
+required correction. Preserve independent data, type and length discrepancies
+as separate findings. A clarification must not present an assumed probe reading
+as measured literal impact. Bind decisions to the original XML hash and current
+check basis; changed evidence requires another review.
 
 ## Group
 
@@ -57,5 +79,6 @@ program it is when an issue relies on it.
 
 ## Return
 
-Return the number of findings and issues, and list any finding you could not
-explain from the report, with the reason.
+Return the number of published grouped findings, separate coverage gaps and raw
+supporting checks. List excluded audit observations and the reason. Do not use
+the raw audit total as the headline finding count.
