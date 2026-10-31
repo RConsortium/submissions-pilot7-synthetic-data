@@ -26,11 +26,10 @@ Each row is one issue.
 | --- | --- |
 | Dataset | The output dataset the finding concerns. |
 | Variable | The output variable, or **Dataset-wide** for a finding about the whole dataset. Its consistency rule IDs appear underneath; select a rule ID to read its requirements. Select the variable to open the workspace with the affected subjects. |
-| Status | Under Review until maintainers record a human decision. When the adjudicating agent disputed the finding, or its decision is stale or mixed, the cell says so. |
 | Critical finding | The automated criticality assessment: Yes, No or Needs review. |
 | Type | The issue type, listed below. |
 | Documented rule vs data | How many subjects differ when the documented rule, run as written, is compared with the data; **No differences in tested data**; or **Not measured** when the finding compares statements only. A count here measures the written rule, not the dataset: the review states whether the yamaa output matches the generated ADaM datasets. |
-| Issue | A short title and a one-sentence summary. |
+| Issue | A short title, expandable summary, action question and a small agent-review marker. |
 | Evidence | **Start review** opens the complete evidence. Your own draft assessment, if you have one, appears underneath. |
 
 The count above the table separates grouped findings from the automated checks
@@ -47,13 +46,13 @@ Finding filters do not change this study-wide coverage list.
 
 ## Filters and search
 
-Filters sit directly below the table's column headings. Text filters match
+Column labels and their filters stay together in the sticky table header. Text filters match
 without regard to case, and all active filters apply together:
 
 - **Dataset** matches only the dataset name.
 - **Variable** matches the variable name or a displayed rule ID. Combine it with
   **Dataset** to narrow the same variable across different datasets.
-- **Status** filters the agent review: agreed, disputed, stale, mixed or not
+- **Agent review** beside the search filters the agent review: agreed, disputed, stale, mixed or not
   adjudicated. Every finding remains Under Review until a human decision is
   recorded; agent agreement is not resolution.
 - **Critical finding** filters Yes, No and Needs review. Incorrect source,
@@ -103,12 +102,13 @@ agreement is not resolution.
 
 ## Start review
 
-**Start review** opens the finding's complete evidence on its own page, with
+**Start review** opens the finding's complete evidence in a dialog, with
 the other findings for the same variable listed beside it, in the order a
 reviewer needs them:
 
-The opening **The finding** section shows the issue title and its expected
-and observed behavior. The sections then follow the navigation:
+The opening **The finding** section shows the title, summary, measured impact, automated criticality
+assessment and its reason, agent review, and **Question for you**. Expected and
+observed behavior appear when available. The sections then follow the navigation:
 
 - **Define-XML vs. reproduced yamaa specification from ADaM data**: the
   identified Define-XML item beside the selected variable in the executable
@@ -124,7 +124,7 @@ and observed behavior. The sections then follow the navigation:
 [Record your assessment](#record-your-assessment).
 
 **Next finding in list** and **Previous finding in list** walk the
-findings the table currently lists, in its order, without closing the page;
+findings the table currently lists, in its order, without closing the dialog;
 the footer counts your place in that list. When the open finding is not in
 the list, the buttons walk its variable's findings instead.
 
@@ -161,8 +161,7 @@ comment text.
 Under **Human Review**, answer **Do you agree with this finding?** first:
 **Agree**, **Disagree** or **Need clarification**. Next answer **Is this
 finding critical?**: **Critical**, **Not critical** or **Unsure**. Third,
-optionally assess **Is current dataset correctly derived?**: **Yes, dataset
-is correct**, **No, define-xml is correct**, **Neither as written** or **Unsure**.
+optionally assess **Which source is right?**: **Dataset**, **Define-XML**, **Neither** or **Unsure**.
 Add review comments if needed. The choices share a row on desktop and stack
 on smaller screens. No answer is preselected. Drafts save automatically in this
 browser, scoped to the study and the issue and bound to its current
@@ -205,3 +204,9 @@ focused dataset, separate from the per-finding discussions that **Submit
 review on GitHub** creates. GitHub sign-in is required to post. A
 review-issue link remains available if the embedded discussion cannot load.
 Old links that name an individual check open its first related issue.
+
+The Consistency review card and Your reviews strip show study-wide completed
+assessments. Counts for the filtered list remain alongside them. **Next not reviewed**
+in the dialog continues through the whole study, including partial drafts and
+assessments whose evidence changed. A visible row badge records your local status;
+opening the GitHub composer still does not confirm publication.

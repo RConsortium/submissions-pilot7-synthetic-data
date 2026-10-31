@@ -128,6 +128,8 @@ import { developmentReport, mountDevelopment } from "./synthetic-development.js"
   ctx.refreshLedger = () => {
     const strip = byId("review-ledger");
     if (strip) strip.outerHTML = ledgerStrip();
+    const progress = root()?.querySelector(".study-review-progress");
+    if (progress) progress.textContent = `${ctx.report.review.issues.filter((i) => drafts.load(model.id, i, report).status === "reviewed").length} / ${report.review.issues.length} reviewed in this study`;
   };
   const reviewSources = createReviewSources(ctx);
   const traceReview = createTraceReview(ctx, reviewSources);

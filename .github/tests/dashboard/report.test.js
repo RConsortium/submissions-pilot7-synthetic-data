@@ -142,16 +142,15 @@ test("the metric and listing count issues separately from supporting checks", ()
   assert.match(listing, /1 of 1 issue &middot; 2 supporting checks/);
   assert.equal((listing.match(/<tr class="review-issue"/g) || []).length, 1);
   assert.ok(listing.includes("Issue type"));
-  assert.ok(!listing.includes("Agent review: agreed"));
+  assert.ok(listing.includes("Agent review: agreed"));
   assert.ok(listing.includes('id="finding-agent"'));
   assert.ok(!listing.includes('id="issue-review"'));
-  assert.deepEqual([...listing.matchAll(/<th scope="col">([^<]+)/g)].map((m) => m[1]), [
-    "Dataset", "Variable", "Status", "Critical finding", "Type", "Documented rule vs data", "Issue", "Evidence",
+  assert.deepEqual([...listing.matchAll(/<th scope="col" aria-label="([^"]+)"/g)].map((m) => m[1]), [
+    "Dataset", "Variable", "Critical finding", "Type", "Documented rule vs data", "Issue", "Evidence",
   ]);
-  assert.ok(listing.includes('<th scope="col">Status</th>'));
-  assert.match(listing, /class="issue-status"[^]*?class="status attention">Under Review<\/span>/);
+  assert.doesNotMatch(listing, /class="issue-status"|Under Review/);
   assert.deepEqual([...issueRow(issue, report).matchAll(/<td class="([^"]+)"/g)].map((m) => m[1]), [
-    "issue-dataset", "issue-status", "issue-critical", "issue-type", "issue-impact", "issue-summary",
+    "issue-dataset", "issue-critical", "issue-type", "issue-impact", "issue-summary",
   ]);
   for (const name of ["issue-critical", "issue-type"]) {
     const cell = listing.match(new RegExp(`<td class="${name}">([^]*?)</td>`))[1];
@@ -321,7 +320,7 @@ test("criticality filters all assessments, preserves long issues and handles old
   assert.equal(view.findingItems().length, 3);
   assert.equal(criticalFinding({}).status, "needs_review");
   s.findingSearch = "absent";
-  assert.match(view.findingRows(), /colspan="8"/);
+  assert.match(view.findingRows(), /colspan="7"/);
 });
 
 test("workspace drawer resolves old check links to the issue and uses the same evidence", () => {
@@ -526,7 +525,7 @@ test("your reviews strip counts the listed findings' assessments and the own-rev
   const s = state(),
     view = createReport({ report: data, state: s, esc, drafts, model: { id: "study", datasets: [] } });
   let html = view.findingRows();
-  assert.match(html, /Your reviews<\/span><strong>2 of 2<\/strong> listed/);
+  assert.match(html, /1 of 2 reviewed in this study<\/strong> <span>\(2 of 2 listed started\)/);
   assert.match(html, /1 with both decisions; 1 draft; 1 opened in GitHub or copied/);
   assert.match(html, /data-review-ledger="copy" >Copy your reviews/);
   s.yourReview = "draft";
@@ -534,12 +533,12 @@ test("your reviews strip counts the listed findings' assessments and the own-rev
   assert.match(html, /1 of 2 issues/);
   assert.match(html, /data-finding-id="other"/);
   assert.doesNotMatch(html, /data-finding-id="study:ADX/);
-  assert.match(html, /<strong>1 of 1<\/strong> listed/);
+  assert.match(html, /1 of 2 reviewed in this study<\/strong> <span>\(1 of 1 listed started\)/);
   assert.deepEqual(view.ledger().counts, { listed: 1, started: 1, drafts: 1, reviewed: 0, shared: 0, stale: 0 });
   assert.match(view.findingsView(), /id="finding-review"/);
   records.clear();
   assert.match(createReport({ report: data, state: state(), esc, drafts, model: { id: "study" } }).findingRows(),
-    /<strong>0 of 2<\/strong> listed<span class="ledger-actions"><button type="button" class="text-link" data-review-ledger="copy" disabled>/);
+    /<strong>0 of 2 reviewed in this study<\/strong> <span>\(0 of 2 listed started\)<\/span><span class="ledger-actions"><button type="button" class="text-link" data-review-ledger="copy" disabled>/);
   // Without a drafts store there is no ledger and no own-review filter.
   const bare = createReport({ report: data, state: state(), esc });
   assert.doesNotMatch(bare.findingRows() + bare.findingsView(), /review-ledger|finding-review/);
@@ -624,9 +623,9 @@ test("each column has an inline filter and both text columns have resize handles
   const drafts = { load: () => ({ status: "unreviewed", shared: "", stale: false }) },
     html = createReport({ report, state: state(), esc, drafts, model: { id: "study" } }).findingsView();
   const filters = html.match(/<tr class="finding-filters">([^]*?)<\/tr>/)[1];
-  assert.equal((filters.match(/<td /g) || []).length, 8);
-  assert.match(filters, /value="agreed"[^>]*>Agreed \(agent\)/);
-  for (const id of ["finding-dataset", "finding-variable", "finding-agent", "finding-critical", "finding-kind", "finding-impact", "finding-issue", "finding-review"])
+  assert.equal((filters.match(/<th /g) || []).length, 7);
+  assert.match(html, /value="agreed"[^>]*>Agreed/);
+  for (const id of ["finding-dataset", "finding-variable", "finding-critical", "finding-kind", "finding-impact", "finding-issue", "finding-review"])
     assert.ok(filters.includes(`id="${id}"`), id);
   assert.deepEqual([...html.matchAll(/data-resize-column="([^"]+)"/g)].map((m) => m[1]), ["impact", "issue"]);
   assert.doesNotMatch(html, /report-filters|id="finding-comparison"/);
@@ -672,4 +671,16 @@ test("dataset and variable filters select independently and combine across datas
   s.variableSearch = "dataset-wide";
   assert.deepEqual(view.findingItems(), [datasetWide]);
   assert.match(issueRow(datasetWide, data), /class="issue-variable"[^]*?>Dataset-wide<\/button>/);
+});
+
+test("a finding without expected or observed values still states its question, impact and criticality", () => {
+  const item = { ...issue, expected: "", observed: "", action: "Is <this> the intended rule?" };
+  const html = issueTrace(item, report, { summaryOnly: true });
+  for (const text of [issue.summary, "2 subjects differ", "Automated criticality assessment: Yes.", issue.critical.reason, "Question for you", "Is &lt;this&gt; the intended rule?"])
+    assert.ok(html.includes(text), text);
+  assert.doesNotMatch(html, /issue-check|issue-citation/);
+  const row = issueRow({ ...item, summary: "Long summary. ".repeat(40) }, report);
+  assert.match(row, /<details class="issue-summary-detail"><summary>[^<]+\.\.\.<\/summary>/);
+  assert.ok(row.includes("Long summary. ".repeat(40)));
+  assert.match(row, /Question for you:/);
 });

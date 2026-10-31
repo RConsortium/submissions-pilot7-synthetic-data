@@ -467,3 +467,8 @@ and a linked workspace. Studies validated through the pilot build worker can
 set `category: synthetic` in `.github/yamaa-studies.json` to appear under
 Synthetic data and in its overview while retaining their existing validation
 path. They do not contribute to the pilot report or landing-page pilot metrics.
+
+Authored issue summaries in `<study>/spec/review/*-issues.json` use plain CDISC
+terms and one concise sentence stating the discrepancy. Keep probe mechanics,
+workbook cells and implementation details in supporting evidence. Put the
+reviewer's decision in `action`; the row and dialog show it as Question for you.

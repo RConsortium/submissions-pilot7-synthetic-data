@@ -41,11 +41,32 @@ def capture(page, directory, name):
         )
 
 
+def assert_text_contrast(page, selector):
+    """Check the reported small text against its actual rendered background (WCAG AA)."""
+    failures = page.locator(selector).evaluate_all(r"""elements => {
+      const rgb = text => (text.match(/[\d.]+/g) || []).map(Number);
+      const lum = color => color.slice(0, 3).map(v => {
+        const s = v / 255; return s <= .04045 ? s / 12.92 : ((s + .055) / 1.055) ** 2.4;
+      }).reduce((sum, v, i) => sum + v * [.2126, .7152, .0722][i], 0);
+      return elements.filter(el => el.getClientRects().length).flatMap(el => {
+        let bg = [255, 255, 255], node = el;
+        for (; node; node = node.parentElement) {
+          const c = rgb(getComputedStyle(node).backgroundColor);
+          if (c.length === 3 || c[3] === 1) { bg = c; break; }
+        }
+        const a = lum(rgb(getComputedStyle(el).color)), b = lum(bg);
+        const ratio = (Math.max(a, b) + .05) / (Math.min(a, b) + .05);
+        return ratio >= 4.5 ? [] : [{ text: el.textContent, ratio }];
+      });
+    }""")
+    assert not failures, failures
+
+
 def check_finding_columns(page, issues, screenshots):
     """Column filtering keeps input focus and adjustable widths on both layouts."""
     rows = page.locator('.consistency-table tbody tr.review-issue')
     expect(page.locator('.report-filters, #finding-comparison')).to_have_count(0)
-    expect(page.locator('.finding-filters input, .finding-filters select')).to_have_count(8)
+    expect(page.locator('.finding-filters input, .finding-filters select')).to_have_count(7)
     page.locator('#finding-dataset').fill('ADSL')
     page.locator('#finding-variable').fill('BMIBL')
     expect(rows).to_have_count(sum(i['dataset'] == 'ADSL' and 'BMIBL' in i.get('variable', '') for i in issues))
@@ -302,13 +323,13 @@ def check(browser, base, site_dir, screenshots):
         page.get_by_role("button", name="Consistency findings", exact=True).click()
         assert_issue_listing(issues, issues)
         assert_coverage(study_report)
-        expect(page.locator(".consistency-table thead th")).to_have_text([
-            "Dataset", "Variable", "Status", "Critical finding", "Type", "Documented rule vs data", "Issue", "Evidence"
+        expect(page.locator(".consistency-table .filter-label")).to_have_text([
+            "Dataset", "Variable", "Critical finding", "Type", "Documented rule vs data", "Issue", "Evidence"
         ])
         expect(page.locator("#issue-review")).to_have_count(0)
         for issue in issues:
             row = page.locator(f'[data-finding-id="{issue["id"]}"]')
-            expect(row.locator(".issue-summary p")).to_have_text(issue["summary"])
+            expect(row.locator(".issue-summary-detail p")).to_have_text(issue["summary"])
             expect(row.locator(".issue-impact")).to_have_text(re.compile(r"^Documented rule vs data: (\d+ subjects? differ|Differences observed|No differences in tested data|Not measured)$"))
             for cell_class in ("issue-critical", "issue-type"):
                 expect(row.locator(f".{cell_class} .status")).to_have_count(1)
@@ -317,19 +338,32 @@ def check(browser, base, site_dir, screenshots):
             "cells => cells.every(cell => getComputedStyle(cell).overflow === 'visible' "
             "&& getComputedStyle(cell).whiteSpace === 'normal')"
         )
-        assert page.locator(".issue-status").evaluate_all(
-            "cells => cells.every(cell => getComputedStyle(cell).position === 'static')"
+        expect(page.locator(".issue-status")).to_have_count(0)
+        expect(page.locator(".consistency-table .agent-review-status")).to_have_text(
+            ["Agent review: " + item["review"].replace("_", " ") for item in issues]
         )
-        expect(page.get_by_role("columnheader", name="Status", exact=True)).to_be_visible()
-        expect(page.locator(".consistency-table .issue-status .status")).to_have_text(
-            ["Under Review"] * len(issues)
-        )
+        page.locator(".skip-findings").focus()
+        page.keyboard.press("Enter")
+        expect(page.locator("#finding-table")).to_be_focused()
+        page.set_viewport_size({"width": 1440, "height": 900})
+        page.evaluate("window.scrollTo(0, 0)")
+        expect(page.locator('.consistency-table tbody tr.review-issue').first).to_be_in_viewport()
+        page.set_viewport_size({"width": 1600, "height": 1000})
         expect(page.locator(".consistency-table .finding-evidence")).to_have_count(0)
-        expect(page.locator('.finding-filters input, .finding-filters select')).to_have_count(8)
+        expect(page.locator('.finding-filters input, .finding-filters select')).to_have_count(7)
         expect(page.locator('#finding-agent')).to_be_visible()
         trace = open_trace(page.locator('.consistency-table tbody tr.review-issue').first)
         expect(trace.locator('#trace-finding, #trace-sources, #trace-examples, #trace-your-review')).to_have_count(4)
         expect(trace.locator('input[name="side"]')).not_to_have_count(0)
+        if name == "submission-pilot5":
+            page.keyboard.press('Escape')
+            item = next(i for i in issues if not i.get('expected') and not i.get('observed') and i.get('action'))
+            trace = open_trace(page.locator(f'[data-finding-id="{item["id"]}"]'))
+            expect(trace.locator('#trace-finding')).to_contain_text(item['summary'])
+            expect(trace.locator('#trace-finding')).to_contain_text(item['action'])
+            expect(trace.locator('#trace-finding')).to_contain_text(item['critical']['reason'])
+            expect(trace.get_by_role('radio', name='Neither', exact=True)).to_have_count(1)
+            expect(trace.get_by_role('group', name=re.compile('Which source is right'))).to_be_attached()
         capture(page, screenshots, f'{name}-shared-review.png')
         page.keyboard.press('Escape')
         expect(trace).to_have_count(0)
@@ -721,8 +755,8 @@ def check(browser, base, site_dir, screenshots):
     trace = page.locator(".trace-review-dialog")
     expect(trace).to_be_visible()
     expect(trace.locator(".quote-source + blockquote").first).to_contain_text("WEIGHTBL / ((HEIGHTBL*100)**2)")
-    expect(trace).not_to_contain_text("Agent review:")
-    expect(trace).not_to_contain_text("Automated criticality:")
+    expect(trace).to_contain_text("Agent review:")
+    expect(trace).to_contain_text("Automated criticality assessment:")
     expect(trace.locator("#trace-sources")).not_to_contain_text("adrg.pdf")
     expect(trace.locator("#trace-sources pre.spec-lines").first).to_be_visible()
     expect(trace.locator("#trace-examples h3")).to_have_text("Subject examples")
@@ -744,6 +778,7 @@ def check(browser, base, site_dir, screenshots):
         }""")
 
     assert_context_layout()
+    assert_text_contrast(page, ".trace-form-body small, .trace-record-context, .context-line-number")
     capture(page, screenshots, "documented-rules.png")
     page.set_viewport_size({"width": 390, "height": 844})
     assert_context_layout()
@@ -774,6 +809,12 @@ def check(browser, base, site_dir, screenshots):
     expect(trace.locator(".trace-review-footer")).to_contain_text(f"Finding 1 of {listed_count} in the current list")
     trace.get_by_role("button", name="Next finding in list", exact=True).click()
     expect(trace.locator(".trace-review-footer")).to_contain_text(f"Finding 2 of {listed_count} in the current list")
+    page.set_viewport_size({"width": 390, "height": 844})
+    expect(trace.get_by_role("button", name="Previous finding in list", exact=True)).to_be_in_viewport()
+    trace.get_by_role("button", name="Previous finding in list", exact=True).click()
+    expect(trace.locator(".trace-review-footer")).to_contain_text(f"Finding 1 of {listed_count} in the current list")
+    trace.get_by_role("button", name="Next finding in list", exact=True).click()
+    page.set_viewport_size({"width": 1600, "height": 1000})
     reopened = trace.locator("#trace-review-title").inner_text()
     linked = page.url
     page.keyboard.press("Escape")
@@ -832,7 +873,7 @@ def check(browser, base, site_dir, screenshots):
     assert second_term
     expect(trace.locator('.trace-data-table')).to_contain_text(second_term)
     capture(page, screenshots, "trace-review-evidence.png")
-    trace.get_by_role("button", name="Add your review", exact=True).click()
+    trace.get_by_role("link", name="Go to Human Review", exact=True).click()
     expect(trace.get_by_role("button", name="Save locally", exact=True)).to_have_count(0)
     expect(trace.get_by_role("button", name="Copy review instead", exact=True)).to_have_count(0)
     submit_review = trace.get_by_role("button", name="Submit review on GitHub", exact=True)
@@ -878,7 +919,15 @@ def check(browser, base, site_dir, screenshots):
     expect(page.locator("#review-ledger")).to_contain_text("1 of ")
     expect(page.locator("#review-ledger")).to_contain_text("1 with both decisions; 0 drafts; 1 opened in GitHub or copied")
     expect(page.locator(f'[data-human-review="{selection_issue["id"]}"]')).to_have_text("Your review: Opened in GitHub composer")
+    expect(page.locator('.study-review-progress')).to_contain_text(f"1 / {len(cdisc_issues)} reviewed in this study")
+    expect(trace.locator('main, aside')).to_have_count(0)
+    expect(trace.get_by_role('button', name='Next not reviewed', exact=True)).to_be_enabled()
     capture(page, screenshots, "trace-github-comments.png")
+    current_title = trace.locator('#trace-review-title').inner_text()
+    trace.get_by_role('button', name='Next not reviewed', exact=True).click()
+    expect(trace.locator('#trace-review-title')).not_to_have_text(current_title)
+    page.keyboard.press('Escape')
+    trace = open_trace(selection)
     # The footer walks the full listing here; the aside still moves between this variable's findings.
     expect(trace.locator(".trace-review-footer")).to_contain_text("in the current list")
     assert set(trace.locator('.trace-review-nav [data-trace-sibling]').evaluate_all(
@@ -891,7 +940,7 @@ def check(browser, base, site_dir, screenshots):
     expect(page.locator("#review-comments #comments-host script")).to_have_attribute("data-term", original_term)
     assert page.evaluate("window.originalCommentsHost===document.querySelector('#comments-host')")
     expect(trace.get_by_role("radio", name="Agree", exact=True)).to_be_checked()
-    trace.get_by_role("button", name="Add your review", exact=True).click()
+    trace.get_by_role("link", name="Go to Human Review", exact=True).click()
     page.keyboard.press("Escape")
     expect(selection.get_by_role("button", name="Start review", exact=True)).to_be_focused()
     page.reload()
@@ -1125,6 +1174,14 @@ def check(browser, base, site_dir, screenshots):
     assert not errors, errors
     context.close()
     # A failure affects its own panel and remains retryable.
+    for mode, scheme in [('light', 'default'), ('dark', 'slate')]:
+        first_visit = browser.new_context(color_scheme=mode)
+        first_visit.route('https://giscus.app/client.js', lambda route: route.fulfill(body=''))
+        themed_page = first_visit.new_page()
+        themed_page.goto(base + '/')
+        expect(themed_page.locator('body')).to_have_attribute('data-md-color-scheme', scheme)
+        first_visit.close()
+
     failure_context = browser.new_context()
     failure_context.route(
         "https://giscus.app/client.js",

@@ -2,8 +2,8 @@
 import { esc, link } from "./ui.js";
 import { reviewComment } from "./review-comment.js";
 import { reviewDestination, reviewDiscussion } from "./review-submit.js";
-import { findIssue, readReview } from "./issues.js";
-import { AGREEMENTS, CRITICALITIES, SIDES, createReviewDrafts, draftLabel } from "./review-drafts.js";
+import { findIssue, readReview, issueTrace } from "./issues.js";
+import { AGREEMENTS, CRITICALITIES, SIDES, createReviewDrafts, draftLabel, nextUnreviewed } from "./review-drafts.js";
 import { reviewComparison } from "./review-sources.js";
 
 const display = (value) => value == null ? "(missing)" : value === "" ? "(blank)" : String(value);
@@ -30,6 +30,7 @@ export function createTraceReview(ctx, sources) {
   const all = () => readReview(ctx.report).issues;
   const siblings = () => all().filter((i) => i.dataset === issue.dataset && i.variable === issue.variable);
   const currentDraft = () => drafts.load(ctx.model.id, issue, ctx.report);
+  const next = () => nextUnreviewed(drafts, ctx.model.id, all(), ctx.report, issue.id);
   const examples = () => ctx.report.trace_examples?.[`${issue.dataset}.${issue.variable}`];
 
   function refreshRows(onlyId = "") {
@@ -38,6 +39,7 @@ export function createTraceReview(ctx, sources) {
       const item = findIssue(ctx.report, element.dataset.humanReview);
       if (!item) continue;
       const draft = drafts.load(ctx.model.id, item, ctx.report);
+      element.dataset.reviewStatus = draft.status;
       element.textContent = draft.status === "unreviewed" ? "" : `Your review: ${draftLabel(draft)}${draft.stale ? " (evidence changed)" : ""}`;
     }
     ctx.refreshLedger?.();
@@ -81,7 +83,7 @@ export function createTraceReview(ctx, sources) {
     function options(name, entries) {
       return `<div class="trace-review-choices">${Object.entries(entries).map(([value, text]) => `<label><input type="radio" name="${name}" value="${value}" ${draft[name] === value ? "checked" : ""}> ${text}</label>`).join("")}</div>`;
     }
-    return `<form id="trace-your-review" class="trace-human-review" novalidate><header><h3>Human Review</h3></header><div class="trace-form-body">${draft.stale ? '<p class="trace-limit" role="status">The evidence changed since your previous assessment. Your choices are retained as a draft; review the current evidence before sharing.</p>' : ""}<fieldset><legend>Do you agree with this finding? <small>Required</small></legend>${options("agreement", AGREEMENTS)}</fieldset><fieldset><legend>Is this finding critical? <small>Required</small></legend>${options("criticality", CRITICALITIES)}<p class="trace-scope">Working definition: a critical issue could materially affect analysis results or their interpretation.</p></fieldset><fieldset><legend>Is current dataset correctly derived? <small>Optional</small></legend>${options("side", SIDES)}</fieldset><label class="trace-comment-label" for="trace-review-comment">Comments <small>Optional</small></label><textarea id="trace-review-comment" name="comment" rows="4" maxlength="10000" placeholder="Explain your assessment, suggest a correction, or note missing evidence.">${esc(draft.comment)}</textarea><p class="trace-review-feedback" role="status" aria-live="polite" hidden></p><div class="trace-review-actions"><p class="trace-storage-note">Drafts save automatically in this browser. ${target ? "Submitting opens GitHub with your review filled in; select Start discussion there to publish." : "Copy your assessment to share on GitHub."}</p><div><button class="button primary" type="submit">${target ? "Submit review on GitHub" : "Copy review"}</button></div></div><div data-trace-prepared hidden><label for="trace-github-comment">Review text to copy</label><textarea id="trace-github-comment" rows="7" readonly></textarea><p data-trace-comment-stale class="trace-limit" role="status" hidden>Your assessment changed. Submit or copy the review again before posting.</p></div></div></form>`;
+    return `<form id="trace-your-review" class="trace-human-review" novalidate><header><h3>Human Review</h3></header><div class="trace-form-body">${draft.stale ? '<p class="trace-limit" role="status">The evidence changed since your previous assessment. Your choices are retained as a draft; review the current evidence before sharing.</p>' : ""}<fieldset><legend>Do you agree with this finding? <small>Required</small></legend>${options("agreement", AGREEMENTS)}</fieldset><fieldset><legend>Is this finding critical? <small>Required</small></legend>${options("criticality", CRITICALITIES)}<p class="trace-scope">Working definition: a critical issue could materially affect analysis results or their interpretation.</p></fieldset><fieldset><legend>Which source is right? <small>Optional</small></legend>${options("side", SIDES)}</fieldset><label class="trace-comment-label" for="trace-review-comment">Comments <small>Optional</small></label><textarea id="trace-review-comment" name="comment" rows="4" maxlength="10000" placeholder="Explain your assessment, suggest a correction, or note missing evidence.">${esc(draft.comment)}</textarea><p class="trace-review-feedback" role="status" aria-live="polite" hidden></p><div class="trace-review-actions"><p class="trace-storage-note">Drafts save automatically in this browser. ${target ? "Submitting opens GitHub with your review filled in; select Start discussion there to publish." : "Copy your assessment to share on GitHub."}</p><div><button class="button primary" type="submit">${target ? "Submit review on GitHub" : "Copy review"}</button></div></div><div data-trace-prepared hidden><label for="trace-github-comment">Review text to copy</label><textarea id="trace-github-comment" rows="7" readonly></textarea><p data-trace-comment-stale class="trace-limit" role="status" hidden>Your assessment changed. Submit or copy the review again before posting.</p></div></div></form>`;
   }
   async function copyForGitHub() {
     const active = dialog, id = issue.id;
@@ -131,6 +133,8 @@ export function createTraceReview(ctx, sources) {
     else feedback(`Your browser blocked the new tab. ${again} with your review filled in, sign in if asked, then select Start discussion to publish.`, false, true);
   }
   function updateStatus() {
+    const advance = dialog.querySelector("[data-trace-next-unreviewed]");
+    if (advance) { advance.disabled = !next(); advance.title = next() ? "Continue through the whole study" : "No other unreviewed findings"; }
     for (const button of dialog.querySelectorAll("[data-trace-sibling]")) {
       const other = findIssue(ctx.report, button.dataset.traceSibling);
       button.querySelector("small").textContent = draftLabel(drafts.load(ctx.model.id, other, ctx.report));
@@ -170,10 +174,10 @@ export function createTraceReview(ctx, sources) {
     // The footer walks the findings the listing shows when this one is among them, else its variable's findings.
     const listed = ctx.listed?.() || [], inList = listed.some((i) => i.id === issue.id),
       walk = inList ? listed : group, pos = walk.findIndex((i) => i.id === issue.id),
-      step = (n, text) => n >= 0 && n < walk.length ? `<button class="button" data-trace-sibling="${esc(walk[n].id)}">${text}${inList ? " in list" : ""}<small hidden></small></button>` : "";
+      step = (n, text) => n >= 0 && n < walk.length ? `<button class="button" data-trace-sibling="${esc(walk[n].id)}" aria-label="${text}${inList ? " in list" : ""}"><span aria-hidden="true">${n < pos ? "&larr;" : "&rarr;"}</span><span class="sibling-label">${text}${inList ? " in list" : ""}</span><small hidden></small></button>` : "";
     if (ctx.state && ctx.state.review !== issue.id) { ctx.state.review = issue.id; ctx.save?.(); }
     dialog.dataset.reviewDataset = issue.dataset;
-    dialog.innerHTML = `<div class="trace-review-shell"><header class="trace-review-header"><div><p>${esc(ctx.model.title)} / ${esc(issue.dataset)} / Start review</p><h2>${esc(issue.dataset + (issue.variable ? "." + issue.variable : ""))}</h2></div><div><button class="button" data-trace-close aria-label="Close review">Close</button></div></header><div class="trace-review-layout"><aside class="trace-review-nav"><h3>Findings for this variable</h3><nav aria-label="Choose a finding">${group.map((i, n) => `<button data-trace-sibling="${esc(i.id)}" ${i.id === issue.id ? 'aria-current="page"' : ""}><span>${String(n + 1).padStart(2, "0")}</span><span>${esc(i.title)}<small></small></span></button>`).join("")}</nav><h3>On this page</h3><nav aria-label="Evidence sections">${[["trace-finding", "The finding"], ["trace-sources", "Define-XML vs. reproduced yamaa specification from ADaM data"], ["trace-examples", "Subject examples"], ["trace-your-review", "Human Review"]].map(([id, text]) => `<button data-trace-section="${id}">${text}</button>`).join("")}</nav></aside><div class="trace-scroll"><main class="trace-review-content"><section id="trace-finding"><p class="eyebrow">Finding ${at + 1} of ${group.length} <span class="status neutral">${esc(issue.kind.replaceAll("_", " "))}</span></p><h2 id="trace-review-title" tabindex="-1">${esc(issue.title)}</h2>${issue.expected || issue.observed ? `<dl class="issue-comparison">${issue.expected ? `<dt>Expected behavior</dt><dd>${esc(issue.expected)}</dd>` : ""}${issue.observed ? `<dt>Observed behavior</dt><dd>${esc(issue.observed)}</dd>` : ""}</dl>` : ""}</section><section id="trace-sources"><h3>Define-XML vs. reproduced yamaa specification from ADaM data</h3>${reviewComparison(issue, ctx.report, ctx.specifications)}</section><section id="trace-examples"><h3>Subject examples</h3><div data-trace-samples>${sampleView()}</div></section>${reviewForm()}</main></div></div><footer class="trace-review-footer"><div><small>${inList ? `Finding ${pos + 1} of ${walk.length} in the current list` : "Share your assessment on GitHub"}</small></div><div>${step(pos - 1, "Previous finding")}${step(pos + 1, "Next finding")}<button class="button primary" data-trace-section="trace-your-review">Add your review</button></div></footer></div>`;
+    dialog.innerHTML = `<div class="trace-review-shell"><header class="trace-review-header"><div><p>${esc(ctx.model.title)} / ${esc(issue.dataset)} / Finding review</p><h2>${esc(issue.dataset + (issue.variable ? "." + issue.variable : ""))}</h2></div><div><button class="button" data-trace-close aria-label="Close review">Close</button></div></header><div class="trace-review-layout"><section class="trace-review-nav" aria-label="Review navigation"><h3>Findings for this variable</h3><nav aria-label="Choose a finding">${group.map((i, n) => `<button data-trace-sibling="${esc(i.id)}" ${i.id === issue.id ? 'aria-current="page"' : ""}><span>${String(n + 1).padStart(2, "0")}</span><span>${esc(i.title)}<small></small></span></button>`).join("")}</nav><h3>On this page</h3><nav aria-label="Evidence sections">${[["trace-finding", "The finding"], ["trace-sources", "Define-XML vs. reproduced yamaa specification from ADaM data"], ["trace-examples", "Subject examples"], ["trace-your-review", "Human Review"]].map(([id, text]) => `<button data-trace-section="${id}">${text}</button>`).join("")}</nav></section><div class="trace-scroll"><div class="trace-review-content"><section id="trace-finding"><p class="eyebrow">${group.length > 1 ? `Finding ${at + 1} of ${group.length} for this variable ` : ""}<span class="status neutral">${esc(issue.kind.replaceAll("_", " "))}</span></p><h2 id="trace-review-title" tabindex="-1">${esc(issue.title)}</h2>${issueTrace(issue, ctx.report, { summaryOnly: true })}${issue.expected || issue.observed ? `<dl class="issue-comparison">${issue.expected ? `<dt>Expected behavior</dt><dd>${esc(issue.expected)}</dd>` : ""}${issue.observed ? `<dt>Observed behavior</dt><dd>${esc(issue.observed)}</dd>` : ""}</dl>` : ""}</section><section id="trace-sources"><h3>Define-XML vs. reproduced yamaa specification from ADaM data</h3>${reviewComparison(issue, ctx.report, ctx.specifications)}</section><section id="trace-examples"><h3>Subject examples</h3><div data-trace-samples>${sampleView()}</div></section>${reviewForm()}</div></div></div><footer class="trace-review-footer"><div><small>${inList ? `Finding ${pos + 1} of ${walk.length} in the current list` : "Share your assessment on GitHub"}</small></div><div>${step(pos - 1, "Previous finding")}${step(pos + 1, "Next finding")}<button class="button" data-trace-next-unreviewed>Next not reviewed</button><a class="text-link" href="#trace-your-review" data-trace-section="trace-your-review">Go to Human Review</a></div></footer></div>`;
     updateStatus();
     dialog.querySelector(".trace-scroll").scrollTop = 0;
   }
@@ -187,11 +191,12 @@ export function createTraceReview(ctx, sources) {
     overflow = document.body.style.overflow; document.body.style.overflow = "hidden";
     dialog.addEventListener("cancel", (event) => { event.preventDefault(); close(); });
     dialog.addEventListener("click", (event) => {
-      const target = event.target.closest("button");
+      const target = event.target.closest("button, a[data-trace-section]");
       if (!target) return;
       if (target.hasAttribute("data-trace-close")) close();
       else if (target.dataset.traceSibling) { issue = findIssue(ctx.report, target.dataset.traceSibling); render(); dialog.querySelector("h2[tabindex]").focus({ preventScroll: true }); }
-      else if (target.dataset.traceSection) jump(target.dataset.traceSection);
+      else if (target.hasAttribute("data-trace-next-unreviewed")) { const found = next(); if (found) { issue = found; render(); dialog.querySelector("h2[tabindex]").focus({ preventScroll: true }); } }
+      else if (target.dataset.traceSection) { event.preventDefault(); jump(target.dataset.traceSection); }
       else if (target.dataset.traceSubject) { subject = target.dataset.traceSubject; dialog.querySelector("[data-trace-samples]").innerHTML = sampleView(); jump("trace-examples"); dialog.querySelector('[aria-selected="true"]')?.focus({ preventScroll: true }); }
     });
     dialog.addEventListener("keydown", (event) => {

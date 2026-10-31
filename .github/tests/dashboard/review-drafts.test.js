@@ -1,6 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { createReviewDrafts, draftLabel, reviewLedger } from "../../../docs/assets/dashboard/review-drafts.js";
+import { createReviewDrafts, draftLabel, reviewLedger, nextUnreviewed } from "../../../docs/assets/dashboard/review-drafts.js";
 
 const issue = { dataset: "ADAE", variable: "FLAG", id: "study:ADAE.FLAG.test", title: "A finding", summary: "Review it.",
   check_ids: ["check"], trace: [{ evidence_id: "source", role: "context" }] };
@@ -87,4 +87,18 @@ test("the ledger counts started, complete, shared and stale assessments of the l
   const revised = { review: { checks: [{ id: "check", basis: "evidence-b" }] } };
   assert.deepEqual(reviewLedger(drafts, "study", [issue], revised).counts,
     { listed: 1, started: 1, drafts: 1, reviewed: 0, shared: 0, stale: 1 });
+});
+
+test("next not reviewed wraps, skips complete assessments, and includes changed evidence", () => {
+  const drafts = createReviewDrafts(storage());
+  const second = { ...issue, id: "second" }, third = { ...issue, id: "third" };
+  const issues = [issue, second, third];
+  drafts.save("study", second, report, assessment, true);
+  assert.equal(nextUnreviewed(drafts, "study", issues, report, issue.id), third);
+  assert.equal(nextUnreviewed(drafts, "study", issues, report, third.id), issue);
+  drafts.save("study", issue, report, assessment, true);
+  drafts.save("study", third, report, assessment, true);
+  assert.equal(nextUnreviewed(drafts, "study", issues, report, third.id), null);
+  const changed = { review: { checks: [{ id: "check", basis: "changed" }] } };
+  assert.equal(nextUnreviewed(drafts, "study", issues, changed, issue.id), second);
 });
