@@ -3,9 +3,9 @@
   "dataset": "ADLBC",
   "author": {
     "kind": "agent",
-    "model": "Codex",
+    "model": "Codex; program tracing round by claude-opus-5-5[1m]",
     "instructions": ".automation/consistency_review/extract.md",
-    "date": "2026-10-26"
+    "date": "2026-10-29"
   },
   "claims": [
     {
@@ -26,6 +26,16 @@
           "document": "spec/source/dataguide.pdf",
           "section": "page-6",
           "quote": "ADLBC contains lab chemistry parameters and ADLBH contains hematology parameters and these data are derived from the SDTM LB (Laboratory Tests) domain."
+        },
+        {
+          "document": "spec/source/programs/pilot6/adlbc.r",
+          "section": "L51-L53",
+          "quote": "adlb00 <- lb %>% left_join(sup, by = c(\"STUDYID\", \"USUBJID\", \"LBSEQ\")) %>% filter(LBCAT == \"CHEMISTRY\")"
+        },
+        {
+          "document": "spec/source/programs/pilot6/adlbc.r",
+          "section": "L77-L82",
+          "quote": "adlb01 <- adlb00 %>% derive_vars_merged( dataset_add = adsl, new_vars = adsl_vars, by = exprs(STUDYID, USUBJID) )"
         }
       ],
       "clauses": [
@@ -110,6 +120,16 @@
           "document": "spec/source/dataguide.pdf",
           "section": "page-6",
           "quote": "ADLBC contains lab chemistry parameters and ADLBH contains hematology parameters and these data are derived from the SDTM LB (Laboratory Tests) domain."
+        },
+        {
+          "document": "spec/source/programs/pilot6/adlbc.r",
+          "section": "L51-L53",
+          "quote": "adlb00 <- lb %>% left_join(sup, by = c(\"STUDYID\", \"USUBJID\", \"LBSEQ\")) %>% filter(LBCAT == \"CHEMISTRY\")"
+        },
+        {
+          "document": "spec/source/programs/pilot6/adlbc.r",
+          "section": "L77-L82",
+          "quote": "adlb01 <- adlb00 %>% derive_vars_merged( dataset_add = adsl, new_vars = adsl_vars, by = exprs(STUDYID, USUBJID) )"
         }
       ],
       "clauses": [
@@ -199,6 +219,11 @@
           "document": "spec/source/SAP.pdf",
           "section": "page-10",
           "quote": "Missing baseline values and missing safety data will not be imputed."
+        },
+        {
+          "document": "spec/source/programs/pilot6/adlbc.r",
+          "section": "L116",
+          "quote": "mutate(ABLFL = LBBLFL) %>%"
         }
       ],
       "clauses": [
@@ -248,6 +273,11 @@
           "document": "spec/source/SAP.pdf",
           "section": "page-12",
           "quote": "Laboratory values will be assigned a flag of abnormal (high or low) if the value is outside the threshold range (defined as significantly beyond the normal range, i.e., >1.5*ULN or <.5*LLN)"
+        },
+        {
+          "document": "spec/source/programs/pilot6/adlbc.r",
+          "section": "L193-L195",
+          "quote": "ONE = abs((LBSTRESN - (1.5 * LBSTNRHI))), TWO = abs(((.5 * LBSTNRLO) - LBSTRESN)), ALBTRVAL = ifelse(ONE > TWO, ONE, TWO),"
         }
       ],
       "clauses": [
@@ -279,12 +309,16 @@
       "interpretations": [
         "ULN and LLN are the source laboratory standard normal limits, as the A1HI and A1LO copy comments identify; the probe reads those raw limits through the shared source-LB lookup."
       ],
-      "assessment": "The Define formula makes the signed excess beyond a threshold positive. The implementation reverses both signed differences before taking the maximum, including on change-parameter row paths.",
+      "assessment": "The Define formula makes the signed excess beyond a threshold positive. The implementation reverses both signed differences before taking the maximum, including on change-parameter row paths. The Pilot 6 R reimplementation (adlbc.r lines 193-195) takes the absolute value of both terms and does not round; that reading is probed as ALBTRVAL__ABSOLUTE. The reimplementation builds no change-from-previous-visit parameter rows (PARAMN > 100), so it shows nothing about how those rows are filled.",
       "question": "Confirm the intended signed threshold-distance formula and align the specification and retained Define comment.",
       "probes": [
         {
           "column": "ALBTRVAL",
           "reading": "literal"
+        },
+        {
+          "column": "ALBTRVAL__ABSOLUTE",
+          "reading": "Absolute value of each term, as the Pilot 6 R reimplementation spec/source/programs/pilot6/adlbc.r lines 193-195 compute it (ONE = abs((LBSTRESN - (1.5 * LBSTNRHI))), TWO = abs(((.5 * LBSTNRLO) - LBSTRESN)), ALBTRVAL = ifelse(ONE > TWO, ONE, TWO)); the Define formula omits the absolute values, and the program applies no rounding for the stated 3 significant digits."
         }
       ]
     },
@@ -336,6 +370,21 @@
           "document": "spec/source/SAP.pdf",
           "section": "page-11",
           "quote": "In general, assessments will be assigned to visits as collected on the CRFs, and will \ndisregard the actual date of the assessment."
+        },
+        {
+          "document": "spec/source/programs/pilot6/adlbc.r",
+          "section": "L127-L133",
+          "quote": "eot <- adlb05 %>% filter(ENDPOINT == \"Y\" | VISITNUM == 12) %>% mutate( AVISIT = \"End of Treatment\", AVISITN = 99, AENTMTFL = \"Y\" )"
+        },
+        {
+          "document": "spec/source/programs/pilot6/adlbc.r",
+          "section": "L141-L156",
+          "quote": "mutate( AVISIT = case_when( ABLFL == \"Y\" ~ \"Baseline\", grepl(\"UNSCHEDULED\", VISIT) == TRUE ~ \"\", TRUE ~ str_to_sentence(VISIT) ), AVISITN = case_when( AVISIT == \"Baseline\" ~ 0, TRUE ~ as.numeric(gsub(\"[^0-9]\", \"\", AVISIT)) ), AENTMTFL = \"\" ) %>% rbind(eot) %>% mutate( AVISITN = ifelse(AVISITN == -1, \"\", AVISITN) )"
+        },
+        {
+          "document": "spec/source/programs/pilot6/adlbc.r",
+          "section": "L158-L169",
+          "quote": "# get EOT for those that did not make it to week 24 eot2 <- adlb06 %>% arrange(STUDYID, USUBJID, PARAMCD, desc(AVISITN)) %>% group_by(STUDYID, USUBJID, PARAMCD) %>% filter(VISITNUM != 13) %>% slice(1) %>% filter(!is.na(AVISITN), AVISITN != 0, AVISITN != 99) %>% mutate( AVISITN = 99, AVISIT = \"End of Treatment\", AENTMTFL = \"Y\" )"
         }
       ],
       "clauses": [
@@ -429,6 +478,21 @@
           "document": "spec/source/dataguide.pdf",
           "section": "page-6",
           "quote": "In some of the summaries the derived end-of-treatment visit (AVISITN=99) is also presented."
+        },
+        {
+          "document": "spec/source/programs/pilot6/adlbc.r",
+          "section": "L127-L133",
+          "quote": "eot <- adlb05 %>% filter(ENDPOINT == \"Y\" | VISITNUM == 12) %>% mutate( AVISIT = \"End of Treatment\", AVISITN = 99, AENTMTFL = \"Y\" )"
+        },
+        {
+          "document": "spec/source/programs/pilot6/adlbc.r",
+          "section": "L141-L156",
+          "quote": "mutate( AVISIT = case_when( ABLFL == \"Y\" ~ \"Baseline\", grepl(\"UNSCHEDULED\", VISIT) == TRUE ~ \"\", TRUE ~ str_to_sentence(VISIT) ), AVISITN = case_when( AVISIT == \"Baseline\" ~ 0, TRUE ~ as.numeric(gsub(\"[^0-9]\", \"\", AVISIT)) ), AENTMTFL = \"\" ) %>% rbind(eot) %>% mutate( AVISITN = ifelse(AVISITN == -1, \"\", AVISITN) )"
+        },
+        {
+          "document": "spec/source/programs/pilot6/adlbc.r",
+          "section": "L158-L169",
+          "quote": "# get EOT for those that did not make it to week 24 eot2 <- adlb06 %>% arrange(STUDYID, USUBJID, PARAMCD, desc(AVISITN)) %>% group_by(STUDYID, USUBJID, PARAMCD) %>% filter(VISITNUM != 13) %>% slice(1) %>% filter(!is.na(AVISITN), AVISITN != 0, AVISITN != 99) %>% mutate( AVISITN = 99, AVISIT = \"End of Treatment\", AENTMTFL = \"Y\" )"
         }
       ],
       "clauses": [
@@ -486,6 +550,11 @@
           "document": "spec/define/define-adam.xml",
           "section": "ADLBC.ADT",
           "quote": "LB.LBDTC converted to SAS date"
+        },
+        {
+          "document": "spec/source/programs/pilot6/adlbc.r",
+          "section": "L85-L91",
+          "quote": "derive_vars_dt( new_vars_prefix = \"A\", dtc = LBDTC, highest_imputation = \"n\" )"
         }
       ],
       "clauses": [
@@ -540,6 +609,11 @@
           "document": "spec/source/dataguide.pdf",
           "section": "page-6",
           "quote": "Two sets of lab parameters exist in ADLBC/ADLBH. One set contains the standardized lab value from the LB domain and the second set contains change from previous visit relative to normal range values."
+        },
+        {
+          "document": "spec/source/programs/pilot6/adlbc.r",
+          "section": "L104",
+          "quote": "PARAM = paste0(LBTEST, \" (\", LBSTRESU, \")\"),"
         }
       ],
       "clauses": [
@@ -587,6 +661,11 @@
           "document": "spec/define/define-adam.xml",
           "section": "ADLBC.PARAMCD",
           "quote": "For PARAMN<100: same as LBTESTCD, For PARAMN>100: _ + LBTESTCD"
+        },
+        {
+          "document": "spec/source/programs/pilot6/adlbc.r",
+          "section": "L105",
+          "quote": "PARAMCD = LBTESTCD,"
         }
       ],
       "clauses": [
@@ -638,6 +717,11 @@
           "document": "spec/define/define-adam.xml",
           "section": "ADLBC.PARAMN",
           "quote": "Codelist PARAMN_ADLBC: 18 = Sodium (mmol/L); 19 = Potassium (mmol/L); 20 = Chloride (mmol/L); 21 = Bilirubin (umol/L); 22 = Alkaline Phosphatase (U/L); 23 = Gamma Glutamyl Transferase (U/L); 24 = Alanine Aminotransferase (U/L); 25 = Aspartate Aminotransferase (U/L); 26 = Blood Urea Nitrogen (mmol/L); 27 = Creatinine (umol/L); 28 = Urate (umol/L); 29 = Phosphate (mmol/L); 30 = Calcium (mmol/L); 31 = Glucose (mmol/L); 32 = Protein (g/L); 33 = Albumin (g/L); 34 = Cholesterol (mmol/L); 35 = Creatine Kinase (U/L); 118 = Sodium (mmol/L) change from previous visit, relative to normal range; 119 = Potassium (mmol/L) change from previous visit, relative to normal range; 120 = Chloride (mmol/L) change from previous visit, relative to normal range; 121 = Bilirubin (umol/L) change from previous visit, relative to normal range; 122 = Alkaline Phosphatase (U/L) change from previous visit, relative to normal range; 123 = Gamma Glutamyl Transferase (U/L) change from previous visit, relative to normal range; 124 = Alanine Aminotransferase (U/L) change from previous visit, relative to normal range; 125 = Aspartate Aminotransferase (U/L) change from previous visit, relative to normal range; 126 = Blood Urea Nitrogen (mmol/L) change from previous visit, relative to normal range; 127 = Creatinine (umol/L) change from previous visit, relative to normal range; 128 = Urate (umol/L) change from previous visit, relative to normal range; 129 = Phosphate (mmol/L) change from previous visit, relative to normal range; 130 = Calcium (mmol/L) change from previous visit, relative to normal range; 131 = Glucose (mmol/L) change from previous visit, relative to normal range; 132 = Protein (g/L) change from previous visit, relative to normal range; 133 = Albumin (g/L) change from previous visit, relative to normal range; 134 = Cholesterol (mmol/L) change from previous visit, relative to normal range; 135 = Creatine Kinase (U/L) change from previous visit, relative to normal range"
+        },
+        {
+          "document": "spec/source/programs/pilot6/adlbc.r",
+          "section": "L108-L112",
+          "quote": "create_var_from_codelist( metacore = adlbc_spec, input_var = PARAM, out_var = PARAMN )"
         }
       ],
       "clauses": [
@@ -682,6 +766,11 @@
           "document": "spec/define/define-adam.xml",
           "section": "ADLBC.PARCAT1",
           "quote": "harcoded to 'CHEM'"
+        },
+        {
+          "document": "spec/source/programs/pilot6/adlbc.r",
+          "section": "L106",
+          "quote": "PARCAT1 = \"CHEM\""
         }
       ],
       "clauses": [
@@ -725,6 +814,11 @@
           "document": "spec/source/dataguide.pdf",
           "section": "page-6",
           "quote": "One set contains the standardized lab value from the LB domain and the second set contains change from previous visit relative to normal range values."
+        },
+        {
+          "document": "spec/source/programs/pilot6/adlbc.r",
+          "section": "L94-L99",
+          "quote": "# No imputations are done for values below LL or above UL adlb03 <- adlb02 %>% mutate( AVAL = LBSTRESN, AVALC = ifelse(!is.na(AVAL), LBSTRESC, NA) )"
         }
       ],
       "clauses": [
@@ -775,6 +869,11 @@
           "document": "spec/source/SAP.pdf",
           "section": "page-17",
           "quote": "The baseline values will be those collected at Week -2 (Visit 1)."
+        },
+        {
+          "document": "spec/source/programs/pilot6/adlbc.r",
+          "section": "L115-L121",
+          "quote": "adlb05 <- adlb04 %>% mutate(ABLFL = LBBLFL) %>% derive_var_base( by_vars = exprs(STUDYID, USUBJID, PARAMCD), source_var = AVAL, new_var = BASE ) %>%"
         }
       ],
       "clauses": [],
@@ -803,6 +902,11 @@
           "document": "spec/source/SAP.pdf",
           "section": "page-12",
           "quote": "A change from baseline laboratory value will be calculated as the difference between the baseline lab value and the endpoint value (i.e., the value at the specified visit) and the end of treatment observation."
+        },
+        {
+          "document": "spec/source/programs/pilot6/adlbc.r",
+          "section": "L122-L123",
+          "quote": "derive_var_chg() %>% mutate(CHG = ifelse(VISITNUM == 1, NA, CHG))"
         }
       ],
       "clauses": [],
@@ -834,6 +938,11 @@
           "document": "spec/source/SAP.pdf",
           "section": "page-12",
           "quote": "In addition, the ratio of the value to its LLN (i.e., value/LLN) and to its ULN (i.e., value/ULN) will be calculated for inclusion in the datasets, but not analyzed."
+        },
+        {
+          "document": "spec/source/programs/pilot6/adlbc.r",
+          "section": "L187-L189",
+          "quote": "A1LO = LBSTNRLO, A1HI = LBSTNRHI, R2A1LO = AVAL / A1LO,"
         }
       ],
       "clauses": [
@@ -865,7 +974,7 @@
       "interpretations": [
         "Apply the variable-level documented precision after computing the ratio."
       ],
-      "assessment": "The Define comment names the opposite normal-range limit from the ratio named by the variable label and the SAP; the implementation uses the limit corresponding to that name.",
+      "assessment": "The Define comment names the opposite normal-range limit from the ratio named by the variable label and the SAP; the implementation uses the limit corresponding to that name. The Pilot 6 R reimplementation (adlbc.r lines 187-189) divides AVAL by A1LO without rounding; that reading is probed as R2A1LO__UNROUNDED. The reimplementation builds no change-from-previous-visit parameter rows (PARAMN > 100), so it shows nothing about how those rows are filled.",
       "question": "Confirm the intended normal-range denominator and align the Define comment with the SAP, variable meaning and implementation.",
       "probes": [
         {
@@ -875,6 +984,10 @@
         {
           "column": "R2A1LO__SAP_LIMIT",
           "reading": "Use the lower normal limit named by the variable label and SAP ratio definition instead of the opposite limit in the Define comment."
+        },
+        {
+          "column": "R2A1LO__UNROUNDED",
+          "reading": "Divide AVAL by the lower normal limit A1LO and keep the unrounded ratio, as the Pilot 6 R reimplementation spec/source/programs/pilot6/adlbc.r computes it at lines 187-189 (A1LO = LBSTNRLO, R2A1LO = AVAL / A1LO); the program divides by the limit the variable name and the SAP name, not the one in the Define comment, and applies no rounding for the stated 1 significant digit."
         }
       ]
     },
@@ -901,6 +1014,11 @@
           "document": "spec/source/SAP.pdf",
           "section": "page-12",
           "quote": "In addition, the ratio of the value to its LLN (i.e., value/LLN) and to its ULN (i.e., value/ULN) will be calculated for inclusion in the datasets, but not analyzed."
+        },
+        {
+          "document": "spec/source/programs/pilot6/adlbc.r",
+          "section": "L187-L190",
+          "quote": "A1LO = LBSTNRLO, A1HI = LBSTNRHI, R2A1LO = AVAL / A1LO, R2A1HI = AVAL / A1HI,"
         }
       ],
       "clauses": [
@@ -932,7 +1050,7 @@
       "interpretations": [
         "Apply the variable-level documented precision after computing the ratio."
       ],
-      "assessment": "The Define comment names the opposite normal-range limit from the ratio named by the variable label and the SAP; the implementation uses the limit corresponding to that name.",
+      "assessment": "The Define comment names the opposite normal-range limit from the ratio named by the variable label and the SAP; the implementation uses the limit corresponding to that name. The Pilot 6 R reimplementation (adlbc.r lines 187-190) divides AVAL by A1HI without rounding; that reading is probed as R2A1HI__UNROUNDED. The reimplementation builds no change-from-previous-visit parameter rows (PARAMN > 100), so it shows nothing about how those rows are filled.",
       "question": "Confirm the intended normal-range denominator and align the Define comment with the SAP, variable meaning and implementation.",
       "probes": [
         {
@@ -942,6 +1060,10 @@
         {
           "column": "R2A1HI__SAP_LIMIT",
           "reading": "Use the upper normal limit named by the variable label and SAP ratio definition instead of the opposite limit in the Define comment."
+        },
+        {
+          "column": "R2A1HI__UNROUNDED",
+          "reading": "Divide AVAL by the upper normal limit A1HI and keep the unrounded ratio, as the Pilot 6 R reimplementation spec/source/programs/pilot6/adlbc.r computes it at lines 187-190 (A1HI = LBSTNRHI, R2A1HI = AVAL / A1HI); the program divides by the limit the variable name and the SAP name, not the one in the Define comment, and applies no rounding for the stated 1 significant digit."
         }
       ]
     },
@@ -978,6 +1100,11 @@
           "document": "spec/define/define-adam.xml",
           "section": "ADLBC.ABLFL",
           "quote": "Label: Baseline Record Flag"
+        },
+        {
+          "document": "spec/source/programs/pilot6/adlbc.r",
+          "section": "L187-L191",
+          "quote": "A1LO = LBSTNRLO, A1HI = LBSTNRHI, R2A1LO = AVAL / A1LO, R2A1HI = AVAL / A1HI, BR2A1LO = BASE / A1LO,"
         }
       ],
       "clauses": [
@@ -1010,7 +1137,7 @@
         "Apply the variable-level documented precision after computing the ratio.",
         "The isolated probe reads the published upstream ABLFL baseline-record indicator and selects that record within subject and parameter; if more than one baseline record is flagged, the text gives no tie policy and the probe uses LBSEQ order."
       ],
-      "assessment": "The Define comment names the opposite normal-range limit from the ratio named by the variable label and the SAP; the implementation uses the limit corresponding to that name. The literal probe evaluates both numerator and limit on the published baseline record.",
+      "assessment": "The Define comment names the opposite normal-range limit from the ratio named by the variable label and the SAP; the implementation uses the limit corresponding to that name. The literal probe evaluates both numerator and limit on the published baseline record. The Pilot 6 R reimplementation (adlbc.r lines 187-191) divides each record's BASE by its own A1LO without rounding; that reading is probed as BR2A1LO__UNROUNDED. The reimplementation builds no change-from-previous-visit parameter rows (PARAMN > 100), so it shows nothing about how those rows are filled.",
       "question": "Confirm the intended normal-range denominator and align the Define comment with the SAP, variable meaning and implementation.",
       "probes": [
         {
@@ -1020,6 +1147,10 @@
         {
           "column": "BR2A1LO__SAP_LIMIT",
           "reading": "Use the baseline lower normal limit named by the variable label and SAP ratio definition instead of the opposite limit in the Define comment."
+        },
+        {
+          "column": "BR2A1LO__UNROUNDED",
+          "reading": "Divide each record's BASE by that record's own lower normal limit A1LO and keep the unrounded ratio, as the Pilot 6 R reimplementation spec/source/programs/pilot6/adlbc.r computes it at lines 187-191 (BR2A1LO = BASE / A1LO); the program uses the limit the variable name and the SAP name, takes it from the current record rather than the baseline record, and applies no rounding for the stated 1 significant digit."
         }
       ]
     },
@@ -1056,6 +1187,11 @@
           "document": "spec/define/define-adam.xml",
           "section": "ADLBC.ABLFL",
           "quote": "Label: Baseline Record Flag"
+        },
+        {
+          "document": "spec/source/programs/pilot6/adlbc.r",
+          "section": "L187-L192",
+          "quote": "A1LO = LBSTNRLO, A1HI = LBSTNRHI, R2A1LO = AVAL / A1LO, R2A1HI = AVAL / A1HI, BR2A1LO = BASE / A1LO, BR2A1HI = BASE / A1HI,"
         }
       ],
       "clauses": [
@@ -1088,7 +1224,7 @@
         "Apply the variable-level documented precision after computing the ratio.",
         "The isolated probe reads the published upstream ABLFL baseline-record indicator and selects that record within subject and parameter; if more than one baseline record is flagged, the text gives no tie policy and the probe uses LBSEQ order."
       ],
-      "assessment": "The Define comment names the opposite normal-range limit from the ratio named by the variable label and the SAP; the implementation uses the limit corresponding to that name. The literal probe evaluates both numerator and limit on the published baseline record.",
+      "assessment": "The Define comment names the opposite normal-range limit from the ratio named by the variable label and the SAP; the implementation uses the limit corresponding to that name. The literal probe evaluates both numerator and limit on the published baseline record. The Pilot 6 R reimplementation (adlbc.r lines 187-192) divides each record's BASE by its own A1HI without rounding; that reading is probed as BR2A1HI__UNROUNDED. The reimplementation builds no change-from-previous-visit parameter rows (PARAMN > 100), so it shows nothing about how those rows are filled.",
       "question": "Confirm the intended normal-range denominator and align the Define comment with the SAP, variable meaning and implementation.",
       "probes": [
         {
@@ -1098,6 +1234,10 @@
         {
           "column": "BR2A1HI__SAP_LIMIT",
           "reading": "Use the baseline upper normal limit named by the variable label and SAP ratio definition instead of the opposite limit in the Define comment."
+        },
+        {
+          "column": "BR2A1HI__UNROUNDED",
+          "reading": "Divide each record's BASE by that record's own upper normal limit A1HI and keep the unrounded ratio, as the Pilot 6 R reimplementation spec/source/programs/pilot6/adlbc.r computes it at lines 187-192 (BR2A1HI = BASE / A1HI); the program uses the limit the variable name and the SAP name, takes it from the current record rather than the baseline record, and applies no rounding for the stated 1 significant digit."
         }
       ]
     },
@@ -1134,6 +1274,11 @@
           "document": "spec/source/SAP.pdf",
           "section": "page-17",
           "quote": "The treatment\nperod is defined as any planned visit after Week 0 (Visit 3), up to and including Week 24\n(Visit 12)."
+        },
+        {
+          "document": "spec/source/programs/pilot6/adlbc.r",
+          "section": "L209-L219",
+          "quote": "adlb09 <- adlb08 %>% filter((VISITNUM >= 4 & VISITNUM <= 12) & !grepl(\"UN\", VISIT)) %>% group_by(USUBJID, PARAMCD) %>% mutate( maxALBTRVAL = ifelse(!is.na(ALBTRVAL), max(ALBTRVAL, na.rm = TRUE), ALBTRVAL), ANL01FL = ifelse(maxALBTRVAL == ALBTRVAL, \"Y\", \"\") ) %>% arrange(desc(ANL01FL)) %>% select(USUBJID, PARAMCD, LBSEQ, ANL01FL) %>% slice(1) %>% full_join(adlb08, by = c(\"USUBJID\", \"PARAMCD\", \"LBSEQ\"), multiple = \"all\")"
         }
       ],
       "clauses": [
@@ -1227,6 +1372,11 @@
           "document": "spec/source/SAP.pdf",
           "section": "page-12",
           "quote": "\u201cH\u201d \u2013 Greater than or equal to the Upper Limit of Normal."
+        },
+        {
+          "document": "spec/source/programs/pilot6/adlbc.r",
+          "section": "L196-L197",
+          "quote": "ANRIND = ifelse(AVAL < (0.5 * LBSTNRLO), \"L\", ifelse(AVAL > (1.5 * LBSTNRHI), \"H\", \"N\")), ANRIND = ifelse(is.na(AVAL), \"N\", ANRIND)"
         }
       ],
       "clauses": [
@@ -1291,6 +1441,11 @@
           "document": "spec/source/SAP.pdf",
           "section": "page-17",
           "quote": "In these tables a subject will be categorized as normal or abnormal (i.e., outside the threshold range) at baseline."
+        },
+        {
+          "document": "spec/source/programs/pilot6/adlbc.r",
+          "section": "L199-L202",
+          "quote": "derive_var_base( by_vars = exprs(STUDYID, USUBJID, PARAMCD), source_var = ANRIND, new_var = BNRIND"
         }
       ],
       "clauses": [],
@@ -1364,6 +1519,26 @@
           "document": "spec/define/define-adam.xml",
           "section": "ADSL.DISCONFL",
           "quote": "Y if DCREASCD ^= 'Completed'. Null otherwise"
+        },
+        {
+          "document": "spec/source/programs/pilot6/adlbc.r",
+          "section": "L127-L133",
+          "quote": "eot <- adlb05 %>% filter(ENDPOINT == \"Y\" | VISITNUM == 12) %>% mutate( AVISIT = \"End of Treatment\", AVISITN = 99, AENTMTFL = \"Y\" )"
+        },
+        {
+          "document": "spec/source/programs/pilot6/adlbc.r",
+          "section": "L141-L156",
+          "quote": "mutate( AVISIT = case_when( ABLFL == \"Y\" ~ \"Baseline\", grepl(\"UNSCHEDULED\", VISIT) == TRUE ~ \"\", TRUE ~ str_to_sentence(VISIT) ), AVISITN = case_when( AVISIT == \"Baseline\" ~ 0, TRUE ~ as.numeric(gsub(\"[^0-9]\", \"\", AVISIT)) ), AENTMTFL = \"\" ) %>% rbind(eot) %>% mutate( AVISITN = ifelse(AVISITN == -1, \"\", AVISITN) )"
+        },
+        {
+          "document": "spec/source/programs/pilot6/adlbc.r",
+          "section": "L158-L169",
+          "quote": "# get EOT for those that did not make it to week 24 eot2 <- adlb06 %>% arrange(STUDYID, USUBJID, PARAMCD, desc(AVISITN)) %>% group_by(STUDYID, USUBJID, PARAMCD) %>% filter(VISITNUM != 13) %>% slice(1) %>% filter(!is.na(AVISITN), AVISITN != 0, AVISITN != 99) %>% mutate( AVISITN = 99, AVISIT = \"End of Treatment\", AENTMTFL = \"Y\" )"
+        },
+        {
+          "document": "spec/source/programs/pilot6/adlbc.r",
+          "section": "L171-L180",
+          "quote": "adlb07 <- adlb06 %>% filter(VISITNUM <= 12 & AVISITN > 0 & AVISITN != 99 & !grepl(\"UN\", VISIT)) %>% group_by(USUBJID, PARAMCD) %>% mutate(AENTMTFL_1 = ifelse(max(AVISITN, na.rm = TRUE) == AVISITN, \"Y\", \"\")) %>% select(USUBJID, PARAMCD, AENTMTFL_1, LBSEQ) %>% full_join(adlb06, by = c(\"USUBJID\", \"PARAMCD\", \"LBSEQ\"), multiple = \"all\") %>% mutate(AENTMTFL = ifelse(AENTMTFL == \"Y\", AENTMTFL, AENTMTFL_1)) %>% select(-AENTMTFL_1) %>% rbind(eot2) %>% ungroup()"
         }
       ],
       "clauses": [
