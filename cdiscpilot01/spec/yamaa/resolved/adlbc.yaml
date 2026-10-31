@@ -3276,21 +3276,49 @@ columns:
 - name: _U_RAW
   type: float
   label: 'Working value: _U_RAW'
-- name: _U_AVAL_ROUNDED
-  type: float
-  label: 'Working value: _U_AVAL_ROUNDED'
-  derivation:
-    round_half_away_from_zero:
-      source: _U_RAW
-      digits: 1
 - name: _U_AVAL
   type: float
   label: 'Working value: _U_AVAL'
   derivation:
     case:
     - when: _IS_UNDER = 'Y' AND _SCHED = 'Y'
-      then: _U_AVAL_ROUNDED
+      then:
+        round_half_away_from_zero:
+          source: _U_RAW
+          digits: 1
     - otherwise: null
+- name: _RANK_VAL
+  type: float
+  label: 'Working value: _RANK_VAL'
+  derivation:
+    case:
+    - when: _IS_UNDER = 'Y'
+      then: abs(_U_AVAL)
+    - otherwise: ALBTRVAL
+- name: _ANL01_RANK
+  type: int
+  label: 'Working value: _ANL01_RANK'
+  derivation:
+    rank:
+      method: competition
+      window:
+        group_by:
+        - USUBJID
+        - PARAMCD
+        order_by:
+        - variable: _RANK_VAL
+          direction: desc
+          nulls: last
+        - variable: _RANK_AVISITN
+          direction: asc
+          nulls: last
+        - variable: _ADT_DATE
+          direction: asc
+          nulls: last
+        - variable: LBSEQ
+          direction: asc
+          nulls: last
+        filter: _RANK_AVISITN >= 2 AND _RANK_AVISITN <= 24
 - name: AVAL
   type: float
   label: Analysis Value
@@ -3763,538 +3791,6 @@ columns:
       origins:
       - type: Derived
       comment: (LBSTRESN - previous LBSTRESN)/(.5*(LBSTNRHI-LBSTNRLO)); null if LBBLFL=Y
-- name: ANRIND
-  type: str
-  label: Analysis Reference Range Indicator
-  derivation:
-    case:
-    - when: _IS_UNDER = 'Y' AND _U_AVAL IS NULL
-      then: ''''''
-    - when: _IS_UNDER = 'Y' AND _U_AVAL > 1.0
-      then: '''H'''
-    - when: _IS_UNDER = 'Y' AND _U_AVAL < -1.0
-      then: '''L'''
-    - when: _IS_UNDER = 'Y'
-      then: '''N'''
-    - otherwise: _ANRIND_BASE
-  submission:
-    mandatory: false
-    data_type: text
-    length: 1
-    codelist: LNH
-    origins:
-    - type: Derived
-    value_level:
-    - id: ALB
-      where:
-        PARAMCD:
-        - ALB
-      label: Albumin (g/L)
-      mandatory: false
-      data_type: text
-      length: 1
-      codelist: LNH
-      origins:
-      - type: Derived
-      comment: if AVAL < (0.5*LBSTNRLO) then ANRIND='L'; if LAVAL > 1.5* LBSTNRHI
-        then ANRIND='H'; ANRIND='N' otherwise. Used for shift tables
-    - id: ALP
-      where:
-        PARAMCD:
-        - ALP
-      label: Alkaline Phosphatase (U/L)
-      mandatory: false
-      data_type: text
-      length: 1
-      codelist: LNH
-      origins:
-      - type: Derived
-      comment: if AVAL < (0.5*LBSTNRLO) then ANRIND='L'; if LAVAL > 1.5* LBSTNRHI
-        then ANRIND='H'; ANRIND='N' otherwise. Used for shift tables
-    - id: ALT
-      where:
-        PARAMCD:
-        - ALT
-      label: Alanine Aminotransferase (U/L)
-      mandatory: false
-      data_type: text
-      length: 1
-      codelist: LNH
-      origins:
-      - type: Derived
-      comment: if AVAL < (0.5*LBSTNRLO) then ANRIND='L'; if LAVAL > 1.5* LBSTNRHI
-        then ANRIND='H'; ANRIND='N' otherwise. Used for shift tables
-    - id: AST
-      where:
-        PARAMCD:
-        - AST
-      label: Aspartate Aminotransferase (U/L)
-      mandatory: false
-      data_type: text
-      length: 1
-      codelist: LNH
-      origins:
-      - type: Derived
-      comment: if AVAL < (0.5*LBSTNRLO) then ANRIND='L'; if LAVAL > 1.5* LBSTNRHI
-        then ANRIND='H'; ANRIND='N' otherwise. Used for shift tables
-    - id: BILI
-      where:
-        PARAMCD:
-        - BILI
-      label: Bilirubin (umol/L)
-      mandatory: false
-      data_type: text
-      length: 1
-      codelist: LNH
-      origins:
-      - type: Derived
-      comment: if AVAL < (0.5*LBSTNRLO) then ANRIND='L'; if LAVAL > 1.5* LBSTNRHI
-        then ANRIND='H'; ANRIND='N' otherwise. Used for shift tables
-    - id: BUN
-      where:
-        PARAMCD:
-        - BUN
-      label: Blood Urea Nitrogen (mmol/L)
-      mandatory: false
-      data_type: text
-      length: 1
-      codelist: LNH
-      origins:
-      - type: Derived
-      comment: if AVAL < (0.5*LBSTNRLO) then ANRIND='L'; if LAVAL > 1.5* LBSTNRHI
-        then ANRIND='H'; ANRIND='N' otherwise. Used for shift tables
-    - id: CA
-      where:
-        PARAMCD:
-        - CA
-      label: Calcium (mmol/L)
-      mandatory: false
-      data_type: text
-      length: 1
-      codelist: LNH
-      origins:
-      - type: Derived
-      comment: if AVAL < (0.5*LBSTNRLO) then ANRIND='L'; if LAVAL > 1.5* LBSTNRHI
-        then ANRIND='H'; ANRIND='N' otherwise. Used for shift tables
-    - id: CHOL
-      where:
-        PARAMCD:
-        - CHOL
-      label: Cholesterol (mmol/L)
-      mandatory: false
-      data_type: text
-      length: 1
-      codelist: LNH
-      origins:
-      - type: Derived
-      comment: if AVAL < (0.5*LBSTNRLO) then ANRIND='L'; if LAVAL > 1.5* LBSTNRHI
-        then ANRIND='H'; ANRIND='N' otherwise. Used for shift tables
-    - id: CK
-      where:
-        PARAMCD:
-        - CK
-      label: Creatine Kinase (U/L)
-      mandatory: false
-      data_type: text
-      length: 1
-      codelist: LNH
-      origins:
-      - type: Derived
-      comment: if AVAL < (0.5*LBSTNRLO) then ANRIND='L'; if LAVAL > 1.5* LBSTNRHI
-        then ANRIND='H'; ANRIND='N' otherwise. Used for shift tables
-    - id: CL
-      where:
-        PARAMCD:
-        - CL
-      label: Chloride (mmol/L)
-      mandatory: false
-      data_type: text
-      length: 1
-      codelist: LNH
-      origins:
-      - type: Derived
-      comment: if AVAL < (0.5*LBSTNRLO) then ANRIND='L'; if LAVAL > 1.5* LBSTNRHI
-        then ANRIND='H'; ANRIND='N' otherwise. Used for shift tables
-    - id: CREAT
-      where:
-        PARAMCD:
-        - CREAT
-      label: Creatinine (umol/L)
-      mandatory: false
-      data_type: text
-      length: 1
-      codelist: LNH
-      origins:
-      - type: Derived
-      comment: if AVAL < (0.5*LBSTNRLO) then ANRIND='L'; if LAVAL > 1.5* LBSTNRHI
-        then ANRIND='H'; ANRIND='N' otherwise. Used for shift tables
-    - id: GGT
-      where:
-        PARAMCD:
-        - GGT
-      label: Gamma Glutamyl Transferase (U/L)
-      mandatory: false
-      data_type: text
-      length: 1
-      codelist: LNH
-      origins:
-      - type: Derived
-      comment: if AVAL < (0.5*LBSTNRLO) then ANRIND='L'; if LAVAL > 1.5* LBSTNRHI
-        then ANRIND='H'; ANRIND='N' otherwise. Used for shift tables
-    - id: GLUC
-      where:
-        PARAMCD:
-        - GLUC
-      label: Glucose (mmol/L)
-      mandatory: false
-      data_type: text
-      length: 1
-      codelist: LNH
-      origins:
-      - type: Derived
-      comment: if AVAL < (0.5*LBSTNRLO) then ANRIND='L'; if LAVAL > 1.5* LBSTNRHI
-        then ANRIND='H'; ANRIND='N' otherwise. Used for shift tables
-    - id: K
-      where:
-        PARAMCD:
-        - K
-      label: Potassium (mmol/L)
-      mandatory: false
-      data_type: text
-      length: 1
-      codelist: LNH
-      origins:
-      - type: Derived
-      comment: if AVAL < (0.5*LBSTNRLO) then ANRIND='L'; if LAVAL > 1.5* LBSTNRHI
-        then ANRIND='H'; ANRIND='N' otherwise. Used for shift tables
-    - id: PHOS
-      where:
-        PARAMCD:
-        - PHOS
-      label: Phosphate (mmol/L)
-      mandatory: false
-      data_type: text
-      length: 1
-      codelist: LNH
-      origins:
-      - type: Derived
-      comment: if AVAL < (0.5*LBSTNRLO) then ANRIND='L'; if LAVAL > 1.5* LBSTNRHI
-        then ANRIND='H'; ANRIND='N' otherwise. Used for shift tables
-    - id: PROT
-      where:
-        PARAMCD:
-        - PROT
-      label: Protein (g/L)
-      mandatory: false
-      data_type: text
-      length: 1
-      codelist: LNH
-      origins:
-      - type: Derived
-      comment: if AVAL < (0.5*LBSTNRLO) then ANRIND='L'; if LAVAL > 1.5* LBSTNRHI
-        then ANRIND='H'; ANRIND='N' otherwise. Used for shift tables
-    - id: SODIUM
-      where:
-        PARAMCD:
-        - SODIUM
-      label: Sodium (mmol/L)
-      mandatory: false
-      data_type: text
-      length: 1
-      codelist: LNH
-      origins:
-      - type: Derived
-      comment: if AVAL < (0.5*LBSTNRLO) then ANRIND='L'; if LAVAL > 1.5* LBSTNRHI
-        then ANRIND='H'; ANRIND='N' otherwise. Used for shift tables
-    - id: URATE
-      where:
-        PARAMCD:
-        - URATE
-      label: Urate (umol/L)
-      mandatory: false
-      data_type: text
-      length: 1
-      codelist: LNH
-      origins:
-      - type: Derived
-      comment: if AVAL < (0.5*LBSTNRLO) then ANRIND='L'; if LAVAL > 1.5* LBSTNRHI
-        then ANRIND='H'; ANRIND='N' otherwise. Used for shift tables
-    - id: _ALB
-      where:
-        PARAMCD:
-        - _ALB
-      label: Albumin (g/L) change from previous visit, relative to normal range
-      mandatory: false
-      data_type: text
-      length: 1
-      codelist: LNH
-      origins:
-      - type: Derived
-      comment: if AVAL < -1 then ANRIND='L'; if AVAL > 1 then ANRIND='H'; ANRIND='N'
-        otherwise; null if LBBLFL=Y or AVAL=null
-    - id: _ALP
-      where:
-        PARAMCD:
-        - _ALP
-      label: Alkaline Phosphatase (U/L) change from previous visit, relative to normal
-        range
-      mandatory: false
-      data_type: text
-      length: 1
-      codelist: LNH
-      origins:
-      - type: Derived
-      comment: if AVAL < -1 then ANRIND='L'; if AVAL > 1 then ANRIND='H'; ANRIND='N'
-        otherwise; null if LBBLFL=Y or AVAL=null
-    - id: _ALT
-      where:
-        PARAMCD:
-        - _ALT
-      label: Alanine Aminotransferase (U/L) change from previous visit, relative to
-        normal range
-      mandatory: false
-      data_type: text
-      length: 1
-      codelist: LNH
-      origins:
-      - type: Derived
-      comment: if AVAL < -1 then ANRIND='L'; if AVAL > 1 then ANRIND='H'; ANRIND='N'
-        otherwise; null if LBBLFL=Y or AVAL=null
-    - id: _AST
-      where:
-        PARAMCD:
-        - _AST
-      label: Aspartate Aminotransferase (U/L) change from previous visit, relative
-        to normal range
-      mandatory: false
-      data_type: text
-      length: 1
-      codelist: LNH
-      origins:
-      - type: Derived
-      comment: if AVAL < -1 then ANRIND='L'; if AVAL > 1 then ANRIND='H'; ANRIND='N'
-        otherwise; null if LBBLFL=Y or AVAL=null
-    - id: _BILI
-      where:
-        PARAMCD:
-        - _BILI
-      label: Bilirubin (umol/L) change from previous visit, relative to normal range
-      mandatory: false
-      data_type: text
-      length: 1
-      codelist: LNH
-      origins:
-      - type: Derived
-      comment: if AVAL < -1 then ANRIND='L'; if AVAL > 1 then ANRIND='H'; ANRIND='N'
-        otherwise; null if LBBLFL=Y or AVAL=null
-    - id: _BUN
-      where:
-        PARAMCD:
-        - _BUN
-      label: Blood Urea Nitrogen (mmol/L) change from previous visit, relative to
-        normal range
-      mandatory: false
-      data_type: text
-      length: 1
-      codelist: LNH
-      origins:
-      - type: Derived
-      comment: if AVAL < -1 then ANRIND='L'; if AVAL > 1 then ANRIND='H'; ANRIND='N'
-        otherwise; null if LBBLFL=Y or AVAL=null
-    - id: _CA
-      where:
-        PARAMCD:
-        - _CA
-      label: Calcium (mmol/L) change from previous visit, relative to normal range
-      mandatory: false
-      data_type: text
-      length: 1
-      codelist: LNH
-      origins:
-      - type: Derived
-      comment: if AVAL < -1 then ANRIND='L'; if AVAL > 1 then ANRIND='H'; ANRIND='N'
-        otherwise; null if LBBLFL=Y or AVAL=null
-    - id: _CHOL
-      where:
-        PARAMCD:
-        - _CHOL
-      label: Cholesterol (mmol/L) change from previous visit, relative to normal range
-      mandatory: false
-      data_type: text
-      length: 1
-      codelist: LNH
-      origins:
-      - type: Derived
-      comment: if AVAL < -1 then ANRIND='L'; if AVAL > 1 then ANRIND='H'; ANRIND='N'
-        otherwise; null if LBBLFL=Y or AVAL=null
-    - id: _CK
-      where:
-        PARAMCD:
-        - _CK
-      label: Creatine Kinase (U/L) change from previous visit, relative to normal
-        range
-      mandatory: false
-      data_type: text
-      length: 1
-      codelist: LNH
-      origins:
-      - type: Derived
-      comment: if AVAL < -1 then ANRIND='L'; if AVAL > 1 then ANRIND='H'; ANRIND='N'
-        otherwise; null if LBBLFL=Y or AVAL=null
-    - id: _CL
-      where:
-        PARAMCD:
-        - _CL
-      label: Chloride (mmol/L) change from previous visit, relative to normal range
-      mandatory: false
-      data_type: text
-      length: 1
-      codelist: LNH
-      origins:
-      - type: Derived
-      comment: if AVAL < -1 then ANRIND='L'; if AVAL > 1 then ANRIND='H'; ANRIND='N'
-        otherwise; null if LBBLFL=Y or AVAL=null
-    - id: _CREAT
-      where:
-        PARAMCD:
-        - _CREAT
-      label: Creatinine (umol/L) change from previous visit, relative to normal range
-      mandatory: false
-      data_type: text
-      length: 1
-      codelist: LNH
-      origins:
-      - type: Derived
-      comment: if AVAL < -1 then ANRIND='L'; if AVAL > 1 then ANRIND='H'; ANRIND='N'
-        otherwise; null if LBBLFL=Y or AVAL=null
-    - id: _GGT
-      where:
-        PARAMCD:
-        - _GGT
-      label: Gamma Glutamyl Transferase (U/L) change from previous visit, relative
-        to normal range
-      mandatory: false
-      data_type: text
-      length: 1
-      codelist: LNH
-      origins:
-      - type: Derived
-      comment: if AVAL < -1 then ANRIND='L'; if AVAL > 1 then ANRIND='H'; ANRIND='N'
-        otherwise; null if LBBLFL=Y or AVAL=null
-    - id: _GLUC
-      where:
-        PARAMCD:
-        - _GLUC
-      label: Glucose (mmol/L) change from previous visit, relative to normal range
-      mandatory: false
-      data_type: text
-      length: 1
-      codelist: LNH
-      origins:
-      - type: Derived
-      comment: if AVAL < -1 then ANRIND='L'; if AVAL > 1 then ANRIND='H'; ANRIND='N'
-        otherwise; null if LBBLFL=Y or AVAL=null
-    - id: _K
-      where:
-        PARAMCD:
-        - _K
-      label: Potassium (mmol/L) change from previous visit, relative to normal range
-      mandatory: false
-      data_type: text
-      length: 1
-      codelist: LNH
-      origins:
-      - type: Derived
-      comment: if AVAL < -1 then ANRIND='L'; if AVAL > 1 then ANRIND='H'; ANRIND='N'
-        otherwise; null if LBBLFL=Y or AVAL=null
-    - id: _PHOS
-      where:
-        PARAMCD:
-        - _PHOS
-      label: Phosphate (mmol/L) change from previous visit, relative to normal range
-      mandatory: false
-      data_type: text
-      length: 1
-      codelist: LNH
-      origins:
-      - type: Derived
-      comment: if AVAL < -1 then ANRIND='L'; if AVAL > 1 then ANRIND='H'; ANRIND='N'
-        otherwise; null if LBBLFL=Y or AVAL=null
-    - id: _PROT
-      where:
-        PARAMCD:
-        - _PROT
-      label: Protein (g/L) change from previous visit, relative to normal range
-      mandatory: false
-      data_type: text
-      length: 1
-      codelist: LNH
-      origins:
-      - type: Derived
-      comment: if AVAL < -1 then ANRIND='L'; if AVAL > 1 then ANRIND='H'; ANRIND='N'
-        otherwise; null if LBBLFL=Y or AVAL=null
-    - id: _SODIUM
-      where:
-        PARAMCD:
-        - _SODIUM
-      label: Sodium (mmol/L) change from previous visit, relative to normal range
-      mandatory: false
-      data_type: text
-      length: 1
-      codelist: LNH
-      origins:
-      - type: Derived
-      comment: if AVAL < -1 then ANRIND='L'; if AVAL > 1 then ANRIND='H'; ANRIND='N'
-        otherwise; null if LBBLFL=Y or AVAL=null
-    - id: _URATE
-      where:
-        PARAMCD:
-        - _URATE
-      label: Urate (umol/L) change from previous visit, relative to normal range
-      mandatory: false
-      data_type: text
-      length: 1
-      codelist: LNH
-      origins:
-      - type: Derived
-      comment: if AVAL < -1 then ANRIND='L'; if AVAL > 1 then ANRIND='H'; ANRIND='N'
-        otherwise; null if LBBLFL=Y or AVAL=null
-- name: _ABS_U_AVAL
-  type: float
-  label: 'Working value: _ABS_U_AVAL'
-  derivation: abs(_U_AVAL)
-- name: _RANK_VAL
-  type: float
-  label: 'Working value: _RANK_VAL'
-  derivation:
-    case:
-    - when: _IS_UNDER = 'Y'
-      then: _ABS_U_AVAL
-    - otherwise: ALBTRVAL
-- name: _ANL01_RANK
-  type: int
-  label: 'Working value: _ANL01_RANK'
-  derivation:
-    rank:
-      method: competition
-      window:
-        group_by:
-        - USUBJID
-        - PARAMCD
-        order_by:
-        - variable: _RANK_VAL
-          direction: desc
-          nulls: last
-        - variable: _RANK_AVISITN
-          direction: asc
-          nulls: last
-        - variable: _ADT_DATE
-          direction: asc
-          nulls: last
-        - variable: LBSEQ
-          direction: asc
-          nulls: last
-        filter: _RANK_AVISITN >= 2 AND _RANK_AVISITN <= 24
 - name: ANL01FL
   type: str
   label: Analysis Record Flag 1
@@ -4821,6 +4317,502 @@ columns:
       comment: Y if the absolute value of this AVAL is the largest for the subject
         for VISITS 4-12 inclusive, null otherwise; only the first on-treatment AVAL
         that has absolute val equal to the max is flagged.
+- name: ANRIND
+  type: str
+  label: Analysis Reference Range Indicator
+  derivation:
+    case:
+    - when: _IS_UNDER = 'Y' AND _U_AVAL IS NULL
+      then: ''''''
+    - when: _IS_UNDER = 'Y' AND _U_AVAL > 1.0
+      then: '''H'''
+    - when: _IS_UNDER = 'Y' AND _U_AVAL < -1.0
+      then: '''L'''
+    - when: _IS_UNDER = 'Y'
+      then: '''N'''
+    - otherwise: _ANRIND_BASE
+  submission:
+    mandatory: false
+    data_type: text
+    length: 1
+    codelist: LNH
+    origins:
+    - type: Derived
+    value_level:
+    - id: ALB
+      where:
+        PARAMCD:
+        - ALB
+      label: Albumin (g/L)
+      mandatory: false
+      data_type: text
+      length: 1
+      codelist: LNH
+      origins:
+      - type: Derived
+      comment: if AVAL < (0.5*LBSTNRLO) then ANRIND='L'; if LAVAL > 1.5* LBSTNRHI
+        then ANRIND='H'; ANRIND='N' otherwise. Used for shift tables
+    - id: ALP
+      where:
+        PARAMCD:
+        - ALP
+      label: Alkaline Phosphatase (U/L)
+      mandatory: false
+      data_type: text
+      length: 1
+      codelist: LNH
+      origins:
+      - type: Derived
+      comment: if AVAL < (0.5*LBSTNRLO) then ANRIND='L'; if LAVAL > 1.5* LBSTNRHI
+        then ANRIND='H'; ANRIND='N' otherwise. Used for shift tables
+    - id: ALT
+      where:
+        PARAMCD:
+        - ALT
+      label: Alanine Aminotransferase (U/L)
+      mandatory: false
+      data_type: text
+      length: 1
+      codelist: LNH
+      origins:
+      - type: Derived
+      comment: if AVAL < (0.5*LBSTNRLO) then ANRIND='L'; if LAVAL > 1.5* LBSTNRHI
+        then ANRIND='H'; ANRIND='N' otherwise. Used for shift tables
+    - id: AST
+      where:
+        PARAMCD:
+        - AST
+      label: Aspartate Aminotransferase (U/L)
+      mandatory: false
+      data_type: text
+      length: 1
+      codelist: LNH
+      origins:
+      - type: Derived
+      comment: if AVAL < (0.5*LBSTNRLO) then ANRIND='L'; if LAVAL > 1.5* LBSTNRHI
+        then ANRIND='H'; ANRIND='N' otherwise. Used for shift tables
+    - id: BILI
+      where:
+        PARAMCD:
+        - BILI
+      label: Bilirubin (umol/L)
+      mandatory: false
+      data_type: text
+      length: 1
+      codelist: LNH
+      origins:
+      - type: Derived
+      comment: if AVAL < (0.5*LBSTNRLO) then ANRIND='L'; if LAVAL > 1.5* LBSTNRHI
+        then ANRIND='H'; ANRIND='N' otherwise. Used for shift tables
+    - id: BUN
+      where:
+        PARAMCD:
+        - BUN
+      label: Blood Urea Nitrogen (mmol/L)
+      mandatory: false
+      data_type: text
+      length: 1
+      codelist: LNH
+      origins:
+      - type: Derived
+      comment: if AVAL < (0.5*LBSTNRLO) then ANRIND='L'; if LAVAL > 1.5* LBSTNRHI
+        then ANRIND='H'; ANRIND='N' otherwise. Used for shift tables
+    - id: CA
+      where:
+        PARAMCD:
+        - CA
+      label: Calcium (mmol/L)
+      mandatory: false
+      data_type: text
+      length: 1
+      codelist: LNH
+      origins:
+      - type: Derived
+      comment: if AVAL < (0.5*LBSTNRLO) then ANRIND='L'; if LAVAL > 1.5* LBSTNRHI
+        then ANRIND='H'; ANRIND='N' otherwise. Used for shift tables
+    - id: CHOL
+      where:
+        PARAMCD:
+        - CHOL
+      label: Cholesterol (mmol/L)
+      mandatory: false
+      data_type: text
+      length: 1
+      codelist: LNH
+      origins:
+      - type: Derived
+      comment: if AVAL < (0.5*LBSTNRLO) then ANRIND='L'; if LAVAL > 1.5* LBSTNRHI
+        then ANRIND='H'; ANRIND='N' otherwise. Used for shift tables
+    - id: CK
+      where:
+        PARAMCD:
+        - CK
+      label: Creatine Kinase (U/L)
+      mandatory: false
+      data_type: text
+      length: 1
+      codelist: LNH
+      origins:
+      - type: Derived
+      comment: if AVAL < (0.5*LBSTNRLO) then ANRIND='L'; if LAVAL > 1.5* LBSTNRHI
+        then ANRIND='H'; ANRIND='N' otherwise. Used for shift tables
+    - id: CL
+      where:
+        PARAMCD:
+        - CL
+      label: Chloride (mmol/L)
+      mandatory: false
+      data_type: text
+      length: 1
+      codelist: LNH
+      origins:
+      - type: Derived
+      comment: if AVAL < (0.5*LBSTNRLO) then ANRIND='L'; if LAVAL > 1.5* LBSTNRHI
+        then ANRIND='H'; ANRIND='N' otherwise. Used for shift tables
+    - id: CREAT
+      where:
+        PARAMCD:
+        - CREAT
+      label: Creatinine (umol/L)
+      mandatory: false
+      data_type: text
+      length: 1
+      codelist: LNH
+      origins:
+      - type: Derived
+      comment: if AVAL < (0.5*LBSTNRLO) then ANRIND='L'; if LAVAL > 1.5* LBSTNRHI
+        then ANRIND='H'; ANRIND='N' otherwise. Used for shift tables
+    - id: GGT
+      where:
+        PARAMCD:
+        - GGT
+      label: Gamma Glutamyl Transferase (U/L)
+      mandatory: false
+      data_type: text
+      length: 1
+      codelist: LNH
+      origins:
+      - type: Derived
+      comment: if AVAL < (0.5*LBSTNRLO) then ANRIND='L'; if LAVAL > 1.5* LBSTNRHI
+        then ANRIND='H'; ANRIND='N' otherwise. Used for shift tables
+    - id: GLUC
+      where:
+        PARAMCD:
+        - GLUC
+      label: Glucose (mmol/L)
+      mandatory: false
+      data_type: text
+      length: 1
+      codelist: LNH
+      origins:
+      - type: Derived
+      comment: if AVAL < (0.5*LBSTNRLO) then ANRIND='L'; if LAVAL > 1.5* LBSTNRHI
+        then ANRIND='H'; ANRIND='N' otherwise. Used for shift tables
+    - id: K
+      where:
+        PARAMCD:
+        - K
+      label: Potassium (mmol/L)
+      mandatory: false
+      data_type: text
+      length: 1
+      codelist: LNH
+      origins:
+      - type: Derived
+      comment: if AVAL < (0.5*LBSTNRLO) then ANRIND='L'; if LAVAL > 1.5* LBSTNRHI
+        then ANRIND='H'; ANRIND='N' otherwise. Used for shift tables
+    - id: PHOS
+      where:
+        PARAMCD:
+        - PHOS
+      label: Phosphate (mmol/L)
+      mandatory: false
+      data_type: text
+      length: 1
+      codelist: LNH
+      origins:
+      - type: Derived
+      comment: if AVAL < (0.5*LBSTNRLO) then ANRIND='L'; if LAVAL > 1.5* LBSTNRHI
+        then ANRIND='H'; ANRIND='N' otherwise. Used for shift tables
+    - id: PROT
+      where:
+        PARAMCD:
+        - PROT
+      label: Protein (g/L)
+      mandatory: false
+      data_type: text
+      length: 1
+      codelist: LNH
+      origins:
+      - type: Derived
+      comment: if AVAL < (0.5*LBSTNRLO) then ANRIND='L'; if LAVAL > 1.5* LBSTNRHI
+        then ANRIND='H'; ANRIND='N' otherwise. Used for shift tables
+    - id: SODIUM
+      where:
+        PARAMCD:
+        - SODIUM
+      label: Sodium (mmol/L)
+      mandatory: false
+      data_type: text
+      length: 1
+      codelist: LNH
+      origins:
+      - type: Derived
+      comment: if AVAL < (0.5*LBSTNRLO) then ANRIND='L'; if LAVAL > 1.5* LBSTNRHI
+        then ANRIND='H'; ANRIND='N' otherwise. Used for shift tables
+    - id: URATE
+      where:
+        PARAMCD:
+        - URATE
+      label: Urate (umol/L)
+      mandatory: false
+      data_type: text
+      length: 1
+      codelist: LNH
+      origins:
+      - type: Derived
+      comment: if AVAL < (0.5*LBSTNRLO) then ANRIND='L'; if LAVAL > 1.5* LBSTNRHI
+        then ANRIND='H'; ANRIND='N' otherwise. Used for shift tables
+    - id: _ALB
+      where:
+        PARAMCD:
+        - _ALB
+      label: Albumin (g/L) change from previous visit, relative to normal range
+      mandatory: false
+      data_type: text
+      length: 1
+      codelist: LNH
+      origins:
+      - type: Derived
+      comment: if AVAL < -1 then ANRIND='L'; if AVAL > 1 then ANRIND='H'; ANRIND='N'
+        otherwise; null if LBBLFL=Y or AVAL=null
+    - id: _ALP
+      where:
+        PARAMCD:
+        - _ALP
+      label: Alkaline Phosphatase (U/L) change from previous visit, relative to normal
+        range
+      mandatory: false
+      data_type: text
+      length: 1
+      codelist: LNH
+      origins:
+      - type: Derived
+      comment: if AVAL < -1 then ANRIND='L'; if AVAL > 1 then ANRIND='H'; ANRIND='N'
+        otherwise; null if LBBLFL=Y or AVAL=null
+    - id: _ALT
+      where:
+        PARAMCD:
+        - _ALT
+      label: Alanine Aminotransferase (U/L) change from previous visit, relative to
+        normal range
+      mandatory: false
+      data_type: text
+      length: 1
+      codelist: LNH
+      origins:
+      - type: Derived
+      comment: if AVAL < -1 then ANRIND='L'; if AVAL > 1 then ANRIND='H'; ANRIND='N'
+        otherwise; null if LBBLFL=Y or AVAL=null
+    - id: _AST
+      where:
+        PARAMCD:
+        - _AST
+      label: Aspartate Aminotransferase (U/L) change from previous visit, relative
+        to normal range
+      mandatory: false
+      data_type: text
+      length: 1
+      codelist: LNH
+      origins:
+      - type: Derived
+      comment: if AVAL < -1 then ANRIND='L'; if AVAL > 1 then ANRIND='H'; ANRIND='N'
+        otherwise; null if LBBLFL=Y or AVAL=null
+    - id: _BILI
+      where:
+        PARAMCD:
+        - _BILI
+      label: Bilirubin (umol/L) change from previous visit, relative to normal range
+      mandatory: false
+      data_type: text
+      length: 1
+      codelist: LNH
+      origins:
+      - type: Derived
+      comment: if AVAL < -1 then ANRIND='L'; if AVAL > 1 then ANRIND='H'; ANRIND='N'
+        otherwise; null if LBBLFL=Y or AVAL=null
+    - id: _BUN
+      where:
+        PARAMCD:
+        - _BUN
+      label: Blood Urea Nitrogen (mmol/L) change from previous visit, relative to
+        normal range
+      mandatory: false
+      data_type: text
+      length: 1
+      codelist: LNH
+      origins:
+      - type: Derived
+      comment: if AVAL < -1 then ANRIND='L'; if AVAL > 1 then ANRIND='H'; ANRIND='N'
+        otherwise; null if LBBLFL=Y or AVAL=null
+    - id: _CA
+      where:
+        PARAMCD:
+        - _CA
+      label: Calcium (mmol/L) change from previous visit, relative to normal range
+      mandatory: false
+      data_type: text
+      length: 1
+      codelist: LNH
+      origins:
+      - type: Derived
+      comment: if AVAL < -1 then ANRIND='L'; if AVAL > 1 then ANRIND='H'; ANRIND='N'
+        otherwise; null if LBBLFL=Y or AVAL=null
+    - id: _CHOL
+      where:
+        PARAMCD:
+        - _CHOL
+      label: Cholesterol (mmol/L) change from previous visit, relative to normal range
+      mandatory: false
+      data_type: text
+      length: 1
+      codelist: LNH
+      origins:
+      - type: Derived
+      comment: if AVAL < -1 then ANRIND='L'; if AVAL > 1 then ANRIND='H'; ANRIND='N'
+        otherwise; null if LBBLFL=Y or AVAL=null
+    - id: _CK
+      where:
+        PARAMCD:
+        - _CK
+      label: Creatine Kinase (U/L) change from previous visit, relative to normal
+        range
+      mandatory: false
+      data_type: text
+      length: 1
+      codelist: LNH
+      origins:
+      - type: Derived
+      comment: if AVAL < -1 then ANRIND='L'; if AVAL > 1 then ANRIND='H'; ANRIND='N'
+        otherwise; null if LBBLFL=Y or AVAL=null
+    - id: _CL
+      where:
+        PARAMCD:
+        - _CL
+      label: Chloride (mmol/L) change from previous visit, relative to normal range
+      mandatory: false
+      data_type: text
+      length: 1
+      codelist: LNH
+      origins:
+      - type: Derived
+      comment: if AVAL < -1 then ANRIND='L'; if AVAL > 1 then ANRIND='H'; ANRIND='N'
+        otherwise; null if LBBLFL=Y or AVAL=null
+    - id: _CREAT
+      where:
+        PARAMCD:
+        - _CREAT
+      label: Creatinine (umol/L) change from previous visit, relative to normal range
+      mandatory: false
+      data_type: text
+      length: 1
+      codelist: LNH
+      origins:
+      - type: Derived
+      comment: if AVAL < -1 then ANRIND='L'; if AVAL > 1 then ANRIND='H'; ANRIND='N'
+        otherwise; null if LBBLFL=Y or AVAL=null
+    - id: _GGT
+      where:
+        PARAMCD:
+        - _GGT
+      label: Gamma Glutamyl Transferase (U/L) change from previous visit, relative
+        to normal range
+      mandatory: false
+      data_type: text
+      length: 1
+      codelist: LNH
+      origins:
+      - type: Derived
+      comment: if AVAL < -1 then ANRIND='L'; if AVAL > 1 then ANRIND='H'; ANRIND='N'
+        otherwise; null if LBBLFL=Y or AVAL=null
+    - id: _GLUC
+      where:
+        PARAMCD:
+        - _GLUC
+      label: Glucose (mmol/L) change from previous visit, relative to normal range
+      mandatory: false
+      data_type: text
+      length: 1
+      codelist: LNH
+      origins:
+      - type: Derived
+      comment: if AVAL < -1 then ANRIND='L'; if AVAL > 1 then ANRIND='H'; ANRIND='N'
+        otherwise; null if LBBLFL=Y or AVAL=null
+    - id: _K
+      where:
+        PARAMCD:
+        - _K
+      label: Potassium (mmol/L) change from previous visit, relative to normal range
+      mandatory: false
+      data_type: text
+      length: 1
+      codelist: LNH
+      origins:
+      - type: Derived
+      comment: if AVAL < -1 then ANRIND='L'; if AVAL > 1 then ANRIND='H'; ANRIND='N'
+        otherwise; null if LBBLFL=Y or AVAL=null
+    - id: _PHOS
+      where:
+        PARAMCD:
+        - _PHOS
+      label: Phosphate (mmol/L) change from previous visit, relative to normal range
+      mandatory: false
+      data_type: text
+      length: 1
+      codelist: LNH
+      origins:
+      - type: Derived
+      comment: if AVAL < -1 then ANRIND='L'; if AVAL > 1 then ANRIND='H'; ANRIND='N'
+        otherwise; null if LBBLFL=Y or AVAL=null
+    - id: _PROT
+      where:
+        PARAMCD:
+        - _PROT
+      label: Protein (g/L) change from previous visit, relative to normal range
+      mandatory: false
+      data_type: text
+      length: 1
+      codelist: LNH
+      origins:
+      - type: Derived
+      comment: if AVAL < -1 then ANRIND='L'; if AVAL > 1 then ANRIND='H'; ANRIND='N'
+        otherwise; null if LBBLFL=Y or AVAL=null
+    - id: _SODIUM
+      where:
+        PARAMCD:
+        - _SODIUM
+      label: Sodium (mmol/L) change from previous visit, relative to normal range
+      mandatory: false
+      data_type: text
+      length: 1
+      codelist: LNH
+      origins:
+      - type: Derived
+      comment: if AVAL < -1 then ANRIND='L'; if AVAL > 1 then ANRIND='H'; ANRIND='N'
+        otherwise; null if LBBLFL=Y or AVAL=null
+    - id: _URATE
+      where:
+        PARAMCD:
+        - _URATE
+      label: Urate (umol/L) change from previous visit, relative to normal range
+      mandatory: false
+      data_type: text
+      length: 1
+      codelist: LNH
+      origins:
+      - type: Derived
+      comment: if AVAL < -1 then ANRIND='L'; if AVAL > 1 then ANRIND='H'; ANRIND='N'
+        otherwise; null if LBBLFL=Y or AVAL=null
 rows:
 - id: base-ord
   dataset: LB
