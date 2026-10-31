@@ -252,7 +252,7 @@ def check(browser, base, site_dir, screenshots):
         page.goto(base + "/studies/cdiscpilot01/#cdiscpilot01/datasets/ADTTE?focus=output.AGE" + view)
         expect(page.locator(".spec-line.node-selected").first).to_be_visible()
         expect(page.locator("#spec-view, #copy-specification, #spec-caption, .review-footnote")).to_have_count(0)
-        expect(page.locator(".spec-pane .pane-footer")).to_contain_text("Generated composed specification")
+        expect(page.locator(".spec-pane .pane-footer")).to_have_count(0)
         selected = page.locator(".spec-line.node-selected code").all_text_contents()
         span = copied["resolved"]["lineage"]["spans"]["AGE"]
         composed = copied["resolved"]["text"].split("\n")[span["start"] - 1:span["end"]]
@@ -449,7 +449,7 @@ def check(browser, base, site_dir, screenshots):
     expect(page.locator('.consistency-summary .summary-value')).to_have_text(
         f"{cdisc_issue_count} findings awaiting review"
     )
-    expect(page.locator('.consistency-summary [data-view="overview"]')).to_have_text("View consistency findings")
+    expect(page.locator('.consistency-summary [data-view="overview"]')).to_have_count(0)
     page.locator('.review-tabs [data-view="overview"]').click()
     expect(page.locator(".consistency-table")).to_be_visible()
     expect(page.locator(".consistency-table tbody tr[data-finding-id]")).to_have_count(cdisc_issue_count)
@@ -496,6 +496,10 @@ def check(browser, base, site_dir, screenshots):
     expect(page.locator("#comments-host script")).to_have_attribute(
         "data-term", "pilot7/studies/cdiscpilot01/ADSL"
     )
+    expect(page.get_by_role("region", name="Comments", exact=True)).to_be_visible()
+    expect(page.locator("#comments-heading")).to_have_text("Comments")
+    expect(page.locator("#review-comments .section-heading p")).to_have_count(0)
+    expect(page.locator("#comments-host script")).to_have_attribute("data-reactions-enabled", "0")
     expect(page.get_by_role("button", name="Copy review context", exact=True)).to_have_count(0)
     expect(page.locator("#share-fallback, #share-url")).to_have_count(0)
     page.locator('.review-tabs [data-view="materials"]').click()
@@ -679,7 +683,7 @@ def check(browser, base, site_dir, screenshots):
     expect(trace.locator(".trace-review-feedback")).to_contain_text("Choose both")
     trace.get_by_role("radio", name="Agree", exact=True).check()
     trace.get_by_role("radio", name="Not critical", exact=True).check()
-    trace.get_by_role("textbox", name="Review comments").fill("Correct the blank query condition; reference flags follow the guide.")
+    trace.get_by_role("textbox", name="Comments").fill("Correct the blank query condition; reference flags follow the guide.")
     capture(page, screenshots, "trace-review-form.png")
     original_term = page.locator("#comments-host script").get_attribute("data-term")
     page.evaluate("window.originalCommentsHost=document.querySelector('#comments-host')")
@@ -704,13 +708,13 @@ def check(browser, base, site_dir, screenshots):
     expect(page.locator("#comments-host")).to_have_count(1)
     assert prepared.input_value() == text
     expect(trace.locator("#trace-fix details")).to_have_count(0)
-    trace.get_by_role("textbox", name="Review comments").fill("Confirm the dermatologic group; reference flags follow the guide.")
+    trace.get_by_role("textbox", name="Comments").fill("Confirm the dermatologic group; reference flags follow the guide.")
     expect(trace.locator("[data-trace-comment-stale]")).to_be_visible()
     submit_review.click()
     expect(trace.locator(".trace-review-feedback")).to_contain_text("select Start discussion")
     expect(prepared).to_have_value(re.compile("Confirm the dermatologic group"))
     expect(trace.locator("[data-trace-comment-stale]")).to_be_hidden()
-    trace.get_by_role("textbox", name="Review comments").fill("Correct the blank query condition; reference flags follow the guide.")
+    trace.get_by_role("textbox", name="Comments").fill("Correct the blank query condition; reference flags follow the guide.")
     submit_review.click()
     expect(trace.locator(".trace-review-feedback")).to_contain_text("select Start discussion")
     # The listing behind the dialog keeps the reviewer's own ledger current.
@@ -734,7 +738,7 @@ def check(browser, base, site_dir, screenshots):
     trace = open_trace(selection)
     expect(trace.get_by_role("radio", name="Agree", exact=True)).to_be_checked()
     expect(trace.get_by_role("radio", name="Not critical", exact=True)).to_be_checked()
-    expect(trace.get_by_role("textbox", name="Review comments")).to_have_value(re.compile("blank query"))
+    expect(trace.get_by_role("textbox", name="Comments")).to_have_value(re.compile("blank query"))
     page.keyboard.press("Escape")
     page.get_by_role("button", name="Clear filters", exact=True).click()
     # A finding can belong to a different dataset than the underlying workspace.

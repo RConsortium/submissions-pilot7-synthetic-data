@@ -39,7 +39,7 @@ export function createShell(ctx) {
       )
       .join(
         "",
-      )}</nav><div id="view-content"></div><section id="review-comments" class="review-comments" aria-label="Review comments"></section>`;
+      )}</nav><div id="view-content"></div><section id="review-comments" class="review-comments" aria-label="Comments"></section>`;
   }
 
   return { metrics, frame };

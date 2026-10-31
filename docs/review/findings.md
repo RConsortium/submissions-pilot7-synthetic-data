@@ -159,9 +159,9 @@ returns it to **Saved locally** or to a draft. The dashboard never confirms
 what was published on GitHub: only the discussion itself shows that. The hand-over document starts
 with a line for your name, the date and the filters the list was under.
 
-## Review comments
+## Comments
 
-**Review comments** below the dashboard holds a GitHub Discussion for the
+**Comments** below the dashboard holds a GitHub Discussion for the
 focused dataset, separate from the per-finding discussions that **Submit
 review on GitHub** creates. GitHub sign-in is required to post. A
 review-issue link remains available if the embedded discussion cannot load.

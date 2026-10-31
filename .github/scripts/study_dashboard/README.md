@@ -307,7 +307,7 @@ is no separate local-save action. A draft does not resolve the finding or
 replace agent adjudication or automated criticality. Drafts are scoped to the
 study and issue and bound to its current evidence; changed evidence returns an
 earlier assessment as a draft. The copied GitHub comment retains source revision
-and check IDs. No review is posted to GitHub automatically. Use a GitHub discussion or the workspace's dataset Review comments box to
+and check IDs. No review is posted to GitHub automatically. Use a GitHub discussion or the workspace's dataset Comments box to
 publish the copied assessment.
 
 The verifier retains row-aligned examples from the actual reference, yamaa and
