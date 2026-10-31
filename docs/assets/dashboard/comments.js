@@ -1,9 +1,9 @@
 /** Components read the live application context at render time. */
 export function createComments(ctx) {
   function commentsView() {
-    const { model, index, state, esc, link } = ctx;
+    const { index, link } = ctx;
     const c = index.comments;
-    return `<div class="section-heading"><div><h2 id="comments-heading">Review comments</h2><p>Discuss ${esc(model.title)} / ${state.dataset}. Attach the current view link so reviewers can reproduce your context.</p></div></div><div id="comments-host"></div><p class="comment-fallback">If the embedded discussion is unavailable, ${link(c.discussion_url, "open GitHub Discussions")} or ${link(issueUrl(), "open a Pilot 7 review issue")}.</p>`;
+    return `<div class="section-heading"><div><h2 id="comments-heading">Comments</h2></div></div><div id="comments-host"></div><p class="comment-fallback">If the embedded discussion is unavailable, ${link(c.discussion_url, "open GitHub Discussions")} or ${link(issueUrl(), "open a Pilot 7 review issue")}.</p>`;
   }
   function issueUrl() {
     const { model, index, state } = ctx;
@@ -36,7 +36,7 @@ export function createComments(ctx) {
       mapping: "specific",
       term: c.term_prefix + model.id + "/" + state.dataset,
       strict: "1",
-      "reactions-enabled": "1",
+      "reactions-enabled": "0",
       "emit-metadata": "0",
       "input-position": "top",
       theme: document.body.dataset.mdColorScheme === "slate" ? "dark" : "light",

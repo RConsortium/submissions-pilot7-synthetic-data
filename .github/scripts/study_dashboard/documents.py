@@ -6,6 +6,9 @@ import shutil
 import xml.etree.ElementTree as ET
 
 from pypdf import PdfReader
+from pygments import highlight
+from pygments.formatters import HtmlFormatter
+from pygments.lexers import SLexer
 
 from .document_views import render_xml, workbook_body, workbook_html
 from .programs import PROGRAM_ROLES, ProgramSections, is_program
@@ -55,6 +58,7 @@ def define_metadata(path):
                 (attributes(i) for i in x if local_name(i) == "ExternalCodeList"), None
             )
             codelists[x.attrib["OID"]] = {
+                "type": x.attrib.get("DataType", "text"),
                 "items": [
                     {
                         # Published coded values can carry non-breaking spaces.
@@ -66,6 +70,25 @@ def define_metadata(path):
                 ],
                 "external": external,
             }
+    value_lists = {x.attrib["OID"]: x for x in tree.iter() if local_name(x) == "ValueListDef"}
+
+    def value_metadata(item, reference):
+        attrs = attributes(item)
+        origins = [{"type": attributes(origin).get("Type"),
+                    "description": description(origin)}
+                   for origin in item if local_name(origin) == "Origin"]
+        if not origins and attrs.get("Origin"):
+            origins = [{"type": attrs["Origin"], "description": ""}]
+        return {
+            "label": description(item), "type": attrs.get("DataType"),
+            "length": attrs.get("Length"), "significant_digits": attrs.get("SignificantDigits", ""),
+            "display_format": attrs.get("DisplayFormat"), "origins": origins,
+            "method": methods.get(reference.attrib.get("MethodOID"), ""),
+            "comment": attrs.get("Comment", "").strip() or comments.get(attrs.get("CommentOID"), ""),
+            "name": attrs.get("Name"), "oid": attrs.get("OID"),
+            "codelist_oid": next((e.attrib.get("CodeListOID") for e in item if local_name(e) == "CodeListRef"), None),
+        }
+
     groups = {}
     for group in tree.iter():
         if local_name(group) != "ItemGroupDef":
@@ -98,6 +121,16 @@ def define_metadata(path):
                     or comments.get(attrs.get("CommentOID"), "")
                 ),
                 "origin": attrs.get("Origin", ""),
+                # Keep the historical reading-copy text stable. These native
+                # facts are consumed independently by the data checker.
+                "origins": value_metadata(item, reference)["origins"],
+                "length": attrs.get("Length"),
+                "display_format": attrs.get("DisplayFormat"),
+                "key_sequence": reference.attrib.get("KeySequence"),
+                "value_level": [value_metadata(items[ref.attrib["ItemOID"]], ref)
+                                for child in item if local_name(child) == "ValueListRef"
+                                for ref in value_lists.get(child.attrib.get("ValueListOID"), [])
+                                if local_name(ref) == "ItemRef" and ref.attrib.get("ItemOID") in items],
                 "significant_digits": attrs.get("SignificantDigits", ""),
                 "codelist": (
                     {
@@ -136,7 +169,7 @@ def define_section_text(item):
 
 
 def program_view(path, entry):
-    """Numbered program lines; the fragment #L<a>-L<b> marks a cited range."""
+    """Numbered program lines with R syntax colors and #L<a>-L<b> citations."""
     upstream = entry.get("upstream") or {}
     origin = ""
     if upstream.get("url"):
@@ -147,11 +180,24 @@ def program_view(path, entry):
         )
     lines = path.read_text().splitlines()
     width = len(str(len(lines)))
+    syntax_style = ""
+    if path.suffix.lower() == ".r":
+        formatter = HtmlFormatter(nowrap=True)
+        # Lex the whole program so multiline strings retain their token type.
+        # Keep blank lines and tabs; the formatter closes spans on each line.
+        lines = highlight(
+            "\n".join(lines) + ("\n" if lines else ""),
+            SLexer(stripnl=False, ensurenl=False),
+            formatter,
+        ).splitlines()
+        syntax_style = formatter.get_style_defs(".program")
+    else:
+        lines = [html.escape(text) for text in lines]
     body = (
         f'<p>{html.escape(PROGRAM_ROLES.get(entry.get("role"), "Retained program."))}</p>{origin}'
         '<pre class="program">'
         + "".join(
-            f'<span id="L{n}" class="line"><span class="n">{n:>{width}}</span> {html.escape(text)}\n</span>'
+            f'<span id="L{n}" class="line"><span class="line-number">{n:>{width}}</span> {text}\n</span>'
             for n, text in enumerate(lines, 1)
         )
         + "</pre>"
@@ -163,8 +209,8 @@ def program_view(path, entry):
         "if(u)u.href=u.href.split('#')[0]+'#L'+a+(b>a?'-L'+b:'');})();</script>"
     )
     style = (
-        "<style>pre.program{white-space:pre;overflow-x:auto;font:13px/1.5 ui-monospace,monospace}"
-        ".n{color:#7a8699;user-select:none}.cited{background:#fff5d6;display:inline-block;min-width:100%}</style>"
+        f"<style>{syntax_style}pre.program{{white-space:pre;overflow-x:auto;font:13px/1.5 ui-monospace,monospace}}"
+        ".line-number{color:#7a8699;user-select:none}.cited{background:#fff5d6;display:block;min-width:100%}</style>"
     )
     return document_html(path.name, style + body, wide=True)
 

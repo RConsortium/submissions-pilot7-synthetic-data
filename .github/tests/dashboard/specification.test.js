@@ -2,15 +2,11 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import { specificationLines, specificationView, specificationGaps } from "../../../docs/assets/dashboard/specification.js";
 
-test("source views retain exact text and resolved model selection never becomes executable source", () => {
+test("the workspace displays composed YAML without changing retained source text", () => {
   const spec = {text: "entry", path: "entry.yaml", documents: [
     {text: "entry", path: "entry.yaml"}, {text: "parent", path: "base.yaml"},
-  ], resolved: {text: "normalized", lineage: {spans: {}}}};
-  assert.equal(specificationView(spec).text, "entry");
-  assert.equal(specificationView(spec, "source:1").path, "base.yaml");
-  assert.equal(specificationView(spec, "source:999").text, "entry");
-  assert.equal(specificationView(spec, "resolved").inspection, true);
-  assert.equal(specificationView(spec, "resolved").text, "normalized");
+  ], resolved: {path: "resolved/entry.yaml", text: "composed", lineage: {spans: {}}}};
+  assert.deepEqual(specificationView(spec), { ...spec, ...spec.resolved, inspection: true });
   assert.equal(spec.text, "entry");
 });
 
@@ -215,25 +211,4 @@ test("inline row expressions sharing a source line remain visible for either var
     assert.equal(lines[2].node, node);
     assert.equal(lines[2].text, "    derivations: {AGE: DM.AGE, SEX: DM.SEX}");
   }
-});
-
-test("a layered specification shows the source that writes the selected rule until a view is chosen", () => {
-  const layered = {
-    documents: [{ path: "study/spec/yamaa/adsl.yaml" }, { path: "spec/yamaa/adsl.yaml" }],
-    resolved: { text: "model" },
-    lineage: { definitions: { AGE: { path: "spec/yamaa/adsl.yaml", start: 2, end: 4 },
-                              SEX: { path: "study/spec/yamaa/adsl.yaml", start: 5, end: 6 },
-                              R: { path: "spec/yamaa/adsl.yaml", start: 7, end: 9, kind: "rows" } } },
-  };
-  const cases = [
-    ["output column defined in the shared layer", "", "output.AGE", 1],
-    ["specification column defined in the entry", "", "spec.SEX", 0],
-    ["row template written in the shared layer", "", "row.R", 1],
-    ["input column shows the entry", "", "DM.AGE", 0],
-    ["chosen source stays", "source:0", "output.AGE", 0],
-    ["missing source falls back to the entry", "source:9", "", 0],
-  ];
-  for (const [label, view, focus, expected] of cases)
-    assert.equal(specificationView(layered, view, focus).sourceIndex, expected, label);
-  assert.equal(specificationView(layered, "resolved", "output.AGE").inspection, true);
 });

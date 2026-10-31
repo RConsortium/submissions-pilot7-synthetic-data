@@ -1,5 +1,31 @@
 /** Presentation of retained evidence; original checks and review identities stay intact. */
 import { esc, link } from "./ui.js";
+import { citation } from "./issues.js";
+
+/** Only the cited Define-XML item and the selected variable's executable YAML. */
+export function reviewComparisonEvidence(issue, report, specifications = {}) {
+  const ids = new Set(issue.trace.map((t) => t.evidence_id));
+  const documents = report.review.evidence.filter((e) => ids.has(e.id) &&
+    e.type === "document" && /(?:^|\/)define(?:-adam)?\.xml$/i.test(e.path));
+  const specification = Object.values(specifications).find((s) => s.domain === issue.dataset);
+  const resolved = specification?.resolved, span = resolved?.lineage?.spans?.[issue.variable];
+  if (!span) return documents;
+  const context = resolved.text.split(/\r?\n/).slice(span.start - 1, span.end).join("\n");
+  return [...documents, { id: `resolved:${issue.dataset}.${issue.variable}`, type: "specification",
+    path: resolved.path, section: issue.variable, quote: context, context,
+    lines: [span.start, span.end], context_lines: [span.start, span.end], verified: true, url: "" }];
+}
+
+export function reviewComparison(issue, report, specifications) {
+  const evidence = reviewComparisonEvidence(issue, report, specifications);
+  return `<div class="trace-source-grid" aria-label="Define-XML vs. reproduced yamaa specification from ADaM data">${[
+    ["document", "Define-XML", "The identified Define-XML item is unavailable for this finding."],
+    ["specification", "Resolved YAML", "The resolved YAML item is unavailable for this finding."],
+  ].map(([type, label, missing]) => {
+    const entries = evidence.filter((e) => e.type === type);
+    return `<section class="trace-source-file" aria-label="${label}"><p class="trace-scope">${label}${entries.length ? `: ${esc(entries[0].path)}` : ""}</p>${entries.length ? entries.map((e) => citation(e, true, type === "specification")).join("") : `<p class="trace-limit">${missing}</p>`}</section>`;
+  }).join("")}</div>`;
+}
 
 export function resolvedReviewReport(report, specifications = {}, dataset = "") {
   return { ...report, review: { ...report.review, evidence: report.review.evidence.map((e) => {
@@ -17,8 +43,6 @@ export function resolvedReviewReport(report, specifications = {}, dataset = "") 
 export function sourcePreview(e, report, specifications, resource) {
   const doc = report.documents?.find((d) => d.path === e.path && d.available);
   if (doc && (doc.view || doc.original)) {
-    if (report.scope === "dataset_define" && e.lines && doc.source)
-      return `<iframe title="${esc(doc.name)} source lines" src="${esc(resource(doc.source) + '#L' + e.lines[0])}" sandbox="allow-scripts"></iframe>`;
     const pdf = /\.pdf$/i.test(doc.name);
     const fragment = pdf && /^page-\d+$/.test(e.section)
       ? "#page=" + e.section.slice(5) : e.section ? "#" + encodeURIComponent(e.section) : "";

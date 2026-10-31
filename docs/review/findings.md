@@ -1,49 +1,22 @@
 # Consistency findings
 
-## Pilot 5: dataset and Define-XML
+The **Consistency findings** tab of every pilot study lists outstanding issues
+between ADaM data and the submitted Define-XML. Findings include observed value
+or metadata discrepancies, invalid documented sources, and contradictory or
+incomplete Define-XML rules that need clarification. A documentation finding
+can remain open without a measured subject difference.
 
-Pilot 5 findings compare only the current derived datasets and the retained
-ADaM Define-XML. **Compared files and coverage** identifies the exact files
-and their SHA256 hashes. The summary separates passed checks, differences,
-gaps and checks that were not assessed. No independent-reference agreement
-percentage is used as a consistency score.
+Differences confined to YAML or a program stay in the complete verification
+audit. A missing source excerpt, unsupported calculation, or unavailable
+referenced document is an assessment limit, not evidence of a dataset error.
+**Study coverage gaps** lists checks awaiting evidence separately. This review
+is separate from **Generated ADaM dataset agreement**; see the
+[verification policy](../verification.md).
 
-- **Inconsistent:** an actual dataset schema or observed value contradicts
-  an explicit XML declaration.
-- **Gap:** a dataset variable or required metadata declaration is absent
-  from the other source.
-- **Unclear:** the two sources cannot establish the check, such as a missing
-  stored label, an external dictionary, or a derivation requiring SDTM.
-
-Use **By dataset**, search, issue type and criticality to narrow the list.
-**Start review** shows the exact XML source declarations beside evidence
-from the identified derived dataset. Measured counts cover all applicable
-records; examples and selected subjects never determine those counts.
-Checks of enumerated codelists use nonmissing, nonblank values; blank values
-are not independently declared errors. Numeric storage widths are mapped to
-logical types, and text length checks measure observed UTF-8 bytes rather
-than SAS allocation. Unsupported value-level conditions remain not assessed.
-
-Record your agreement and criticality under **Your review**. The same local
-draft, sharing and export controls described below apply. The
-**Which side is right?** document/specification question is omitted in this
-scope. The other sections on this page describe the broader workflow retained
-for other pilot studies.
-
-## Other pilot studies
-
-The **Consistency findings** tab of a pilot study lists every actionable
-issue that the automated consistency review found among the study's
-documents, derivation rules and data. It is separate from **Generated ADaM dataset agreement**: a derived dataset can match the generated ADaM datasets
-while a document states a different rule, and that finding stays open until
-a person decides it. The [verification policy](../verification.md) defines
-both measures.
-
-**How to review a finding**, above the filters, states the two decisions
-every finding asks for, the working definition of critical and the issue
-types, so the tab can be used without this page. It stays open until you
-have started a review of the study. The **Consistency review** card above
-the tabs counts your reviews over the whole study.
+The message bar above the filters reminds you to open **Start review** for
+a finding's evidence and record both decisions under **Human Review**.
+The **Consistency review** card above the tabs counts grouped findings over
+the whole study.
 
 ## The findings table
 
@@ -51,7 +24,8 @@ Each row is one issue.
 
 | Column | Meaning |
 | --- | --- |
-| Dataset / variable | The output variable the issue concerns, with the IDs of the consistency rules its checks apply; select a rule ID to read what the rule requires. Select the name to open the variable in the workspace with the affected subjects. |
+| Dataset | The output dataset the finding concerns. |
+| Variable | The output variable, or **Dataset-wide** for a finding about the whole dataset. Its consistency rule IDs appear underneath; select a rule ID to read its requirements. Select the variable to open the workspace with the affected subjects. |
 | Status | Under Review until maintainers record a human decision. When the adjudicating agent disputed the finding, or its decision is stale or mixed, the cell says so. |
 | Critical finding | The automated criticality assessment: Yes, No or Needs review. |
 | Type | The issue type, listed below. |
@@ -59,52 +33,70 @@ Each row is one issue.
 | Issue | A short title and a one-sentence summary. |
 | Evidence | **Start review** opens the complete evidence. Your own draft assessment, if you have one, appears underneath. |
 
-The count above the table separates issues from the automated checks that
-support them. Several checks can support one issue, and a shared check can
-support more than one issue without being counted twice. Repeated clause
-differences for the same variable and the same pair of source files share one
-row, including quotations from different pages; different source pairs stay
-separate.
+The count above the table separates grouped findings from the automated checks
+that support them. Several checks can establish the same underlying problem
+and share one row. Independent problems for the same variable can have separate
+rows. The table counts each supporting check once; a raw check total is not the
+number of outstanding findings.
+
+**Study coverage gaps**, below the table, shows the whole study's checks that
+could not be assessed, with the dataset, variable and reason. Examples include
+an unavailable governing SAP or an external dictionary. Coverage gaps are
+counted separately and are not added to the finding total or subject impact.
+Finding filters do not change this study-wide coverage list.
 
 ## Filters and search
 
-**By dataset** shows how many issues each dataset has under the current
-comparison, type and criticality filters; select a dataset to list its issues
-alone, or **All** to list every dataset. The search matches a variable, issue
-title, document name, quotation or rule ID; an exact name, such as
-`ADSL.TRTSDT` or `ADSL`, selects that variable or dataset alone.
+Filters sit directly below the table's column headings. Text filters match
+without regard to case, and all active filters apply together:
 
-- **Comparison** separates input-to-output logic checks, source-document
-  questions and documented-rule checks.
-- **Issue type** filters the types below.
-- **Agent review** filters by the adjudicating agent's decision: agreed,
-  disputed, stale, mixed or not adjudicated. The list places disputed,
-  stale and mixed findings after the agreed ones of the same criticality;
-  they stay listed, because agent agreement is not resolution.
+- **Dataset** matches only the dataset name.
+- **Variable** matches the variable name or a displayed rule ID. Combine it with
+  **Dataset** to narrow the same variable across different datasets.
+- **Status** filters the agent review: agreed, disputed, stale, mixed or not
+  adjudicated. Every finding remains Under Review until a human decision is
+  recorded; agent agreement is not resolution.
 - **Critical finding** filters Yes, No and Needs review. Incorrect source,
   derivation, category and output rules are critical; differences limited to
   significant digits or variable labels are not. Incomplete evidence and
   documentation gaps need review. Criticality is independent of the number of
   affected subjects.
+- **Type** filters the issue types below.
+- **Documented rule vs data** matches a subject count or result text, such as
+  `No differences` or `Not measured`.
+- **Issue** matches the title or summary.
+- **Evidence** filters **Your review**: Not reviewed, Draft or Both decisions
+  saved. This filter stays in your browser.
+
+**Search issues** searches across variables, issue text, documents, quotations
+and rule IDs. An exact name, such as `ADSL.TRTSDT` or `ADSL`, selects that variable
+or dataset alone. **By dataset** offers shortcuts and counts under the current
+column filters.
+
+**Issue** starts wider than **Documented rule vs data**. Drag either column's
+right header edge to resize it, or focus that edge and use the Left and Right
+arrow keys. Widths remain while filtering or switching tabs. On small screens,
+the column filters appear above the stacked finding rows.
 
 **Clear filters** restores the full list. The list puts findings marked
 **Critical finding: Yes** first, then **Needs review**, then **No**, in the
-report's order within each group. The dataset, filters, search and open
-finding are part of the page URL, so a copied link reproduces them,
-including the finding open in **Start review**.
+report's order within each group. Disputed, stale and mixed agent reviews
+follow agreed ones within the same criticality. The dataset, shared column
+filters, search and open finding are part of the page URL, so a copied link
+reproduces them, including the finding open in **Start review**.
 
 ## Issue types
 
 | Type | Meaning |
 | --- | --- |
-| conflict | Documents disagree with the data or with one another. |
-| divergence | A documented rule is expressed differently in the specification. A divergence can matter even when the current data do not distinguish the two rules. |
-| gap | A rule or clause is undocumented. |
-| evidence | A quoted passage was not found where it is cited. |
-| inconsistent | An input-to-output check failed: a declared output column is absent, a label differs from the published Define-XML, or a build did not succeed. |
-| unclear | A question the checks cannot settle, such as a dataset name without an exact Define-XML match or a document version that was not revalidated. |
-| missing evidence | An authored review question whose source or excerpt could not be verified. |
-| not reviewed | An authored review question with a verified excerpt and no decision yet. |
+| conflict | ADaM values disagree with a verified Define-XML rule, or the relevant Define-XML statements contradict one another. |
+| inconsistent | Dataset metadata or structure disagrees with an explicit Define-XML declaration. |
+| gap | A documented rule leaves a necessary source, condition or computation unstated. |
+| unclear | The verified rule needs clarification before the dataset can be assessed. |
+
+The raw audit also retains implementation divergences, missing quotations and
+unreviewed tasks. These do not automatically become published findings. An
+agent's proposed interpretation cannot supply a missing documented condition.
 
 Agent review and human resolution are separate from these types; agent
 agreement is not resolution.
@@ -118,22 +110,17 @@ reviewer needs them:
 The opening **The finding** section shows the issue title and its expected
 and observed behavior. The sections then follow the navigation:
 
-1. **Source documents**: cited clauses from the protocol, SAP or Define-XML,
-   side by side. **Full context** reveals the longer passage. **View source**
-   opens the retained original at its cited row, page or YAML lines while
-   keeping your place and draft.
-2. **YAML specification**: YAML derivations side by side, with
-   `documented-rules.yaml` on the left and the study's resolved dataset
-   specification on the right. Submission metadata and prose descriptions
-   are omitted. Line numbers and **View source** link to the complete source.
-3. **Subject examples**: generated ADaM records beside document-based
-   calculations, with differences highlighted. Examples illustrate the
-   calculation; they do not determine the finding's reported impact.
-4. **Recommended fix**: the proposed correction or decision. A question shared
-   by multiple findings is headed **Open question for this variable**; decide
-   each finding on its own evidence.
+- **Define-XML vs. reproduced yamaa specification from ADaM data**: the
+  identified Define-XML item beside the selected variable in the executable
+  resolved YAML. Only these two sources appear in this panel. Original YAML
+  line numbers are retained;
+  **View source** opens the complete file without losing your draft.
+- **Subject examples**: two columns, **ADaM data** and **Documented Rule**,
+  with differences highlighted. Record keys and input values appear with
+  the data value. Alternative calculations are omitted. Examples illustrate
+  the calculation; they do not determine the finding's reported impact.
 
-**Your review** follows the evidence; see
+**Human Review** follows the evidence; see
 [Record your assessment](#record-your-assessment).
 
 **Next finding in list** and **Previous finding in list** walk the
@@ -143,13 +130,26 @@ the list, the buttons walk its variable's findings instead.
 
 ## Documented rules
 
-Reviewed datasets add **Documented rules** issues, which run each derivation
-as the documents state it and compare the result with the generated ADaM datasets and the yamaa output. An authored grouping gives each issue a short
-title, expected and observed behavior, a proposed action and links to its
-supporting checks; a change to the check evidence requires the grouping to be
-reviewed before publication. Without authored grouping, verified clause
-discrepancies for the same variable and exact source-file pair share one
-issue, and their complete checks remain in the generated verification report.
+Reviewed datasets run documented rules against ADaM data and the yamaa output.
+Direct checks also compare the actual dataset's structure, stored labels,
+logical types, text lengths, keys and values with the original Define-XML.
+Predecessor origins and value-level declarations are read from the XML, so an
+omission in a reading copy cannot create an undocumented-derivation finding.
+
+An authored grouping gives each issue a short title, expected and observed
+behavior, a proposed action and links to its supporting checks. The publication
+review decides which checks establish an outstanding data or documentation
+issue, which need clarification, and which belong in coverage or the raw audit.
+A change to the evidence requires the review to be checked before publication.
+The complete checks remain in the generated verification report.
+
+Measured impact uses only the documented rule and assessable records. A probe
+that adds an unstated visit window, population or ordering is a conditional
+interpretation; its differing records do not establish literal-rule impact.
+`SignificantDigits` alone does not instruct a derivation to round its result.
+Physical floating-point storage does not make an integer declaration wrong
+when the actual values are integral, and numeric representation noise is not
+a clinical discrepancy.
 
 Define-XML 2.x derivation citations follow the variable's referenced
 `MethodDef`; comment and codelist citations open their own elements.
@@ -158,12 +158,13 @@ comment text.
 
 ## Record your assessment
 
-Under **Your review**, first assess **Is current dataset correctly derived?**:
-**Yes, dataset is correct**, **No, define-xml is correct**, **Neither as written**
-or **Unsure**. This question is optional. Its four choices share one row on
-desktop and stack on smaller screens. Then choose **Agree**, **Disagree** or
-**Need clarification**, followed by **Critical**, **Not critical** or **Unsure**,
-and add a comment. No answer is preselected. Drafts save automatically in this
+Under **Human Review**, answer **Do you agree with this finding?** first:
+**Agree**, **Disagree** or **Need clarification**. Next answer **Is this
+finding critical?**: **Critical**, **Not critical** or **Unsure**. Third,
+optionally assess **Is current dataset correctly derived?**: **Yes, dataset
+is correct**, **No, define-xml is correct**, **Neither as written** or **Unsure**.
+Add review comments if needed. The choices share a row on desktop and stack
+on smaller screens. No answer is preselected. Drafts save automatically in this
 browser, scoped to the study and the issue and bound to its current
 evidence; if the evidence changes in a later publication, your earlier
 assessment returns as a draft marked **evidence changed**.
@@ -197,9 +198,9 @@ returns it to **Saved locally** or to a draft. The dashboard never confirms
 what was published on GitHub: only the discussion itself shows that. The hand-over document starts
 with a line for your name, the date and the filters the list was under.
 
-## Review comments
+## Comments
 
-**Review comments** below the dashboard holds a GitHub Discussion for the
+**Comments** below the dashboard holds a GitHub Discussion for the
 focused dataset, separate from the per-finding discussions that **Submit
 review on GitHub** creates. GitHub sign-in is required to post. A
 review-issue link remains available if the embedded discussion cannot load.
