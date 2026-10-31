@@ -132,11 +132,12 @@ test("the metric and listing count issues separately from supporting checks", ()
     report,
     model: { metrics: { matched: [1, 2, 3], reference: [1, 2, 3] } },
   }).metrics();
-  assert.match(html, /Generated ADaM dataset agreement/);
-  assert.match(html, /<strong>100%<\/strong> of generated ADaM datasets matched/);
+  assert.match(html, /<h2>ADaM derivation<\/h2>/);
+  assert.match(html, /<strong>100%<\/strong> of ADaM datasets matched by using yamaa framework/);
   assert.match(html, /<strong>1<\/strong> finding awaiting review/);
   assert.match(html, /1 critical; 0 non-critical; 0 needing assessment/);
-  assert.match(html, /Findings can remain open even when generated ADaM dataset agreement is 100%/);
+  assert.match(html, /<ul class="comparison-explanation"><li>Generated ADaM dataset agreement measures reproduction of the generated ADaM datasets using yamaa framework\.<\/li><li>Consistency review checks agreement between ADaM dataset and Define-XML\.<\/li><li>Findings can remain open even when reproduced ADaM dataset agreement is 100%\.<\/li><\/ul>/);
+  assert.doesNotMatch(html, /Your reviews:|View consistency findings/);
   const listing = createReport({ report, state: state(), esc }).findingsView();
   assert.match(listing, /1 of 1 issue &middot; 2 supporting checks/);
   assert.equal((listing.match(/<tr class="review-issue"/g) || []).length, 1);

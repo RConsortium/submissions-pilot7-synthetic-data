@@ -170,11 +170,18 @@ def check(browser, base, site_dir, screenshots):
         issues = study_report["review"]["issues"]
         checks = study_report["review"]["counts"]["checks"]
         expect(page.locator(".consistency-summary")).to_contain_text(f"{len(issues)} findings awaiting review")
-        expect(page.locator(".reference-summary")).to_contain_text("100% of generated ADaM datasets matched")
-        expect(page.locator(".comparison-explanation")).to_contain_text("Findings can remain open even when generated ADaM dataset agreement is 100%")
+        expect(page.locator(".reference-summary h2")).to_have_text("ADaM derivation")
+        expect(page.locator(".reference-summary")).to_contain_text("100% of ADaM datasets matched by using yamaa framework")
+        expect(page.locator(".comparison-explanation li")).to_have_text([
+            "Generated ADaM dataset agreement measures reproduction of the generated ADaM datasets using yamaa framework.",
+            "Consistency review checks agreement between ADaM dataset and Define-XML.",
+            "Findings can remain open even when reproduced ADaM dataset agreement is 100%.",
+        ])
+        expect(page.locator(".consistency-summary .your-progress")).to_have_count(0)
+        expect(page.get_by_role("button", name="View consistency findings", exact=True)).to_have_count(0)
         critical = sum(i["critical"]["status"] == "yes" for i in issues)
         expect(page.locator(".consistency-summary .critical-counts")).to_contain_text(f"{critical} critical;")
-        page.get_by_role("button", name="View consistency findings", exact=True).click()
+        page.get_by_role("button", name="Consistency findings", exact=True).click()
         expect(page.locator(".result-count")).to_have_text(f"{len(issues)} of {len(issues)} issues \u00b7 {checks} supporting checks")
         expect(page.locator(".consistency-table tbody tr[data-finding-id]")).to_have_count(len(issues))
         expect(page.locator(".consistency-table thead th")).to_have_text([
@@ -772,7 +779,7 @@ def check(browser, base, site_dir, screenshots):
     expect(report.locator("details")).to_have_count(0)
     expect(report.locator(".report-provenance, #reading, #review-items")).to_have_count(0)
     expect(report).to_contain_text("Subject-Level Analysis Dataset")
-    expect(report.locator(".reference-summary")).to_contain_text("100% of generated ADaM datasets matched")
+    expect(report.locator(".reference-summary")).to_contain_text("100% of ADaM datasets matched by using yamaa framework")
     expect(report.locator(".consistency-summary")).to_contain_text("findings awaiting review")
     expect(report.locator(".comparison-explanation")).to_contain_text("Findings can remain open")
     expect(report.locator("#dataset-results + .report-table .report-status.good").first).to_have_text("Generated ADaM dataset matched")
