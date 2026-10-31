@@ -349,7 +349,13 @@ available, preserves missing/blank/absent distinctions, and labels abbreviated
 subject records. The browser shows at most two subjects. Examples do not supply
 impact counts, and an unavailable example never becomes invented data. Optional
 claim `example_columns` adds reference context such as an event term; dependencies
-read from REF are included automatically. Alternate calculations use their
+read from REF or its base input are included automatically. The verifier also
+walks the reproduced YAML's local variable dependencies, including selection
+context, and includes those present in the same ADaM reference dataset. Keys and
+the compared variable are not repeated as input columns. External input fields
+are not matched by name to ADaM fields. These columns display reference values,
+not a contributing-row trace or a rerun of the upstream derivation.
+Alternate calculations use their
 plain-language `reading` descriptions; VARIABLE__READING names remain in the generated verification report.
 
 Retained ADaM programs, listed in a study's source manifest with the role

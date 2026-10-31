@@ -3,8 +3,11 @@ import sys
 import unittest
 from pathlib import Path
 
+import yaml
+
 sys.path.insert(0, str(Path(__file__).resolve().parents[2] / "scripts"))
 from study_dashboard.trace_examples import TraceExamples
+from study_dashboard.lineage import build_lineage
 
 
 class Frame:
@@ -28,6 +31,54 @@ TEXT = "columns:\n  - name: FLAG\n    derivation: REF.INPUT\n  - name: FLAG__OTH
 
 
 class TraceExampleTests(unittest.TestCase):
+    def test_yaml_dependencies_add_same_dataset_columns_through_local_calculations(self):
+        text = """domain: ADAE
+keys: [SUBJECT, SEQ]
+input: {AE: ae.parquet, OTHER: other.parquet}
+base: AE
+output: {columns: [FLAG], order_by: [{variable: DISPLAY_ONLY}]}
+columns:
+  - {name: SUBJECT, derivation: AE.SUBJECT}
+  - {name: SEQ, derivation: AE.SEQ}
+  - {name: INPUT, derivation: AE.INPUT}
+  - {name: ONSET, derivation: AE.ONSET}
+  - {name: START, derivation: OTHER.START}
+  - {name: FOREIGN_ONLY, derivation: AE.FOREIGN_ONLY}
+  - {name: DISPLAY_ONLY, derivation: AE.DISPLAY_ONLY}
+  - name: RANK
+    derivation:
+      row_number:
+        window:
+          filter: "INPUT = 'Y'"
+          group_by: [SUBJECT]
+          order_by: [{variable: ONSET}, {variable: SEQ}]
+  - name: FLAG
+    derivation:
+      case:
+        - {when: "RANK = 1 AND ONSET >= START AND OTHER.FOREIGN_ONLY = 'DISPLAY_ONLY'", then: "'Y'"}
+        - {otherwise: "''"}
+"""
+        # Same-dataset intermediate values remain useful even when they are not
+        # the leaf inputs of the documented-rule calculation.
+        rows = [{"SUBJECT": "A", "SEQ": 7, "INPUT": "Y", "ONSET": "2012-09-13",
+                 "START": "2012-09-07", "FOREIGN_ONLY": 99, "DISPLAY_ONLY": 1, "FLAG": "Y"}]
+        probes = [{"column": "FLAG", "reading": "literal", "reference": {"patterns": []}}]
+        edges = build_lineage(text, yaml.safe_load(text), {})["edges"]
+        result = TraceExamples(Frame(rows), Frame(rows), Frame(rows), SPEC, TEXT, "SUBJECT",
+                               derivation_edges=edges).variable("FLAG", probes)
+        self.assertEqual(result["input_columns"], ["INPUT", "ONSET", "START"])
+        self.assertEqual(result["subjects"][0]["rows"][0]["inputs"],
+                         {"INPUT": "Y", "ONSET": "2012-09-13", "START": "2012-09-07"})
+
+    def test_documented_rule_can_read_the_reference_base_without_a_ref_alias(self):
+        spec = {**SPEC, "base": "ADAE_REF", "input": {"ADAE_REF": {}},
+                "columns": [{"name": "FLAG", "derivation": "ADAE_REF.INPUT"}]}
+        text = "columns:\n  - name: FLAG\n    derivation: ADAE_REF.INPUT\n"
+        rows = [{"SUBJECT": "A", "SEQ": 1, "INPUT": "Y", "FLAG": "Y"}]
+        probes = [{"column": "FLAG", "reading": "literal", "reference": {"patterns": []}}]
+        result = TraceExamples(Frame(rows), Frame(rows), Frame(rows), spec, text, "SUBJECT").variable("FLAG", probes)
+        self.assertEqual(result["input_columns"], ["INPUT"])
+
     def test_inputs_read_through_a_ref_intermediate_over_the_base_input_are_shown(self):
         # Documented-rules specifications name the reference input ADSL_REF and read it as REF.
         spec = {

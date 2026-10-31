@@ -30,7 +30,7 @@ import yaml
 
 from consistency_report import render
 from study_dashboard.config import reference_path, settings
-from study_dashboard.lineage import source_locations
+from study_dashboard.lineage import build_lineage, source_locations
 from study_dashboard.programs import ProgramSections, is_program, line_range
 from study_evidence import catalog, engine_revision, project_specs, reviewed_datasets
 from resolved_specs import specification_packet
@@ -929,7 +929,8 @@ def dataset_report(context, domain, spec_path, derived, reference):
             "revision": revision,
         }
         from study_dashboard.trace_examples import TraceExamples
-        examples = TraceExamples(reference, derived, probe, probe_spec, probe_text, subject_key)
+        examples = TraceExamples(reference, derived, probe, probe_spec, probe_text, subject_key,
+                                 derivation_edges=build_lineage(text, spec, {})["edges"])
     claims, declaration = {}, None
     if claims_path.is_file():
         declaration, claims = load_claims(claims_path, set(probe.columns) if probe is not None else set())
