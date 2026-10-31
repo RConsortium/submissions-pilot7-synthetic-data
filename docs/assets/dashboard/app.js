@@ -264,22 +264,16 @@ import { developmentReport, mountDevelopment } from "./synthetic-development.js"
       const loadedDevelopment = loadedModel.development ? await get(new URL(loadedModel.development, dataRoot)) : null;
       if (token !== mount.token) return;
       model = loadedModel;
+      report = null;
       development = loadedDevelopment;
       if (model.status === "pending") {
         main.innerHTML = `<h1>${esc(model.title)}</h1><div class="coverage-note"><h2>Validation pending</h2><p>${esc(model.reason)}</p>${link(`${REPO}/tree/${model.revision}/${model.id}`, "Study source")}</div>`;
         return;
       }
-      const [loadedReport, loadedSpecs] = await Promise.all([
-        get(resource(model.report)),
-        Promise.all(
-          model.datasets.map(async (d) => [
-            d.name,
-            await get(resource(d.spec)),
-          ]),
-        ),
-      ]);
+      const loadedSpecs = await Promise.all(
+        model.datasets.map(async (d) => [d.name, await get(resource(d.spec))]),
+      );
       if (token !== mount.token) return;
-      report = loadedReport;
       specifications = Object.fromEntries(loadedSpecs);
       graph = buildGraph(model, specifications);
       const [hashStudy] = location.hash.slice(1).split("?")[0].split("/");
@@ -294,6 +288,13 @@ import { developmentReport, mountDevelopment } from "./synthetic-development.js"
         return;
       }
       Object.assign(state, readRoute(location.hash, model));
+      // Workspace, Define-XML and development tabs use their own catalogs. Fetch
+      // finding evidence only for a view or deep link that actually needs it.
+      if (["overview", "materials"].includes(state.view) || state.evidence || state.review) {
+        const loadedReport = await get(resource(model.report));
+        if (token !== mount.token) return;
+        report = loadedReport;
+      }
       document.body.classList.add("study-review-page");
       await renderView();
       // A link that names an open finding reopens it, unless a GitHub return restored one.

@@ -227,10 +227,11 @@ export function createReport(ctx) {
   }
   function findingsView() {
     const { state, esc } = ctx;
-    return `${howToReview()}<div class="finding-tools"><label class="search-field"><span class="field-label">Search issues</span><input id="finding-search" type="search" value="${esc(state.findingSearch)}" placeholder="Variable, issue, document or rule..."></label><button type="button" class="text-link" id="clear-findings">Clear filters</button></div><div id="finding-results">${findingRows()}</div>`;
+    return `${howToReview()}${ctx.model?.audit ? `<p><a href="${esc(ctx.resource(ctx.model.audit))}" download>Download complete audit (JSON)</a></p>` : ""}<div class="finding-tools"><label class="search-field"><span class="field-label">Search issues</span><input id="finding-search" type="search" value="${esc(state.findingSearch)}" placeholder="Variable, issue, document or rule..."></label><button type="button" class="text-link" id="clear-findings">Clear filters</button></div><div id="finding-results">${findingRows()}</div>`;
   }
   function drawer() {
     const { state, esc, byId, root, report } = ctx;
+    if (!report) return;
     const issue = findIssue(report, state.evidence),
       host = byId("evidence-drawer");
     if (!host) return;
