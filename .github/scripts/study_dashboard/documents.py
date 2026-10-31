@@ -58,6 +58,7 @@ def define_metadata(path):
                 (attributes(i) for i in x if local_name(i) == "ExternalCodeList"), None
             )
             codelists[x.attrib["OID"]] = {
+                "type": x.attrib.get("DataType", "text"),
                 "items": [
                     {
                         # Published coded values can carry non-breaking spaces.
@@ -69,6 +70,25 @@ def define_metadata(path):
                 ],
                 "external": external,
             }
+    value_lists = {x.attrib["OID"]: x for x in tree.iter() if local_name(x) == "ValueListDef"}
+
+    def value_metadata(item, reference):
+        attrs = attributes(item)
+        origins = [{"type": attributes(origin).get("Type"),
+                    "description": description(origin)}
+                   for origin in item if local_name(origin) == "Origin"]
+        if not origins and attrs.get("Origin"):
+            origins = [{"type": attrs["Origin"], "description": ""}]
+        return {
+            "label": description(item), "type": attrs.get("DataType"),
+            "length": attrs.get("Length"), "significant_digits": attrs.get("SignificantDigits", ""),
+            "display_format": attrs.get("DisplayFormat"), "origins": origins,
+            "method": methods.get(reference.attrib.get("MethodOID"), ""),
+            "comment": attrs.get("Comment", "").strip() or comments.get(attrs.get("CommentOID"), ""),
+            "name": attrs.get("Name"), "oid": attrs.get("OID"),
+            "codelist_oid": next((e.attrib.get("CodeListOID") for e in item if local_name(e) == "CodeListRef"), None),
+        }
+
     groups = {}
     for group in tree.iter():
         if local_name(group) != "ItemGroupDef":
@@ -101,6 +121,16 @@ def define_metadata(path):
                     or comments.get(attrs.get("CommentOID"), "")
                 ),
                 "origin": attrs.get("Origin", ""),
+                # Keep the historical reading-copy text stable. These native
+                # facts are consumed independently by the data checker.
+                "origins": value_metadata(item, reference)["origins"],
+                "length": attrs.get("Length"),
+                "display_format": attrs.get("DisplayFormat"),
+                "key_sequence": reference.attrib.get("KeySequence"),
+                "value_level": [value_metadata(items[ref.attrib["ItemOID"]], ref)
+                                for child in item if local_name(child) == "ValueListRef"
+                                for ref in value_lists.get(child.attrib.get("ValueListOID"), [])
+                                if local_name(ref) == "ItemRef" and ref.attrib.get("ItemOID") in items],
                 "significant_digits": attrs.get("SignificantDigits", ""),
                 "codelist": (
                     {

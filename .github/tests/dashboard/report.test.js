@@ -164,6 +164,46 @@ test("the metric and listing count issues separately from supporting checks", ()
   assert.ok(!listing.includes("Documented rule vs generated ADaM datasets"));
 });
 
+test("coverage gaps remain separate from findings, escaped and explicitly study-wide", () => {
+  const data = { ...report, coverage_items: [
+    { id: "sap", dataset: "ADX", variable: "DATE", reason: "Confirm <governing SAP> & its visit windows." },
+    { id: "dictionary", dataset: "ADAE", variable: "AEDECOD", reason: "External dictionary unavailable." },
+  ] };
+  const s = state(), view = createReport({ report: data, state: s, esc });
+  let html = view.findingRows();
+  assert.match(html, /1 of 1 issue &middot; 2 supporting checks/);
+  assert.match(html, /Study coverage gaps: 2 checks not assessed/);
+  assert.match(html, /<strong>ADX.DATE<\/strong>: Confirm &lt;governing SAP&gt; &amp; its visit windows\./);
+  assert.match(html, /<strong>ADAE.AEDECOD<\/strong>: External dictionary unavailable\./);
+  assert.match(html, /separate from the findings and do not establish a data discrepancy/);
+  assert.doesNotMatch(html, /<governing SAP>|3 of 3 issues/);
+  assert.deepEqual(consistencyFindings(data), [issue]);
+  s.findingSearch = "does not match";
+  html = view.findingRows();
+  assert.match(html, /0 of 1 issue/);
+  assert.match(html, /Study coverage gaps: 2 checks not assessed/);
+  assert.match(html, /ADAE.AEDECOD/);
+});
+
+test("older reports and empty coverage do not invent a coverage result", () => {
+  for (const data of [report, { ...report, coverage_items: [] }]) {
+    const html = createReport({ report: data, state: state(), esc }).findingRows();
+    assert.doesNotMatch(html, /coverage-gaps|checks not assessed|No coverage gaps/);
+    assert.match(html, /1 of 1 issue &middot; 2 supporting checks/);
+  }
+});
+
+test("comparison-scoped links include direct dataset metadata findings", () => {
+  const metadata = { ...issue, id: "metadata", variable: "LABEL", comparison: "dataset_define", kind: "inconsistent" };
+  const data = { ...report, review: { ...report.review, issues: [issue, metadata] } };
+  const s = { ...state(), comparison: "dataset_define" };
+  const view = createReport({ report: data, state: s, esc });
+  assert.deepEqual(view.findingItems().map((item) => item.id), ["metadata"]);
+  assert.match(view.findingsView(), /Comparison: Dataset vs Define-XML/);
+  assert.match(view.findingsView(), /aria-label="Remove comparison filter"/);
+  assert.match(view.findingRows(), /1 of 2 issues/);
+});
+
 test("trace shows selected quotes and comparisons once, with full context and check audit expandable", () => {
   const html = issueTrace(issue, report);
   for (const fragment of [

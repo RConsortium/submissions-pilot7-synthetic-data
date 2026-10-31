@@ -1,15 +1,21 @@
 # Consistency findings
 
-The **Consistency findings** tab of every pilot study lists observed differences
-between ADaM data and a verified Define-XML rule. Document disagreements,
-unmeasured specification differences, alternative interpretations and comparisons
-with no observed difference do not create findings. Complete automated checks
-remain in the verification audit. This review is separate from **Generated ADaM
-dataset agreement**; see the [verification policy](../verification.md).
+The **Consistency findings** tab of every pilot study lists outstanding issues
+between ADaM data and the submitted Define-XML. Findings include observed value
+or metadata discrepancies, invalid documented sources, and contradictory or
+incomplete Define-XML rules that need clarification. A documentation finding
+can remain open without a measured subject difference.
+
+Differences confined to YAML or a program stay in the complete verification
+audit. A missing source excerpt, unsupported calculation, or unavailable
+referenced document is an assessment limit, not evidence of a dataset error.
+**Study coverage gaps** lists checks awaiting evidence separately. This review
+is separate from **Generated ADaM dataset agreement**; see the
+[verification policy](../verification.md).
 
 The message bar above the filters reminds you to open **Start review** for
 a finding's evidence and record both decisions under **Human Review**.
-The **Consistency review** card above the tabs counts your reviews over
+The **Consistency review** card above the tabs counts grouped findings over
 the whole study.
 
 ## The findings table
@@ -27,12 +33,17 @@ Each row is one issue.
 | Issue | A short title and a one-sentence summary. |
 | Evidence | **Start review** opens the complete evidence. Your own draft assessment, if you have one, appears underneath. |
 
-The count above the table separates issues from the automated checks that
-support them. Several checks can support one issue, and a shared check can
-support more than one issue without being counted twice. Repeated clause
-differences for the same variable and the same pair of source files share one
-row, including quotations from different pages; different source pairs stay
-separate.
+The count above the table separates grouped findings from the automated checks
+that support them. Several checks can establish the same underlying problem
+and share one row. Independent problems for the same variable can have separate
+rows. The table counts each supporting check once; a raw check total is not the
+number of outstanding findings.
+
+**Study coverage gaps**, below the table, shows the whole study's checks that
+could not be assessed, with the dataset, variable and reason. Examples include
+an unavailable governing SAP or an external dictionary. Coverage gaps are
+counted separately and are not added to the finding total or subject impact.
+Finding filters do not change this study-wide coverage list.
 
 ## Filters and search
 
@@ -78,14 +89,14 @@ reproduces them, including the finding open in **Start review**.
 
 | Type | Meaning |
 | --- | --- |
-| conflict | Documents disagree with the data or with one another. |
-| divergence | A documented rule is expressed differently in the specification. A divergence can matter even when the current data do not distinguish the two rules. |
-| gap | A rule or clause is undocumented. |
-| evidence | A quoted passage was not found where it is cited. |
-| inconsistent | An input-to-output check failed: a declared output column is absent, a label differs from the published Define-XML, or a build did not succeed. |
-| unclear | A question the checks cannot settle, such as a dataset name without an exact Define-XML match or a document version that was not revalidated. |
-| missing evidence | An authored review question whose source or excerpt could not be verified. |
-| not reviewed | An authored review question with a verified excerpt and no decision yet. |
+| conflict | ADaM values disagree with a verified Define-XML rule, or the relevant Define-XML statements contradict one another. |
+| inconsistent | Dataset metadata or structure disagrees with an explicit Define-XML declaration. |
+| gap | A documented rule leaves a necessary source, condition or computation unstated. |
+| unclear | The verified rule needs clarification before the dataset can be assessed. |
+
+The raw audit also retains implementation divergences, missing quotations and
+unreviewed tasks. These do not automatically become published findings. An
+agent's proposed interpretation cannot supply a missing documented condition.
 
 Agent review and human resolution are separate from these types; agent
 agreement is not resolution.
@@ -120,12 +131,25 @@ the list, the buttons walk its variable's findings instead.
 ## Documented rules
 
 Reviewed datasets run documented rules against ADaM data and the yamaa output.
-Only observed ADaM differences backed by verified Define-XML appear as findings. An authored grouping gives each issue a short
-title, expected and observed behavior, a proposed action and links to its
-supporting checks; a change to the check evidence requires the grouping to be
-reviewed before publication. Without authored grouping, verified clause
-discrepancies for the same variable and exact source-file pair share one
-issue, and their complete checks remain in the generated verification report.
+Direct checks also compare the actual dataset's structure, stored labels,
+logical types, text lengths, keys and values with the original Define-XML.
+Predecessor origins and value-level declarations are read from the XML, so an
+omission in a reading copy cannot create an undocumented-derivation finding.
+
+An authored grouping gives each issue a short title, expected and observed
+behavior, a proposed action and links to its supporting checks. The publication
+review decides which checks establish an outstanding data or documentation
+issue, which need clarification, and which belong in coverage or the raw audit.
+A change to the evidence requires the review to be checked before publication.
+The complete checks remain in the generated verification report.
+
+Measured impact uses only the documented rule and assessable records. A probe
+that adds an unstated visit window, population or ordering is a conditional
+interpretation; its differing records do not establish literal-rule impact.
+`SignificantDigits` alone does not instruct a derivation to round its result.
+Physical floating-point storage does not make an integer declaration wrong
+when the actual values are integral, and numeric representation noise is not
+a clinical discrepancy.
 
 Define-XML 2.x derivation citations follow the variable's referenced
 `MethodDef`; comment and codelist citations open their own elements.

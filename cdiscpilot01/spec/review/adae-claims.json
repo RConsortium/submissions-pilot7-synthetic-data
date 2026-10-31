@@ -3,9 +3,9 @@
   "dataset": "ADAE",
   "author": {
     "kind": "agent",
-    "model": "Codex",
+    "model": "Codex; program tracing round by claude-opus-5-5[1m]",
     "instructions": ".automation/consistency_review/extract.md",
-    "date": "2026-10-26"
+    "date": "2026-10-29"
   },
   "claims": [
     {
@@ -21,6 +21,16 @@
           "document": "spec/source/dataguide.pdf",
           "section": "page-4",
           "quote": "The following core variables were merged from ADSL into all analysis datasets: STUDYID, \nSITEID, USUBJID, TRTSDT, TRTEDT, AGE, AGEGR1, AGEGR1N, SEX, RACE, and \nRACEN."
+        },
+        {
+          "document": "spec/source/programs/adae.sas",
+          "section": "L7-L8",
+          "quote": "proc sort data=sdtmnew.AE OUT=AE;"
+        },
+        {
+          "document": "spec/source/programs/adae.sas",
+          "section": "L19-L20",
+          "quote": "proc sort data=adamnew.ADSL OUT=TEMP(keep=SITEID USUBJID TRT01A TRT01AN AGE AGEGR1 AGEGR1N RACE RACEN SEX SAFFL TRTSDT TRTEDT RENAME=(TRT01A=TRTA TRT01AN=TRTAN));"
         }
       ],
       "clauses": [
@@ -47,6 +57,18 @@
             "quote": "derivation: AE.STUDYID"
           },
           "note": "The guide repeats the ADSL source for this core variable, while the specification reads AE.STUDYID."
+        },
+        {
+          "relation": "contradicts",
+          "document": {
+            "citation": 1,
+            "quote": "ADSL.STUDYID"
+          },
+          "against": {
+            "citation": 4,
+            "quote": "keep=SITEID USUBJID TRT01A TRT01AN AGE AGEGR1 AGEGR1N RACE RACEN SEX SAFFL TRTSDT TRTEDT"
+          },
+          "note": "The submission program adae.sas keeps no STUDYID from ADSL, so STUDYID comes from the SDTM AE records it reads at line 7, as the specification does."
         }
       ],
       "probes": [
@@ -58,7 +80,7 @@
       "interpretations": [
         "The literal probe reads the current published ADSL source using the original reference study and subject keys; the original REF.STUDYID remains the matching key."
       ],
-      "assessment": "Both retained source statements name ADSL; the specification names AE.",
+      "assessment": "Both retained source statements name ADSL; the specification names AE. The submission program adae.sas also takes STUDYID from SDTM AE, not ADSL.",
       "question": "Should the specification read the documented ADSL source for STUDYID?"
     },
     {
@@ -79,6 +101,11 @@
           "document": "spec/source/dataguide.pdf",
           "section": "page-5",
           "quote": "The data reference for ADAE is the SDTM \nAE (Adverse Events) domain and there is a 1-1 correspondence between records in the source \nand this analysis dataset.  These records can be linked uniquely by STUDYID, USUBJID, and \nAESEQ."
+        },
+        {
+          "document": "spec/source/programs/adae.sas",
+          "section": "L24-L27",
+          "quote": "merge AE(in=inAE) TEMP; by USUBJID; if inAE;"
         }
       ],
       "clauses": [
@@ -145,6 +172,21 @@
           "document": "spec/source/SAP.pdf",
           "section": "page-16",
           "quote": "No imputation of adverse events dates where the partial date clearly indicates a start prior to the beginning of treatment will be done."
+        },
+        {
+          "document": "spec/source/programs/adae.sas",
+          "section": "L13",
+          "quote": "ASTDT=input(strip(AESTDTC),?? yymmdd10.);"
+        },
+        {
+          "document": "spec/source/programs/adae.sas",
+          "section": "L28-L31",
+          "quote": "if ASTDT=. and length(AESTDTC)=7 /*and input(strip(substr(AESTDTC,1,4)),?? best.)=year(TRTSDT)*/ then do; ASTDT=input(compress(AESTDTC||'-01'), yymmdd10.); ASTDTF='D'; end;"
+        },
+        {
+          "document": "spec/source/SAP.pdf",
+          "section": "page-16",
+          "quote": "If the recording of an adverse event start date is not complete, imputation of the start date will be done in a conservative manner."
         }
       ],
       "clauses": [
@@ -199,6 +241,42 @@
             "quote": "In the case of a completely missing adverse event start date, the start date will be imputed as the day of first dose."
           },
           "note": "The specification returns missing for a completely missing start date; it has no first-dose-date fallback. Define-XML says this case does not occur in this study."
+        },
+        {
+          "relation": "contradicts",
+          "document": {
+            "citation": 3,
+            "quote": "In the case of a completely missing adverse event start date, the start date will be imputed as the day of first dose."
+          },
+          "against": {
+            "citation": 6,
+            "quote": "if ASTDT=. and length(AESTDTC)=7"
+          },
+          "note": "adae.sas imputes only year-month start dates (length 7); a completely missing start date stays missing instead of taking the first-dose date."
+        },
+        {
+          "relation": "contradicts",
+          "document": {
+            "citation": 4,
+            "quote": "No imputation of adverse events dates where the partial date clearly indicates a start prior to the beginning of treatment will be done."
+          },
+          "against": {
+            "citation": 6,
+            "quote": "if ASTDT=. and length(AESTDTC)=7 /*and input(strip(substr(AESTDTC,1,4)),?? best.)=year(TRTSDT)*/ then do;"
+          },
+          "note": "adae.sas imputes day 01 for every year-month start date; its condition restricting imputation to the treatment-start year is commented out, so a year-month date before treatment is imputed too."
+        },
+        {
+          "relation": "same",
+          "document": {
+            "citation": 7,
+            "quote": "If the recording of an adverse event start date is not complete, imputation of the start date will be done in a conservative manner."
+          },
+          "spec": {
+            "element": "ASTDT",
+            "quote": "impute:"
+          },
+          "note": "The SAP requires imputation of incomplete start dates without stating the imputed value; the specification imputes them, with the value set by the Define-XML day '01' rule already compared."
         }
       ],
       "probes": [
@@ -213,9 +291,10 @@
       ],
       "interpretations": [
         "The primary literal probe follows the variable-specific Define-XML rule.",
-        "The SAP fallback reading changes only completely missing start dates; the SAP does not fully specify the numeric imputation for every partial-date pattern."
+        "The SAP fallback reading changes only completely missing start dates; the SAP does not fully specify the numeric imputation for every partial-date pattern.",
+        "The SAP calls for a conservative imputation of incomplete start dates but does not say which day or month is conservative; the literal probe keeps the Define-XML day '01' value."
       ],
-      "assessment": "The partial-date rule has a direct specification counterpart; the SAP also states a completely-missing-date branch that the specification does not implement.",
+      "assessment": "The partial-date rule has a direct specification counterpart; the SAP also states a completely-missing-date branch that the specification does not implement. The submission program adae.sas (lines 13 and 28-31) imputes day 01 for every year-month start date, matching Define-XML, and departs from both SAP page-16 imputation statements.",
       "question": "Should the specification include the SAP fallback for completely missing start dates?"
     },
     {
@@ -226,6 +305,11 @@
           "document": "spec/define/define-adam.xml",
           "section": "ADAE.ASTDTF",
           "quote": "ASTDTF='D' if the day value within the character date is imputed. Note that only day values needed to be imputed for this study."
+        },
+        {
+          "document": "spec/source/programs/adae.sas",
+          "section": "L28-L31",
+          "quote": "if ASTDT=. and length(AESTDTC)=7 /*and input(strip(substr(AESTDTC,1,4)),?? best.)=year(TRTSDT)*/ then do; ASTDT=input(compress(AESTDTC||'-01'), yymmdd10.); ASTDTF='D';"
         }
       ],
       "clauses": [
@@ -266,6 +350,11 @@
           "document": "spec/source/dataguide.pdf",
           "section": "page-5",
           "quote": "The Study Day of Event Start (ASTDY) and the Treatment Emergent Analysis Flag (TRTEMFL) are derived based on this imputation and may differ from their corresponding SDTM AE/SUPPAE variables Study Day of Start of Adverse Event (AESTDY) and Treatment Emergent Flag (AETRTEM)."
+        },
+        {
+          "document": "spec/source/programs/adae.sas",
+          "section": "L33-L34",
+          "quote": "IF ASTDT>=TRTSDT>.z then ASTDY=ASTDT-TRTSDT+1; ELSE IF TRTSDT>ASTDT>.z then ASTDY=ASTDT-TRTSDT;"
         }
       ],
       "clauses": [
@@ -326,6 +415,11 @@
           "document": "spec/source/SAP.pdf",
           "section": "page-10",
           "quote": "Missing baseline values and missing safety data will not be imputed."
+        },
+        {
+          "document": "spec/source/programs/adae.sas",
+          "section": "L14",
+          "quote": "AENDT=input(strip(AEENDTC),?? yymmdd10.);"
         }
       ],
       "clauses": [
@@ -363,7 +457,7 @@
         "A complete ISO date converts directly; absent a documented end-date completion rule, partial end dates remain missing in the literal probe.",
         "The SAP explicitly prohibits imputing missing safety data. Its adverse-event exception discusses start dates; no retained source states an end-date component-completion exception."
       ],
-      "assessment": "The specification adds partial-end-date completion despite the general SAP no-imputation policy for missing safety data.",
+      "assessment": "The specification adds partial-end-date completion despite the general SAP no-imputation policy for missing safety data. The submission program adae.sas (line 14) converts AEENDTC without imputation, as the documents state.",
       "question": "Does the general SAP no-imputation policy cover partial AE end dates, or should an end-date exception be documented?"
     },
     {
@@ -374,6 +468,11 @@
           "document": "spec/define/define-adam.xml",
           "section": "ADAE.AENDY",
           "quote": "IF AENDT>=TRTSDT>MISSING then AENDY=AENDT-TRTSDT+1 Else if TRTSDT>AENDT>MISSING then AENDY=AENDT-TRTSDT"
+        },
+        {
+          "document": "spec/source/programs/adae.sas",
+          "section": "L35-L36",
+          "quote": "IF AENDT>=TRTSDT>.z then AENDY=AENDT-TRTSDT+1; ELSE IF TRTSDT>AENDT>.z then AENDY=AENDT-TRTSDT;"
         }
       ],
       "clauses": [
@@ -408,6 +507,16 @@
           "document": "spec/define/define-adam.xml",
           "section": "ADAE.ADURN",
           "quote": "ADURN=AENDT-ASTDT+1"
+        },
+        {
+          "document": "spec/source/programs/adae.sas",
+          "section": "L13-L15",
+          "quote": "ASTDT=input(strip(AESTDTC),?? yymmdd10.); AENDT=input(strip(AEENDTC),?? yymmdd10.); if ASTDT>.z and AENDT>.z then ADUR=AENDT-ASTDT+1;"
+        },
+        {
+          "document": "spec/source/programs/adae.sas",
+          "section": "L28-L31",
+          "quote": "if ASTDT=. and length(AESTDTC)=7 /*and input(strip(substr(AESTDTC,1,4)),?? best.)=year(TRTSDT)*/ then do; ASTDT=input(compress(AESTDTC||'-01'), yymmdd10.); ASTDTF='D'; end;"
         }
       ],
       "clauses": [
@@ -429,16 +538,32 @@
             "quote": "when: \"ASTDT IS NOT NULL AND AENDT IS NOT NULL AND ASTDTF = ''\""
           },
           "note": "The specification withholds duration when the start date was imputed; the documented formula does not restrict duration to un-imputed start dates."
+        },
+        {
+          "relation": "contradicts",
+          "document": {
+            "citation": 1,
+            "quote": "ADURN=AENDT-ASTDT+1"
+          },
+          "against": {
+            "citation": 2,
+            "quote": "if ASTDT>.z and AENDT>.z then ADUR=AENDT-ASTDT+1;"
+          },
+          "note": "adae.sas computes the duration (named ADUR there) at line 15 from the start date before lines 28-31 impute a missing day, so an event with an imputed start date has no duration; the Define formula uses the final ASTDT."
         }
       ],
       "probes": [
         {
           "column": "ADURN",
           "reading": "literal"
+        },
+        {
+          "column": "ADURN__BEFORE_IMPUTATION",
+          "reading": "Duration from the start date before imputation, as the submission program adae.sas computes it at lines 13-15, before lines 28-31 impute a missing start day; an event whose start date was imputed gets no duration. The Define formula uses the imputed analysis start date."
         }
       ],
       "interpretations": [],
-      "assessment": "The specification adds an imputation-flag eligibility condition to the documented duration formula.",
+      "assessment": "The specification adds an imputation-flag eligibility condition to the documented duration formula. The submission program adae.sas computes the duration before it imputes the start day (lines 13-15, then 28-31), which matches the specification's imputation-flag condition; the program names the variable ADUR.",
       "question": "Should durations be withheld after start-date imputation, and where should that condition be documented?"
     },
     {
@@ -773,6 +898,21 @@
           "document": "spec/source/SAP.pdf",
           "section": "page-33",
           "quote": "Treatment emergent events are defined as events which start or worsen or recur on or after the start of treatment."
+        },
+        {
+          "document": "spec/source/programs/adae.sas",
+          "section": "L40-L41",
+          "quote": "IF (ASTDT>=TRTSDT>.z) then TRTEMFL='Y'; ELSE TRTEMFL='N';"
+        },
+        {
+          "document": "spec/source/programs/adae.sas",
+          "section": "L28-L31",
+          "quote": "if ASTDT=. and length(AESTDTC)=7 /*and input(strip(substr(AESTDTC,1,4)),?? best.)=year(TRTSDT)*/ then do; ASTDT=input(compress(AESTDTC||'-01'), yymmdd10.);"
+        },
+        {
+          "document": "spec/source/SAP.pdf",
+          "section": "page-16",
+          "quote": "events with a start date that is equal to or greater than the date of first dose"
         }
       ],
       "clauses": [
@@ -858,6 +998,54 @@
             "quote": "Treatment emergent events are defined as events which start or worsen or recur on or after the start of treatment."
           },
           "note": "The serious treatment-emergent table shell repeats the worsening and recurrence definition."
+        },
+        {
+          "relation": "contradicts",
+          "document": {
+            "citation": 2,
+            "quote": "events that start prior to the date of first dose and worsen after that date"
+          },
+          "against": {
+            "citation": 8,
+            "quote": "IF (ASTDT>=TRTSDT>.z) then TRTEMFL='Y'; ELSE TRTEMFL='N';"
+          },
+          "note": "adae.sas flags on the start date alone, so a pre-dose event that worsens after first dose is N."
+        },
+        {
+          "relation": "contradicts",
+          "document": {
+            "citation": 3,
+            "quote": "events that start and resolve prior to the date of first dose, but then recur after that the date of first dose."
+          },
+          "against": {
+            "citation": 8,
+            "quote": "IF (ASTDT>=TRTSDT>.z) then TRTEMFL='Y'; ELSE TRTEMFL='N';"
+          },
+          "note": "adae.sas flags on the start date alone, so an event that resolved before first dose and recurs afterward is N."
+        },
+        {
+          "relation": "contradicts",
+          "document": {
+            "citation": 4,
+            "quote": "Adverse events will be considered treatment emergent if the year and/or the month is the same as the treatment start year and month."
+          },
+          "against": {
+            "citation": 9,
+            "quote": "ASTDT=input(compress(AESTDTC||'-01'), yymmdd10.);"
+          },
+          "note": "adae.sas imputes day 01 for a year-month start date and compares it with TRTSDT at line 40, so an event in the month of first dose but imputed before its day is N."
+        },
+        {
+          "relation": "same",
+          "document": {
+            "citation": 10,
+            "quote": "events with a start date that is equal to or greater than the date of first dose"
+          },
+          "spec": {
+            "element": "TRTEMFL",
+            "quote": "ASTDT >= TRTSDT"
+          },
+          "note": "The SAP's first treatment-emergent criterion restates the start-date comparison that Define-XML and the specification use."
         }
       ],
       "probes": [
@@ -871,7 +1059,7 @@
         "The SAP leaves the record linkage and source variables for worsening and recurrence unstated, so those criteria cannot be stated as an independent literal probe without choosing additional rules.",
         "The SAP matching-year-or-month instruction does not fully specify the result for every partial-date pattern; no invented conservative date is used."
       ],
-      "assessment": "The variable-specific Define-XML rule matches the specification, while the SAP and its table shells state broader treatment-emergent criteria.",
+      "assessment": "The variable-specific Define-XML rule matches the specification, while the SAP and its table shells state broader treatment-emergent criteria. The submission program adae.sas (lines 40-41) implements the Define-XML start-date rule and none of the SAP's broader criteria.",
       "question": "Which treatment-emergent definition should govern ADAE, including worsening, recurrence and partial dates?"
     },
     {
@@ -887,6 +1075,16 @@
           "document": "spec/source/dataguide.pdf",
           "section": "page-5",
           "quote": "For treatment emergent adverse events refer to define.xml documentation for the following variables: AOCCFL, AOCCSFL, and AOCCPFL for summarization at the subject, System Organ Class, and Preferred Term levels, respectively."
+        },
+        {
+          "document": "spec/source/programs/adae.sas",
+          "section": "L54-L76",
+          "quote": "proc sort data=&inds out=ds01; by usubjid &sortvars ASTDT; where trtemfl='Y' %if &invar ne %then and &invar ne ''; %if &ser ne %then and aeser='Y'; %if &derm ne %then and CQ01NAM='DERMATOLOGIC EVENTS';"
+        },
+        {
+          "document": "spec/source/programs/adae.sas",
+          "section": "L80",
+          "quote": "%flagfrst(inds=ae,sortvars=,invar=,outvar=AOCCFL,outds=aea);"
         }
       ],
       "clauses": [
@@ -935,7 +1133,7 @@
         "Unflagged records retain a blank character flag.",
         "The probe isolates occurrence selection using the published treatment-emergent flag and analysis start date."
       ],
-      "assessment": "The eligibility and first-record assignment have specification counterparts, but the occurrence ordering differs from the documented start-date-first sort.",
+      "assessment": "The eligibility and first-record assignment have specification counterparts, but the occurrence ordering differs from the documented start-date-first sort. The submission program adae.sas (lines 54-76) sorts eligible events by start date within the documented grouping, keeping AESEQ order for ties.",
       "question": "Should occurrence selection follow documented chronological ordering and grouping?"
     },
     {
@@ -951,6 +1149,16 @@
           "document": "spec/source/dataguide.pdf",
           "section": "page-5",
           "quote": "For treatment emergent adverse events refer to define.xml documentation for the following variables: AOCCFL, AOCCSFL, and AOCCPFL for summarization at the subject, System Organ Class, and Preferred Term levels, respectively."
+        },
+        {
+          "document": "spec/source/programs/adae.sas",
+          "section": "L54-L76",
+          "quote": "proc sort data=&inds out=ds01; by usubjid &sortvars ASTDT; where trtemfl='Y' %if &invar ne %then and &invar ne ''; %if &ser ne %then and aeser='Y'; %if &derm ne %then and CQ01NAM='DERMATOLOGIC EVENTS';"
+        },
+        {
+          "document": "spec/source/programs/adae.sas",
+          "section": "L81",
+          "quote": "%flagfrst(inds=ae,sortvars=aebodsys,invar=aebodsys,outvar=AOCCSFL,outds=aeb);"
         }
       ],
       "clauses": [
@@ -1011,7 +1219,7 @@
         "Unflagged records retain a blank character flag.",
         "The probe isolates occurrence selection using the published treatment-emergent flag and analysis start date."
       ],
-      "assessment": "The eligibility and first-record assignment have specification counterparts, but the occurrence ordering differs from the documented start-date-first sort.",
+      "assessment": "The eligibility and first-record assignment have specification counterparts, but the occurrence ordering differs from the documented start-date-first sort. The submission program adae.sas (lines 54-76) sorts eligible events by start date within the documented grouping, keeping AESEQ order for ties.",
       "question": "Should occurrence selection follow documented chronological ordering and grouping?"
     },
     {
@@ -1027,6 +1235,16 @@
           "document": "spec/source/dataguide.pdf",
           "section": "page-5",
           "quote": "For treatment emergent adverse events refer to define.xml documentation for the following variables: AOCCFL, AOCCSFL, and AOCCPFL for summarization at the subject, System Organ Class, and Preferred Term levels, respectively."
+        },
+        {
+          "document": "spec/source/programs/adae.sas",
+          "section": "L54-L76",
+          "quote": "proc sort data=&inds out=ds01; by usubjid &sortvars ASTDT; where trtemfl='Y' %if &invar ne %then and &invar ne ''; %if &ser ne %then and aeser='Y'; %if &derm ne %then and CQ01NAM='DERMATOLOGIC EVENTS';"
+        },
+        {
+          "document": "spec/source/programs/adae.sas",
+          "section": "L82",
+          "quote": "%flagfrst(inds=ae,sortvars=aebodsys aedecod,invar=aedecod,outvar=AOCCPFL,outds=aec);"
         }
       ],
       "clauses": [
@@ -1087,7 +1305,7 @@
         "Unflagged records retain a blank character flag.",
         "The probe isolates occurrence selection using the published treatment-emergent flag and analysis start date."
       ],
-      "assessment": "The eligibility and first-record assignment have specification counterparts, but the occurrence ordering differs from the documented start-date-first sort.",
+      "assessment": "The eligibility and first-record assignment have specification counterparts, but the occurrence ordering differs from the documented start-date-first sort. The submission program adae.sas (lines 54-76) sorts eligible events by start date within the documented grouping, keeping AESEQ order for ties.",
       "question": "Should occurrence selection follow documented chronological ordering and grouping?"
     },
     {
@@ -1103,6 +1321,16 @@
           "document": "spec/source/dataguide.pdf",
           "section": "page-5",
           "quote": "Similarly, refer to the define.xml documentation for AOCC02FL, AOCC03FL, and AOCC04FL for summarization of serious adverse events at the subject, System Organ Class, and Preferred Term levels."
+        },
+        {
+          "document": "spec/source/programs/adae.sas",
+          "section": "L54-L76",
+          "quote": "proc sort data=&inds out=ds01; by usubjid &sortvars ASTDT; where trtemfl='Y' %if &invar ne %then and &invar ne ''; %if &ser ne %then and aeser='Y'; %if &derm ne %then and CQ01NAM='DERMATOLOGIC EVENTS';"
+        },
+        {
+          "document": "spec/source/programs/adae.sas",
+          "section": "L87",
+          "quote": "%flagfrst(inds=ae,sortvars=,invar=,outvar=AOCC02FL,outds=saea, ser=Y);"
         }
       ],
       "clauses": [
@@ -1151,7 +1379,7 @@
         "Unflagged records retain a blank character flag.",
         "The probe isolates occurrence selection using the published treatment-emergent flag and analysis start date."
       ],
-      "assessment": "The eligibility and first-record assignment have specification counterparts, but the occurrence ordering differs from the documented start-date-first sort.",
+      "assessment": "The eligibility and first-record assignment have specification counterparts, but the occurrence ordering differs from the documented start-date-first sort. The submission program adae.sas (lines 54-76) sorts eligible events by start date within the documented grouping, keeping AESEQ order for ties.",
       "question": "Should occurrence selection follow documented chronological ordering and grouping?"
     },
     {
@@ -1167,6 +1395,16 @@
           "document": "spec/source/dataguide.pdf",
           "section": "page-5",
           "quote": "Similarly, refer to the define.xml documentation for AOCC02FL, AOCC03FL, and AOCC04FL for summarization of serious adverse events at the subject, System Organ Class, and Preferred Term levels."
+        },
+        {
+          "document": "spec/source/programs/adae.sas",
+          "section": "L54-L76",
+          "quote": "proc sort data=&inds out=ds01; by usubjid &sortvars ASTDT; where trtemfl='Y' %if &invar ne %then and &invar ne ''; %if &ser ne %then and aeser='Y'; %if &derm ne %then and CQ01NAM='DERMATOLOGIC EVENTS';"
+        },
+        {
+          "document": "spec/source/programs/adae.sas",
+          "section": "L88",
+          "quote": "%flagfrst(inds=ae,sortvars=aebodsys,invar=aebodsys,outvar=AOCC03FL,outds=saeb,ser=Y);"
         }
       ],
       "clauses": [
@@ -1227,7 +1465,7 @@
         "Unflagged records retain a blank character flag.",
         "The probe isolates occurrence selection using the published treatment-emergent flag and analysis start date."
       ],
-      "assessment": "The eligibility and first-record assignment have specification counterparts, but the occurrence ordering differs from the documented start-date-first sort.",
+      "assessment": "The eligibility and first-record assignment have specification counterparts, but the occurrence ordering differs from the documented start-date-first sort. The submission program adae.sas (lines 54-76) sorts eligible events by start date within the documented grouping, keeping AESEQ order for ties.",
       "question": "Should occurrence selection follow documented chronological ordering and grouping?"
     },
     {
@@ -1243,6 +1481,16 @@
           "document": "spec/source/dataguide.pdf",
           "section": "page-5",
           "quote": "Similarly, refer to the define.xml documentation for AOCC02FL, AOCC03FL, and AOCC04FL for summarization of serious adverse events at the subject, System Organ Class, and Preferred Term levels."
+        },
+        {
+          "document": "spec/source/programs/adae.sas",
+          "section": "L54-L76",
+          "quote": "proc sort data=&inds out=ds01; by usubjid &sortvars ASTDT; where trtemfl='Y' %if &invar ne %then and &invar ne ''; %if &ser ne %then and aeser='Y'; %if &derm ne %then and CQ01NAM='DERMATOLOGIC EVENTS';"
+        },
+        {
+          "document": "spec/source/programs/adae.sas",
+          "section": "L89",
+          "quote": "%flagfrst(inds=ae,sortvars=aebodsys aedecod,invar=aedecod,outvar=AOCC04FL,outds=saec,ser=Y);"
         }
       ],
       "clauses": [
@@ -1303,7 +1551,7 @@
         "Unflagged records retain a blank character flag.",
         "The probe isolates occurrence selection using the published treatment-emergent flag and analysis start date."
       ],
-      "assessment": "The eligibility and first-record assignment have specification counterparts, but the occurrence ordering differs from the documented start-date-first sort.",
+      "assessment": "The eligibility and first-record assignment have specification counterparts, but the occurrence ordering differs from the documented start-date-first sort. The submission program adae.sas (lines 54-76) sorts eligible events by start date within the documented grouping, keeping AESEQ order for ties.",
       "question": "Should occurrence selection follow documented chronological ordering and grouping?"
     },
     {
@@ -1329,6 +1577,11 @@
           "document": "spec/source/SAP.pdf",
           "section": "page-16",
           "quote": "A complete list of preferred terms that are considered to be dermatologic events will be provided in the final analysis."
+        },
+        {
+          "document": "spec/source/programs/adae.sas",
+          "section": "L42-L47",
+          "quote": "IF index(aedecod,'APPLICATION') or index(aedecod,'DERMATITIS') or index(aedecod,'ERYTHEMA') or index(aedecod,'BLISTER') or (aebodsys='SKIN AND SUBCUTANEOUS TISSUE DISORDERS' and aedecod not in ('COLD SWEAT','HYPERHIDROSIS','ALOPECIA')) then CQ01NAM='DERMATOLOGIC EVENTS';"
         }
       ],
       "clauses": [
@@ -1354,6 +1607,18 @@
             "element": "CQ01NAM",
             "quote": "then: \"'DERMATOLOGIC EVENTS'\""
           }
+        },
+        {
+          "relation": "contradicts",
+          "document": {
+            "citation": 1,
+            "quote": "AEBODSYS='SKIN AND SUBC UTANEOUS TISSUE DISORDERS'"
+          },
+          "against": {
+            "citation": 5,
+            "quote": "aebodsys='SKIN AND SUBCUTANEOUS TISSUE DISORDERS'"
+          },
+          "note": "adae.sas tests the SOC name without the embedded space that Define-XML shows, as the CQ01NAM__CORRECTED_SOC reading does."
         }
       ],
       "probes": [
@@ -1372,7 +1637,7 @@
         "NULL in the character-variable description is represented by a blank string, consistent with the staged character missing-value convention.",
         "The SAP requires medical review and promises a final term list, but neither retained PDF enumerates that final approved list."
       ],
-      "assessment": "The specification uses a fixed preferred-term list while Define-XML states a general text/SOC query and contains an embedded space in its SOC name.",
+      "assessment": "The specification uses a fixed preferred-term list while Define-XML states a general text/SOC query and contains an embedded space in its SOC name. The submission program adae.sas (lines 42-47) applies the substring and SOC query with the SOC name spelled SUBCUTANEOUS.",
       "question": "Should the fixed term list be documented as the approved medical-review list, or should the Define-XML query govern?"
     },
     {
@@ -1393,6 +1658,16 @@
           "document": "spec/source/SAP.pdf",
           "section": "page-16",
           "quote": "The time to the first dermatological event will be compared across the treatment groups using Kaplan-Meier methods."
+        },
+        {
+          "document": "spec/source/programs/adae.sas",
+          "section": "L54-L76",
+          "quote": "proc sort data=&inds out=ds01; by usubjid &sortvars ASTDT; where trtemfl='Y' %if &invar ne %then and &invar ne ''; %if &ser ne %then and aeser='Y'; %if &derm ne %then and CQ01NAM='DERMATOLOGIC EVENTS';"
+        },
+        {
+          "document": "spec/source/programs/adae.sas",
+          "section": "L90",
+          "quote": "%flagfrst(inds=ae,sortvars=,invar=,outvar=AOCC01FL,outds=derm, ser=,derm=Y);"
         }
       ],
       "clauses": [
@@ -1454,6 +1729,18 @@
             "quote": "order_by: - variable: AESEQ nulls: last"
           },
           "note": "The data guide repeats the chronological ordering absent from the specification."
+        },
+        {
+          "relation": "contradicts",
+          "document": {
+            "citation": 1,
+            "quote": "Subset to CQ01NAM=''"
+          },
+          "against": {
+            "citation": 4,
+            "quote": "and CQ01NAM='DERMATOLOGIC EVENTS'"
+          },
+          "note": "adae.sas subsets the dermatologic events (macro call with derm=Y at line 90), not records with a blank query name."
         }
       ],
       "probes": [
@@ -1470,7 +1757,7 @@
         "The first probe preserves the explicit blank-query condition even though the Define-XML parenthetical describes a dermatological-event flag.",
         "The alternative reading uses the data-guide dermatologic group and keeps the same documented chronological sort."
       ],
-      "assessment": "The explicit Define-XML subset and the data guide identify different event groups; the specification follows the dermatologic group but orders only by sequence number.",
+      "assessment": "The explicit Define-XML subset and the data guide identify different event groups; the specification follows the dermatologic group but orders only by sequence number. The submission program adae.sas (lines 54-76 and 90) flags the first treatment-emergent dermatologic event, as the AOCC01FL__DERMATOLOGIC reading does.",
       "question": "Should the blank-query subset be corrected to dermatologic events, and should the flag use start-date-first ordering?",
       "example_columns": [
         "AEDECOD"

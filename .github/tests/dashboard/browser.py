@@ -52,22 +52,24 @@ def check_finding_columns(page, issues, screenshots):
     page.locator('#finding-dataset').fill('BMIBL')
     expect(rows).to_have_count(0)
     page.locator('#finding-dataset').fill('ADSL')
+    selected = next(i for i in issues if i['dataset'] == 'ADSL' and i.get('variable') == 'BMIBL'
+                    and i['comparison'] == 'documented_rules' and i['impact']['status'] == 'observed')
+    issue_query = selected['title']
     query = page.locator('#finding-issue')
-    query.press_sequentially('height conversion', delay=10)
+    query.press_sequentially(issue_query, delay=10)
     expect(query).to_be_focused()
-    expect(query).to_have_value('height conversion')
+    expect(query).to_have_value(issue_query)
     expect(rows).to_have_count(1)
-    expect(rows.locator('h3')).to_have_text('BMI formula uses the wrong height conversion')
-    selected = next(i for i in issues if i['title'] == 'BMI formula uses the wrong height conversion')
+    expect(rows.locator('h3')).to_have_text(selected['title'])
     page.locator('#finding-impact').fill('subjects differ')
     page.locator('#finding-kind').select_option(selected['kind'])
     page.locator('#finding-critical').select_option(selected['critical']['status'])
     page.locator('#finding-agent').select_option(selected['review'])
     page.locator('#finding-review').select_option('unreviewed')
     expect(rows).to_have_count(1)
-    assert 'issueSearch=height+conversion' in page.url
+    assert dict(urllib.parse.parse_qsl(urllib.parse.urlsplit(page.url).fragment.partition('?')[2]))['issueSearch'] == issue_query
     page.reload()
-    expect(query).to_have_value('height conversion')
+    expect(query).to_have_value(issue_query)
     expect(page.locator('#finding-dataset')).to_have_value('ADSL')
     expect(page.locator('#finding-variable')).to_have_value('BMIBL')
     expect(page.locator('#finding-impact')).to_have_value('subjects differ')
@@ -106,7 +108,7 @@ def check_finding_columns(page, issues, screenshots):
     page.set_viewport_size({'width': 375, 'height': 1000})
     page.locator('#finding-dataset').fill('ADSL')
     page.locator('#finding-variable').fill('BMIBL')
-    page.locator('#finding-issue').fill('height conversion')
+    page.locator('#finding-issue').fill(issue_query)
     expect(rows).to_have_count(1)
     expect(page.locator('#finding-critical')).to_be_visible()
     expect(page.locator('#finding-review')).to_be_visible()
@@ -218,6 +220,45 @@ def check(browser, base, site_dir, screenshots):
         row.locator("th [data-finding]").click()
         expect(page.locator(".trace-workspace-note")).to_be_visible()
 
+    def assert_issue_listing(items, all_items):
+        """Filters and grouped-check totals must match the published review model."""
+        rows = page.locator('.consistency-table tbody tr[data-finding-id]')
+        expect(rows).to_have_count(len(items))
+        assert set(rows.evaluate_all('rows => rows.map(row => row.dataset.findingId)')) == {
+            item['id'] for item in items
+        }
+        check_count = len({key for item in items for key in item['check_ids']})
+        issue_label = 'issue' if len(all_items) == 1 else 'issues'
+        check_label = 'check' if check_count == 1 else 'checks'
+        count_text = f'{len(items)} of {len(all_items)} {issue_label} \u00b7 {check_count} supporting {check_label}'
+        comparison = dict(urllib.parse.parse_qsl(
+            urllib.parse.urlsplit(page.url).fragment.partition('?')[2])).get('comparison')
+        if comparison:
+            comparison_labels = {'input_output': 'Input -> output logic', 'source_documents': 'Source documents',
+                                 'documented_rules': 'Documented rules', 'dataset_define': 'Dataset vs Define-XML'}
+            count_text += f' Comparison: {comparison_labels.get(comparison, comparison)} Remove'
+        expect(page.locator('.result-count')).to_have_text(count_text)
+        if not items:
+            expect(page.locator('.consistency-table tbody')).to_contain_text('No issues match')
+
+    def assert_coverage(report):
+        items = report.get('coverage_items', [])
+        coverage = page.locator('.coverage-gaps')
+        expect(coverage).to_have_count(1 if items else 0)
+        if not items:
+            return
+        label = 'check' if len(items) == 1 else 'checks'
+        expect(coverage.locator('summary')).to_have_text(
+            f'Study coverage gaps: {len(items)} {label} not assessed')
+        if coverage.get_attribute('open') is None:
+            coverage.locator('summary').click()
+        expect(coverage.locator('li')).to_have_text([
+            f"{'.'.join(filter(None, [item.get('dataset'), item.get('variable')])) or 'Study'}: "
+            f"{item.get('reason') or item.get('title') or 'Assessment unavailable.'}"
+            for item in items
+        ])
+        expect(coverage).to_contain_text('do not establish a data discrepancy')
+
     study = base + "/studies/cdiscpilot01/"
     # Treatment codes use DM; exposure dates retain EX and its matching keys.
     for name in ["cdiscpilot01", "submission-pilot3", "submission-pilot5"]:
@@ -245,6 +286,7 @@ def check(browser, base, site_dir, screenshots):
         study_report = json.loads((site_dir / f"evidence/dashboard/{name}/report.json").read_text())
         issues = study_report["review"]["issues"]
         checks = study_report["review"]["counts"]["checks"]
+        assert checks == len({key for item in issues for key in item['check_ids']})
         expect(page.locator(".consistency-summary")).to_contain_text(f"{len(issues)} findings awaiting review")
         expect(page.locator(".reference-summary h2")).to_have_text("ADaM derivation")
         expect(page.locator(".reference-summary")).to_contain_text("100% of ADaM datasets matched by using yamaa framework")
@@ -258,8 +300,8 @@ def check(browser, base, site_dir, screenshots):
         critical = sum(i["critical"]["status"] == "yes" for i in issues)
         expect(page.locator(".consistency-summary .critical-counts")).to_contain_text(f"{critical} critical;")
         page.get_by_role("button", name="Consistency findings", exact=True).click()
-        expect(page.locator(".result-count")).to_have_text(f"{len(issues)} of {len(issues)} issues \u00b7 {checks} supporting checks")
-        expect(page.locator(".consistency-table tbody tr[data-finding-id]")).to_have_count(len(issues))
+        assert_issue_listing(issues, issues)
+        assert_coverage(study_report)
         expect(page.locator(".consistency-table thead th")).to_have_text([
             "Dataset", "Variable", "Status", "Critical finding", "Type", "Documented rule vs data", "Issue", "Evidence"
         ])
@@ -516,9 +558,11 @@ def check(browser, base, site_dir, screenshots):
     shared.close()
     # Evidence and bottom-of-page comments retain the selected dataset context.
     page.locator("#dataset-select").select_option("ADAE")
-    cdisc_issues = json.loads(
+    cdisc_report = json.loads(
         (site_dir / "evidence/dashboard/cdiscpilot01/report.json").read_text()
-    )["review"]["issues"]
+    )
+    cdisc_issues = cdisc_report["review"]["issues"]
+    cdisc_checks = cdisc_report["review"]["checks"]
     cdisc_issue_count = len(cdisc_issues)
     expect(page.locator('.review-tabs [data-view="datasets"]')).to_have_text("SDTM -> ADaM")
     expect(page.locator('.review-tabs [data-view="overview"]')).to_have_text("Consistency findings")
@@ -528,23 +572,31 @@ def check(browser, base, site_dir, screenshots):
     expect(page.locator('.consistency-summary [data-view="overview"]')).to_have_count(0)
     page.locator('.review-tabs [data-view="overview"]').click()
     expect(page.locator(".consistency-table")).to_be_visible()
-    expect(page.locator(".consistency-table tbody tr[data-finding-id]")).to_have_count(cdisc_issue_count)
+    assert_issue_listing(cdisc_issues, cdisc_issues)
+    assert_coverage(cdisc_report)
     expect(page.locator(".review-howto")).to_have_text(
         "Open Start review for the finding's evidence, record both decisions under Human Review."
     )
     expect(page.locator("#view-content h2, #view-content .uncited")).to_have_count(0)
     check_finding_columns(page, cdisc_issues, screenshots)
-    # Older comparison-scoped links remain visible and removable without a toolbar.
-    for comparison in ['input_output', 'source_documents']:
-        route, _, query = page.url.partition('?')
-        params = dict(urllib.parse.parse_qsl(query))
-        params['comparison'] = comparison
-        page.goto(route + '?' + urllib.parse.urlencode(params))
-        expect(page.locator('.consistency-table tbody')).to_contain_text('No issues match')
+    # Comparison-scoped links retain their exact filtered model and can be removed.
+    for category in ['input_output', 'source_documents', 'dataset_define']:
+        page.goto(study + '#cdiscpilot01/overview/ADAE?comparison=' + category)
+        filtered = [item for item in cdisc_issues if item['comparison'] == category]
+        assert_issue_listing(filtered, cdisc_issues)
+        expect(page.locator('.consistency-table tbody')).not_to_contain_text('Executed')
         page.get_by_role('button', name='Remove comparison filter', exact=True).click()
-        expect(page.locator('.consistency-table tbody tr.review-issue')).to_have_count(cdisc_issue_count)
+        assert_issue_listing(cdisc_issues, cdisc_issues)
+    assert any(item['comparison'] == 'dataset_define' for item in cdisc_issues), (
+        'The production bundle must exercise actual dataset/Define-XML metadata findings')
+    page.goto(study + '#cdiscpilot01/overview/ADAE?comparison=documented_rules')
     page.locator('#finding-search').fill('ADSL.BMIBL')
-    expect(page.locator('.consistency-table tbody tr.review-issue')).to_have_count(1)
+    bmi_issues = [item for item in cdisc_issues
+                  if item['dataset'] == 'ADSL' and item['variable'] == 'BMIBL'
+                  and item['comparison'] == 'documented_rules']
+    assert len(bmi_issues) == 1, 'The documented BMI formula must remain one grouped finding'
+    bmi_issue = bmi_issues[0]
+    assert_issue_listing(bmi_issues, cdisc_issues)
     expect(page.locator(".finding-evidence")).to_have_count(0)
     trace = open_trace(page.locator(".consistency-table tbody tr"))
     # The open finding is part of the shareable state; this one is alone in the filtered list.
@@ -635,6 +687,7 @@ def check(browser, base, site_dir, screenshots):
     page.get_by_role("button", name="Clear filters", exact=True).click()
     expect(page.locator(".consistency-table tbody tr")).not_to_have_count(0)
     page.locator("#finding-kind").select_option("inconsistent")
+    assert_issue_listing([item for item in cdisc_issues if item['kind'] == 'inconsistent'], cdisc_issues)
     expect(page.locator(".consistency-table tbody")).not_to_contain_text("Executed")
     page.locator("#finding-search").fill("no such source rule")
     expect(page.locator(".consistency-table tbody")).to_contain_text(
@@ -645,14 +698,19 @@ def check(browser, base, site_dir, screenshots):
     page.get_by_role("button", name="Clear filters", exact=True).click()
     page.locator("#finding-search").fill("HEIGHTBL*100")
     rule = page.locator(".consistency-table tbody tr.review-issue")
-    expect(rule).to_have_count(1)
-    expect(rule.locator("h3")).to_have_text("BMI formula uses the wrong height conversion")
-    expect(rule.locator(".rule-legend > summary")).to_have_text(["CR-5", "CR-6"])
+    assert_issue_listing(bmi_issues, cdisc_issues)
+    expect(rule.locator("h3")).to_have_text(bmi_issue['title'])
+    bmi_rules = list({check['rule']['id']: check['rule'] for check in cdisc_checks
+                      if check['id'] in bmi_issue['check_ids'] and check.get('rule')}.values())
+    assert bmi_rules, 'The grouped BMI finding retains its current supporting rule'
+    expect(rule.locator(".rule-legend > summary")).to_have_text([item['id'] for item in bmi_rules])
     # Selecting a rule ID states what the rule requires; Escape closes it.
     legend = rule.locator(".rule-legend").first
     legend.locator("summary").click()
     expect(legend.locator(".rule-popover")).to_be_visible()
-    expect(legend.locator(".rule-popover")).to_contain_text("CR-5: A documented rule reproduces the reference")
+    expect(legend.locator(".rule-popover")).to_contain_text(
+        f"{bmi_rules[0]['id']}: {bmi_rules[0]['title']}")
+    expect(legend.locator('.rule-popover')).to_contain_text(bmi_rules[0]['statement'])
     page.keyboard.press("Escape")
     expect(legend.locator(".rule-popover")).to_be_hidden()
     trigger = rule.get_by_role("button", name="Start review", exact=True)
@@ -701,7 +759,7 @@ def check(browser, base, site_dir, screenshots):
     expect(trace).to_have_count(0)
     page.locator('.review-tabs [data-view="overview"]').click()
     open_workspace(rule)
-    expect(page.locator("#subject-summary")).to_contain_text("253 /")
+    expect(page.locator("#subject-summary")).to_contain_text(f"{bmi_issue['impact']['subject_count']} /")
     page.get_by_role("button", name="Close source evidence", exact=True).click()
     page.locator('.review-tabs [data-view="overview"]').click()
     page.get_by_role("button", name="Clear filters", exact=True).click()
@@ -722,38 +780,55 @@ def check(browser, base, site_dir, screenshots):
     expect(page.locator("dialog.trace-review-dialog #trace-review-title")).to_have_text(reopened)
     page.keyboard.press("Escape")
     page.locator('#finding-search').fill('BMIBLGR1')
-    expect(rule).to_have_count(sum(i['variable'] == 'BMIBLGR1' for i in cdisc_issues))
-    expect(rule).not_to_contain_text('Missing BMI is assigned')
+    assert_issue_listing([item for item in cdisc_issues if item['variable'] == 'BMIBLGR1'], cdisc_issues)
     page.locator('#finding-search').fill('VISNUMEN')
-    expect(rule).to_have_count(sum(i['variable'] == 'VISNUMEN' for i in cdisc_issues))
+    assert_issue_listing([item for item in cdisc_issues if item['variable'] == 'VISNUMEN'], cdisc_issues)
     page.get_by_role("button", name="Clear filters", exact=True).click()
     for status in ("yes", "no", "needs_review"):
         page.locator("#finding-critical").select_option(status)
-        expect(rule).to_have_count(sum(issue["critical"]["status"] == status for issue in cdisc_issues))
+        assert_issue_listing([item for item in cdisc_issues if item['critical']['status'] == status], cdisc_issues)
     page.locator("#finding-critical").select_option("yes")
     page.reload()
     expect(page.locator("#finding-critical")).to_have_value("yes")
-    expect(rule).to_have_count(sum(issue["critical"]["status"] == "yes" for issue in cdisc_issues))
+    assert_issue_listing([item for item in cdisc_issues if item['critical']['status'] == 'yes'], cdisc_issues)
     page.get_by_role("button", name="Clear filters", exact=True).click()
     expect(page.locator("#finding-critical")).to_have_value("")
-    expect(rule).to_have_count(len(cdisc_issues))
+    assert_issue_listing(cdisc_issues, cdisc_issues)
     page.locator("#finding-search").fill("ADAE.TRTEMFL")
-    expect(rule).to_have_count(sum(i['dataset'] == 'ADAE' and i['variable'] == 'TRTEMFL' for i in cdisc_issues))
+    assert_issue_listing([item for item in cdisc_issues if item['dataset'] == 'ADAE' and item['variable'] == 'TRTEMFL'], cdisc_issues)
     page.get_by_role("button", name="Clear filters", exact=True).click()
     page.locator("#finding-search").fill("ADAE.AOCC01FL")
-    expect(rule).to_have_count(1)
-    selection = rule.filter(has_text="Define-XML selects the wrong event group")
+    aocc_issues = [item for item in cdisc_issues
+                   if item['dataset'] == 'ADAE' and item['variable'] == 'AOCC01FL']
+    assert_issue_listing(aocc_issues, cdisc_issues)
+    selection_issue = next(item for item in aocc_issues if item['impact']['status'] == 'observed')
+    selection = page.locator(f'[data-finding-id="{selection_issue["id"]}"]')
     trace = open_trace(selection)
     expect(trace.locator("[data-trace-status]")).to_have_count(0)
     expect(trace.get_by_role("button", name="Download review", exact=True)).to_have_count(0)
     expect(trace.locator("input:checked")).to_have_count(0)
-    expect(trace.locator(".trace-data-table tbody tr")).to_have_count(3)
-    expect(trace.locator(".trace-data-table")).to_contain_text("APPLICATION SITE ERYTHEMA")
-    trace.get_by_role("tab", name="01-701-1181", exact=True).click()
-    expect(trace.get_by_role("tab", name="01-701-1181", exact=True)).to_be_in_viewport()
+    examples = cdisc_report['trace_examples']['ADAE.AOCC01FL']
+    assert len([item for item in examples['calculations'] if item['reading'] == 'literal']) == 1
+    affected_examples = [item for item in examples['subjects']
+                         if item['id'] in selection_issue['impact']['subjects']]
+    displayed_examples = (affected_examples or examples['subjects'])[:2]
+    assert len(displayed_examples) == 2, 'Exercise two actual subject examples and their tab navigation'
+    expect(trace.get_by_role('tablist', name='Example subjects').get_by_role('tab')).to_have_text(
+        [item['id'] for item in displayed_examples])
+    expect(trace.locator(".trace-data-table tbody tr")).to_have_count(len(displayed_examples[0]['rows']))
+    first_term = next((row['inputs']['AETERM'] for row in displayed_examples[0]['rows']
+                       if row.get('inputs', {}).get('AETERM')), None)
+    assert first_term, 'Actual event-term input is retained with the example calculation'
+    expect(trace.locator('.trace-data-table')).to_contain_text(first_term)
+    second_subject = displayed_examples[1]['id']
+    trace.get_by_role("tab", name=second_subject, exact=True).click()
+    expect(trace.get_by_role("tab", name=second_subject, exact=True)).to_be_in_viewport()
     expect(trace.locator(".trace-data-table")).to_be_in_viewport()
-    expect(trace.locator(".trace-data-table tbody tr")).to_have_count(1)
-    expect(trace.locator(".trace-data-table")).to_contain_text("AGITATION")
+    expect(trace.locator(".trace-data-table tbody tr")).to_have_count(len(displayed_examples[1]['rows']))
+    second_term = next((row['inputs']['AETERM'] for row in displayed_examples[1]['rows']
+                        if row.get('inputs', {}).get('AETERM')), None)
+    assert second_term
+    expect(trace.locator('.trace-data-table')).to_contain_text(second_term)
     capture(page, screenshots, "trace-review-evidence.png")
     trace.get_by_role("button", name="Add your review", exact=True).click()
     expect(trace.get_by_role("button", name="Save locally", exact=True)).to_have_count(0)
@@ -775,12 +850,12 @@ def check(browser, base, site_dir, screenshots):
     assert composer._replace(query="").geturl() == "https://github.com/RConsortium/submissions-pilot7-synthetic-data/discussions/new"
     params = dict(urllib.parse.parse_qsl(composer.query, keep_blank_values=True))
     assert params["category"] == "general"
-    assert params["title"].startswith("Review: cdiscpilot01 ADAE.AOCC01FL - ")
-    assert "Define-XML selects the wrong event group" in params["title"]
+    assert params['title'] == f"Review: cdiscpilot01 ADAE.AOCC01FL - {selection_issue['title']}"
     prepared = trace.locator("#trace-github-comment")
     text = prepared.input_value()
     assert params["body"] == text
-    for fragment in ("**Agreement:** Agree", "**Criticality:** Not critical", "selection-rule", catalog["revision"], "blank query"):
+    for fragment in ("**Agreement:** Agree", "**Criticality:** Not critical", selection_issue['id'], catalog["revision"], "blank query",
+                     *selection_issue['check_ids']):
         assert fragment in text
     expect(trace.locator(".trace-review-feedback")).to_contain_text("select Start discussion")
     expect(trace.locator(".trace-review-feedback a")).to_have_attribute("href", opened)
@@ -800,11 +875,14 @@ def check(browser, base, site_dir, screenshots):
     # The listing behind the dialog keeps the reviewer's own ledger current.
     expect(page.locator("#review-ledger")).to_contain_text("1 of ")
     expect(page.locator("#review-ledger")).to_contain_text("1 with both decisions; 0 drafts; 1 opened in GitHub or copied")
-    expect(page.locator('[data-human-review="cdiscpilot01:ADAE.AOCC01FL.selection-rule"]')).to_have_text("Your review: Opened in GitHub composer")
+    expect(page.locator(f'[data-human-review="{selection_issue["id"]}"]')).to_have_text("Your review: Opened in GitHub composer")
     capture(page, screenshots, "trace-github-comments.png")
     # The footer walks the full listing here; the aside still moves between this variable's findings.
     expect(trace.locator(".trace-review-footer")).to_contain_text("in the current list")
-    expect(trace.locator('.trace-review-nav [data-trace-sibling]', has_text='Sequence-only ordering')).to_have_count(0)
+    assert set(trace.locator('.trace-review-nav [data-trace-sibling]').evaluate_all(
+        'buttons => buttons.map(button => button.dataset.traceSibling)')) == {
+            item['id'] for item in aocc_issues
+        }
     expect(trace.locator('#trace-specifications, #trace-fix')).to_have_count(0)
     expect(trace.locator('#trace-your-review h3')).to_have_text('Human Review')
     expect(trace.locator('.trace-data-table thead th')).to_have_text(['ADaM data', 'Documented Rule'])

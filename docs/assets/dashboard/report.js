@@ -65,6 +65,7 @@ export function createReport(ctx) {
     input_output: "Input -> output logic",
     source_documents: "Source documents",
     documented_rules: "Documented rules",
+    dataset_define: "Dataset vs Define-XML",
   };
   const allFindings = () => consistencyFindings(ctx.report);
   const draftOf = (issue) => ctx.drafts?.load(ctx.model.id, issue, ctx.report);
@@ -153,6 +154,16 @@ export function createReport(ctx) {
     if (counts.stale) parts.push(`${counts.stale} with changed evidence`);
     return `<div id="review-ledger" class="review-ledger" role="group" aria-label="Your reviews"><span class="field-label">Your reviews</span><strong>${counts.started} of ${counts.listed}</strong> listed${counts.started ? ` <span class="ledger-detail">(${parts.join("; ")})</span>` : ""}<span class="ledger-actions"><button type="button" class="text-link" data-review-ledger="copy" ${counts.started ? "" : "disabled"}>Copy your reviews</button><button type="button" class="text-link" data-review-ledger="download" ${counts.started ? "" : "disabled"}>Download your reviews</button></span><span class="ledger-feedback" role="status" aria-live="polite"></span></div>`;
   }
+  /** Assessment limits remain visible without adding findings or measured impact. */
+  function coverageGaps() {
+    const items = Array.isArray(ctx.report?.coverage_items) ? ctx.report.coverage_items : [];
+    if (!items.length) return "";
+    const { esc } = ctx;
+    return `<details class="coverage-note coverage-gaps"><summary>Study coverage gaps: ${items.length} check${items.length === 1 ? "" : "s"} not assessed</summary><p>These checks need additional evidence or a supported assessment. They are separate from the findings and do not establish a data discrepancy.</p><ul>${items.map((item) => {
+      const scope = [item.dataset, item.variable].filter(Boolean).join(".") || "Study";
+      return `<li><strong>${esc(scope)}</strong>: ${esc(item.reason || item.title || "Assessment unavailable.")}</li>`;
+    }).join("")}</ul></details>`;
+  }
   function findingCount(items) {
     const { esc, state } = ctx,
       count = new Set(items.flatMap((i) => i.check_ids)).size;
@@ -193,7 +204,7 @@ export function createReport(ctx) {
   }
   function findingRows() {
     const items = findingItems();
-    return `${datasetStrip()}${ledgerStrip()}<p id="finding-count" class="result-count" role="status">${findingCount(items)}</p>${findingTable(items)}`;
+    return `${datasetStrip()}${ledgerStrip()}<p id="finding-count" class="result-count" role="status">${findingCount(items)}</p>${findingTable(items)}${coverageGaps()}`;
   }
   /** Keep the filter controls, focus, selection and column widths while rows change. */
   function refreshFindings() {

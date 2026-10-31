@@ -295,13 +295,38 @@ record keys and inputs accompany the data value. Alternative interpretations
 and open-question panels are omitted. **Human Review** asks for agreement,
 criticality, then optional dataset correctness.
 
-`review_scope.py` projects the complete check audit into published findings.
-A finding needs an observed literal, copy or codelist difference against ADaM
-data and a verified Define-XML citation in the same supporting check. Context
-comparisons, alternatives and yamaa-only differences do not contribute impact.
-Raw findings, logic checks and the standalone verification report retain the
-audit. The projected review keeps valid check/evidence relationships so dataset
-badges, counts, sibling navigation and direct links share the same scope.
+`review_scope.py` projects the complete check audit into outstanding findings
+between actual ADaM data and original Define-XML. It keeps observed data and
+metadata discrepancies, invalid documented sources, and verified contradictory
+or incomplete rules requiring clarification. YAML-only and program-only
+differences remain in the raw audit. A conditional interpretation does not supply
+literal-rule impact, and an assessment limit does not establish a data error.
+
+Direct dataset checks read original predecessor origins and legacy value-level
+metadata rather than treating reading-copy omissions as missing documentation.
+Integer checks inspect actual values, enumerated numeric codelists tolerate
+representation noise, and `SignificantDigits` does not imply an algorithmic
+rounding step. A key declaration establishes the declared key order; it does
+not by itself state that every key component must be nonmissing.
+
+Reviewed publication decisions live in
+`<study>/spec/review/publication.json` or per-dataset
+`<dataset>-publication.json`. Their versioned schema binds the original
+Define-XML SHA256 and identifies current check IDs, a reason and the disposition
+`finding`, `clarification`, `coverage` or `exclude`. An optional check basis
+binds a decision to its evidence, and a shared group can combine supporting
+checks for one root problem. Unknown IDs and changed bound evidence fail
+publication rather than silently dropping a review decision.
+
+`report.review.issues` counts grouped findings. Supporting checks are counted
+separately, and `report.coverage_items` lists checks awaiting evidence or a
+supported assessment as `{id, dataset, variable, title, reason}` entries.
+`scope_summary` records finding, check and coverage totals. The frontend shows
+study-wide coverage below the findings without adding it to findings or subject
+impact. Original raw findings, logic checks and the standalone verification
+report retain the complete audit. The projected review keeps valid check and
+evidence relationships so dataset badges, counts, sibling navigation and direct
+links share the same scope.
 
 Human agreement, criticality and comments are browser-local assessments. Neither
 decision is preselected. Drafts save automatically as the reviewer edits; there
