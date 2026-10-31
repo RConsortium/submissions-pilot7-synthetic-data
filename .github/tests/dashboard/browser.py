@@ -566,11 +566,11 @@ def check(browser, base, site_dir, screenshots):
     cdisc_issue_count = len(cdisc_issues)
     expect(page.locator('.review-tabs [data-view="datasets"]')).to_have_text("SDTM -> ADaM")
     expect(page.locator('.review-tabs [data-view="overview"]')).to_have_text("Consistency findings")
+    page.locator('.review-tabs [data-view="overview"]').click()
     expect(page.locator('.consistency-summary .summary-value')).to_have_text(
         f"{cdisc_issue_count} findings awaiting review"
     )
     expect(page.locator('.consistency-summary [data-view="overview"]')).to_have_count(0)
-    page.locator('.review-tabs [data-view="overview"]').click()
     expect(page.locator(".consistency-table")).to_be_visible()
     assert_issue_listing(cdisc_issues, cdisc_issues)
     assert_coverage(cdisc_report)
@@ -1198,7 +1198,7 @@ def check(browser, base, site_dir, screenshots):
     independent.route('**/cdiscpilot01/report.json', lambda route: blocked.append(route))
     independent.on('request', lambda request: audit_requests.append(request.url) if '/audit.json' in request.url else None)
     independent_page = independent.new_page()
-    independent_page.goto(study)
+    independent_page.goto(study + "#cdiscpilot01/datasets/ADSL")
     expect(independent_page.locator('#output-table tbody tr')).to_have_count(3)
     assert not blocked, 'The workspace must not request the findings report'
     with independent_page.expect_request('**/cdiscpilot01/report.json'):
