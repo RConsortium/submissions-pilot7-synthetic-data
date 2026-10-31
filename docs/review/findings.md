@@ -61,9 +61,9 @@ without regard to case, and all active filters apply together:
   significant digits or variable labels are not. Incomplete evidence and
   documentation gaps need review. Criticality is independent of the number of
   affected subjects.
-  An empty **No** result means that the current published findings contain no
-  non-critical assessments. A grouped finding takes the highest-priority
-  assessment of its supporting checks: Yes, then Needs review, then No. A
+  With the other filters cleared, an empty **No** result means that the current published findings contain no
+  non-critical assessments. By default, a grouped finding takes the highest-priority
+  automated assessment of its supporting checks: Yes, then Needs review, then No. A
   label-only or precision-only check can therefore support a finding that also
   contains a more consequential discrepancy. **No** remains available for
   findings assessed as non-critical; it does not mean that a check passed or

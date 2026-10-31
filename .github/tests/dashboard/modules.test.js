@@ -204,3 +204,10 @@ test("record search links matching subjects across the two tables", () => {
     [output[0]],
   );
 });
+
+test("pilot entry opens findings while explicit workspace links and synthetic defaults retain their routes", () => {
+  assert.equal(readRoute("", { ...model, kind: "pilot" }).view, "overview");
+  assert.equal(readRoute("#new-study/datasets/CUSTOM", { ...model, kind: "pilot" }).view, "datasets");
+  assert.equal(readRoute("", { ...model, kind: "synthetic" }).view, "datasets");
+  assert.equal(readRoute("#new-study/comments/CUSTOM", { ...model, kind: "pilot" }).view, "datasets");
+});

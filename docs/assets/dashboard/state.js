@@ -33,11 +33,12 @@ export function readRoute(hash, model) {
     view:
       model.development && hash.startsWith("#finding-")
         ? "development"
+      : view === "comments" ? "datasets"
       : view === "findings"
         ? "overview"
         : sections.includes(view) && (view !== "development" || model.development)
           ? view
-          : "datasets",
+          : model.kind === "pilot" ? "overview" : "datasets",
     dataset: dataset.name,
     output: params.get("output") === "reference" ? "reference" : "derived",
     subjects:
