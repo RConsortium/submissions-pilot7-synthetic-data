@@ -1,58 +1,75 @@
 # Community review guide
 
-**Goal:** review consistency and gaps between two Pilot 5 sources:
+**Goal:** assess the Submission Pilot 5 package by checking the findings that
+AI agents reported against the study documents, the specifications and the
+data.
 
-1. The current derived ADaM datasets (`data/adam/*-yamaa.parquet`).
-2. The retained ADaM Define-XML (`spec/define/define-adam.xml`).
+These results are **draft / dry run, pending human review**. We welcome
+statistical programmers and biostatisticians to review one finding, variable
+or rule. You do not need to install software or review an entire study to
+help: **one evidence-backed recommendation is a useful completed
+contribution.**
 
-Open the [Pilot 5 consistency findings](../studies/submission-pilot5.md#submission-pilot5/overview/ADSL).
-Choose a dataset or variable, then **Start review**. The evidence identifies
-the compared files, their revision and SHA256 hashes, the XML declaration,
-and the observed dataset metadata or records.
+## 1. Choose a Pilot 5 finding
 
-## Responsibilities
+Open the [Pilot 5 consistency findings](../studies/submission-pilot5.md#submission-pilot5/overview/ADSL?findingSearch=ADSL).
+It opens on ADSL with the critical findings first; pick another dataset
+under **By dataset** when you are done, and take documentation gaps after
+the findings marked **Critical finding: Yes** or **Needs review**. You can also report a problem that the automated checks missed.
 
-Reviewers decide whether the reported difference or gap is supported by the
-two sources and whether it could materially affect an analysis or its
-interpretation. Dataset agreement with Define-XML does not establish which
-source is clinically correct. Maintainers record decisions and apply agreed
-changes before rebuilding.
+Each row names the dataset and variable, the issue type and the automated
+criticality assessment. [Consistency findings](findings.md) explains the
+columns, the filters and the issue types.
 
-## Tools
+## 2. Check the evidence
 
-The automated checker reads actual dataset schemas, stored labels, values and
-Define-XML declarations. It checks variable coverage in both directions,
-logical types, observed text lengths, declared keys, enumerated codelists,
-supported value-level conditions and literal arithmetic methods that use
-columns already present in the same dataset.
+For a finding, open **Start review**. The review page keeps the findings for
+the same variable separate and follows this order:
 
-A check can pass, report a difference or gap, or remain **Not assessed**.
-Missing dataset label metadata, unsupported conditions, external dictionaries,
-rounding-dependent rules and derivations needing SDTM or another document
-remain explicit. The review does not substitute YAML labels for stored labels.
+| Section | Review question |
+| --- | --- |
+| The finding | What concrete difference is reported, and what impact was measured? |
+| Source documents | What do the cited protocol, SAP or Define-XML require? |
+| YAML specification | Does the specification express that rule? |
+| Example subject difference | Do actual records support the explanation? Examples illustrate the calculation; the measured comparison determines impact. |
+| Recommended fix | Is the suggested correction or decision justified? Is more evidence needed? |
 
-Use **Dataset and Define-XML** to inspect selected subjects beside the retained
-XML. The checks cover all records, independently of the displayed subjects.
-The retained reference datasets, generated Define-XML, YAML, workbook, SAP,
-ADRG and original programs do not contribute findings to this Pilot 5 view.
-Build and independent dataset reproduction checks continue separately in CI.
+Use **Full context** or **View source** to check a citation. To inspect
+the affected subjects, the specification and the linked SDTM inputs, select
+the finding's variable name in the findings table;
+[SDTM to ADaM workspace](workspace.md) explains its controls.
 
-## Record a recommendation
+**A 100% match with generated ADaM datasets does not establish correctness or human
+approval.** Documents, specifications and data can still disagree, and a
+dataset difference alone does not identify which source is wrong.
+Automated checks and agent assessments support your review; they do not
+resolve findings. See the [verification policy](../verification.md) for the
+comparison scope and limits.
 
-Under **Your review**, choose **Agree**, **Disagree** or **Need clarification**,
-then **Critical**, **Not critical** or **Unsure**. Add the evidence supporting
-your assessment. Drafts save in this browser. **Submit review on GitHub** opens
-a prefilled discussion; select **Start discussion** there to publish it.
-A draft or posted comment does not resolve the finding.
+## 3. Leave a recommendation
 
-**Your reviews** exports your assessments with their evidence revision.
-[Consistency findings](findings.md) explains the statuses and controls;
-[Dataset review](workspace.md) describes the side-by-side view.
+At the end of the review page, under **Your review**, choose **Agree**,
+**Disagree** or **Need clarification**, then **Critical**, **Not critical** or
+**Unsure**, and explain your assessment. Drafts save automatically in this
+browser and are not shared until you submit them.
+
+**Submit review on GitHub** needs both decisions. It opens a new GitHub
+discussion in a new tab with your assessment filled in. Sign in with GitHub
+if asked, then select **Start discussion** to publish it under your own
+account.
+
+Maintainers assess feedback, record the human decision and apply agreed
+changes before rebuilding. A comment does not approve a dataset.
+
+**Your reviews** above the findings table counts what you have reviewed and
+hands over all of your assessments as one document (**Copy your reviews**
+or **Download your reviews**) for a study lead;
+[Consistency findings](findings.md#your-reviews) describes it.
 
 ## Other studies
 
-This focused workflow is enabled for Pilot 5. Other pilot studies retain their
-existing document and derivation review. Synthetic studies retain their
-[analysis development review](synthetic.md). The
-[verification policy](../verification.md) distinguishes reproduction checks
-from consistency review and human approval.
+CDISC Pilot 01 and Submission Pilot 3 use the same dashboard; the
+[pilot study report](../studies/index.md) opens each one. KN189, KN564 and
+CAR-T for ALL have no independent generated ADaM comparison datasets;
+[synthetic analysis review](synthetic.md) describes how to review their
+coverage and findings.

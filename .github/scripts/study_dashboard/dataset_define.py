@@ -20,15 +20,16 @@ import pyarrow.parquet as pq
 from lxml import etree
 
 from define_metadata import Document
-from .documents import define_metadata, document_html, materials
+from .documents import attributes, define_metadata, description, document_html, local_name, materials
 from .datasets import write_json
 from .issues import build_review, digest
+from .review_scope import complete_decisions, dataset_define_review
 
 REPO = "https://github.com/RConsortium/submissions-pilot7-synthetic-data"
 
 
 def missing(value):
-    return value is None or isinstance(value, float) and math.isnan(value)
+    return value is None or isinstance(value, str) and not value.strip() or isinstance(value, float) and math.isnan(value)
 
 
 def code(value, kind):
@@ -37,7 +38,71 @@ def code(value, kind):
             return str(Decimal(str(value)).normalize())
         except InvalidOperation:
             pass
-    return str(value)
+    return str(value).strip()
+
+
+def numeric_equal(left, right):
+    try:
+        return math.isclose(float(left), float(right), rel_tol=0, abs_tol=1e-10)
+    except (TypeError, ValueError, OverflowError):
+        return False
+
+
+def integral(value):
+    return missing(value) or math.isfinite(value) and numeric_equal(value, round(value))
+
+
+def member(value, allowed, kind):
+    if kind in {"integer", "float", "double"}:
+        return any(numeric_equal(value, candidate) for candidate in allowed)
+    return str(value).strip() in {str(candidate).strip() for candidate in allowed}
+
+
+def legacy_metadata(path, metadata):
+    """Read native Define-XML 1.0 declarations without translating their types.
+
+    Legacy value-level ItemDef names are parameter codes. Use that selector
+    only when the parent dataset declares PARAMCD and the code is enumerated.
+    Unresolvable value-level scope remains coverage, not a guessed condition.
+    """
+    tree = etree.parse(str(path), etree.XMLParser(resolve_entities=False, no_network=True))
+    lists, groups = {}, {}
+    for element in tree.iter():
+        if not isinstance(element.tag, str) or local_name(element) != "CodeList":
+            continue
+        attrs = attributes(element)
+        lists[attrs["OID"]] = {
+            "type": attrs.get("DataType", "text"),
+            "external": next((attributes(e) for e in element if local_name(e) == "ExternalCodeList"), None),
+            "items": [{"value": e.get("CodedValue", "").strip()}
+                      for e in element if local_name(e) in {"CodeListItem", "EnumeratedItem"}],
+        }
+    for group in tree.iter():
+        if not isinstance(group.tag, str) or local_name(group) != "ItemGroupDef":
+            continue
+        attrs = attributes(group)
+        domain = attrs.get("Name", "")
+        keys = [k.strip() for k in attrs.get("DomainKeys", "").split(",") if k.strip()]
+        variables = {}
+        for name, original in metadata.get(domain, {}).items():
+            item = {**original,
+                    "method": {"description": original["method"] or original["comment"]}
+                              if original["method"] or original["comment"] else None,
+                    "key_sequence": str(keys.index(name) + 1) if name in keys else None,
+                    "codelist": (original.get("codelist") or {}).get("oid")}
+            value_level = []
+            codes = {entry["value"] for entry in (metadata[domain].get("PARAMCD", {}).get("codelist") or {}).get("items", [])}
+            for value in original.get("value_level", []):
+                value_level.append({**value,
+                    "where": [{"variable": "PARAMCD", "comparator": "EQ", "values": [value["name"]]}]
+                             if "PARAMCD" in metadata[domain] and value["name"] in codes else [],
+                    "codelist": value.get("codelist_oid"),
+                    "method": {"description": value["method"] or value["comment"]}
+                              if value["method"] or value["comment"] else None})
+            item["value_level"] = value_level
+            variables[name] = item
+        groups[domain] = {"variables": variables, "column_order": list(variables)}
+    return {"datasets": groups, "codelists": lists, "unsupported_content": [], "legacy": True}
 
 
 def logical_type(field, item, values):
@@ -50,7 +115,7 @@ def logical_type(field, item, values):
             return True if kind == "integer" and re.match(r"^(DATE|YYMMDD|DDMMYY|MMDDYY|E8601DA|IS8601DA)\d*\.", item.get("display_format") or "", re.I) else None
         if not (pa.types.is_integer(typ) or pa.types.is_floating(typ)):
             return False
-        return kind != "integer" or all(missing(v) or math.isfinite(v) and int(v) == v for v in values)
+        return kind != "integer" or all(integral(v) for v in values)
     if kind == "date":
         return True if pa.types.is_date(typ) else None
     if kind == "datetime":
@@ -106,17 +171,88 @@ def selected_rows(rows, clauses, variables):
                 or rows and clause["variable"] not in rows[0]):
             return None
     return [row for row in rows if all(
-        not missing(row[c["variable"]]) and code(row[c["variable"]], variables[c["variable"]]["type"])
-        in {code(v, variables[c["variable"]]["type"]) for v in c["values"]}
+        not missing(row[c["variable"]]) and member(row[c["variable"]], c["values"], variables[c["variable"]]["type"])
         for c in clauses
     )]
 
 
-def build_report(root, study, outputs, target, revision, subject_key="USUBJID"):
+def method_calculation(text, domain, names, variable):
+    """Recognize a small, literal subset; never infer rounding or grouping."""
+    text = " ".join((text or "").split()).strip().rstrip(".")
+    plain = formula(text, domain, names)
+    if plain:
+        return plain, None
+    missing_rule = re.fullmatch(r"(?:Set(?: " + re.escape(variable) + r")? to missing|Value: null)", text, re.I)
+    if missing_rule:
+        return lambda row: None, None
+    constant = re.fullmatch(r"Set(?: " + re.escape(variable) + r")? to ['\"]?([A-Za-z0-9_]+)['\"]?|Value: ([A-Za-z0-9_]+)", text, re.I)
+    if constant:
+        value = constant.group(1) or constant.group(2)
+        return lambda row: value, None
+    quoted = re.fullmatch(r"Set(?: " + re.escape(variable) + r")? to (['\"])(.*?)\1", text, re.I)
+    if quoted:
+        value = quoted.group(2)
+        return lambda row: value, None
+    postbaseline = re.fullmatch(r"(.+), for post baseline records", text, re.I)
+    if postbaseline and "ABLFL" in names:
+        calculation = formula(postbaseline.group(1), domain, names)
+        if calculation:
+            return calculation, "postbaseline"
+    if "ABLFL" in names and re.fullmatch(r"Set " + re.escape(variable) + r" to missing for post baseline records\. Set to ([A-Z0-9_]+)\.([A-Z0-9_]+) where \1\.VISIT=BASELINE and \1\.[A-Z0-9_]+=([A-Z0-9_]+)", text):
+        return lambda row: None, "postbaseline"
+    return None, None
+
+
+def predecessor_comparison(root, study, domain, variable, source, table, keys, outputs):
+    """Validate an explicitly named source; dataset keys determine row alignment."""
+    from verify_derivations import copy_check
+    from .domains import domain_keys
+    import polars as pl
+
+    # The verifier's copy adapter is shared with the raw audit. The source
+    # inventory is independent of generated outputs and is never modified.
+    source_domain = source.split(".")[0]
+    for section in ("sdtm", "adam"):
+        declaration = root / study / f"spec/define/define-{section}.xml"
+        declared_keys = domain_keys(declaration).get(source_domain, []) if declaration.is_file() else []
+        if declared_keys and all(key in table.column_names for key in declared_keys):
+            keys = declared_keys
+            break
+    spec = {"keys": keys, "columns": [{"name": variable, "derivation": source}]}
+    result = copy_check(root / study, spec, {"reference": pl.from_arrow(table)},
+                        variable, source, "USUBJID")
+    if result.get("status") == "checked" and pa.types.is_date(table.schema.field(variable).type):
+        comparison = result["reference"]
+        retained, unsupported = [], 0
+        for pattern in comparison["patterns"]:
+            actual, expected = pattern["reference"], pattern["observed"]
+            try:
+                if pattern["row"] == "matched" and actual is not None and expected is not None:
+                    text = str(expected)
+                    if not re.fullmatch(r"\d{4}-\d{2}-\d{2}(?:T\d{2}:\d{2}(?::\d{2}(?:\.\d+)?)?(?:Z|[+-]\d{2}:\d{2})?)?", text):
+                        raise ValueError("A complete ISO date or date/time is required")
+                    expected_date = datetime.fromisoformat(text.replace("Z", "+00:00")).date() if "T" in text else date.fromisoformat(text)
+                    same_date = date.fromisoformat(str(actual)) == expected_date
+                else:
+                    same_date = False
+            except ValueError:
+                unsupported += pattern["count"]
+                continue
+            if not same_date:
+                retained.append(pattern)
+        result["reference"] = {**comparison, "patterns": retained,
+                               "compared": comparison["compared"] - unsupported,
+                               "differ": sum(pattern["count"] for pattern in retained)}
+        result["unassessed_rows"] = unsupported
+    return result
+
+
+def build_report(root, study, outputs, target, revision, subject_key="USUBJID", documents=None, comparison_keys=None, source_role="current_derived"):
     path = root / study / "spec/define/define-adam.xml"
     relative = path.relative_to(root).as_posix()
     metadata = define_metadata(path) if path.is_file() else {}
-    _, documents = materials(root, study, target, metadata, only_paths={relative})
+    if documents is None:
+        _, documents = materials(root, study, target, metadata, only_paths={relative})
     doc = next((d for d in documents if d["path"] == relative), {})
     xml_hash = hashlib.sha256(path.read_bytes()).hexdigest() if path.is_file() else None
     citations, value_scopes = {}, {}
@@ -160,9 +296,16 @@ def build_report(root, study, outputs, target, revision, subject_key="USUBJID"):
                 citations[(domain, item.get("Name"))] = linked
         numbered = target / (doc.get("original", "documents/define-adam.xml") + ".source.html")
         numbered.parent.mkdir(parents=True, exist_ok=True)
+        aliases = {}
+        for (domain, variable), linked in citations.items():
+            if variable:
+                aliases.setdefault(linked[0].sourceline, []).append(f"{domain}.{variable}")
         numbered.write_text(document_html("Retained ADaM Define-XML source",
-            '<ol>' + ''.join(f'<li id="L{n}"><pre>{html.escape(line)}</pre></li>' for n, line in enumerate(lines, 1)) + '</ol>', wide=True))
+            '<ol>' + ''.join(f'<li id="L{n}">' + ''.join(f'<span id="{html.escape(alias)}"></span>' for alias in aliases.get(n, []))
+                            + f'<pre>{html.escape(line)}</pre></li>' for n, line in enumerate(lines, 1)) + '</ol>', wide=True))
         doc["source"] = numbered.relative_to(target).as_posix()
+        if doc.get("view_label") == "XML source":
+            doc["view"] = doc["source"]
         write_json(target / "documents.json", documents)
 
     def original_citations(domain, variable):
@@ -181,12 +324,18 @@ def build_report(root, study, outputs, target, revision, subject_key="USUBJID"):
         return result
     findings, checks, sources = [], [], []
     try:
-        normalized = Document(path).metadata() if path.is_file() else None
+        if path.is_file():
+            root_tag = etree.parse(str(path), etree.XMLParser(resolve_entities=False, no_network=True)).getroot().tag
+            normalized = legacy_metadata(path, metadata) if root_tag == "{http://www.cdisc.org/ns/odm/v1.2}ODM" else Document(path).metadata()
+        else:
+            normalized = None
         reason = "The retained ADaM Define-XML is unavailable." if normalized is None else ""
     except (ValueError, KeyError, AttributeError) as error:
         normalized, reason = None, f"Define-XML cannot be assessed: {error}"
     groups = (normalized or {}).get("datasets", {})
     codelists = (normalized or {}).get("codelists", {})
+
+    coverage_items = []
 
     def check(domain, variable, key, expected, observed, status="passed", rows=None,
               title=None, noncritical=False, section=None, population=None):
@@ -195,6 +344,11 @@ def build_report(root, study, outputs, target, revision, subject_key="USUBJID"):
                   "status": status, "expected": str(expected), "observed": str(observed)}
         checks.append(record)
         if status in {"passed", "not_applicable"}:
+            return
+        if status == "not_assessed":
+            coverage_items.append({"id": record["id"], "dataset": domain,
+                                   "variable": variable, "title": title or key.replace("_", " ").capitalize(),
+                                   "reason": str(observed), "source": relative})
             return
         source = sources[-1] if sources and sources[-1]["dataset"] == domain else {}
         measurement = None
@@ -237,7 +391,7 @@ def build_report(root, study, outputs, target, revision, subject_key="USUBJID"):
         output.relative_to(root.resolve())
         table = pq.read_table(output)
         rows = table.to_pylist()
-        source = {"dataset": domain, "role": "current_derived", "path": output.relative_to(root).as_posix(),
+        source = {"dataset": domain, "role": source_role, "path": output.relative_to(root).as_posix(),
                   "sha256": hashlib.sha256(output.read_bytes()).hexdigest(),
                   "rows": table.num_rows, "columns": table.num_columns}
         sources.append(source)
@@ -273,12 +427,18 @@ def build_report(root, study, outputs, target, revision, subject_key="USUBJID"):
                 check(domain, "", "missing_key_values", "Review incomplete key combinations",
                       f"{incomplete} rows have missing key values. KeySequence alone does not establish a nonmissing-value requirement.", "not_assessed")
         unavailable_labels, external_methods = [], []
+        baseline_dates = {}
+        baseline_keys = [key for key in ("STUDYID", subject_key, "PARAMCD") if key in table.column_names]
+        for row in rows:
+            if row.get("ABLFL") == "Y" and not missing(row.get("ADT")):
+                identity = tuple(row[key] for key in baseline_keys)
+                baseline_dates.setdefault(identity, set()).add(row["ADT"])
 
         def inspect(var, item, selected, suffix="", section=None):
             values = [row[var] for row in selected]
             field = table.schema.field(var)
             compatible = logical_type(field, item, values)
-            bad_type = ([r for r in selected if not missing(r[var]) and (not math.isfinite(r[var]) or int(r[var]) != r[var])]
+            bad_type = ([r for r in selected if not integral(r[var])]
                         if compatible is False and item["type"] == "integer" and pa.types.is_floating(field.type) else None)
             check(domain, var, "logical_type" + suffix, item["type"], str(field.type),
                   "passed" if compatible else "different" if compatible is False else "not_assessed",
@@ -295,10 +455,102 @@ def build_report(root, study, outputs, target, revision, subject_key="USUBJID"):
                           "External dictionary is not contained in these two sources.", "not_assessed", section=section)
                 else:
                     allowed = {code(e["value"], cl["type"]) for e in cl["items"]}
-                    bad = [r for r in selected if not missing(r[var]) and r[var] != "" and code(r[var], cl["type"]) not in allowed]
+                    bad = [r for r in selected if not missing(r[var]) and r[var] != "" and not member(r[var], allowed, cl["type"])]
                     check(domain, var, "codelist" + suffix, ", ".join(sorted(allowed)),
                           f"{len(bad)} of {len(selected)} selected rows fall outside {item['codelist']}.",
                           "different" if bad else "passed", rows=bad, section=section, population=len(selected))
+
+        def inspect_method(var, item, selected, suffix=""):
+            method = item.get("method")
+            text = method.get("description", "") if method else ""
+            calculate, predicate = method_calculation(text, domain, set(table.column_names), var)
+            if not calculate:
+                return False
+            if predicate == "postbaseline":
+                known, unknown = [], 0
+                for row in selected:
+                    candidates = baseline_dates.get(tuple(row[key] for key in baseline_keys), set())
+                    if len(candidates) != 1 or missing(row.get("ADT")):
+                        unknown += 1
+                    elif row["ADT"] > next(iter(candidates)):
+                        known.append(row)
+                if unknown:
+                    check(domain, var, "postbaseline_scope" + suffix, text,
+                          f"{unknown} records lack an unambiguous baseline/date ordering; their method scope is not assessed.", "not_assessed")
+                selected = known
+            else:
+                selected = [row for row in selected if predicate is None or predicate(row)]
+            bad, errors, precision_skipped = [], [], 0
+            for row in selected:
+                try:
+                    expected = calculate(row)
+                    actual = row[var]
+                    if isinstance(actual, date) and not isinstance(actual, datetime):
+                        actual = (actual - date(1960, 1, 1)).days
+                    # Numeric capacity is not an instruction to round the
+                    # derivation. Preserve missing/nonmissing disagreements;
+                    # a numeric difference needs an explicit precision policy.
+                    if item.get("significant_digits") and isinstance(actual, (int, float)) and isinstance(expected, (int, float)) and not numeric_equal(actual, expected):
+                        try:
+                            quantum = 10.0 ** -int(item["significant_digits"])
+                        except (TypeError, ValueError, OverflowError):
+                            quantum = 0
+                        if abs(actual - expected) < quantum:
+                            precision_skipped += 1
+                            continue
+                    equal = (missing(actual) or actual == "") and (missing(expected) or expected == "") or (
+                        not missing(actual) and not missing(expected) and (
+                            numeric_equal(actual, expected) if isinstance(actual, (int, float)) and isinstance(expected, (int, float)) else actual == expected))
+                    if not equal:
+                        bad.append({**row, "__dataset_define_expected": expected})
+                except (ValueError, TypeError, ZeroDivisionError, OverflowError) as error:
+                    errors.append(str(error))
+            if errors:
+                check(domain, var, "arithmetic_unassessed" + suffix, text,
+                      f"{len(errors)} rows could not be evaluated: {errors[0]}", "not_assessed")
+            if precision_skipped:
+                check(domain, var, "numeric_precision" + suffix, text,
+                      f"{precision_skipped} differing numeric comparisons lie within the declared decimal capacity; no equality or rounding algorithm is inferred.", "not_assessed")
+            population = len(selected) - len(errors) - precision_skipped
+            if population:
+                check(domain, var, "arithmetic_method" + suffix, text,
+                      f"{len(bad)} of {population} evaluated rows differ at absolute tolerance 1e-10.",
+                      "different" if bad else "passed", rows=bad, population=population)
+            return True
+
+        def inspect_sources(var, item, selected, suffix=""):
+            method = item.get("method")
+            explicit_sources = [origin.get("description", "") for origin in item.get("origins", [])
+                                if origin.get("type", "").lower() == "predecessor"]
+            if method and re.fullmatch(r"[A-Z][A-Z0-9_]*\.[A-Z][A-Z0-9_]*", method["description"]):
+                explicit_sources.append(method["description"])
+            explicit_sources = list(dict.fromkeys(source for source in explicit_sources
+                                                 if re.fullmatch(r"[A-Z][A-Z0-9_]*\.[A-Z][A-Z0-9_]*", source)))
+            if not selected:
+                return bool(explicit_sources)
+            for number, source_name in enumerate(explicit_sources, 1):
+                result = predecessor_comparison(root, study, domain, var, source_name, pa.Table.from_pylist(selected, schema=table.schema),
+                                                (comparison_keys or {}).get(domain, keys), outputs)
+                key_suffix = suffix + ("" if len(explicit_sources) == 1 else f"_{number}")
+                if result["status"] == "source_variable_missing":
+                    check(domain, var, "predecessor_source" + key_suffix, source_name,
+                          result["reason"], "gap", title="Documented source variable is absent")
+                elif result["status"] == "checked":
+                    comparison = result["reference"]
+                    if result.get("unassessed_rows"):
+                        check(domain, var, "predecessor_unassessed" + key_suffix, source_name,
+                              f"{result['unassessed_rows']} source values require unsupported partial/invalid date conversion.", "not_assessed")
+                    key = "predecessor_copy" + key_suffix
+                    check(domain, var, key, source_name,
+                          f"{comparison['differ']} of {comparison['compared']} records differ from the documented source.",
+                          "different" if comparison["differ"] else "passed", title="Documented predecessor copy")
+                    if comparison["differ"]:
+                        findings[-1]["evidence"] = {"dataset_check": comparison}
+                        findings[-1]["basis_hash"] = digest([findings[-1]["basis_hash"], comparison])
+                else:
+                    check(domain, var, "predecessor_unassessed" + key_suffix, source_name,
+                          result.get("reason", "The named source is unavailable or cannot be aligned uniquely."), "not_assessed")
+            return bool(explicit_sources)
 
         for var, item in variables.items():
             if var not in table.column_names:
@@ -311,37 +563,39 @@ def build_report(root, study, outputs, target, revision, subject_key="USUBJID"):
                 label = label.decode("utf-8")
                 check(domain, var, "label", item["label"], label,
                       "passed" if label == item["label"] else "different", noncritical=True)
-            inspect(var, item, rows)
+            value_level = item.get("value_level", [])
+            selected_ids = set()
+            unknown_scope = False
+            if not value_level:
+                inspect(var, item, rows)
             for number, value_level in enumerate(item.get("value_level", []), 1):
                 scope = value_scopes.get((domain, var), [])
-                supported = number <= len(scope) and scope[number - 1]
+                supported = bool(normalized.get("legacy")) or number <= len(scope) and scope[number - 1]
                 selected = selected_rows(rows, value_level["where"], variables) if supported and value_level["where"] else None
-                if selected is None or not selected:
+                if selected is None:
+                    unknown_scope = True
                     check(domain, var, f"value_level_{number}", str(value_level["where"]),
-                          "Condition unsupported or no matching records; value-level checks are not assessed.", "not_assessed")
+                          "Condition unsupported; value-level checks are not assessed.", "not_assessed")
+                elif not selected:
+                    check(domain, var, f"value_level_{number}", str(value_level["where"]),
+                          "No records have the declared value-level condition.", "not_applicable")
                 else:
+                    selected_ids.update(id(row) for row in selected)
                     inspect(var, value_level, selected, f"_value_level_{number}")
+                    sources_assessed = inspect_sources(var, value_level, selected, f"_value_level_{number}")
+                    method_assessed = inspect_method(var, value_level, selected, f"_value_level_{number}")
+                    if not sources_assessed and not method_assessed and (value_level.get("method") or value_level.get("origins")):
+                        check(domain, var, f"value_method_{number}", str(value_level["where"]),
+                              "The selected value-level rule is retained, but this method requires additional evidence or unsupported narrative interpretation.", "not_assessed")
+            remaining = [] if unknown_scope else [row for row in rows if id(row) not in selected_ids]
+            if item.get("value_level") and remaining:
+                inspect(var, item, remaining)
             method = item.get("method")
-            calculate = formula(method["description"], domain, set(table.column_names)) if method and item["type"] in {"integer", "float", "double"} and not item.get("significant_digits") else None
-            if calculate:
-                bad, error = [], None
-                for row in rows:
-                    try:
-                        expected = calculate(row)
-                        actual = row[var]
-                        if isinstance(actual, date) and not isinstance(actual, datetime):
-                            actual = (actual - date(1960, 1, 1)).days
-                        equal = missing(actual) and missing(expected) or (
-                            not missing(actual) and not missing(expected)
-                            and math.isclose(actual, expected, rel_tol=0, abs_tol=1e-10))
-                        if not equal:
-                            bad.append({**row, "__dataset_define_expected": expected})
-                    except (ValueError, TypeError, ZeroDivisionError, OverflowError) as exception:
-                        error = str(exception)
-                        break
-                check(domain, var, "arithmetic_method", method["description"],
-                      f"Arithmetic check unavailable: {error}" if error else f"{len(bad)} of {len(rows)} rows differ at absolute tolerance 1e-10.",
-                      "not_assessed" if error else "different" if bad else "passed", rows=None if error else bad)
+            explicit_sources = inspect_sources(var, item, remaining if item.get("value_level") else rows)
+            if inspect_method(var, item, remaining if item.get("value_level") else rows):
+                pass
+            elif explicit_sources or item.get("value_level"):
+                pass
             elif method or item.get("origins"):
                 external_methods.append(var)
             else:
@@ -356,10 +610,13 @@ def build_report(root, study, outputs, target, revision, subject_key="USUBJID"):
     for domain in sorted(groups.keys() - outputs.keys()):
         check(domain, "", "dataset_inventory", "Derived dataset available", "Define-XML declares a dataset outside the current derived output inventory.", "gap")
     counts = dict(Counter(c["status"] for c in checks))
+    review = build_review(root, study, revision, findings, use_authored=False)
+    review = dataset_define_review(review, complete_decisions(review))
     return {"schema_version": 1, "study": study, "revision": revision, "scope": "dataset_define",
             "sources": {"define": {"path": relative, "sha256": xml_hash}, "datasets": sources},
             "findings": findings, "logic_checks": [], "checks": checks, "check_counts": counts,
-            "review": build_review(root, study, revision, findings, use_authored=False),
+            "coverage_items": coverage_items,
+            "review": review,
             "trace_examples": {}, "documents": [{k: v for k, v in d.items() if k != "sections"} for d in documents],
             "coverage": {"define_xml": "available" if normalized else "not_available",
                          "metadata": "Actual schema, stored labels, logical types, observed text lengths, declared keys, enumerated codelists, supported value-level conditions and literal arithmetic methods over this dataset's columns.",
