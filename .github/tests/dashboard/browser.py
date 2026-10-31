@@ -313,6 +313,8 @@ def check(browser, base, site_dir, screenshots):
         checks = study_report["review"]["counts"]["checks"]
         assert checks == len({key for item in issues for key in item['check_ids']})
         expect(page.locator(".consistency-summary")).to_contain_text(f"{len(issues)} findings awaiting review")
+        expect(page.locator(".reference-summary")).to_be_visible()
+        expect(page.locator(".consistency-summary")).to_be_visible()
         expect(page.locator(".reference-summary h2")).to_have_text("ADaM derivation")
         expect(page.locator(".reference-summary")).to_contain_text("100% of ADaM datasets matched by using yamaa framework")
         expect(page.locator(".comparison-explanation li")).to_have_text([
@@ -332,22 +334,22 @@ def check(browser, base, site_dir, screenshots):
         expect(page.locator("#issue-review")).to_have_count(0)
         for issue in issues:
             row = page.locator(f'[data-finding-id="{issue["id"]}"]')
-            expect(row.locator(".issue-summary-detail p")).to_have_text(issue["summary"])
-            expect(row.locator(".agent-review-status")).to_have_text("Agent review: " + issue["review"].replace("_", " "))
+            expect(row.locator(".issue-summary")).to_have_text(issue["title"])
+            expect(row.locator(".issue-summary > *")).to_have_count(1)
             expect(row.locator(".issue-impact")).to_have_text(re.compile(r"^Documented rule vs data: (\d+ subjects? differ|Differences observed|No differences in tested data|Not measured)$"))
             for cell_class in ("issue-critical", "issue-type"):
                 expect(row.locator(f".{cell_class} .status")).to_have_count(1)
                 expect(row.locator(f".{cell_class} p, .{cell_class} small")).to_have_count(0)
         assert page.locator(".issue-summary").evaluate_all(
             "cells => cells.every(cell => getComputedStyle(cell).overflow === 'visible' "
-            "&& getComputedStyle(cell).whiteSpace === 'normal')"
+            "&& getComputedStyle(cell.querySelector('h3')).whiteSpace === 'nowrap')"
         )
         expect(page.locator(".issue-status")).to_have_count(0)
         page.locator(".skip-findings").focus()
         page.keyboard.press("Enter")
         expect(page.locator("#finding-table")).to_be_focused()
         page.set_viewport_size({"width": 1440, "height": 900})
-        page.evaluate("window.scrollTo(0, 0)")
+        page.locator('.consistency-table tbody tr.review-issue').first.scroll_into_view_if_needed()
         expect(page.locator('.consistency-table tbody tr.review-issue').first).to_be_in_viewport()
         page.set_viewport_size({"width": 1600, "height": 1000})
         expect(page.locator(".consistency-table .finding-evidence")).to_have_count(0)
@@ -360,9 +362,9 @@ def check(browser, base, site_dir, screenshots):
             page.keyboard.press('Escape')
             item = next(i for i in issues if not i.get('expected') and not i.get('observed') and i.get('action'))
             trace = open_trace(page.locator(f'[data-finding-id="{item["id"]}"]'))
-            expect(trace.locator('#trace-finding')).to_contain_text(item['summary'])
-            expect(trace.locator('#trace-finding')).to_contain_text(item['action'])
-            expect(trace.locator('#trace-finding')).to_contain_text(item['critical']['reason'])
+            expect(trace.locator('#trace-finding')).not_to_contain_text(item['summary'])
+            expect(trace.locator('#trace-finding')).not_to_contain_text(item['action'])
+            expect(trace.locator('#trace-finding')).not_to_contain_text(item['critical']['reason'])
             expect(trace.get_by_role('radio', name='Neither', exact=True)).to_have_count(1)
             expect(trace.get_by_role('group', name=re.compile('Which source is right'))).to_be_attached()
         capture(page, screenshots, f'{name}-shared-review.png')

@@ -142,7 +142,7 @@ test("the metric and listing count issues separately from supporting checks", ()
   assert.match(listing, /1 of 1 issue &middot; 2 supporting checks/);
   assert.equal((listing.match(/<tr class="review-issue"/g) || []).length, 1);
   assert.ok(listing.includes("Issue type"));
-  assert.ok(listing.includes("Agent review: agreed"));
+  assert.doesNotMatch(listing, /Agent review: agreed/);
   assert.ok(listing.includes('id="finding-agent"'));
   assert.ok(!listing.includes('id="issue-review"'));
   assert.deepEqual([...listing.matchAll(/<th scope="col" aria-label="([^"]+)"/g)].map((m) => m[1]), [
@@ -304,7 +304,7 @@ test("search includes check evidence while type and criticality filter independe
   assert.deepEqual(view.findingItems(), [issue]);
 });
 
-test("criticality filters all assessments, preserves long issues and handles older reports", () => {
+test("criticality filters all assessments, keeps summaries searchable and handles older reports", () => {
   const issues = ["yes", "no", "needs_review"].map((status) => ({
     ...issue, id: status, critical: { status, reason: `Assessment: ${status}` },
     summary: "Full issue text. ".repeat(40) + "End of issue.",
@@ -314,7 +314,10 @@ test("criticality filters all assessments, preserves long issues and handles old
   for (const item of issues) {
     s.critical = item.critical.status;
     assert.deepEqual(view.findingItems(), [item]);
-    assert.ok(view.findingRows().includes(item.summary));
+    assert.ok(!view.findingRows().includes(item.summary));
+    s.findingSearch = "End of issue.";
+    assert.deepEqual(view.findingItems(), [item]);
+    s.findingSearch = "";
   }
   s.critical = "";
   assert.equal(view.findingItems().length, 3);
@@ -587,7 +590,7 @@ test("disputed, stale and mixed agent reviews list after agreed ones within a cr
   const data = { ...report, review: { ...report.review, issues: [disputed, stale, agreed, issue] } };
   const s = state(), view = createReport({ report: data, state: s, esc });
   assert.deepEqual(view.findingItems().map((i) => i.id), [issue.id, "disputed", "agreed", "stale"]);
-  assert.match(view.findingRows(), /data-finding-id="disputed"[^]*?<small class="agent-review-status">Agent review: disputed<\/small>/);
+  assert.doesNotMatch(view.findingRows(), /agent-review-status/);
   s.agentReview = "disputed";
   assert.deepEqual(view.findingItems().map((i) => i.id), ["disputed"]);
 });
@@ -673,14 +676,9 @@ test("dataset and variable filters select independently and combine across datas
   assert.match(issueRow(datasetWide, data), /class="issue-variable"[^]*?>Dataset-wide<\/button>/);
 });
 
-test("a finding without expected or observed values still states its question, impact and criticality", () => {
-  const item = { ...issue, expected: "", observed: "", action: "Is <this> the intended rule?" };
-  const html = issueTrace(item, report, { summaryOnly: true });
-  for (const text of [issue.summary, "2 subjects differ", "Automated criticality assessment: Yes.", issue.critical.reason, "Question for you", "Is &lt;this&gt; the intended rule?"])
-    assert.ok(html.includes(text), text);
-  assert.doesNotMatch(html, /issue-check|issue-citation/);
-  const row = issueRow({ ...item, summary: "Long summary. ".repeat(40) }, report);
-  assert.match(row, /<details class="issue-summary-detail"><summary>[^<]+\.\.\.<\/summary>/);
-  assert.ok(row.includes("Long summary. ".repeat(40)));
-  assert.match(row, /Question for you:/);
+test("the issue column contains only the escaped title", () => {
+  const item = { ...issue, title: 'Dermatologic <query> "title"', summary: "Long summary. ".repeat(40), action: "Question for you?" };
+  const row = issueRow(item, report);
+  const cell = row.match(/<td class="issue-summary">([^]*?)<\/td>/)[1];
+  assert.equal(cell, '<h3 title="Dermatologic &lt;query&gt; &quot;title&quot;">Dermatologic &lt;query&gt; &quot;title&quot;</h3>');
 });
