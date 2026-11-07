@@ -1,4 +1,4 @@
-"""Stage the unchanged snapshot for native yamaa XML inputs and QC.
+"""Check the committed ODM snapshot and write native item QC evidence.
 
 All clinical reshaping is executed by yamaa specifications reading the XML.
 The native item Parquet and inventory are QC evidence, not SDTM inputs.
@@ -23,14 +23,11 @@ INSTANCE = SCOPE + ("FormLayoutOID",)
 def prepare(study=STUDY):
     destination = study / "data/odm"
     original = destination / "car-t-openclinica.xml"
-    archived = study.parent / ".archieve/cart-t/car-t-openclinica.xml"
-    # A source checkout has one authoritative XML. The downloadable package
-    # includes its byte-identical staged copy and also works without the archive.
-    source = archived if archived.is_file() else original
-    destination.mkdir(parents=True, exist_ok=True)
-    payload = source.read_bytes()
-    if source != original:
-        original.write_bytes(payload)
+    # The committed XML is the only source. It is read in place, never copied
+    # or rewritten, so the checkout and the downloadable package are identical.
+    if not original.is_file():
+        raise FileNotFoundError(f"Missing source ODM snapshot: {original}")
+    payload = original.read_bytes()
     # Remove the generated declaration copy left by earlier pipeline versions.
     (destination / "car-t-utf8.xml").unlink(missing_ok=True)
     native = yamaa.read_odm(original)

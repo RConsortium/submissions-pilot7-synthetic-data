@@ -28,7 +28,7 @@ based on the original protocol.
 
 ## Folder Structure
 
-The [CAR-T study](cart-t/README.md) rebuilds the archived OpenClinica ODM
+The [CAR-T study](cart-t/README.md) rebuilds an OpenClinica ODM test export
 through SDTM, exploratory ADaM and draft Define-XML with yamaa. Its PR/CI
 `cart-t-standardization` artifact contains the standardized data,
 specifications and dataset quality evidence. CAR-T does not include TLFs.
