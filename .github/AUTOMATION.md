@@ -46,6 +46,9 @@ Planning checks compare against `data/mapping/plan.csv`; the separate
 The folder template is `repo-structure.json`. `check_structure.py` owns directory
 discovery, reused by CORE discovery; empty study scaffolds remain structure-only.
 `yamaa-studies.json` defines the publication catalog and supplies the yamaa matrix.
+An entry with `"core": false` commits generated datasets, not CORE inputs, so
+CORE discovery skips it. CAR-T commits its yamaa Parquet this way; its study job
+fails when a rebuild changes any tracked or new file under `cart-t/data/`.
 The dedicated `check_ascii.py` owns ASCII policy and reference exceptions.
 
 ## Local checks
