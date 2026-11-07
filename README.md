@@ -74,4 +74,6 @@ Original Pilot 7 code and documentation are licensed under the [MIT
 License](LICENSE). Study data, including synthetic and derived datasets, and
 imported reference material are excluded from the root MIT grant. CDISC pilot
 material remains subject to CDISC's terms; existing third-party notices are
-retained. See [LICENSING.md](LICENSING.md) for scope, sources, and reuse limits.
+retained. The CAR-T OpenClinica export and the datasets derived from it are the
+exception: they are distributed under MIT terms with the OpenClinica notice.
+See [LICENSING.md](LICENSING.md) for scope, sources, and reuse limits.

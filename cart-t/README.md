@@ -40,6 +40,14 @@ adsl <- arrow::read_parquet("cart-t/data/adam/adsl-yamaa.parquet")
 dm <- arrow::read_parquet("cart-t/data/sdtm/dm.parquet")
 ```
 
+## License and data use
+
+The source XML and every dataset derived from it, committed or built, are
+distributed under the [OpenClinica MIT notice](LICENSE-OpenClinica.txt).
+Pilot 7 contributions to the derived datasets are licensed under the root
+[MIT License](../LICENSE). Keep both notices with any copy of the data. See
+[LICENSING.md](../LICENSING.md#car-t-openclinica-data) for scope.
+
 ## Rebuild from a fresh clone
 
 Run from the repository root. Python 3.12+ and a C compiler are required.
