@@ -1,5 +1,9 @@
 # CAR-T Clinical Trial Data — Submission Pilot
 
+> The source XML now lives at
+> [`cart-t/data/odm/car-t-openclinica.xml`](../../cart-t/data/odm/car-t-openclinica.xml).
+> Copy it into this folder to rerun the archived R programs.
+
 Synthetic [OpenClinica](https://www.openclinica.com/) ODM export wired
 through a full **SDTM + ADaM pipeline** targeting **SDTMIG v3.3 /
 ADaMIG v1.3**. The study and source data are described further below;
@@ -64,7 +68,7 @@ source of truth on **what** the SDTM/ADaM standards require.
 **Protocol:** CART2020  
 **Description:** A Phase IIb, double-blind, multi-center study of CAR-T cell therapy in adults with acute lymphoblastic leukemia.
 
-**File:** [`car-t-openclinica.xml`](car-t-openclinica.xml)  
+**File:** [`car-t-openclinica.xml`](../../cart-t/data/odm/car-t-openclinica.xml)\
 **Format:** [ODM v1.3](https://www.cdisc.org/standards/data-exchange/odm-xml/odm-xml-v1-3-2)
 
 ## Study Sites

@@ -1,9 +1,10 @@
 # CAR-T for ALL: ODM to SDTM and ADaM with yamaa
 
-This study standardizes the archived CART2020 OpenClinica test export from its
-original ODM XML. It produces ten SDTM datasets, nine exploratory ADaM datasets,
-SAS XPT exports, separate SDTM and ADaM Define-XML 2.0 files, and dataset QC
-logs. The original `.archieve/cart-t/` is unchanged.
+This study standardizes the CART2020 OpenClinica test export from its original
+ODM XML, committed at `data/odm/car-t-openclinica.xml`. It produces ten SDTM
+datasets, nine exploratory ADaM datasets, SAS XPT exports, separate SDTM and
+ADaM Define-XML 2.0 files, and dataset QC logs. The earlier R implementation
+remains in `.archieve/cart-t/`.
 
 SDTM specifications read ODM XML directly. Native yamaa row grouping and
 item expressions perform the clinical reshaping. No per-form staging tables
@@ -92,7 +93,7 @@ To repeat the issue assessment against an existing build:
 ```text
 cart-t/
   data/
-    odm/       staged original XML and native item Parquet for QC
+    odm/       committed original XML and generated native item Parquet for QC
     sdtm/      generated DM, SUPPDM, AE, CM, LB, QS, MH, IE, CE, DS
     adam/      generated ADSL, ADAE, ADCM, ADLB, ADQS, ADMH, ADDS, ADIE, ADCE
   program/
@@ -120,14 +121,14 @@ the phenotype from `SUPPDM.RANDPROF`; its inputs are SDTM. `USUBJID` uses the
 unique ODM SubjectKey; `DM.SUBJID` retains the study subject ID.
 
 Clinical mappings and reshaping are executable yamaa YAML. The preparation
-step stages the unchanged archived XML, including its US-ASCII declaration.
-The native yamaa reader handles this declaration directly. The native item
+step reads the committed XML in place and never copies or rewrites it. The
+native yamaa reader handles its US-ASCII declaration directly. The native item
 Parquet is independent QC evidence; no SDTM specification reads it. Subject/site
 metadata mappings are checked independently against XML attributes.
 The same YAML can execute with the matching yamaa R host after preparation.
 
-Generated data, staged XML and logs are ignored by Git. CI rebuilds and packages
-them with the source and specifications. ADaM Parquet files use
+The source XML is committed. Generated data and logs are ignored by Git. CI
+rebuilds and packages them with the source and specifications. ADaM Parquet files use
 `-yamaa.parquet`; generated files are not independent references.
 
 ## Define-XML and transport

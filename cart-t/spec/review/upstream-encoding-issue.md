@@ -10,10 +10,10 @@ declaration when all source bytes are ASCII, including numeric character
 references. Raw non-ASCII bytes are refused; decoded clinical characters,
 repeat keys and null/value-presence indicators are preserved.
 
-The source is staged byte-identically as `data/odm/car-t-openclinica.xml`.
+The source is committed unchanged as `data/odm/car-t-openclinica.xml`.
 Every SDTM specification reads that XML directly. No declaration conversion
 or encoding-compatible reader copy is needed. `program/odm/prepare.py` only
-stages the source and writes native item Parquet and inventory evidence for QC.
+reads the source and writes native item Parquet and inventory evidence for QC.
 
 The prior pin `1d78496c0cbd4fe89462596a738db3adbd72c8ad` refused US-ASCII
 declarations under its UTF-8-only profile. The original reproduction and

@@ -97,17 +97,23 @@ class NativeODMTests(unittest.TestCase):
              inventory["sdtm_input"]),
             (original, ["car-t-openclinica.xml"], "car-t-openclinica.xml"))
 
-    def test_archive_is_staged_without_changing_its_bytes(self):
+    def test_committed_source_is_read_in_place_and_archive_is_ignored(self):
         repository = self.study / "repository"
         archive = repository / ".archieve/cart-t/car-t-openclinica.xml"
         archive.parent.mkdir(parents=True)
-        original = snapshot(event(1, "41"))
-        archive.write_bytes(original)
+        archive.write_bytes(snapshot(event(1, "old") + event(2, "older")))
         study = repository / "cart-t"
+        source = study / "data/odm/car-t-openclinica.xml"
+        source.parent.mkdir(parents=True)
+        original = snapshot(event(1, "41"))
+        source.write_bytes(original)
         inventory = prepare(study)
-        staged = study / "data/odm/car-t-openclinica.xml"
-        self.assertEqual((archive.read_bytes(), staged.read_bytes(), inventory["items"]),
-                         (original, original, 1))
+        self.assertEqual((source.read_bytes(), inventory["items"]), (original, 1))
+
+    def test_missing_source_is_refused_instead_of_staged(self):
+        with self.assertRaisesRegex(FileNotFoundError, "Missing source ODM snapshot"):
+            prepare(self.study)
+        self.assertFalse(self.source.exists())
 
     def test_duplicate_item_in_one_true_instance_is_refused(self):
         extra = '<ItemData ItemOID="I_ADVER_AETERM" oc:ItemName="AETERM" Value="44"/>'
