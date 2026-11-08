@@ -19,13 +19,15 @@ An independent ElementTree walk compares every source item, in source order,
 against the native item Parquet during the full build. The Parquet is QC
 evidence, not a clinical derivation input.
 
-The archive's R programs and YAML are historical mapping evidence. The new
-clinical derivations use the XML and new executable specifications, not archived
-RDS or XPT values. The audit reads archived XPT for row-count comparisons;
-the issue #98 verifier reads them to reproduce the reported quality findings.
+The earlier R programs and YAML, preserved in Git history at
+[`c46bbef`](https://github.com/RConsortium/submissions-pilot7-synthetic-data/tree/c46bbefcf00c6f9af9d1cc9b25ec5827a4315ff2/.archieve/cart-t), are historical mapping evidence.
+The new clinical derivations use the XML and new executable specifications, not
+archived RDS or XPT values. The audit and the issue #98 verifier compare with
+archived row counts and metrics frozen in `spec/review/archive-baseline.json`.
 Neither uses archived values as clinical derivation inputs.
 OpenClinica CodeList definitions in the XML resolve CM codes and terminology
 spellings. Laboratory fixed units follow the archived LB form specification
+([`spec/sdtm/lb.yaml`](https://github.com/RConsortium/submissions-pilot7-synthetic-data/blob/c46bbefcf00c6f9af9d1cc9b25ec5827a4315ff2/.archieve/cart-t/spec/sdtm/lb.yaml))
 and are flagged for confirmation.
 
 | Populated form | Refactor coverage |
@@ -57,5 +59,6 @@ so an unsupported source expansion cannot silently collapse observations.
 
 No full clinical protocol, SAP, licensed coding dictionary, controlled lab
 transfer specification, or independently published CAR-T Define-XML is
-available in the archive. The overview in ODM metadata is not a substitute.
+available in the archived implementation. The overview in ODM metadata is not a
+substitute.
 See `spec/review/decisions.md` for the resulting scope and review questions.

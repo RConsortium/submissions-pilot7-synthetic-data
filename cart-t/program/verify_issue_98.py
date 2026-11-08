@@ -1,12 +1,11 @@
 #!/usr/bin/env python3
-"""Reproduce issue #98 findings against archived and standardized datasets."""
+"""Reproduce issue #98 findings against archived metrics and standardized datasets."""
 
 from collections import Counter
 import json
 import math
 
 import pyarrow.parquet as pq
-import pyreadstat
 
 from engine import STUDY
 
@@ -56,16 +55,13 @@ def metrics(datasets):
 
 
 def verify(study=STUDY):
-    current, archive = {}, {}
+    current = {}
     for domain in FIELDS:
         table = pq.read_table(study / "data/adam" / f"{domain}-yamaa.parquet")
         current[domain] = (table.to_pylist(), table.column_names)
-        old = study.parent / ".archieve/cart-t/data/adam" / f"{domain}.xpt"
-        if old.is_file():
-            frame, _ = pyreadstat.read_xport(old, disable_datetime_conversion=True)
-            archive[domain] = (frame.to_dict("records"), frame.columns.tolist())
     now = metrics(current)
-    before = metrics(archive) if set(archive) == set(FIELDS) else None
+    # metrics() of the archived ADaM XPT, frozen before the archive was removed.
+    before = json.loads((study / "spec/review/archive-baseline.json").read_text())["issue_98"]
     adsl, adae, adds, adlb = (current[name][0] for name in FIELDS)
     disposition = {}
     for row in adds:
