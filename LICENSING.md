@@ -39,7 +39,7 @@ pilots that use the same study. They are not relicensed under MIT:
 | Submission Pilot 3 | `submission-pilot3/data/`, `submission-pilot3/spec/define/` | [Development repository](https://github.com/RConsortium/submissions-pilot3-adam/tree/main/submission), [submission package](https://github.com/RConsortium/submissions-pilot3-adam-to-fda) |
 | Submission Pilot 5 | `submission-pilot5/data/`, `submission-pilot5/spec/define/` | [Dataset-JSON submission package](https://github.com/RConsortium/submissions-pilot5-datasetjson/tree/main/pilot5-submission) |
 | Submission Pilot 6 | `submission-pilot6/data/`, `submission-pilot6/spec/define/`, `submission-pilot6/spec/pilot6-specs.xlsx` | [Pilot 6 repository](https://github.com/RConsortium/submissions-pilot6-adams-tlfs); SDTM and ADaM data are staged from its DVC snapshot |
-| Archived CDISC references | `.archieve/cdiscpilot1_simulation/reference/` | CDISC Pilot 01 study report and extracted tables and figures |
+| Archived CDISC references | Formerly `.archieve/cdiscpilot1_simulation/reference/`; retained only in Git history at [`d65c7cb`](https://github.com/RConsortium/submissions-pilot7-synthetic-data/tree/d65c7cb350fdf0bc10fafcaac98bbfa50027278b/.archieve/cdiscpilot1_simulation/reference) | CDISC Pilot 01 study report and extracted tables and figures |
 
 CDISC-origin content remains subject to CDISC's published terms; additional
 upstream rights and notices may apply to later-pilot contributions. See the
