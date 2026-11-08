@@ -85,6 +85,15 @@ jobs:
       - name: Check, build, compare, and record evidence
         if: inputs.yamaa
         run: python .github/scripts/validate_yamaa.py "$STUDY"
+      - name: Check committed CAR-T datasets match the rebuild
+        if: inputs.yamaa && inputs.study == 'cart-t'
+        run: |
+          changed=$(git status --porcelain --untracked-files=all -- "$STUDY/data")
+          if [ -n "$changed" ]; then
+            echo "$changed"
+            echo "::error::Committed CAR-T data differ from the rebuild. Run cart-t/program/run.py and commit the changed Parquet files."
+            exit 1
+          fi
       - name: Check resolved specification publication contracts
         if: inputs.yamaa && hashFiles(format('{0}/spec/yamaa/project.yaml', inputs.study)) != ''
         run: python -m unittest discover -s .github/tests/dashboard -p 'test_specifications.py' -v
