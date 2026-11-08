@@ -6,7 +6,6 @@ import math
 import xml.etree.ElementTree as ET
 
 import pyarrow.parquet as pq
-import pyreadstat
 
 from engine import STUDY, specifications
 
@@ -259,8 +258,10 @@ def audit():
           "Outcome and death seriousness criterion disagree. Source values were not forced to agree.",
           sample=[r["USUBJID"] for r in disagreements[:5]])
 
-    # The archive is an independently retained previous implementation, not
-    # an official reference. Count differences are evidence, never pass claims.
+    # The earlier R implementation is an independently retained previous
+    # implementation, not an official reference. Its row counts are frozen in
+    # the archive baseline. Count differences are evidence, never pass claims.
+    archived = json.loads((STUDY / "spec/review/archive-baseline.json").read_text())["datasets"]
     legacy = []
     reasons = {
         "DM": "Preserve source site and subject identity; remove proxy consent and allocation.",
@@ -274,11 +275,9 @@ def audit():
         "DS": "Remove inferred consent, eligibility, completion and screen failures.",
     }
     for domain, data in datasets.items():
-        previous = STUDY.parent / ".archieve/cart-t/data" / data["section"] / (domain.lower() + ".xpt")
-        if previous.is_file():
-            frame, _ = pyreadstat.read_xport(previous, disable_datetime_conversion=True)
+        if domain in archived:
             base = domain[2:] if domain.startswith("AD") and domain != "ADSL" else domain
-            legacy.append({"dataset": domain, "archived_rows": len(frame),
+            legacy.append({"dataset": domain, "archived_rows": archived[domain]["rows"],
                            "new_rows": len(data["rows"]), "agreement": "not_claimed",
                            "reason": reasons.get(base, "Subject-level population and timing rules corrected; see decisions.")})
     summary = {"status": "passed" if all(c["passed"] for c in checks) else "failed",

@@ -62,6 +62,7 @@ was supplied for CAR-T and no metadata-equivalence claim is made.
    record-level differences. Requalify transport and Define-XML.
 6. Run independent CDISC conformance validation and obtain human sign-off.
 
-Archived row counts and explanations are generated in `log/audit.json`.
-The archive is left unchanged. Matching row counts, including
+Archived row counts, frozen in `archive-baseline.json`, and explanations are
+generated in `log/audit.json`. The archived implementation is preserved
+unchanged in Git history at `c46bbef`. Matching row counts, including
 DM/ADSL, do not imply value agreement.

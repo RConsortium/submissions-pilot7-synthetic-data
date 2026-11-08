@@ -19,8 +19,10 @@ From the repository root, after installing the study requirements:
 
 The full runner includes the verifier. `log/issue-98.json` records archived
 and standardized counts, column presence, missingness and eight regression
-checks. The archived XPT files are used only for verification, never as
-clinical derivation inputs. These counts are dataset QC evidence, not TLFs.
+checks. The archived metrics come from `archive-baseline.json`, frozen from the
+archived XPT before the archive was removed from the tree. They are used only
+for comparison, never as clinical derivation inputs. These counts are dataset
+QC evidence, not TLFs.
 
 ## Findings
 
@@ -36,8 +38,9 @@ clinical derivation inputs. These counts are dataset QC evidence, not TLFs.
 
 The archive has 278 COMPLETED and 312 SCREEN FAILURE records because its DS
 program infers terminal outcomes from randomization/eligibility workflow
-presence. See `.archieve/cart-t/program/sdtm/ds.R`, the section beginning
-"Layer 4: terminal disposition event for every subject" (the rules assign COMPLETED to randomized
+presence. See the archived
+[`program/sdtm/ds.R`](https://github.com/RConsortium/submissions-pilot7-synthetic-data/blob/c46bbefcf00c6f9af9d1cc9b25ec5827a4315ff2/.archieve/cart-t/program/sdtm/ds.R),
+the section beginning "Layer 4: terminal disposition event for every subject" (the rules assign COMPLETED to randomized
 subjects without an early termination). These counts are not independently
 confirmed disposition observations in the ODM. The refactor retains the two
 explicit discontinuations and removes those inferred terminal outcomes.
@@ -62,4 +65,5 @@ contradictions.
    variables and repeat independent QC and conformance checks.
 
 No issue is closed automatically. The issue's archive findings remain valid
-for the unchanged archive; the refactor provides a separately qualified draft.
+for the archived implementation at `c46bbef`; the refactor provides a separately
+qualified draft.

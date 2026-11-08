@@ -1,5 +1,6 @@
 """Regression checks for source instance identity and honest artifact handling."""
 
+import hashlib
 import json
 from pathlib import Path
 import tempfile
@@ -158,9 +159,16 @@ class NativeODMTests(unittest.TestCase):
 
 class PublicationTests(unittest.TestCase):
     def test_data_notice_is_the_unchanged_openclinica_license(self):
-        notice = STUDY / "LICENSE-OpenClinica.txt"
-        archived = STUDY.parent / ".archieve/cart-t/LICENSE"
-        self.assertEqual(notice.read_bytes(), archived.read_bytes())
+        # SHA-256 of the notice committed with the source XML in 32f4ba9.
+        notice = (STUDY / "LICENSE-OpenClinica.txt").read_bytes()
+        self.assertEqual(hashlib.sha256(notice).hexdigest(),
+                         "01a74b5c690bf14e4a9bb6f5daaf7f23d498aa55e8d13e4040f680c15aef69b9")
+
+    def test_archive_baseline_metrics_agree_with_its_row_counts(self):
+        baseline = json.loads((STUDY / "spec/review/archive-baseline.json").read_text())
+        self.assertEqual({name: metric["rows"] for name, metric in baseline["issue_98"].items()},
+                         {name: baseline["datasets"][name.upper()]["rows"]
+                          for name in baseline["issue_98"]})
 
     def setUp(self):
         temporary = tempfile.TemporaryDirectory()

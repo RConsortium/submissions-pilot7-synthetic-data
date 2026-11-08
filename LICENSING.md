@@ -65,8 +65,8 @@ including format conversions or redistribution of converted datasets.
 
 `cart-t/data/odm/car-t-openclinica.xml` is a synthetic OpenClinica ODM 1.3
 test export (protocol CART2020). It was committed in `32f4ba9` together with an
-[MIT notice](cart-t/LICENSE-OpenClinica.txt), copyright 2025 OpenClinica. The
-same notice is retained unchanged in `.archieve/cart-t/LICENSE`.
+[MIT notice](cart-t/LICENSE-OpenClinica.txt), copyright 2025 OpenClinica.
+`cart-t/LICENSE-OpenClinica.txt` keeps that notice byte for byte.
 
 The following are distributed under those MIT terms:
 
@@ -74,7 +74,9 @@ The following are distributed under those MIT terms:
 - the SDTM and ADaM datasets derived from it, whether committed under
   `cart-t/data/sdtm/` and `cart-t/data/adam/` or produced by a build (Parquet,
   XPT, Define-XML, the native item table and QC evidence);
-- the archived datasets derived from it under `.archieve/cart-t/data/`.
+- the datasets of the earlier R implementation, preserved in Git history at
+  [`c46bbef`](https://github.com/RConsortium/submissions-pilot7-synthetic-data/tree/c46bbefcf00c6f9af9d1cc9b25ec5827a4315ff2/.archieve/cart-t/data), and the row counts and
+  metrics frozen from them in `cart-t/spec/review/archive-baseline.json`.
 
 Pilot 7 contributions to these derived datasets are also licensed under the
 root [MIT License](LICENSE). When redistributing any of them, keep both the
@@ -95,8 +97,9 @@ the project's reading of the OpenClinica notice; it is not legal advice.
   the identical retained Pilot 3 stylesheets; each manifest records the
   corresponding upstream source. These imported files are not original Pilot 7
   code and are not relicensed by the root license.
-- `.archieve/cart-t/` retains its existing [OpenClinica MIT
-  notice](.archieve/cart-t/LICENSE). This change does not replace that license
+- The earlier CAR-T R implementation, formerly `.archieve/cart-t/`, remains in
+  Git history at [`c46bbef`](https://github.com/RConsortium/submissions-pilot7-synthetic-data/tree/c46bbefcf00c6f9af9d1cc9b25ec5827a4315ff2/.archieve/cart-t) under its
+  OpenClinica MIT notice. Removing it from the tree does not change that license
   or its copyright attribution. See [CAR-T OpenClinica data](#car-t-openclinica-data)
   for the data it covers.
 - `docs/stylesheets/extra.css` retains the [yamaa MIT

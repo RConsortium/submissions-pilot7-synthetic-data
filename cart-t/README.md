@@ -4,7 +4,7 @@ This study standardizes the CART2020 OpenClinica test export from its original
 ODM XML, committed at `data/odm/car-t-openclinica.xml`. It produces ten SDTM
 datasets, nine exploratory ADaM datasets, SAS XPT exports, separate SDTM and
 ADaM Define-XML 2.0 files, and dataset QC logs. The earlier R implementation
-remains in `.archieve/cart-t/`.
+is preserved in Git history at [`c46bbef`](https://github.com/RConsortium/submissions-pilot7-synthetic-data/tree/c46bbefcf00c6f9af9d1cc9b25ec5827a4315ff2/.archieve/cart-t).
 
 SDTM specifications read ODM XML directly. Native yamaa row grouping and
 item expressions perform the clinical reshaping. No per-form staging tables
@@ -73,8 +73,9 @@ git -C .build/define-engine checkout --detach \
 ```
 
 No archived RDS, XPT or derived dataset is an input to a clinical derivation.
-The audit reads archived XPT only for previous row counts; the issue verifier
-reads them only to reproduce the reported data-quality findings.
+Row counts and issue #98 metrics of the archived XPT are frozen in
+`spec/review/archive-baseline.json`. The audit compares row counts with it and
+the issue verifier reports its metrics beside the standardized ones.
 The build fails on ambiguous ODM scopes, an unsuccessful yamaa run, changed
 XPT values/labels/widths, invalid Define-XML, missing artifact links, or failed
 source reconciliation. Clinical queries remain unresolved when these
@@ -120,7 +121,7 @@ cart-t/
     yamaa/     project, terminology, and one executable YAML per dataset
     define/    schema sources and pointers to generated Define-XML packages
     source/    source provenance and form coverage
-    review/    standardization decisions and issue assessment
+    review/    decisions, issue assessment and frozen archive baseline
   log/         execution logs, source inventory, audit and issue evidence
 ```
 
