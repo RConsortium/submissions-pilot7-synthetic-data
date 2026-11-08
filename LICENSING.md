@@ -16,6 +16,8 @@ folders, data archives, and data-bearing outputs in `tlf/`, `log/`, or archived
 study output folders. Copied study documents, reference metadata (including
 Define-XML and imported spreadsheets), and extracts from third-party sources
 are also excluded. Original code in a study folder remains covered by MIT.
+The only exception is the CAR-T data, which carry their own MIT data notice;
+see [CAR-T OpenClinica data](#car-t-openclinica-data).
 
 The independently simulated data identified in the root README (including
 `kn189/`, `kn564/`, and `.archieve/CWMM-LAA1/`) are excluded from the root MIT
@@ -59,6 +61,31 @@ Attribution and exclusion from MIT do not waive CDISC's restrictions. Obtain
 written clarification or permission from CDISC for uses not clearly permitted,
 including format conversions or redistribution of converted datasets.
 
+## CAR-T OpenClinica data
+
+`cart-t/data/odm/car-t-openclinica.xml` is a synthetic OpenClinica ODM 1.3
+test export (protocol CART2020). It was committed in `32f4ba9` together with an
+[MIT notice](cart-t/LICENSE-OpenClinica.txt), copyright 2025 OpenClinica. The
+same notice is retained unchanged in `.archieve/cart-t/LICENSE`.
+
+The following are distributed under those MIT terms:
+
+- the source XML in `cart-t/data/odm/`;
+- the SDTM and ADaM datasets derived from it, whether committed under
+  `cart-t/data/sdtm/` and `cart-t/data/adam/` or produced by a build (Parquet,
+  XPT, Define-XML, the native item table and QC evidence);
+- the archived datasets derived from it under `.archieve/cart-t/data/`.
+
+Pilot 7 contributions to these derived datasets are also licensed under the
+root [MIT License](LICENSE). When redistributing any of them, keep both the
+OpenClinica notice and the root MIT notice, for example by copying
+`cart-t/LICENSE-OpenClinica.txt` and `LICENSE` beside the data. The CI
+`cart-t-standardization` artifact includes both, together with this file.
+
+The derived datasets are a review draft, not submission-ready data, and have
+no independent reference or human statistical sign-off. This section records
+the project's reading of the OpenClinica notice; it is not legal advice.
+
 ## Other third-party notices
 
 - Define-XML stylesheets under `cdiscpilot01/spec/define/` and
@@ -70,7 +97,8 @@ including format conversions or redistribution of converted datasets.
   code and are not relicensed by the root license.
 - `.archieve/cart-t/` retains its existing [OpenClinica MIT
   notice](.archieve/cart-t/LICENSE). This change does not replace that license
-  or its copyright attribution.
+  or its copyright attribution. See [CAR-T OpenClinica data](#car-t-openclinica-data)
+  for the data it covers.
 - `docs/stylesheets/extra.css` retains the [yamaa MIT
   notice](docs/stylesheets/LICENSE-yamaa.txt).
 - `submission-pilot6/program/adam/upstream/` holds unchanged R programs and

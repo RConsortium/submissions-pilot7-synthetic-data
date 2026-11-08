@@ -30,12 +30,23 @@ Human review starts as `not_reviewed`; automated checks do not approve
 statistical decisions. [The issue #98 assessment](spec/review/issue-98.md)
 separates corrected standardization defects from unresolved source gaps.
 
-Data are available as typed Parquet and XPT. For example, in R:
+The SDTM and ADaM datasets saved by yamaa are committed as typed Parquet under
+`data/sdtm/` and `data/adam/`, so a clone can read them without a build. XPT,
+Define-XML, the native item table and logs come from a build or the artifact.
+For example, in R:
 
 ```r
 adsl <- arrow::read_parquet("cart-t/data/adam/adsl-yamaa.parquet")
-items <- arrow::read_parquet("cart-t/data/odm/items.parquet")
+dm <- arrow::read_parquet("cart-t/data/sdtm/dm.parquet")
 ```
+
+## License and data use
+
+The source XML and every dataset derived from it, committed or built, are
+distributed under the [OpenClinica MIT notice](LICENSE-OpenClinica.txt).
+Pilot 7 contributions to the derived datasets are licensed under the root
+[MIT License](../LICENSE). Keep both notices with any copy of the data. See
+[LICENSING.md](../LICENSING.md#car-t-openclinica-data) for scope.
 
 ## Rebuild from a fresh clone
 
@@ -81,7 +92,9 @@ Individual stages can be rerun in dependency order:
 .venv/bin/python cart-t/program/adam/run.py
 ```
 
-Use the full runner after an edit to refresh XPT, Define-XML and all QC evidence.
+Use the full runner after an edit to refresh the Parquet datasets, XPT,
+Define-XML and all QC evidence, then commit the changed Parquet files. CI
+rebuilds the study and fails if a committed dataset differs from the rebuild.
 To repeat the issue assessment against an existing build:
 
 ```bash
@@ -94,8 +107,8 @@ To repeat the issue assessment against an existing build:
 cart-t/
   data/
     odm/       committed original XML and generated native item Parquet for QC
-    sdtm/      generated DM, SUPPDM, AE, CM, LB, QS, MH, IE, CE, DS
-    adam/      generated ADSL, ADAE, ADCM, ADLB, ADQS, ADMH, ADDS, ADIE, ADCE
+    sdtm/      committed DM, SUPPDM, AE, CM, LB, QS, MH, IE, CE, DS Parquet
+    adam/      committed ADSL, ADAE, ADCM, ADLB, ADQS, ADMH, ADDS, ADIE, ADCE Parquet
   program/
     odm/       source staging and native item QC inventory
     sdtm/      SDTM stage entry point
@@ -127,9 +140,12 @@ Parquet is independent QC evidence; no SDTM specification reads it. Subject/site
 metadata mappings are checked independently against XML attributes.
 The same YAML can execute with the matching yamaa R host after preparation.
 
-The source XML is committed. Generated data and logs are ignored by Git. CI
-rebuilds and packages them with the source and specifications. ADaM Parquet files use
-`-yamaa.parquet`; generated files are not independent references.
+The source XML and the yamaa SDTM/ADaM Parquet datasets are committed. XPT,
+Define-XML, the native item table and logs are ignored by Git. CI rebuilds all
+of them and packages them with the source and specifications. ADaM Parquet
+files use `-yamaa.parquet`. Committed datasets are generated outputs, not
+independent references, so CDISC CORE does not treat them as inputs
+(`"core": false` in `.github/yamaa-studies.json`).
 
 ## Define-XML and transport
 

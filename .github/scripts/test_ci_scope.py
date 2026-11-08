@@ -203,6 +203,16 @@ class ScopeTests(unittest.TestCase):
         paths.append('submission-pilot3/data/sdtm/deleted.parquet')
         self.assertEqual(len(self.scope(*paths)['studies']), 1)
 
+    def test_committed_generated_outputs_can_opt_out_of_core(self):
+        manifest = self.root / '.github/yamaa-studies.json'
+        entries = json.loads(manifest.read_text())
+        entries['submission-pilot5']['core'] = False
+        manifest.write_text(json.dumps(entries))
+        self.assertEqual(self.scope('submission-pilot5/data/sdtm/ae.parquet')['studies'], [
+            {'study': 'submission-pilot5', 'yamaa': True, 'core': False, 'r': False}])
+        self.assertEqual([s['study'] for s in self.scope('.github/scripts/run_core.py')['studies']
+                          if s['core']], ['cdiscpilot01', 'submission-pilot3', 'submission-pilot6'])
+
     def test_core_checks_precede_any_generated_adam_outputs(self):
         import yaml
         workflow = yaml.safe_load((ROOT / WORKER).read_text())

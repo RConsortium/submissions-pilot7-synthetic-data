@@ -7,6 +7,8 @@ directory that does not start with "." and is not in `non_study_dirs`
 only if it actually holds a validatable dataset -- a `.parquet` or `.xpt`
 file under `data/sdtm` or `data/adam` -- so empty scaffolds (kn189, kn564,
 which carry only .gitkeep) are skipped and never spawn an empty matrix leg.
+A study whose `.github/yamaa-studies.json` entry sets `"core": false` is
+skipped too: its committed datasets are generated outputs, not CORE inputs.
 
 Emits `studies=<json-array>` to $GITHUB_OUTPUT (and prints it) so a matrix
 job can `fromJSON` it. Adding a new study needs no change here.
@@ -27,9 +29,20 @@ from check_structure import MANIFEST, discover_studies
 
 DATA_DIRS = ("data/sdtm", "data/adam")
 DATA_EXTS = (".parquet", ".xpt")
+CATALOG = ".github/yamaa-studies.json"
+
+
+def core_enabled(root: str, study: str) -> bool:
+    path = os.path.join(root, CATALOG)
+    if not os.path.isfile(path):
+        return True
+    with open(path, encoding="utf-8") as fh:
+        return json.load(fh).get(study, {}).get("core", True) is not False
 
 
 def has_validatable_data(root: str, study: str) -> bool:
+    if not core_enabled(root, study):
+        return False
     for rel in DATA_DIRS:
         d = os.path.join(root, study, rel)
         if not os.path.isdir(d):

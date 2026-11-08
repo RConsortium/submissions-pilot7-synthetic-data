@@ -157,6 +157,11 @@ class NativeODMTests(unittest.TestCase):
 
 
 class PublicationTests(unittest.TestCase):
+    def test_data_notice_is_the_unchanged_openclinica_license(self):
+        notice = STUDY / "LICENSE-OpenClinica.txt"
+        archived = STUDY.parent / ".archieve/cart-t/LICENSE"
+        self.assertEqual(notice.read_bytes(), archived.read_bytes())
+
     def setUp(self):
         temporary = tempfile.TemporaryDirectory()
         self.addCleanup(temporary.cleanup)
