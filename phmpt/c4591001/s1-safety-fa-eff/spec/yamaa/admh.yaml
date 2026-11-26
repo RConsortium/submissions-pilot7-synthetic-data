@@ -1,0 +1,413 @@
+# ADMH for Pfizer C4591001, EUA 27034 sequence S1 (safety and final
+# efficacy analysis, data snapshot of November 2020).
+# Layer over the S1 (BLA) spec, run on this cut's SDTM
+# (scripts/reproduce.py verify --study c4591001 --cut s1-safety-fa-eff). The
+# output keeps the EUA file's columns, in its order.
+# The EUA admh.sas (06Nov2020) keeps the MH records of ADSL subjects, and its
+# ADMH stores the ADSL dates, times and datetimes and ADT natively, SUBJID,
+# SITEID and MHSPID as text, and ASTDT/AENDT as DDMonYYYY text (ASTDY, AENDY
+# and ADURN as text, as in S1). ADURN (ADT - ASTDT) is missing, not 0,
+# without ASTDT, and is redacted only with MHSTDTC.
+# This cut's MH carries no MHENRTPT or MHENTPT, so both read the missing
+# value.
+yamaa: '1.0'
+type: spec
+parent: ../../../s1/spec/yamaa/admh.yaml
+clear:
+- columns.RANDDT.submission.length
+- columns.TRTSDT.submission.length
+- columns.TRTSTM.submission.length
+- columns.TRTSDTM.submission.length
+- columns.TRTEDT.submission.length
+- columns.TRTETM.submission.length
+- columns.TRTEDTM.submission.length
+- columns.TR01SDT.submission.length
+- columns.TR01STM.submission.length
+- columns.TR01SDTM.submission.length
+- columns.TR01EDT.submission.length
+- columns.TR01ETM.submission.length
+- columns.TR01EDTM.submission.length
+- columns.ADT.submission.length
+- columns.ADT.submission.significant_digits
+- columns.SUBJID.submission.significant_digits
+- columns.SITEID.submission.significant_digits
+- columns.MHSPID.submission.significant_digits
+- columns.RANDFL.submission
+- columns.TRT02A.submission
+- columns.TRT02AN.submission
+- columns.TRT02P.submission
+- columns.TRT02PN.submission
+- columns.TR02SDT.submission
+- columns.TR02STM.submission
+- columns.TR02SDTM.submission
+- columns.TR02EDT.submission
+- columns.TR02ETM.submission
+- columns.TR02EDTM.submission
+- columns.VAX101.submission
+- columns.VAX102.submission
+- columns.VAX10U.submission
+- columns.VAX201.submission
+- columns.VAX202.submission
+- columns.VAX101DT.submission
+- columns.VAX102DT.submission
+- columns.VAX10UDT.submission
+- columns.VAX201DT.submission
+- columns.VAX202DT.submission
+- columns.VAX20UDT.submission
+- columns.UNBLNDDT.submission
+- columns.AGEGR4.submission
+- columns.AGEGR4N.submission
+- columns.HIVFL.submission
+- columns.PEDIMMFL.submission
+- columns.MULENRFL.submission
+- columns.PEDREAFL.submission
+- columns.DS3KFL.submission
+- columns.AGETR01.submission
+- columns.AGETRU01.submission
+- columns.RAND1FL.submission
+- columns.SAF1FL.submission
+- columns.SAF2FL.submission
+rows:
+- id: main
+  filter: MH.MHCAT IS NOT NULL AND MH.MHTERM IS NOT NULL AND ADSL.USUBJID IS NOT NULL
+intermediates:
+# The EUA program names the Charlson categories as its cat= literals
+# ('Any Malignancy', 'Chronic Pulmonary Disease', ...), in title case.
+- id: _MH_D1
+  derivations:
+    _CAT1:
+      type: str
+      derivation:
+        mapping:
+          source: CCI_I._CAT1
+          dict:
+            AIDS/HIV: AIDS/HIV
+            Any malignancy: Any Malignancy
+            Cerebrovascular disease: Cerebrovascular Disease
+            Chronic pulmonary disease: Chronic Pulmonary Disease
+            Congestive heart failure: Congestive Heart Failure
+            Dementia: Dementia
+            Diabetes with chronic complication: Diabetes With Chronic Complication
+            Diabetes without chronic complication: Diabetes Without Chronic Complication
+            Hemiplegia or paraplegia: Hemiplegia or Paraplegia
+            Leukemia: Leukemia
+            Lymphoma: Lymphoma
+            Metastatic solid tumor: Metastatic Solid Tumor
+            Mild liver disease: Mild Liver Disease
+            Moderate or severe liver disease: Moderate or Severe Liver Disease
+            Myocardial infarction: Myocardial Infarction
+            Peptic ulcer disease: Peptic Ulcer Disease
+            Peripheral vascular disease: Peripheral Vascular Disease
+            Renal disease: Renal Disease
+            Rheumatic disease: Rheumatic Disease
+          unmapped: null
+    _CAT2:
+      type: str
+      derivation:
+        mapping:
+          source: CCI_I._CAT2
+          dict:
+            AIDS/HIV: AIDS/HIV
+            Any malignancy: Any Malignancy
+            Cerebrovascular disease: Cerebrovascular Disease
+            Chronic pulmonary disease: Chronic Pulmonary Disease
+            Congestive heart failure: Congestive Heart Failure
+            Dementia: Dementia
+            Diabetes with chronic complication: Diabetes With Chronic Complication
+            Diabetes without chronic complication: Diabetes Without Chronic Complication
+            Hemiplegia or paraplegia: Hemiplegia or Paraplegia
+            Leukemia: Leukemia
+            Lymphoma: Lymphoma
+            Metastatic solid tumor: Metastatic Solid Tumor
+            Mild liver disease: Mild Liver Disease
+            Moderate or severe liver disease: Moderate or Severe Liver Disease
+            Myocardial infarction: Myocardial Infarction
+            Peptic ulcer disease: Peptic Ulcer Disease
+            Peripheral vascular disease: Peripheral Vascular Disease
+            Renal disease: Renal Disease
+            Rheumatic disease: Rheumatic Disease
+          unmapped: null
+- id: _MH_D2
+  derivations:
+    # DDMonYYYY: two-digit day, month abbreviation, four-digit year.
+    _ASTDT_YR:
+      type: str
+      derivation:
+        str_substr:
+          source: _ASTDT_ISO
+          start: 1
+          length: 4
+    _ASTDT_D9:
+      type: str
+      derivation:
+        str_template:
+          template: '{_ASTDT_D2}{_ASTDT_MON}{_ASTDT_YR}'
+          missing: null
+    _AENDT_YR:
+      type: str
+      derivation:
+        str_substr:
+          source: _AENDT_ISO
+          start: 1
+          length: 4
+    _AENDT_D9:
+      type: str
+      derivation:
+        str_template:
+          template: '{_AENDT_D2}{_AENDT_MON}{_AENDT_YR}'
+          missing: null
+    _ADURN_STR2:
+      type: str
+      derivation:
+        case:
+        - when: MH.MHSTDTC = '(b)(6)'
+          then: '''(b)(6)'''
+        - otherwise: _ADURN_STR
+columns:
+- name: AENDY
+  submission:
+    length: 22
+# Uncoded terms of this snapshot carry no dictionary values, and two ADSL
+# subjects were never vaccinated (no ACTARM).
+- name: MHDECOD
+  submission:
+    mandatory: false
+- name: MHPTCD
+  submission:
+    mandatory: false
+- name: MHBODSYS
+  submission:
+    mandatory: false
+- name: MHBDSYCD
+  submission:
+    mandatory: false
+- name: MHLLT
+  submission:
+    mandatory: false
+- name: MHLLTCD
+  submission:
+    mandatory: false
+- name: MHHLT
+  submission:
+    mandatory: false
+- name: MHHLTCD
+  submission:
+    mandatory: false
+- name: MHHLGT
+  submission:
+    mandatory: false
+- name: MHHLGTCD
+  submission:
+    mandatory: false
+- name: MHSOC
+  submission:
+    mandatory: false
+- name: MHSOCCD
+  submission:
+    mandatory: false
+- name: DICTVER
+  submission:
+    mandatory: false
+- name: ACTARM
+  submission:
+    mandatory: false
+- name: ACTARMCD
+  submission:
+    mandatory: false
+- name: SUBJID
+  type: str
+  derivation: ADSL.SUBJID
+- name: SITEID
+  type: str
+  derivation: ADSL.SITEID
+- name: MHSPID
+  type: str
+  derivation: MH.MHSPID
+- name: MHENRTPT
+  type: str
+  derivation: null
+  submission:
+    origins:
+    - type: Other
+      description: "Withheld from publication: the received define states this text."
+- name: MHENTPT
+  type: str
+  derivation: null
+  submission:
+    origins:
+    - type: Other
+      description: "Withheld from publication: the received define states this text."
+- name: ADT
+  type: date
+  derivation: _MH_D1._ADT
+- name: RANDDT
+  type: date
+  derivation: ADSL.RANDDT
+  submission:
+    origins:
+    - type: Predecessor
+      description: ADSL.RANDDT
+- name: TRTSDT
+  type: date
+  derivation: ADSL.TRTSDT
+  submission:
+    origins:
+    - type: Predecessor
+      description: ADSL.TRTSDT
+- name: TRTSTM
+  type: time
+  derivation: ADSL.TRTSTM
+  submission:
+    origins:
+    - type: Predecessor
+      description: ADSL.TRTSTM
+- name: TRTSDTM
+  type: datetime
+  derivation: ADSL.TRTSDTM
+  submission:
+    origins:
+    - type: Predecessor
+      description: ADSL.TRTSDTM
+- name: TRTEDT
+  type: date
+  derivation: ADSL.TRTEDT
+  submission:
+    origins:
+    - type: Predecessor
+      description: ADSL.TRTEDT
+- name: TRTETM
+  type: time
+  derivation: ADSL.TRTETM
+  submission:
+    origins:
+    - type: Predecessor
+      description: ADSL.TRTETM
+- name: TRTEDTM
+  type: datetime
+  derivation: ADSL.TRTEDTM
+  submission:
+    origins:
+    - type: Predecessor
+      description: ADSL.TRTEDTM
+- name: TR01SDT
+  type: date
+  derivation: ADSL.TR01SDT
+  submission:
+    origins:
+    - type: Predecessor
+      description: ADSL.TR01SDT
+- name: TR01STM
+  type: time
+  derivation: ADSL.TR01STM
+  submission:
+    origins:
+    - type: Predecessor
+      description: ADSL.TR01STM
+- name: TR01SDTM
+  type: datetime
+  derivation: ADSL.TR01SDTM
+  submission:
+    origins:
+    - type: Predecessor
+      description: ADSL.TR01SDTM
+- name: TR01EDT
+  type: date
+  derivation: ADSL.TR01EDT
+  submission:
+    origins:
+    - type: Predecessor
+      description: ADSL.TR01EDT
+- name: TR01ETM
+  type: time
+  derivation: ADSL.TR01ETM
+  submission:
+    origins:
+    - type: Predecessor
+      description: ADSL.TR01ETM
+- name: TR01EDTM
+  type: datetime
+  derivation: ADSL.TR01EDTM
+  submission:
+    origins:
+    - type: Predecessor
+      description: ADSL.TR01EDTM
+output:
+  columns:
+  - STUDYID
+  - USUBJID
+  - SUBJID
+  - SITEID
+  - MHSEQ
+  - MHTERM
+  - MHDECOD
+  - MHPTCD
+  - MHBODSYS
+  - MHBDSYCD
+  - MHLLT
+  - MHLLTCD
+  - MHHLT
+  - MHHLTCD
+  - MHHLGT
+  - MHHLGTCD
+  - MHSOC
+  - MHSOCCD
+  - MHCAT
+  - MHSTDTC
+  - MHENDTC
+  - MHENRTPT
+  - MHENTPT
+  - DICTVER
+  - MHSPID
+  - ASTDT
+  - ASTDTF
+  - ASTDY
+  - AENDT
+  - AENDTF
+  - AENDY
+  - COMORBFL
+  - CAT1
+  - CAT2
+  - ADT
+  - ADURN
+  - ADURU
+  - AGE
+  - AGEU
+  - AGEGR1
+  - AGEGR1N
+  - SEX
+  - SEXN
+  - RACE
+  - RACEN
+  - ARACE
+  - ARACEN
+  - SAFFL
+  - ARM
+  - ARMCD
+  - ACTARM
+  - ACTARMCD
+  - RANDDT
+  - TRTSDT
+  - TRTSTM
+  - TRTSDTM
+  - TRTEDT
+  - TRTETM
+  - TRTEDTM
+  - TRT01A
+  - TRT01AN
+  - TRT01P
+  - TRT01PN
+  - TR01SDT
+  - TR01STM
+  - TR01SDTM
+  - TR01EDT
+  - TR01ETM
+  - TR01EDTM
+  - COHORT
+  - COHORTN
+  - DOSALVL
+  - DOSALVLN
+  - DOSPLVL
+  - DOSPLVLN
+  - PHASE
+  - PHASEN
+  - DS30KFL

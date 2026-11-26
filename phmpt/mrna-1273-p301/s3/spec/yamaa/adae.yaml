@@ -1,0 +1,4602 @@
+# ADAE for Moderna mRNA-1273-P301, cut S3 (BLA Interim Analysis,
+# cutoff 2021-03-26). Parent: ../../../spec/yamaa/base/adam-base-s3.yaml (which
+# chains to ../../../spec/yamaa/base/adam-base.yaml; 86 shared + 59 S3-only ADSL
+# columns). Derivations implement the S3 A20ADAE program: one
+# row per AE, inner-joined to the verified ADSL on USUBJID,
+# with REMOVEFL='Y' (+ symp match), empty-AETERM, and non-ADSL
+# rows dropped (AE 39,215 -> ADAE 37,756). The S3 program reads
+# FACE + FAAE for ANL02FL/ANL03FL/ANL04FL only. No S27 file is
+# read. SAP v1 vs v3 CLOSED as no-impact (2026-11-24) -- the S3
+# program's own definitions are followed. RSTFRD (minutes from the
+# most-recent-dose start to AE start, program lines 211-214) is
+# the 222nd column; it is not in the define (batch-2 warning W9).
+# Honest gaps: RACESPY, 1,861 cells (submitted values embed the
+# original text after a NUL byte, e.g. '(b)(6)\\x00Other: PUERTO
+# RICAN'; the verified ADSL holds only '(b)(6)', and the tail
+# text appears nowhere unredacted in the allowed inputs -- the
+# spec copies ADSL.RACESPY); AETERM curly-quote mojibake, 5 cells
+# (UTF-8 curly quotes mis-decoded as CP1252-with-replacement in
+# the submitted file; reproduced faithfully with str_replace);
+# AETERM, 5 space-only cells (compbl behaviour). AENTM, 2,856
+# cells: the submitted target stores AENTM as duration[us];
+# yamaa 0.8.0 has no duration type, so the spec types it as
+# time (to_time of AENDTM); the values are correct (all 2,856
+# non-null target values equal the time-of-day part of the
+# exactly-matching AENDTM) but datetime.time never compares
+# equal to Timedelta under the harness. Verification 2026-11-23
+# (yamaa 0.8.0 @135082c1f): DONE-WITH-GAP -- 37,756 x 222; 219
+# non-key columns compared: 216 exact, 0 within tolerance, 5
+# space-only (AETERM); mismatches 4,717 = RACESPY 1,861 +
+# AENTM 2,856 (the gaps above). Verified in 9 pruned
+# dependency-closure groups (G1-G5, G6a, G6b, G7, G8); the full
+# verify.py run OOMs in this 6 GB cell, and G6a/G6b ran in 4
+# subject chunks each (full FACE input OOMs the engine even
+# pruned). Split-by-subject full-spec re-verification 2026-11-23
+# (session 57): the UNCHANGED spec run per 4-way SEX x AGE
+# (<=55/>55) partition reproduces the baseline exactly --
+# 37,756 rows, 4,717 mismatched cells, 0 within-tolerance, 5
+# space-only, zero new mismatches (b0/b1 via verify.py, b2/b3
+# via the lean Arrow driver after verify.py OOM'd on b2); see
+# spec/yamaa/adae/verify_report_s3_split.json. The split
+# verification is the full-spec re-run, so no roomier-cell
+# re-run is owed.
+# SMQ/CQ/symp
+# lookups were reconstructed from the submitted ADAE (the
+# import tables are not in Module 5) and cover exactly the terms
+# exercised by S3 AE data. APL categories come from a solver over
+# the close-pair constraints (see the generator header). ADURN is
+# the union length of the group's flag-row intervals (see the
+# generator header); the running maximum E is carried by a
+# WINDOW-12 feedback group.
+yamaa: '1.0'
+type: spec
+model: ADaM
+parent: ../../../spec/yamaa/base/adam-base-s3.yaml
+domain: ADAE
+keys:
+- STUDYID
+- USUBJID
+- AESEQ
+input:
+  AE: <sdtm-dir>/ae.parquet
+  SUPPAE: <sdtm-dir>/suppae.parquet
+  DS: <sdtm-dir>/ds.parquet
+  SUPPDS: <sdtm-dir>/suppds.parquet
+  HO: <sdtm-dir>/ho.parquet
+  EX: <sdtm-dir>/ex.parquet
+  FACE: <sdtm-dir>/face.parquet
+  FAAE: <sdtm-dir>/faae.parquet
+  ADSL:
+    path: <adam-dir>/adsl.parquet
+    key:
+    - STUDYID
+    - USUBJID
+submission:
+  label: Adverse Event Analysis Dataset
+  class: OCCURRENCE DATA STRUCTURE
+  structure: One record per adverse event
+  repeating: true
+rows:
+- id: events
+  dataset: AE
+  filter: (_REMOVEFL IS NULL OR _REMOVEFL <> 'Y') AND _AETERM IS NOT NULL AND _ADSL IS NOT NULL
+intermediates:
+- id: SUPP_P
+  dataset: SUPPAE
+  key:
+    STUDYID: STUDYID
+    USUBJID: USUBJID
+    IDVARVAL:
+      str_decimal:
+        source: AESEQ
+        decimals: 0
+  filter: SUPPAE.QNAM IN ('REMOVEFL', 'MAAEFL', 'AEOUTSP', 'AECVDIAG', 'AEHOSPST', 'AEHOSPEN') AND SUPPAE.IDVAR = 'AESEQ'
+  pivot:
+    name: QNAM
+    value: QVAL
+    fields:
+    - REMOVEFL
+    - MAAEFL
+    - AEOUTSP
+    - AECVDIAG
+    - AEHOSPST
+    - AEHOSPEN
+- id: HO_ICU1
+  dataset: HO
+  key:
+    USUBJID: USUBJID
+    _HOSPID1: _AESPID
+  derivations:
+    _HOSPID1:
+      str_extract:
+        source: HO.HOSPID
+        pattern: '^(?:[^/]+/){0}(?:HO-)?([^/]+)'
+        group: 1
+        no_match: null
+  filter: HO.HODECOD = 'ICU' AND HO.HOCAT = 'ADVERSE EVENTS' AND HO.HOSPID IS NOT NULL
+  order_by:
+  - variable: HO.HODUR
+    direction: desc
+  - variable: HO.HOOCCUR
+    direction: desc
+  keep: first
+- id: HO_ICU2
+  dataset: HO
+  key:
+    USUBJID: USUBJID
+    _HOSPID2: _AESPID
+  derivations:
+    _HOSPID2:
+      str_extract:
+        source: HO.HOSPID
+        pattern: '^(?:[^/]+/){1}(?:HO-)?([^/]+)'
+        group: 1
+        no_match: null
+  filter: HO.HODECOD = 'ICU' AND HO.HOCAT = 'ADVERSE EVENTS' AND HO.HOSPID IS NOT NULL
+  order_by:
+  - variable: HO.HODUR
+    direction: desc
+  - variable: HO.HOOCCUR
+    direction: desc
+  keep: first
+- id: HO_ICU3
+  dataset: HO
+  key:
+    USUBJID: USUBJID
+    _HOSPID3: _AESPID
+  derivations:
+    _HOSPID3:
+      str_extract:
+        source: HO.HOSPID
+        pattern: '^(?:[^/]+/){2}(?:HO-)?([^/]+)'
+        group: 1
+        no_match: null
+  filter: HO.HODECOD = 'ICU' AND HO.HOCAT = 'ADVERSE EVENTS' AND HO.HOSPID IS NOT NULL
+  order_by:
+  - variable: HO.HODUR
+    direction: desc
+  - variable: HO.HOOCCUR
+    direction: desc
+  keep: first
+- id: HO_ICU4
+  dataset: HO
+  key:
+    USUBJID: USUBJID
+    _HOSPID4: _AESPID
+  derivations:
+    _HOSPID4:
+      str_extract:
+        source: HO.HOSPID
+        pattern: '^(?:[^/]+/){3}(?:HO-)?([^/]+)'
+        group: 1
+        no_match: null
+  filter: HO.HODECOD = 'ICU' AND HO.HOCAT = 'ADVERSE EVENTS' AND HO.HOSPID IS NOT NULL
+  order_by:
+  - variable: HO.HODUR
+    direction: desc
+  - variable: HO.HOOCCUR
+    direction: desc
+  keep: first
+- id: HO_ICU5
+  dataset: HO
+  key:
+    USUBJID: USUBJID
+    _HOSPID5: _AESPID
+  derivations:
+    _HOSPID5:
+      str_extract:
+        source: HO.HOSPID
+        pattern: '^(?:[^/]+/){4}(?:HO-)?([^/]+)'
+        group: 1
+        no_match: null
+  filter: HO.HODECOD = 'ICU' AND HO.HOCAT = 'ADVERSE EVENTS' AND HO.HOSPID IS NOT NULL
+  order_by:
+  - variable: HO.HODUR
+    direction: desc
+  - variable: HO.HOOCCUR
+    direction: desc
+  keep: first
+- id: HO_ICU6
+  dataset: HO
+  key:
+    USUBJID: USUBJID
+    _HOSPID6: _AESPID
+  derivations:
+    _HOSPID6:
+      str_extract:
+        source: HO.HOSPID
+        pattern: '^(?:[^/]+/){5}(?:HO-)?([^/]+)'
+        group: 1
+        no_match: null
+  filter: HO.HODECOD = 'ICU' AND HO.HOCAT = 'ADVERSE EVENTS' AND HO.HOSPID IS NOT NULL
+  order_by:
+  - variable: HO.HODUR
+    direction: desc
+  - variable: HO.HOOCCUR
+    direction: desc
+  keep: first
+- id: HO_ICU7
+  dataset: HO
+  key:
+    USUBJID: USUBJID
+    _HOSPID7: _AESPID
+  derivations:
+    _HOSPID7:
+      str_extract:
+        source: HO.HOSPID
+        pattern: '^(?:[^/]+/){6}(?:HO-)?([^/]+)'
+        group: 1
+        no_match: null
+  filter: HO.HODECOD = 'ICU' AND HO.HOCAT = 'ADVERSE EVENTS' AND HO.HOSPID IS NOT NULL
+  order_by:
+  - variable: HO.HODUR
+    direction: desc
+  - variable: HO.HOOCCUR
+    direction: desc
+  keep: first
+- id: HO_ICU8
+  dataset: HO
+  key:
+    USUBJID: USUBJID
+    _HOSPID8: _AESPID
+  derivations:
+    _HOSPID8:
+      str_extract:
+        source: HO.HOSPID
+        pattern: '^(?:[^/]+/){7}(?:HO-)?([^/]+)'
+        group: 1
+        no_match: null
+  filter: HO.HODECOD = 'ICU' AND HO.HOCAT = 'ADVERSE EVENTS' AND HO.HOSPID IS NOT NULL
+  order_by:
+  - variable: HO.HODUR
+    direction: desc
+  - variable: HO.HOOCCUR
+    direction: desc
+  keep: first
+- id: HO_ICU9
+  dataset: HO
+  key:
+    USUBJID: USUBJID
+    _HOSPID9: _AESPID
+  derivations:
+    _HOSPID9:
+      str_extract:
+        source: HO.HOSPID
+        pattern: '^(?:[^/]+/){8}(?:HO-)?([^/]+)'
+        group: 1
+        no_match: null
+  filter: HO.HODECOD = 'ICU' AND HO.HOCAT = 'ADVERSE EVENTS' AND HO.HOSPID IS NOT NULL
+  order_by:
+  - variable: HO.HODUR
+    direction: desc
+  - variable: HO.HOOCCUR
+    direction: desc
+  keep: first
+- id: HO_ICU10
+  dataset: HO
+  key:
+    USUBJID: USUBJID
+    _HOSPID10: _AESPID
+  derivations:
+    _HOSPID10:
+      str_extract:
+        source: HO.HOSPID
+        pattern: '^(?:[^/]+/){9}(?:HO-)?([^/]+)'
+        group: 1
+        no_match: null
+  filter: HO.HODECOD = 'ICU' AND HO.HOCAT = 'ADVERSE EVENTS' AND HO.HOSPID IS NOT NULL
+  order_by:
+  - variable: HO.HODUR
+    direction: desc
+  - variable: HO.HOOCCUR
+    direction: desc
+  keep: first
+- id: SUPP_AESPIDX
+  dataset: SUPPDS
+  key:
+    STUDYID: STUDYID
+    USUBJID: USUBJID
+    IDVARVAL: _DSSEQ_STR
+  filter: SUPPDS.QNAM = 'AESPIDX' AND SUPPDS.IDVAR = 'DSSEQ'
+  order_by:
+  - SUPPDS.QVAL
+  keep: first
+- id: FACE_7
+  dataset: FACE
+  key:
+    USUBJID: USUBJID
+    FATPTREF: _FATPTREF
+    FAOBJ: ARTERM
+  filter: FACE.FACAT = 'REACTOGENICITY' AND FACE.FATPTREF IS NOT NULL AND (FACE.FASTRESC IS NULL OR FACE.FASTRESC <> 'NONE') AND (FACE.FASTRESC IS NULL OR NOT str_contains(FACE.FASTRESC, 'GRADE 0')) AND FACE.FASTAT IS NULL AND NOT (FACE.FAOBJ IS NOT NULL AND FACE.FAOBJ IN ('Erythema', 'Swelling') AND FACE.FATESTCD IS NOT NULL AND (FACE.FATESTCD = 'OCCUR' OR (FACE.FATESTCD = 'LDIAM' AND FACE.FASTRESU IS NOT NULL AND FACE.FASTRESU = 'mm' AND (FACE.FASTRESN IS NULL OR FACE.FASTRESN < 25)))) AND FACE.FATPTNUM = 7
+  order_by:
+  - FACE.FASEQ
+  keep: first
+- id: FAAE3
+  dataset: FAAE
+  key:
+    USUBJID: USUBJID
+    FATPTREF: _FATPTREF
+    FAOBJ: ARTERM
+  filter: FAAE.FACAT = 'REACTOGENICITY' AND FAAE.FATPTREF IS NOT NULL AND (FAAE.FASTRESC IS NULL OR FAAE.FASTRESC <> 'NONE') AND (FAAE.FASTRESC IS NULL OR NOT str_contains(FAAE.FASTRESC, 'GRADE 0')) AND FAAE.FASTAT IS NULL AND NOT (FAAE.FAOBJ IS NOT NULL AND FAAE.FAOBJ IN ('Erythema', 'Swelling') AND FAAE.FATESTCD IS NOT NULL AND (FAAE.FATESTCD = 'OCCUR' OR (FAAE.FATESTCD = 'LDIAM' AND FAAE.FASTRESU IS NOT NULL AND FAAE.FASTRESU = 'mm' AND (FAAE.FASTRESN IS NULL OR FAAE.FASTRESN < 25))))
+  order_by:
+  - FAAE.FASEQ
+  keep: first
+- id: EX_DOSE1
+  dataset: EX
+  key:
+  - STUDYID
+  - USUBJID
+  filter: str_contains(EX.VISIT, '[Dd][Aa][Yy] 1( |$)')
+  order_by:
+  - EX.EXSTDTC
+  keep: first
+- id: EX_DOSE2
+  dataset: EX
+  key:
+  - STUDYID
+  - USUBJID
+  filter: str_contains(EX.VISIT, '[Dd][Aa][Yy] 29( |$)')
+  order_by:
+  - EX.EXSTDTC
+  keep: first
+- id: EX_DOSE3
+  dataset: EX
+  key:
+  - STUDYID
+  - USUBJID
+  filter: str_contains(EX.VISIT, '[Oo][Ll]-[Dd]1( |$)')
+  order_by:
+  - EX.EXSTDTC
+  keep: first
+- id: EX_DOSE4
+  dataset: EX
+  key:
+  - STUDYID
+  - USUBJID
+  filter: str_contains(EX.VISIT, '[Oo][Ll]-[Dd]29( |$)')
+  order_by:
+  - EX.EXSTDTC
+  keep: first
+windows:
+  W_ADURN:
+    group_by:
+    - USUBJID
+    - SUBJID
+    - MDOSREF
+    - AEDECOD
+    order_by:
+    - ADURSDT
+    - ADUREDT
+    - AESEQ
+  W_APL_BC:
+    group_by:
+    - USUBJID
+    order_by:
+    - _APL_BCFLN
+    - AESTDTC
+    - ASTDTM
+    - AESEQ
+  W_APL_D:
+    group_by:
+    - USUBJID
+    order_by:
+    - _APL_BCDFLN
+    - AESTDTC
+    - ASTDTM
+    - AESEQ
+columns:
+- name: _ADSL
+  type: str
+  derivation: ADSL.USUBJID
+- name: _REMOVEFL
+  type: str
+  derivation: SUPP_P.REMOVEFL
+- name: _AETERM_1
+  type: str
+  derivation:
+    str_replace:
+      source: AE.AETERM
+      pattern: ' {2,}'
+      replacement: ' '
+- name: _AETERM_2
+  type: str
+  derivation:
+    str_replace:
+      source: _AETERM_1
+      pattern: '^ +| +$'
+      replacement: ''
+- name: _AETERM_3
+  type: str
+  derivation:
+    str_replace:
+      source: _AETERM_2
+      pattern: '\u00a0'
+      replacement: ' '
+- name: _AETERM_M1
+  type: str
+  derivation:
+    str_replace:
+      source: _AETERM_3
+      pattern: '\u2019'
+      replacement: "\u00e2\u20ac\u2122"
+- name: _AETERM_M2
+  type: str
+  derivation:
+    str_replace:
+      source: _AETERM_M1
+      pattern: '\u201c'
+      replacement: "\u00e2\u20ac\u0153"
+- name: _AETERM
+  type: str
+  derivation:
+    str_replace:
+      source: _AETERM_M2
+      pattern: '\u201d'
+      replacement: "\u00e2\u20ac\ufffd"
+- name: _AESPID
+  type: str
+  derivation: AE.AESPID
+- name: _AECD
+  type: str
+  derivation:
+    str_decimal:
+      source: AE.AEPTCD
+      decimals: 0
+- name: _AELLT_UP
+  type: str
+  derivation:
+    str_case:
+      source: AE.AELLT
+      to: upper
+- name: _AEOUT_UP
+  type: str
+  derivation:
+    str_case:
+      source: AE.AEOUT
+      to: upper
+- name: _AETERM_UP
+  type: str
+  derivation:
+    str_case:
+      source: _AETERM
+      to: upper
+- name: _AEGRPID
+  type: str
+  derivation: AE.AEGRPID
+- name: _AE_GRP
+  type: str
+  derivation:
+    str_template:
+      template: 'AE-{_AEGRPID}'
+- name: _AEST_PREC
+  type: str
+  derivation:
+    precision:
+      type: date
+      source: AE.AESTDTC
+      invalid: null
+- name: _ASTTM
+  type: str
+  derivation:
+    case:
+    - when: str_contains(AE.AESTDTC, 'T')
+      then:
+        str_extract:
+          source: AE.AESTDTC
+          pattern: 'T([0-9:]+)'
+          group: 1
+          no_match: null
+- name: _AEOUTSP_C
+  type: str
+  derivation:
+    str_replace:
+      source: SUPP_P.AEOUTSP
+      pattern: '\u00a0'
+      replacement: ' '
+- name: _AESPIDX_1
+  type: str
+  derivation:
+    str_extract:
+      source: SUPP_AESPIDX.QVAL
+      pattern: '^([^, ]+)'
+      group: 1
+      no_match: null
+- name: _AESPIDX_2
+  type: str
+  derivation:
+    str_extract:
+      source: SUPP_AESPIDX.QVAL
+      pattern: '^[^,]+, *([^, ]+)'
+      group: 1
+      no_match: null
+- name: _AESPIDX_3
+  type: str
+  derivation:
+    str_extract:
+      source: SUPP_AESPIDX.QVAL
+      pattern: '^[^,]+,[^,]+, *([^, ]+)'
+      group: 1
+      no_match: null
+- name: _HODUR
+  type: str
+  derivation:
+    first_available:
+      sources: [HO_ICU1.HODUR, HO_ICU2.HODUR, HO_ICU3.HODUR, HO_ICU4.HODUR, HO_ICU5.HODUR, HO_ICU6.HODUR, HO_ICU7.HODUR, HO_ICU8.HODUR, HO_ICU9.HODUR, HO_ICU10.HODUR]
+- name: _EXTRT1_UP
+  type: str
+  derivation:
+    str_case:
+      source: EX_DOSE1.EXTRT
+      to: upper
+- name: _EXTRT2_UP
+  type: str
+  derivation:
+    str_case:
+      source: EX_DOSE2.EXTRT
+      to: upper
+- name: _EXTRT3_UP
+  type: str
+  derivation:
+    str_case:
+      source: EX_DOSE3.EXTRT
+      to: upper
+- name: _EXTRT4_UP
+  type: str
+  derivation:
+    str_case:
+      source: EX_DOSE4.EXTRT
+      to: upper
+- name: _AETOXGR
+  type: str
+  derivation: AE.AETOXGR
+- name: _AESEV_PC
+  type: str
+  derivation:
+    mapping:
+      source: AE.AESEV
+      dict:
+        MILD: Mild
+        MODERATE: Moderate
+        SEVERE: Severe
+      unmapped: null
+- name: STUDYID
+  derivation: AE.STUDYID
+  submission:
+    origins:
+    - type: Predecessor
+      description: AE.STUDYID
+- name: USUBJID
+  derivation: AE.USUBJID
+  submission:
+    origins:
+    - type: Predecessor
+      description: AE.USUBJID
+- name: SUBJID
+  derivation: ADSL.SUBJID
+  submission:
+    origins:
+    - type: Assigned
+- name: SITEID
+  derivation: ADSL.SITEID
+  submission:
+    origins:
+    - type: Predecessor
+      description: ADSL.SITEID
+- name: COUNTRY
+  derivation: ADSL.COUNTRY
+  submission:
+    origins:
+    - type: Predecessor
+      description: ADSL.COUNTRY
+- name: AGE
+  derivation: ADSL.AGE
+  submission:
+    origins:
+    - type: Predecessor
+      description: ADSL.AGE
+- name: AGEU
+  derivation: ADSL.AGEU
+  submission:
+    origins:
+    - type: Predecessor
+      description: ADSL.AGEU
+- name: STRATAR
+  derivation: ADSL.STRATAR
+  submission:
+    origins:
+    - type: Predecessor
+      description: ADSL.STRATAR
+- name: STRATARN
+  derivation: ADSL.STRATARN
+  submission:
+    origins:
+    - type: Predecessor
+      description: ADSL.STRATARN
+- name: AGEGR1
+  derivation: ADSL.AGEGR1
+  submission:
+    origins:
+    - type: Predecessor
+      description: ADSL.AGEGR1
+- name: AGEGR1N
+  derivation: ADSL.AGEGR1N
+  submission:
+    origins:
+    - type: Predecessor
+      description: ADSL.AGEGR1N
+- name: AGEGR2
+  derivation: ADSL.AGEGR2
+  submission:
+    origins:
+    - type: Predecessor
+      description: ADSL.AGEGR2
+- name: AGEGR2N
+  derivation: ADSL.AGEGR2N
+  submission:
+    origins:
+    - type: Predecessor
+      description: ADSL.AGEGR2N
+- name: AGEGR3
+  derivation: ADSL.AGEGR3
+  submission:
+    origins:
+    - type: Predecessor
+      description: ADSL.AGEGR3
+- name: AGEGR3N
+  derivation: ADSL.AGEGR3N
+  submission:
+    origins:
+    - type: Predecessor
+      description: ADSL.AGEGR3N
+- name: AGEGR4
+  derivation: ADSL.AGEGR4
+  submission:
+    mandatory: false
+    origins:
+    - type: Predecessor
+      description: ADSL.AGEGR4
+- name: AGEGR4N
+  derivation: ADSL.AGEGR4N
+  submission:
+    mandatory: false
+    origins:
+    - type: Predecessor
+      description: ADSL.AGEGR4N
+- name: SEX
+  derivation: ADSL.SEX
+  submission:
+    origins:
+    - type: Predecessor
+      description: ADSL.SEX
+- name: RACE
+  derivation: ADSL.RACE
+  submission:
+    origins:
+    - type: Predecessor
+      description: ADSL.RACE
+- name: RACESPY
+  derivation: ADSL.RACESPY
+  submission:
+    origins:
+    - type: Predecessor
+      description: ADSL.RACESPY
+- name: ETHNIC
+  derivation: ADSL.ETHNIC
+  submission:
+    origins:
+    - type: Predecessor
+      description: ADSL.ETHNIC
+- name: RANDFL
+  derivation: ADSL.RANDFL
+  submission:
+    origins:
+    - type: Predecessor
+      description: ADSL.RANDFL
+- name: FASFL
+  derivation: ADSL.FASFL
+  submission:
+    origins:
+    - type: Predecessor
+      description: ADSL.FASFL
+- name: SAFFL
+  derivation: ADSL.SAFFL
+  submission:
+    origins:
+    - type: Predecessor
+      description: ADSL.SAFFL
+- name: SAR1FL
+  derivation: ADSL.SAR1FL
+  submission:
+    origins:
+    - type: Predecessor
+      description: ADSL.SAR1FL
+- name: SAR2FL
+  derivation: ADSL.SAR2FL
+  submission:
+    origins:
+    - type: Predecessor
+      description: ADSL.SAR2FL
+- name: SARAFL
+  derivation: ADSL.SARAFL
+  submission:
+    origins:
+    - type: Predecessor
+      description: ADSL.SARAFL
+- name: MITTFL
+  derivation: ADSL.MITTFL
+  submission:
+    origins:
+    - type: Predecessor
+      description: ADSL.MITTFL
+- name: PPROTFL
+  derivation: ADSL.PPROTFL
+  submission:
+    origins:
+    - type: Predecessor
+      description: ADSL.PPROTFL
+- name: RANDIGFL
+  derivation: ADSL.RANDIGFL
+  submission:
+    origins:
+    - type: Predecessor
+      description: ADSL.RANDIGFL
+- name: PPSIFL
+  derivation: ADSL.PPSIFL
+  submission:
+    origins:
+    - type: Predecessor
+      description: ADSL.PPSIFL
+- name: CCIASFL
+  derivation: ADSL.CCIASFL
+  submission:
+    origins:
+    - type: Predecessor
+      description: ADSL.CCIASFL
+- name: DOSE1FL
+  derivation: ADSL.DOSE1FL
+  submission:
+    origins:
+    - type: Predecessor
+      description: ADSL.DOSE1FL
+- name: DOSE2FL
+  derivation: ADSL.DOSE2FL
+  submission:
+    origins:
+    - type: Predecessor
+      description: ADSL.DOSE2FL
+- name: OLDOS1FL
+  derivation: ADSL.OLDOS1FL
+  submission:
+    origins:
+    - type: Predecessor
+      description: ADSL.OLDOS1FL
+- name: OLDOS2FL
+  derivation: ADSL.OLDOS2FL
+  submission:
+    origins:
+    - type: Predecessor
+      description: ADSL.OLDOS2FL
+- name: RTPCRBL
+  derivation: ADSL.RTPCRBL
+  submission:
+    origins:
+    - type: Predecessor
+      description: ADSL.RTPCRBL
+- name: ELECSBL
+  derivation: ADSL.ELECSBL
+  submission:
+    origins:
+    - type: Predecessor
+      description: ADSL.ELECSBL
+- name: SCOV2BL
+  derivation: ADSL.SCOV2BL
+  submission:
+    origins:
+    - type: Predecessor
+      description: ADSL.SCOV2BL
+- name: TRT01P
+  derivation: ADSL.TRT01P
+  submission:
+    origins:
+    - type: Predecessor
+      description: ADSL.TRT01P
+- name: TRT01PN
+  derivation: ADSL.TRT01PN
+  submission:
+    origins:
+    - type: Predecessor
+      description: ADSL.TRT01PN
+- name: TRT01A
+  derivation: ADSL.TRT01A
+  submission:
+    origins:
+    - type: Predecessor
+      description: ADSL.TRT01A
+- name: TRT01AN
+  derivation: ADSL.TRT01AN
+  submission:
+    origins:
+    - type: Predecessor
+      description: ADSL.TRT01AN
+- name: TRT02P
+  derivation: ADSL.TRT02P
+  submission:
+    origins:
+    - type: Predecessor
+      description: ADSL.TRT02P
+- name: TRT02PN
+  derivation: ADSL.TRT02PN
+  submission:
+    origins:
+    - type: Predecessor
+      description: ADSL.TRT02PN
+- name: TRT02A
+  derivation: ADSL.TRT02A
+  submission:
+    origins:
+    - type: Predecessor
+      description: ADSL.TRT02A
+- name: TRT02AN
+  derivation: ADSL.TRT02AN
+  submission:
+    origins:
+    - type: Predecessor
+      description: ADSL.TRT02AN
+- name: TRTSEQP
+  derivation: ADSL.TRTSEQP
+  submission:
+    origins:
+    - type: Predecessor
+      description: ADSL.TRTSEQP
+- name: TRTSEQPN
+  derivation: ADSL.TRTSEQPN
+  submission:
+    origins:
+    - type: Predecessor
+      description: ADSL.TRTSEQPN
+- name: TRTSEQA
+  derivation: ADSL.TRTSEQA
+  submission:
+    origins:
+    - type: Predecessor
+      description: ADSL.TRTSEQA
+- name: TRTSEQAN
+  derivation: ADSL.TRTSEQAN
+  submission:
+    origins:
+    - type: Predecessor
+      description: ADSL.TRTSEQAN
+- name: TRTSDT
+  derivation: ADSL.TRTSDT
+  submission:
+    origins:
+    - type: Predecessor
+      description: ADSL.TRTSDT
+- name: TRTEDT
+  derivation: ADSL.TRTEDT
+  submission:
+    origins:
+    - type: Predecessor
+      description: ADSL.TRTEDT
+- name: TR01SDT
+  derivation: ADSL.TR01SDT
+  submission:
+    origins:
+    - type: Predecessor
+      description: ADSL.TR01SDT
+- name: TR01SDTM
+  derivation: ADSL.TR01SDTM
+  submission:
+    origins:
+    - type: Predecessor
+      description: ADSL.TR01SDTM
+- name: TR01EDT
+  derivation: ADSL.TR01EDT
+  submission:
+    origins:
+    - type: Predecessor
+      description: ADSL.TR01EDT
+- name: TR01EDTM
+  derivation: ADSL.TR01EDTM
+  submission:
+    origins:
+    - type: Predecessor
+      description: ADSL.TR01EDTM
+- name: DOSE2DT
+  derivation: ADSL.DOSE2DT
+  submission:
+    origins:
+    - type: Predecessor
+      description: ADSL.DOSE2DT
+- name: DOS2DTM
+  derivation: ADSL.DOS2DTM
+  submission:
+    origins:
+    - type: Predecessor
+      description: ADSL.DOS2DTM
+- name: TR02SDT
+  derivation: ADSL.TR02SDT
+  submission:
+    origins:
+    - type: Predecessor
+      description: ADSL.TR02SDT
+- name: TR02SDTM
+  derivation: ADSL.TR02SDTM
+  submission:
+    origins:
+    - type: Predecessor
+      description: ADSL.TR02SDTM
+- name: TR02EDT
+  derivation: ADSL.TR02EDT
+  submission:
+    origins:
+    - type: Predecessor
+      description: ADSL.TR02EDT
+- name: TR02EDTM
+  derivation: ADSL.TR02EDTM
+  submission:
+    origins:
+    - type: Predecessor
+      description: ADSL.TR02EDTM
+- name: OLDOS2DT
+  derivation: ADSL.OLDOS2DT
+  submission:
+    origins:
+    - type: Predecessor
+      description: ADSL.OLDOS2DT
+- name: OLDO2DTM
+  derivation: ADSL.OLDO2DTM
+  submission:
+    origins:
+    - type: Predecessor
+      description: ADSL.OLDO2DTM
+- name: EUAVACDT
+  derivation: ADSL.EUAVACDT
+  submission:
+    mandatory: false
+    origins:
+    - type: Predecessor
+      description: ADSL.EUAVACDT
+- name: EFFCODT
+  derivation: ADSL.EFFCODT
+  submission:
+    origins:
+    - type: Predecessor
+      description: ADSL.EFFCODT
+- name: AP01SDT
+  derivation: ADSL.AP01SDT
+  submission:
+    origins:
+    - type: Predecessor
+      description: ADSL.AP01SDT
+- name: AP01EDT
+  derivation: ADSL.AP01EDT
+  submission:
+    mandatory: false
+    origins:
+    - type: Predecessor
+      description: ADSL.AP01EDT
+- name: AP02SDT
+  derivation: ADSL.AP02SDT
+  submission:
+    origins:
+    - type: Predecessor
+      description: ADSL.AP02SDT
+- name: AP02EDT
+  derivation: ADSL.AP02EDT
+  submission:
+    origins:
+    - type: Predecessor
+      description: ADSL.AP02EDT
+- name: AP01SSDT
+  derivation: ADSL.AP01SSDT
+  submission:
+    origins:
+    - type: Predecessor
+      description: ADSL.AP01SSDT
+- name: AP01SEDT
+  derivation: ADSL.AP01SEDT
+  submission:
+    mandatory: false
+    origins:
+    - type: Predecessor
+      description: ADSL.AP01SEDT
+- name: AP02SSDT
+  derivation: ADSL.AP02SSDT
+  submission:
+    origins:
+    - type: Predecessor
+      description: ADSL.AP02SSDT
+- name: AP02SEDT
+  derivation: ADSL.AP02SEDT
+  submission:
+    origins:
+    - type: Predecessor
+      description: ADSL.AP02SEDT
+- name: RSKF1
+  derivation: ADSL.RSKF1
+  submission:
+    origins:
+    - type: Predecessor
+      description: ADSL.RSKF1
+- name: RSKF2
+  derivation: ADSL.RSKF2
+  submission:
+    origins:
+    - type: Predecessor
+      description: ADSL.RSKF2
+- name: RSKF3
+  derivation: ADSL.RSKF3
+  submission:
+    origins:
+    - type: Predecessor
+      description: ADSL.RSKF3
+- name: RSKF4
+  derivation: ADSL.RSKF4
+  submission:
+    origins:
+    - type: Predecessor
+      description: ADSL.RSKF4
+- name: RSKF5
+  derivation: ADSL.RSKF5
+  submission:
+    origins:
+    - type: Predecessor
+      description: ADSL.RSKF5
+- name: RSKF6
+  derivation: ADSL.RSKF6
+  submission:
+    origins:
+    - type: Predecessor
+      description: ADSL.RSKF6
+- name: STRATAV
+  derivation: ADSL.STRATAV
+  submission:
+    origins:
+    - type: Predecessor
+      description: ADSL.STRATAV
+- name: STRATAVN
+  derivation: ADSL.STRATAVN
+  submission:
+    origins:
+    - type: Predecessor
+      description: ADSL.STRATAVN
+- name: STUDDUR3
+  derivation: ADSL.STUDDUR3
+  submission:
+    origins:
+    - type: Predecessor
+      description: ADSL.STUDDUR3
+- name: MINORITY
+  derivation: ADSL.MINORITY
+  submission:
+    origins:
+    - type: Predecessor
+      description: ADSL.MINORITY
+- name: RACEGR1
+  derivation: ADSL.RACEGR1
+  submission:
+    mandatory: false
+    origins:
+    - type: Predecessor
+      description: ADSL.RACEGR1
+- name: RACEGR1N
+  derivation: ADSL.RACEGR1N
+  submission:
+    mandatory: false
+    origins:
+    - type: Predecessor
+      description: ADSL.RACEGR1N
+- name: RISKGR1
+  derivation: ADSL.RISKGR1
+  submission:
+    origins:
+    - type: Predecessor
+      description: ADSL.RISKGR1
+- name: RISKGR1N
+  derivation: ADSL.RISKGR1N
+  submission:
+    origins:
+    - type: Predecessor
+      description: ADSL.RISKGR1N
+- name: RETHGR1
+  derivation: ADSL.RETHGR1
+  submission:
+    origins:
+    - type: Predecessor
+      description: ADSL.RETHGR1
+- name: RETHGR1N
+  derivation: ADSL.RETHGR1N
+  submission:
+    origins:
+    - type: Predecessor
+      description: ADSL.RETHGR1N
+- name: COVIDAFL
+  derivation: ADSL.COVIDAFL
+  submission:
+    origins:
+    - type: Predecessor
+      description: ADSL.COVIDAFL
+- name: CVDSVAFL
+  derivation: ADSL.CVDSVAFL
+  submission:
+    origins:
+    - type: Predecessor
+      description: ADSL.CVDSVAFL
+- name: ACTARM
+  derivation: null
+- name: ARM
+  derivation: null
+- name: BMIBL
+  derivation: null
+- name: CBNRS
+  derivation: null
+- name: CHILDBP
+  derivation: null
+- name: COMPLFL
+  derivation: null
+- name: CUTOFFDT
+  derivation: null
+- name: DCSREAS
+  derivation: null
+- name: DCSREASP
+  derivation: null
+- name: DCT01RS
+  derivation: null
+- name: DCT01RSP
+  derivation: null
+- name: DCT02RS
+  derivation: null
+- name: DCT02RSP
+  derivation: null
+- name: DSDTHSP
+  derivation: null
+- name: DTHAUTOP
+  derivation: null
+- name: DTHCAUS
+  derivation: null
+- name: DTHDT
+  derivation: null
+- name: EOSDT
+  derivation: null
+- name: EOSDY
+  derivation: null
+- name: EOSSTT
+  derivation: null
+- name: EOT01DT
+  derivation: null
+- name: EOT01DY
+  derivation: null
+- name: EOT01STT
+  derivation: null
+- name: EOT02DT
+  derivation: null
+- name: EOT02DY
+  derivation: null
+- name: EOT02STT
+  derivation: null
+- name: EXTDT
+  derivation: null
+- name: FASEREAS
+  derivation: null
+- name: HEIGHTBL
+  derivation: null
+- name: IRTVISDT
+  derivation: null
+- name: MITTERS
+  derivation: null
+- name: PDVDT
+  derivation: null
+- name: PPEREAS
+  derivation: null
+- name: PPSIEREA
+  derivation: null
+- name: PREVSCR
+  derivation: null
+- name: PROTVER
+  derivation: null
+- name: RANDDT
+  derivation: null
+- name: RANDNUM
+  derivation: null
+- name: RFICDT
+  derivation: null
+- name: SAFEREAS
+  derivation: null
+- name: SAR1ERS
+  derivation: null
+- name: SAR2ERS
+  derivation: null
+- name: STUDDUR1
+  derivation: null
+- name: STUDDUR2
+  derivation: null
+- name: STUDDUR4
+  derivation: null
+- name: STUDDUR5
+  derivation: null
+- name: STUDDUR6
+  derivation: null
+- name: TTDTH1
+  derivation: null
+- name: TTDTH2
+  derivation: null
+- name: UBLDDT
+  derivation: null
+- name: UICDT
+  derivation: null
+- name: WEIGHTBL
+  derivation: null
+- name: _DSSEQ_MAX
+  type: int
+  derivation:
+    aggregate:
+      key:
+      - STUDYID
+      - USUBJID
+      - SUBJID
+      filter: DS.DSDECOD IN ('SAE', 'AE', 'ADVERSE EVENT', 'SERIOUS ADVERSE EVENT') AND DS.DSSCAT = 'END OF STUDY'
+      expr: MAX(DS.DSSEQ)
+- name: _DSSEQ_STR
+  type: str
+  derivation:
+    str_decimal:
+      source: _DSSEQ_MAX
+      decimals: 0
+- name: AESPID
+  type: str
+  label: Sponsor-Defined Identifier
+  derivation: AE.AESPID
+  submission:
+    core: Perm
+    mandatory: false
+    length: 40
+    origins:
+    - type: Predecessor
+      description: AE.AESPID
+- name: AECAT
+  type: str
+  label: Category for Adverse Event
+  derivation: AE.AECAT
+  submission:
+    core: Perm
+    mandatory: false
+    length: 25
+    origins:
+    - type: Predecessor
+      description: AE.AECAT
+- name: AEDECOD
+  type: str
+  label: Dictionary-Derived Term
+  derivation: AE.AEDECOD
+  submission:
+    core: Perm
+    mandatory: false
+    length: 200
+    origins:
+    - type: Predecessor
+      description: AE.AEDECOD
+- name: AEBODSYS
+  type: str
+  label: Body System or Organ Class
+  derivation: AE.AEBODSYS
+  submission:
+    core: Perm
+    mandatory: false
+    length: 200
+    origins:
+    - type: Predecessor
+      description: AE.AEBODSYS
+- name: AEBDSYCD
+  type: int
+  label: Body System or Organ Class Code
+  derivation: AE.AEBDSYCD
+  submission:
+    # SUB-29 (yamaa #4820): numeric widths here fit the derived values. The received
+    # define's Pinnacle 21 widths stay in the reproduced define layer (define/).
+    core: Perm
+    mandatory: false
+    length: 8
+    origins:
+    - type: Predecessor
+      description: AE.AEBDSYCD
+- name: AELLT
+  type: str
+  label: Lowest Level Term
+  derivation: AE.AELLT
+  submission:
+    core: Perm
+    mandatory: false
+    length: 200
+    origins:
+    - type: Predecessor
+      description: AE.AELLT
+- name: AELLTCD
+  type: int
+  label: Lowest Level Term Code
+  derivation: AE.AELLTCD
+  submission:
+    # SUB-29 (yamaa #4820): numeric widths here fit the derived values. The received
+    # define's Pinnacle 21 widths stay in the reproduced define layer (define/).
+    core: Perm
+    mandatory: false
+    length: 8
+    origins:
+    - type: Predecessor
+      description: AE.AELLTCD
+- name: AEPTCD
+  type: int
+  label: Preferred Term Code
+  derivation: AE.AEPTCD
+  submission:
+    # SUB-29 (yamaa #4820): numeric widths here fit the derived values. The received
+    # define's Pinnacle 21 widths stay in the reproduced define layer (define/).
+    core: Perm
+    mandatory: false
+    length: 8
+    origins:
+    - type: Predecessor
+      description: AE.AEPTCD
+- name: AEHLT
+  type: str
+  label: High Level Term
+  derivation: AE.AEHLT
+  submission:
+    core: Perm
+    mandatory: false
+    length: 200
+    origins:
+    - type: Predecessor
+      description: AE.AEHLT
+- name: AEHLTCD
+  type: int
+  label: High Level Term Code
+  derivation: AE.AEHLTCD
+  submission:
+    # SUB-29 (yamaa #4820): numeric widths here fit the derived values. The received
+    # define's Pinnacle 21 widths stay in the reproduced define layer (define/).
+    core: Perm
+    mandatory: false
+    length: 8
+    origins:
+    - type: Predecessor
+      description: AE.AEHLTCD
+- name: AEHLGT
+  type: str
+  label: High Level Group Term
+  derivation: AE.AEHLGT
+  submission:
+    core: Perm
+    mandatory: false
+    length: 200
+    origins:
+    - type: Predecessor
+      description: AE.AEHLGT
+- name: AEHLGTCD
+  type: int
+  label: High Level Group Term Code
+  derivation: AE.AEHLGTCD
+  submission:
+    # SUB-29 (yamaa #4820): numeric widths here fit the derived values. The received
+    # define's Pinnacle 21 widths stay in the reproduced define layer (define/).
+    core: Perm
+    mandatory: false
+    length: 8
+    origins:
+    - type: Predecessor
+      description: AE.AEHLGTCD
+- name: AESOC
+  type: str
+  label: Primary System Organ Class
+  derivation: AE.AESOC
+  submission:
+    core: Perm
+    mandatory: false
+    length: 200
+    origins:
+    - type: Predecessor
+      description: AE.AESOC
+- name: AESOCCD
+  type: int
+  label: Primary System Organ Class Code
+  derivation: AE.AESOCCD
+  submission:
+    # SUB-29 (yamaa #4820): numeric widths here fit the derived values. The received
+    # define's Pinnacle 21 widths stay in the reproduced define layer (define/).
+    core: Perm
+    mandatory: false
+    length: 8
+    origins:
+    - type: Predecessor
+      description: AE.AESOCCD
+- name: AESTDTC
+  type: str
+  label: Start Date/Time of Adverse Event
+  derivation: AE.AESTDTC
+  submission:
+    core: Perm
+    mandatory: false
+    length: 20
+    origins:
+    - type: Predecessor
+      description: AE.AESTDTC
+- name: AEENDTC
+  type: str
+  label: End Date/Time of Adverse Event
+  derivation: AE.AEENDTC
+  submission:
+    core: Perm
+    mandatory: false
+    length: 20
+    origins:
+    - type: Predecessor
+      description: AE.AEENDTC
+- name: AESTDY
+  type: int
+  label: Study Day of Start of Adverse Event
+  derivation: AE.AESTDY
+  submission:
+    core: Perm
+    mandatory: false
+    length: 8
+    display_format: '3.'
+    origins:
+    - type: Predecessor
+      description: AE.AESTDY
+- name: AEENDY
+  type: int
+  label: Study Day of End of Adverse Event
+  derivation: AE.AEENDY
+  submission:
+    core: Perm
+    mandatory: false
+    length: 8
+    display_format: '3.'
+    origins:
+    - type: Predecessor
+      description: AE.AEENDY
+- name: AEENRF
+  type: str
+  label: End Relative to Reference Period
+  derivation: AE.AEENRF
+  submission:
+    core: Perm
+    mandatory: false
+    length: 20
+    origins:
+    - type: Predecessor
+      description: AE.AEENRF
+- name: AEDUR
+  type: str
+  label: Duration of Adverse Event
+  derivation: AE.AEDUR
+  submission:
+    core: Perm
+    mandatory: false
+    length: 20
+    origins:
+    - type: Predecessor
+      description: AE.AEDUR
+- name: AESER
+  type: str
+  label: Serious Event
+  derivation: AE.AESER
+  submission:
+    core: Perm
+    mandatory: false
+    length: 9
+    origins:
+    - type: Predecessor
+      description: AE.AESER
+- name: AESCONG
+  type: str
+  label: Congenital Anomaly or Birth Defect
+  derivation: AE.AESCONG
+  submission:
+    core: Perm
+    mandatory: false
+    length: 8
+    origins:
+    - type: Predecessor
+      description: AE.AESCONG
+- name: AESDISAB
+  type: str
+  label: Persist or Signif Disability/Incapacity
+  derivation: AE.AESDISAB
+  submission:
+    core: Perm
+    mandatory: false
+    length: 8
+    origins:
+    - type: Predecessor
+      description: AE.AESDISAB
+- name: AESDTH
+  type: str
+  label: Results in Death
+  derivation: AE.AESDTH
+  submission:
+    core: Perm
+    mandatory: false
+    length: 8
+    origins:
+    - type: Predecessor
+      description: AE.AESDTH
+- name: AESHOSP
+  type: str
+  label: Requires or Prolongs Hospitalization
+  derivation: AE.AESHOSP
+  submission:
+    core: Perm
+    mandatory: false
+    length: 8
+    origins:
+    - type: Predecessor
+      description: AE.AESHOSP
+- name: AESLIFE
+  type: str
+  label: Is Life Threatening
+  derivation: AE.AESLIFE
+  submission:
+    core: Perm
+    mandatory: false
+    length: 8
+    origins:
+    - type: Predecessor
+      description: AE.AESLIFE
+- name: AESMIE
+  type: str
+  label: Other Medically Important Serious Event
+  derivation: AE.AESMIE
+  submission:
+    core: Perm
+    mandatory: false
+    length: 8
+    origins:
+    - type: Predecessor
+      description: AE.AESMIE
+- name: AEREL
+  type: str
+  label: Causality
+  derivation: AE.AEREL
+  submission:
+    core: Perm
+    mandatory: false
+    length: 60
+    origins:
+    - type: Predecessor
+      description: AE.AEREL
+- name: AERELNST
+  type: str
+  label: Relationship to Non-Study Treatment
+  derivation: AE.AERELNST
+  submission:
+    core: Perm
+    mandatory: false
+    length: 25
+    origins:
+    - type: Predecessor
+      description: AE.AERELNST
+- name: AETOXGR
+  type: str
+  label: Standard Toxicity Grade
+  derivation: AE.AETOXGR
+  submission:
+    core: Perm
+    mandatory: false
+    length: 20
+    origins:
+    - type: Predecessor
+      description: AE.AETOXGR
+- name: AESEV
+  type: str
+  label: Severity/Intensity
+  derivation: AE.AESEV
+  submission:
+    core: Perm
+    mandatory: false
+    length: 60
+    origins:
+    - type: Predecessor
+      description: AE.AESEV
+- name: AEACN
+  type: str
+  label: Action Taken with Study Treatment
+  derivation: AE.AEACN
+  submission:
+    core: Perm
+    mandatory: false
+    length: 99
+    origins:
+    - type: Predecessor
+      description: AE.AEACN
+- name: AEACNOTH
+  type: str
+  label: Other Action Taken
+  derivation: AE.AEACNOTH
+  submission:
+    core: Perm
+    mandatory: false
+    length: 200
+    origins:
+    - type: Predecessor
+      description: AE.AEACNOTH
+- name: AEOUT
+  type: str
+  label: Outcome of Adverse Event
+  derivation: AE.AEOUT
+  submission:
+    core: Perm
+    mandatory: false
+    length: 105
+    origins:
+    - type: Predecessor
+      description: AE.AEOUT
+- name: AESEQ
+  type: int
+  label: Sequence Number
+  derivation: AE.AESEQ
+  submission:
+    core: Req
+    mandatory: true
+    length: 8
+    display_format: '3.'
+    origins:
+    - type: Predecessor
+      description: AE.AESEQ
+- name: AETERM
+  type: str
+  label: Reported Term for the Adverse Event
+  derivation: _AETERM
+  submission:
+    core: Perm
+    mandatory: false
+    length: 200
+    origins:
+    - type: Derived
+    method: "Withheld from publication: the received define states this text."
+- name: AEOUTSP
+  type: str
+  label: "Recovered/Resolved with Sequelae,Spec"
+  derivation: _AEOUTSP_C
+  submission:
+    core: Perm
+    mandatory: false
+    length: 200
+    origins:
+    - type: Derived
+    method: "Withheld from publication: the received define states this text."
+- name: AEHSTDTC
+  type: str
+  label: Hospital Admission Date
+  derivation: SUPP_P.AEHOSPST
+  submission:
+    core: Perm
+    mandatory: false
+    length: 20
+    origins:
+    - type: Derived
+    method: "Withheld from publication: the received define states this text."
+- name: AEHENDTC
+  type: str
+  label: Hospital Discharge Date
+  derivation: SUPP_P.AEHOSPEN
+  submission:
+    core: Perm
+    mandatory: false
+    length: 20
+    origins:
+    - type: Derived
+    method: "Withheld from publication: the received define states this text."
+- name: AECVDIAG
+  type: str
+  label: confirmed diagnosis Symptom Covid-19
+  derivation: SUPP_P.AECVDIAG
+  submission:
+    core: Perm
+    mandatory: false
+    length: 200
+    origins:
+    - type: Derived
+    method: "Withheld from publication: the received define states this text."
+- name: AEMAFL
+  type: str
+  label: Medically-Attended Flag
+  derivation:
+    case:
+    - when: SUPP_P.MAAEFL = 'Y'
+      then: '''Y'''
+  submission:
+    core: Perm
+    mandatory: false
+    length: 20
+    origins:
+    - type: Derived
+    method: "Withheld from publication: the received define states this text."
+- name: ICUAD
+  type: str
+  label: Admitted to ICU
+  derivation:
+    first_available:
+      sources: [HO_ICU1.HOOCCUR, HO_ICU2.HOOCCUR, HO_ICU3.HOOCCUR, HO_ICU4.HOOCCUR, HO_ICU5.HOOCCUR, HO_ICU6.HOOCCUR, HO_ICU7.HOOCCUR, HO_ICU8.HOOCCUR, HO_ICU9.HOOCCUR, HO_ICU10.HOOCCUR]
+  submission:
+    core: Perm
+    mandatory: false
+    length: 20
+    origins:
+    - type: Derived
+    method: "Withheld from publication: the received define states this text."
+- name: ICUDAY
+  type: int
+  label: Number of Days in ICU
+  derivation:
+    str_extract:
+      source: _HODUR
+      pattern: '([0-9]+)'
+      group: 1
+      no_match: null
+  submission:
+    core: Perm
+    mandatory: false
+    length: 8
+    display_format: '3.'
+    origins:
+    - type: Derived
+    method: "Withheld from publication: the received define states this text."
+- name: _ASTDT_RAW
+  type: date
+  derivation:
+    case:
+    - when: _AEST_PREC = 'month'
+      then:
+        impute:
+          type: date
+          source: AE.AESTDTC
+          day: first
+          invalid: null
+    - when: _AEST_PREC = 'year'
+      then:
+        impute:
+          type: date
+          source: AE.AESTDTC
+          month: 1
+          day: 1
+          invalid: null
+    - otherwise:
+        to_date:
+          source: AE.AESTDTC
+- name: _AENDT_RAW
+  type: date
+  derivation:
+    to_date:
+      source: AE.AEENDTC
+- name: _ASTDTM_RAW
+  type: datetime
+  derivation:
+    case:
+    - when: str_contains(AE.AESTDTC, 'T') AND _ASTDT_RAW IS NOT NULL
+      then:
+        impute:
+          type: datetime
+          source: AE.AESTDTC
+          time: first
+- name: _AENDTM_RAW
+  type: datetime
+  derivation:
+    case:
+    - when: str_contains(AE.AEENDTC, 'T') AND _AENDT_RAW IS NOT NULL
+      then:
+        impute:
+          type: datetime
+          source: AE.AEENDTC
+          time: first
+- name: _AENTM_RAW
+  type: time
+  derivation:
+    to_time:
+      source: _AENDTM_RAW
+- name: _AST_END1
+  type: date
+  derivation:
+    case:
+    - when: ADSL.TR01EDT IS NOT NULL
+      then:
+        shift:
+          type: date
+          source: ADSL.TR01EDT
+          days: 27
+- name: _AST_END2
+  type: date
+  derivation:
+    case:
+    - when: ADSL.TR02EDT IS NOT NULL
+      then:
+        shift:
+          type: date
+          source: ADSL.TR02EDT
+          days: 27
+- name: ASTDT
+  type: date
+  label: Analysis Start Date
+  derivation:
+    case:
+    - when: _ASTDT_RAW IS NOT NULL AND _AENDT_RAW IS NOT NULL AND _ASTDT_RAW > _AENDT_RAW
+      then: _AENDT_RAW
+    - otherwise: _ASTDT_RAW
+  submission:
+    core: Perm
+    mandatory: false
+    origins:
+    - type: Derived
+    method: "Withheld from publication: the received define states this text."
+- name: AENDT
+  type: date
+  label: Analysis End Date
+  derivation:
+    case:
+    - when: _ASTDT_RAW IS NOT NULL AND _AENDT_RAW IS NOT NULL AND _ASTDT_RAW > _AENDT_RAW
+      then: _ASTDT_RAW
+    - otherwise: _AENDT_RAW
+  submission:
+    core: Perm
+    mandatory: false
+    origins:
+    - type: Derived
+    method: "Withheld from publication: the received define states this text."
+- name: ASTDTM
+  type: datetime
+  label: Analysis Start Date/Time
+  derivation:
+    case:
+    - when: _ASTDT_RAW IS NOT NULL AND _AENDT_RAW IS NOT NULL AND _ASTDT_RAW > _AENDT_RAW
+      then: _AENDTM_RAW
+    - otherwise: _ASTDTM_RAW
+  submission:
+    core: Perm
+    mandatory: false
+    origins:
+    - type: Derived
+    method: "Withheld from publication: the received define states this text."
+- name: AENDTM
+  type: datetime
+  label: Analysis End Date/Time
+  derivation:
+    case:
+    - when: _ASTDT_RAW IS NOT NULL AND _AENDT_RAW IS NOT NULL AND _ASTDT_RAW > _AENDT_RAW
+      then: _ASTDTM_RAW
+    - otherwise: _AENDTM_RAW
+  submission:
+    core: Perm
+    mandatory: false
+    origins:
+    - type: Derived
+    method: "Withheld from publication: the received define states this text."
+- name: AENTM
+  type: time
+  label: Analysis End Time
+  derivation:
+    case:
+    - when: _ASTDT_RAW IS NOT NULL AND _AENDT_RAW IS NOT NULL AND _ASTDT_RAW > _AENDT_RAW
+      then:
+        to_time:
+          source: _ASTDTM_RAW
+    - otherwise: _AENTM_RAW
+  submission:
+    core: Perm
+    mandatory: false
+    origins:
+    - type: Derived
+    method: "Withheld from publication: the received define states this text."
+- name: ASTDTF
+  type: str
+  label: Analysis Start Date Imputation Flag
+  derivation:
+    case:
+    - when: _AEST_PREC = 'month'
+      then: '''D'''
+    - when: _AEST_PREC = 'year'
+      then: '''M'''
+  submission:
+    core: Perm
+    mandatory: false
+    length: 1
+    origins:
+    - type: Derived
+    method: "Withheld from publication: the received define states this text."
+- name: ASTDY
+  type: int
+  label: Analysis Start Relative Day
+  derivation:
+    study_day:
+      source: ASTDT
+      reference: ADSL.TR01SDT
+  submission:
+    core: Perm
+    mandatory: false
+    length: 8
+    display_format: '3.'
+    origins:
+    - type: Derived
+    method: "Withheld from publication: the received define states this text."
+- name: APERIOD
+  type: int
+  label: Period
+  derivation:
+    case:
+    - when: ADSL.TR02SDTM IS NOT NULL AND ADSL.TR02SDTM <= ASTDTM
+      then: 2
+    - when: ADSL.AP02SSDT IS NOT NULL AND ADSL.AP02SSDT <= ASTDT AND (_ASTTM IS NULL OR ADSL.TR02SDTM IS NULL)
+      then: 2
+    - otherwise: 1
+  submission:
+    core: Req
+    mandatory: true
+    length: 8
+    display_format: '3.'
+    origins:
+    - type: Derived
+    method: "Withheld from publication: the received define states this text."
+- name: ASTAGE
+  type: str
+  label: Stage
+  derivation:
+    case:
+    - when: (ADSL.TR01SDTM <= ASTDTM AND ASTDT <= _AST_END1) OR (ADSL.TR02SDTM <= ASTDTM AND ASTDT <= _AST_END2)
+      then: '''Vaccination stage'''
+    - when: (ADSL.TR01SDTM IS NULL OR ASTDTM IS NULL) AND ADSL.TR01SDT <= ASTDT AND ASTDT <= _AST_END1
+      then: '''Vaccination stage'''
+    - when: (ADSL.TR02SDTM IS NULL OR ASTDTM IS NULL) AND ADSL.TR02SDT <= ASTDT AND ASTDT <= _AST_END2
+      then: '''Vaccination stage'''
+    - when: (APERIOD = 1 AND ASTDT > _AST_END1 AND ADSL.TR01EDT IS NOT NULL) OR (ASTDT > _AST_END2 AND ADSL.TR02EDT IS NOT NULL)
+      then: '''Follow-Up stage'''
+  submission:
+    core: Req
+    mandatory: false
+    length: 30
+    origins:
+    - type: Derived
+    method: "Withheld from publication: the received define states this text."
+- name: ASTAGEN
+  type: int
+  label: Stage (N)
+  derivation:
+    mapping:
+      source: ASTAGE
+      dict:
+        'Vaccination stage': 1
+        'Follow-Up stage': 2
+      unmapped: null
+  submission:
+    core: Req
+    mandatory: false
+    length: 8
+    display_format: '3.'
+    origins:
+    - type: Derived
+    method: "Withheld from publication: the received define states this text."
+- name: _MDOSREF_0
+  type: str
+  derivation:
+    case:
+    - when: ADSL.TR01SDT IS NOT NULL AND ((ADSL.TR01SDTM <= ASTDTM AND ASTDTM < ADSL.DOS2DTM) OR (((ADSL.TR01SDTM <= ASTDTM AND ADSL.DOSE2DT IS NULL) OR (ADSL.TR01SDTM <= ASTDTM AND ADSL.DOS2DTM IS NULL AND ASTDT < ADSL.DOSE2DT)) AND (ADSL.TR02SDT IS NULL OR ASTDTM < ADSL.TR02SDTM OR ((ASTDTM IS NULL OR ADSL.TR02SDTM IS NULL) AND ASTDT < ADSL.TR02SDT))) OR (ADSL.TR01SDT <= ASTDT AND ASTDT < ADSL.DOSE2DT AND (ASTDTM IS NULL OR ADSL.TR01SDTM IS NULL)) OR (((ADSL.TR01SDT <= ASTDT AND (ASTDTM IS NULL OR ADSL.TR01SDTM IS NULL) AND ADSL.DOSE2DT IS NULL) OR (ADSL.TR01SDT <= ASTDT AND (ASTDTM IS NULL OR ADSL.TR01SDTM IS NULL) AND ASTDT < ADSL.DOSE2DT)) AND (ADSL.TR02SDT IS NULL OR ASTDTM < ADSL.TR02SDTM OR ((ASTDTM IS NULL OR ADSL.TR02SDTM IS NULL) AND ASTDT < ADSL.TR02SDT))))
+      then: '''Vaccination 1'''
+    - when: ADSL.TR01SDT IS NOT NULL AND ((ADSL.DOS2DTM <= ASTDTM AND ASTDTM < ADSL.TR02SDTM) OR (ADSL.DOS2DTM <= ASTDTM AND ADSL.TR02SDT IS NULL) OR (ADSL.DOS2DTM <= ASTDTM AND ADSL.TR02SDTM IS NULL AND ASTDT < ADSL.TR02SDT) OR (ADSL.DOSE2DT <= ASTDT AND ASTDT < ADSL.TR02SDT AND (ADSL.DOS2DTM IS NULL OR ASTDTM IS NULL)) OR (ADSL.DOSE2DT <= ASTDT AND (ADSL.DOS2DTM IS NULL OR ASTDTM IS NULL) AND ADSL.TR02SDT IS NULL) OR (ADSL.DOSE2DT <= ASTDT AND (ADSL.DOS2DTM IS NULL OR ASTDTM IS NULL) AND ADSL.TR02SDTM IS NULL AND ASTDT < ADSL.TR02SDT))
+      then: '''Vaccination 2'''
+    - when: ADSL.TR01SDT IS NOT NULL AND ((ADSL.TR02SDTM <= ASTDTM AND ASTDTM < ADSL.OLDO2DTM) OR (ADSL.TR02SDTM <= ASTDTM AND ADSL.OLDOS2DT IS NULL) OR (ADSL.TR02SDTM <= ASTDTM AND ADSL.OLDO2DTM IS NULL AND ASTDT < ADSL.OLDOS2DT) OR (ADSL.TR02SDT <= ASTDT AND ASTDT < ADSL.OLDOS2DT AND (ADSL.TR02SDTM IS NULL OR ASTDTM IS NULL)) OR (ADSL.TR02SDT <= ASTDT AND (ADSL.TR02SDTM IS NULL OR ASTDTM IS NULL) AND ASTDTM < ADSL.OLDO2DTM) OR (ADSL.TR02SDT <= ASTDT AND (ADSL.TR02SDTM IS NULL OR ASTDTM IS NULL) AND ADSL.OLDOS2DT IS NULL))
+      then: '''OL Vaccination 1'''
+    - when: ADSL.TR01SDT IS NOT NULL AND ((ADSL.OLDO2DTM <= ASTDTM) OR (ADSL.OLDOS2DT <= ASTDT AND (ADSL.OLDO2DTM IS NULL OR ASTDTM IS NULL)))
+      then: '''OL Vaccination 2'''
+- name: _MRD_0_DTM
+  type: datetime
+  derivation:
+    case:
+    - when: _MDOSREF_0 = 'Vaccination 1'
+      then: ADSL.TR01SDTM
+    - when: _MDOSREF_0 = 'Vaccination 2'
+      then: ADSL.DOS2DTM
+    - when: _MDOSREF_0 = 'OL Vaccination 1'
+      then: ADSL.TR02SDTM
+    - when: _MDOSREF_0 = 'OL Vaccination 2'
+      then: ADSL.OLDO2DTM
+- name: _MRD_0_D
+  type: date
+  derivation:
+    case:
+    - when: _MDOSREF_0 = 'Vaccination 1'
+      then: ADSL.TR01SDT
+    - when: _MDOSREF_0 = 'Vaccination 2'
+      then: ADSL.DOSE2DT
+    - when: _MDOSREF_0 = 'OL Vaccination 1'
+      then: ADSL.TR02SDT
+    - when: _MDOSREF_0 = 'OL Vaccination 2'
+      then: ADSL.OLDOS2DT
+- name: _MRD_0_SEC
+  type: int
+  derivation:
+    diff:
+      type: datetime
+      start: _MRD_0_DTM
+      end: ASTDTM
+      unit: second
+- name: _MRD_0_DAY
+  type: float
+  derivation: _MRD_0_SEC / 86400.0
+- name: _MRD_0_DDAY
+  type: int
+  derivation:
+    diff:
+      type: date
+      start: _MRD_0_D
+      end: ASTDT
+      unit: day
+- name: _MRD_0_VAL
+  type: int
+  derivation:
+    case:
+    - when: _MDOSREF_0 IS NULL
+      then: null
+    - when: ASTDTM IS NOT NULL AND _MRD_0_DTM IS NOT NULL
+      then: TRUNC(_MRD_0_DAY + 1)
+    - otherwise: _MRD_0_DDAY + 1
+- name: _MRDSTDY_0
+  type: int
+  derivation: _MRD_0_VAL
+- name: _MRD_SEC_D1
+  type: int
+  derivation:
+    diff:
+      type: datetime
+      start: ADSL.TR01SDTM
+      end: ASTDTM
+      unit: second
+- name: _MRD_DAY_D1
+  type: float
+  derivation: _MRD_SEC_D1 / 86400.0
+- name: _MRD_DDAY_D1
+  type: int
+  derivation:
+    diff:
+      type: date
+      start: ADSL.TR01SDT
+      end: ASTDT
+      unit: day
+- name: _MRDSTDY_D1
+  type: int
+  derivation:
+    case:
+    - when: ASTDTM IS NOT NULL AND ADSL.TR01SDTM IS NOT NULL
+      then: TRUNC(_MRD_DAY_D1 + 1)
+    - otherwise: _MRD_DDAY_D1 + 1
+- name: _MDOSREF_1
+  type: str
+  derivation:
+    case:
+    - when: _MDOSREF_0 IS NOT NULL AND (AENDTM < ADSL.TR01SDTM OR AENDT < ADSL.TR01SDT)
+      then: null
+    - when: _MDOSREF_0 = 'Vaccination 2' AND ADSL.TR01SDTM < AENDTM AND AENDTM < ADSL.DOS2DTM
+      then: '''Vaccination 1'''
+    - otherwise: _MDOSREF_0
+- name: _MRDSTDY_1
+  type: int
+  derivation:
+    case:
+    - when: _MDOSREF_0 IS NOT NULL AND (AENDTM < ADSL.TR01SDTM OR AENDT < ADSL.TR01SDT)
+      then: null
+    - when: _MDOSREF_0 = 'Vaccination 2' AND ADSL.TR01SDTM < AENDTM AND AENDTM < ADSL.DOS2DTM
+      then: _MRDSTDY_D1
+    - otherwise: _MRDSTDY_0
+- name: _MDOSREF_E
+  type: str
+  derivation:
+    case:
+    - when: ADSL.TR01SDT IS NOT NULL AND ((ADSL.TR01SDTM <= AENDTM AND AENDTM < ADSL.DOS2DTM) OR (((ADSL.TR01SDTM <= AENDTM AND ADSL.DOSE2DT IS NULL) OR (ADSL.TR01SDTM <= AENDTM AND ADSL.DOS2DTM IS NULL AND AENDT < ADSL.DOSE2DT)) AND (ADSL.TR02SDT IS NULL OR AENDTM < ADSL.TR02SDTM OR ((AENDTM IS NULL OR ADSL.TR02SDTM IS NULL) AND AENDT < ADSL.TR02SDT))) OR (ADSL.TR01SDT <= AENDT AND AENDT < ADSL.DOSE2DT AND (AENDTM IS NULL OR ADSL.TR01SDTM IS NULL)) OR (((ADSL.TR01SDT <= AENDT AND (AENDTM IS NULL OR ADSL.TR01SDTM IS NULL) AND ADSL.DOSE2DT IS NULL) OR (ADSL.TR01SDT <= AENDT AND (AENDTM IS NULL OR ADSL.TR01SDTM IS NULL) AND AENDT < ADSL.DOSE2DT)) AND (ADSL.TR02SDT IS NULL OR AENDTM < ADSL.TR02SDTM OR ((AENDTM IS NULL OR ADSL.TR02SDTM IS NULL) AND AENDT < ADSL.TR02SDT))) OR (_MDOSREF_1 = 'Vaccination 1'))
+      then: '''Vaccination 1'''
+    - when: ADSL.TR01SDT IS NOT NULL AND ((ADSL.DOS2DTM <= AENDTM AND AENDTM < ADSL.TR02SDTM) OR (ADSL.DOS2DTM <= AENDTM AND ADSL.TR02SDT IS NULL) OR (ADSL.DOS2DTM <= AENDTM AND ADSL.TR02SDTM IS NULL AND AENDT < ADSL.TR02SDT) OR (ADSL.DOSE2DT <= AENDT AND AENDT < ADSL.TR02SDT AND (ADSL.DOS2DTM IS NULL OR AENDTM IS NULL)) OR (ADSL.DOSE2DT <= AENDT AND (ADSL.DOS2DTM IS NULL OR AENDTM IS NULL) AND ADSL.TR02SDT IS NULL) OR (ADSL.DOSE2DT <= AENDT AND (ADSL.DOS2DTM IS NULL OR AENDTM IS NULL) AND ADSL.TR02SDTM IS NULL AND AENDT < ADSL.TR02SDT) OR (_MDOSREF_1 = 'Vaccination 2'))
+      then: '''Vaccination 2'''
+    - when: ADSL.TR01SDT IS NOT NULL AND ((ADSL.TR02SDTM <= AENDTM AND AENDTM < ADSL.OLDO2DTM) OR (ADSL.TR02SDTM <= AENDTM AND ADSL.OLDOS2DT IS NULL) OR (ADSL.TR02SDTM <= AENDTM AND ADSL.OLDO2DTM IS NULL AND AENDT < ADSL.OLDOS2DT) OR (ADSL.TR02SDT <= AENDT AND AENDT < ADSL.OLDOS2DT AND (ADSL.TR02SDTM IS NULL OR AENDTM IS NULL)) OR (ADSL.TR02SDT <= AENDT AND (ADSL.TR02SDTM IS NULL OR AENDTM IS NULL) AND AENDTM < ADSL.OLDO2DTM) OR (ADSL.TR02SDT <= AENDT AND (ADSL.TR02SDTM IS NULL OR AENDTM IS NULL) AND ADSL.OLDOS2DT IS NULL) OR (_MDOSREF_1 = 'OL Vaccination 1'))
+      then: '''OL Vaccination 1'''
+    - when: ADSL.TR01SDT IS NOT NULL AND ((ADSL.OLDO2DTM <= AENDTM) OR (ADSL.OLDOS2DT <= AENDT AND (ADSL.OLDO2DTM IS NULL OR AENDTM IS NULL)) OR (_MDOSREF_1 = 'OL Vaccination 2'))
+      then: '''OL Vaccination 2'''
+- name: _MRD_E_DTM
+  type: datetime
+  derivation:
+    case:
+    - when: _MDOSREF_E = 'Vaccination 1'
+      then: ADSL.TR01SDTM
+    - when: _MDOSREF_E = 'Vaccination 2'
+      then: ADSL.DOS2DTM
+    - when: _MDOSREF_E = 'OL Vaccination 1'
+      then: ADSL.TR02SDTM
+    - when: _MDOSREF_E = 'OL Vaccination 2'
+      then: ADSL.OLDO2DTM
+- name: _MRD_E_D
+  type: date
+  derivation:
+    case:
+    - when: _MDOSREF_E = 'Vaccination 1'
+      then: ADSL.TR01SDT
+    - when: _MDOSREF_E = 'Vaccination 2'
+      then: ADSL.DOSE2DT
+    - when: _MDOSREF_E = 'OL Vaccination 1'
+      then: ADSL.TR02SDT
+    - when: _MDOSREF_E = 'OL Vaccination 2'
+      then: ADSL.OLDOS2DT
+- name: _MRD_E_SEC
+  type: int
+  derivation:
+    diff:
+      type: datetime
+      start: _MRD_E_DTM
+      end: AENDTM
+      unit: second
+- name: _MRD_E_DAY
+  type: float
+  derivation: _MRD_E_SEC / 86400.0
+- name: _MRD_E_DDAY
+  type: int
+  derivation:
+    diff:
+      type: date
+      start: _MRD_E_D
+      end: AENDT
+      unit: day
+- name: _MRD_E_VAL
+  type: int
+  derivation:
+    case:
+    - when: _MDOSREF_E IS NULL
+      then: null
+    - when: AENDTM IS NOT NULL AND _MRD_E_DTM IS NOT NULL
+      then: TRUNC(_MRD_E_DAY + 1)
+    - otherwise: _MRD_E_DDAY + 1
+- name: _MRDENDY_RAW
+  type: int
+  derivation: _MRD_E_VAL
+- name: _MRDENDY
+  type: int
+  derivation:
+    case:
+    - when: _MDOSREF_1 IS NULL
+      then: null
+    - otherwise: _MRDENDY_RAW
+- name: _FATPTREF
+  type: str
+  derivation:
+    str_replace:
+      source: _MDOSREF_1
+      pattern: '^Vaccination '
+      replacement: 'DOSE '
+- name: _DOSE_DTM
+  type: datetime
+  derivation:
+    case:
+    - when: _MDOSREF_1 = 'Vaccination 1'
+      then: ADSL.TR01SDTM
+    - when: _MDOSREF_1 = 'Vaccination 2'
+      then: ADSL.DOS2DTM
+    - when: _MDOSREF_1 = 'OL Vaccination 1'
+      then: ADSL.TR02SDTM
+    - when: _MDOSREF_1 = 'OL Vaccination 2'
+      then: ADSL.OLDO2DTM
+- name: _RST_SEC
+  type: int
+  derivation:
+    diff:
+      type: datetime
+      start: _DOSE_DTM
+      end: ASTDTM
+      unit: second
+- name: MDOSREF
+  type: str
+  label: Most Recent Dose Reference
+  derivation: _MDOSREF_1
+  submission:
+    core: Req
+    mandatory: false
+    length: 50
+    origins:
+    - type: Derived
+    method: "Withheld from publication: the received define states this text."
+- name: MRDSTDY
+  type: int
+  label: Relative Start Day from Most Recent Dose
+  derivation:
+    case:
+    - when: ASTDT = AENDT AND _MRDSTDY_1 > _MRDENDY
+      then: _MRDENDY
+    - otherwise: _MRDSTDY_1
+  submission:
+    core: Perm
+    mandatory: false
+    length: 8
+    display_format: '3.'
+    origins:
+    - type: Derived
+    method: "Withheld from publication: the received define states this text."
+- name: MRDENDY
+  type: int
+  label: Relative End Day from Most Recent Dose
+  derivation: _MRDENDY
+  submission:
+    core: Perm
+    mandatory: false
+    length: 8
+    display_format: '3.'
+    origins:
+    - type: Derived
+    method: "Withheld from publication: the received define states this text."
+- name: RSTFRD
+  type: float
+  label: Minutes from Most Recent Dose Start to AE Start
+  derivation:
+    case:
+    - when: _MDOSREF_1 IS NOT NULL AND ASTDTM IS NOT NULL AND _DOSE_DTM IS NOT NULL
+      then: _RST_SEC / 60.0
+  submission:
+    core: Perm
+    mandatory: false
+    length: 8
+    significant_digits: 15
+    origins:
+    - type: Derived
+    method: "Withheld from publication: the received define states this text."
+- name: TRTA
+  type: str
+  label: Actual Treatment
+  derivation:
+    case:
+    - when: _MDOSREF_1 = 'Vaccination 1' AND _EXTRT1_UP = 'PLACEBO'
+      then: '''Placebo'''
+    - when: _MDOSREF_1 = 'Vaccination 1' AND str_contains(_EXTRT1_UP, 'MRNA') AND EX_DOSE1.EXDOSE > 0
+      then: '''mRNA-1273'''
+    - when: _MDOSREF_1 = 'Vaccination 2' AND _EXTRT2_UP = 'PLACEBO'
+      then: '''Placebo'''
+    - when: _MDOSREF_1 = 'Vaccination 2' AND str_contains(_EXTRT2_UP, 'MRNA') AND EX_DOSE2.EXDOSE > 0
+      then: '''mRNA-1273'''
+    - when: _MDOSREF_1 = 'OL Vaccination 1' AND _EXTRT3_UP = 'PLACEBO'
+      then: '''Placebo'''
+    - when: _MDOSREF_1 = 'OL Vaccination 1' AND str_contains(_EXTRT3_UP, 'MRNA') AND EX_DOSE3.EXDOSE > 0
+      then: '''mRNA-1273'''
+    - when: _MDOSREF_1 = 'OL Vaccination 2' AND _EXTRT4_UP = 'PLACEBO'
+      then: '''Placebo'''
+    - when: _MDOSREF_1 = 'OL Vaccination 2' AND str_contains(_EXTRT4_UP, 'MRNA') AND EX_DOSE4.EXDOSE > 0
+      then: '''mRNA-1273'''
+  submission:
+    core: Req
+    mandatory: false
+    length: 50
+    origins:
+    - type: Derived
+    method: "Withheld from publication: the received define states this text."
+- name: TRTAN
+  type: int
+  label: Actual Treatment (N)
+  derivation:
+    mapping:
+      source: TRTA
+      dict:
+        Placebo: 1
+        mRNA-1273: 2
+      unmapped: null
+  submission:
+    core: Req
+    mandatory: false
+    length: 8
+    display_format: '3.'
+    origins:
+    - type: Derived
+    method: "Withheld from publication: the received define states this text."
+- name: TRTEMFL
+  type: str
+  label: Treatment Emergent Analysis Flag
+  derivation:
+    case:
+    - when: AENDTM < ADSL.TR01SDTM OR AENDT < ADSL.TR01SDT
+      then: null
+    - when: ADSL.TR01SDTM <= ASTDTM OR (ASTDT IS NULL AND AENDT IS NULL) OR (ASTDT IS NULL AND ADSL.TR01SDTM <= AENDTM)
+      then: '''Y'''
+    - when: ASTDT IS NULL AND ADSL.TR01SDT < AENDT AND AENDTM IS NULL
+      then: '''Y'''
+    - when: (ADSL.TR01SDTM IS NULL OR ASTDTM IS NULL) AND ADSL.TR01SDT <= ASTDT
+      then: '''Y'''
+    - otherwise: null
+  submission:
+    core: Req
+    mandatory: false
+    length: 1
+    origins:
+    - type: Derived
+    method: "Withheld from publication: the received define states this text."
+- name: D28FL
+  type: str
+  label: AE Through 28 Days Analysis Flag
+  derivation:
+    case:
+    - when: MRDSTDY >= 0 AND MRDSTDY <= 28
+      then: '''Y'''
+  submission:
+    core: Req
+    mandatory: false
+    length: 1
+    origins:
+    - type: Derived
+    method: "Withheld from publication: the received define states this text."
+- name: AEDISFL
+  type: str
+  label: Leading to Study Discontinuation Flag
+  derivation:
+    case:
+    - when: _AE_GRP = _AESPIDX_1 OR _AE_GRP = _AESPIDX_2 OR _AE_GRP = _AESPIDX_3
+      then: '''Y'''
+    - when: _AEOUT_UP = 'FATAL'
+      then: '''Y'''
+    - when: str_contains(_AETERM_UP, 'DEATH')
+      then: '''Y'''
+  submission:
+    core: Perm
+    mandatory: false
+    length: 1
+    origins:
+    - type: Derived
+    method: "Withheld from publication: the received define states this text."
+- name: AREL
+  type: str
+  label: Analysis Causality
+  derivation: AE.AEREL
+  submission:
+    core: Perm
+    mandatory: false
+    length: 20
+    origins:
+    - type: Derived
+    method: "Withheld from publication: the received define states this text."
+- name: ARELN
+  type: int
+  label: Analysis Causality (N)
+  derivation:
+    mapping:
+      source: AREL
+      dict:
+        'NOT RELATED': 1
+        RELATED: 2
+        'NOT APPLICABLE': 3
+      unmapped: null
+  submission:
+    core: Perm
+    mandatory: false
+    length: 8
+    display_format: '3.'
+    origins:
+    - type: Derived
+    method: "Withheld from publication: the received define states this text."
+- name: ATOXGR
+  type: str
+  label: Analysis Toxicity Grade
+  derivation:
+    case:
+    - when: AE.AEOUT = 'FATAL' OR str_contains(_AETERM, 'DEATH')
+      then: '''Grade 5'''
+    - when: _AETOXGR IS NOT NULL
+      then:
+        str_template:
+          template: 'Grade {_AETOXGR}'
+  submission:
+    core: Perm
+    mandatory: false
+    length: 20
+    origins:
+    - type: Derived
+    method: "Withheld from publication: the received define states this text."
+- name: ATOXGRN
+  type: int
+  label: Analysis Toxicity Grade (N)
+  derivation:
+    mapping:
+      source: ATOXGR
+      dict:
+        'Grade 1': 1
+        'Grade 2': 2
+        'Grade 3': 3
+        'Grade 4': 4
+        'Grade 5': 5
+      unmapped: null
+  submission:
+    core: Perm
+    mandatory: false
+    length: 8
+    display_format: '3.'
+    origins:
+    - type: Derived
+    method: "Withheld from publication: the received define states this text."
+- name: ASEV
+  type: str
+  label: Analysis Severity/Intensity
+  derivation:
+    case:
+    - when: ATOXGRN >= 4
+      then: ATOXGR
+    - when: AE.AESEV IS NOT NULL
+      then:
+        str_template:
+          template: '{ATOXGR}/{_AESEV_PC}'
+    - when: ATOXGR IS NOT NULL OR AE.AESEV IS NOT NULL
+      then: ATOXGR
+  submission:
+    core: Perm
+    mandatory: false
+    length: 20
+    origins:
+    - type: Derived
+    method: "Withheld from publication: the received define states this text."
+- name: ASEVN
+  type: int
+  label: Analysis Severity/Intensity (N)
+  derivation:
+    mapping:
+      source: ASEV
+      dict:
+        Grade 1/Mild: 1
+        Grade 2/Moderate: 2
+        Grade 3/Severe: 3
+        Grade 4: 4
+        Grade 5: 5
+      unmapped: null
+  submission:
+    core: Perm
+    mandatory: false
+    length: 8
+    display_format: '3.'
+    origins:
+    - type: Derived
+    method: "Withheld from publication: the received define states this text."
+- name: TOXGGR1
+  type: str
+  label: Pooled Toxicity Grade Group 1
+  derivation:
+    case:
+    - when: ATOXGRN >= 3
+      then: '''>=3'''
+    - when: ATOXGRN < 3
+      then: '''<3'''
+  submission:
+    core: Perm
+    mandatory: false
+    length: 20
+    origins:
+    - type: Derived
+    method: "Withheld from publication: the received define states this text."
+- name: TOXGGR1N
+  type: int
+  label: Pooled Toxicity Grade 1 (N)
+  derivation:
+    case:
+    - when: ATOXGRN >= 3
+      then: 2
+    - when: ATOXGRN < 3
+      then: 1
+  submission:
+    core: Perm
+    mandatory: false
+    length: 8
+    display_format: '3.'
+    origins:
+    - type: Derived
+    method: "Withheld from publication: the received define states this text."
+- name: _ADUREDT_FB
+  type: date
+  derivation:
+    case:
+    - when: ASTDT > ADSL.CUTOFFDT
+      then: ADSL.EXTDT
+    - otherwise: ADSL.CUTOFFDT
+- name: ADURSDT
+  type: date
+  label: Analysis Duration Start Date
+  derivation:
+    case:
+    - when: TRTEMFL = 'Y' AND ASTDT IS NULL
+      then: ADSL.TR01SDT
+    - otherwise: ASTDT
+  submission:
+    core: Perm
+    mandatory: false
+    origins:
+    - type: Derived
+    method: "Withheld from publication: the received define states this text."
+- name: ADUREDT
+  type: date
+  label: Analysis Duration End Date
+  derivation:
+    case:
+    - when: AENDT IS NOT NULL
+      then: AENDT
+    - when: ADURSDT IS NOT NULL AND _ADUREDT_FB > ADSL.EOSDT
+      then: ADSL.EOSDT
+    - when: ADURSDT IS NOT NULL
+      then: _ADUREDT_FB
+  submission:
+    core: Perm
+    mandatory: false
+    origins:
+    - type: Derived
+    method: "Withheld from publication: the received define states this text."
+- name: SMQ01NAM
+  type: str
+  label: SMQ 01 Name
+  derivation:
+    mapping:
+      source: AE.AEDECOD
+      dict:
+        Acute respiratory failure: Anaphylactic Reaction
+        Anaphylactic reaction: Anaphylactic Reaction
+        Angioedema: Anaphylactic Reaction
+        Asthma: Anaphylactic Reaction
+        Blood pressure diastolic decreased: Anaphylactic Reaction
+        Blood pressure systolic decreased: Anaphylactic Reaction
+        Bronchospasm: Anaphylactic Reaction
+        Cardiac arrest: Anaphylactic Reaction
+        Cardio-respiratory arrest: Anaphylactic Reaction
+        Chest discomfort: Anaphylactic Reaction
+        Choking sensation: Anaphylactic Reaction
+        Cough: Anaphylactic Reaction
+        Diastolic hypotension: Anaphylactic Reaction
+        Dyspnoea: Anaphylactic Reaction
+        Erythema: Anaphylactic Reaction
+        Eye pruritus: Anaphylactic Reaction
+        Eye swelling: Anaphylactic Reaction
+        Flushing: Anaphylactic Reaction
+        Hypotension: Anaphylactic Reaction
+        Injection site urticaria: Anaphylactic Reaction
+        Laryngeal oedema: Anaphylactic Reaction
+        Lip oedema: Anaphylactic Reaction
+        Lip swelling: Anaphylactic Reaction
+        Ocular hyperaemia: Anaphylactic Reaction
+        Oedema: Anaphylactic Reaction
+        Periorbital oedema: Anaphylactic Reaction
+        Periorbital swelling: Anaphylactic Reaction
+        Pharyngeal swelling: Anaphylactic Reaction
+        Post procedural hypotension: Anaphylactic Reaction
+        Pruritus: Anaphylactic Reaction
+        Pruritus allergic: Anaphylactic Reaction
+        Rash: Anaphylactic Reaction
+        Rash erythematous: Anaphylactic Reaction
+        Rash pruritic: Anaphylactic Reaction
+        Respiratory distress: Anaphylactic Reaction
+        Respiratory failure: Anaphylactic Reaction
+        Sensation of foreign body: Anaphylactic Reaction
+        Sneezing: Anaphylactic Reaction
+        Swelling: Anaphylactic Reaction
+        Swelling face: Anaphylactic Reaction
+        Swelling of eyelid: Anaphylactic Reaction
+        Swollen tongue: Anaphylactic Reaction
+        Tachypnoea: Anaphylactic Reaction
+        Throat tightness: Anaphylactic Reaction
+        Urticaria: Anaphylactic Reaction
+        Urticaria papular: Anaphylactic Reaction
+        Wheezing: Anaphylactic Reaction
+      unmapped: null
+  submission:
+    core: Perm
+    mandatory: false
+    length: 100
+    origins:
+    - type: Derived
+    method: "Withheld from publication: the received define states this text."
+- name: SMQ01SC
+  type: str
+  label: SMQ 01 Scope
+  derivation:
+    mapping:
+      source: AE.AEDECOD
+      dict:
+        Acute respiratory failure: BROAD
+        Anaphylactic reaction: NARROW
+        Angioedema: BROAD
+        Asthma: BROAD
+        Blood pressure diastolic decreased: BROAD
+        Blood pressure systolic decreased: BROAD
+        Bronchospasm: BROAD
+        Cardiac arrest: BROAD
+        Cardio-respiratory arrest: BROAD
+        Chest discomfort: BROAD
+        Choking sensation: BROAD
+        Cough: BROAD
+        Diastolic hypotension: BROAD
+        Dyspnoea: BROAD
+        Erythema: BROAD
+        Eye pruritus: BROAD
+        Eye swelling: BROAD
+        Flushing: BROAD
+        Hypotension: BROAD
+        Injection site urticaria: BROAD
+        Laryngeal oedema: BROAD
+        Lip oedema: BROAD
+        Lip swelling: BROAD
+        Ocular hyperaemia: BROAD
+        Oedema: BROAD
+        Periorbital oedema: BROAD
+        Periorbital swelling: BROAD
+        Pharyngeal swelling: BROAD
+        Post procedural hypotension: BROAD
+        Pruritus: BROAD
+        Pruritus allergic: BROAD
+        Rash: BROAD
+        Rash erythematous: BROAD
+        Rash pruritic: BROAD
+        Respiratory distress: BROAD
+        Respiratory failure: BROAD
+        Sensation of foreign body: BROAD
+        Sneezing: BROAD
+        Swelling: BROAD
+        Swelling face: BROAD
+        Swelling of eyelid: BROAD
+        Swollen tongue: BROAD
+        Tachypnoea: BROAD
+        Throat tightness: BROAD
+        Urticaria: BROAD
+        Urticaria papular: BROAD
+        Wheezing: BROAD
+      unmapped: null
+  submission:
+    core: Perm
+    mandatory: false
+    length: 20
+    origins:
+    - type: Derived
+    method: "Withheld from publication: the received define states this text."
+- name: SMQ01FL
+  type: str
+  label: SMQ 01 Flag
+  derivation:
+    flag: SMQ01NAM IS NOT NULL
+  submission:
+    core: Perm
+    mandatory: false
+    length: 1
+    origins:
+    - type: Derived
+    method: "Withheld from publication: the received define states this text."
+- name: SMQ02NAM
+  type: str
+  label: SMQ 02 Name
+  derivation:
+    mapping:
+      source: AE.AEDECOD
+      dict:
+        Angioedema: Angioedema
+        Breast swelling: Angioedema
+        Choking sensation: Angioedema
+        Drug hypersensitivity: Angioedema
+        Eye swelling: Angioedema
+        Generalised oedema: Angioedema
+        Hypersensitivity: Angioedema
+        Idiopathic urticaria: Angioedema
+        Laryngeal oedema: Angioedema
+        Lip oedema: Angioedema
+        Lip swelling: Angioedema
+        Oedema: Angioedema
+        Oedema peripheral: Angioedema
+        Orbital oedema: Angioedema
+        Palatal oedema: Angioedema
+        Periorbital oedema: Angioedema
+        Periorbital swelling: Angioedema
+        Peripheral swelling: Angioedema
+        Pharyngeal swelling: Angioedema
+        Swelling: Angioedema
+        Swelling face: Angioedema
+        Swelling of eyelid: Angioedema
+        Swollen tongue: Angioedema
+        Throat tightness: Angioedema
+        Urticaria: Angioedema
+        Urticaria papular: Angioedema
+        Wheezing: Angioedema
+      unmapped: null
+  submission:
+    core: Perm
+    mandatory: false
+    length: 100
+    origins:
+    - type: Derived
+    method: "Withheld from publication: the received define states this text."
+- name: SMQ02SC
+  type: str
+  label: SMQ 02 Scope
+  derivation:
+    mapping:
+      source: AE.AEDECOD
+      dict:
+        Angioedema: NARROW
+        Breast swelling: BROAD
+        Choking sensation: BROAD
+        Drug hypersensitivity: BROAD
+        Eye swelling: NARROW
+        Generalised oedema: BROAD
+        Hypersensitivity: BROAD
+        Idiopathic urticaria: NARROW
+        Laryngeal oedema: NARROW
+        Lip oedema: NARROW
+        Lip swelling: NARROW
+        Oedema: BROAD
+        Oedema peripheral: BROAD
+        Orbital oedema: BROAD
+        Palatal oedema: NARROW
+        Periorbital oedema: NARROW
+        Periorbital swelling: NARROW
+        Peripheral swelling: BROAD
+        Pharyngeal swelling: NARROW
+        Swelling: BROAD
+        Swelling face: NARROW
+        Swelling of eyelid: NARROW
+        Swollen tongue: NARROW
+        Throat tightness: BROAD
+        Urticaria: NARROW
+        Urticaria papular: NARROW
+        Wheezing: BROAD
+      unmapped: null
+  submission:
+    core: Perm
+    mandatory: false
+    length: 20
+    origins:
+    - type: Derived
+    method: "Withheld from publication: the received define states this text."
+- name: SMQ02FL
+  type: str
+  label: SMQ 02 Flag
+  derivation:
+    flag: SMQ02NAM IS NOT NULL AND SMQ02SC = 'NARROW'
+  submission:
+    core: Perm
+    mandatory: false
+    length: 1
+    origins:
+    - type: Derived
+    method: "Withheld from publication: the received define states this text."
+- name: SMQ03NAM
+  type: str
+  label: SMQ 03 Name
+  derivation:
+    mapping:
+      source: AE.AEDECOD
+      dict:
+        Ankylosing spondylitis: Arthritis
+        Arthralgia: Arthritis
+        Arthritis: Arthritis
+        Arthritis bacterial: Arthritis
+        Arthritis infective: Arthritis
+        Arthritis reactive: Arthritis
+        Chondrocalcinosis: Arthritis
+        Chondrocalcinosis pyrophosphate: Arthritis
+        Facet joint syndrome: Arthritis
+        Gout: Arthritis
+        Hip arthroplasty: Arthritis
+        Injection site joint pain: Arthritis
+        Joint abscess: Arthritis
+        Joint effusion: Arthritis
+        Joint noise: Arthritis
+        Joint range of motion decreased: Arthritis
+        Joint stiffness: Arthritis
+        Joint swelling: Arthritis
+        Medical device site joint infection: Arthritis
+        Musculoskeletal stiffness: Arthritis
+        Neck pain: Arthritis
+        Osteoarthritis: Arthritis
+        Palindromic rheumatism: Arthritis
+        Patellofemoral pain syndrome: Arthritis
+        Periarthritis: Arthritis
+        Polyarthritis: Arthritis
+        Psoriatic arthropathy: Arthritis
+        Rheumatic disorder: Arthritis
+        Rheumatoid arthritis: Arthritis
+        Sacroiliitis: Arthritis
+        Shoulder arthroplasty: Arthritis
+        Spinal osteoarthritis: Arthritis
+        Spinal pain: Arthritis
+        Spondylitis: Arthritis
+        Synovitis: Arthritis
+        Temporomandibular joint syndrome: Arthritis
+      unmapped: null
+  submission:
+    core: Perm
+    mandatory: false
+    length: 100
+    origins:
+    - type: Derived
+    method: "Withheld from publication: the received define states this text."
+- name: SMQ03SC
+  type: str
+  label: SMQ 03 Scope
+  derivation:
+    mapping:
+      source: AE.AEDECOD
+      dict:
+        Ankylosing spondylitis: NARROW
+        Arthralgia: BROAD
+        Arthritis: NARROW
+        Arthritis bacterial: NARROW
+        Arthritis infective: NARROW
+        Arthritis reactive: NARROW
+        Chondrocalcinosis: NARROW
+        Chondrocalcinosis pyrophosphate: NARROW
+        Facet joint syndrome: NARROW
+        Gout: NARROW
+        Hip arthroplasty: BROAD
+        Injection site joint pain: BROAD
+        Joint abscess: BROAD
+        Joint effusion: BROAD
+        Joint noise: BROAD
+        Joint range of motion decreased: BROAD
+        Joint stiffness: BROAD
+        Joint swelling: BROAD
+        Medical device site joint infection: NARROW
+        Musculoskeletal stiffness: BROAD
+        Neck pain: BROAD
+        Osteoarthritis: NARROW
+        Palindromic rheumatism: NARROW
+        Patellofemoral pain syndrome: NARROW
+        Periarthritis: NARROW
+        Polyarthritis: NARROW
+        Psoriatic arthropathy: BROAD
+        Rheumatic disorder: NARROW
+        Rheumatoid arthritis: NARROW
+        Sacroiliitis: NARROW
+        Shoulder arthroplasty: BROAD
+        Spinal osteoarthritis: NARROW
+        Spinal pain: BROAD
+        Spondylitis: NARROW
+        Synovitis: NARROW
+        Temporomandibular joint syndrome: NARROW
+      unmapped: null
+  submission:
+    core: Perm
+    mandatory: false
+    length: 20
+    origins:
+    - type: Derived
+    method: "Withheld from publication: the received define states this text."
+- name: SMQ03FL
+  type: str
+  label: SMQ 03 Flag
+  derivation:
+    flag: SMQ03NAM IS NOT NULL AND SMQ03SC = 'NARROW'
+  submission:
+    core: Perm
+    mandatory: false
+    length: 1
+    origins:
+    - type: Derived
+    method: "Withheld from publication: the received define states this text."
+- name: SMQ04NAM
+  type: str
+  label: SMQ 04 Name
+  derivation:
+    mapping:
+      source: AE.AEDECOD
+      dict:
+        Aura: Convulsions
+        Narcolepsy: Convulsions
+        Seizure: Convulsions
+      unmapped: null
+  submission:
+    core: Perm
+    mandatory: false
+    length: 100
+    origins:
+    - type: Derived
+    method: "Withheld from publication: the received define states this text."
+- name: SMQ04SC
+  type: str
+  label: SMQ 04 Scope
+  derivation:
+    mapping:
+      source: AE.AEDECOD
+      dict:
+        Aura: BROAD
+        Narcolepsy: BROAD
+        Seizure: NARROW
+      unmapped: null
+  submission:
+    core: Perm
+    mandatory: false
+    length: 20
+    origins:
+    - type: Derived
+    method: "Withheld from publication: the received define states this text."
+- name: SMQ04FL
+  type: str
+  label: SMQ 04 Flag
+  derivation:
+    flag: SMQ04NAM IS NOT NULL AND SMQ04SC = 'NARROW'
+  submission:
+    core: Perm
+    mandatory: false
+    length: 1
+    origins:
+    - type: Derived
+    method: "Withheld from publication: the received define states this text."
+- name: SMQ05NAM
+  type: str
+  label: SMQ 05 Name
+  derivation:
+    mapping:
+      source: AE.AEDECOD
+      dict:
+        Hypergammaglobulinaemia benign monoclonal: Demyelinating Disease of Central Nervous System
+        Multiple sclerosis: Demyelinating Disease of Central Nervous System
+        Optic neuritis: Demyelinating Disease of Central Nervous System
+        Trigeminal neuralgia: Demyelinating Disease of Central Nervous System
+      unmapped: null
+  submission:
+    core: Perm
+    mandatory: false
+    length: 100
+    origins:
+    - type: Derived
+    method: "Withheld from publication: the received define states this text."
+- name: SMQ05SC
+  type: str
+  label: SMQ 05 Scope
+  derivation:
+    mapping:
+      source: AE.AEDECOD
+      dict:
+        Hypergammaglobulinaemia benign monoclonal: NARROW
+        Multiple sclerosis: NARROW
+        Optic neuritis: NARROW
+        Trigeminal neuralgia: BROAD
+      unmapped: null
+  submission:
+    core: Perm
+    mandatory: false
+    length: 20
+    origins:
+    - type: Derived
+    method: "Withheld from publication: the received define states this text."
+- name: SMQ05FL
+  type: str
+  label: SMQ 05 Flag
+  derivation:
+    flag: SMQ05NAM IS NOT NULL AND SMQ05SC = 'NARROW'
+  submission:
+    core: Perm
+    mandatory: false
+    length: 1
+    origins:
+    - type: Derived
+    method: "Withheld from publication: the received define states this text."
+- name: SMQ06NAM
+  type: str
+  label: SMQ 06 Name
+  derivation:
+    mapping:
+      source: AE.AEDECOD
+      dict:
+        Acute respiratory failure: Hypersensitivity
+        Allergic cough: Hypersensitivity
+        Allergic sinusitis: Hypersensitivity
+        Allergy to chemicals: Hypersensitivity
+        Anaphylactic reaction: Hypersensitivity
+        Angioedema: Hypersensitivity
+        Asthma: Hypersensitivity
+        Blister: Hypersensitivity
+        Bronchial hyperreactivity: Hypersensitivity
+        Bronchospasm: Hypersensitivity
+        Bullous impetigo: Hypersensitivity
+        Choking sensation: Hypersensitivity
+        Conjunctivitis: Hypersensitivity
+        Conjunctivitis allergic: Hypersensitivity
+        Cytokine storm: Hypersensitivity
+        Dermatitis: Hypersensitivity
+        Dermatitis allergic: Hypersensitivity
+        Dermatitis atopic: Hypersensitivity
+        Dermatitis bullous: Hypersensitivity
+        Dermatitis contact: Hypersensitivity
+        Drug eruption: Hypersensitivity
+        Drug hypersensitivity: Hypersensitivity
+        Eczema: Hypersensitivity
+        Eczema nummular: Hypersensitivity
+        Eosinophilia: Hypersensitivity
+        Eosinophilic oesophagitis: Hypersensitivity
+        Erythema: Hypersensitivity
+        Erythema nodosum: Hypersensitivity
+        Exfoliative rash: Hypersensitivity
+        Eye swelling: Hypersensitivity
+        Fixed eruption: Hypersensitivity
+        Flushing: Hypersensitivity
+        Generalised oedema: Hypersensitivity
+        Hand dermatitis: Hypersensitivity
+        Hypersensitivity: Hypersensitivity
+        Idiopathic urticaria: Hypersensitivity
+        Immune thrombocytopenia: Hypersensitivity
+        Incision site rash: Hypersensitivity
+        Injection related reaction: Hypersensitivity
+        Injection site rash: Hypersensitivity
+        Injection site urticaria: Hypersensitivity
+        Interstitial lung disease: Hypersensitivity
+        Laryngeal oedema: Hypersensitivity
+        Lip oedema: Hypersensitivity
+        Lip swelling: Hypersensitivity
+        Mechanical urticaria: Hypersensitivity
+        Mouth ulceration: Hypersensitivity
+        Neurodermatitis: Hypersensitivity
+        Noninfective conjunctivitis: Hypersensitivity
+        Orbital oedema: Hypersensitivity
+        Oropharyngeal blistering: Hypersensitivity
+        Palatal oedema: Hypersensitivity
+        Perineal rash: Hypersensitivity
+        Perioral dermatitis: Hypersensitivity
+        Periorbital oedema: Hypersensitivity
+        Periorbital swelling: Hypersensitivity
+        Pharyngeal swelling: Hypersensitivity
+        Photosensitivity reaction: Hypersensitivity
+        Pneumonitis: Hypersensitivity
+        Pruritus: Hypersensitivity
+        Pruritus allergic: Hypersensitivity
+        Rash: Hypersensitivity
+        Rash erythematous: Hypersensitivity
+        Rash follicular: Hypersensitivity
+        Rash macular: Hypersensitivity
+        Rash maculo-papular: Hypersensitivity
+        Rash pruritic: Hypersensitivity
+        Rash pustular: Hypersensitivity
+        Rash vesicular: Hypersensitivity
+        Respiratory distress: Hypersensitivity
+        Respiratory failure: Hypersensitivity
+        Rhinitis allergic: Hypersensitivity
+        Seasonal allergy: Hypersensitivity
+        Serum sickness: Hypersensitivity
+        Skin exfoliation: Hypersensitivity
+        Skin necrosis: Hypersensitivity
+        Sneezing: Hypersensitivity
+        Stomatitis: Hypersensitivity
+        Swelling face: Hypersensitivity
+        Swelling of eyelid: Hypersensitivity
+        Swollen tongue: Hypersensitivity
+        Throat tightness: Hypersensitivity
+        Type IV hypersensitivity reaction: Hypersensitivity
+        Urticaria: Hypersensitivity
+        Urticaria papular: Hypersensitivity
+        Vaccination site rash: Hypersensitivity
+        Vaccination site urticaria: Hypersensitivity
+        Wheezing: Hypersensitivity
+      unmapped: null
+  submission:
+    core: Perm
+    mandatory: false
+    length: 100
+    origins:
+    - type: Derived
+    method: "Withheld from publication: the received define states this text."
+- name: SMQ06SC
+  type: str
+  label: SMQ 06 Scope
+  derivation:
+    mapping:
+      source: AE.AEDECOD
+      dict:
+        Acute respiratory failure: BROAD
+        Allergic cough: NARROW
+        Allergic sinusitis: NARROW
+        Allergy to chemicals: BROAD
+        Anaphylactic reaction: NARROW
+        Angioedema: NARROW
+        Asthma: BROAD
+        Blister: BROAD
+        Bronchial hyperreactivity: BROAD
+        Bronchospasm: NARROW
+        Bullous impetigo: BROAD
+        Choking sensation: BROAD
+        Conjunctivitis: BROAD
+        Conjunctivitis allergic: NARROW
+        Cytokine storm: BROAD
+        Dermatitis: NARROW
+        Dermatitis allergic: NARROW
+        Dermatitis atopic: NARROW
+        Dermatitis bullous: NARROW
+        Dermatitis contact: NARROW
+        Drug eruption: NARROW
+        Drug hypersensitivity: NARROW
+        Eczema: NARROW
+        Eczema nummular: NARROW
+        Eosinophilia: BROAD
+        Eosinophilic oesophagitis: BROAD
+        Erythema: BROAD
+        Erythema nodosum: NARROW
+        Exfoliative rash: NARROW
+        Eye swelling: NARROW
+        Fixed eruption: NARROW
+        Flushing: BROAD
+        Generalised oedema: BROAD
+        Hand dermatitis: NARROW
+        Hypersensitivity: NARROW
+        Idiopathic urticaria: NARROW
+        Immune thrombocytopenia: NARROW
+        Incision site rash: NARROW
+        Injection related reaction: NARROW
+        Injection site rash: NARROW
+        Injection site urticaria: NARROW
+        Interstitial lung disease: BROAD
+        Laryngeal oedema: NARROW
+        Lip oedema: NARROW
+        Lip swelling: NARROW
+        Mechanical urticaria: BROAD
+        Mouth ulceration: BROAD
+        Neurodermatitis: BROAD
+        Noninfective conjunctivitis: BROAD
+        Orbital oedema: BROAD
+        Oropharyngeal blistering: NARROW
+        Palatal oedema: NARROW
+        Perineal rash: BROAD
+        Perioral dermatitis: NARROW
+        Periorbital oedema: NARROW
+        Periorbital swelling: NARROW
+        Pharyngeal swelling: NARROW
+        Photosensitivity reaction: BROAD
+        Pneumonitis: BROAD
+        Pruritus: BROAD
+        Pruritus allergic: NARROW
+        Rash: NARROW
+        Rash erythematous: NARROW
+        Rash follicular: NARROW
+        Rash macular: NARROW
+        Rash maculo-papular: NARROW
+        Rash pruritic: NARROW
+        Rash pustular: NARROW
+        Rash vesicular: NARROW
+        Respiratory distress: BROAD
+        Respiratory failure: BROAD
+        Rhinitis allergic: NARROW
+        Seasonal allergy: BROAD
+        Serum sickness: NARROW
+        Skin exfoliation: BROAD
+        Skin necrosis: NARROW
+        Sneezing: BROAD
+        Stomatitis: BROAD
+        Swelling face: NARROW
+        Swelling of eyelid: NARROW
+        Swollen tongue: NARROW
+        Throat tightness: BROAD
+        Type IV hypersensitivity reaction: NARROW
+        Urticaria: NARROW
+        Urticaria papular: NARROW
+        Vaccination site rash: NARROW
+        Vaccination site urticaria: NARROW
+        Wheezing: BROAD
+      unmapped: null
+  submission:
+    core: Perm
+    mandatory: false
+    length: 20
+    origins:
+    - type: Derived
+    method: "Withheld from publication: the received define states this text."
+- name: SMQ06FL
+  type: str
+  label: SMQ 06 Flag
+  derivation:
+    flag: SMQ06NAM IS NOT NULL AND SMQ06SC = 'NARROW'
+  submission:
+    core: Perm
+    mandatory: false
+    length: 1
+    origins:
+    - type: Derived
+    method: "Withheld from publication: the received define states this text."
+- name: SMQ07NAM
+  type: str
+  label: SMQ 07 Name
+  derivation:
+    mapping:
+      source: AE.AEDECOD
+      dict:
+        Burning sensation: Peripheral Neuropathy
+        Dysaesthesia: Peripheral Neuropathy
+        Gait disturbance: Peripheral Neuropathy
+        Hypoaesthesia: Peripheral Neuropathy
+        Muscular weakness: Peripheral Neuropathy
+        Nerve conduction studies abnormal: Peripheral Neuropathy
+        Neuralgia: Peripheral Neuropathy
+        Neuropathy peripheral: Peripheral Neuropathy
+        Paraesthesia: Peripheral Neuropathy
+        Peripheral sensory neuropathy: Peripheral Neuropathy
+        Peroneal nerve palsy: Peripheral Neuropathy
+        Skin burning sensation: Peripheral Neuropathy
+        Small fibre neuropathy: Peripheral Neuropathy
+      unmapped: null
+  submission:
+    core: Perm
+    mandatory: false
+    length: 100
+    origins:
+    - type: Derived
+    method: "Withheld from publication: the received define states this text."
+- name: SMQ07SC
+  type: str
+  label: SMQ 07 Scope
+  derivation:
+    mapping:
+      source: AE.AEDECOD
+      dict:
+        Burning sensation: BROAD
+        Dysaesthesia: BROAD
+        Gait disturbance: BROAD
+        Hypoaesthesia: BROAD
+        Muscular weakness: BROAD
+        Nerve conduction studies abnormal: NARROW
+        Neuralgia: NARROW
+        Neuropathy peripheral: NARROW
+        Paraesthesia: BROAD
+        Peripheral sensory neuropathy: NARROW
+        Peroneal nerve palsy: BROAD
+        Skin burning sensation: BROAD
+        Small fibre neuropathy: NARROW
+      unmapped: null
+  submission:
+    core: Perm
+    mandatory: false
+    length: 20
+    origins:
+    - type: Derived
+    method: "Withheld from publication: the received define states this text."
+- name: SMQ07FL
+  type: str
+  label: SMQ 07 Flag
+  derivation:
+    flag: SMQ07NAM IS NOT NULL AND SMQ07SC = 'NARROW'
+  submission:
+    core: Perm
+    mandatory: false
+    length: 1
+    origins:
+    - type: Derived
+    method: "Withheld from publication: the received define states this text."
+- name: SMQ08NAM
+  type: str
+  label: SMQ 08 Name
+  derivation:
+    mapping:
+      source: AE.AEDECOD
+      dict:
+        Polyarteritis nodosa: Vasculitis
+        Polymyalgia rheumatica: Vasculitis
+      unmapped: null
+  submission:
+    core: Perm
+    mandatory: false
+    length: 100
+    origins:
+    - type: Derived
+    method: "Withheld from publication: the received define states this text."
+- name: SMQ08SC
+  type: str
+  label: SMQ 08 Scope
+  derivation:
+    mapping:
+      source: AE.AEDECOD
+      dict:
+        Polyarteritis nodosa: NARROW
+        Polymyalgia rheumatica: NARROW
+      unmapped: null
+  submission:
+    core: Perm
+    mandatory: false
+    length: 20
+    origins:
+    - type: Derived
+    method: "Withheld from publication: the received define states this text."
+- name: SMQ08FL
+  type: str
+  label: SMQ 08 Flag
+  derivation:
+    flag: SMQ08NAM IS NOT NULL AND SMQ08SC = 'NARROW'
+  submission:
+    core: Perm
+    mandatory: false
+    length: 1
+    origins:
+    - type: Derived
+    method: "Withheld from publication: the received define states this text."
+- name: SMQ09NAM
+  type: str
+  label: SMQ 09 Name
+  derivation:
+    mapping:
+      source: AE.AEDECOD
+      dict:
+        Aphasia: Central Nervous System Vascular Disorders
+        Basal ganglia haemorrhage: Central Nervous System Vascular Disorders
+        Brain stem infarction: Central Nervous System Vascular Disorders
+        Carotid arteriosclerosis: Central Nervous System Vascular Disorders
+        Carotid artery aneurysm: Central Nervous System Vascular Disorders
+        Carotid artery stenosis: Central Nervous System Vascular Disorders
+        Carotid artery thrombosis: Central Nervous System Vascular Disorders
+        Cerebral artery stenosis: Central Nervous System Vascular Disorders
+        Cerebral ischaemia: Central Nervous System Vascular Disorders
+        Cerebral small vessel ischaemic disease: Central Nervous System Vascular Disorders
+        Cerebrovascular accident: Central Nervous System Vascular Disorders
+        Embolic stroke: Central Nervous System Vascular Disorders
+        Haemorrhage intracranial: Central Nervous System Vascular Disorders
+        Hemiparesis: Central Nervous System Vascular Disorders
+        Ischaemic cerebral infarction: Central Nervous System Vascular Disorders
+        Ischaemic stroke: Central Nervous System Vascular Disorders
+        Lacunar infarction: Central Nervous System Vascular Disorders
+        Right hemisphere deficit syndrome: Central Nervous System Vascular Disorders
+        Subarachnoid haemorrhage: Central Nervous System Vascular Disorders
+        Subdural haematoma: Central Nervous System Vascular Disorders
+        Transient ischaemic attack: Central Nervous System Vascular Disorders
+        Vertebral artery occlusion: Central Nervous System Vascular Disorders
+      unmapped: null
+  submission:
+    core: Perm
+    mandatory: false
+    length: 100
+    origins:
+    - type: Derived
+    method: "Withheld from publication: the received define states this text."
+- name: SMQ09SC
+  type: str
+  label: SMQ 09 Scope
+  derivation:
+    mapping:
+      source: AE.AEDECOD
+      dict:
+        Aphasia: BROAD
+        Basal ganglia haemorrhage: NARROW
+        Brain stem infarction: NARROW
+        Carotid arteriosclerosis: NARROW
+        Carotid artery aneurysm: NARROW
+        Carotid artery stenosis: NARROW
+        Carotid artery thrombosis: NARROW
+        Cerebral artery stenosis: NARROW
+        Cerebral ischaemia: NARROW
+        Cerebral small vessel ischaemic disease: NARROW
+        Cerebrovascular accident: NARROW
+        Embolic stroke: NARROW
+        Haemorrhage intracranial: NARROW
+        Hemiparesis: NARROW
+        Ischaemic cerebral infarction: NARROW
+        Ischaemic stroke: NARROW
+        Lacunar infarction: NARROW
+        Right hemisphere deficit syndrome: BROAD
+        Subarachnoid haemorrhage: NARROW
+        Subdural haematoma: NARROW
+        Transient ischaemic attack: NARROW
+        Vertebral artery occlusion: NARROW
+      unmapped: null
+  submission:
+    core: Perm
+    mandatory: false
+    length: 20
+    origins:
+    - type: Derived
+    method: "Withheld from publication: the received define states this text."
+- name: SMQ09FL
+  type: str
+  label: SMQ 09 Flag
+  derivation:
+    flag: SMQ09NAM IS NOT NULL AND SMQ09SC = 'NARROW'
+  submission:
+    core: Perm
+    mandatory: false
+    length: 1
+    origins:
+    - type: Derived
+    method: "Withheld from publication: the received define states this text."
+- name: SMQ10NAM
+  type: str
+  label: SMQ 10 Name
+  derivation:
+    mapping:
+      source: AE.AEDECOD
+      dict:
+        Acute myocardial infarction: Embolic and Thrombotic Events
+        Arterial occlusive disease: Embolic and Thrombotic Events
+        Axillary vein thrombosis: Embolic and Thrombotic Events
+        Blindness transient: Embolic and Thrombotic Events
+        Brain stem infarction: Embolic and Thrombotic Events
+        Carotid artery thrombosis: Embolic and Thrombotic Events
+        Cerebral ischaemia: Embolic and Thrombotic Events
+        Cerebrovascular accident: Embolic and Thrombotic Events
+        Coronary artery occlusion: Embolic and Thrombotic Events
+        Deep vein thrombosis: Embolic and Thrombotic Events
+        Deep vein thrombosis postoperative: Embolic and Thrombotic Events
+        Embolic stroke: Embolic and Thrombotic Events
+        Embolism venous: Embolic and Thrombotic Events
+        Hemiparesis: Embolic and Thrombotic Events
+        Ischaemic cerebral infarction: Embolic and Thrombotic Events
+        Ischaemic stroke: Embolic and Thrombotic Events
+        Jugular vein thrombosis: Embolic and Thrombotic Events
+        Lacunar infarction: Embolic and Thrombotic Events
+        Myocardial infarction: Embolic and Thrombotic Events
+        Peripheral arterial occlusive disease: Embolic and Thrombotic Events
+        Peripheral artery occlusion: Embolic and Thrombotic Events
+        Pulmonary embolism: Embolic and Thrombotic Events
+        Pulmonary infarction: Embolic and Thrombotic Events
+        Retinal artery occlusion: Embolic and Thrombotic Events
+        Retinal infarction: Embolic and Thrombotic Events
+        Stress cardiomyopathy: Embolic and Thrombotic Events
+        Subclavian vein thrombosis: Embolic and Thrombotic Events
+        Thrombophlebitis: Embolic and Thrombotic Events
+        Thrombophlebitis superficial: Embolic and Thrombotic Events
+        Transient ischaemic attack: Embolic and Thrombotic Events
+        Venous thrombosis limb: Embolic and Thrombotic Events
+        Vertebral artery occlusion: Embolic and Thrombotic Events
+      unmapped: null
+  submission:
+    core: Perm
+    mandatory: false
+    length: 100
+    origins:
+    - type: Derived
+    method: "Withheld from publication: the received define states this text."
+- name: SMQ10SC
+  type: str
+  label: SMQ 10 Scope
+  derivation:
+    mapping:
+      source: AE.AEDECOD
+      dict:
+        Acute myocardial infarction: NARROW
+        Arterial occlusive disease: NARROW
+        Axillary vein thrombosis: NARROW
+        Blindness transient: NARROW
+        Brain stem infarction: NARROW
+        Carotid artery thrombosis: NARROW
+        Cerebral ischaemia: NARROW
+        Cerebrovascular accident: NARROW
+        Coronary artery occlusion: NARROW
+        Deep vein thrombosis: NARROW
+        Deep vein thrombosis postoperative: NARROW
+        Embolic stroke: NARROW
+        Embolism venous: NARROW
+        Hemiparesis: NARROW
+        Ischaemic cerebral infarction: NARROW
+        Ischaemic stroke: NARROW
+        Jugular vein thrombosis: NARROW
+        Lacunar infarction: NARROW
+        Myocardial infarction: NARROW
+        Peripheral arterial occlusive disease: NARROW
+        Peripheral artery occlusion: NARROW
+        Pulmonary embolism: NARROW
+        Pulmonary infarction: NARROW
+        Retinal artery occlusion: NARROW
+        Retinal infarction: NARROW
+        Stress cardiomyopathy: NARROW
+        Subclavian vein thrombosis: NARROW
+        Thrombophlebitis: NARROW
+        Thrombophlebitis superficial: NARROW
+        Transient ischaemic attack: NARROW
+        Venous thrombosis limb: NARROW
+        Vertebral artery occlusion: NARROW
+      unmapped: null
+  submission:
+    core: Perm
+    mandatory: false
+    length: 20
+    origins:
+    - type: Derived
+    method: "Withheld from publication: the received define states this text."
+- name: SMQ10FL
+  type: str
+  label: SMQ 10 Flag
+  derivation:
+    flag: SMQ10NAM IS NOT NULL AND SMQ10SC = 'NARROW'
+  submission:
+    core: Perm
+    mandatory: false
+    length: 1
+    origins:
+    - type: Derived
+    method: "Withheld from publication: the received define states this text."
+- name: SMQ11NAM
+  type: str
+  label: SMQ 11 Name
+  derivation:
+    mapping:
+      source: AE.AEDECOD
+      dict:
+        Balance disorder: Hearing and Vestibular Disorders
+        Deafness neurosensory: Hearing and Vestibular Disorders
+        Deafness unilateral: Hearing and Vestibular Disorders
+        Diplacusis: Hearing and Vestibular Disorders
+        Dizziness: Hearing and Vestibular Disorders
+        Eustachian tube dysfunction: Hearing and Vestibular Disorders
+        Facial paralysis: Hearing and Vestibular Disorders
+        Hyperacusis: Hearing and Vestibular Disorders
+        Hypoacusis: Hearing and Vestibular Disorders
+        Labyrinthitis: Hearing and Vestibular Disorders
+        "Meniere's disease": Hearing and Vestibular Disorders
+        Middle ear effusion: Hearing and Vestibular Disorders
+        Motion sickness: Hearing and Vestibular Disorders
+        Nystagmus: Hearing and Vestibular Disorders
+        Tinnitus: Hearing and Vestibular Disorders
+        Tympanic membrane disorder: Hearing and Vestibular Disorders
+        Tympanic membrane perforation: Hearing and Vestibular Disorders
+        Vertigo: Hearing and Vestibular Disorders
+        Vertigo positional: Hearing and Vestibular Disorders
+        Vestibular migraine: Hearing and Vestibular Disorders
+        Vestibular neuronitis: Hearing and Vestibular Disorders
+      unmapped: null
+  submission:
+    core: Perm
+    mandatory: false
+    length: 100
+    origins:
+    - type: Derived
+    method: "Withheld from publication: the received define states this text."
+- name: SMQ11SC
+  type: str
+  label: SMQ 11 Scope
+  derivation:
+    mapping:
+      source: AE.AEDECOD
+      dict:
+        Balance disorder: BROAD
+        Deafness neurosensory: NARROW
+        Deafness unilateral: NARROW
+        Diplacusis: NARROW
+        Dizziness: BROAD
+        Eustachian tube dysfunction: NARROW
+        Facial paralysis: BROAD
+        Hyperacusis: NARROW
+        Hypoacusis: NARROW
+        Labyrinthitis: BROAD
+        "Meniere's disease": NARROW
+        Middle ear effusion: NARROW
+        Motion sickness: BROAD
+        Nystagmus: BROAD
+        Tinnitus: NARROW
+        Tympanic membrane disorder: NARROW
+        Tympanic membrane perforation: NARROW
+        Vertigo: NARROW
+        Vertigo positional: NARROW
+        Vestibular migraine: NARROW
+        Vestibular neuronitis: NARROW
+      unmapped: null
+  submission:
+    core: Perm
+    mandatory: false
+    length: 20
+    origins:
+    - type: Derived
+    method: "Withheld from publication: the received define states this text."
+- name: SMQ11FL
+  type: str
+  label: SMQ 11 Flag
+  derivation:
+    flag: SMQ11NAM IS NOT NULL AND SMQ11SC = 'NARROW'
+  submission:
+    core: Perm
+    mandatory: false
+    length: 1
+    origins:
+    - type: Derived
+    method: "Withheld from publication: the received define states this text."
+- name: SMQ12NAM
+  type: str
+  label: SMQ 12 Name
+  derivation:
+    mapping:
+      source: AE.AEDECOD
+      dict:
+        Deep vein thrombosis: Thrombophlebitis
+        Deep vein thrombosis postoperative: Thrombophlebitis
+        Phlebitis: Thrombophlebitis
+        Thrombophlebitis: Thrombophlebitis
+        Thrombophlebitis superficial: Thrombophlebitis
+      unmapped: null
+  submission:
+    core: Perm
+    mandatory: false
+    length: 100
+    origins:
+    - type: Derived
+    method: "Withheld from publication: the received define states this text."
+- name: SMQ12SC
+  type: str
+  label: SMQ 12 Scope
+  derivation:
+    mapping:
+      source: AE.AEDECOD
+      dict:
+        Deep vein thrombosis: BROAD
+        Deep vein thrombosis postoperative: BROAD
+        Phlebitis: BROAD
+        Thrombophlebitis: NARROW
+        Thrombophlebitis superficial: NARROW
+      unmapped: null
+  submission:
+    core: Perm
+    mandatory: false
+    length: 20
+    origins:
+    - type: Derived
+    method: "Withheld from publication: the received define states this text."
+- name: SMQ12FL
+  type: str
+  label: SMQ 12 Flag
+  derivation:
+    flag: SMQ12NAM IS NOT NULL AND SMQ12SC = 'NARROW'
+  submission:
+    core: Perm
+    mandatory: false
+    length: 1
+    origins:
+    - type: Derived
+    method: "Withheld from publication: the received define states this text."
+- name: SMQ13NAM
+  type: str
+  label: SMQ 13 Name
+  derivation:
+    mapping:
+      source: AE.AEDECOD
+      dict:
+        Anaemia: Haematopoietic Cytopenias
+        Anaemia macrocytic: Haematopoietic Cytopenias
+        Full blood count abnormal: Haematopoietic Cytopenias
+        Haemoglobin decreased: Haematopoietic Cytopenias
+        Leukopenia: Haematopoietic Cytopenias
+        Lymphocyte count decreased: Haematopoietic Cytopenias
+        Myelodysplastic syndrome: Haematopoietic Cytopenias
+        Normocytic anaemia: Haematopoietic Cytopenias
+        Platelet count decreased: Haematopoietic Cytopenias
+        Red blood cell count decreased: Haematopoietic Cytopenias
+        Thrombocytopenia: Haematopoietic Cytopenias
+        White blood cell count decreased: Haematopoietic Cytopenias
+      unmapped: null
+  submission:
+    core: Perm
+    mandatory: false
+    length: 100
+    origins:
+    - type: Derived
+    method: "Withheld from publication: the received define states this text."
+- name: SMQ13SC
+  type: str
+  label: SMQ 13 Scope
+  derivation:
+    mapping:
+      source: AE.AEDECOD
+      dict:
+        Anaemia: BROAD
+        Anaemia macrocytic: NARROW
+        Full blood count abnormal: BROAD
+        Haemoglobin decreased: BROAD
+        Leukopenia: NARROW
+        Lymphocyte count decreased: NARROW
+        Myelodysplastic syndrome: BROAD
+        Normocytic anaemia: BROAD
+        Platelet count decreased: NARROW
+        Red blood cell count decreased: NARROW
+        Thrombocytopenia: NARROW
+        White blood cell count decreased: NARROW
+      unmapped: null
+  submission:
+    core: Perm
+    mandatory: false
+    length: 20
+    origins:
+    - type: Derived
+    method: "Withheld from publication: the received define states this text."
+- name: SMQ13FL
+  type: str
+  label: SMQ 13 Flag
+  derivation:
+    flag: SMQ13NAM IS NOT NULL AND SMQ13SC = 'NARROW'
+  submission:
+    core: Perm
+    mandatory: false
+    length: 1
+    origins:
+    - type: Derived
+    method: "Withheld from publication: the received define states this text."
+- name: SMQ14NAM
+  type: str
+  label: SMQ 14 Name
+  derivation:
+    mapping:
+      source: AE.AEDECOD
+      dict:
+        Acute left ventricular failure: Cardiomyopathy
+        Arrhythmia: Cardiomyopathy
+        Ascites: Cardiomyopathy
+        Atrial enlargement: Cardiomyopathy
+        Blood pressure diastolic decreased: Cardiomyopathy
+        Blood pressure diastolic increased: Cardiomyopathy
+        Blood pressure systolic abnormal: Cardiomyopathy
+        Blood pressure systolic decreased: Cardiomyopathy
+        Blood pressure systolic increased: Cardiomyopathy
+        Cardiac arrest: Cardiomyopathy
+        Cardiac failure: Cardiomyopathy
+        Cardiac failure acute: Cardiomyopathy
+        Cardiac failure congestive: Cardiomyopathy
+        Cardiomegaly: Cardiomyopathy
+        Cardiomyopathy: Cardiomyopathy
+        Cardiovascular disorder: Cardiomyopathy
+        Chest pain: Cardiomyopathy
+        Diastolic dysfunction: Cardiomyopathy
+        Dyspnoea: Cardiomyopathy
+        Hepatomegaly: Cardiomyopathy
+        Ischaemic cardiomyopathy: Cardiomyopathy
+        Labile blood pressure: Cardiomyopathy
+        Left atrial enlargement: Cardiomyopathy
+        Lung opacity: Cardiomyopathy
+        Mental status changes: Cardiomyopathy
+        Nocturia: Cardiomyopathy
+        Oedema: Cardiomyopathy
+        Orthostatic hypotension: Cardiomyopathy
+        Palpitations: Cardiomyopathy
+        Stress cardiomyopathy: Cardiomyopathy
+        Sudden death: Cardiomyopathy
+        Syncope: Cardiomyopathy
+        Ventricular arrhythmia: Cardiomyopathy
+      unmapped: null
+  submission:
+    core: Perm
+    mandatory: false
+    length: 100
+    origins:
+    - type: Derived
+    method: "Withheld from publication: the received define states this text."
+- name: SMQ14SC
+  type: str
+  label: SMQ 14 Scope
+  derivation:
+    mapping:
+      source: AE.AEDECOD
+      dict:
+        Acute left ventricular failure: BROAD
+        Arrhythmia: BROAD
+        Ascites: BROAD
+        Atrial enlargement: BROAD
+        Blood pressure diastolic decreased: BROAD
+        Blood pressure diastolic increased: BROAD
+        Blood pressure systolic abnormal: BROAD
+        Blood pressure systolic decreased: BROAD
+        Blood pressure systolic increased: BROAD
+        Cardiac arrest: BROAD
+        Cardiac failure: BROAD
+        Cardiac failure acute: BROAD
+        Cardiac failure congestive: BROAD
+        Cardiomegaly: BROAD
+        Cardiomyopathy: NARROW
+        Cardiovascular disorder: BROAD
+        Chest pain: BROAD
+        Diastolic dysfunction: BROAD
+        Dyspnoea: BROAD
+        Hepatomegaly: BROAD
+        Ischaemic cardiomyopathy: NARROW
+        Labile blood pressure: BROAD
+        Left atrial enlargement: BROAD
+        Lung opacity: BROAD
+        Mental status changes: BROAD
+        Nocturia: BROAD
+        Oedema: BROAD
+        Orthostatic hypotension: BROAD
+        Palpitations: BROAD
+        Stress cardiomyopathy: NARROW
+        Sudden death: BROAD
+        Syncope: BROAD
+        Ventricular arrhythmia: BROAD
+      unmapped: null
+  submission:
+    core: Perm
+    mandatory: false
+    length: 20
+    origins:
+    - type: Derived
+    method: "Withheld from publication: the received define states this text."
+- name: SMQ14FL
+  type: str
+  label: SMQ 14 Flag
+  derivation:
+    flag: SMQ14NAM IS NOT NULL AND SMQ14SC = 'NARROW'
+  submission:
+    core: Perm
+    mandatory: false
+    length: 1
+    origins:
+    - type: Derived
+    method: "Withheld from publication: the received define states this text."
+- name: CQ01NAM
+  type: str
+  label: Customized Query 01 Name
+  derivation:
+    mapping:
+      source: _AECD
+      dict:
+        "10001760": Autoimmune
+        "10001761": Autoimmune
+        "10001764": Autoimmune
+        "10002026": Autoimmune
+        "10002556": Autoimmune
+        "10003267": Autoimmune
+        "10004161": Autoimmune
+        "10007636": Autoimmune
+        "10009839": Autoimmune
+        "10011401": Autoimmune
+        "10013687": Autoimmune
+        "10015226": Autoimmune
+        "10016062": Autoimmune
+        "10020631": Autoimmune
+        "10024429": Autoimmune
+        "10028245": Autoimmune
+        "10028417": Autoimmune
+        "10028713": Autoimmune
+        "10029175": Autoimmune
+        "10029223": Autoimmune
+        "10029331": Autoimmune
+        "10030942": Autoimmune
+        "10034620": Autoimmune
+        "10036024": Autoimmune
+        "10036099": Autoimmune
+        "10037153": Autoimmune
+        "10037162": Autoimmune
+        "10037912": Autoimmune
+        "10039073": Autoimmune
+        "10039486": Autoimmune
+        "10040767": Autoimmune
+        "10042945": Autoimmune
+        "10046851": Autoimmune
+        "10047642": Autoimmune
+        "10049046": Autoimmune
+        "10067584": Autoimmune
+        "10068168": Autoimmune
+        "10073928": Autoimmune
+        "10083842": Autoimmune
+      unmapped: null
+  submission:
+    core: Perm
+    mandatory: false
+    length: 100
+    origins:
+    - type: Derived
+    method: "Withheld from publication: the received define states this text."
+- name: CQ01FL
+  type: str
+  label: Customized Query 01 Flag
+  derivation:
+    flag: CQ01NAM IS NOT NULL
+  submission:
+    core: Perm
+    mandatory: false
+    length: 1
+    origins:
+    - type: Derived
+    method: "Withheld from publication: the received define states this text."
+- name: CQ02NAM
+  type: str
+  label: Customized Query 02 Name
+  derivation:
+    mapping:
+      source: AE.AEDECOD
+      dict:
+        Eye swelling: Dermal Filler Reaction Post Vaccination
+        Eyelid rash: Dermal Filler Reaction Post Vaccination
+        Lip oedema: Dermal Filler Reaction Post Vaccination
+        Lip swelling: Dermal Filler Reaction Post Vaccination
+        Periorbital oedema: Dermal Filler Reaction Post Vaccination
+        Periorbital swelling: Dermal Filler Reaction Post Vaccination
+        Swelling face: Dermal Filler Reaction Post Vaccination
+        Swelling of eyelid: Dermal Filler Reaction Post Vaccination
+      unmapped: null
+  submission:
+    core: Perm
+    mandatory: false
+    length: 100
+    origins:
+    - type: Derived
+    method: "Withheld from publication: the received define states this text."
+- name: CQ02FL
+  type: str
+  label: Customized Query 02 Flag
+  derivation:
+    flag: CQ02NAM IS NOT NULL
+  submission:
+    core: Perm
+    mandatory: false
+    length: 1
+    origins:
+    - type: Derived
+    method: "Withheld from publication: the received define states this text."
+- name: CQ03NAM
+  type: str
+  label: Customized Query 03 Name
+  derivation:
+    case:
+    - when: AE.AELLT IN ('Bell''s palsy', 'Palsy Bells', 'Facial palsy', 'Facial paralysis')
+      then: '''Bell''''s Palsy'''
+  submission:
+    core: Perm
+    mandatory: false
+    length: 100
+    origins:
+    - type: Derived
+    method: "Withheld from publication: the received define states this text."
+- name: CQ03FL
+  type: str
+  label: Customized Query 03 Flag
+  derivation:
+    flag: CQ03NAM IS NOT NULL
+  submission:
+    core: Perm
+    mandatory: false
+    length: 1
+    origins:
+    - type: Derived
+    method: "Withheld from publication: the received define states this text."
+- name: ARTERM
+  type: str
+  label: Collected Term for Adverse Reaction
+  derivation:
+    mapping:
+      source: AE.AEDECOD
+      dict:
+        Arthralgia: Arthralgia
+        Axillary pain: Pain
+        Chills: Chills
+        Erythema: Erythema
+        Fatigue: Fatigue
+        Headache: Headache
+        Injection site discomfort: Pain
+        Injection site erythema: Erythema
+        Injection site induration: Swelling
+        Injection site joint pain: Arthralgia
+        Injection site lymphadenopathy: Underarm Gland Swelling or Tenderness
+        Injection site oedema: Swelling
+        Injection site pain: Pain
+        Injection site swelling: Swelling
+        Migraine: Headache
+        Myalgia: Myalgia
+        Nausea: Nausea/Vomiting
+        Pain: Myalgia
+        Pyrexia: Fever
+        Sinus headache: Headache
+        Swelling: Swelling
+        Tension headache: Headache
+        Vaccination site erythema: Erythema
+        Vaccination site lymphadenopathy: Underarm Gland Swelling or Tenderness
+        Vaccination site pain: Pain
+        Vaccination site swelling: Swelling
+        Vomiting: Nausea/Vomiting
+      unmapped: null
+  submission:
+    core: Perm
+    mandatory: false
+    length: 40
+    origins:
+    - type: Derived
+    method: "Withheld from publication: the received define states this text."
+- name: AESOFL
+  type: str
+  label: "Solicited Adverse Reaction?"
+  derivation:
+    flag: ARTERM IS NOT NULL
+  submission:
+    core: Perm
+    mandatory: false
+    length: 1
+    origins:
+    - type: Derived
+    method: "Withheld from publication: the received define states this text."
+- name: _FACE_MAX
+  type: float
+  derivation:
+    aggregate:
+      key:
+        USUBJID: USUBJID
+        FATPTREF: _FATPTREF
+        FAOBJ: ARTERM
+      filter: FACE.FACAT = 'REACTOGENICITY' AND FACE.FATPTREF IS NOT NULL AND (FACE.FASTRESC IS NULL OR FACE.FASTRESC <> 'NONE') AND (FACE.FASTRESC IS NULL OR NOT str_contains(FACE.FASTRESC, 'GRADE 0')) AND FACE.FASTAT IS NULL AND NOT (FACE.FAOBJ IS NOT NULL AND FACE.FAOBJ IN ('Erythema', 'Swelling') AND FACE.FATESTCD IS NOT NULL AND (FACE.FATESTCD = 'OCCUR' OR (FACE.FATESTCD = 'LDIAM' AND FACE.FASTRESU IS NOT NULL AND FACE.FASTRESU = 'mm' AND (FACE.FASTRESN IS NULL OR FACE.FASTRESN < 25))))
+      expr: MAX(FACE.FATPTNUM)
+- name: _FLAGN
+  type: int
+  derivation:
+    case:
+    - when: SMQ01FL = 'Y' OR SMQ02FL = 'Y' OR SMQ03FL = 'Y' OR SMQ04FL = 'Y' OR SMQ05FL = 'Y' OR SMQ06FL = 'Y' OR SMQ07FL = 'Y' OR SMQ08FL = 'Y' OR SMQ09FL = 'Y' OR SMQ10FL = 'Y' OR SMQ11FL = 'Y' OR SMQ12FL = 'Y' OR SMQ13FL = 'Y' OR SMQ14FL = 'Y' OR ARTERM IS NOT NULL
+      then: 1
+    - otherwise: 0
+- name: _MAXE_INC
+  type: date
+  derivation:
+    case:
+    - when: _FLAGN = 0
+      then: _MAXE_PREV
+    - when: _MAXE_PREV IS NULL
+      then: ADUREDT
+    - when: ADUREDT > _MAXE_PREV
+      then: ADUREDT
+    - otherwise: _MAXE_PREV
+- name: _MAXE_PREV
+  type: date
+  derivation:
+    row_value:
+      source: _MAXE_INC
+      offset: -1
+      window: W_ADURN
+- name: _GAPDAYS
+  type: int
+  derivation:
+    diff:
+      type: date
+      start: _MAXE_PREV
+      end: ADURSDT
+      unit: day
+- name: _GAP
+  type: int
+  derivation:
+    case:
+    - when: _FLAGN = 0
+      then: 0
+    - when: _MAXE_PREV IS NULL
+      then: 0
+    - when: _GAPDAYS > 1
+      then: _GAPDAYS - 1
+    - otherwise: 0
+- name: _ADURN_MAXE
+  type: date
+  derivation:
+    aggregate:
+      group_by:
+      - USUBJID
+      - SUBJID
+      - MDOSREF
+      - AEDECOD
+      filter: _FLAGN = 1
+      expr: MAX(ADUREDT)
+- name: _ADURN_MINS
+  type: date
+  derivation:
+    aggregate:
+      group_by:
+      - USUBJID
+      - SUBJID
+      - MDOSREF
+      - AEDECOD
+      filter: _FLAGN = 1
+      expr: MIN(ADURSDT)
+- name: _ADURN_SUMGAP
+  type: int
+  derivation:
+    aggregate:
+      group_by:
+      - USUBJID
+      - SUBJID
+      - MDOSREF
+      - AEDECOD
+      filter: _FLAGN = 1
+      expr: SUM(_GAP)
+- name: _ADURN_SPAN
+  type: int
+  derivation:
+    diff:
+      type: date
+      start: _ADURN_MINS
+      end: _ADURN_MAXE
+      unit: day
+- name: ADURN
+  type: int
+  label: Analysis Duration (N)
+  derivation:
+    case:
+    - when: _FLAGN = 1 AND MDOSREF IS NOT NULL
+      then: _ADURN_SPAN + 1 - _ADURN_SUMGAP
+  submission:
+    core: Perm
+    mandatory: false
+    length: 8
+    display_format: '3.'
+    origins:
+    - type: Derived
+    method: "Withheld from publication: the received define states this text."
+- name: _APL_CAT
+  type: str
+  derivation:
+    mapping:
+      source: AE.AEDECOD
+      dict:
+        Anaphylactic reaction: A
+        Asthma: C
+        Chest discomfort: C
+        Cough: C
+        Dyspnoea: C
+        Erythema: B
+        Eye pruritus: B
+        Flushing: B
+        Hypotension: D
+        Injection site urticaria: B
+        Lip swelling: B
+        Ocular hyperaemia: B
+        Periorbital swelling: B
+        Pruritus: B
+        Rash: B
+        Rash pruritic: B
+        Sneezing: C
+        Swelling face: B
+        Tachypnoea: C
+        Urticaria: B
+        Wheezing: C
+      unmapped: null
+- name: _APL_NA
+  type: int
+  derivation:
+    case:
+    - when: SMQ01SC = 'NARROW' OR _APL_CAT = 'A'
+      then: 1
+    - otherwise: 0
+- name: _APL_BCFLN
+  type: int
+  derivation:
+    case:
+    - when: _APL_CAT IN ('B', 'C')
+      then: 1
+    - otherwise: 0
+- name: _APL_BCDFLN
+  type: int
+  derivation:
+    case:
+    - when: _APL_CAT IN ('B', 'C', 'D')
+      then: 1
+    - otherwise: 0
+- name: _APL_LAG_CAT_BC
+  type: str
+  derivation:
+    row_value:
+      source: _APL_CAT
+      offset: -1
+      window: W_APL_BC
+- name: _APL_LAG_DTM_BC
+  type: datetime
+  derivation:
+    row_value:
+      source: ASTDTM
+      offset: -1
+      window: W_APL_BC
+- name: _APL_LAG_D_BC
+  type: date
+  derivation:
+    row_value:
+      source: ASTDT
+      offset: -1
+      window: W_APL_BC
+- name: _APL_DSEC_BC
+  type: int
+  derivation:
+    diff:
+      type: datetime
+      start: _APL_LAG_DTM_BC
+      end: ASTDTM
+      unit: second
+- name: _APL_DDAY_BC
+  type: int
+  derivation:
+    diff:
+      type: date
+      start: _APL_LAG_D_BC
+      end: ASTDT
+      unit: day
+- name: _APL_CLOSE_BC
+  type: int
+  derivation:
+    case:
+    - when: ASTDTM IS NOT NULL AND _APL_LAG_DTM_BC IS NOT NULL AND ABS(_APL_DSEC_BC) <= 60
+      then: 1
+    - when: _APL_LAG_D_BC IS NOT NULL AND ASTDT IS NOT NULL AND ABS(_APL_DDAY_BC) <= 1
+      then: 1
+    - otherwise: 0
+- name: _APL_LAG_CAT_D
+  type: str
+  derivation:
+    row_value:
+      source: _APL_CAT
+      offset: -1
+      window: W_APL_D
+- name: _APL_LAG_DTM_D
+  type: datetime
+  derivation:
+    row_value:
+      source: ASTDTM
+      offset: -1
+      window: W_APL_D
+- name: _APL_LAG_D_D
+  type: date
+  derivation:
+    row_value:
+      source: ASTDT
+      offset: -1
+      window: W_APL_D
+- name: _APL_DSEC_D
+  type: int
+  derivation:
+    diff:
+      type: datetime
+      start: _APL_LAG_DTM_D
+      end: ASTDTM
+      unit: second
+- name: _APL_DDAY_D
+  type: int
+  derivation:
+    diff:
+      type: date
+      start: _APL_LAG_D_D
+      end: ASTDT
+      unit: day
+- name: _APL_CLOSE_D
+  type: int
+  derivation:
+    case:
+    - when: ASTDTM IS NOT NULL AND _APL_LAG_DTM_D IS NOT NULL AND ABS(_APL_DSEC_D) <= 60
+      then: 1
+    - when: _APL_LAG_D_D IS NOT NULL AND ASTDT IS NOT NULL AND ABS(_APL_DDAY_D) <= 1
+      then: 1
+    - otherwise: 0
+- name: _APL_BC_PAIR
+  type: int
+  derivation:
+    case:
+    - when: _APL_BCFLN = 1 AND _APL_CLOSE_BC = 1 AND ((_APL_CAT = 'B' AND _APL_LAG_CAT_BC = 'C') OR (_APL_CAT = 'C' AND _APL_LAG_CAT_BC = 'B'))
+      then: 1
+    - otherwise: 0
+- name: _APL_DBC_PAIR
+  type: int
+  derivation:
+    case:
+    - when: _APL_BCDFLN = 1 AND _APL_CLOSE_D = 1 AND ((_APL_CAT = 'D' AND _APL_LAG_CAT_D IN ('B', 'C')) OR (_APL_CAT IN ('B', 'C') AND _APL_LAG_CAT_D = 'D'))
+      then: 1
+    - otherwise: 0
+- name: _APL_MAX_BC
+  type: int
+  derivation:
+    aggregate:
+      group_by:
+      - USUBJID
+      expr: MAX(_APL_BC_PAIR)
+- name: _APL_MAX_DBC
+  type: int
+  derivation:
+    aggregate:
+      group_by:
+      - USUBJID
+      expr: MAX(_APL_DBC_PAIR)
+- name: _APL_HAS_NA
+  type: int
+  derivation:
+    aggregate:
+      group_by:
+      - USUBJID
+      expr: MAX(_APL_NA)
+- name: _APL_REAS1
+  type: str
+  derivation:
+    case:
+    - when: _APL_HAS_NA = 1
+      then: '''A narrow term or a term from Category A'''
+- name: _APL_REAS2
+  type: str
+  derivation:
+    case:
+    - when: _APL_MAX_BC = 1
+      then: '''A term from Category B AND a term from Category C'''
+- name: _APL_REAS3
+  type: str
+  derivation:
+    case:
+    - when: _APL_MAX_DBC = 1
+      then: '''A term from Category D AND [a term from Category B OR a term from Category C]'''
+- name: APLREAS
+  type: str
+  label: Reason for Anaphylaxis
+  derivation:
+    case:
+    - when: _APL_REAS1 IS NOT NULL AND _APL_REAS2 IS NOT NULL AND _APL_REAS3 IS NOT NULL
+      then: '''A narrow term or a term from Category A; A term from Category B AND a term from Category C; A term from Category D AND [a term from Category B OR a term from Category C]'''
+    - when: _APL_REAS1 IS NOT NULL AND _APL_REAS2 IS NOT NULL AND _APL_REAS3 IS NULL
+      then: '''A narrow term or a term from Category A; A term from Category B AND a term from Category C'''
+    - when: _APL_REAS1 IS NOT NULL AND _APL_REAS2 IS NULL AND _APL_REAS3 IS NOT NULL
+      then: '''A narrow term or a term from Category A; A term from Category D AND [a term from Category B OR a term from Category C]'''
+    - when: _APL_REAS1 IS NULL AND _APL_REAS2 IS NOT NULL AND _APL_REAS3 IS NOT NULL
+      then: '''A term from Category B AND a term from Category C; A term from Category D AND [a term from Category B OR a term from Category C]'''
+    - when: _APL_REAS1 IS NOT NULL AND _APL_REAS2 IS NULL AND _APL_REAS3 IS NULL
+      then: '''A narrow term or a term from Category A'''
+    - when: _APL_REAS1 IS NULL AND _APL_REAS2 IS NOT NULL AND _APL_REAS3 IS NULL
+      then: '''A term from Category B AND a term from Category C'''
+    - when: _APL_REAS1 IS NULL AND _APL_REAS2 IS NULL AND _APL_REAS3 IS NOT NULL
+      then: '''A term from Category D AND [a term from Category B OR a term from Category C]'''
+  submission:
+    core: Perm
+    mandatory: false
+    length: 200
+    origins:
+    - type: Derived
+    method: "Withheld from publication: the received define states this text."
+- name: APLFL
+  type: str
+  label: Anaphylaxis Flag
+  derivation:
+    flag: APLREAS IS NOT NULL
+  submission:
+    core: Perm
+    mandatory: false
+    length: 1
+    origins:
+    - type: Derived
+    method: "Withheld from publication: the received define states this text."
+- name: ANL01FL
+  type: str
+  label: Analysis Flag 01
+  derivation:
+    flag: ARTERM IN ('Pain', 'Erythema', 'Swelling', 'Underarm Gland Swelling or Tenderness') AND MRDSTDY >= 8
+  submission:
+    core: Perm
+    mandatory: false
+    length: 1
+    origins:
+    - type: Derived
+    method: "Withheld from publication: the received define states this text."
+- name: ANL02FL
+  type: str
+  label: Analysis Flag 02
+  derivation:
+    case:
+    - when: ANL01FL = 'Y' AND MRDSTDY = 8 AND FACE_7.USUBJID IS NOT NULL
+      then: '''Y'''
+  submission:
+    core: Perm
+    mandatory: false
+    length: 1
+    origins:
+    - type: Derived
+    method: "Withheld from publication: the received define states this text."
+- name: ANL03FL
+  type: str
+  label: Analysis Flag 03
+  derivation:
+    case:
+    - when: ANL01FL = 'Y' AND _FACE_MAX IS NOT NULL AND (MRDSTDY <> 8 OR _FACE_MAX < 7) AND FAAE3.USUBJID IS NULL
+      then: '''Y'''
+  submission:
+    core: Perm
+    mandatory: false
+    length: 1
+    origins:
+    - type: Derived
+    method: "Withheld from publication: the received define states this text."
+- name: ANL04FL
+  type: str
+  label: Analysis Flag 04
+  derivation:
+    flag: ANL01FL = 'Y' AND _FACE_MAX IS NULL
+  submission:
+    core: Perm
+    mandatory: false
+    length: 1
+    origins:
+    - type: Derived
+    method: "Withheld from publication: the received define states this text."
+output:
+  path: <adam-dir>/adae-yamaa.parquet
+  order_by:
+  - USUBJID
+  - AESEQ
+  columns:
+  - STUDYID
+  - USUBJID
+  - SUBJID
+  - SITEID
+  - COUNTRY
+  - AGE
+  - AGEU
+  - STRATAR
+  - STRATARN
+  - AGEGR1
+  - AGEGR1N
+  - AGEGR2
+  - AGEGR2N
+  - AGEGR3
+  - AGEGR3N
+  - AGEGR4
+  - AGEGR4N
+  - SEX
+  - RACE
+  - RACESPY
+  - ETHNIC
+  - RANDFL
+  - FASFL
+  - SAFFL
+  - SAR1FL
+  - SAR2FL
+  - SARAFL
+  - MITTFL
+  - PPROTFL
+  - RANDIGFL
+  - PPSIFL
+  - CCIASFL
+  - DOSE1FL
+  - DOSE2FL
+  - OLDOS1FL
+  - OLDOS2FL
+  - RTPCRBL
+  - ELECSBL
+  - SCOV2BL
+  - TRT01P
+  - TRT01PN
+  - TRT01A
+  - TRT01AN
+  - TRT02P
+  - TRT02PN
+  - TRT02A
+  - TRT02AN
+  - TRTSEQP
+  - TRTSEQPN
+  - TRTSEQA
+  - TRTSEQAN
+  - TRTSDT
+  - TRTEDT
+  - TR01SDT
+  - TR01SDTM
+  - TR01EDT
+  - TR01EDTM
+  - DOSE2DT
+  - DOS2DTM
+  - TR02SDT
+  - TR02SDTM
+  - TR02EDT
+  - TR02EDTM
+  - OLDOS2DT
+  - OLDO2DTM
+  - EUAVACDT
+  - EFFCODT
+  - AP01SDT
+  - AP01EDT
+  - AP02SDT
+  - AP02EDT
+  - AP01SSDT
+  - AP01SEDT
+  - AP02SSDT
+  - AP02SEDT
+  - RSKF1
+  - RSKF2
+  - RSKF3
+  - RSKF4
+  - RSKF5
+  - RSKF6
+  - STRATAV
+  - STRATAVN
+  - STUDDUR3
+  - MINORITY
+  - RACEGR1
+  - RACEGR1N
+  - RISKGR1
+  - RISKGR1N
+  - RETHGR1
+  - RETHGR1N
+  - COVIDAFL
+  - CVDSVAFL
+  - TRTA
+  - TRTAN
+  - AESPID
+  - AESEQ
+  - AECAT
+  - AETERM
+  - AEDECOD
+  - AEBODSYS
+  - AEBDSYCD
+  - AELLT
+  - AELLTCD
+  - AEPTCD
+  - AEHLT
+  - AEHLTCD
+  - AEHLGT
+  - AEHLGTCD
+  - AESOC
+  - AESOCCD
+  - AESTDTC
+  - AEENDTC
+  - AESTDY
+  - AEENDY
+  - AEENRF
+  - ASTDT
+  - ASTDTM
+  - ASTDTF
+  - ASTDY
+  - AENDT
+  - AENTM
+  - AENDTM
+  - AEDUR
+  - APERIOD
+  - ASTAGE
+  - ASTAGEN
+  - MDOSREF
+  - MRDSTDY
+  - RSTFRD
+  - MRDENDY
+  - TRTEMFL
+  - AEMAFL
+  - D28FL
+  - AEDISFL
+  - AESER
+  - AESCONG
+  - AESDISAB
+  - AESDTH
+  - AESHOSP
+  - AESLIFE
+  - AESMIE
+  - AEREL
+  - AERELNST
+  - AREL
+  - ARELN
+  - AETOXGR
+  - AESEV
+  - ATOXGR
+  - ATOXGRN
+  - ASEV
+  - ASEVN
+  - TOXGGR1
+  - TOXGGR1N
+  - AEACN
+  - AEACNOTH
+  - AEOUT
+  - AEOUTSP
+  - AEHSTDTC
+  - AEHENDTC
+  - ICUAD
+  - ICUDAY
+  - AECVDIAG
+  - ADURSDT
+  - ADUREDT
+  - ADURN
+  - CQ01NAM
+  - CQ01FL
+  - CQ02NAM
+  - CQ02FL
+  - CQ03NAM
+  - CQ03FL
+  - SMQ01NAM
+  - SMQ01SC
+  - SMQ01FL
+  - SMQ02NAM
+  - SMQ02SC
+  - SMQ02FL
+  - SMQ03NAM
+  - SMQ03SC
+  - SMQ03FL
+  - SMQ04NAM
+  - SMQ04SC
+  - SMQ04FL
+  - SMQ05NAM
+  - SMQ05SC
+  - SMQ05FL
+  - SMQ06NAM
+  - SMQ06SC
+  - SMQ06FL
+  - SMQ07NAM
+  - SMQ07SC
+  - SMQ07FL
+  - SMQ08NAM
+  - SMQ08SC
+  - SMQ08FL
+  - SMQ09NAM
+  - SMQ09SC
+  - SMQ09FL
+  - SMQ10NAM
+  - SMQ10SC
+  - SMQ10FL
+  - SMQ11NAM
+  - SMQ11SC
+  - SMQ11FL
+  - SMQ12NAM
+  - SMQ12SC
+  - SMQ12FL
+  - SMQ13NAM
+  - SMQ13SC
+  - SMQ13FL
+  - SMQ14NAM
+  - SMQ14SC
+  - SMQ14FL
+  - ARTERM
+  - AESOFL
+  - APLFL
+  - APLREAS
+  - ANL01FL
+  - ANL02FL
+  - ANL03FL
+  - ANL04FL

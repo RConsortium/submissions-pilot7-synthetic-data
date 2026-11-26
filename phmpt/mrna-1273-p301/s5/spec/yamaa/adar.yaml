@@ -1,0 +1,352 @@
+# ADAR for Moderna mRNA-1273-P301, cut S5 (First Interim Analysis IA1b,
+# extract 2020-11-25).
+# Layer over the S3 spec: the S5 ADAR program (A_P_adar, Bates
+# 5657859-5657865) is the S3 A20ADAR program (Bates 3820363-3820371)
+# without the MEDTAK/MEDTAKP/MEDTAKT parameters, with S5's LYMPH label,
+# _faeval ordering and SUPPVS columns. Each override below names the
+# program step it ports (scripts/reproduce.py verify --study mrna-1273-p301
+# --cut s5).
+#
+# Input: the S5 release carries no FACE (only SUPPFACE), so FACE and its
+# SUPPFACE are read from the S3 release (BLA 125752 S3), a later snapshot
+# of the same study: the program runs on it unchanged. The S3 FACE adds
+# later diary records (mostly INVESTIGATOR re-assessments) and renumbers
+# FASEQ for some subjects, so those subjects' rows, SRCSEQ and ASEQ do
+# not match the S5 snapshot (data/differences.yaml, missing_input).
+#
+# ADSL: the IA ADSL has none of S3's own ADSL columns, so their
+# derivations are nulled here and their submission metadata cleared; the
+# %xxdoserf chain then reads TR02SDT/TR02SDTM/OLDOS2DT/OLDO2DTM as missing,
+# as the S5 program does (its adslvar list merges only tr01sdt tr01sdtm
+# rfxstdtc tr01edt tr01edtm dose2dt dos2dtm).
+yamaa: '1.0'
+type: spec
+parent: ../../../s3/spec/yamaa/adar.yaml
+input:
+  FACE: <study-dir>/s3/data/sdtm/face.parquet
+  SUPPFACE: <study-dir>/s3/data/sdtm/suppface.parquet
+clear:
+- columns.AGEGR3.submission
+- columns.AGEGR3N.submission
+- columns.AGEGR4.submission
+- columns.AGEGR4N.submission
+- columns.RANDIGFL.submission
+- columns.PPSIFL.submission
+- columns.CCIASFL.submission
+- columns.OLDOS1FL.submission
+- columns.OLDOS2FL.submission
+- columns.TRT02P.submission
+- columns.TRT02PN.submission
+- columns.TRT02A.submission
+- columns.TRT02AN.submission
+- columns.TRTSEQP.submission
+- columns.TRTSEQPN.submission
+- columns.TRTSEQA.submission
+- columns.TRTSEQAN.submission
+- columns.TRTSDT.submission
+- columns.TRTEDT.submission
+- columns.TR02SDT.submission
+- columns.TR02SDTM.submission
+- columns.TR02EDT.submission
+- columns.TR02EDTM.submission
+- columns.OLDOS2DT.submission
+- columns.OLDO2DTM.submission
+- columns.EUAVACDT.submission
+- columns.EFFCODT.submission
+- columns.AP01SDT.submission
+- columns.AP01EDT.submission
+- columns.AP02SDT.submission
+- columns.AP02EDT.submission
+- columns.AP01SSDT.submission
+- columns.AP01SEDT.submission
+- columns.AP02SSDT.submission
+- columns.AP02SEDT.submission
+- columns.STUDDUR3.submission
+- columns.COVIDAFL.submission
+- columns.CVDSVAFL.submission
+rows:
+# A_P_adar data face_vs: the VS set is vscat='REACTOGENICITY' and
+# vstptnum<=7 and missing(vsstat) and ^missing(VSTPTREF) (S3 also kept
+# MEDTA* rows with a VSSTAT).
+- id: vs_rows
+  filter: VS.VSCAT = 'REACTOGENICITY' AND VS.VSTPTNUM <= 7 AND (VS.VSSTAT IS NULL OR VS.VSSTAT IN ('')) AND (VS.VSTPTREF IS NOT NULL AND VS.VSTPTREF NOT IN ('')) AND _ADSL IS NOT NULL AND NOT ((ADSL.DOSE2FL IS NOT NULL AND ADSL.DOSE2FL = 'N') AND (_TPTREF IS NOT NULL AND str_contains(_TPTREF, '2')) AND NOT (_TPTREF IS NOT NULL AND str_contains(_TPTREF, '1')))
+# A_P_adar has no data vs_all step that outputs one VS record per SUPPVS
+# MEDTAK/MEDTAKP/MEDTAKT = 'Y' (S3 A20ADAR does): the S3 templates select
+# nothing here.
+- id: medtak_rows
+  filter: 1 = 0
+- id: medtakp_rows
+  filter: 1 = 0
+- id: medtakt_rows
+  filter: 1 = 0
+columns:
+# ADSL columns the IA ADSL does not carry (see the header).
+- name: AGEGR3
+  derivation: null
+- name: AGEGR3N
+  derivation: null
+- name: AGEGR4
+  derivation: null
+- name: AGEGR4N
+  derivation: null
+- name: RANDIGFL
+  derivation: null
+- name: PPSIFL
+  derivation: null
+- name: CCIASFL
+  derivation: null
+- name: OLDOS1FL
+  derivation: null
+- name: OLDOS2FL
+  derivation: null
+- name: TRT02P
+  derivation: null
+- name: TRT02PN
+  derivation: null
+- name: TRT02A
+  derivation: null
+- name: TRT02AN
+  derivation: null
+- name: TRTSEQP
+  derivation: null
+- name: TRTSEQPN
+  derivation: null
+- name: TRTSEQA
+  derivation: null
+- name: TRTSEQAN
+  derivation: null
+- name: TRTSDT
+  derivation: null
+- name: TRTEDT
+  derivation: null
+- name: TR02SDT
+  derivation: null
+- name: TR02SDTM
+  derivation: null
+- name: TR02EDT
+  derivation: null
+- name: TR02EDTM
+  derivation: null
+- name: OLDOS2DT
+  derivation: null
+- name: OLDO2DTM
+  derivation: null
+- name: EUAVACDT
+  derivation: null
+- name: AP01SDT
+  derivation: null
+- name: AP01EDT
+  derivation: null
+- name: AP02SDT
+  derivation: null
+- name: AP02EDT
+  derivation: null
+- name: AP01SSDT
+  derivation: null
+- name: AP01SEDT
+  derivation: null
+- name: AP02SSDT
+  derivation: null
+- name: AP02SEDT
+  derivation: null
+- name: COVIDAFL
+  derivation: null
+- name: CVDSVAFL
+  derivation: null
+# Some IA ADSL subjects have no RACE (as in the other S5 datasets).
+- name: RACE
+  submission:
+    mandatory: false
+- name: COMPLFL
+  derivation: ADSL.COMPLFL
+  submission:
+    origins:
+    - type: Predecessor
+      description: ADSL.COMPLFL
+# A_P_adar data face_date: _faeval is 1 for STUDY SUBJECT, 2 for a blank
+# FAEVAL, 3 for INVESTIGATOR (S3: 1 for STUDY SUBJECT or a blank-FAEVAL
+# FEVER record, else 2). It orders the ANL01FL and ANL03FL sorts.
+- name: _FAEVAL
+  derivation:
+    case:
+    - when: _EVAL = 'STUDY SUBJECT'
+      then: 1
+    - when: _EVAL IS NULL OR _EVAL IN ('')
+      then: 2
+    - when: _EVAL = 'INVESTIGATOR'
+      then: 3
+    - otherwise: null
+# A_P_adar proc format $param: LYMPH = 'Lymphadenopathy'; no MEDTA* labels.
+- name: PARAM
+  derivation:
+    case:
+    - when: PARAMCD = 'FEVER'
+      then: '''Fever (C)'''
+    - when: PARAMCD = 'LYMPH'
+      then: '''Lymphadenopathy'''
+    - when: PARAMCD = 'PAIN'
+      then: '''Pain'''
+    - when: PARAMCD = 'NAUSEA'
+      then: '''Nausea/Vomiting'''
+    - when: PARAMCD = 'ERYTHDIA'
+      then: '''Erythema Longest Diameter (mm)'''
+    - when: PARAMCD = 'SWELLDIA'
+      then: '''Swelling Longest Diameter (mm)'''
+    - when: PARAMCD = 'HEADACHE'
+      then: '''Headache'''
+    - when: PARAMCD = 'FATIGUE'
+      then: '''Fatigue'''
+    - when: PARAMCD = 'MYALGIA'
+      then: '''Myalgia'''
+    - when: PARAMCD = 'ARTHRALG'
+      then: '''Arthralgia'''
+    - when: PARAMCD = 'CHILLS'
+      then: '''Chills'''
+    - otherwise: _OBJ
+  submission:
+    method: "Withheld from publication: the received define states this text."
+# A_P_adar data face_date: if ^missing(_atm) then ATM = input(_atm,time5.);
+# kept in S5's output (S3 drops it).
+- name: ATM
+  type: time
+  label: 'Analysis Time'
+  derivation:
+    to_time:
+      source: _ORI_ADTM
+  submission:
+    core: Perm
+    mandatory: false
+    origins:
+    - type: Derived
+    method: "Withheld from publication: the received define states this text."
+# A_P_adar %revsupp(ds=vs, supp=suppvs) merges the SUPPVS QNAMs onto the
+# VS records; the program keeps them, so VS rows carry MEDTAKP, MEDTAKT and
+# MEDTAK and FACE rows leave them blank.
+- name: MEDTAKP
+  type: str
+  label: 'Prevent pain or fever'
+  derivation: SUPP_P_VS.MEDTAKP
+  submission:
+    core: Perm
+    mandatory: false
+    length: 1
+    origins:
+    - type: Derived
+    method: "Withheld from publication: the received define states this text."
+- name: MEDTAKT
+  type: str
+  label: 'Treat Pain or Fever'
+  derivation: SUPP_P_VS.MEDTAKT
+  submission:
+    core: Perm
+    mandatory: false
+    length: 1
+    origins:
+    - type: Derived
+    method: "Withheld from publication: the received define states this text."
+- name: MEDTAK
+  type: str
+  label: 'Medication taken today for pain or fever'
+  derivation: SUPP_P_VS.MEDTAK
+  submission:
+    core: Perm
+    mandatory: false
+    length: 1
+    origins:
+    - type: Derived
+    method: "Withheld from publication: the received define states this text."
+output:
+  columns:
+  - STUDYID
+  - USUBJID
+  - SUBJID
+  - SITEID
+  - COUNTRY
+  - AGE
+  - AGEU
+  - STRATAR
+  - STRATARN
+  - AGEGR1
+  - AGEGR1N
+  - AGEGR2
+  - AGEGR2N
+  - SEX
+  - RACE
+  - RACESPY
+  - ETHNIC
+  - RANDFL
+  - FASFL
+  - SAFFL
+  - SAR1FL
+  - SAR2FL
+  - SARAFL
+  - MITTFL
+  - PPROTFL
+  - COMPLFL
+  - DOSE1FL
+  - DOSE2FL
+  - RTPCRBL
+  - ELECSBL
+  - SCOV2BL
+  - TRT01P
+  - TRT01PN
+  - TRT01A
+  - TRT01AN
+  - TR01SDT
+  - TR01SDTM
+  - TR01EDT
+  - TR01EDTM
+  - DOSE2DT
+  - DOS2DTM
+  - RSKF1
+  - RSKF2
+  - RSKF3
+  - RSKF4
+  - RSKF5
+  - RSKF6
+  - STRATAV
+  - STRATAVN
+  - MINORITY
+  - RACEGR1
+  - RACEGR1N
+  - RISKGR1
+  - RISKGR1N
+  - RETHGR1
+  - RETHGR1N
+  - ASEQ
+  - ADT
+  - ATM
+  - ADTM
+  - ADY
+  - ATPT
+  - ATPTN
+  - ATPTREF
+  - ATPTGR1
+  - ATPTGR1N
+  - PARCAT1
+  - PARCAT1N
+  - PARAMCD
+  - PARAM
+  - AVAL
+  - AVALC
+  - ATOXGR
+  - ATOXGRN
+  - ANL01FL
+  - ANL02FL
+  - ANL03FL
+  - CRIT1
+  - CRIT1FL
+  - CRIT2
+  - CRIT2FL
+  - CRIT3
+  - CRIT3FL
+  - CRIT4
+  - CRIT4FL
+  - SRCDOM
+  - SRCSEQ
+  - SRCVAR
+  - MEDTAKP
+  - MEDTAKT
+  - MEDTAK
+  - FAEVAL
+  - MAAEFL

@@ -1,0 +1,1276 @@
+# ADAE for Moderna mRNA-1273-P201, data cut add1 (Addendum 1, cutoff 2021-06-11).
+# Parent: ../../../s3-d57/spec/yamaa/adae.yaml (which chains to ../../../spec/yamaa/base/adam-base.yaml) (section 3.1 core columns).
+# Derivations implement the add1 A20ADAE program; where the SAS code and the
+# define.xml method text disagree, the code is followed (see README.md).
+# New in add1 vs d57: SMQ01-14 NAM/SC/FL, CQ01-03 NAM/FL, ARTERM, DARFL,
+# ANL01-04FL, and the core columns PBD209FL, PND209FL, PN2209FL, ELECSBL.
+# The import.smq / import.cmq / import.symp lookup tables are NOT in Module 5,
+# so the SMQ/CQ/ARTERM tables used here were reconstructed from the submitted
+# ADAE itself (each AEDECOD/AEPTCD maps to at most one value per column);
+# they cover exactly the terms exercised by this study's AE data (see README.md).
+# The HO join splits HOSPID on "/": four add1 HO rows are 'HO-001/002', so the
+# d57 whole-HOSPID match would miss them. AENDY is computed by the SAS program
+# but is in neither the define nor the submitted dataset, so it is not an
+# output column. COMPLFL is not in the add1 output (derivation null).
+# Layer over ../d57/adae.yaml: the derivations are the parent cut's, and
+# this file holds only what this cut changes (written by
+# scripts/specs/inherit_cut.py; its resolved specification
+# equals the standalone file it replaced).
+yamaa: '1.0'
+type: spec
+parent: ../../../s3-d57/spec/yamaa/adae.yaml
+clear:
+- columns.COMPLFL.submission
+input:
+  AE: <sdtm-dir>/ae.parquet
+  SUPPAE: <sdtm-dir>/suppae.parquet
+  DS: <sdtm-dir>/ds.parquet
+  HO: <sdtm-dir>/ho.parquet
+  EX: <sdtm-dir>/ex.parquet
+  FACE: <sdtm-dir>/face.parquet
+  FAAE: <sdtm-dir>/faae.parquet
+  ADSL:
+    path: <adam-dir>/adsl.parquet
+intermediates:
+- id: HO_HOSP1
+  dataset: HO
+  key:
+    USUBJID: USUBJID
+    _HOSPID1: _AESPID1
+  derivations:
+    _HOSPID1:
+      str_extract:
+        source: HOSPID
+        pattern: '^HO-([^/]+)'
+        group: 1
+        no_match:
+  filter: HO.HOTERM = 'HOSPITAL'
+- id: HO_HOSP2
+  dataset: HO
+  key:
+    USUBJID: USUBJID
+    _HOSPID2: _AESPID1
+  derivations:
+    _HOSPID2:
+      str_extract:
+        source: HOSPID
+        pattern: '/([^/]+)$'
+        group: 1
+        no_match:
+  filter: HO.HOTERM = 'HOSPITAL'
+- id: HO_ICU1
+  dataset: HO
+  key:
+    USUBJID: USUBJID
+    _HOSPID1: _AESPID1
+  derivations:
+    _HOSPID1:
+      str_extract:
+        source: HOSPID
+        pattern: '^HO-([^/]+)'
+        group: 1
+        no_match:
+  filter: HO.HOTERM = 'ADMITTED TO ICU'
+- id: HO_ICU2
+  dataset: HO
+  key:
+    USUBJID: USUBJID
+    _HOSPID2: _AESPID1
+  derivations:
+    _HOSPID2:
+      str_extract:
+        source: HOSPID
+        pattern: '/([^/]+)$'
+        group: 1
+        no_match:
+  filter: HO.HOTERM = 'ADMITTED TO ICU'
+- id: FACE2
+  dataset: FACE
+  key:
+    USUBJID: USUBJID
+    FATPTREF: _FATPTREF
+    FAOBJ: ARTERM
+  filter: FACE.FACAT = 'REACTOGENICITY' AND FACE.FATPTREF IS NOT NULL AND (FACE.FASTRESC IS NULL OR FACE.FASTRESC <> 'NONE') AND (FACE.FASTRESC IS NULL OR NOT str_contains(FACE.FASTRESC, 'GRADE 0')) AND (FACE.FASTAT IS NULL OR FACE.FASTAT <> 'NOT DONE') AND NOT (FACE.FAOBJ IN ('Erythema', 'Swelling') AND (FACE.FATESTCD = 'OCCUR' OR (FACE.FATESTCD = 'LDIAM' AND (FACE.FASTRESN IS NULL OR FACE.FASTRESN < 25))))
+  order_by:
+  - FACE.FASEQ
+  keep: first
+- id: FAAE3
+  dataset: FAAE
+  key:
+    USUBJID: USUBJID
+    FATPTREF: _FATPTREF
+    FAOBJ: ARTERM
+  filter: FAAE.FACAT = 'REACTOGENICITY' AND FAAE.FATPTREF IS NOT NULL AND (FAAE.FASTRESC IS NULL OR FAAE.FASTRESC <> 'NONE') AND (FAAE.FASTRESC IS NULL OR NOT str_contains(FAAE.FASTRESC, 'GRADE 0')) AND (FAAE.FASTAT IS NULL OR FAAE.FASTAT <> 'NOT DONE') AND NOT (FAAE.FAOBJ IN ('Erythema', 'Swelling') AND (FAAE.FATESTCD = 'OCCUR' OR (FAAE.FATESTCD = 'LDIAM' AND (FAAE.FASTRESN IS NULL OR FAAE.FASTRESN < 25))))
+  order_by:
+  - FAAE.FASEQ
+  keep: first
+output:
+  path: <adam-dir>/adae-add1-yamaa.parquet
+  columns:
+  - STUDYID
+  - USUBJID
+  - SUBJID
+  - SITEID
+  - COUNTRY
+  - AGE
+  - AGEU
+  - AGEGR1
+  - AGEGR1N
+  - AGEGR2
+  - AGEGR2N
+  - SEX
+  - RACE
+  - RACESPY
+  - ETHNIC
+  - RANDFL
+  - SAFFL
+  - FASBABFL
+  - FASNABFL
+  - PPBABFL
+  - PPNABFL
+  - PPBD29FL
+  - PPBD57FL
+  - PBD209FL
+  - PPND29FL
+  - PPND57FL
+  - PND209FL
+  - SAR1FL
+  - SAR2FL
+  - SARAFL
+  - FASNA2FL
+  - PPNAB2FL
+  - PN2D29FL
+  - PN2D57FL
+  - PN2209FL
+  - DVBABFL
+  - DVNABFL
+  - DOSE1FL
+  - DOSE2FL
+  - DOSEROFL
+  - COV19BL
+  - ELECSBL
+  - COV19FL
+  - SENTLFL
+  - D29W7DFL
+  - TRT01P
+  - TRT01PN
+  - TRT01A
+  - TRT01AN
+  - TR01SDT
+  - TR01SDTM
+  - TR01EDT
+  - TR01EDTM
+  - TRTSDTM
+  - TRTEDTM
+  - DOSE2DT
+  - DOS2DTM
+  - AELNKGRP
+  - TRTA
+  - TRTAN
+  - AESPID
+  - AESEQ
+  - AECAT
+  - AETERM
+  - AEDECOD
+  - AEBODSYS
+  - AEBDSYCD
+  - AELLT
+  - AELLTCD
+  - AEPTCD
+  - AEHLT
+  - AEHLTCD
+  - AEHLGT
+  - AEHLGTCD
+  - AESOC
+  - AESOCCD
+  - AESTDTC
+  - AEENDTC
+  - AESTDY
+  - AEENDY
+  - AEENRF
+  - ASTDT
+  - ASTTM
+  - ASTDTM
+  - ASTDTF
+  - ASTTMF
+  - ASTDY
+  - AENDT
+  - AENTM
+  - AENDTM
+  - ASTAGE
+  - ASTAGEN
+  - AEDUR
+  - MDOSREF
+  - MRDSTDY
+  - MRDENDY
+  - TRTEMFL
+  - AEMAFL
+  - D28FL
+  - AEDISFL
+  - AESOFL
+  - AESER
+  - AESCONG
+  - AESDISAB
+  - AESDTH
+  - AESHOSP
+  - AESLIFE
+  - AESMIE
+  - AEREL
+  - AERELNST
+  - AREL
+  - ARELN
+  - AETOXGR
+  - AESEV
+  - ATOXGR
+  - ATOXGRN
+  - ASEV
+  - ASEVN
+  - TOXGGR1
+  - TOXGGR1N
+  - AEACN
+  - AEACNOTH
+  - AEOUT
+  - AEOUTSP
+  - AEHSTDTC
+  - AEHENDTC
+  - ICUAD
+  - ICUDAY
+  - AEREFID
+  - CQ01NAM
+  - CQ01FL
+  - CQ02NAM
+  - CQ02FL
+  - CQ03NAM
+  - CQ03FL
+  - SMQ01NAM
+  - SMQ01SC
+  - SMQ01FL
+  - SMQ02NAM
+  - SMQ02SC
+  - SMQ02FL
+  - SMQ03NAM
+  - SMQ03SC
+  - SMQ03FL
+  - SMQ04NAM
+  - SMQ04SC
+  - SMQ04FL
+  - SMQ05NAM
+  - SMQ05SC
+  - SMQ05FL
+  - SMQ06NAM
+  - SMQ06SC
+  - SMQ06FL
+  - SMQ07NAM
+  - SMQ07SC
+  - SMQ07FL
+  - SMQ08NAM
+  - SMQ08SC
+  - SMQ08FL
+  - SMQ09NAM
+  - SMQ09SC
+  - SMQ09FL
+  - SMQ10NAM
+  - SMQ10SC
+  - SMQ10FL
+  - SMQ11NAM
+  - SMQ11SC
+  - SMQ11FL
+  - SMQ12NAM
+  - SMQ12SC
+  - SMQ12FL
+  - SMQ13NAM
+  - SMQ13SC
+  - SMQ13FL
+  - SMQ14NAM
+  - SMQ14SC
+  - SMQ14FL
+  - ARTERM
+  - DARFL
+  - ANL01FL
+  - ANL02FL
+  - ANL03FL
+  - ANL04FL
+columns:
+- name: _AESPID1
+  type: str
+  derivation:
+    str_replace:
+      source: AE.AESPID
+      pattern: '^AE-'
+      replacement: ''
+- name: _AECD
+  type: str
+  derivation:
+    str_decimal:
+      source: AE.AEPTCD
+      decimals: 0
+- name: _AELLT_UP
+  type: str
+  derivation:
+    str_case:
+      source: AE.AELLT
+      to: upper
+- name: _FATPTREF
+  type: str
+  derivation:
+    str_replace:
+      source: MDOSREF
+      pattern: '^Vaccination '
+      replacement: 'DOSE '
+- name: TRTA
+  submission:
+    length: 20
+- name: AEHSTDTC
+  derivation:
+    first_available:
+      sources: [HO_HOSP1.HOSTDTC, HO_HOSP2.HOSTDTC]
+  submission:
+    method: "Withheld from publication: the received define states this text."
+- name: AEHENDTC
+  derivation:
+    first_available:
+      sources: [HO_HOSP1.HOENDTC, HO_HOSP2.HOENDTC]
+  submission:
+    method: "Withheld from publication: the received define states this text."
+- name: ICUAD
+  derivation:
+    first_available:
+      sources: [HO_ICU1.HOOCCUR, HO_ICU2.HOOCCUR]
+  submission:
+    method: "Withheld from publication: the received define states this text."
+- name: ICUDAY
+  derivation:
+    first_available:
+      sources: [HO_ICU1.HODUR, HO_ICU2.HODUR]
+  submission:
+    method: "Withheld from publication: the received define states this text."
+- name: PBD209FL
+  type: str
+  label: Per Protocol bAb Day 209 Flag
+  derivation: ADSL.PBD209FL
+  submission:
+    core: Perm
+    mandatory: false
+    length: 1
+    origins:
+    - type: Predecessor
+      description: ADSL.PBD209FL
+- name: PND209FL
+  type: str
+  label: Per Protocol nAb Day 209 Flag
+  derivation: ADSL.PND209FL
+  submission:
+    core: Perm
+    mandatory: false
+    length: 1
+    origins:
+    - type: Predecessor
+      description: ADSL.PND209FL
+- name: PN2209FL
+  type: str
+  label: Per Protocol nAb 2 Day 209 Flag
+  derivation: ADSL.PN2209FL
+  submission:
+    core: Perm
+    mandatory: false
+    length: 1
+    origins:
+    - type: Predecessor
+      description: ADSL.PN2209FL
+- name: COMPLFL
+  derivation:
+- name: ELECSBL
+  type: str
+  label: Baseline Elecsys SARS CoV-2 Assay
+  derivation: ADSL.ELECSBL
+  submission:
+    core: Perm
+    mandatory: false
+    length: 20
+    origins:
+    - type: Predecessor
+      description: ADSL.ELECSBL
+- name: COV19FL
+  submission:
+    length: 1
+- name: SENTLFL
+  submission:
+    length: 1
+- name: AETERM
+  submission:
+    length: 95
+- name: AEDECOD
+  submission:
+    length: 46
+- name: AELLT
+  submission:
+    length: 65
+- name: AESEV
+  submission:
+    mandatory: false
+- name: AEOUT
+  submission:
+    length: 32
+- name: CQ01NAM
+  type: str
+  label: Customized Query 01 Name
+  derivation:
+    mapping:
+      source: _AECD
+      dict:
+        '10029223': Autoimmune
+      unmapped:
+  submission:
+    core: Perm
+    mandatory: false
+    length: 45
+    origins:
+    - type: Derived
+    method: "Withheld from publication: the received define states this text."
+- name: CQ01FL
+  type: str
+  label: Customized Query 01 Flag
+  derivation:
+    flag: CQ01NAM IS NOT NULL
+  submission:
+    core: Perm
+    mandatory: false
+    length: 1
+    origins:
+    - type: Derived
+    method: "Withheld from publication: the received define states this text."
+- name: CQ02NAM
+  type: str
+  label: Customized Query 02 Name
+  derivation:
+    mapping:
+      source: _AECD
+      dict: {}
+      unmapped:
+  submission:
+    core: Perm
+    mandatory: false
+    length: 45
+    origins:
+    - type: Derived
+    method: "Withheld from publication: the received define states this text."
+- name: CQ02FL
+  type: str
+  label: Customized Query 02 Flag
+  derivation:
+    flag: CQ02NAM IS NOT NULL
+  submission:
+    core: Perm
+    mandatory: false
+    length: 1
+    origins:
+    - type: Derived
+    method: "Withheld from publication: the received define states this text."
+- name: CQ03NAM
+  type: str
+  label: Customized Query 03 Name
+  derivation:
+    case:
+    - when: _AELLT_UP IN ('BELL''S PALSY', 'PALSY BELLS', 'FACIAL PALSY', 'FACIAL PARALYSIS')
+      then: '''Bell''''s Palsy'''
+  submission:
+    core: Perm
+    mandatory: false
+    length: 45
+    origins:
+    - type: Derived
+    method: "Withheld from publication: the received define states this text."
+- name: CQ03FL
+  type: str
+  label: Customized Query 03 Flag
+  derivation:
+    flag: CQ03NAM IS NOT NULL
+  submission:
+    core: Perm
+    mandatory: false
+    length: 1
+    origins:
+    - type: Derived
+    method: "Withheld from publication: the received define states this text."
+- name: SMQ01NAM
+  type: str
+  label: SMQ 01 Name
+  derivation:
+    mapping:
+      source: AE.AEDECOD
+      dict:
+        Angioedema: Anaphylactic Reaction
+        Chest discomfort: Anaphylactic Reaction
+        Cough: Anaphylactic Reaction
+        Dyspnoea: Anaphylactic Reaction
+        Erythema: Anaphylactic Reaction
+        Pruritus: Anaphylactic Reaction
+        Rash: Anaphylactic Reaction
+        Sneezing: Anaphylactic Reaction
+      unmapped:
+  submission:
+    core: Perm
+    mandatory: false
+    length: 45
+    origins:
+    - type: Derived
+    method: "Withheld from publication: the received define states this text."
+- name: SMQ01SC
+  type: str
+  label: SMQ 01 Scope
+  derivation:
+    mapping:
+      source: AE.AEDECOD
+      dict:
+        Angioedema: BROAD
+        Chest discomfort: BROAD
+        Cough: BROAD
+        Dyspnoea: BROAD
+        Erythema: BROAD
+        Pruritus: BROAD
+        Rash: BROAD
+        Sneezing: BROAD
+      unmapped:
+  submission:
+    core: Perm
+    mandatory: false
+    length: 6
+    origins:
+    - type: Derived
+    method: "Withheld from publication: the received define states this text."
+- name: SMQ01FL
+  type: str
+  label: SMQ 01 Flag
+  derivation:
+    flag: SMQ01NAM IS NOT NULL
+  submission:
+    core: Perm
+    mandatory: false
+    length: 1
+    origins:
+    - type: Derived
+    method: "Withheld from publication: the received define states this text."
+- name: SMQ02NAM
+  type: str
+  label: SMQ 02 Name
+  derivation:
+    mapping:
+      source: AE.AEDECOD
+      dict:
+        Angioedema: Angioede
+        Peripheral swelling: Angioede
+      unmapped:
+  submission:
+    core: Perm
+    mandatory: false
+    length: 45
+    origins:
+    - type: Derived
+    method: "Withheld from publication: the received define states this text."
+- name: SMQ02SC
+  type: str
+  label: SMQ 02 Scope
+  derivation:
+    mapping:
+      source: AE.AEDECOD
+      dict:
+        Angioedema: NARROW
+        Peripheral swelling: BROAD
+      unmapped:
+  submission:
+    core: Perm
+    mandatory: false
+    length: 6
+    origins:
+    - type: Derived
+    method: "Withheld from publication: the received define states this text."
+- name: SMQ02FL
+  type: str
+  label: SMQ 02 Flag
+  derivation:
+    flag: SMQ02NAM IS NOT NULL AND SMQ02SC = 'NARROW'
+  submission:
+    core: Perm
+    mandatory: false
+    length: 1
+    origins:
+    - type: Derived
+    method: "Withheld from publication: the received define states this text."
+- name: SMQ03NAM
+  type: str
+  label: SMQ 03 Name
+  derivation:
+    mapping:
+      source: AE.AEDECOD
+      dict:
+        Arthralgia: Arthritis
+        Arthritis: Arthritis
+        Gout: Arthritis
+        Joint swelling: Arthritis
+        Musculoskeletal stiffness: Arthritis
+        Neck pain: Arthritis
+        Periarthritis: Arthritis
+      unmapped:
+  submission:
+    core: Perm
+    mandatory: false
+    length: 45
+    origins:
+    - type: Derived
+    method: "Withheld from publication: the received define states this text."
+- name: SMQ03SC
+  type: str
+  label: SMQ 03 Scope
+  derivation:
+    mapping:
+      source: AE.AEDECOD
+      dict:
+        Arthralgia: BROAD
+        Arthritis: NARROW
+        Gout: NARROW
+        Joint swelling: BROAD
+        Musculoskeletal stiffness: BROAD
+        Neck pain: BROAD
+        Periarthritis: NARROW
+      unmapped:
+  submission:
+    core: Perm
+    mandatory: false
+    length: 6
+    origins:
+    - type: Derived
+    method: "Withheld from publication: the received define states this text."
+- name: SMQ03FL
+  type: str
+  label: SMQ 03 Flag
+  derivation:
+    flag: SMQ03NAM IS NOT NULL AND SMQ03SC = 'NARROW'
+  submission:
+    core: Perm
+    mandatory: false
+    length: 1
+    origins:
+    - type: Derived
+    method: "Withheld from publication: the received define states this text."
+- name: SMQ04NAM
+  type: str
+  label: SMQ 04 Name
+  derivation:
+    mapping:
+      source: AE.AEDECOD
+      dict: {}
+      unmapped:
+  submission:
+    core: Perm
+    mandatory: false
+    length: 45
+    origins:
+    - type: Derived
+    method: "Withheld from publication: the received define states this text."
+- name: SMQ04SC
+  type: str
+  label: SMQ 04 Scope
+  derivation:
+    mapping:
+      source: AE.AEDECOD
+      dict: {}
+      unmapped:
+  submission:
+    core: Perm
+    mandatory: false
+    length: 6
+    origins:
+    - type: Derived
+    method: "Withheld from publication: the received define states this text."
+- name: SMQ04FL
+  type: str
+  label: SMQ 04 Flag
+  derivation:
+    flag: SMQ04NAM IS NOT NULL AND SMQ04SC = 'NARROW'
+  submission:
+    core: Perm
+    mandatory: false
+    length: 1
+    origins:
+    - type: Derived
+    method: "Withheld from publication: the received define states this text."
+- name: SMQ05NAM
+  type: str
+  label: SMQ 05 Name
+  derivation:
+    mapping:
+      source: AE.AEDECOD
+      dict: {}
+      unmapped:
+  submission:
+    core: Perm
+    mandatory: false
+    length: 45
+    origins:
+    - type: Derived
+    method: "Withheld from publication: the received define states this text."
+- name: SMQ05SC
+  type: str
+  label: SMQ 05 Scope
+  derivation:
+    mapping:
+      source: AE.AEDECOD
+      dict: {}
+      unmapped:
+  submission:
+    core: Perm
+    mandatory: false
+    length: 6
+    origins:
+    - type: Derived
+    method: "Withheld from publication: the received define states this text."
+- name: SMQ05FL
+  type: str
+  label: SMQ 05 Flag
+  derivation:
+    flag: SMQ05NAM IS NOT NULL AND SMQ05SC = 'NARROW'
+  submission:
+    core: Perm
+    mandatory: false
+    length: 1
+    origins:
+    - type: Derived
+    method: "Withheld from publication: the received define states this text."
+- name: SMQ06NAM
+  type: str
+  label: SMQ 06 Name
+  derivation:
+    mapping:
+      source: AE.AEDECOD
+      dict:
+        Angioedema: Hypersensitivity
+        Conjunctivitis allergic: Hypersensitivity
+        Dermatitis: Hypersensitivity
+        Dermatitis contact: Hypersensitivity
+        Erythema: Hypersensitivity
+        Pruritus: Hypersensitivity
+        Rash: Hypersensitivity
+        Rhinitis allergic: Hypersensitivity
+        Seasonal allergy: Hypersensitivity
+        Sneezing: Hypersensitivity
+      unmapped:
+  submission:
+    core: Perm
+    mandatory: false
+    length: 45
+    origins:
+    - type: Derived
+    method: "Withheld from publication: the received define states this text."
+- name: SMQ06SC
+  type: str
+  label: SMQ 06 Scope
+  derivation:
+    mapping:
+      source: AE.AEDECOD
+      dict:
+        Angioedema: NARROW
+        Conjunctivitis allergic: NARROW
+        Dermatitis: NARROW
+        Dermatitis contact: NARROW
+        Erythema: BROAD
+        Pruritus: BROAD
+        Rash: NARROW
+        Rhinitis allergic: NARROW
+        Seasonal allergy: BROAD
+        Sneezing: BROAD
+      unmapped:
+  submission:
+    core: Perm
+    mandatory: false
+    length: 6
+    origins:
+    - type: Derived
+    method: "Withheld from publication: the received define states this text."
+- name: SMQ06FL
+  type: str
+  label: SMQ 06 Flag
+  derivation:
+    flag: SMQ06NAM IS NOT NULL AND SMQ06SC = 'NARROW'
+  submission:
+    core: Perm
+    mandatory: false
+    length: 1
+    origins:
+    - type: Derived
+    method: "Withheld from publication: the received define states this text."
+- name: SMQ07NAM
+  type: str
+  label: SMQ 07 Name
+  derivation:
+    mapping:
+      source: AE.AEDECOD
+      dict:
+        Neuralgia: Peripheral Neuropathy
+        Paraesthesia: Peripheral Neuropathy
+      unmapped:
+  submission:
+    core: Perm
+    mandatory: false
+    length: 45
+    origins:
+    - type: Derived
+    method: "Withheld from publication: the received define states this text."
+- name: SMQ07SC
+  type: str
+  label: SMQ 07 Scope
+  derivation:
+    mapping:
+      source: AE.AEDECOD
+      dict:
+        Neuralgia: NARROW
+        Paraesthesia: BROAD
+      unmapped:
+  submission:
+    core: Perm
+    mandatory: false
+    length: 6
+    origins:
+    - type: Derived
+    method: "Withheld from publication: the received define states this text."
+- name: SMQ07FL
+  type: str
+  label: SMQ 07 Flag
+  derivation:
+    flag: SMQ07NAM IS NOT NULL AND SMQ07SC = 'NARROW'
+  submission:
+    core: Perm
+    mandatory: false
+    length: 1
+    origins:
+    - type: Derived
+    method: "Withheld from publication: the received define states this text."
+- name: SMQ08NAM
+  type: str
+  label: SMQ 08 Name
+  derivation:
+    mapping:
+      source: AE.AEDECOD
+      dict: {}
+      unmapped:
+  submission:
+    core: Perm
+    mandatory: false
+    length: 45
+    origins:
+    - type: Derived
+    method: "Withheld from publication: the received define states this text."
+- name: SMQ08SC
+  type: str
+  label: SMQ 08 Scope
+  derivation:
+    mapping:
+      source: AE.AEDECOD
+      dict: {}
+      unmapped:
+  submission:
+    core: Perm
+    mandatory: false
+    length: 6
+    origins:
+    - type: Derived
+    method: "Withheld from publication: the received define states this text."
+- name: SMQ08FL
+  type: str
+  label: SMQ 08 Flag
+  derivation:
+    flag: SMQ08NAM IS NOT NULL AND SMQ08SC = 'NARROW'
+  submission:
+    core: Perm
+    mandatory: false
+    length: 1
+    origins:
+    - type: Derived
+    method: "Withheld from publication: the received define states this text."
+- name: SMQ09NAM
+  type: str
+  label: SMQ 09 Name
+  derivation:
+    mapping:
+      source: AE.AEDECOD
+      dict:
+        Cerebrovascular accident: Central Nervous System Vascular Disorders
+      unmapped:
+  submission:
+    core: Perm
+    mandatory: false
+    length: 45
+    origins:
+    - type: Derived
+    method: "Withheld from publication: the received define states this text."
+- name: SMQ09SC
+  type: str
+  label: SMQ 09 Scope
+  derivation:
+    mapping:
+      source: AE.AEDECOD
+      dict:
+        Cerebrovascular accident: NARROW
+      unmapped:
+  submission:
+    core: Perm
+    mandatory: false
+    length: 6
+    origins:
+    - type: Derived
+    method: "Withheld from publication: the received define states this text."
+- name: SMQ09FL
+  type: str
+  label: SMQ 09 Flag
+  derivation:
+    flag: SMQ09NAM IS NOT NULL AND SMQ09SC = 'NARROW'
+  submission:
+    core: Perm
+    mandatory: false
+    length: 1
+    origins:
+    - type: Derived
+    method: "Withheld from publication: the received define states this text."
+- name: SMQ10NAM
+  type: str
+  label: SMQ 10 Name
+  derivation:
+    mapping:
+      source: AE.AEDECOD
+      dict:
+        Acute myocardial infarction: Embolic and Thrombotic Events
+        Cerebrovascular accident: Embolic and Thrombotic Events
+      unmapped:
+  submission:
+    core: Perm
+    mandatory: false
+    length: 45
+    origins:
+    - type: Derived
+    method: "Withheld from publication: the received define states this text."
+- name: SMQ10SC
+  type: str
+  label: SMQ 10 Scope
+  derivation:
+    mapping:
+      source: AE.AEDECOD
+      dict:
+        Acute myocardial infarction: NARROW
+        Cerebrovascular accident: NARROW
+      unmapped:
+  submission:
+    core: Perm
+    mandatory: false
+    length: 6
+    origins:
+    - type: Derived
+    method: "Withheld from publication: the received define states this text."
+- name: SMQ10FL
+  type: str
+  label: SMQ 10 Flag
+  derivation:
+    flag: SMQ10NAM IS NOT NULL AND SMQ10SC = 'NARROW'
+  submission:
+    core: Perm
+    mandatory: false
+    length: 1
+    origins:
+    - type: Derived
+    method: "Withheld from publication: the received define states this text."
+- name: SMQ11NAM
+  type: str
+  label: SMQ 11 Name
+  derivation:
+    mapping:
+      source: AE.AEDECOD
+      dict:
+        Deafness unilateral: Hearing and Vestibular Disorders
+        Dizziness: Hearing and Vestibular Disorders
+        Tinnitus: Hearing and Vestibular Disorders
+        Vertigo: Hearing and Vestibular Disorders
+      unmapped:
+  submission:
+    core: Perm
+    mandatory: false
+    length: 45
+    origins:
+    - type: Derived
+    method: "Withheld from publication: the received define states this text."
+- name: SMQ11SC
+  type: str
+  label: SMQ 11 Scope
+  derivation:
+    mapping:
+      source: AE.AEDECOD
+      dict:
+        Deafness unilateral: NARROW
+        Dizziness: BROAD
+        Tinnitus: NARROW
+        Vertigo: NARROW
+      unmapped:
+  submission:
+    core: Perm
+    mandatory: false
+    length: 6
+    origins:
+    - type: Derived
+    method: "Withheld from publication: the received define states this text."
+- name: SMQ11FL
+  type: str
+  label: SMQ 11 Flag
+  derivation:
+    flag: SMQ11NAM IS NOT NULL AND SMQ11SC = 'NARROW'
+  submission:
+    core: Perm
+    mandatory: false
+    length: 1
+    origins:
+    - type: Derived
+    method: "Withheld from publication: the received define states this text."
+- name: SMQ12NAM
+  type: str
+  label: SMQ 12 Name
+  derivation:
+    mapping:
+      source: AE.AEDECOD
+      dict: {}
+      unmapped:
+  submission:
+    core: Perm
+    mandatory: false
+    length: 45
+    origins:
+    - type: Derived
+    method: "Withheld from publication: the received define states this text."
+- name: SMQ12SC
+  type: str
+  label: SMQ 12 Scope
+  derivation:
+    mapping:
+      source: AE.AEDECOD
+      dict: {}
+      unmapped:
+  submission:
+    core: Perm
+    mandatory: false
+    length: 6
+    origins:
+    - type: Derived
+    method: "Withheld from publication: the received define states this text."
+- name: SMQ12FL
+  type: str
+  label: SMQ 12 Flag
+  derivation:
+    flag: SMQ12NAM IS NOT NULL AND SMQ12SC = 'NARROW'
+  submission:
+    core: Perm
+    mandatory: false
+    length: 1
+    origins:
+    - type: Derived
+    method: "Withheld from publication: the received define states this text."
+- name: SMQ13NAM
+  type: str
+  label: SMQ 13 Name
+  derivation:
+    mapping:
+      source: AE.AEDECOD
+      dict:
+        Leukopenia: Haematopoietic Cytopenias
+        Platelet count decreased: Haematopoietic Cytopenias
+        White blood cell count decreased: Haematopoietic Cytopenias
+      unmapped:
+  submission:
+    core: Perm
+    mandatory: false
+    length: 45
+    origins:
+    - type: Derived
+    method: "Withheld from publication: the received define states this text."
+- name: SMQ13SC
+  type: str
+  label: SMQ 13 Scope
+  derivation:
+    mapping:
+      source: AE.AEDECOD
+      dict:
+        Leukopenia: NARROW
+        Platelet count decreased: NARROW
+        White blood cell count decreased: NARROW
+      unmapped:
+  submission:
+    core: Perm
+    mandatory: false
+    length: 6
+    origins:
+    - type: Derived
+    method: "Withheld from publication: the received define states this text."
+- name: SMQ13FL
+  type: str
+  label: SMQ 13 Flag
+  derivation:
+    flag: SMQ13NAM IS NOT NULL AND SMQ13SC = 'NARROW'
+  submission:
+    core: Perm
+    mandatory: false
+    length: 1
+    origins:
+    - type: Derived
+    method: "Withheld from publication: the received define states this text."
+- name: SMQ14NAM
+  type: str
+  label: SMQ 14 Name
+  derivation:
+    mapping:
+      source: AE.AEDECOD
+      dict:
+        Arrhythmia: Cardiomyopathy
+        Blood pressure diastolic increased: Cardiomyopathy
+        Chest pain: Cardiomyopathy
+        Diastolic dysfunction: Cardiomyopathy
+        Dyspnoea: Cardiomyopathy
+        Syncope: Cardiomyopathy
+      unmapped:
+  submission:
+    core: Perm
+    mandatory: false
+    length: 45
+    origins:
+    - type: Derived
+    method: "Withheld from publication: the received define states this text."
+- name: SMQ14SC
+  type: str
+  label: SMQ 14 Scope
+  derivation:
+    mapping:
+      source: AE.AEDECOD
+      dict:
+        Arrhythmia: BROAD
+        Blood pressure diastolic increased: BROAD
+        Chest pain: BROAD
+        Diastolic dysfunction: BROAD
+        Dyspnoea: BROAD
+        Syncope: BROAD
+      unmapped:
+  submission:
+    core: Perm
+    mandatory: false
+    length: 6
+    origins:
+    - type: Derived
+    method: "Withheld from publication: the received define states this text."
+- name: SMQ14FL
+  type: str
+  label: SMQ 14 Flag
+  derivation:
+    flag: SMQ14NAM IS NOT NULL AND SMQ14SC = 'NARROW'
+  submission:
+    core: Perm
+    mandatory: false
+    length: 1
+    origins:
+    - type: Derived
+    method: "Withheld from publication: the received define states this text."
+- name: ARTERM
+  type: str
+  label: Collected Term for Adverse Reaction
+  derivation:
+    mapping:
+      source: AE.AEDECOD
+      dict:
+        Arthralgia: Arthralgia
+        Axillary pain: Pain
+        Chills: Chills
+        Fatigue: Fatigue
+        Headache: Headache
+        Injection site erythema: Erythema
+        Injection site induration: Swelling
+        Injection site pain: Pain
+        Injection site swelling: Swelling
+        Lymphadenopathy: Underarm Gland Swelling or Tenderness
+        Migraine: Headache
+        Myalgia: Myalgia
+        Nausea: Nausea/Vomiting
+        Pain: Myalgia
+        Pyrexia: Fever
+      unmapped:
+  submission:
+    core: Perm
+    mandatory: false
+    length: 37
+    origins:
+    - type: Derived
+    method: "Withheld from publication: the received define states this text."
+- name: DARFL
+  type: str
+  label: Delayed AR Flag
+  derivation:
+    flag: ARTERM IS NOT NULL
+  submission:
+    core: Perm
+    mandatory: false
+    length: 1
+    origins:
+    - type: Derived
+    method: "Withheld from publication: the received define states this text."
+- name: ANL01FL
+  type: str
+  label: Analysis Flag 01
+  derivation:
+    flag: ARTERM IN ('Pain', 'Erythema', 'Swelling', 'Underarm Gland Swelling or Tenderness') AND MRDSTDY >= 8
+  submission:
+    core: Perm
+    mandatory: false
+    length: 1
+    origins:
+    - type: Derived
+    method: "Withheld from publication: the received define states this text."
+- name: ANL02FL
+  type: str
+  label: Analysis Flag 02
+  derivation:
+    case:
+    - when: ANL01FL = 'Y' AND MRDSTDY = 8 AND FACE2.USUBJID IS NOT NULL
+      then: '''Y'''
+  submission:
+    core: Perm
+    mandatory: false
+    length: 1
+    origins:
+    - type: Derived
+    method: "Withheld from publication: the received define states this text."
+- name: _FACE3_MAXNUM
+  type: float
+  derivation:
+    aggregate:
+      key:
+        USUBJID: USUBJID
+        FATPTREF: _FATPTREF
+        FAOBJ: ARTERM
+      filter: FACE.FACAT = 'REACTOGENICITY' AND FACE.FATPTREF IS NOT NULL AND (FACE.FASTRESC IS NULL OR FACE.FASTRESC <> 'NONE') AND (FACE.FASTRESC IS NULL OR NOT str_contains(FACE.FASTRESC, 'GRADE 0')) AND (FACE.FASTAT IS NULL OR FACE.FASTAT <> 'NOT DONE') AND NOT (FACE.FAOBJ IN ('Erythema', 'Swelling') AND (FACE.FATESTCD = 'OCCUR' OR (FACE.FATESTCD = 'LDIAM' AND (FACE.FASTRESN IS NULL OR FACE.FASTRESN < 25))))
+      expr: MAX(FACE.FATPTNUM)
+- name: ANL03FL
+  type: str
+  label: Analysis Flag 03
+  derivation:
+    case:
+    - when: ANL01FL = 'Y' AND _FACE3_MAXNUM IS NOT NULL AND (MRDSTDY <> 8 OR _FACE3_MAXNUM < 7) AND FAAE3.USUBJID IS NULL
+      then: '''Y'''
+  submission:
+    core: Perm
+    mandatory: false
+    length: 1
+    origins:
+    - type: Derived
+    method: "Withheld from publication: the received define states this text."
+- name: ANL04FL
+  type: str
+  label: Analysis Flag 04
+  derivation:
+    flag: ANL01FL = 'Y' AND (_FACE3_MAXNUM IS NULL OR (MRDSTDY = 8 AND _FACE3_MAXNUM >= 7))
+  submission:
+    core: Perm
+    mandatory: false
+    length: 1
+    origins:
+    - type: Derived
+    method: "Withheld from publication: the received define states this text."

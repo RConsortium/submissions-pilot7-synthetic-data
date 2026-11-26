@@ -1,0 +1,1644 @@
+# ADAR for Moderna mRNA-1273-P201, data cut d57 (cutoff 2020-11-05).
+# Parent: ../../../spec/yamaa/base/adam-base.yaml (section 3.1 core columns).
+# Derivations implement the d57 A20ADAR program; where the SAS code and the
+# define.xml method text disagree, the code is followed (see README.md).
+# TRTA derives via %trta with ATPTREF as the dose reference (ADAR has no
+# MDOSREF); the define's MT.ADXX.TRTA describes the ADTM-window variant.
+yamaa: '1.0'
+type: spec
+model: ADaM
+parent: ../../../spec/yamaa/base/adam-base.yaml
+domain: ADAR
+keys:
+- STUDYID
+- USUBJID
+- ASEQ
+input:
+  FACE: <sdtm-dir>/face.parquet
+  SUPPFACE: <sdtm-dir>/suppface.parquet
+  VS: <sdtm-dir>/vs.parquet
+  SUPPVS: <sdtm-dir>/suppvs.parquet
+  CO: <sdtm-dir>/co.parquet
+  EX: <sdtm-dir>/ex.parquet
+  ADSL:
+    path: <adam-dir>/adsl.parquet
+    key:
+    - STUDYID
+    - USUBJID
+submission:
+  label: Solicited AR Analysis Dataset
+  class: BASIC DATA STRUCTURE
+  structure: One record per subject, solicited reaction parameter, timepoint and vaccination
+  repeating: true
+rows:
+- id: fa_rows
+  dataset: FACE
+  derivations:
+    STUDYID: FACE.STUDYID
+    USUBJID: FACE.USUBJID
+    _SRC: '''FA'''
+    _SEQ: FACE.FASEQ
+    _FASEQ: FACE.FASEQ
+    _VSSEQ: null
+    _DTC: FACE.FADTC
+    _DY: FACE.FADY
+    _TPT: FACE.FATPT
+    _TPTNUM: FACE.FATPTNUM
+    _TPTREF: FACE.FATPTREF
+    _TESTCD: FACE.FATESTCD
+    _TEST: FACE.FATEST
+    _OBJ: FACE.FAOBJ
+    _CAT: FACE.FACAT
+    _SCAT: FACE.FASCAT
+    _ORRES: FACE.FAORRES
+    _ORRESU: FACE.FAORRESU
+    _STRESC: FACE.FASTRESC
+    _STRESN: FACE.FASTRESN
+    _STRESU: FACE.FASTRESU
+    _STAT: FACE.FASTAT
+    _EVAL: FACE.FAEVAL
+    _LOC: FACE.FALOC
+    _DOMAIN: FACE.DOMAIN
+  filter: (_STAT IS NULL OR _STAT <> 'NOT DONE') AND ((_OBJ <> 'Erythema' AND _OBJ <> 'Swelling') OR _TESTCD <> 'OCCUR' OR _ORRES IS NULL OR _ORRES <> 'Y') AND _ADSL IS NOT NULL
+- id: vs_rows
+  dataset: VS
+  derivations:
+    STUDYID: VS.STUDYID
+    USUBJID: VS.USUBJID
+    _SRC: '''VS'''
+    _SEQ: VS.VSSEQ
+    _FASEQ: null
+    _VSSEQ: VS.VSSEQ
+    _DTC: VS.VSDTC
+    _DY: VS.VSDY
+    _TPT: VS.VSTPT
+    _TPTNUM: VS.VSTPTNUM
+    _TPTREF: VS.VSTPTREF
+    _TESTCD: VS.VSTESTCD
+    _TEST: VS.VSTEST
+    _OBJ: null
+    _CAT: VS.VSCAT
+    _SCAT: VS.VSSCAT
+    _ORRES: null
+    _ORRESU: null
+    _STRESC: VS.VSSTRESC
+    _STRESN: VS.VSSTRESN
+    _STRESU: VS.VSSTRESU
+    _STAT: VS.VSSTAT
+    _EVAL: null
+    _LOC: null
+    _DOMAIN: VS.DOMAIN
+  filter: _CAT = 'REACTOGENICITY' AND _TPTNUM > 0 AND _TPTNUM <= 7 AND (_STAT IS NULL OR _STAT <> 'NOT DONE') AND _ADSL IS NOT NULL
+intermediates:
+- id: SUPPFACE_P
+  dataset: SUPPFACE
+  key:
+    STUDYID: STUDYID
+    USUBJID: USUBJID
+    IDVARVAL:
+      str_decimal:
+        source: _FASEQ
+        decimals: 0
+  filter: SUPPFACE.QNAM IN ('CRFTMPT', 'MAAEFL', 'LYMPHEVL', 'SREVL') AND SUPPFACE.IDVAR = 'FASEQ'
+  pivot:
+    name: QNAM
+    value: QVAL
+    fields:
+    - CRFTMPT
+    - MAAEFL
+    - LYMPHEVL
+    - SREVL
+- id: SUPPVS_P
+  dataset: SUPPVS
+  key:
+    STUDYID: STUDYID
+    USUBJID: USUBJID
+    IDVARVAL:
+      str_decimal:
+        source: _VSSEQ
+        decimals: 0
+  filter: SUPPVS.QNAM IN ('MEDTAK', 'MEDTAKT', 'MEDTAKP') AND SUPPVS.IDVAR = 'VSSEQ'
+  pivot:
+    name: QNAM
+    value: QVAL
+    fields:
+    - MEDTAK
+    - MEDTAKT
+    - MEDTAKP
+- id: CO_LYMPH
+  dataset: CO
+  key:
+    STUDYID: STUDYID
+    USUBJID: USUBJID
+    IDVARVAL:
+      str_decimal:
+        source: _FASEQ
+        decimals: 0
+  filter: CO.RDOMAIN = 'FA' AND CO.IDVAR = 'FASEQ' AND CO.COREF = 'LYMPHCOM'
+- id: CO_SRC
+  dataset: CO
+  key:
+    STUDYID: STUDYID
+    USUBJID: USUBJID
+    IDVARVAL:
+      str_decimal:
+        source: _FASEQ
+        decimals: 0
+  filter: CO.RDOMAIN = 'FA' AND CO.IDVAR = 'FASEQ' AND CO.COREF = 'SRCOMM'
+- id: EX_DOSE1
+  dataset: EX
+  key:
+  - STUDYID
+  - USUBJID
+  filter: EX.EXSTDTC IS NOT NULL AND EX.VISITDY = 1
+  order_by:
+  - EX.EXSTDTC
+  keep: first
+- id: EX_DOSE2
+  dataset: EX
+  key:
+  - STUDYID
+  - USUBJID
+  filter: EX.EXSTDTC IS NOT NULL AND EX.VISITDY = 29
+  order_by:
+  - EX.EXSTDTC
+  keep: first
+windows:
+  ANL02_W:
+    group_by:
+    - USUBJID
+    - PARCAT1
+    - PARAMCD
+    - ATPTREF
+    - ATPTN
+    order_by:
+    - variable: ATOXGRN
+      direction: desc
+    - _ANL01_CHK
+    - _AVALC_CHK
+    - ADT
+    - ADTM
+  ASEQ_W:
+    group_by:
+    - USUBJID
+    order_by:
+    - PARCAT1
+    - PARAMCD
+    - ATPTREF
+    - ATPTN
+    - ADT
+    - ADTM
+    - SRCSEQ
+  ANL01_W1:
+    group_by:
+    - USUBJID
+    - PARAM
+    - ATPTREF
+    - ATPTGR1
+    order_by:
+    - _AVALC_CHK
+    - _ANL01_CHK
+    - AVALC
+    - ADT
+    - ASEQ
+    filter: PARAMCD IN ('RASHOCC', 'LYMPHOCC') AND AVALC IS NOT NULL
+  ANL01_W2:
+    group_by:
+    - USUBJID
+    - PARAM
+    - ATPTREF
+    - ATPTGR1
+    order_by:
+    - variable: ATOXGRN
+      direction: desc
+    - variable: _AVALC_CHK
+      direction: desc
+    - _ANL01_CHK
+    - ADT
+    - ADTM
+    - ASEQ
+    filter: PARAMCD <> 'RASHOCC' AND PARAMCD <> 'LYMPHOCC' AND ATOXGRN IS NOT NULL
+output:
+  path: <adam-dir>/adar-yamaa.parquet
+  order_by:
+  - USUBJID
+  - ASEQ
+  columns:
+  - STUDYID
+  - USUBJID
+  - SUBJID
+  - SITEID
+  - COUNTRY
+  - AGE
+  - AGEU
+  - AGEGR1
+  - AGEGR1N
+  - AGEGR2
+  - AGEGR2N
+  - SEX
+  - RACE
+  - RACESPY
+  - ETHNIC
+  - RANDFL
+  - SAFFL
+  - FASBABFL
+  - FASNABFL
+  - PPBABFL
+  - PPNABFL
+  - PPBD29FL
+  - PPBD57FL
+  - PPND29FL
+  - PPND57FL
+  - SAR1FL
+  - SAR2FL
+  - SARAFL
+  - FASNA2FL
+  - PPNAB2FL
+  - PN2D29FL
+  - PN2D57FL
+  - COMPLFL
+  - DVBABFL
+  - DVNABFL
+  - DOSE1FL
+  - DOSE2FL
+  - DOSEROFL
+  - COV19BL
+  - COV19FL
+  - SENTLFL
+  - D29W7DFL
+  - TRT01P
+  - TRT01PN
+  - TRT01A
+  - TRT01AN
+  - TR01SDT
+  - TR01SDTM
+  - TR01EDT
+  - TR01EDTM
+  - TRTSDTM
+  - TRTEDTM
+  - DOSE2DT
+  - DOS2DTM
+  - TRTA
+  - TRTAN
+  - ASEQ
+  - ADT
+  - ATM
+  - ADTM
+  - ADY
+  - ATPT
+  - ATPTN
+  - ATPTREF
+  - ATPTGR1
+  - ATPTGR1N
+  - PARCAT1
+  - PARCAT1N
+  - PARAMCD
+  - PARAM
+  - AVAL
+  - AVALC
+  - ATOXGR
+  - ATOXGRN
+  - ANL01FL
+  - ANL02FL
+  - CRIT1
+  - CRIT1FL
+  - CRIT2
+  - CRIT2FL
+  - CRIT3
+  - CRIT3FL
+  - CRIT4
+  - CRIT4FL
+  - FALOC
+  - FAEVAL
+  - LYMPHCOM
+  - LYMPHEVL
+  - SRCOMM
+  - SREVLFL
+  - SRCDOM
+  - SRCSEQ
+  - SRCVAR
+  - MEDTAKP
+  - MEDTAKT
+  - MEDTAK
+  - MAAEFL
+columns:
+- name: STUDYID
+  submission:
+    origins:
+    - type: Derived
+    method: "Withheld from publication: the received define states this text."
+- name: USUBJID
+  submission:
+    origins:
+    - type: Derived
+    method: "Withheld from publication: the received define states this text."
+- name: _SRC
+  type: str
+- name: _SEQ
+  type: float
+- name: _FASEQ
+  type: float
+- name: _VSSEQ
+  type: float
+- name: _DTC
+  type: str
+- name: _DY
+  type: float
+- name: _TPT
+  type: str
+- name: _TPTNUM
+  type: float
+- name: _TPTREF
+  type: str
+- name: _TESTCD
+  type: str
+- name: _TEST
+  type: str
+- name: _OBJ
+  type: str
+- name: _CAT
+  type: str
+- name: _SCAT
+  type: str
+- name: _ORRES
+  type: str
+- name: _ORRESU
+  type: str
+- name: _STRESC
+  type: str
+- name: _STRESN
+  type: float
+- name: _STRESU
+  type: str
+- name: _STAT
+  type: str
+- name: _EVAL
+  type: str
+- name: _LOC
+  type: str
+- name: _DOMAIN
+  type: str
+- name: _ADSL
+  type: str
+  derivation: ADSL.USUBJID
+- name: _TEST_P
+  type: str
+  derivation:
+    str_case:
+      source: _TEST
+      to: proper
+- name: PARAM
+  type: str
+  label: Parameter
+  derivation:
+    case:
+    - when: _SRC = 'FA' AND _OBJ = 'Rash' AND _TESTCD <> 'SEV'
+      then: '''Rash Occurrence'''
+    - when: _SRC = 'FA' AND _OBJ = 'Solicited Rash'
+      then: '''Rash'''
+    - when: _SRC = 'FA' AND _OBJ = 'Underarm Gland Swelling or Tenderness' AND _TESTCD = 'SEV'
+      then: '''Lymphadenopathy'''
+    - when: _SRC = 'FA' AND _OBJ = 'Nausea/Vomiting' AND _TESTCD = 'SEV'
+      then: '''Nausea/Vomiting'''
+    - when: _SRC = 'FA' AND _OBJ = 'Lymphadenopathy'
+      then: '''Lymphadenopathy Occurrence'''
+    - when: _SRC = 'FA' AND _OBJ IN ('Erythema', 'Swelling') AND _TESTCD = 'OCCUR'
+      then:
+        str_template: '{_OBJ} Longest Diameter (mm)'
+    - when: _SRC = 'FA' AND _OBJ IN ('Erythema', 'Swelling') AND _TESTCD = 'SEV'
+      then:
+        str_template: '{_OBJ} Longest Diameter (mm)'
+    - when: _SRC = 'FA' AND _OBJ IN ('Erythema', 'Swelling') AND _TESTCD = 'LDIAM'
+      then:
+        str_template: '{_OBJ} {_TEST_P} ({_ORRESU})'
+    - when: _SRC = 'FA' AND _OBJ = 'Fever'
+      then: '''Fever (C)'''
+    - when: _SRC = 'VS' AND _TESTCD = 'TEMP'
+      then:
+        str_template: Fever ({_STRESU})
+    - when: _SRC = 'VS' AND _TESTCD = 'VSALL'
+      then: '''Fever (C)'''
+    - otherwise: _OBJ
+  submission:
+    core: Req
+    mandatory: true
+    length: 200
+    origins:
+    - type: Derived
+    method: "Withheld from publication: the received define states this text."
+- name: PARAMCD
+  type: str
+  label: Parameter Code
+  derivation:
+    mapping:
+      source: PARAM
+      dict:
+        Rash: RASH
+        Rash Occurrence: RASHOCC
+        Lymphadenopathy Occurrence: LYMPHOCC
+        Lymphadenopathy: LYMPH
+        Pain: PAIN
+        Erythema Longest Diameter (mm): ERYTHDIA
+        Swelling Longest Diameter (mm): SWELLDIA
+        Headache: HEADACHE
+        Fatigue: FATIGUE
+        Myalgia: MYALGIA
+        Arthralgia: ARTHRALG
+        Nausea/Vomiting: NAUSEA
+        Chills: CHILLS
+        Receive Medical Attention?: MEDATTEN
+        Fever (C): FEVER
+      unmapped: null
+  submission:
+    core: Req
+    mandatory: true
+    length: 8
+    origins:
+    - type: Derived
+    method: "Withheld from publication: the received define states this text."
+- name: _ATPT_RAW
+  type: str
+  derivation:
+    case:
+    - when: _SRC = 'FA' AND _EVAL = 'STUDY SUBJECT'
+      then: SUPPFACE_P.CRFTMPT
+    - when: _SRC = 'FA' AND _EVAL = 'INVESTIGATOR'
+      then: _TPT
+    - when: _SRC = 'VS'
+      then: _TPT
+- name: ATPT
+  type: str
+  label: Analysis Timepoint
+  derivation:
+    case:
+    - when: _ATPT_RAW = 'DAY 1' AND _EVAL = 'INVESTIGATOR' AND PARAMCD <> 'RASH' AND PARAMCD <> 'LYMPHOCC'
+      then: '''DAY 1, AFTER VACCINATION (AT HOME)'''
+    - otherwise: _ATPT_RAW
+  submission:
+    core: Req
+    mandatory: true
+    length: 50
+    origins:
+    - type: Derived
+    method: "Withheld from publication: the received define states this text."
+- name: ATPTN
+  type: float
+  label: Analysis Timepoint (N)
+  derivation:
+    mapping:
+      source: ATPT
+      dict:
+        DAY 1, 1 HOUR AFTER VACCINATION (AT STUDY CLINIC): 1.1
+        DAY 1, AFTER VACCINATION (AT HOME): 1.2
+        DAY 1: 1.0
+        DAY 2: 2.0
+        DAY 3: 3.0
+        DAY 4: 4.0
+        DAY 5: 5.0
+        DAY 6: 6.0
+        DAY 7: 7.0
+        DAY 8: 8.0
+        DAY 9: 9.0
+        DAY 10: 10.0
+        DAY 11: 11.0
+        DAY 12: 12.0
+        DAY 13: 13.0
+        DAY 14: 14.0
+        DAY 15: 15.0
+        DAY 16: 16.0
+        DAY 17: 17.0
+        DAY 18: 18.0
+        DAY 19: 19.0
+      unmapped: null
+  submission:
+    core: Req
+    mandatory: true
+    length: 8
+    significant_digits: 15
+    origins:
+    - type: Derived
+    method: "Withheld from publication: the received define states this text."
+- name: ATPTREF
+  type: str
+  label: Analysis Timepoint Reference
+  derivation:
+    case:
+    - when: str_contains(_TPTREF, 'DOSE 1')
+      then: '''Vaccination 1'''
+    - when: str_contains(_TPTREF, 'DOSE 2')
+      then: '''Vaccination 2'''
+  submission:
+    core: Req
+    mandatory: true
+    length: 50
+    origins:
+    - type: Derived
+    method: "Withheld from publication: the received define states this text."
+- name: ATPTGR1
+  type: str
+  label: Poolded Analysis Timepoint
+  derivation:
+    case:
+    - when: str_contains(ATPT, 'DAY 1')
+      then: '''DAY 1'''
+    - otherwise: ATPT
+  submission:
+    core: Req
+    mandatory: true
+    length: 50
+    origins:
+    - type: Derived
+    method: "Withheld from publication: the received define states this text."
+- name: ATPTGR1N
+  type: int
+  label: Poolded Analysis Timepoint (N)
+  derivation:
+    mapping:
+      source: ATPTGR1
+      dict:
+        DAY 1: 1
+        DAY 2: 2
+        DAY 3: 3
+        DAY 4: 4
+        DAY 5: 5
+        DAY 6: 6
+        DAY 7: 7
+        DAY 8: 8
+        DAY 9: 9
+        DAY 10: 10
+        DAY 11: 11
+        DAY 12: 12
+        DAY 13: 13
+        DAY 14: 14
+        DAY 15: 15
+        DAY 16: 16
+        DAY 17: 17
+        DAY 18: 18
+        DAY 19: 19
+      unmapped: null
+  submission:
+    core: Req
+    mandatory: true
+    length: 8
+    display_format: '3.'
+    origins:
+    - type: Derived
+    method: "Withheld from publication: the received define states this text."
+- name: ADT
+  type: date
+  label: Analysis Date
+  derivation:
+    to_date:
+      source: _DTC
+  submission:
+    core: Req
+    mandatory: true
+    origins:
+    - type: Derived
+    method: "Withheld from publication: the received define states this text."
+- name: ADTM
+  type: datetime
+  label: Analysis Datetime
+  derivation:
+    case:
+    - when: str_contains(_DTC, 'T')
+      then:
+        impute:
+          type: datetime
+          source: _DTC
+          time: first
+  submission:
+    core: Perm
+    mandatory: false
+    origins:
+    - type: Derived
+    method: "Withheld from publication: the received define states this text."
+- name: ATM
+  type: time
+  label: Analysis Time
+  derivation:
+    to_time:
+      source: ADTM
+  submission:
+    core: Perm
+    mandatory: false
+    origins:
+    - type: Derived
+    method: "Withheld from publication: the received define states this text."
+- name: ADY
+  type: int
+  label: Analysis Relative Day
+  derivation: _DY
+  submission:
+    core: Req
+    mandatory: true
+    length: 8
+    display_format: '3.'
+    origins:
+    - type: Derived
+    method: "Withheld from publication: the received define states this text."
+- name: AVAL
+  type: float
+  label: Analysis Value
+  derivation:
+    case:
+    - when: _SRC = 'FA' AND _OBJ IN ('Erythema', 'Swelling') AND _TESTCD = 'OCCUR' AND _ORRES = 'N'
+      then: 0
+    - otherwise: _STRESN
+  submission:
+    # SUB-29 (yamaa #4820): numeric widths here fit the derived values. The received
+    # define's Pinnacle 21 widths stay in the reproduced define layer (define/).
+    core: Perm
+    mandatory: false
+    significant_digits: 15
+    origins:
+    - type: Derived
+    method: "Withheld from publication: the received define states this text."
+    length: 17
+- name: AVALC
+  type: str
+  label: Analysis Value (C)
+  derivation: _STRESC
+  submission:
+    core: Req
+    mandatory: true
+    length: 100
+    origins:
+    - type: Derived
+    method: "Withheld from publication: the received define states this text."
+- name: _ATOXGR_BLK
+  type: int
+  derivation:
+    case:
+    - when: PARAMCD IN ('ERYTHDIA', 'SWELLDIA', 'FEVER', 'PAIN', 'LYMPH', 'HEADACHE', 'FATIGUE', 'MYALGIA', 'ARTHRALG', 'NAUSEA', 'CHILLS', 'RASH')
+      then: 1
+    - otherwise: 0
+- name: ATOXGR
+  type: str
+  label: Analysis Toxicity Grade
+  derivation:
+    case:
+    - when: _ATOXGR_BLK = 1 AND _SRC = 'FA' AND str_contains(AVALC, 'GRADE 4')
+      then: '''Grade 4'''
+    - when: _ATOXGR_BLK = 1 AND _SRC = 'FA' AND str_contains(AVALC, 'GRADE 3')
+      then: '''Grade 3'''
+    - when: _ATOXGR_BLK = 1 AND _SRC = 'FA' AND str_contains(AVALC, 'GRADE 2')
+      then: '''Grade 2'''
+    - when: _ATOXGR_BLK = 1 AND _SRC = 'FA' AND str_contains(AVALC, 'GRADE 1')
+      then: '''Grade 1'''
+    - when: _ATOXGR_BLK = 1 AND _SRC = 'FA' AND str_contains(AVALC, 'GRADE 0')
+      then: '''Grade 0'''
+    - when: PARAMCD IN ('ERYTHDIA', 'SWELLDIA') AND AVAL < 25
+      then: '''Grade 0'''
+    - when: PARAMCD IN ('ERYTHDIA', 'SWELLDIA') AND AVAL >= 25 AND AVAL <= 50
+      then: '''Grade 1'''
+    - when: PARAMCD IN ('ERYTHDIA', 'SWELLDIA') AND AVAL >= 51 AND AVAL <= 100
+      then: '''Grade 2'''
+    - when: PARAMCD IN ('ERYTHDIA', 'SWELLDIA') AND AVAL > 100
+      then: '''Grade 3'''
+    - when: PARAMCD = 'FEVER' AND AVAL < 38.0
+      then: '''Grade 0'''
+    - when: PARAMCD = 'FEVER' AND AVAL >= 38.0 AND AVAL < 38.4
+      then: '''Grade 1'''
+    - when: PARAMCD = 'FEVER' AND AVAL >= 38.4 AND AVAL <= 38.9
+      then: '''Grade 2'''
+    - when: PARAMCD = 'FEVER' AND AVAL > 38.9 AND AVAL <= 40.0
+      then: '''Grade 3'''
+    - when: PARAMCD = 'FEVER' AND AVAL > 40
+      then: '''Grade 4'''
+    - when: PARAMCD = 'PAIN' AND AVALC = 'NONE'
+      then: '''Grade 0'''
+    - when: PARAMCD = 'PAIN' AND AVALC = 'DOES NOT INTERFERE WITH ACTIVITY'
+      then: '''Grade 1'''
+    - when: PARAMCD = 'PAIN' AND AVALC = 'REPEATED USE OF OVER-THE-COUNTER PAIN RELIEVER > 24 HOURS OR INTERFERES WITH ACTIVITY'
+      then: '''Grade 2'''
+    - when: PARAMCD = 'PAIN' AND AVALC = 'ANY USE OF PRESCRIPTION PAIN RELIEVER OR PREVENTS DAILY ACTIVITY'
+      then: '''Grade 3'''
+    - when: PARAMCD = 'LYMPH' AND AVALC = 'NONE'
+      then: '''Grade 0'''
+    - when: PARAMCD = 'LYMPH' AND AVALC = 'DOES NOT INTERFERE WITH ACTIVITY'
+      then: '''Grade 1'''
+    - when: PARAMCD = 'LYMPH' AND str_contains(AVALC, 'REPEATED USE OF OVER-THE-COUNTER PAIN RELIEVER > 24 HOURS OR INTERFER')
+      then: '''Grade 2'''
+    - when: PARAMCD = 'LYMPH' AND AVALC = 'ANY USE OF PRESCRIPTION PAIN RELIEVER OR PREVENTS DAILY ACTIVITY'
+      then: '''Grade 3'''
+    - when: PARAMCD = 'HEADACHE' AND AVALC = 'NONE'
+      then: '''Grade 0'''
+    - when: PARAMCD = 'HEADACHE' AND AVALC = 'NO INTERFERENCE WITH ACTIVITY'
+      then: '''Grade 1'''
+    - when: PARAMCD = 'HEADACHE' AND str_contains(AVALC, 'REPEATED USE OF OVER-THE-COUNTER PAIN RELIEVER > 24 HOURS OR SOME INTERFER')
+      then: '''Grade 2'''
+    - when: PARAMCD = 'HEADACHE' AND AVALC = 'ANY USE OF PRESCRIPTION PAIN RELIEVER OR PREVENTS DAILY ACTIVITY'
+      then: '''Grade 3'''
+    - when: PARAMCD IN ('FATIGUE', 'MYALGIA', 'ARTHRALG') AND AVALC = 'NONE'
+      then: '''Grade 0'''
+    - when: PARAMCD IN ('FATIGUE', 'MYALGIA', 'ARTHRALG') AND AVALC = 'NO INTERFERENCE WITH ACTIVITY'
+      then: '''Grade 1'''
+    - when: PARAMCD IN ('FATIGUE', 'MYALGIA', 'ARTHRALG') AND AVALC = 'SOME INTERFERENCE WITH ACTIVITY'
+      then: '''Grade 2'''
+    - when: PARAMCD IN ('FATIGUE', 'MYALGIA', 'ARTHRALG') AND AVALC = 'SIGNIFICANT; PREVENTS DAILY ACTIVITY'
+      then: '''Grade 3'''
+    - when: PARAMCD = 'NAUSEA' AND AVALC = 'NONE'
+      then: '''Grade 0'''
+    - when: PARAMCD = 'NAUSEA' AND AVALC = 'NO INTERFERENCE WITH ACTIVITY OR 1-2 EPISODES/24 HOURS'
+      then: '''Grade 1'''
+    - when: PARAMCD = 'NAUSEA' AND AVALC = 'SOME INTERFERENCE WITH ACTIVITY OR >2 EPISODES/24 HOURS'
+      then: '''Grade 2'''
+    - when: PARAMCD = 'NAUSEA' AND AVALC = 'PREVENTS DAILY ACTIVITY, REQUIRES OUTPATIENT IV HYDRATION'
+      then: '''Grade 3'''
+    - when: PARAMCD = 'CHILLS' AND AVALC = 'NONE'
+      then: '''Grade 0'''
+    - when: PARAMCD = 'CHILLS' AND AVALC = 'NO INTERFERENCE WITH ACTIVITY'
+      then: '''Grade 1'''
+    - when: PARAMCD = 'CHILLS' AND AVALC = 'SOME INTERFERENCE WITH ACTIVITY NOT REQUIRING MEDICAL ATTENTION'
+      then: '''Grade 2'''
+    - when: PARAMCD = 'CHILLS' AND AVALC = 'PREVENTS DAILY ACTIVITY AND REQUIRES MEDICAL ATTENTION'
+      then: '''Grade 3'''
+  submission:
+    core: Perm
+    mandatory: false
+    length: 20
+    origins:
+    - type: Derived
+    method: "Withheld from publication: the received define states this text."
+- name: ATOXGRN
+  type: int
+  label: Analysis Toxicity Grade (N)
+  derivation:
+    mapping:
+      source: ATOXGR
+      dict:
+        Grade 0: 0
+        Grade 1: 1
+        Grade 2: 2
+        Grade 3: 3
+        Grade 4: 4
+      unmapped: null
+  submission:
+    core: Perm
+    mandatory: false
+    length: 8
+    display_format: '3.'
+    origins:
+    - type: Derived
+    method: "Withheld from publication: the received define states this text."
+- name: CRIT1FL
+  type: str
+  label: Criterion 1 Evaluation Result Flag
+  derivation:
+    case:
+    - when: PARAMCD = 'FEVER' AND AVAL IS NOT NULL AND 9 * AVAL / 5 + 32 > 102.6
+      then: '''Y'''
+  submission:
+    core: Perm
+    mandatory: false
+    length: 1
+    origins:
+    - type: Derived
+    method: "Withheld from publication: the received define states this text."
+- name: CRIT2FL
+  type: str
+  label: Criterion 2 Evaluation Result Flag
+  derivation:
+    case:
+    - when: PARAMCD = 'FEVER' AND AVAL IS NOT NULL AND 9 * AVAL / 5 + 32 > 103.1
+      then: '''Y'''
+  submission:
+    core: Perm
+    mandatory: false
+    length: 1
+    origins:
+    - type: Derived
+    method: "Withheld from publication: the received define states this text."
+- name: CRIT3FL
+  type: str
+  label: Criterion 3 Evaluation Result Flag
+  derivation:
+    case:
+    - when: PARAMCD = 'FEVER' AND AVAL IS NOT NULL AND 9 * AVAL / 5 + 32 > 103.6
+      then: '''Y'''
+  submission:
+    core: Perm
+    mandatory: false
+    length: 1
+    origins:
+    - type: Derived
+    method: "Withheld from publication: the received define states this text."
+- name: CRIT4FL
+  type: str
+  label: Criterion 4 Evaluation Result Flag
+  derivation:
+    case:
+    - when: PARAMCD = 'FEVER' AND AVAL IS NOT NULL AND 9 * AVAL / 5 + 32 > 104.1
+      then: '''Y'''
+  submission:
+    core: Perm
+    mandatory: false
+    length: 1
+    origins:
+    - type: Derived
+    method: "Withheld from publication: the received define states this text."
+- name: CRIT1
+  type: str
+  label: Analysis Criterion 1
+  derivation:
+    case:
+    - when: CRIT1FL = 'Y'
+      then: '''> 102.6 degrees F'''
+  submission:
+    core: Perm
+    mandatory: false
+    length: 20
+    origins:
+    - type: Derived
+    method: "Withheld from publication: the received define states this text."
+- name: CRIT2
+  type: str
+  label: Analysis Criterion 2
+  derivation:
+    case:
+    - when: CRIT2FL = 'Y'
+      then: '''> 103.1 degrees F'''
+  submission:
+    core: Perm
+    mandatory: false
+    length: 20
+    origins:
+    - type: Derived
+    method: "Withheld from publication: the received define states this text."
+- name: CRIT3
+  type: str
+  label: Analysis Criterion 3
+  derivation:
+    case:
+    - when: CRIT3FL = 'Y'
+      then: '''> 103.6 degrees F'''
+  submission:
+    core: Perm
+    mandatory: false
+    length: 20
+    origins:
+    - type: Derived
+    method: "Withheld from publication: the received define states this text."
+- name: CRIT4
+  type: str
+  label: Analysis Criterion 4
+  derivation:
+    case:
+    - when: CRIT4FL = 'Y'
+      then: '''> 104.1 degrees F'''
+  submission:
+    core: Perm
+    mandatory: false
+    length: 20
+    origins:
+    - type: Derived
+    method: "Withheld from publication: the received define states this text."
+- name: PARCAT1
+  type: str
+  label: Parameter Category 1
+  derivation:
+    case:
+    - when: PARAMCD = 'RASH'
+      then: '''SYSTEMIC'''
+    - when: PARAMCD = 'LYMPHOCC'
+      then: '''LOCAL'''
+    - when: _SCAT = 'ADMINISTRATION SITE'
+      then: '''LOCAL'''
+    - otherwise: _SCAT
+  submission:
+    core: Req
+    mandatory: true
+    length: 50
+    origins:
+    - type: Derived
+    method: "Withheld from publication: the received define states this text."
+- name: PARCAT1N
+  type: int
+  label: Parameter Category 1 (N)
+  derivation:
+    mapping:
+      source: PARCAT1
+      dict:
+        LOCAL: 1
+        SYSTEMIC: 2
+      unmapped: null
+  submission:
+    core: Req
+    mandatory: true
+    length: 8
+    display_format: '3.'
+    origins:
+    - type: Derived
+    method: "Withheld from publication: the received define states this text."
+- name: _ANL01_CHK
+  type: int
+  derivation:
+    case:
+    - when: _EVAL = 'STUDY SUBJECT' OR (PARAMCD = 'FEVER' AND _EVAL IS NULL)
+      then: 0
+    - otherwise: 1
+- name: _AVALC_CHK
+  type: int
+  derivation:
+    case:
+    - when: AVALC = 'Y'
+      then: 0
+    - otherwise: 1
+- name: SRCDOM
+  type: str
+  label: Source Data
+  derivation: _DOMAIN
+  submission:
+    core: Req
+    mandatory: true
+    length: 20
+    origins:
+    - type: Derived
+    method: "Withheld from publication: the received define states this text."
+- name: SRCSEQ
+  type: int
+  label: Source Sequence Number
+  derivation: _SEQ
+  submission:
+    # SUB-29 (yamaa #4820): numeric widths here fit the derived values. The received
+    # define's Pinnacle 21 widths stay in the reproduced define layer (define/).
+    core: Req
+    mandatory: true
+    length: 8
+    origins:
+    - type: Derived
+    method: "Withheld from publication: the received define states this text."
+- name: SRCVAR
+  type: str
+  label: Source Variable
+  derivation:
+    case:
+    - when: _SRC = 'FA'
+      then: '''FASTRESC'''
+    - otherwise: '''VSSTRESN'''
+  submission:
+    core: Req
+    mandatory: true
+    length: 50
+    origins:
+    - type: Derived
+    method: "Withheld from publication: the received define states this text."
+- name: _ANL02_RN
+  type: int
+  derivation:
+    row_number:
+      window: ANL02_W
+- name: ANL02FL
+  type: str
+  label: Analysis Flag 02
+  derivation:
+    case:
+    - when: _ANL02_RN = 1
+      then: '''Y'''
+  submission:
+    core: Perm
+    mandatory: false
+    length: 1
+    origins:
+    - type: Derived
+    method: "Withheld from publication: the received define states this text."
+- name: ASEQ
+  type: int
+  label: Analysis Sequence Number
+  derivation:
+    row_number:
+      window: ASEQ_W
+  submission:
+    core: Req
+    mandatory: true
+    length: 8
+    display_format: '3.'
+    origins:
+    - type: Derived
+    method: "Withheld from publication: the received define states this text."
+- name: _ANL01_RN1
+  type: int
+  derivation:
+    row_number:
+      window: ANL01_W1
+- name: _ANL01_RN2
+  type: int
+  derivation:
+    row_number:
+      window: ANL01_W2
+- name: ANL01FL
+  type: str
+  label: Analysis Flag 01
+  derivation:
+    case:
+    - when: _ANL01_RN1 = 1 OR _ANL01_RN2 = 1
+      then: '''Y'''
+  submission:
+    core: Perm
+    mandatory: false
+    length: 1
+    origins:
+    - type: Derived
+    method: "Withheld from publication: the received define states this text."
+- name: _EX1_TXT_C
+  type: str
+  derivation:
+    str_replace:
+      source: EX_DOSE1.EXDOSTXT
+      pattern: ' '
+      replacement: ''
+- name: _EX2_TXT_C
+  type: str
+  derivation:
+    str_replace:
+      source: EX_DOSE2.EXDOSTXT
+      pattern: ' '
+      replacement: ''
+- name: TRTA
+  type: str
+  label: Actual Treatment
+  derivation:
+    case:
+    - when: ATPTREF = 'Vaccination 1' AND EX_DOSE1.EXTRT = 'PLACEBO'
+      then: '''Placebo'''
+    - when: ATPTREF = 'Vaccination 1' AND str_contains(EX_DOSE1.EXTRT, 'mRNA-1273') AND EX_DOSE1.EXDOSE > 0 AND EX_DOSE1.EXDOSE <= 75
+      then: '''mRNA-1273 50 ug'''
+    - when: ATPTREF = 'Vaccination 1' AND str_contains(EX_DOSE1.EXTRT, 'mRNA-1273') AND EX_DOSE1.EXDOSE > 75
+      then: '''mRNA-1273 100 ug'''
+    - when: ATPTREF = 'Vaccination 1' AND str_contains(EX_DOSE1.EXTRT, 'mRNA-1273') AND EX_DOSE1.EXDOSTXT IN ('>0-25', '>25-<50', '>50-75')
+      then: '''mRNA-1273 50 ug'''
+    - when: ATPTREF = 'Vaccination 1' AND str_contains(EX_DOSE1.EXTRT, 'mRNA-1273') AND _EX1_TXT_C IN ('>75-<100', '>75-100', '>100-125', '>125', '>125orabove')
+      then: '''mRNA-1273 100 ug'''
+    - when: ATPTREF = 'Vaccination 2' AND EX_DOSE2.EXTRT = 'PLACEBO'
+      then: '''Placebo'''
+    - when: ATPTREF = 'Vaccination 2' AND str_contains(EX_DOSE2.EXTRT, 'mRNA-1273') AND EX_DOSE2.EXDOSE > 0 AND EX_DOSE2.EXDOSE <= 75
+      then: '''mRNA-1273 50 ug'''
+    - when: ATPTREF = 'Vaccination 2' AND str_contains(EX_DOSE2.EXTRT, 'mRNA-1273') AND EX_DOSE2.EXDOSE > 75
+      then: '''mRNA-1273 100 ug'''
+    - when: ATPTREF = 'Vaccination 2' AND str_contains(EX_DOSE2.EXTRT, 'mRNA-1273') AND EX_DOSE2.EXDOSTXT IN ('>0-25', '>25-<50', '>50-75')
+      then: '''mRNA-1273 50 ug'''
+    - when: ATPTREF = 'Vaccination 2' AND str_contains(EX_DOSE2.EXTRT, 'mRNA-1273') AND _EX2_TXT_C IN ('>75-<100', '>75-100', '>100-125', '>125', '>125orabove')
+      then: '''mRNA-1273 100 ug'''
+  submission:
+    core: Req
+    mandatory: true
+    length: 50
+    origins:
+    - type: Derived
+    method: "Withheld from publication: the received define states this text."
+- name: TRTAN
+  type: int
+  label: Actual Treatment (N)
+  derivation:
+    mapping:
+      source: TRTA
+      dict:
+        Placebo: 1
+        mRNA-1273 50 ug: 2
+        mRNA-1273 100 ug: 3
+      unmapped: null
+  submission:
+    core: Req
+    mandatory: true
+    length: 8
+    display_format: '3.'
+    origins:
+    - type: Derived
+    method: "Withheld from publication: the received define states this text."
+- name: FALOC
+  type: str
+  label: Location of the Finding About
+  derivation: _LOC
+  submission:
+    core: Perm
+    mandatory: false
+    length: 49
+    origins:
+    - type: Derived
+    method: "Withheld from publication: the received define states this text."
+- name: FAEVAL
+  type: str
+  label: Evaluator
+  derivation: _EVAL
+  submission:
+    core: Perm
+    mandatory: false
+    length: 13
+    origins:
+    - type: Derived
+    method: "Withheld from publication: the received define states this text."
+- name: LYMPHCOM
+  type: str
+  label: Lymphadenopathy Additional information
+  derivation: CO_LYMPH.COVAL
+  submission:
+    core: Perm
+    mandatory: false
+    length: 200
+    origins:
+    - type: Derived
+    method: "Withheld from publication: the received define states this text."
+- name: LYMPHEVL
+  type: str
+  label: Lymphadenopathy evaluated?
+  derivation: SUPPFACE_P.LYMPHEVL
+  submission:
+    core: Perm
+    mandatory: false
+    length: 1
+    origins:
+    - type: Derived
+    method: "Withheld from publication: the received define states this text."
+- name: SRCOMM
+  type: str
+  label: Additional Relevant Rash Information
+  derivation: CO_SRC.COVAL
+  submission:
+    core: Perm
+    mandatory: false
+    length: 200
+    origins:
+    - type: Derived
+    method: "Withheld from publication: the received define states this text."
+- name: SREVLFL
+  type: str
+  label: Rash evaluated Flag
+  derivation: SUPPFACE_P.SREVL
+  submission:
+    core: Perm
+    mandatory: false
+    length: 1
+    origins:
+    - type: Derived
+    method: "Withheld from publication: the received define states this text."
+- name: MEDTAKP
+  type: str
+  label: Prevent Pain or Fever from Occurring
+  derivation: SUPPVS_P.MEDTAKP
+  submission:
+    core: Perm
+    mandatory: false
+    length: 1
+    origins:
+    - type: Derived
+    method: "Withheld from publication: the received define states this text."
+- name: MEDTAKT
+  type: str
+  label: Treat Pain or Fever already Occurred
+  derivation: SUPPVS_P.MEDTAKT
+  submission:
+    core: Perm
+    mandatory: false
+    length: 1
+    origins:
+    - type: Derived
+    method: "Withheld from publication: the received define states this text."
+- name: MEDTAK
+  type: str
+  label: Medication taken today for pain or fever
+  derivation: SUPPVS_P.MEDTAK
+  submission:
+    core: Perm
+    mandatory: false
+    length: 1
+    origins:
+    - type: Derived
+    method: "Withheld from publication: the received define states this text."
+- name: MAAEFL
+  type: str
+  label: Medically Attended Flag
+  derivation: SUPPFACE_P.MAAEFL
+  submission:
+    core: Perm
+    mandatory: false
+    length: 1
+    origins:
+    - type: Derived
+    method: "Withheld from publication: the received define states this text."
+- name: ARM
+  derivation: null
+- name: ACTARM
+  derivation: null
+- name: SUBJID
+  derivation: ADSL.SUBJID
+  submission:
+    origins:
+    - type: Predecessor
+      description: ADSL.SUBJID
+- name: SITEID
+  derivation: ADSL.SITEID
+  submission:
+    origins:
+    - type: Predecessor
+      description: ADSL.SITEID
+- name: COUNTRY
+  derivation: ADSL.COUNTRY
+  submission:
+    origins:
+    - type: Predecessor
+      description: ADSL.COUNTRY
+- name: AGE
+  derivation: ADSL.AGE
+  submission:
+    origins:
+    - type: Predecessor
+      description: ADSL.AGE
+- name: AGEU
+  derivation: ADSL.AGEU
+  submission:
+    origins:
+    - type: Predecessor
+      description: ADSL.AGEU
+- name: AGEGR1
+  type: str
+  label: Pooled Age Group 1
+  derivation: ADSL.AGEGR1
+  submission:
+    core: Req
+    mandatory: true
+    length: 30
+    origins:
+    - type: Predecessor
+      description: ADSL.AGEGR1
+- name: AGEGR1N
+  type: int
+  label: Pooled Age Group 1 (N)
+  derivation: ADSL.AGEGR1N
+  submission:
+    core: Req
+    mandatory: true
+    length: 8
+    display_format: '3.'
+    origins:
+    - type: Predecessor
+      description: ADSL.AGEGR1N
+- name: AGEGR2
+  type: str
+  label: Pooled Age Group 2
+  derivation: ADSL.AGEGR2
+  submission:
+    core: Req
+    mandatory: true
+    length: 19
+    origins:
+    - type: Predecessor
+      description: ADSL.AGEGR2
+- name: AGEGR2N
+  type: int
+  label: Pooled Age Group 2 (N)
+  derivation: ADSL.AGEGR2N
+  submission:
+    core: Req
+    mandatory: true
+    length: 8
+    display_format: '3.'
+    origins:
+    - type: Predecessor
+      description: ADSL.AGEGR2N
+- name: SEX
+  derivation: ADSL.SEX
+  submission:
+    origins:
+    - type: Predecessor
+      description: ADSL.SEX
+- name: RACE
+  derivation: ADSL.RACE
+  submission:
+    origins:
+    - type: Predecessor
+      description: ADSL.RACE
+- name: RACESPY
+  type: str
+  label: Race Specify
+  derivation: ADSL.RACESPY
+  submission:
+    core: Perm
+    mandatory: false
+    length: 200
+    origins:
+    - type: Predecessor
+      description: ADSL.RACESPY
+- name: ETHNIC
+  derivation: ADSL.ETHNIC
+  submission:
+    origins:
+    - type: Predecessor
+      description: ADSL.ETHNIC
+- name: RANDFL
+  derivation: ADSL.RANDFL
+  submission:
+    origins:
+    - type: Predecessor
+      description: ADSL.RANDFL
+- name: SAFFL
+  derivation: ADSL.SAFFL
+  submission:
+    origins:
+    - type: Predecessor
+      description: ADSL.SAFFL
+- name: FASBABFL
+  derivation: ADSL.FASBABFL
+  submission:
+    origins:
+    - type: Predecessor
+      description: ADSL.FASBABFL
+- name: FASNABFL
+  derivation: ADSL.FASNABFL
+  submission:
+    origins:
+    - type: Predecessor
+      description: ADSL.FASNABFL
+- name: PPBABFL
+  derivation: ADSL.PPBABFL
+  submission:
+    origins:
+    - type: Predecessor
+      description: ADSL.PPBABFL
+- name: PPNABFL
+  derivation: ADSL.PPNABFL
+  submission:
+    origins:
+    - type: Predecessor
+      description: ADSL.PPNABFL
+- name: PPBD29FL
+  type: str
+  label: Per Protocol bAb Day 29 Flag
+  derivation: ADSL.PPBD29FL
+  submission:
+    core: Req
+    mandatory: true
+    length: 1
+    origins:
+    - type: Predecessor
+      description: ADSL.PPBD29FL
+- name: PPBD57FL
+  type: str
+  label: Per Protocol bAb Day 57 Flag
+  derivation: ADSL.PPBD57FL
+  submission:
+    core: Req
+    mandatory: true
+    length: 1
+    origins:
+    - type: Predecessor
+      description: ADSL.PPBD57FL
+- name: PPND29FL
+  type: str
+  label: Per Protocol nAb Day 29 Flag
+  derivation: ADSL.PPND29FL
+  submission:
+    core: Req
+    mandatory: true
+    length: 1
+    origins:
+    - type: Predecessor
+      description: ADSL.PPND29FL
+- name: PPND57FL
+  type: str
+  label: Per Protocol nAb Day 57 Flag
+  derivation: ADSL.PPND57FL
+  submission:
+    core: Req
+    mandatory: true
+    length: 1
+    origins:
+    - type: Predecessor
+      description: ADSL.PPND57FL
+- name: SAR1FL
+  derivation: ADSL.SAR1FL
+  submission:
+    origins:
+    - type: Predecessor
+      description: ADSL.SAR1FL
+- name: SAR2FL
+  derivation: ADSL.SAR2FL
+  submission:
+    origins:
+    - type: Predecessor
+      description: ADSL.SAR2FL
+- name: SARAFL
+  derivation: ADSL.SARAFL
+  submission:
+    origins:
+    - type: Predecessor
+      description: ADSL.SARAFL
+- name: FASNA2FL
+  derivation: ADSL.FASNA2FL
+  submission:
+    origins:
+    - type: Predecessor
+      description: ADSL.FASNA2FL
+- name: PPNAB2FL
+  derivation: ADSL.PPNAB2FL
+  submission:
+    origins:
+    - type: Predecessor
+      description: ADSL.PPNAB2FL
+- name: PN2D29FL
+  type: str
+  label: Per Protocol nAb 2 Day 29 Flag
+  derivation: ADSL.PN2D29FL
+  submission:
+    core: Req
+    mandatory: true
+    length: 1
+    origins:
+    - type: Predecessor
+      description: ADSL.PN2D29FL
+- name: PN2D57FL
+  type: str
+  label: Per Protocol nAb 2 Day 57 Flag
+  derivation: ADSL.PN2D57FL
+  submission:
+    core: Req
+    mandatory: true
+    length: 1
+    origins:
+    - type: Predecessor
+      description: ADSL.PN2D57FL
+- name: COMPLFL
+  derivation: ADSL.COMPLFL
+  submission:
+    origins:
+    - type: Predecessor
+      description: ADSL.COMPLFL
+- name: DVBABFL
+  type: str
+  label: Deviation Impact bAb Flag
+  derivation: ADSL.DVBABFL
+  submission:
+    core: Req
+    mandatory: true
+    length: 1
+    origins:
+    - type: Predecessor
+      description: ADSL.DVBABFL
+- name: DVNABFL
+  type: str
+  label: Deviation Impact nAb Flag
+  derivation: ADSL.DVNABFL
+  submission:
+    core: Req
+    mandatory: true
+    length: 1
+    origins:
+    - type: Predecessor
+      description: ADSL.DVNABFL
+- name: DOSE1FL
+  type: str
+  label: Vaccination 1 Flag
+  derivation: ADSL.DOSE1FL
+  submission:
+    core: Req
+    mandatory: true
+    length: 1
+    origins:
+    - type: Predecessor
+      description: ADSL.DOSE1FL
+- name: DOSE2FL
+  type: str
+  label: Vaccination 2 Flag
+  derivation: ADSL.DOSE2FL
+  submission:
+    core: Req
+    mandatory: true
+    length: 1
+    origins:
+    - type: Predecessor
+      description: ADSL.DOSE2FL
+- name: DOSEROFL
+  type: str
+  label: Dosing Error Flag
+  derivation: ADSL.DOSEROFL
+  submission:
+    core: Req
+    mandatory: true
+    length: 1
+    origins:
+    - type: Predecessor
+      description: ADSL.DOSEROFL
+- name: COV19BL
+  type: str
+  label: Baseline COVID Infection
+  derivation: ADSL.COV19BL
+  submission:
+    core: Perm
+    mandatory: false
+    length: 20
+    origins:
+    - type: Predecessor
+      description: ADSL.COV19BL
+- name: COV19FL
+  type: str
+  label: COVID Infection Flag
+  derivation: ADSL.COV19FL
+  submission:
+    core: Req
+    mandatory: true
+    length: 20
+    origins:
+    - type: Predecessor
+      description: ADSL.COV19FL
+- name: SENTLFL
+  type: str
+  label: Sentinel Participant Flag
+  derivation: ADSL.SENTLFL
+  submission:
+    core: Req
+    mandatory: true
+    length: 3
+    origins:
+    - type: Predecessor
+      description: ADSL.SENTLFL
+- name: D29W7DFL
+  type: str
+  label: Day 29 Out of 7-Day Window Flag
+  derivation: ADSL.D29W7DFL
+  submission:
+    core: Req
+    mandatory: true
+    length: 1
+    origins:
+    - type: Predecessor
+      description: ADSL.D29W7DFL
+- name: TRT01P
+  derivation: ADSL.TRT01P
+  submission:
+    origins:
+    - type: Predecessor
+      description: ADSL.TRT01P
+- name: TRT01PN
+  derivation: ADSL.TRT01PN
+  submission:
+    origins:
+    - type: Predecessor
+      description: ADSL.TRT01PN
+- name: TRT01A
+  derivation: ADSL.TRT01A
+  submission:
+    origins:
+    - type: Predecessor
+      description: ADSL.TRT01A
+- name: TRT01AN
+  derivation: ADSL.TRT01AN
+  submission:
+    origins:
+    - type: Predecessor
+      description: ADSL.TRT01AN
+- name: TR01SDT
+  derivation: ADSL.TR01SDT
+  submission:
+    origins:
+    - type: Predecessor
+      description: ADSL.TR01SDT
+- name: TR01SDTM
+  derivation: ADSL.TR01SDTM
+  submission:
+    origins:
+    - type: Predecessor
+      description: ADSL.TR01SDTM
+- name: TR01EDT
+  derivation: ADSL.TR01EDT
+  submission:
+    origins:
+    - type: Predecessor
+      description: ADSL.TR01EDT
+- name: TR01EDTM
+  derivation: ADSL.TR01EDTM
+  submission:
+    origins:
+    - type: Predecessor
+      description: ADSL.TR01EDTM
+- name: TRTSDTM
+  derivation: ADSL.TRTSDTM
+  submission:
+    origins:
+    - type: Predecessor
+      description: ADSL.TRTSDTM
+- name: TRTEDTM
+  derivation: ADSL.TRTEDTM
+  submission:
+    origins:
+    - type: Predecessor
+      description: ADSL.TRTEDTM
+- name: DOSE2DT
+  type: date
+  label: Date of Dose 2
+  derivation: ADSL.DOSE2DT
+  submission:
+    core: Perm
+    mandatory: false
+    origins:
+    - type: Predecessor
+      description: ADSL.DOSE2DT
+- name: DOS2DTM
+  type: datetime
+  label: Datetime of Dose 2
+  derivation: ADSL.DOS2DTM
+  submission:
+    core: Perm
+    mandatory: false
+    origins:
+    - type: Predecessor
+      description: ADSL.DOS2DTM

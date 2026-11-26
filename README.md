@@ -62,6 +62,7 @@ analysis datasets, and the ADaM feed the tables, listings, and figures.
 | `.github/`            | CI checks, manual ADaM comparison, CORE validation, yamaa evidence and website, and study manifests |
 | `.automation/`        | Scheduled issue triage and weekly update prompts     |
 | `.archieve/`          | Earlier studies, retained for reference                         |
+| `phmpt/`              | yamaa specifications and scripts that reproduce four PHMPT COVID-19 vaccine submissions; no PHMPT data (see [LICENSING.md](LICENSING.md#phmpt-reproduction)) |
 
 ## Related repositories
 

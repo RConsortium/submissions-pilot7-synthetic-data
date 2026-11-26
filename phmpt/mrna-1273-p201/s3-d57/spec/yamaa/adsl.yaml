@@ -1,0 +1,2636 @@
+# ADSL for Moderna mRNA-1273-P201, data cut d57 (cutoff 2020-11-05).
+# Parent: ../../../spec/yamaa/base/adam-base.yaml (section 3.1 core columns).
+# Derivations implement program/adam/_adsl_vars_ + A10ADSL; where the SAS
+# code and the define.xml disagree, the code is followed (see README.md).
+yamaa: '1.0'
+type: spec
+model: ADaM
+parent: ../../../spec/yamaa/base/adam-base.yaml
+domain: ADSL
+keys:
+- STUDYID
+- USUBJID
+input:
+  DM: <sdtm-dir>/dm.parquet
+  DS: <sdtm-dir>/ds.parquet
+  EX: <sdtm-dir>/ex.parquet
+  IS: <sdtm-dir>/is.parquet
+  VS: <sdtm-dir>/vs.parquet
+  MB: <sdtm-dir>/mb.parquet
+  RP: <sdtm-dir>/rp.parquet
+  FACE: <sdtm-dir>/face.parquet
+  AE: <sdtm-dir>/ae.parquet
+  SUPPDM: <sdtm-dir>/suppdm.parquet
+  SUPPMB: <sdtm-dir>/suppmb.parquet
+  SUPPRP: <sdtm-dir>/supprp.parquet
+  TS: <sdtm-dir>/ts.parquet
+  PP_LIST: <sdtm-dir>/pp_list.parquet
+  PP_LIST2: <sdtm-dir>/pp_list2.parquet
+submission:
+  label: Subject-Level Analysis Dataset
+  class: SUBJECT LEVEL ANALYSIS DATASET
+  structure: One record per subject
+  repeating: false
+rows:
+- id: subjects
+  dataset: DM
+  filter: _ENROL IS NOT NULL AND (_SCRN IS NULL OR _DOSE1 IS NOT NULL)
+intermediates:
+- id: DS_ENROL
+  dataset: DS
+  key:
+  - STUDYID
+  - USUBJID
+  filter: DS.DSDECOD = 'RANDOMIZED' AND DS.DSSTDTC IS NOT NULL
+  order_by:
+  - DS.DSSTDTC
+  keep: last
+- id: DS_SCRN
+  dataset: DS
+  key:
+  - STUDYID
+  - USUBJID
+  filter: DS.DSSCAT = 'SCREEN FAILURE'
+  order_by:
+  - DS.DSSTDTC
+  keep: last
+- id: DS_EOS
+  dataset: DS
+  key:
+  - STUDYID
+  - USUBJID
+  filter: DS.DSSCAT = 'END OF STUDY'
+  order_by:
+  - DS.DSSTDTC
+  keep: last
+- id: DS_EOT
+  dataset: DS
+  key:
+  - STUDYID
+  - USUBJID
+  filter: DS.DSSCAT = 'STUDY TREATMENT' AND DS.DSDECOD <> 'COMPLETED'
+  order_by:
+  - DS.DSSTDTC
+  keep: last
+- id: EX_LAST
+  dataset: EX
+  key:
+  - STUDYID
+  - USUBJID
+  filter: EX.EXSTDTC IS NOT NULL
+  order_by:
+  - EX.EXSTDTC
+  - EX.VISITDY
+  keep: last
+- id: EX_DOSE1
+  dataset: EX
+  key:
+  - STUDYID
+  - USUBJID
+  filter: EX.EXSTDTC IS NOT NULL AND EX.VISITDY = 1
+  order_by:
+  - EX.EXSTDTC
+  keep: last
+- id: EX_DOSE2
+  dataset: EX
+  key:
+  - STUDYID
+  - USUBJID
+  filter: EX.EXSTDTC IS NOT NULL AND EX.VISITDY = 29
+  order_by:
+  - EX.EXSTDTC
+  keep: last
+- id: SUPPDM_P
+  dataset: SUPPDM
+  key:
+  - STUDYID
+  - USUBJID
+  filter: SUPPDM.QNAM IN ('COHORT', 'RACEOTH', 'MULRACE', 'PROTVER', 'SENTL', 'PREVSCR')
+  pivot:
+    name: QNAM
+    value: QVAL
+    fields:
+    - COHORT
+    - RACEOTH
+    - MULRACE
+    - PROTVER
+    - SENTL
+    - PREVSCR
+- id: SUPPMB_L
+  dataset: SUPPMB
+  key:
+    STUDYID: STUDYID
+    USUBJID: USUBJID
+    IDVARVAL:
+      str_decimal:
+        source: MBSEQ
+        decimals: 0
+  filter: SUPPMB.QNAM = 'LOCALFL' AND SUPPMB.IDVAR = 'MBSEQ'
+  pivot:
+    name: QNAM
+    value: QVAL
+    fields:
+    - LOCALFL
+- id: SUPPRP_CB
+  dataset: SUPPRP
+  key:
+    STUDYID: STUDYID
+    USUBJID: USUBJID
+    IDVARVAL:
+      str_decimal:
+        source: RPSEQ
+        decimals: 0
+  filter: SUPPRP.QNAM = 'CBRSN' AND SUPPRP.IDVAR = 'RPSEQ'
+  pivot:
+    name: QNAM
+    value: QVAL
+    fields:
+    - CBRSN
+- id: MB_COV2
+  dataset: MB
+  key:
+  - STUDYID
+  - USUBJID
+  filter: MB.MBTESTCD = 'SARSCOV2' AND (MB.LOCALFL IS NULL OR MB.LOCALFL <> 'Y')
+  between:
+    value: TR01SDT
+    lower: MBDT_D
+  derivations:
+    MBDT_D:
+      type: date
+      derivation:
+        to_date:
+          source: MB.MBDTC
+    LOCALFL:
+      type: str
+      derivation: SUPPMB_L.LOCALFL
+  order_by:
+  - MB.MBDT_D
+  keep: last
+- id: MB_INF
+  dataset: MB
+  key:
+  - STUDYID
+  - USUBJID
+  filter: MB.MBTESTCD = 'SARSCOV2' AND MB.MBSTRESC IN ('DETECTED', 'POSITIVE')
+  order_by:
+  - MB.MBDTC
+  keep: last
+- id: AE_COV
+  dataset: AE
+  key:
+  - STUDYID
+  - USUBJID
+  filter: AE.AEDECOD LIKE '%COVID-19%' OR AE.AEDECOD = 'SARS-CoV-2 test positive'
+  order_by:
+  - AE.AESTDTC
+  keep: last
+- id: RP_CHIL
+  dataset: RP
+  key:
+  - STUDYID
+  - USUBJID
+  filter: RP.RPTESTCD = 'CHILDPOT' AND RP.RPDTC IS NOT NULL
+  derivations:
+    CBRSN:
+      type: str
+      derivation: SUPPRP_CB.CBRSN
+  order_by:
+  - RP.RPDTC
+  keep: last
+- id: VS_HEI
+  dataset: VS
+  key:
+  - STUDYID
+  - USUBJID
+  filter: VS.VSTESTCD = 'HEIGHT' AND VS.VSBLFL = 'Y' AND VS.VSSTRESU = 'cm'
+  derivations:
+    VSDTM:
+      type: datetime
+      derivation:
+        impute:
+          source: VS.VSDTC
+          type: datetime
+          time: first
+  order_by:
+  - VS.VSDTC
+  keep: last
+- id: VS_WEI
+  dataset: VS
+  key:
+  - STUDYID
+  - USUBJID
+  filter: VS.VSTESTCD = 'WEIGHT' AND VS.VSBLFL = 'Y' AND VS.VSSTRESU = 'kg'
+  derivations:
+    VSDTM:
+      type: datetime
+      derivation:
+        impute:
+          source: VS.VSDTC
+          type: datetime
+          time: first
+  order_by:
+  - VS.VSDTC
+  keep: last
+- id: VS1
+  dataset: VS
+  key:
+  - STUDYID
+  - USUBJID
+  filter: VS.VSTESTCD = 'TEMP' AND VS.VSCAT = 'REACTOGENICITY' AND VS.VSTPTREF = 'DOSE 1' AND VS.VSORRES IS NOT NULL
+  derivations:
+    VSDTM:
+      type: datetime
+      derivation:
+        impute:
+          source: VS.VSDTC
+          type: datetime
+          time: first
+  order_by:
+  - VS.VSDTM
+  keep: last
+- id: VS2
+  dataset: VS
+  key:
+  - STUDYID
+  - USUBJID
+  filter: VS.VSTESTCD = 'TEMP' AND VS.VSCAT = 'REACTOGENICITY' AND VS.VSTPTREF = 'DOSE 2' AND VS.VSORRES IS NOT NULL
+  derivations:
+    VSDTM:
+      type: datetime
+      derivation:
+        impute:
+          source: VS.VSDTC
+          type: datetime
+          time: first
+  order_by:
+  - VS.VSDTM
+  keep: last
+- id: FACE1
+  dataset: FACE
+  key:
+  - STUDYID
+  - USUBJID
+  filter: FACE.FATPTREF = 'DOSE 1' AND FACE.FASTAT IS NULL AND FACE.FASTRESC IS NOT NULL
+  derivations:
+    FADTM:
+      type: datetime
+      derivation:
+        impute:
+          source: FACE.FADTC
+          type: datetime
+          time: first
+  order_by:
+  - FACE.FADTM
+  keep: last
+- id: FACE2
+  dataset: FACE
+  key:
+  - STUDYID
+  - USUBJID
+  filter: FACE.FATPTREF = 'DOSE 2' AND FACE.FASTAT IS NULL AND FACE.FASTRESC IS NOT NULL
+  derivations:
+    FADTM:
+      type: datetime
+      derivation:
+        impute:
+          source: FACE.FADTC
+          type: datetime
+          time: first
+  order_by:
+  - FACE.FADTM
+  keep: last
+- id: TS_DCUT
+  dataset: TS
+  key: none
+  filter: TS.TSPARMCD = 'DCUTDTC'
+  order_by:
+  - TS.TSVAL
+  keep: first
+- id: PP_D29
+  dataset: PP_LIST
+  key:
+  - USUBJID
+  filter: PP_LIST.VISITTPT = 'Day 29'
+  order_by:
+  - PP_LIST.VISITPTN
+  keep: first
+- id: PP_D57
+  dataset: PP_LIST
+  key:
+  - USUBJID
+  filter: PP_LIST.VISITTPT = 'Day 57'
+  order_by:
+  - PP_LIST.VISITPTN
+  keep: first
+- id: PP2_D29
+  dataset: PP_LIST2
+  key:
+  - USUBJID
+  filter: PP_LIST2.VISITTPT = 'Day 29'
+  order_by:
+  - PP_LIST2.VISITPTN
+  keep: first
+- id: PP2_D57
+  dataset: PP_LIST2
+  key:
+  - USUBJID
+  filter: PP_LIST2.VISITTPT = 'Day 57'
+  order_by:
+  - PP_LIST2.VISITPTN
+  keep: first
+output:
+  path: <adam-dir>/adsl-yamaa.parquet
+  order_by:
+  - USUBJID
+  columns:
+  - STUDYID
+  - USUBJID
+  - SUBJID
+  - SITEID
+  - COUNTRY
+  - AGE
+  - AGEU
+  - AGEGR1
+  - AGEGR1N
+  - AGEGR2
+  - AGEGR2N
+  - SEX
+  - RACE
+  - RACESPY
+  - ETHNIC
+  - PROTVER
+  - CHILDBP
+  - CBNRS
+  - RANDFL
+  - RANDNUM
+  - SAFFL
+  - FASBABFL
+  - FASNABFL
+  - PPBABFL
+  - PPNABFL
+  - PPBD29FL
+  - PPBD57FL
+  - PPND29FL
+  - PPND57FL
+  - SAR1FL
+  - SAR2FL
+  - SARAFL
+  - FASNA2FL
+  - PPNAB2FL
+  - PN2D29FL
+  - PN2D57FL
+  - COMPLFL
+  - DVBABFL
+  - DVNABFL
+  - DOSE1FL
+  - DOSE2FL
+  - DOSEROFL
+  - COV19BL
+  - HEIGHTBL
+  - WEIGHTBL
+  - BMIBL
+  - COV19FL
+  - SENTLFL
+  - D29W7DFL
+  - ARM
+  - ACTARM
+  - TRT01P
+  - TRT01PN
+  - TRT01A
+  - TRT01AN
+  - RFICDT
+  - RANDDT
+  - RFXSTDTC
+  - TR01SDT
+  - TR01SDTM
+  - TR01EDT
+  - TR01EDTM
+  - TRTSDTM
+  - TRTEDTM
+  - DOSE2DT
+  - DOS2DTM
+  - EOSSTT
+  - EOSDT
+  - EOSDY
+  - DCSREAS
+  - DCSREASP
+  - EOTSTT
+  - EOTDT
+  - EOTDY
+  - DCTREAS
+  - DCTREASP
+  - DTHDT
+  - DTHAUTOP
+  - CUTOFFDT
+  - SAFEREAS
+  - SAR1ERS
+  - SAR2ERS
+  - FASBABRS
+  - FASNABRS
+  - PPBABERS
+  - PPNABERS
+  - PPBD29ER
+  - PPBD57ER
+  - PPND29ER
+  - PPND57ER
+  - PPNAB2ER
+  - PN2D29ER
+  - PN2D57ER
+  - PREVSCR
+columns:
+- name: _ENROL
+  type: str
+  derivation: DS_ENROL.DSDECOD
+- name: _SCRN
+  type: str
+  derivation: DS_SCRN.DSSCAT
+- name: _DOSE1
+  type: str
+  derivation: EX_DOSE1.EXSTDTC
+- name: _RFXENDTC
+  type: str
+  derivation: DM.RFXENDTC
+- name: _RACEOTH
+  type: str
+  derivation: SUPPDM_P.RACEOTH
+- name: _MULRACE
+  type: str
+  derivation: SUPPDM_P.MULRACE
+- name: _IS_BIND_MIN
+  type: date
+  derivation:
+    aggregate:
+      key:
+      - STUDYID
+      - USUBJID
+      derivations:
+        ISDT_D:
+          type: date
+          derivation:
+            to_date:
+              source: IS.ISDTC
+      filter: IS.ISCAT = 'Serum SARS-CoV-2 Binding Antibodies' AND IS.ISDTC IS NOT NULL AND IS.ISORRES IS NOT NULL
+      expr: MIN(ISDT_D)
+- name: _IS_BIND_MAX
+  type: date
+  derivation:
+    aggregate:
+      key:
+      - STUDYID
+      - USUBJID
+      derivations:
+        ISDT_D:
+          type: date
+          derivation:
+            to_date:
+              source: IS.ISDTC
+      filter: IS.ISCAT = 'Serum SARS-CoV-2 Binding Antibodies' AND IS.ISDTC IS NOT NULL AND IS.ISORRES IS NOT NULL
+      expr: MAX(ISDT_D)
+- name: _IS_NEU_MIN
+  type: date
+  derivation:
+    aggregate:
+      key:
+      - STUDYID
+      - USUBJID
+      derivations:
+        ISDT_D:
+          type: date
+          derivation:
+            to_date:
+              source: IS.ISDTC
+      filter: IS.ISCAT = 'Serum SARS-CoV-2 Neutralizing Antibodies' AND IS.ISDTC IS NOT NULL AND IS.ISORRES IS NOT NULL
+      expr: MIN(ISDT_D)
+- name: _IS_NEU_MAX
+  type: date
+  derivation:
+    aggregate:
+      key:
+      - STUDYID
+      - USUBJID
+      derivations:
+        ISDT_D:
+          type: date
+          derivation:
+            to_date:
+              source: IS.ISDTC
+      filter: IS.ISCAT = 'Serum SARS-CoV-2 Neutralizing Antibodies' AND IS.ISDTC IS NOT NULL AND IS.ISORRES IS NOT NULL
+      expr: MAX(ISDT_D)
+- name: _IS_NEU_S1_MIN
+  type: date
+  derivation:
+    aggregate:
+      key:
+      - STUDYID
+      - USUBJID
+      derivations:
+        ISDT_D:
+          type: date
+          derivation:
+            to_date:
+              source: IS.ISDTC
+      filter: IS.ISCAT = 'Serum SARS-CoV-2 Neutralizing Antibodies' AND IS.ISDTC IS NOT NULL AND IS.ISORRES IS NOT NULL AND NOT ((IS.ISTESTCD = 'MNET' AND IS.ISLLOQ = 160) OR (IS.ISTESTCD = 'MN50' AND IS.ISLLOQ = 318.46))
+      expr: MIN(ISDT_D)
+- name: _IS_NEU_S1_MAX
+  type: date
+  derivation:
+    aggregate:
+      key:
+      - STUDYID
+      - USUBJID
+      derivations:
+        ISDT_D:
+          type: date
+          derivation:
+            to_date:
+              source: IS.ISDTC
+      filter: IS.ISCAT = 'Serum SARS-CoV-2 Neutralizing Antibodies' AND IS.ISDTC IS NOT NULL AND IS.ISORRES IS NOT NULL AND NOT ((IS.ISTESTCD = 'MNET' AND IS.ISLLOQ = 160) OR (IS.ISTESTCD = 'MN50' AND IS.ISLLOQ = 318.46))
+      expr: MAX(ISDT_D)
+- name: _PP_BAB_N
+  type: int
+  derivation:
+    aggregate:
+      key:
+      - USUBJID
+      filter: PP_LIST.PVSBABFL = 'Y'
+      expr: COUNT(PP_LIST.USUBJID)
+- name: _PP_NAB_N
+  type: int
+  derivation:
+    aggregate:
+      key:
+      - USUBJID
+      filter: PP_LIST.PVSNABFL = 'Y'
+      expr: COUNT(PP_LIST.USUBJID)
+- name: _PP2_NAB_N
+  type: int
+  derivation:
+    aggregate:
+      key:
+      - USUBJID
+      filter: PP_LIST2.PVSNABFL = 'Y'
+      expr: COUNT(PP_LIST2.USUBJID)
+- name: _PP_PDF_BAB_N
+  type: int
+  derivation:
+    aggregate:
+      key:
+      - USUBJID
+      filter: PP_LIST.PBABPDFL = 'Y'
+      expr: COUNT(PP_LIST.USUBJID)
+- name: _PP_PDF_NAB_N
+  type: int
+  derivation:
+    aggregate:
+      key:
+      - USUBJID
+      filter: PP_LIST.PNABPDFL = 'Y'
+      expr: COUNT(PP_LIST.USUBJID)
+- name: _N_PBO
+  type: int
+  derivation:
+    aggregate:
+      key:
+      - STUDYID
+      - USUBJID
+      filter: EX.EXTRT = 'PLACEBO'
+      expr: COUNT(EX.USUBJID)
+- name: _N_GT025
+  type: int
+  derivation:
+    aggregate:
+      key:
+      - STUDYID
+      - USUBJID
+      filter: EX.EXDOSTXT LIKE '%>0-25%'
+      expr: COUNT(EX.USUBJID)
+- name: _N_GT2550
+  type: int
+  derivation:
+    aggregate:
+      key:
+      - STUDYID
+      - USUBJID
+      filter: EX.EXDOSTXT LIKE '%>25-<50%'
+      expr: COUNT(EX.USUBJID)
+- name: _N_GT5075
+  type: int
+  derivation:
+    aggregate:
+      key:
+      - STUDYID
+      - USUBJID
+      filter: EX.EXDOSTXT LIKE '%>50-75%'
+      expr: COUNT(EX.USUBJID)
+- name: _N_GT75100
+  type: int
+  derivation:
+    aggregate:
+      key:
+      - STUDYID
+      - USUBJID
+      filter: EX.EXDOSTXT LIKE '%>75-<100%'
+      expr: COUNT(EX.USUBJID)
+- name: _N_GT100125
+  type: int
+  derivation:
+    aggregate:
+      key:
+      - STUDYID
+      - USUBJID
+      filter: EX.EXDOSTXT LIKE '%>100-125%'
+      expr: COUNT(EX.USUBJID)
+- name: _N_GT125
+  type: int
+  derivation:
+    aggregate:
+      key:
+      - STUDYID
+      - USUBJID
+      filter: EX.EXDOSTXT LIKE '%>125%'
+      expr: COUNT(EX.USUBJID)
+- name: _N_TREAT_PBO
+  type: int
+  derivation:
+    aggregate:
+      key:
+      - STUDYID
+      - USUBJID
+      derivations:
+        TREAT:
+          type: str
+          derivation:
+            case:
+            - when: EX.EXTRT = 'PLACEBO'
+              then: '''Placebo'''
+            - when: EX.EXDOSE = 50
+              then: '''mRNA-1273 50 ug'''
+            - when: EX.EXDOSE = 100
+              then: '''mRNA-1273 100 ug'''
+            - when: EX.EXDOSTXT LIKE '%>0-25%' OR EX.EXDOSTXT LIKE '%>25-<50%' OR EX.EXDOSTXT LIKE '%>50-75%'
+              then: '''mRNA-1273 50 ug'''
+            - when: EX.EXDOSTXT LIKE '%>75-<100%' OR EX.EXDOSTXT LIKE '%>100-125%' OR EX.EXDOSTXT LIKE '%>125%'
+              then: '''mRNA-1273 100 ug'''
+      filter: TREAT = 'Placebo'
+      expr: COUNT(EX.USUBJID)
+- name: _N_TREAT_50
+  type: int
+  derivation:
+    aggregate:
+      key:
+      - STUDYID
+      - USUBJID
+      derivations:
+        TREAT:
+          type: str
+          derivation:
+            case:
+            - when: EX.EXTRT = 'PLACEBO'
+              then: '''Placebo'''
+            - when: EX.EXDOSE = 50
+              then: '''mRNA-1273 50 ug'''
+            - when: EX.EXDOSE = 100
+              then: '''mRNA-1273 100 ug'''
+            - when: EX.EXDOSTXT LIKE '%>0-25%' OR EX.EXDOSTXT LIKE '%>25-<50%' OR EX.EXDOSTXT LIKE '%>50-75%'
+              then: '''mRNA-1273 50 ug'''
+            - when: EX.EXDOSTXT LIKE '%>75-<100%' OR EX.EXDOSTXT LIKE '%>100-125%' OR EX.EXDOSTXT LIKE '%>125%'
+              then: '''mRNA-1273 100 ug'''
+      filter: TREAT = 'mRNA-1273 50 ug'
+      expr: COUNT(EX.USUBJID)
+- name: _N_TREAT_100
+  type: int
+  derivation:
+    aggregate:
+      key:
+      - STUDYID
+      - USUBJID
+      derivations:
+        TREAT:
+          type: str
+          derivation:
+            case:
+            - when: EX.EXTRT = 'PLACEBO'
+              then: '''Placebo'''
+            - when: EX.EXDOSE = 50
+              then: '''mRNA-1273 50 ug'''
+            - when: EX.EXDOSE = 100
+              then: '''mRNA-1273 100 ug'''
+            - when: EX.EXDOSTXT LIKE '%>0-25%' OR EX.EXDOSTXT LIKE '%>25-<50%' OR EX.EXDOSTXT LIKE '%>50-75%'
+              then: '''mRNA-1273 50 ug'''
+            - when: EX.EXDOSTXT LIKE '%>75-<100%' OR EX.EXDOSTXT LIKE '%>100-125%' OR EX.EXDOSTXT LIKE '%>125%'
+              then: '''mRNA-1273 100 ug'''
+      filter: TREAT = 'mRNA-1273 100 ug'
+      expr: COUNT(EX.USUBJID)
+- name: _N_DOSTXT
+  type: int
+  derivation:
+    aggregate:
+      key:
+      - STUDYID
+      - USUBJID
+      filter: EX.EXDOSTXT IS NOT NULL
+      expr: COUNT(EX.USUBJID)
+- name: _DOSECOMPFL
+  type: str
+  derivation:
+    case:
+    - when: ACTARM <> ARM
+      then: '''Y'''
+    - when: ARM = 'mRNA-1273 50 ug' AND (_N_PBO > 0 OR _N_GT025 > 0 OR _N_GT75100 > 0 OR _N_GT100125 > 0 OR _N_GT125 > 0)
+      then: '''Y'''
+    - when: ARM = 'mRNA-1273 100 ug' AND (_N_PBO > 0 OR _N_GT025 > 0 OR _N_GT2550 > 0 OR _N_GT5075 > 0 OR _N_GT125 > 0)
+      then: '''Y'''
+    - otherwise: '''N'''
+- name: _D29_GAP
+  type: int
+  derivation:
+    study_day:
+      source: DOSE2DT
+      reference: TR01SDT
+- name: _EOS_TERM_UP
+  type: str
+  derivation:
+    str_case:
+      source: DS_EOS.DSTERM
+      to: upper
+- name: _EOS_TERM_PROP
+  type: str
+  derivation:
+    str_case:
+      source: DS_EOS.DSTERM
+      to: proper
+- name: _EOS_DEC_PROP
+  type: str
+  derivation:
+    str_case:
+      source: DS_EOS.DSDECOD
+      to: proper
+- name: _DCS_RAW
+  type: str
+  derivation:
+    case:
+    - when: DS_EOS.DSDECOD = _EOS_TERM_UP
+      then: _EOS_TERM_PROP
+    - when: DS_EOS.DSDECOD IN ('PHYSICIAN DESICION', 'PROTOCOL DEVIATION', 'OTHER')
+      then: _EOS_DEC_PROP
+    - when: DS_EOS.DSDECOD = 'ADVERSE EVENT'
+      then: '''Adverse Event (Other)'''
+    - when: DS_EOS.DSDECOD = 'AE COVID'
+      then: '''Adverse Event (COVID-19 Infection)'''
+    - when: DS_EOS.DSDECOD = 'WITHDRAWAL BY SUBJECT (OTHER)'
+      then: '''Withdrawal of Consent (Other)'''
+    - when: DS_EOS.DSDECOD IN ('WITHDRAWAL BY SUBJECT (COVID-19 NON-INFECTION RELATED)', 'WITHDRAWAL COVID')
+      then: '''Withdrawal of Consent (COVID-19 Non-Infection Related)'''
+- name: _EOT_TERM_UP
+  type: str
+  derivation:
+    str_case:
+      source: DS_EOT.DSTERM
+      to: upper
+- name: _EOT_TERM_PROP
+  type: str
+  derivation:
+    str_case:
+      source: DS_EOT.DSTERM
+      to: proper
+- name: _EOT_DEC_PROP
+  type: str
+  derivation:
+    str_case:
+      source: DS_EOT.DSDECOD
+      to: proper
+- name: _DCT_RAW
+  type: str
+  derivation:
+    case:
+    - when: DS_EOT.DSDECOD = _EOT_TERM_UP
+      then: _EOT_TERM_PROP
+    - when: DS_EOT.DSDECOD IN ('PHYSICIAN DESICION', 'PROTOCOL DEVIATION', 'OTHER', 'LOST TO FOLLOW-UP')
+      then: _EOT_DEC_PROP
+    - when: DS_EOT.DSDECOD = 'ADVERSE EVENT'
+      then: '''Adverse Event (Other)'''
+    - when: DS_EOT.DSDECOD = 'AE COVID'
+      then: '''Adverse Event (COVID-19 Infection)'''
+    - when: DS_EOT.DSDECOD = 'WITHDRAWAL BY SUBJECT (OTHER)'
+      then: '''Withdrawal of Consent (Other)'''
+    - when: DS_EOT.DSDECOD IN ('WITHDRAWAL BY SUBJECT (COVID-19 NON-INFECTION RELATED)', 'WITHDRAWAL COVID')
+      then: '''Withdrawal of Consent (COVID-19 Non-Infection Related)'''
+- name: _EOT_DS_DT
+  type: date
+  derivation:
+    to_date:
+      source: DS_EOT.DSSTDTC
+- name: _PBAB_D29
+  type: str
+  derivation: PP_D29.PBABREAS
+- name: _PBAB_D57
+  type: str
+  derivation: PP_D57.PBABREAS
+- name: _PNAB_D29
+  type: str
+  derivation: PP_D29.PNABREAS
+- name: _PNAB_D57
+  type: str
+  derivation: PP_D57.PNABREAS
+- name: _PNAB2_D29
+  type: str
+  derivation: PP2_D29.PNABREAS
+- name: _PNAB2_D57
+  type: str
+  derivation: PP2_D57.PNABREAS
+- name: _PBAB_D29_FL
+  type: str
+  derivation: PP_D29.PVSBABFL
+- name: _PBAB_D57_FL
+  type: str
+  derivation: PP_D57.PVSBABFL
+- name: _PNAB_D29_FL
+  type: str
+  derivation: PP_D29.PVSNABFL
+- name: _PNAB_D57_FL
+  type: str
+  derivation: PP_D57.PVSNABFL
+- name: _PNAB2_D29_FL
+  type: str
+  derivation: PP2_D29.PVSNABFL
+- name: _PNAB2_D57_FL
+  type: str
+  derivation: PP2_D57.PVSNABFL
+- name: _N_BAB_R1
+  type: int
+  derivation:
+    aggregate:
+      key:
+      - USUBJID
+      filter: str_contains(PP_LIST.PBABREAS, 'Did not meet all eligibility criteria')
+      expr: COUNT(PP_LIST.USUBJID)
+- name: _N_BAB_R2
+  type: int
+  derivation:
+    aggregate:
+      key:
+      - USUBJID
+      filter: str_contains(PP_LIST.PBABREAS, 'Did not receive Vaccination#1')
+      expr: COUNT(PP_LIST.USUBJID)
+- name: _N_BAB_R3
+  type: int
+  derivation:
+    aggregate:
+      key:
+      - USUBJID
+      filter: 'str_contains(PP_LIST.PBABREAS, ''Did not receive Vaccination #2'') OR str_contains(PP_LIST.PBABREAS, ''Did not receive Vaccination#2'')'
+      expr: COUNT(PP_LIST.USUBJID)
+- name: _N_BAB_R4
+  type: int
+  derivation:
+    aggregate:
+      key:
+      - USUBJID
+      filter: 'str_contains(PP_LIST.PBABREAS, ''Vaccination #2 out of window'')'
+      expr: COUNT(PP_LIST.USUBJID)
+- name: _N_BAB_R5
+  type: int
+  derivation:
+    aggregate:
+      key:
+      - USUBJID
+      filter: str_contains(PP_LIST.PBABREAS, 'There was no immunogenicity result at corresponding visit')
+      expr: COUNT(PP_LIST.USUBJID)
+- name: _N_BAB_R6
+  type: int
+  derivation:
+    aggregate:
+      key:
+      - USUBJID
+      filter: str_contains(PP_LIST.PBABREAS, 'Serum collection out of window')
+      expr: COUNT(PP_LIST.USUBJID)
+- name: _N_BAB_R7
+  type: int
+  derivation:
+    aggregate:
+      key:
+      - USUBJID
+      filter: str_contains(PP_LIST.PBABREAS, 'Not in Full Analysis Set')
+      expr: COUNT(PP_LIST.USUBJID)
+- name: _N_BAB_R8
+  type: int
+  derivation:
+    aggregate:
+      key:
+      - USUBJID
+      filter: str_contains(PP_LIST.PBABREAS, 'Other study deviation')
+      expr: COUNT(PP_LIST.USUBJID)
+- name: _N_BAB_R9
+  type: int
+  derivation:
+    aggregate:
+      key:
+      - USUBJID
+      filter: str_contains(PP_LIST.PBABREAS, 'COVID-19 infection at baseline')
+      expr: COUNT(PP_LIST.USUBJID)
+- name: _N_BAB_R10
+  type: int
+  derivation:
+    aggregate:
+      key:
+      - USUBJID
+      filter: str_contains(PP_LIST.PBABREAS, 'Post-baseline COVID-19 infection prior to the visit')
+      expr: COUNT(PP_LIST.USUBJID)
+- name: _PP_BAB_J0
+  type: str
+  derivation:
+    case:
+    - when: _DOSECOMPFL = 'Y'
+      then: '''Dosing error'''
+- name: _PP_BAB_J1
+  type: str
+  derivation:
+    case:
+    - when: _PP_BAB_J0 IS NOT NULL AND _N_BAB_R1 > 0
+      then:
+        str_template: '{_PP_BAB_J0}; Did not meet all eligibility criteria'
+    - when: _PP_BAB_J0 IS NOT NULL
+      then: _PP_BAB_J0
+    - when: _N_BAB_R1 > 0
+      then: '''Did not meet all eligibility criteria'''
+- name: _PP_BAB_J2
+  type: str
+  derivation:
+    case:
+    - when: _PP_BAB_J1 IS NOT NULL AND _N_BAB_R2 > 0
+      then:
+        str_template: '{_PP_BAB_J1}; Did not receive Vaccination#1'
+    - when: _PP_BAB_J1 IS NOT NULL
+      then: _PP_BAB_J1
+    - when: _N_BAB_R2 > 0
+      then: '''Did not receive Vaccination#1'''
+- name: _PP_BAB_J3
+  type: str
+  derivation:
+    case:
+    - when: _PP_BAB_J2 IS NOT NULL AND _N_BAB_R3 > 0
+      then:
+        str_template: '{_PP_BAB_J2}; Did not receive Vaccination #2'
+    - when: _PP_BAB_J2 IS NOT NULL
+      then: _PP_BAB_J2
+    - when: _N_BAB_R3 > 0
+      then: '''Did not receive Vaccination #2'''
+- name: _PP_BAB_J4
+  type: str
+  derivation:
+    case:
+    - when: _PP_BAB_J3 IS NOT NULL AND _N_BAB_R4 > 0
+      then:
+        str_template: '{_PP_BAB_J3}; Vaccination #2 out of window'
+    - when: _PP_BAB_J3 IS NOT NULL
+      then: _PP_BAB_J3
+    - when: _N_BAB_R4 > 0
+      then: '''Vaccination #2 out of window'''
+- name: _PP_BAB_J5
+  type: str
+  derivation:
+    case:
+    - when: _PP_BAB_J4 IS NOT NULL AND _N_BAB_R5 > 0
+      then:
+        str_template: '{_PP_BAB_J4}; There was no immunogenicity result at corresponding visit'
+    - when: _PP_BAB_J4 IS NOT NULL
+      then: _PP_BAB_J4
+    - when: _N_BAB_R5 > 0
+      then: '''There was no immunogenicity result at corresponding visit'''
+- name: _PP_BAB_J6
+  type: str
+  derivation:
+    case:
+    - when: _PP_BAB_J5 IS NOT NULL AND _N_BAB_R6 > 0
+      then:
+        str_template: '{_PP_BAB_J5}; Serum collection out of window'
+    - when: _PP_BAB_J5 IS NOT NULL
+      then: _PP_BAB_J5
+    - when: _N_BAB_R6 > 0
+      then: '''Serum collection out of window'''
+- name: _PP_BAB_J7
+  type: str
+  derivation:
+    case:
+    - when: _PP_BAB_J6 IS NOT NULL AND _N_BAB_R7 > 0
+      then:
+        str_template: '{_PP_BAB_J6}; Not in Full Analysis Set'
+    - when: _PP_BAB_J6 IS NOT NULL
+      then: _PP_BAB_J6
+    - when: _N_BAB_R7 > 0
+      then: '''Not in Full Analysis Set'''
+- name: _PP_BAB_J8
+  type: str
+  derivation:
+    case:
+    - when: _PP_BAB_J7 IS NOT NULL AND _N_BAB_R8 > 0
+      then:
+        str_template: '{_PP_BAB_J7}; Other study deviation'
+    - when: _PP_BAB_J7 IS NOT NULL
+      then: _PP_BAB_J7
+    - when: _N_BAB_R8 > 0
+      then: '''Other study deviation'''
+- name: _PP_BAB_J9
+  type: str
+  derivation:
+    case:
+    - when: _PP_BAB_J8 IS NOT NULL AND _N_BAB_R9 > 0
+      then:
+        str_template: '{_PP_BAB_J8}; COVID-19 infection at baseline'
+    - when: _PP_BAB_J8 IS NOT NULL
+      then: _PP_BAB_J8
+    - when: _N_BAB_R9 > 0
+      then: '''COVID-19 infection at baseline'''
+- name: _PP_BAB_J10
+  type: str
+  derivation:
+    case:
+    - when: _PP_BAB_J9 IS NOT NULL AND _N_BAB_R10 > 0
+      then:
+        str_template: '{_PP_BAB_J9}; Post-baseline COVID-19 infection prior to the visit'
+    - when: _PP_BAB_J9 IS NOT NULL
+      then: _PP_BAB_J9
+    - when: _N_BAB_R10 > 0
+      then: '''Post-baseline COVID-19 infection prior to the visit'''
+- name: _N_NAB_R1
+  type: int
+  derivation:
+    aggregate:
+      key:
+      - USUBJID
+      filter: str_contains(PP_LIST.PNABREAS, 'Did not meet all eligibility criteria')
+      expr: COUNT(PP_LIST.USUBJID)
+- name: _N_NAB_R2
+  type: int
+  derivation:
+    aggregate:
+      key:
+      - USUBJID
+      filter: str_contains(PP_LIST.PNABREAS, 'Did not receive Vaccination#1')
+      expr: COUNT(PP_LIST.USUBJID)
+- name: _N_NAB_R3
+  type: int
+  derivation:
+    aggregate:
+      key:
+      - USUBJID
+      filter: 'str_contains(PP_LIST.PNABREAS, ''Did not receive Vaccination #2'') OR str_contains(PP_LIST.PNABREAS, ''Did not receive Vaccination#2'')'
+      expr: COUNT(PP_LIST.USUBJID)
+- name: _N_NAB_R4
+  type: int
+  derivation:
+    aggregate:
+      key:
+      - USUBJID
+      filter: 'str_contains(PP_LIST.PNABREAS, ''Vaccination #2 out of window'')'
+      expr: COUNT(PP_LIST.USUBJID)
+- name: _N_NAB_R5
+  type: int
+  derivation:
+    aggregate:
+      key:
+      - USUBJID
+      filter: str_contains(PP_LIST.PNABREAS, 'There was no immunogenicity result at corresponding visit')
+      expr: COUNT(PP_LIST.USUBJID)
+- name: _N_NAB_R6
+  type: int
+  derivation:
+    aggregate:
+      key:
+      - USUBJID
+      filter: str_contains(PP_LIST.PNABREAS, 'Serum collection out of window')
+      expr: COUNT(PP_LIST.USUBJID)
+- name: _N_NAB_R7
+  type: int
+  derivation:
+    aggregate:
+      key:
+      - USUBJID
+      filter: str_contains(PP_LIST.PNABREAS, 'Not in Full Analysis Set')
+      expr: COUNT(PP_LIST.USUBJID)
+- name: _N_NAB_R8
+  type: int
+  derivation:
+    aggregate:
+      key:
+      - USUBJID
+      filter: str_contains(PP_LIST.PNABREAS, 'Other study deviation')
+      expr: COUNT(PP_LIST.USUBJID)
+- name: _N_NAB_R9
+  type: int
+  derivation:
+    aggregate:
+      key:
+      - USUBJID
+      filter: str_contains(PP_LIST.PNABREAS, 'COVID-19 infection at baseline')
+      expr: COUNT(PP_LIST.USUBJID)
+- name: _N_NAB_R10
+  type: int
+  derivation:
+    aggregate:
+      key:
+      - USUBJID
+      filter: str_contains(PP_LIST.PNABREAS, 'Post-baseline COVID-19 infection prior to the visit')
+      expr: COUNT(PP_LIST.USUBJID)
+- name: _PP_NAB_J0
+  type: str
+  derivation:
+    case:
+    - when: _DOSECOMPFL = 'Y'
+      then: '''Dosing error'''
+- name: _PP_NAB_J1
+  type: str
+  derivation:
+    case:
+    - when: _PP_NAB_J0 IS NOT NULL AND _N_NAB_R1 > 0
+      then:
+        str_template: '{_PP_NAB_J0}; Did not meet all eligibility criteria'
+    - when: _PP_NAB_J0 IS NOT NULL
+      then: _PP_NAB_J0
+    - when: _N_NAB_R1 > 0
+      then: '''Did not meet all eligibility criteria'''
+- name: _PP_NAB_J2
+  type: str
+  derivation:
+    case:
+    - when: _PP_NAB_J1 IS NOT NULL AND _N_NAB_R2 > 0
+      then:
+        str_template: '{_PP_NAB_J1}; Did not receive Vaccination#1'
+    - when: _PP_NAB_J1 IS NOT NULL
+      then: _PP_NAB_J1
+    - when: _N_NAB_R2 > 0
+      then: '''Did not receive Vaccination#1'''
+- name: _PP_NAB_J3
+  type: str
+  derivation:
+    case:
+    - when: _PP_NAB_J2 IS NOT NULL AND _N_NAB_R3 > 0
+      then:
+        str_template: '{_PP_NAB_J2}; Did not receive Vaccination #2'
+    - when: _PP_NAB_J2 IS NOT NULL
+      then: _PP_NAB_J2
+    - when: _N_NAB_R3 > 0
+      then: '''Did not receive Vaccination #2'''
+- name: _PP_NAB_J4
+  type: str
+  derivation:
+    case:
+    - when: _PP_NAB_J3 IS NOT NULL AND _N_NAB_R4 > 0
+      then:
+        str_template: '{_PP_NAB_J3}; Vaccination #2 out of window'
+    - when: _PP_NAB_J3 IS NOT NULL
+      then: _PP_NAB_J3
+    - when: _N_NAB_R4 > 0
+      then: '''Vaccination #2 out of window'''
+- name: _PP_NAB_J5
+  type: str
+  derivation:
+    case:
+    - when: _PP_NAB_J4 IS NOT NULL AND _N_NAB_R5 > 0
+      then:
+        str_template: '{_PP_NAB_J4}; There was no immunogenicity result at corresponding visit'
+    - when: _PP_NAB_J4 IS NOT NULL
+      then: _PP_NAB_J4
+    - when: _N_NAB_R5 > 0
+      then: '''There was no immunogenicity result at corresponding visit'''
+- name: _PP_NAB_J6
+  type: str
+  derivation:
+    case:
+    - when: _PP_NAB_J5 IS NOT NULL AND _N_NAB_R6 > 0
+      then:
+        str_template: '{_PP_NAB_J5}; Serum collection out of window'
+    - when: _PP_NAB_J5 IS NOT NULL
+      then: _PP_NAB_J5
+    - when: _N_NAB_R6 > 0
+      then: '''Serum collection out of window'''
+- name: _PP_NAB_J7
+  type: str
+  derivation:
+    case:
+    - when: _PP_NAB_J6 IS NOT NULL AND _N_NAB_R7 > 0
+      then:
+        str_template: '{_PP_NAB_J6}; Not in Full Analysis Set'
+    - when: _PP_NAB_J6 IS NOT NULL
+      then: _PP_NAB_J6
+    - when: _N_NAB_R7 > 0
+      then: '''Not in Full Analysis Set'''
+- name: _PP_NAB_J8
+  type: str
+  derivation:
+    case:
+    - when: _PP_NAB_J7 IS NOT NULL AND _N_NAB_R8 > 0
+      then:
+        str_template: '{_PP_NAB_J7}; Other study deviation'
+    - when: _PP_NAB_J7 IS NOT NULL
+      then: _PP_NAB_J7
+    - when: _N_NAB_R8 > 0
+      then: '''Other study deviation'''
+- name: _PP_NAB_J9
+  type: str
+  derivation:
+    case:
+    - when: _PP_NAB_J8 IS NOT NULL AND _N_NAB_R9 > 0
+      then:
+        str_template: '{_PP_NAB_J8}; COVID-19 infection at baseline'
+    - when: _PP_NAB_J8 IS NOT NULL
+      then: _PP_NAB_J8
+    - when: _N_NAB_R9 > 0
+      then: '''COVID-19 infection at baseline'''
+- name: _PP_NAB_J10
+  type: str
+  derivation:
+    case:
+    - when: _PP_NAB_J9 IS NOT NULL AND _N_NAB_R10 > 0
+      then:
+        str_template: '{_PP_NAB_J9}; Post-baseline COVID-19 infection prior to the visit'
+    - when: _PP_NAB_J9 IS NOT NULL
+      then: _PP_NAB_J9
+    - when: _N_NAB_R10 > 0
+      then: '''Post-baseline COVID-19 infection prior to the visit'''
+- name: _N_NAB2_R1
+  type: int
+  derivation:
+    aggregate:
+      key:
+      - USUBJID
+      filter: str_contains(PP_LIST2.PNABREAS, 'Did not meet all eligibility criteria')
+      expr: COUNT(PP_LIST2.USUBJID)
+- name: _N_NAB2_R2
+  type: int
+  derivation:
+    aggregate:
+      key:
+      - USUBJID
+      filter: str_contains(PP_LIST2.PNABREAS, 'Did not receive Vaccination#1')
+      expr: COUNT(PP_LIST2.USUBJID)
+- name: _N_NAB2_R3
+  type: int
+  derivation:
+    aggregate:
+      key:
+      - USUBJID
+      filter: 'str_contains(PP_LIST2.PNABREAS, ''Did not receive Vaccination #2'') OR str_contains(PP_LIST2.PNABREAS, ''Did not receive Vaccination#2'')'
+      expr: COUNT(PP_LIST2.USUBJID)
+- name: _N_NAB2_R4
+  type: int
+  derivation:
+    aggregate:
+      key:
+      - USUBJID
+      filter: 'str_contains(PP_LIST2.PNABREAS, ''Vaccination #2 out of window'')'
+      expr: COUNT(PP_LIST2.USUBJID)
+- name: _N_NAB2_R5
+  type: int
+  derivation:
+    aggregate:
+      key:
+      - USUBJID
+      filter: str_contains(PP_LIST2.PNABREAS, 'There was no immunogenicity result at corresponding visit')
+      expr: COUNT(PP_LIST2.USUBJID)
+- name: _N_NAB2_R6
+  type: int
+  derivation:
+    aggregate:
+      key:
+      - USUBJID
+      filter: str_contains(PP_LIST2.PNABREAS, 'Serum collection out of window')
+      expr: COUNT(PP_LIST2.USUBJID)
+- name: _N_NAB2_R7
+  type: int
+  derivation:
+    aggregate:
+      key:
+      - USUBJID
+      filter: str_contains(PP_LIST2.PNABREAS, 'Not in Full Analysis Set')
+      expr: COUNT(PP_LIST2.USUBJID)
+- name: _N_NAB2_R8
+  type: int
+  derivation:
+    aggregate:
+      key:
+      - USUBJID
+      filter: str_contains(PP_LIST2.PNABREAS, 'Other study deviation')
+      expr: COUNT(PP_LIST2.USUBJID)
+- name: _N_NAB2_R9
+  type: int
+  derivation:
+    aggregate:
+      key:
+      - USUBJID
+      filter: str_contains(PP_LIST2.PNABREAS, 'COVID-19 infection at baseline')
+      expr: COUNT(PP_LIST2.USUBJID)
+- name: _N_NAB2_R10
+  type: int
+  derivation:
+    aggregate:
+      key:
+      - USUBJID
+      filter: str_contains(PP_LIST2.PNABREAS, 'Post-baseline COVID-19 infection prior to the visit')
+      expr: COUNT(PP_LIST2.USUBJID)
+- name: _PP_NAB2_J0
+  type: str
+  derivation:
+    case:
+    - when: _DOSECOMPFL = 'Y'
+      then: '''Dosing error'''
+- name: _PP_NAB2_J1
+  type: str
+  derivation:
+    case:
+    - when: _PP_NAB2_J0 IS NOT NULL AND _N_NAB2_R1 > 0
+      then:
+        str_template: '{_PP_NAB2_J0}; Did not meet all eligibility criteria'
+    - when: _PP_NAB2_J0 IS NOT NULL
+      then: _PP_NAB2_J0
+    - when: _N_NAB2_R1 > 0
+      then: '''Did not meet all eligibility criteria'''
+- name: _PP_NAB2_J2
+  type: str
+  derivation:
+    case:
+    - when: _PP_NAB2_J1 IS NOT NULL AND _N_NAB2_R2 > 0
+      then:
+        str_template: '{_PP_NAB2_J1}; Did not receive Vaccination#1'
+    - when: _PP_NAB2_J1 IS NOT NULL
+      then: _PP_NAB2_J1
+    - when: _N_NAB2_R2 > 0
+      then: '''Did not receive Vaccination#1'''
+- name: _PP_NAB2_J3
+  type: str
+  derivation:
+    case:
+    - when: _PP_NAB2_J2 IS NOT NULL AND _N_NAB2_R3 > 0
+      then:
+        str_template: '{_PP_NAB2_J2}; Did not receive Vaccination #2'
+    - when: _PP_NAB2_J2 IS NOT NULL
+      then: _PP_NAB2_J2
+    - when: _N_NAB2_R3 > 0
+      then: '''Did not receive Vaccination #2'''
+- name: _PP_NAB2_J4
+  type: str
+  derivation:
+    case:
+    - when: _PP_NAB2_J3 IS NOT NULL AND _N_NAB2_R4 > 0
+      then:
+        str_template: '{_PP_NAB2_J3}; Vaccination #2 out of window'
+    - when: _PP_NAB2_J3 IS NOT NULL
+      then: _PP_NAB2_J3
+    - when: _N_NAB2_R4 > 0
+      then: '''Vaccination #2 out of window'''
+- name: _PP_NAB2_J5
+  type: str
+  derivation:
+    case:
+    - when: _PP_NAB2_J4 IS NOT NULL AND _N_NAB2_R5 > 0
+      then:
+        str_template: '{_PP_NAB2_J4}; There was no immunogenicity result at corresponding visit'
+    - when: _PP_NAB2_J4 IS NOT NULL
+      then: _PP_NAB2_J4
+    - when: _N_NAB2_R5 > 0
+      then: '''There was no immunogenicity result at corresponding visit'''
+- name: _PP_NAB2_J6
+  type: str
+  derivation:
+    case:
+    - when: _PP_NAB2_J5 IS NOT NULL AND _N_NAB2_R6 > 0
+      then:
+        str_template: '{_PP_NAB2_J5}; Serum collection out of window'
+    - when: _PP_NAB2_J5 IS NOT NULL
+      then: _PP_NAB2_J5
+    - when: _N_NAB2_R6 > 0
+      then: '''Serum collection out of window'''
+- name: _PP_NAB2_J7
+  type: str
+  derivation:
+    case:
+    - when: _PP_NAB2_J6 IS NOT NULL AND _N_NAB2_R7 > 0
+      then:
+        str_template: '{_PP_NAB2_J6}; Not in Full Analysis Set'
+    - when: _PP_NAB2_J6 IS NOT NULL
+      then: _PP_NAB2_J6
+    - when: _N_NAB2_R7 > 0
+      then: '''Not in Full Analysis Set'''
+- name: _PP_NAB2_J8
+  type: str
+  derivation:
+    case:
+    - when: _PP_NAB2_J7 IS NOT NULL AND _N_NAB2_R8 > 0
+      then:
+        str_template: '{_PP_NAB2_J7}; Other study deviation'
+    - when: _PP_NAB2_J7 IS NOT NULL
+      then: _PP_NAB2_J7
+    - when: _N_NAB2_R8 > 0
+      then: '''Other study deviation'''
+- name: _PP_NAB2_J9
+  type: str
+  derivation:
+    case:
+    - when: _PP_NAB2_J8 IS NOT NULL AND _N_NAB2_R9 > 0
+      then:
+        str_template: '{_PP_NAB2_J8}; COVID-19 infection at baseline'
+    - when: _PP_NAB2_J8 IS NOT NULL
+      then: _PP_NAB2_J8
+    - when: _N_NAB2_R9 > 0
+      then: '''COVID-19 infection at baseline'''
+- name: _PP_NAB2_J10
+  type: str
+  derivation:
+    case:
+    - when: _PP_NAB2_J9 IS NOT NULL AND _N_NAB2_R10 > 0
+      then:
+        str_template: '{_PP_NAB2_J9}; Post-baseline COVID-19 infection prior to the visit'
+    - when: _PP_NAB2_J9 IS NOT NULL
+      then: _PP_NAB2_J9
+    - when: _N_NAB2_R10 > 0
+      then: '''Post-baseline COVID-19 infection prior to the visit'''
+- name: STUDYID
+  derivation: DM.STUDYID
+  submission:
+    origins:
+    - type: Predecessor
+      description: DM.STUDYID
+- name: USUBJID
+  derivation: DM.USUBJID
+  submission:
+    origins:
+    - type: Predecessor
+      description: DM.USUBJID
+- name: SUBJID
+  derivation: DM.SUBJID
+  submission:
+    origins:
+    - type: Predecessor
+      description: DM.SUBJID
+- name: SITEID
+  derivation: DM.SITEID
+  submission:
+    origins:
+    - type: Predecessor
+      description: DM.SITEID
+- name: COUNTRY
+  derivation: DM.COUNTRY
+  submission:
+    origins:
+    - type: Predecessor
+      description: DM.COUNTRY
+- name: AGE
+  derivation: DM.AGE
+  submission:
+    origins:
+    - type: Predecessor
+      description: DM.AGE
+- name: AGEU
+  derivation: DM.AGEU
+  submission:
+    origins:
+    - type: Predecessor
+      description: DM.AGEU
+- name: AGEGR1
+  type: str
+  label: Pooled Age Group 1
+  derivation:
+    case:
+    - when: SUPPDM_P.COHORT LIKE 'COHORT 1%'
+      then: '''>=18 and <55 Years'''
+    - when: SUPPDM_P.COHORT LIKE 'COHORT 2%'
+      then: '''>=55 Years'''
+  submission:
+    core: Req
+    mandatory: true
+    length: 30
+    origins:
+    - type: Derived
+    method: "Withheld from publication: the received define states this text."
+- name: AGEGR1N
+  type: int
+  label: Pooled Age Group 1 (N)
+  derivation:
+    case:
+    - when: SUPPDM_P.COHORT LIKE 'COHORT 1%'
+      then: 1
+    - when: SUPPDM_P.COHORT LIKE 'COHORT 2%'
+      then: 2
+  submission:
+    core: Req
+    mandatory: true
+    length: 8
+    display_format: '3.'
+    origins:
+    - type: Assigned
+- name: AGEGR2
+  type: str
+  label: Pooled Age Group 2
+  derivation:
+    case:
+    - when: SUPPDM_P.COHORT LIKE 'COHORT 1%' AND AGE >= 18 AND AGE <= 22
+      then: '''>=18 and <=22 Years'''
+    - when: SUPPDM_P.COHORT LIKE 'COHORT 1%' AND AGE >= 23 AND AGE <= 25
+      then: '''>=23 and <=25 Years'''
+    - when: SUPPDM_P.COHORT LIKE 'COHORT 1%' AND AGE > 25 AND AGE < 55
+      then: '''>25 and <55 Years'''
+    - when: SUPPDM_P.COHORT LIKE 'COHORT 2%'
+      then: '''>=55 Years'''
+  submission:
+    core: Req
+    mandatory: true
+    length: 19
+    origins:
+    - type: Derived
+    method: "Withheld from publication: the received define states this text."
+- name: AGEGR2N
+  type: int
+  label: Pooled Age Group 2 (N)
+  derivation:
+    case:
+    - when: SUPPDM_P.COHORT LIKE 'COHORT 1%' AND AGE >= 18 AND AGE <= 22
+      then: 1
+    - when: SUPPDM_P.COHORT LIKE 'COHORT 1%' AND AGE >= 23 AND AGE <= 25
+      then: 2
+    - when: SUPPDM_P.COHORT LIKE 'COHORT 1%' AND AGE > 25 AND AGE < 55
+      then: 3
+    - when: SUPPDM_P.COHORT LIKE 'COHORT 2%'
+      then: 4
+  submission:
+    core: Req
+    mandatory: true
+    length: 8
+    display_format: '3.'
+    origins:
+    - type: Assigned
+- name: SEX
+  derivation: DM.SEX
+  submission:
+    origins:
+    - type: Predecessor
+      description: DM.SEX
+- name: RACE
+  derivation: DM.RACE
+  submission:
+    origins:
+    - type: Predecessor
+      description: DM.RACE
+- name: RACESPY
+  type: str
+  label: Race Specify
+  derivation:
+    case:
+    - when: _RACEOTH IS NOT NULL AND _MULRACE IS NOT NULL
+      then:
+        str_template: '{_RACEOTH} {_MULRACE}'
+    - when: _RACEOTH IS NOT NULL
+      then: _RACEOTH
+    - when: _MULRACE IS NOT NULL
+      then: _MULRACE
+  submission:
+    core: Perm
+    mandatory: false
+    length: 200
+    origins:
+    - type: Derived
+    method: "Withheld from publication: the received define states this text."
+- name: ETHNIC
+  derivation: DM.ETHNIC
+  submission:
+    origins:
+    - type: Predecessor
+      description: DM.ETHNIC
+- name: PROTVER
+  type: str
+  label: Protocol Version
+  derivation: SUPPDM_P.PROTVER
+  submission:
+    core: Req
+    mandatory: true
+    length: 25
+    origins:
+    - type: Derived
+    method: "Withheld from publication: the received define states this text."
+- name: CHILDBP
+  type: str
+  label: Childbearing Potential
+  derivation: RP_CHIL.RPORRES
+  submission:
+    core: Perm
+    mandatory: false
+    length: 10
+    origins:
+    - type: Derived
+    method: "Withheld from publication: the received define states this text."
+- name: CBNRS
+  type: str
+  label: Reason for No Childbearing Potential
+  derivation: RP_CHIL.CBRSN
+  submission:
+    core: Perm
+    mandatory: false
+    length: 200
+    origins:
+    - type: Derived
+    method: "Withheld from publication: the received define states this text."
+- name: RANDFL
+  derivation:
+    case:
+    - when: _ENROL IS NOT NULL
+      then: '''Y'''
+    - otherwise: '''N'''
+  submission:
+    origins:
+    - type: Derived
+    method: "Withheld from publication: the received define states this text."
+- name: RANDNUM
+  type: str
+  label: Randomization Number
+  derivation: DS_ENROL.DSREFID
+  submission:
+    core: Req
+    mandatory: true
+    length: 20
+    origins:
+    - type: Derived
+    method: "Withheld from publication: the received define states this text."
+- name: SAFFL
+  derivation:
+    case:
+    - when: RANDFL = 'Y' AND EX_LAST.EXSTDTC IS NOT NULL
+      then: '''Y'''
+    - otherwise: '''N'''
+  submission:
+    origins:
+    - type: Derived
+    method: "Withheld from publication: the received define states this text."
+- name: FASBABFL
+  derivation:
+    case:
+    - when: SAFFL = 'Y' AND _IS_BIND_MIN <= TR01SDT AND _IS_BIND_MAX > TR01SDT
+      then: '''Y'''
+    - otherwise: '''N'''
+  submission:
+    origins:
+    - type: Derived
+    method: "Withheld from publication: the received define states this text."
+- name: FASNABFL
+  derivation:
+    case:
+    - when: SAFFL = 'Y' AND _IS_NEU_S1_MIN <= TR01SDT AND _IS_NEU_S1_MAX > TR01SDT
+      then: '''Y'''
+    - otherwise: '''N'''
+  submission:
+    origins:
+    - type: Derived
+    method: "Withheld from publication: the received define states this text."
+- name: PPBABFL
+  derivation:
+    case:
+    - when: _PP_BAB_N > 0 AND _DOSECOMPFL <> 'Y'
+      then: '''Y'''
+    - otherwise: '''N'''
+  submission:
+    origins:
+    - type: Derived
+    method: "Withheld from publication: the received define states this text."
+- name: PPNABFL
+  derivation:
+    case:
+    - when: _PP_NAB_N > 0 AND _DOSECOMPFL <> 'Y'
+      then: '''Y'''
+    - otherwise: '''N'''
+  submission:
+    origins:
+    - type: Derived
+    method: "Withheld from publication: the received define states this text."
+- name: PPBD29FL
+  type: str
+  label: Per Protocol bAb Day 29 Flag
+  derivation:
+    case:
+    - when: _PBAB_D29_FL = 'Y' AND _DOSECOMPFL <> 'Y'
+      then: '''Y'''
+    - otherwise: '''N'''
+  submission:
+    core: Req
+    mandatory: true
+    length: 1
+    origins:
+    - type: Derived
+    method: "Withheld from publication: the received define states this text."
+- name: PPBD57FL
+  type: str
+  label: Per Protocol bAb Day 57 Flag
+  derivation:
+    case:
+    - when: _PBAB_D57_FL = 'Y' AND _DOSECOMPFL <> 'Y'
+      then: '''Y'''
+    - otherwise: '''N'''
+  submission:
+    core: Req
+    mandatory: true
+    length: 1
+    origins:
+    - type: Derived
+    method: "Withheld from publication: the received define states this text."
+- name: PPND29FL
+  type: str
+  label: Per Protocol nAb Day 29 Flag
+  derivation:
+    case:
+    - when: _PNAB_D29_FL = 'Y' AND _DOSECOMPFL <> 'Y'
+      then: '''Y'''
+    - otherwise: '''N'''
+  submission:
+    core: Req
+    mandatory: true
+    length: 1
+    origins:
+    - type: Derived
+    method: "Withheld from publication: the received define states this text."
+- name: PPND57FL
+  type: str
+  label: Per Protocol nAb Day 57 Flag
+  derivation:
+    case:
+    - when: _PNAB_D57_FL = 'Y' AND _DOSECOMPFL <> 'Y'
+      then: '''Y'''
+    - otherwise: '''N'''
+  submission:
+    core: Req
+    mandatory: true
+    length: 1
+    origins:
+    - type: Derived
+    method: "Withheld from publication: the received define states this text."
+- name: SAR1FL
+  derivation:
+    case:
+    - when: SAFFL = 'Y' AND (FACE1.FADTM > TR01SDTM OR VS1.VSDTM > TR01SDTM)
+      then: '''Y'''
+    - otherwise: '''N'''
+  submission:
+    origins:
+    - type: Derived
+    method: "Withheld from publication: the received define states this text."
+- name: SAR2FL
+  derivation:
+    case:
+    - when: DOSE2FL = 'Y' AND (FACE2.FADTM > DOS2DTM OR VS2.VSDTM > DOS2DTM)
+      then: '''Y'''
+    - otherwise: '''N'''
+  submission:
+    origins:
+    - type: Derived
+    method: "Withheld from publication: the received define states this text."
+- name: SARAFL
+  derivation:
+    case:
+    - when: SAR1FL = 'Y' OR SAR2FL = 'Y'
+      then: '''Y'''
+    - otherwise: '''N'''
+  submission:
+    origins:
+    - type: Derived
+    method: "Withheld from publication: the received define states this text."
+- name: FASNA2FL
+  derivation:
+    case:
+    - when: SAFFL = 'Y' AND _IS_NEU_MIN <= TR01SDT AND _IS_NEU_MAX > TR01SDT
+      then: '''Y'''
+    - otherwise: '''N'''
+  submission:
+    origins:
+    - type: Derived
+    method: "Withheld from publication: the received define states this text."
+- name: PPNAB2FL
+  derivation:
+    case:
+    - when: _PP2_NAB_N > 0 AND _DOSECOMPFL <> 'Y'
+      then: '''Y'''
+    - otherwise: '''N'''
+  submission:
+    origins:
+    - type: Derived
+    method: "Withheld from publication: the received define states this text."
+- name: PN2D29FL
+  type: str
+  label: Per Protocol nAb 2 Day 29 Flag
+  derivation:
+    case:
+    - when: _PNAB2_D29_FL = 'Y' AND _DOSECOMPFL <> 'Y'
+      then: '''Y'''
+    - otherwise: '''N'''
+  submission:
+    core: Req
+    mandatory: true
+    length: 1
+    origins:
+    - type: Derived
+    method: "Withheld from publication: the received define states this text."
+- name: PN2D57FL
+  type: str
+  label: Per Protocol nAb 2 Day 57 Flag
+  derivation:
+    case:
+    - when: _PNAB2_D57_FL = 'Y' AND _DOSECOMPFL <> 'Y'
+      then: '''Y'''
+    - otherwise: '''N'''
+  submission:
+    core: Req
+    mandatory: true
+    length: 1
+    origins:
+    - type: Derived
+    method: "Withheld from publication: the received define states this text."
+- name: COMPLFL
+  derivation:
+    case:
+    - when: DS_EOS.DSDECOD = 'COMPLETED'
+      then: '''Y'''
+    - when: DS_EOS.DSDECOD IS NOT NULL
+      then: '''N'''
+  submission:
+    origins:
+    - type: Derived
+    method: "Withheld from publication: the received define states this text."
+- name: DVBABFL
+  type: str
+  label: Deviation Impact bAb Flag
+  derivation:
+    case:
+    - when: PPBABFL = 'N' AND _PP_PDF_BAB_N > 0
+      then: '''Y'''
+    - otherwise: '''N'''
+  submission:
+    core: Req
+    mandatory: true
+    length: 1
+    origins:
+    - type: Derived
+    method: "Withheld from publication: the received define states this text."
+- name: DVNABFL
+  type: str
+  label: Deviation Impact nAb Flag
+  derivation:
+    case:
+    - when: PPNABFL = 'N' AND _PP_PDF_NAB_N > 0
+      then: '''Y'''
+    - otherwise: '''N'''
+  submission:
+    core: Req
+    mandatory: true
+    length: 1
+    origins:
+    - type: Derived
+    method: "Withheld from publication: the received define states this text."
+- name: DOSE1FL
+  type: str
+  label: Vaccination 1 Flag
+  derivation:
+    case:
+    - when: EX_DOSE1.EXSTDTC IS NOT NULL
+      then: '''Y'''
+    - otherwise: '''N'''
+  submission:
+    core: Req
+    mandatory: true
+    length: 1
+    origins:
+    - type: Derived
+    method: "Withheld from publication: the received define states this text."
+- name: DOSE2FL
+  type: str
+  label: Vaccination 2 Flag
+  derivation:
+    case:
+    - when: EX_DOSE2.EXSTDTC IS NOT NULL
+      then: '''Y'''
+    - otherwise: '''N'''
+  submission:
+    core: Req
+    mandatory: true
+    length: 1
+    origins:
+    - type: Derived
+    method: "Withheld from publication: the received define states this text."
+- name: DOSEROFL
+  type: str
+  label: Dosing Error Flag
+  derivation:
+    case:
+    - when: ARM = 'Placebo' AND (_N_TREAT_50 > 0 OR _N_TREAT_100 > 0)
+      then: '''Y'''
+    - when: ARM = 'mRNA-1273 50 ug' AND (_N_TREAT_PBO > 0 OR _N_TREAT_100 > 0)
+      then: '''Y'''
+    - when: ARM = 'mRNA-1273 100 ug' AND (_N_TREAT_PBO > 0 OR _N_TREAT_50 > 0)
+      then: '''Y'''
+    - when: _N_DOSTXT > 0
+      then: '''Y'''
+    - otherwise: '''N'''
+  submission:
+    core: Req
+    mandatory: true
+    length: 1
+    origins:
+    - type: Derived
+    method: "Withheld from publication: the received define states this text."
+- name: COV19BL
+  type: str
+  label: Baseline COVID Infection
+  derivation:
+    mapping:
+      source: MB_COV2.MBSTRESC
+      dict:
+        NOTDETECTED: Not Detected
+        NOT DETECTED: Not Detected
+        DETECTED: Detected
+      unmapped: null
+  submission:
+    core: Perm
+    mandatory: false
+    length: 20
+    origins:
+    - type: Derived
+    method: "Withheld from publication: the received define states this text."
+- name: HEIGHTBL
+  type: float
+  label: Baseline Height (cm)
+  derivation:
+    case:
+    - when: VS_HEI.VSDTM < TR01SDTM OR (VS_HEI.VSDTM = TR01SDTM AND VS_HEI.VSTPT = 'PRE-DOSE')
+      then: VS_HEI.VSSTRESN
+  submission:
+    core: Req
+    mandatory: true
+    length: 8
+    significant_digits: 1
+    display_format: '5.1'
+    origins:
+    - type: Derived
+    method: "Withheld from publication: the received define states this text."
+- name: WEIGHTBL
+  type: float
+  label: Baseline Weight (kg)
+  derivation:
+    case:
+    - when: VS_WEI.VSDTM < TR01SDTM OR (VS_WEI.VSDTM = TR01SDTM AND VS_WEI.VSTPT = 'PRE-DOSE')
+      then: VS_WEI.VSSTRESN
+  submission:
+    core: Req
+    mandatory: true
+    length: 8
+    significant_digits: 1
+    display_format: '5.1'
+    origins:
+    - type: Derived
+    method: "Withheld from publication: the received define states this text."
+- name: BMIBL
+  type: float
+  label: Baseline BMI (kg/m2)
+  derivation: WEIGHTBL / ((NULLIF(HEIGHTBL, 0) / 100) * (NULLIF(HEIGHTBL, 0) / 100))
+  submission:
+    # SUB-29 (yamaa #4820): numeric widths here fit the derived values. The received
+    # define's Pinnacle 21 widths stay in the reproduced define layer (define/).
+    core: Req
+    mandatory: true
+    significant_digits: 15
+    origins:
+    - type: Derived
+    method: "Withheld from publication: the received define states this text."
+    length: 17
+- name: COV19FL
+  type: str
+  label: COVID Infection Flag
+  derivation:
+    case:
+    - when: MB_INF.MBSTRESC IS NOT NULL OR AE_COV.AEDECOD IS NOT NULL
+      then: '''Y'''
+    - otherwise: '''N'''
+  submission:
+    core: Req
+    mandatory: true
+    length: 20
+    origins:
+    - type: Derived
+    method: "Withheld from publication: the received define states this text."
+- name: SENTLFL
+  type: str
+  label: Sentinel Participant Flag
+  derivation:
+    case:
+    - when: SUPPDM_P.SENTL IS NOT NULL
+      then: SUPPDM_P.SENTL
+    - otherwise: '''N'''
+  submission:
+    core: Req
+    mandatory: true
+    length: 3
+    origins:
+    - type: Derived
+    method: "Withheld from publication: the received define states this text."
+- name: D29W7DFL
+  type: str
+  label: Day 29 Out of 7-Day Window Flag
+  derivation:
+    case:
+    - when: _D29_GAP > 36
+      then: '''Y'''
+    - otherwise: '''N'''
+  submission:
+    core: Req
+    mandatory: true
+    length: 1
+    origins:
+    - type: Derived
+    method: "Withheld from publication: the received define states this text."
+- name: ARM
+  derivation: DM.ARM
+  submission:
+    origins:
+    - type: Predecessor
+      description: DM.ARM
+- name: ACTARM
+  derivation: DM.ACTARM
+  submission:
+    origins:
+    - type: Predecessor
+      description: DM.ACTARM
+- name: TRT01P
+  derivation: ARM
+  submission:
+    origins:
+    - type: Derived
+    method: "Withheld from publication: the received define states this text."
+- name: TRT01PN
+  derivation:
+    mapping:
+      source: ARM
+      dict:
+        Placebo: 1
+        mRNA-1273 50 ug: 2
+        mRNA-1273 100 ug: 3
+      unmapped: null
+  submission:
+    origins:
+    - type: Assigned
+- name: TRT01A
+  derivation:
+    case:
+    - when: SAFFL = 'Y'
+      then: ACTARM
+  submission:
+    origins:
+    - type: Derived
+    method: "Withheld from publication: the received define states this text."
+- name: TRT01AN
+  derivation:
+    mapping:
+      source: TRT01A
+      dict:
+        Placebo: 1
+        mRNA-1273 50 ug: 2
+        mRNA-1273 100 ug: 3
+      unmapped: null
+  submission:
+    origins:
+    - type: Assigned
+- name: RFICDT
+  type: date
+  label: Date of Informed Consent
+  derivation:
+    to_date:
+      source: DM.RFICDTC
+  submission:
+    core: Req
+    mandatory: true
+    origins:
+    - type: Derived
+    method: "Withheld from publication: the received define states this text."
+- name: RANDDT
+  type: date
+  label: Date of Randomization
+  derivation:
+    to_date:
+      source: DS_ENROL.DSSTDTC
+  submission:
+    core: Req
+    mandatory: true
+    origins:
+    - type: Derived
+    method: "Withheld from publication: the received define states this text."
+- name: RFXSTDTC
+  type: str
+  label: Date/Time of First Study Treatment
+  derivation: DM.RFXSTDTC
+  submission:
+    core: Req
+    mandatory: true
+    origins:
+    - type: Predecessor
+      description: DM.RFXSTDTC
+- name: TR01SDT
+  derivation:
+    to_date:
+      source: DM.RFXSTDTC
+  submission:
+    origins:
+    - type: Derived
+    method: "Withheld from publication: the received define states this text."
+- name: TR01SDTM
+  derivation:
+    case:
+    - when: str_contains(RFXSTDTC, 'T')
+      then:
+        impute:
+          type: datetime
+          source: RFXSTDTC
+          time: first
+  submission:
+    origins:
+    - type: Derived
+    method: "Withheld from publication: the received define states this text."
+- name: TR01EDT
+  derivation:
+    to_date:
+      source: DM.RFXENDTC
+  submission:
+    origins:
+    - type: Derived
+    method: "Withheld from publication: the received define states this text."
+- name: TR01EDTM
+  derivation:
+    case:
+    - when: str_contains(_RFXENDTC, 'T')
+      then:
+        impute:
+          type: datetime
+          source: _RFXENDTC
+          time: first
+  submission:
+    origins:
+    - type: Derived
+    method: "Withheld from publication: the received define states this text."
+- name: TRTSDTM
+  derivation: TR01SDTM
+  submission:
+    origins:
+    - type: Derived
+    method: "Withheld from publication: the received define states this text."
+- name: TRTEDTM
+  derivation: TR01EDTM
+  submission:
+    origins:
+    - type: Derived
+    method: "Withheld from publication: the received define states this text."
+- name: DOSE2DT
+  type: date
+  label: Date of Dose 2
+  derivation:
+    to_date:
+      source: EX_DOSE2.EXSTDTC
+  submission:
+    core: Perm
+    mandatory: false
+    origins:
+    - type: Derived
+    method: "Withheld from publication: the received define states this text."
+- name: DOS2DTM
+  type: datetime
+  label: Datetime of Dose 2
+  derivation:
+    case:
+    - when: str_contains(EX_DOSE2.EXSTDTC, 'T')
+      then:
+        impute:
+          type: datetime
+          source: EX_DOSE2.EXSTDTC
+          time: first
+  submission:
+    core: Perm
+    mandatory: false
+    origins:
+    - type: Derived
+    method: "Withheld from publication: the received define states this text."
+- name: EOSSTT
+  type: str
+  label: End of Study Status
+  derivation:
+    case:
+    - when: COMPLFL = 'Y'
+      then: '''COMPLETED'''
+    - when: COMPLFL = 'N'
+      then: '''DISCONTINUED'''
+    - otherwise: '''ONGOING'''
+  submission:
+    core: Req
+    mandatory: true
+    length: 20
+    origins:
+    - type: Derived
+    method: "Withheld from publication: the received define states this text."
+- name: EOSDT
+  type: date
+  label: End of Study Date
+  derivation:
+    to_date:
+      source: DS_EOS.DSSTDTC
+  submission:
+    core: Perm
+    mandatory: false
+    origins:
+    - type: Derived
+    method: "Withheld from publication: the received define states this text."
+- name: EOSDY
+  type: int
+  label: End of Study Relative Day
+  derivation:
+    study_day:
+      source: EOSDT
+      reference: TR01SDT
+  submission:
+    core: Perm
+    mandatory: false
+    length: 8
+    display_format: '3.'
+    origins:
+    - type: Derived
+    method: "Withheld from publication: the received define states this text."
+- name: DCSREAS
+  type: str
+  label: Reason for Discontinuation from Study
+  derivation:
+    case:
+    - when: COMPLFL = 'N' AND _DCS_RAW = 'Lost To Follow-Up'
+      then: '''Lost to Follow-Up'''
+    - when: COMPLFL = 'N'
+      then: _DCS_RAW
+  submission:
+    core: Perm
+    mandatory: false
+    length: 100
+    origins:
+    - type: Derived
+    method: "Withheld from publication: the received define states this text."
+- name: DCSREASP
+  type: str
+  label: Reason Spec for Discont from Study
+  derivation:
+    case:
+    - when: COMPLFL = 'N' AND DS_EOS.DSDECOD <> _EOS_TERM_UP AND DS_EOS.DSDECOD <> 'AE COVID'
+      then: DS_EOS.DSTERM
+  submission:
+    core: Perm
+    mandatory: false
+    length: 200
+    origins:
+    - type: Derived
+    method: "Withheld from publication: the received define states this text."
+- name: EOTSTT
+  type: str
+  label: End of Treatment Status
+  derivation:
+    case:
+    - when: DOSE2DT IS NOT NULL
+      then: '''COMPLETED'''
+    - when: DS_EOT.DSDECOD IS NOT NULL
+      then: '''DISCONTINUED'''
+    - otherwise: '''ONGOING'''
+  submission:
+    core: Req
+    mandatory: true
+    length: 20
+    origins:
+    - type: Derived
+    method: "Withheld from publication: the received define states this text."
+- name: EOTDT
+  type: date
+  label: End of Treatment Date
+  derivation:
+    first_available:
+      sources:
+      - DOSE2DT
+      - _EOT_DS_DT
+  submission:
+    core: Perm
+    mandatory: false
+    origins:
+    - type: Derived
+    method: "Withheld from publication: the received define states this text."
+- name: EOTDY
+  type: int
+  label: End of Treatment Relative Day
+  derivation:
+    study_day:
+      source: EOTDT
+      reference: TR01SDT
+  submission:
+    core: Perm
+    mandatory: false
+    length: 8
+    display_format: '3.'
+    origins:
+    - type: Derived
+    method: "Withheld from publication: the received define states this text."
+- name: DCTREAS
+  type: str
+  label: Reason for Discontinuation of Treatment
+  derivation:
+    case:
+    - when: _DCT_RAW = 'Lost To Follow-Up'
+      then: '''Lost to Follow-Up'''
+    - otherwise: _DCT_RAW
+  submission:
+    core: Perm
+    mandatory: false
+    length: 100
+    origins:
+    - type: Derived
+    method: "Withheld from publication: the received define states this text."
+- name: DCTREASP
+  type: str
+  label: Reason Specify for Discont of Treatment
+  derivation:
+    case:
+    - when: DS_EOT.DSDECOD <> 'AE COVID' AND DS_EOT.DSDECOD <> _EOT_TERM_UP
+      then: DS_EOT.DSTERM
+  submission:
+    core: Perm
+    mandatory: false
+    length: 200
+    origins:
+    - type: Derived
+    method: "Withheld from publication: the received define states this text."
+- name: DTHDT
+  type: date
+  label: Date of Death
+  derivation:
+    to_date:
+      source: DM.DTHDTC
+  submission:
+    core: Perm
+    mandatory: false
+    origins:
+    - type: Derived
+    method: "Withheld from publication: the received define states this text."
+- name: DTHAUTOP
+  type: str
+  label: Was autopsy performed?
+  derivation: null
+  submission:
+    core: Perm
+    mandatory: false
+    length: 8
+    origins:
+    - type: Other
+      description: "Withheld from publication: the received define states this text."
+    method: "Withheld from publication: the received define states this text."
+- name: CUTOFFDT
+  type: date
+  label: Data Cutoff Date
+  derivation:
+    to_date:
+      source: TS_DCUT.TSVAL
+  submission:
+    core: Req
+    mandatory: true
+    origins:
+    - type: Assigned
+- name: SAFEREAS
+  type: str
+  label: Reason for Safety Set Exclusion
+  derivation:
+    case:
+    - when: RANDFL = 'Y' AND SAFFL = 'N'
+      then: '''Did not receive any vaccination'''
+  submission:
+    core: Perm
+    mandatory: false
+    length: 200
+    origins:
+    - type: Derived
+    method: "Withheld from publication: the received define states this text."
+- name: SAR1ERS
+  type: str
+  label: Reason for 1st Solicited Safety Set Exc
+  derivation:
+    case:
+    - when: RANDFL = 'Y' AND SAFFL = 'N'
+      then: '''Did not receive any study vaccination'''
+    - when: RANDFL = 'Y' AND SAFFL = 'Y' AND SAR1FL = 'N'
+      then: '''Did not contribute any solicited AR data for Vaccination #1'''
+  submission:
+    core: Perm
+    mandatory: false
+    length: 200
+    origins:
+    - type: Derived
+    method: "Withheld from publication: the received define states this text."
+- name: SAR2ERS
+  type: str
+  label: Reason for 2nd Solicited Safety Set Exc
+  derivation:
+    case:
+    - when: RANDFL = 'Y' AND SAFFL = 'N'
+      then: '''Did not receive any study vaccination'''
+    - when: RANDFL = 'Y' AND SAFFL = 'Y' AND DOSE2FL = 'N'
+      then: '''Did not receive Vaccination #2'''
+    - when: RANDFL = 'Y' AND SAFFL = 'Y' AND DOSE2FL = 'Y' AND SAR2FL = 'N'
+      then: '''Did not contribute any solicited AR data for Vaccination #2'''
+  submission:
+    core: Perm
+    mandatory: false
+    length: 200
+    origins:
+    - type: Derived
+    method: "Withheld from publication: the received define states this text."
+- name: FASBABRS
+  type: str
+  label: Reason for BAB Full Analysis Set  Exc
+  derivation:
+    case:
+    - when: RANDFL = 'Y' AND SAFFL = 'N'
+      then: '''Did not receive any study vaccination'''
+    - when: RANDFL = 'Y' AND SAFFL = 'Y' AND FASBABFL = 'N'
+      then: '''There were no immunogenicity results at baseline and at least one post-vaccination'''
+  submission:
+    core: Perm
+    mandatory: false
+    length: 200
+    origins:
+    - type: Derived
+    method: "Withheld from publication: the received define states this text."
+- name: FASNABRS
+  type: str
+  label: Reason for NAB Full Analysis Set  Exc
+  derivation:
+    case:
+    - when: RANDFL = 'Y' AND SAFFL = 'N'
+      then: '''Did not receive any study vaccination'''
+    - when: RANDFL = 'Y' AND SAFFL = 'Y' AND FASNABFL = 'N'
+      then: '''There were no immunogenicity results at baseline and at least one post-vaccination'''
+  submission:
+    core: Perm
+    mandatory: false
+    length: 200
+    origins:
+    - type: Derived
+    method: "Withheld from publication: the received define states this text."
+- name: PPBABERS
+  type: str
+  label: Reason for BAB Per-Protocol Set Exc
+  derivation:
+    case:
+    - when: RANDFL = 'Y' AND PPBABFL = 'N'
+      then: _PP_BAB_J10
+  submission:
+    core: Perm
+    mandatory: false
+    length: 200
+    origins:
+    - type: Derived
+    method: "Withheld from publication: the received define states this text."
+- name: PPNABERS
+  type: str
+  label: Reason for nAb Per-Protocol Set Exc
+  derivation:
+    case:
+    - when: RANDFL = 'Y' AND PPNABFL = 'N'
+      then: _PP_NAB_J10
+  submission:
+    core: Perm
+    mandatory: false
+    length: 200
+    origins:
+    - type: Derived
+    method: "Withheld from publication: the received define states this text."
+- name: PPBD29ER
+  type: str
+  label: Reason for bAb Per-Protocol Day 29 Exc
+  derivation:
+    case:
+    - when: _DOSECOMPFL = 'Y' AND _PBAB_D29 IS NOT NULL
+      then:
+        str_template: Dosing error; {_PBAB_D29}
+    - when: _DOSECOMPFL = 'Y'
+      then: '''Dosing error'''
+    - otherwise: _PBAB_D29
+  submission:
+    core: Perm
+    mandatory: false
+    length: 138
+    origins:
+    - type: Derived
+    method: "Withheld from publication: the received define states this text."
+- name: PPBD57ER
+  type: str
+  label: Reason for bAb Per-Protocol Day 57 Exc
+  derivation:
+    case:
+    - when: _DOSECOMPFL = 'Y' AND _PBAB_D57 IS NOT NULL
+      then:
+        str_template: Dosing error; {_PBAB_D57}
+    - when: _DOSECOMPFL = 'Y'
+      then: '''Dosing error'''
+    - otherwise: _PBAB_D57
+  submission:
+    core: Perm
+    mandatory: false
+    length: 138
+    origins:
+    - type: Derived
+    method: "Withheld from publication: the received define states this text."
+- name: PPND29ER
+  type: str
+  label: Reason for nAb Per-Protocol Day 29 Exc
+  derivation:
+    case:
+    - when: _DOSECOMPFL = 'Y' AND _PNAB_D29 IS NOT NULL
+      then:
+        str_template: Dosing error; {_PNAB_D29}
+    - when: _DOSECOMPFL = 'Y'
+      then: '''Dosing error'''
+    - otherwise: _PNAB_D29
+  submission:
+    core: Perm
+    mandatory: false
+    length: 138
+    origins:
+    - type: Derived
+    method: "Withheld from publication: the received define states this text."
+- name: PPND57ER
+  type: str
+  label: Reason for nAb Per-Protocol Day 57 Exc
+  derivation:
+    case:
+    - when: _DOSECOMPFL = 'Y' AND _PNAB_D57 IS NOT NULL
+      then:
+        str_template: Dosing error; {_PNAB_D57}
+    - when: _DOSECOMPFL = 'Y'
+      then: '''Dosing error'''
+    - otherwise: _PNAB_D57
+  submission:
+    core: Perm
+    mandatory: false
+    length: 138
+    origins:
+    - type: Derived
+    method: "Withheld from publication: the received define states this text."
+- name: PPNAB2ER
+  type: str
+  label: Reason for nAb 2 Per-Protocol Set Exc
+  derivation:
+    case:
+    - when: RANDFL = 'Y' AND PPNAB2FL = 'N'
+      then: _PP_NAB2_J10
+  submission:
+    core: Perm
+    mandatory: false
+    length: 174
+    origins:
+    - type: Derived
+    method: "Withheld from publication: the received define states this text."
+- name: PN2D29ER
+  type: str
+  label: Reason for nAb 2 PP Day 29 Exc
+  derivation:
+    case:
+    - when: _DOSECOMPFL = 'Y' AND _PNAB2_D29 IS NOT NULL
+      then:
+        str_template: Dosing error; {_PNAB2_D29}
+    - when: _DOSECOMPFL = 'Y'
+      then: '''Dosing error'''
+    - otherwise: _PNAB2_D29
+  submission:
+    core: Perm
+    mandatory: false
+    length: 138
+    origins:
+    - type: Derived
+    method: "Withheld from publication: the received define states this text."
+- name: PN2D57ER
+  type: str
+  label: Reason for nAb 2 PP Day 57 Exc
+  derivation:
+    case:
+    - when: _DOSECOMPFL = 'Y' AND _PNAB2_D57 IS NOT NULL
+      then:
+        str_template: Dosing error; {_PNAB2_D57}
+    - when: _DOSECOMPFL = 'Y'
+      then: '''Dosing error'''
+    - otherwise: _PNAB2_D57
+  submission:
+    core: Perm
+    mandatory: false
+    length: 138
+    origins:
+    - type: Derived
+    method: "Withheld from publication: the received define states this text."
+- name: PREVSCR
+  type: str
+  label: Was this participant screened previously
+  derivation: SUPPDM_P.PREVSCR
+  submission:
+    core: Req
+    mandatory: true
+    length: 1
+    origins:
+    - type: Derived
+    method: "Withheld from publication: the received define states this text."

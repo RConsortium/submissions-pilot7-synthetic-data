@@ -1,0 +1,484 @@
+# ADSLSF for Moderna mRNA-1273-P301, cut S3 (BLA 125752 S3). Parent:
+# ../../../spec/yamaa/base/adam-base.yaml (the ADSL columns ADSLSF shares).
+# Derivations port the S3 program a11adslsf.sas, released only as a PDF
+# (spec/source/125752_S3_M5_mrna-1273-p301_A_P_a11adslsf.pdf, Bates
+# 3820340-3820345). One row per DM subject that is not in the submitted
+# ADSL (the program reads adb.adsl) and has a screen-failure disposition
+# record (DSCAT 'DISPOSITION EVENT', DSSCAT 'SCREEN FAILURE'), or, without
+# one, a PROTOCOL MILESTONE record with SUPPDS ENROLLYN 'N'.
+#
+# The program keeps the last record of each screen-failure date (sorted by
+# DSSTDTC, DSTERMO and DSTERM; SUPPDS has no DSTERMO in this cut). Two
+# subjects failed screening on two dates; the submitted file carries one
+# record each, the later one, so the spec keeps the latest date's record.
+# RACESPY is redacted to (b)(6) in the submitted file wherever it is not
+# blank; the spec derives it as the program does.
+yamaa: '1.0'
+type: spec
+model: ADaM
+parent: ../../../spec/yamaa/base/adam-base.yaml
+domain: ADSLSF
+keys:
+- STUDYID
+- USUBJID
+input:
+  DM: <sdtm-dir>/dm.parquet
+  SUPPDM: <sdtm-dir>/suppdm.parquet
+  DS: <sdtm-dir>/ds.parquet
+  SUPPDS: <sdtm-dir>/suppds.parquet
+  RP: <sdtm-dir>/rp.parquet
+  SUPPRP: <sdtm-dir>/supprp.parquet
+  ADSL:
+    path: <adam-dir>/adsl.parquet
+    key:
+    - STUDYID
+    - USUBJID
+submission:
+  label: Screen Fail Subj-Level Analysis Dataset
+  class: SUBJECT LEVEL ANALYSIS DATASET
+  structure: One record per subject
+  repeating: false
+rows:
+- id: subjects
+  dataset: DM
+  filter: _ADSL IS NULL AND _SF IS NOT NULL
+intermediates:
+- id: SUPPDM_P
+  dataset: SUPPDM
+  key:
+  - STUDYID
+  - USUBJID
+  filter: SUPPDM.QNAM IN ('RACE1', 'RACE2', 'RACE3', 'RACE4', 'RACE5', 'RACE6', 'RACEOTH', 'PROTVER', 'PREVSCR')
+  pivot:
+    name: QNAM
+    value: QVAL
+    fields:
+    - RACE1
+    - RACE2
+    - RACE3
+    - RACE4
+    - RACE5
+    - RACE6
+    - RACEOTH
+    - PROTVER
+    - PREVSCR
+- id: SUPPDS_P
+  dataset: SUPPDS
+  key:
+    STUDYID: STUDYID
+    USUBJID: USUBJID
+    IDVARVAL:
+      str_decimal:
+        source: DSSEQ
+        decimals: 0
+  filter: SUPPDS.QNAM = 'ENROLLYN' AND SUPPDS.IDVAR = 'DSSEQ'
+  pivot:
+    name: QNAM
+    value: QVAL
+    fields:
+    - ENROLLYN
+- id: DS_FAIL
+  dataset: DS
+  key:
+  - STUDYID
+  - USUBJID
+  filter: (DS.DSSCAT = 'SCREEN FAILURE' AND DS.DSCAT = 'DISPOSITION EVENT') OR (DS.DSCAT = 'PROTOCOL MILESTONE'
+    AND DS._ENR = 'N')
+  derivations:
+    _ENR:
+      type: str
+      derivation: SUPPDS_P.ENROLLYN
+    _ISSF:
+      type: int
+      derivation:
+        case:
+        - when: DS.DSSCAT = 'SCREEN FAILURE' AND DS.DSCAT = 'DISPOSITION EVENT'
+          then: 1
+        - otherwise: 0
+  order_by:
+  - DS._ISSF
+  - DS.DSSTDTC
+  - DS.DSTERM
+  keep: last
+- id: RP_CHIL
+  dataset: RP
+  key:
+  - STUDYID
+  - USUBJID
+  filter: RP.RPTESTCD = 'CHILDPOT' AND RP.RPSTRESC IS NOT NULL
+  order_by:
+  - RP.RPORRES
+  keep: first
+- id: SUPPRP_CB
+  dataset: SUPPRP
+  key:
+    STUDYID: STUDYID
+    USUBJID: USUBJID
+    IDVARVAL:
+      str_decimal:
+        source: RPSEQ
+        decimals: 0
+  filter: SUPPRP.QNAM = 'CBRSN' AND SUPPRP.IDVAR = 'RPSEQ'
+  pivot:
+    name: QNAM
+    value: QVAL
+    fields:
+    - CBRSN
+- id: RP_CB
+  dataset: RP
+  key:
+  - STUDYID
+  - USUBJID
+  filter: RP.RPSTRESC IS NOT NULL AND RP._RSTN < 9
+  derivations:
+    _CB:
+      type: str
+      derivation: SUPPRP_CB.CBRSN
+    _RSTN:
+      type: int
+      derivation:
+        mapping:
+          source: RP.RPTESTCD
+          dict:
+            CHILDPOT: 0
+            SURSTL: 1
+            PM: 2
+            PARTSTL: 3
+            PREMENAR: 4
+            OTHSYS: 5
+          unmapped: 9
+          missing: 9
+  order_by:
+  - RP._CB
+  keep: last
+output:
+  path: <adam-dir>/adslsf-yamaa.parquet
+  order_by:
+  - USUBJID
+  columns:
+  - STUDYID
+  - USUBJID
+  - SUBJID
+  - SITEID
+  - COUNTRY
+  - AGE
+  - AGEU
+  - SEX
+  - RACE
+  - RACESPY
+  - ETHNIC
+  - PROTVER
+  - CHILDBP
+  - CBNRS
+  - RFICDT
+  - SCFREAS
+  - SCFREASP
+  - PREVSCR
+columns:
+- name: _ADSL
+  type: str
+  derivation: ADSL.USUBJID
+- name: _SF
+  type: float
+  derivation: DS_FAIL.DSSEQ
+- name: _RACEOTH
+  type: str
+  derivation: SUPPDM_P.RACEOTH
+- name: _R1
+  type: str
+  derivation:
+    case:
+    - when: SUPPDM_P.RACE1 = 'OTHER' AND _RACEOTH IS NOT NULL
+      then:
+        str_template: 'Other: {_RACEOTH}'
+    - when: SUPPDM_P.RACE1 = 'OTHER'
+      then: '''Other'''
+    - otherwise:
+        str_case:
+          source: SUPPDM_P.RACE1
+          to: proper
+- name: _R2
+  type: str
+  derivation:
+    case:
+    - when: SUPPDM_P.RACE2 = 'OTHER' AND _RACEOTH IS NOT NULL
+      then:
+        str_template: 'Other: {_RACEOTH}'
+    - when: SUPPDM_P.RACE2 = 'OTHER'
+      then: '''Other'''
+    - otherwise:
+        str_case:
+          source: SUPPDM_P.RACE2
+          to: proper
+- name: _R3
+  type: str
+  derivation:
+    case:
+    - when: SUPPDM_P.RACE3 = 'OTHER' AND _RACEOTH IS NOT NULL
+      then:
+        str_template: 'Other: {_RACEOTH}'
+    - when: SUPPDM_P.RACE3 = 'OTHER'
+      then: '''Other'''
+    - otherwise:
+        str_case:
+          source: SUPPDM_P.RACE3
+          to: proper
+- name: _R4
+  type: str
+  derivation:
+    case:
+    - when: SUPPDM_P.RACE4 = 'OTHER' AND _RACEOTH IS NOT NULL
+      then:
+        str_template: 'Other: {_RACEOTH}'
+    - when: SUPPDM_P.RACE4 = 'OTHER'
+      then: '''Other'''
+    - otherwise:
+        str_case:
+          source: SUPPDM_P.RACE4
+          to: proper
+- name: _R5
+  type: str
+  derivation:
+    case:
+    - when: SUPPDM_P.RACE5 = 'OTHER' AND _RACEOTH IS NOT NULL
+      then:
+        str_template: 'Other: {_RACEOTH}'
+    - when: SUPPDM_P.RACE5 = 'OTHER'
+      then: '''Other'''
+    - otherwise:
+        str_case:
+          source: SUPPDM_P.RACE5
+          to: proper
+- name: _R6
+  type: str
+  derivation:
+    case:
+    - when: SUPPDM_P.RACE6 = 'OTHER' AND _RACEOTH IS NOT NULL
+      then:
+        str_template: 'Other: {_RACEOTH}'
+    - when: SUPPDM_P.RACE6 = 'OTHER'
+      then: '''Other'''
+    - otherwise:
+        str_case:
+          source: SUPPDM_P.RACE6
+          to: proper
+- name: _RJ2
+  type: str
+  derivation:
+    case:
+    - when: _R1 IS NULL
+      then: _R2
+    - when: _R2 IS NULL
+      then: _R1
+    - otherwise:
+        str_template: '{_R1}, {_R2}'
+- name: _RJ3
+  type: str
+  derivation:
+    case:
+    - when: _RJ2 IS NULL
+      then: _R3
+    - when: _R3 IS NULL
+      then: _RJ2
+    - otherwise:
+        str_template: '{_RJ2}, {_R3}'
+- name: _RJ4
+  type: str
+  derivation:
+    case:
+    - when: _RJ3 IS NULL
+      then: _R4
+    - when: _R4 IS NULL
+      then: _RJ3
+    - otherwise:
+        str_template: '{_RJ3}, {_R4}'
+- name: _RJ5
+  type: str
+  derivation:
+    case:
+    - when: _RJ4 IS NULL
+      then: _R5
+    - when: _R5 IS NULL
+      then: _RJ4
+    - otherwise:
+        str_template: '{_RJ4}, {_R5}'
+- name: _RJ6
+  type: str
+  derivation:
+    case:
+    - when: _RJ5 IS NULL
+      then: _R6
+    - when: _R6 IS NULL
+      then: _RJ5
+    - otherwise:
+        str_template: '{_RJ5}, {_R6}'
+- name: _RSPY0
+  type: str
+  derivation:
+    case:
+    - when: DM.RACE = 'OTHER'
+      then: _RACEOTH
+    - when: DM.RACE = 'MULTIPLE'
+      then: _RJ6
+- name: _RSPY1
+  type: str
+  derivation:
+    str_replace:
+      source: _RSPY0
+      pattern: ' Or '
+      replacement: ' or '
+- name: _RSPY2
+  type: str
+  derivation:
+    str_replace:
+      source: _RSPY1
+      pattern: Other
+      replacement: other
+- name: _SCF_TERM
+  type: str
+  derivation:
+    str_case:
+      source: DS_FAIL.DSTERM
+      to: proper
+- name: STUDYID
+  derivation: DM.STUDYID
+  submission:
+    origins:
+    - type: Predecessor
+      description: DM.STUDYID
+- name: USUBJID
+  derivation: DM.USUBJID
+  submission:
+    origins:
+    - type: Predecessor
+      description: DM.USUBJID
+- name: SUBJID
+  derivation: DM.SUBJID
+  submission:
+    origins:
+    - type: Predecessor
+      description: DM.SUBJID
+- name: SITEID
+  derivation: DM.SITEID
+  submission:
+    origins:
+    - type: Predecessor
+      description: DM.SITEID
+- name: COUNTRY
+  derivation: DM.COUNTRY
+  submission:
+    origins:
+    - type: Predecessor
+      description: DM.COUNTRY
+- name: AGE
+  derivation: DM.AGE
+  submission:
+    mandatory: false
+    origins:
+    - type: Predecessor
+      description: DM.AGE
+- name: AGEU
+  derivation: DM.AGEU
+  submission:
+    mandatory: false
+    origins:
+    - type: Predecessor
+      description: DM.AGEU
+- name: SEX
+  derivation: DM.SEX
+  submission:
+    mandatory: false
+    origins:
+    - type: Predecessor
+      description: DM.SEX
+- name: RACE
+  derivation: DM.RACE
+  submission:
+    mandatory: false
+    origins:
+    - type: Predecessor
+      description: DM.RACE
+- name: RACESPY
+  derivation:
+    case:
+    - when: _RSPY1 LIKE '%Native Hawaiian or Other Pacific Islander%'
+      then: _RSPY2
+    - otherwise: _RSPY1
+  submission:
+    origins:
+    - type: Derived
+    method: "Withheld from publication: the received define states this text."
+- name: ETHNIC
+  derivation: DM.ETHNIC
+  submission:
+    mandatory: false
+    origins:
+    - type: Predecessor
+      description: DM.ETHNIC
+- name: PROTVER
+  derivation: SUPPDM_P.PROTVER
+  submission:
+    mandatory: false
+    origins:
+    - type: Derived
+    method: "Withheld from publication: the received define states this text."
+- name: CHILDBP
+  derivation: RP_CHIL.RPORRES
+  submission:
+    origins:
+    - type: Derived
+    method: "Withheld from publication: the received define states this text."
+- name: CBNRS
+  derivation: RP_CB._CB
+  submission:
+    origins:
+    - type: Derived
+    method: "Withheld from publication: the received define states this text."
+- name: RFICDT
+  derivation:
+    case:
+    - when: DM.RFICDTC LIKE '____-__-__%'
+      then:
+        to_date:
+          source: DM.RFICDTC
+  submission:
+    mandatory: false
+    origins:
+    - type: Derived
+    method: "Withheld from publication: the received define states this text."
+- name: SCFREAS
+  type: str
+  label: Screen Failure Reason
+  derivation:
+    case:
+    - when: DS_FAIL._ISSF = 1 AND (DS_FAIL.DSDECOD IS NULL OR DS_FAIL.DSDECOD <> 'OTHER')
+      then: _SCF_TERM
+    - when: DS_FAIL._ISSF = 1
+      then: '''Other'''
+  submission:
+    core: Req
+    mandatory: true
+    length: 200
+    origins:
+    - type: Derived
+    method: "Withheld from publication: the received define states this text."
+- name: SCFREASP
+  type: str
+  label: Screen Failure Reason Specify
+  derivation:
+    case:
+    - when: SCFREAS = 'Other'
+      then: DS_FAIL.DSTERM
+  submission:
+    core: Perm
+    mandatory: false
+    length: 200
+    origins:
+    - type: Derived
+    method: "Withheld from publication: the received define states this text."
+- name: PREVSCR
+  derivation: SUPPDM_P.PREVSCR
+  submission:
+    origins:
+    - type: Derived
+    method: "Withheld from publication: the received define states this text."

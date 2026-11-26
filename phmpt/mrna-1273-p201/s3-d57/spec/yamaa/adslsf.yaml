@@ -1,0 +1,337 @@
+# ADSLSF for Moderna mRNA-1273-P201, data cut d57 (cutoff 2020-11-05).
+# Parent: ../../../spec/yamaa/base/adam-base.yaml (section 3.1 core columns).
+# Derivations implement program/adam/A20ADSLSF (d57); where the SAS code
+# and the define.xml disagree, the code is followed (see README.md).
+# Population: the 490 screen failures in DM, identified by their last DS
+# record being a SCREEN FAILURE disposition event (see README.md for the
+# equivalence proof of the last-row formulation against the SAS two-step).
+yamaa: '1.0'
+type: spec
+model: ADaM
+parent: ../../../spec/yamaa/base/adam-base.yaml
+domain: ADSLSF
+keys:
+- STUDYID
+- USUBJID
+input:
+  DM: <sdtm-dir>/dm.parquet
+  DS: <sdtm-dir>/ds.parquet
+  RP: <sdtm-dir>/rp.parquet
+  SUPPDM: <sdtm-dir>/suppdm.parquet
+  SUPPRP: <sdtm-dir>/supprp.parquet
+submission:
+  label: Screen Fail Subj-Level Analysis Dataset
+  class: SUBJECT LEVEL ANALYSIS DATASET
+  structure: One record per subject
+  repeating: false
+rows:
+- id: subjects
+  dataset: DM
+  filter: _SF IS NOT NULL
+intermediates:
+- id: DS_LAST
+  dataset: DS
+  key:
+  - STUDYID
+  - USUBJID
+  order_by:
+  - DS.DSSTDTC
+  - DS.DSSEQ
+  keep: last
+- id: SUPPDM_P
+  dataset: SUPPDM
+  key:
+  - STUDYID
+  - USUBJID
+  filter: SUPPDM.QNAM IN ('RACEOTH', 'MULRACE', 'PROTVER', 'PREVSCR')
+  pivot:
+    name: QNAM
+    value: QVAL
+    fields:
+    - RACEOTH
+    - MULRACE
+    - PROTVER
+    - PREVSCR
+- id: SUPPRP_CB
+  dataset: SUPPRP
+  key:
+    STUDYID: STUDYID
+    USUBJID: USUBJID
+    IDVARVAL:
+      str_decimal:
+        source: RPSEQ
+        decimals: 0
+  filter: SUPPRP.QNAM = 'CBRSN' AND SUPPRP.IDVAR = 'RPSEQ'
+  pivot:
+    name: QNAM
+    value: QVAL
+    fields:
+    - CBRSN
+- id: RP_CHIL
+  dataset: RP
+  key:
+  - STUDYID
+  - USUBJID
+  filter: RP.RPTESTCD = 'CHILDPOT' AND RP.RPDTC IS NOT NULL AND RP.VISITNUM = 1
+  derivations:
+    CBRSN:
+      type: str
+      derivation: SUPPRP_CB.CBRSN
+  order_by:
+  - RP.RPDTC
+  keep: last
+output:
+  path: <adam-dir>/adslsf-yamaa.parquet
+  order_by:
+  - USUBJID
+  columns:
+  - STUDYID
+  - USUBJID
+  - SUBJID
+  - SITEID
+  - COUNTRY
+  - AGE
+  - AGEU
+  - SEX
+  - RACE
+  - RACESPY
+  - ETHNIC
+  - PROTVER
+  - CHILDBP
+  - CBNRS
+  - RFICDT
+  - SCFREAS
+  - SCFREASP
+  - PREVSCR
+columns:
+- name: _SF
+  type: str
+  derivation:
+    case:
+    - when: DS_LAST.DSCAT = 'DISPOSITION EVENT' AND DS_LAST.DSSCAT = 'SCREEN FAILURE'
+      then: DS_LAST.DSSCAT
+- name: _RACEOTH
+  type: str
+  derivation: SUPPDM_P.RACEOTH
+- name: _MULRACE
+  type: str
+  derivation: SUPPDM_P.MULRACE
+- name: _SCF_TERM
+  type: str
+  derivation:
+    str_case:
+      source: DS_LAST.DSTERM
+      to: proper
+- name: STUDYID
+  derivation: DM.STUDYID
+  submission:
+    origins:
+    - type: Predecessor
+      description: DM.STUDYID
+- name: USUBJID
+  derivation: DM.USUBJID
+  submission:
+    origins:
+    - type: Predecessor
+      description: DM.USUBJID
+- name: SUBJID
+  derivation: DM.SUBJID
+  submission:
+    origins:
+    - type: Predecessor
+      description: DM.SUBJID
+- name: SITEID
+  derivation: DM.SITEID
+  submission:
+    origins:
+    - type: Predecessor
+      description: DM.SITEID
+- name: COUNTRY
+  derivation: DM.COUNTRY
+  submission:
+    origins:
+    - type: Predecessor
+      description: DM.COUNTRY
+- name: AGE
+  derivation: DM.AGE
+  submission:
+    origins:
+    - type: Predecessor
+      description: DM.AGE
+- name: AGEU
+  derivation: DM.AGEU
+  submission:
+    origins:
+    - type: Predecessor
+      description: DM.AGEU
+- name: SEX
+  derivation: DM.SEX
+  submission:
+    origins:
+    - type: Predecessor
+      description: DM.SEX
+- name: RACE
+  derivation: DM.RACE
+  submission:
+    origins:
+    - type: Predecessor
+      description: DM.RACE
+- name: RACESPY
+  type: str
+  label: Race Specify
+  derivation:
+    case:
+    - when: _RACEOTH IS NOT NULL AND _MULRACE IS NOT NULL
+      then:
+        str_template: '{_RACEOTH} {_MULRACE}'
+    - when: _RACEOTH IS NOT NULL
+      then: _RACEOTH
+    - when: _MULRACE IS NOT NULL
+      then: _MULRACE
+  submission:
+    core: Perm
+    mandatory: false
+    length: 200
+    origins:
+    - type: Derived
+    method: "Withheld from publication: the received define states this text."
+- name: ETHNIC
+  derivation: DM.ETHNIC
+  submission:
+    origins:
+    - type: Predecessor
+      description: DM.ETHNIC
+- name: PROTVER
+  type: str
+  label: Protocol Version
+  derivation: SUPPDM_P.PROTVER
+  submission:
+    core: Req
+    mandatory: true
+    length: 25
+    origins:
+    - type: Derived
+    method: "Withheld from publication: the received define states this text."
+- name: CHILDBP
+  type: str
+  label: Childbearing Potential
+  derivation: RP_CHIL.RPORRES
+  submission:
+    core: Perm
+    mandatory: false
+    length: 10
+    origins:
+    - type: Derived
+    method: "Withheld from publication: the received define states this text."
+- name: CBNRS
+  type: str
+  label: Reason for No Childbearing Potential
+  derivation: RP_CHIL.CBRSN
+  submission:
+    core: Perm
+    mandatory: false
+    length: 200
+    origins:
+    - type: Derived
+    method: "Withheld from publication: the received define states this text."
+- name: RFICDT
+  type: date
+  label: Date of Informed Consent
+  derivation:
+    to_date:
+      source: DM.RFICDTC
+  submission:
+    core: Req
+    mandatory: true
+    origins:
+    - type: Derived
+    method: "Withheld from publication: the received define states this text."
+- name: SCFREAS
+  type: str
+  label: Screen Failure Reason
+  derivation:
+    case:
+    - when: DS_LAST.DSCAT = 'DISPOSITION EVENT' AND DS_LAST.EPOCH = 'SCREENING' AND DS_LAST.DSDECOD <> 'OTHER'
+      then: _SCF_TERM
+    - when: DS_LAST.DSCAT = 'DISPOSITION EVENT' AND DS_LAST.EPOCH = 'SCREENING' AND DS_LAST.DSDECOD = 'OTHER'
+      then: '''Other'''
+  submission:
+    core: Req
+    mandatory: true
+    length: 200
+    origins:
+    - type: Derived
+    method: "Withheld from publication: the received define states this text."
+- name: SCFREASP
+  type: str
+  label: Screen Failure Reason Specify
+  derivation:
+    case:
+    - when: SCFREAS = 'Other'
+      then: DS_LAST.DSTERM
+  submission:
+    core: Perm
+    mandatory: false
+    length: 200
+    origins:
+    - type: Derived
+    method: "Withheld from publication: the received define states this text."
+- name: PREVSCR
+  type: str
+  label: Was this participant screened previously
+  derivation: SUPPDM_P.PREVSCR
+  submission:
+    core: Perm
+    mandatory: false
+    length: 1
+    origins:
+    - type: Derived
+    method: "Withheld from publication: the received define states this text."
+- name: ARM
+  derivation: null
+- name: ACTARM
+  derivation: null
+- name: TRT01P
+  derivation: null
+- name: TRT01PN
+  derivation: null
+- name: TRT01A
+  derivation: null
+- name: TRT01AN
+  derivation: null
+- name: TR01SDT
+  derivation: null
+- name: TR01SDTM
+  derivation: null
+- name: TR01EDT
+  derivation: null
+- name: TR01EDTM
+  derivation: null
+- name: TRTSDTM
+  derivation: null
+- name: TRTEDTM
+  derivation: null
+- name: RANDFL
+  derivation: null
+- name: SAFFL
+  derivation: null
+- name: FASBABFL
+  derivation: null
+- name: FASNABFL
+  derivation: null
+- name: FASNA2FL
+  derivation: null
+- name: PPBABFL
+  derivation: null
+- name: PPNABFL
+  derivation: null
+- name: PPNAB2FL
+  derivation: null
+- name: SAR1FL
+  derivation: null
+- name: SAR2FL
+  derivation: null
+- name: SARAFL
+  derivation: null
+- name: COMPLFL
+  derivation: null

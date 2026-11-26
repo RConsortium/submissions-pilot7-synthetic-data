@@ -1,0 +1,1396 @@
+# ADCOV for Moderna mRNA-1273-P201, data cut d57 (cutoff 2020-11-05).
+# Parent: ../../../spec/yamaa/base/adam-base.yaml (section 3.1 core columns).
+# Derivations implement the d57 A20ADCOV program; where the SAS code and
+# the define.xml method text disagree, the code is followed (see
+# README.md): EXPOSEDT has no AVALC check in the code (the define says
+# AVALC='Y'); the SAS AVISITN/AWRANGE/AWTARGET formats include Day 209/394,
+# which the define comments omit (no d57 row is Day 209/394, so those values
+# are untested by d57 verification); the define's AWTARGET comment says 2
+# for 'Day 1' but the SAS format says 1 and the submitted data agrees.
+# VISIT length 32 corrects the define's stale 28: the submitted data holds
+# 'Previous Screening Unscheduled 1' (32 chars) on 12 rows.
+# AVISIT is mandatory false (define says Yes, submitted data has '' on
+# 1,511 rows) - ADAE precedent. Same for AVISITN, AWRANGE, AWTARGET,
+# each with 1,511 gaps in the submitted data.
+# FAOT rows are restricted to FACAT='COVID-19 SYMPTOMS' and ER rows to
+# ERCAT='COVID-19 EXPOSURE' (SAS where= clauses); the physical-exam
+# (FACAT='') and FOLLOW UP (FACAT='SAFETY') FAOT rows are excluded.
+# SRCDOM is the 2-letter domain code (FA/ER/SS), not the dataset name.
+# The ANL01FL final having is omitted as trivially true (the NY and OTH
+# row_number selections are disjoint by PARAMCD and each selects at most one
+# row per key, and the having groups are finer, adding VISIT). The OTHSYMPT
+# collapse's stale-holder quirk for a leading 'N' row never fires on d57
+# (all 13 rows are 'Y'); the filtered STR_JOIN is the faithful equivalent.
+yamaa: '1.0'
+type: spec
+model: ADaM
+parent: ../../../spec/yamaa/base/adam-base.yaml
+domain: ADCOV
+keys:
+- STUDYID
+- USUBJID
+- PARCAT1
+- PARAMCD
+- VISIT
+- VISITNUM
+input:
+  FAOT: <sdtm-dir>/faot.parquet
+  SUPPFAOT: <sdtm-dir>/suppfaot.parquet
+  ER: <sdtm-dir>/er.parquet
+  SUPPER: <sdtm-dir>/supper.parquet
+  SS: <sdtm-dir>/ss.parquet
+  ADSL:
+    path: <adam-dir>/adsl.parquet
+    key:
+    - STUDYID
+    - USUBJID
+submission:
+  label: COVID-19 Analysis Dataset
+  class: BASIC DATA STRUCTURE
+  structure: One or more records per subject per analysis parameter per analysis timepoint
+  repeating: true
+rows:
+- id: faot_rows
+  dataset: FAOT
+  filter: "FAOT.FACAT = 'COVID-19 SYMPTOMS' AND _ADSL IS NOT NULL AND _PARAM <> 'Other Symptoms'"
+  derivations:
+    STUDYID: FAOT.STUDYID
+    USUBJID: FAOT.USUBJID
+    _SRCDOM: '''FA'''
+    _SRCVAR: '''FASTRESC'''
+    _SEQ: FAOT.FASEQ
+    _DTC: FAOT.FADTC
+    _PARAM: FAOT.FAOBJ
+    _PARCAT1: FAOT.FACAT
+    _AVALC: FAOT.FASTRESC
+    _VISIT: FAOT.VISIT
+    _VISITNUM: FAOT.VISITNUM
+    _ERSTDTC: null
+    _ERDUR: null
+    _OTHSPY: null
+- id: er_rows
+  dataset: ER
+  filter: ER.ERCAT = 'COVID-19 EXPOSURE' AND _ADSL IS NOT NULL
+  derivations:
+    STUDYID: ER.STUDYID
+    USUBJID: ER.USUBJID
+    _SRCDOM: '''ER'''
+    _SRCVAR: '''EROCCUR'''
+    _SEQ: ER.ERSEQ
+    _DTC: ER.ERDTC
+    _PARAM: ER.ERTERM
+    _PARCAT1: ER.ERCAT
+    _AVALC: ER.EROCCUR
+    _VISIT: ER.VISIT
+    _VISITNUM: ER.VISITNUM
+    _ERSTDTC: ER.ERSTDTC
+    _ERDUR: ER.ERDUR
+    _OTHSPY: null
+- id: ss_rows
+  dataset: SS
+  filter: _ADSL IS NOT NULL
+  derivations:
+    STUDYID: SS.STUDYID
+    USUBJID: SS.USUBJID
+    _SRCDOM: '''SS'''
+    _SRCVAR: '''SSSTRESC'''
+    _SEQ: SS.SSSEQ
+    _DTC: SS.SSDTC
+    _PARAM: SS.SSTEST
+    _PARCAT1:
+      case:
+      - when: SS.SSTESTCD = 'COVIDSYM'
+        then: '''COVID-19 SYMPTOMS'''
+      - when: SS.SSTESTCD = 'COVID'
+        then: '''COVID-19 EXPOSURE'''
+    _AVALC: SS.SSSTRESC
+    _VISIT: SS.VISIT
+    _VISITNUM: SS.VISITNUM
+    _ERSTDTC: null
+    _ERDUR: null
+    _OTHSPY: null
+- id: dur_rows
+  dataset: ER
+  group_by:
+  - ER.STUDYID
+  - ER.USUBJID
+  - ER.VISITNUM
+  filter: _ADSL IS NOT NULL AND _ERDUR IS NOT NULL AND _ERDUR <> ''
+  derivations:
+    STUDYID: ER.STUDYID
+    USUBJID: ER.USUBJID
+    _ADSL: ADSL.USUBJID
+    _SRCDOM: '''ER'''
+    _SRCVAR: '''ERDUR'''
+    _SEQ:
+      aggregate: MIN(ER.ERSEQ)
+    _DTC:
+      aggregate: MIN(ER.ERDTC)
+    _PARAM: '''Duration'''
+    _PARCAT1: '''COVID-19 EXPOSURE'''
+    _AVALC:
+      str_extract:
+        source: _ERDUR
+        pattern: '([0-9]+)'
+        group: 1
+        no_match: null
+    _VISIT:
+      aggregate: MIN(ER.VISIT)
+    _VISITNUM: ER.VISITNUM
+    _ERSTDTC:
+      aggregate: MIN(ER.ERSTDTC)
+    _ERDUR:
+      aggregate:
+        filter: ER.ERDUR IS NOT NULL AND ER.ERDUR <> ''
+        expr: MIN(ER.ERDUR)
+    _OTHSPY: null
+- id: othsympt_groups
+  dataset: FAOT_OTH
+  group_by:
+  - FAOT_OTH.STUDYID
+  - FAOT_OTH.USUBJID
+  - FAOT_OTH._ADT
+  - FAOT_OTH.VISITNUM
+  filter: _ADSL IS NOT NULL
+  derivations:
+    STUDYID: FAOT_OTH.STUDYID
+    USUBJID: FAOT_OTH.USUBJID
+    _ADSL: ADSL.USUBJID
+    _SRCDOM: '''FA'''
+    _SRCVAR: '''FASTRESC'''
+    _SEQ:
+      aggregate: MIN(FAOT_OTH._SEQ)
+    _DTC:
+      aggregate: MAX(FAOT_OTH._DTC)
+    _PARAM: '''Other Symptoms'''
+    _PARCAT1: '''COVID-19 SYMPTOMS'''
+    _AVALC:
+      aggregate: MAX(FAOT_OTH._AVALC)
+    _OTHSPY:
+      aggregate:
+        filter: FAOT_OTH._AVALC = 'Y'
+        expr: STR_JOIN(FAOT_OTH._SYMPOTH)
+        order_by:
+        - variable: FAOT_OTH._AVALC
+          direction: desc
+        - FAOT_OTH._SEQ
+        separator: ', '
+    _VISIT:
+      aggregate: MAX(FAOT_OTH._VISIT)
+    _VISITNUM: FAOT_OTH.VISITNUM
+    _ERSTDTC: null
+    _ERDUR: null
+intermediates:
+- id: SUPPFAOT_P
+  dataset: SUPPFAOT
+  key:
+    STUDYID: STUDYID
+    USUBJID: USUBJID
+    IDVARVAL:
+      str_decimal:
+        source: _SEQ
+        decimals: 0
+  filter: SUPPFAOT.QNAM IN ('SYMPTDTC', 'SYMPOTH') AND SUPPFAOT.IDVAR = 'FASEQ'
+  pivot:
+    name: QNAM
+    value: QVAL
+    fields:
+    - SYMPTDTC
+    - SYMPOTH
+- id: SUPPER_P
+  dataset: SUPPER
+  key:
+    STUDYID: STUDYID
+    USUBJID: USUBJID
+    IDVARVAL:
+      str_decimal:
+        source: _SEQ
+        decimals: 0
+  filter: SUPPER.QNAM IN ('EXPOSEOT') AND SUPPER.IDVAR = 'ERSEQ'
+  pivot:
+    name: QNAM
+    value: QVAL
+    fields:
+    - EXPOSEOT
+- id: FAOT_OTH
+  dataset: FAOT
+  filter: FAOT.FACAT = 'COVID-19 SYMPTOMS' AND FAOT.FAOBJ = 'Other Symptoms'
+  derivations:
+    _SEQ:
+      type: float
+      derivation: FAOT.FASEQ
+    _DTC:
+      type: str
+      derivation: FAOT.FADTC
+    _ADT:
+      type: date
+      derivation:
+        to_date:
+          source: FAOT.FADTC
+    _AVALC:
+      type: str
+      derivation: FAOT.FASTRESC
+    _SYMPOTH:
+      type: str
+      derivation: SUPPFAOT_P.SYMPOTH
+    _VISIT:
+      type: str
+      derivation: FAOT.VISIT
+    _VISITNUM:
+      type: float
+      derivation: FAOT.VISITNUM
+windows:
+  BLANK_W:
+    group_by:
+    - USUBJID
+    order_by:
+    - _AVISITN_RAW
+    - ADY
+  BLANK_W_LOCF:
+    group_by:
+    - USUBJID
+    order_by:
+    - _AVISITN_RAW
+    - ADY
+  ANL01_NY:
+    group_by:
+    - USUBJID
+    - PARCAT1
+    - PARAMCD
+    - AVISIT
+    order_by:
+    - variable: AVALC
+      direction: desc
+    - variable: _ID
+      direction: asc
+    - variable: VISITNUM
+      direction: asc
+    - variable: ADT
+      direction: desc
+    - variable: _SEQ
+      direction: asc
+    filter: AVALC IN ('Y', 'N') AND AVISIT IS NOT NULL
+  ANL01_OTH:
+    group_by:
+    - USUBJID
+    - PARCAT1
+    - PARAMCD
+    - AVISIT
+    order_by:
+    - variable: ADT
+      direction: desc
+    - variable: VISITNUM
+      direction: asc
+    - variable: _SEQ
+      direction: desc
+    filter: AVALC NOT IN ('Y', 'N', '') AND AVISIT IS NOT NULL
+  T2_SYMPT_RN:
+    group_by:
+    - USUBJID
+    order_by:
+    - SYMPTDT
+    filter: PARAMCD = 'COVID' AND AVALC = 'Y' AND SYMPTDT IS NOT NULL
+  T2_SYMPT_LOCF:
+    group_by:
+    - USUBJID
+    order_by:
+    - variable: _RN_SYMPT
+      direction: asc
+      nulls: last
+  T2_EXPOSE_RN:
+    group_by:
+    - USUBJID
+    order_by:
+    - variable: _EXPOSEDT_LE
+      direction: desc
+    filter: _EXPOSEDT_LE IS NOT NULL
+  T2_EXPOSE_LOCF:
+    group_by:
+    - USUBJID
+    order_by:
+    - variable: _RN_EXPOSE
+      direction: asc
+      nulls: last
+columns:
+- name: _SRCDOM
+  type: str
+- name: _SRCVAR
+  type: str
+- name: _SEQ
+  type: float
+- name: _DTC
+  type: str
+- name: _PARAM
+  type: str
+- name: _PARCAT1
+  type: str
+- name: _AVALC
+  type: str
+- name: _VISIT
+  type: str
+- name: _VISITNUM
+  type: float
+- name: _ERSTDTC
+  type: str
+- name: _ERDUR
+  type: str
+- name: _OTHSPY
+  type: str
+- name: _ADSL
+  type: str
+  derivation: ADSL.USUBJID
+- name: ARM
+  derivation: null
+- name: ACTARM
+  derivation: null
+- name: STUDYID
+  submission:
+    origins:
+    - type: Derived
+    method: "Withheld from publication: the received define states this text."
+- name: USUBJID
+  submission:
+    origins:
+    - type: Derived
+    method: "Withheld from publication: the received define states this text."
+- name: SUBJID
+  derivation: ADSL.SUBJID
+  submission:
+    origins:
+    - type: Predecessor
+      description: ADSL.SUBJID
+- name: SITEID
+  derivation: ADSL.SITEID
+  submission:
+    origins:
+    - type: Predecessor
+      description: ADSL.SITEID
+- name: COUNTRY
+  derivation: ADSL.COUNTRY
+  submission:
+    origins:
+    - type: Predecessor
+      description: ADSL.COUNTRY
+- name: AGE
+  derivation: ADSL.AGE
+  submission:
+    origins:
+    - type: Predecessor
+      description: ADSL.AGE
+- name: AGEU
+  derivation: ADSL.AGEU
+  submission:
+    origins:
+    - type: Predecessor
+      description: ADSL.AGEU
+- name: AGEGR1
+  type: str
+  label: Pooled Age Group 1
+  derivation: ADSL.AGEGR1
+  submission:
+    core: Req
+    mandatory: true
+    length: 30
+    origins:
+    - type: Predecessor
+      description: ADSL.AGEGR1
+- name: AGEGR1N
+  type: int
+  label: Pooled Age Group 1 (N)
+  derivation: ADSL.AGEGR1N
+  submission:
+    core: Req
+    mandatory: true
+    length: 8
+    display_format: '3.'
+    origins:
+    - type: Predecessor
+      description: ADSL.AGEGR1N
+- name: AGEGR2
+  type: str
+  label: Pooled Age Group 2
+  derivation: ADSL.AGEGR2
+  submission:
+    core: Req
+    mandatory: true
+    length: 19
+    origins:
+    - type: Predecessor
+      description: ADSL.AGEGR2
+- name: AGEGR2N
+  type: int
+  label: Pooled Age Group 2 (N)
+  derivation: ADSL.AGEGR2N
+  submission:
+    core: Req
+    mandatory: true
+    length: 8
+    display_format: '3.'
+    origins:
+    - type: Predecessor
+      description: ADSL.AGEGR2N
+- name: SEX
+  derivation: ADSL.SEX
+  submission:
+    origins:
+    - type: Predecessor
+      description: ADSL.SEX
+- name: RACE
+  derivation: ADSL.RACE
+  submission:
+    origins:
+    - type: Predecessor
+      description: ADSL.RACE
+- name: RACESPY
+  type: str
+  label: Race Specify
+  derivation: ADSL.RACESPY
+  submission:
+    core: Perm
+    mandatory: false
+    length: 200
+    origins:
+    - type: Predecessor
+      description: ADSL.RACESPY
+- name: ETHNIC
+  derivation: ADSL.ETHNIC
+  submission:
+    origins:
+    - type: Predecessor
+      description: ADSL.ETHNIC
+- name: RANDFL
+  derivation: ADSL.RANDFL
+  submission:
+    origins:
+    - type: Predecessor
+      description: ADSL.RANDFL
+- name: SAFFL
+  derivation: ADSL.SAFFL
+  submission:
+    origins:
+    - type: Predecessor
+      description: ADSL.SAFFL
+- name: FASBABFL
+  derivation: ADSL.FASBABFL
+  submission:
+    origins:
+    - type: Predecessor
+      description: ADSL.FASBABFL
+- name: FASNABFL
+  derivation: ADSL.FASNABFL
+  submission:
+    origins:
+    - type: Predecessor
+      description: ADSL.FASNABFL
+- name: PPBABFL
+  derivation: ADSL.PPBABFL
+  submission:
+    origins:
+    - type: Predecessor
+      description: ADSL.PPBABFL
+- name: PPNABFL
+  derivation: ADSL.PPNABFL
+  submission:
+    origins:
+    - type: Predecessor
+      description: ADSL.PPNABFL
+- name: PPBD29FL
+  type: str
+  label: Per Protocol bAb Day 29 Flag
+  derivation: ADSL.PPBD29FL
+  submission:
+    core: Req
+    mandatory: true
+    length: 1
+    origins:
+    - type: Predecessor
+      description: ADSL.PPBD29FL
+- name: PPBD57FL
+  type: str
+  label: Per Protocol bAb Day 57 Flag
+  derivation: ADSL.PPBD57FL
+  submission:
+    core: Req
+    mandatory: true
+    length: 1
+    origins:
+    - type: Predecessor
+      description: ADSL.PPBD57FL
+- name: PPND29FL
+  type: str
+  label: Per Protocol nAb Day 29 Flag
+  derivation: ADSL.PPND29FL
+  submission:
+    core: Req
+    mandatory: true
+    length: 1
+    origins:
+    - type: Predecessor
+      description: ADSL.PPND29FL
+- name: PPND57FL
+  type: str
+  label: Per Protocol nAb Day 57 Flag
+  derivation: ADSL.PPND57FL
+  submission:
+    core: Req
+    mandatory: true
+    length: 1
+    origins:
+    - type: Predecessor
+      description: ADSL.PPND57FL
+- name: SAR1FL
+  derivation: ADSL.SAR1FL
+  submission:
+    origins:
+    - type: Predecessor
+      description: ADSL.SAR1FL
+- name: SAR2FL
+  derivation: ADSL.SAR2FL
+  submission:
+    origins:
+    - type: Predecessor
+      description: ADSL.SAR2FL
+- name: SARAFL
+  derivation: ADSL.SARAFL
+  submission:
+    origins:
+    - type: Predecessor
+      description: ADSL.SARAFL
+- name: FASNA2FL
+  derivation: ADSL.FASNA2FL
+  submission:
+    origins:
+    - type: Predecessor
+      description: ADSL.FASNA2FL
+- name: PPNAB2FL
+  derivation: ADSL.PPNAB2FL
+  submission:
+    origins:
+    - type: Predecessor
+      description: ADSL.PPNAB2FL
+- name: PN2D29FL
+  type: str
+  label: Per Protocol nAb 2 Day 29 Flag
+  derivation: ADSL.PN2D29FL
+  submission:
+    core: Req
+    mandatory: true
+    length: 1
+    origins:
+    - type: Predecessor
+      description: ADSL.PN2D29FL
+- name: PN2D57FL
+  type: str
+  label: Per Protocol nAb 2 Day 57 Flag
+  derivation: ADSL.PN2D57FL
+  submission:
+    core: Req
+    mandatory: true
+    length: 1
+    origins:
+    - type: Predecessor
+      description: ADSL.PN2D57FL
+- name: COMPLFL
+  derivation: ADSL.COMPLFL
+  submission:
+    origins:
+    - type: Predecessor
+      description: ADSL.COMPLFL
+- name: DVBABFL
+  type: str
+  label: Deviation Impact bAb Flag
+  derivation: ADSL.DVBABFL
+  submission:
+    core: Req
+    mandatory: true
+    length: 1
+    origins:
+    - type: Predecessor
+      description: ADSL.DVBABFL
+- name: DVNABFL
+  type: str
+  label: Deviation Impact nAb Flag
+  derivation: ADSL.DVNABFL
+  submission:
+    core: Req
+    mandatory: true
+    length: 1
+    origins:
+    - type: Predecessor
+      description: ADSL.DVNABFL
+- name: DOSE1FL
+  type: str
+  label: Vaccination 1 Flag
+  derivation: ADSL.DOSE1FL
+  submission:
+    core: Req
+    mandatory: true
+    length: 1
+    origins:
+    - type: Predecessor
+      description: ADSL.DOSE1FL
+- name: DOSE2FL
+  type: str
+  label: Vaccination 2 Flag
+  derivation: ADSL.DOSE2FL
+  submission:
+    core: Req
+    mandatory: true
+    length: 1
+    origins:
+    - type: Predecessor
+      description: ADSL.DOSE2FL
+- name: DOSEROFL
+  type: str
+  label: Dosing Error Flag
+  derivation: ADSL.DOSEROFL
+  submission:
+    core: Req
+    mandatory: true
+    length: 1
+    origins:
+    - type: Predecessor
+      description: ADSL.DOSEROFL
+- name: COV19BL
+  type: str
+  label: Baseline COVID Infection
+  derivation: ADSL.COV19BL
+  submission:
+    core: Perm
+    mandatory: false
+    length: 20
+    origins:
+    - type: Predecessor
+      description: ADSL.COV19BL
+- name: COV19FL
+  type: str
+  label: COVID Infection Flag
+  derivation: ADSL.COV19FL
+  submission:
+    core: Req
+    mandatory: true
+    length: 20
+    origins:
+    - type: Predecessor
+      description: ADSL.COV19FL
+- name: SENTLFL
+  type: str
+  label: Sentinel Participant Flag
+  derivation: ADSL.SENTLFL
+  submission:
+    core: Req
+    mandatory: true
+    length: 3
+    origins:
+    - type: Predecessor
+      description: ADSL.SENTLFL
+- name: D29W7DFL
+  type: str
+  label: Day 29 Out of 7-Day Window Flag
+  derivation: ADSL.D29W7DFL
+  submission:
+    core: Req
+    mandatory: true
+    length: 1
+    origins:
+    - type: Predecessor
+      description: ADSL.D29W7DFL
+- name: TRT01P
+  derivation: ADSL.TRT01P
+  submission:
+    origins:
+    - type: Predecessor
+      description: ADSL.TRT01P
+- name: TRT01PN
+  derivation: ADSL.TRT01PN
+  submission:
+    origins:
+    - type: Predecessor
+      description: ADSL.TRT01PN
+- name: TRT01A
+  derivation: ADSL.TRT01A
+  submission:
+    origins:
+    - type: Predecessor
+      description: ADSL.TRT01A
+- name: TRT01AN
+  derivation: ADSL.TRT01AN
+  submission:
+    origins:
+    - type: Predecessor
+      description: ADSL.TRT01AN
+- name: TR01SDT
+  derivation: ADSL.TR01SDT
+  submission:
+    origins:
+    - type: Predecessor
+      description: ADSL.TR01SDT
+- name: TR01SDTM
+  derivation: ADSL.TR01SDTM
+  submission:
+    origins:
+    - type: Predecessor
+      description: ADSL.TR01SDTM
+- name: TR01EDT
+  derivation: ADSL.TR01EDT
+  submission:
+    origins:
+    - type: Predecessor
+      description: ADSL.TR01EDT
+- name: TR01EDTM
+  derivation: ADSL.TR01EDTM
+  submission:
+    origins:
+    - type: Predecessor
+      description: ADSL.TR01EDTM
+- name: TRTSDTM
+  derivation: ADSL.TRTSDTM
+  submission:
+    origins:
+    - type: Predecessor
+      description: ADSL.TRTSDTM
+- name: TRTEDTM
+  derivation: ADSL.TRTEDTM
+  submission:
+    origins:
+    - type: Predecessor
+      description: ADSL.TRTEDTM
+- name: DOSE2DT
+  type: date
+  label: Date of Dose 2
+  derivation: ADSL.DOSE2DT
+  submission:
+    core: Perm
+    mandatory: false
+    origins:
+    - type: Predecessor
+      description: ADSL.DOSE2DT
+- name: DOS2DTM
+  type: datetime
+  label: Datetime of Dose 2
+  derivation: ADSL.DOS2DTM
+  submission:
+    core: Perm
+    mandatory: false
+    origins:
+    - type: Predecessor
+      description: ADSL.DOS2DTM
+- name: VISIT
+  type: str
+  label: Visit Name
+  derivation: _VISIT
+  submission:
+    core: Req
+    mandatory: true
+    length: 32
+    origins:
+    - type: Derived
+    method: "Withheld from publication: the received define states this text."
+- name: VISITNUM
+  type: float
+  label: Visit Number
+  derivation: _VISITNUM
+  submission:
+    core: Req
+    mandatory: true
+    length: 8
+    significant_digits: 2
+    origins:
+    - type: Derived
+    method: "Withheld from publication: the received define states this text."
+- name: PARCAT1
+  type: str
+  label: Parameter Category 1
+  derivation: _PARCAT1
+  submission:
+    core: Req
+    mandatory: true
+    length: 50
+    origins:
+    - type: Derived
+    method: "Withheld from publication: the received define states this text."
+- name: PARAM
+  type: str
+  label: Parameter
+  derivation: _PARAM
+  submission:
+    core: Req
+    mandatory: true
+    length: 200
+    origins:
+    - type: Derived
+    method: "Withheld from publication: the received define states this text."
+- name: PARAMCD
+  type: str
+  label: Parameter Code
+  derivation:
+    case:
+    - when: _PARAM = 'Family member'
+      then: '''EXPFAM'''
+    - when: _PARAM = 'Health Care Facility'
+      then: '''EXPHCF'''
+    - when: _PARAM = 'Other exposure'
+      then: '''EXPOTH'''
+    - when: _PARAM = 'Social setting'
+      then: '''EXPSOC'''
+    - when: _PARAM = 'Travel'
+      then: '''EXPTRAV'''
+    - when: _PARAM = 'Work'
+      then: '''EXPWORK'''
+    - when: _PARAM = 'The participant had close contact with a person known to have SARS-CoV-2 infection or COVID-19'
+      then: '''CONTACT'''
+    - when: _PARAM = 'Cough'
+      then: '''COUGH'''
+    - when: str_contains(_PARAM, '^Shortness')
+      then: '''SOB'''
+    - when: _PARAM = 'Fever'
+      then: '''FEVER'''
+    - when: _PARAM = 'Sore Throat'
+      then: '''SORETHRT'''
+    - when: str_contains(_PARAM, '^Chest')
+      then: '''CHESTTP'''
+    - when: str_contains(_PARAM, '^Headache')
+      then: '''HEADACHE'''
+    - when: _PARAM = 'Lethargy'
+      then: '''LETHARGY'''
+    - when: _PARAM = 'Myalgia'
+      then: '''MYALGIA'''
+    - when: _PARAM = 'Anosmia'
+      then: '''ANOSMIA'''
+    - when: _PARAM = 'Dysgeusia'
+      then: '''DYSGEUSI'''
+    - when: _PARAM = 'Chills'
+      then: '''CHILLS'''
+    - when: str_contains(_PARAM, '^Repeated')
+      then: '''REPTSHAK'''
+    - when: _PARAM = 'Other Symptoms'
+      then: '''OTHSYMPT'''
+    - when: _PARAM = 'COVID-19'
+      then: '''COVID'''
+    - when: _PARAM = 'Exposed to COVID-19'
+      then: '''EXPCOVID'''
+    - when: _PARAM = 'Participant COVID-19 Symptomatic'
+      then: '''COVIDSYM'''
+    - when: _PARAM = 'Duration'
+      then: '''DUR'''
+  submission:
+    core: Req
+    mandatory: true
+    length: 8
+    origins:
+    - type: Derived
+    method: "Withheld from publication: the received define states this text."
+- name: _SYMPTDTC
+  type: str
+  derivation:
+    case:
+    - when: _SRCDOM = 'FA'
+      then: SUPPFAOT_P.SYMPTDTC
+- name: _EXPOSEOT
+  type: str
+  derivation:
+    case:
+    - when: _SRCDOM = 'ER'
+      then: SUPPER_P.EXPOSEOT
+- name: ADT
+  type: date
+  label: Analysis Date
+  derivation:
+    to_date:
+      source: _DTC
+  submission:
+    core: Perm
+    mandatory: false
+    origins:
+    - type: Derived
+    method: "Withheld from publication: the received define states this text."
+- name: ADY
+  type: int
+  label: Analysis Relative Day
+  derivation:
+    study_day:
+      source: ADT
+      reference: ADSL.TR01SDT
+  submission:
+    core: Perm
+    mandatory: false
+    length: 8
+    display_format: '3.'
+    origins:
+    - type: Derived
+    method: "Withheld from publication: the received define states this text."
+- name: _VISIT_DAY
+  type: str
+  derivation:
+    str_extract:
+      source: VISIT
+      pattern: 'Day ([0-9]+)'
+      group: 1
+      no_match: null
+- name: _AVISIT_RAW
+  type: str
+  derivation:
+    case:
+    - when: "NOT str_contains(VISIT, 'Unsched') AND _VISIT_DAY IS NOT NULL"
+      then:
+        str_template: 'Day {_VISIT_DAY}'
+    - when: "str_contains(VISIT, 'Unsched') AND ADY IS NOT NULL AND ADY > 1 AND ADY <= 11"
+      then: '''Day 8'''
+    - when: "str_contains(VISIT, 'Unsched') AND ADY IS NOT NULL AND ADY >= 12 AND ADY <= 22"
+      then: '''Day 15'''
+    - when: "str_contains(VISIT, 'Unsched') AND ADY IS NOT NULL AND ADY >= 23 AND ADY <= 32"
+      then: '''Day 29'''
+    - when: "str_contains(VISIT, 'Unsched') AND ADY IS NOT NULL AND ADY >= 33 AND ADY <= 39"
+      then: '''Day 36'''
+    - when: "str_contains(VISIT, 'Unsched') AND ADY IS NOT NULL AND ADY >= 40 AND ADY <= 50"
+      then: '''Day 43'''
+    - when: "str_contains(VISIT, 'Unsched') AND ADY IS NOT NULL AND ADY >= 51 AND ADY <= 133"
+      then: '''Day 57'''
+    - when: "str_contains(VISIT, 'Unsched') AND ADY IS NOT NULL AND ADY >= 134 AND ADY <= 301"
+      then: '''Day 209'''
+    - when: "str_contains(VISIT, 'Unsched') AND ADY IS NOT NULL AND ADY >= 302"
+      then: '''Day 394'''
+- name: _AVISITN_RAW
+  type: int
+  derivation:
+    mapping:
+      source: _AVISIT_RAW
+      dict:
+        'Day 1': 2
+        'Day 8': 3
+        'Day 15': 4
+        'Day 29': 5
+        'Day 36': 6
+        'Day 43': 7
+        'Day 57': 8
+        'Day 209': 9
+        'Day 394': 10
+      unmapped: null
+- name: _PREV_MAXADY
+  type: int
+  derivation:
+    row_value:
+      source: _MAXADY
+      offset: -1
+      window: BLANK_W
+- name: _MAXADY
+  type: int
+  derivation:
+    case:
+    - when: "ADY IS NOT NULL AND (_PREV_MAXADY IS NULL OR ADY > _PREV_MAXADY)"
+      then: ADY
+    - otherwise: _PREV_MAXADY
+- name: _SETTER_AVN
+  type: int
+  derivation:
+    case:
+    - when: "ADY IS NOT NULL AND (_PREV_MAXADY IS NULL OR ADY > _PREV_MAXADY)"
+      then: _AVISITN_RAW
+- name: _MAXAVN
+  type: int
+  derivation:
+    locf:
+      source: _SETTER_AVN
+      window: BLANK_W_LOCF
+- name: _BLANK
+  type: str
+  derivation:
+    flag: >
+      str_contains(VISIT, 'Unsch') AND
+      _MAXADY IS NOT NULL AND ADY IS NOT NULL AND _MAXADY >= ADY AND
+      _MAXAVN IS NOT NULL AND _AVISITN_RAW IS NOT NULL AND _MAXAVN < _AVISITN_RAW
+- name: AVISIT
+  type: str
+  label: Analysis Visit
+  derivation:
+    case:
+    - when: _BLANK = 'Y'
+      then: null
+    - otherwise: _AVISIT_RAW
+  submission:
+    core: Req
+    mandatory: false
+    length: 50
+    origins:
+    - type: Derived
+    method: "Withheld from publication: the received define states this text."
+- name: AVISITN
+  type: int
+  label: Analysis Visit (N)
+  derivation:
+    mapping:
+      source: AVISIT
+      dict:
+        'Day 1': 2
+        'Day 8': 3
+        'Day 15': 4
+        'Day 29': 5
+        'Day 36': 6
+        'Day 43': 7
+        'Day 57': 8
+        'Day 209': 9
+        'Day 394': 10
+      unmapped: null
+  submission:
+    core: Req
+    mandatory: false
+    length: 8
+    display_format: '3.'
+    origins:
+    - type: Derived
+    method: "Withheld from publication: the received define states this text."
+- name: AVAL
+  type: int
+  label: Analysis Value
+  derivation:
+    case:
+    - when: PARAMCD = 'DUR'
+      then:
+        duration_value:
+          source: _ERDUR
+          unit: day
+          invalid: null
+  submission:
+    core: Perm
+    mandatory: false
+    length: 8
+    display_format: '3.'
+    origins:
+    - type: Derived
+    method: "Withheld from publication: the received define states this text."
+- name: AVALC
+  type: str
+  label: Analysis Value (C)
+  derivation: _AVALC
+  submission:
+    core: Perm
+    mandatory: false
+    length: 50
+    origins:
+    - type: Derived
+    method: "Withheld from publication: the received define states this text."
+- name: SYMPTDT
+  type: date
+  label: Estimated date of first symptoms
+  derivation:
+    case:
+    - when: PARAMCD = 'COVID' AND AVALC = 'Y'
+      then:
+        to_date:
+          source: _SYMPTDTC
+  submission:
+    core: Perm
+    mandatory: false
+    origins:
+    - type: Derived
+    method: "Withheld from publication: the received define states this text."
+- name: EXPOSEDT
+  type: date
+  label: Estimated start date of exposure
+  derivation:
+    case:
+    - when: PARAMCD = 'CONTACT'
+      then:
+        to_date:
+          source: _ERSTDTC
+  submission:
+    core: Perm
+    mandatory: false
+    origins:
+    - type: Derived
+    method: "Withheld from publication: the received define states this text."
+- name: OTHSPY
+  type: str
+  label: Symptoms other
+  derivation:
+    case:
+    - when: PARAMCD = 'OTHSYMPT' AND AVALC = 'Y'
+      then:
+        str_substr:
+          source: _OTHSPY
+          start: 1
+          length: 200
+    - when: PARAMCD = 'EXPOTH' AND AVALC = 'Y'
+      then:
+        str_substr:
+          source: _EXPOSEOT
+          start: 1
+          length: 200
+  submission:
+    core: Perm
+    mandatory: false
+    length: 200
+    origins:
+    - type: Derived
+    method: "Withheld from publication: the received define states this text."
+- name: SRCDOM
+  type: str
+  label: Source Data
+  derivation: _SRCDOM
+  submission:
+    core: Req
+    mandatory: true
+    length: 20
+    origins:
+    - type: Derived
+    method: "Withheld from publication: the received define states this text."
+- name: SRCSEQ
+  type: int
+  label: Source Sequence Number
+  derivation: _SEQ
+  submission:
+    # SUB-29 (yamaa #4820): numeric widths here fit the derived values. The received
+    # define's Pinnacle 21 widths stay in the reproduced define layer (define/).
+    core: Req
+    mandatory: true
+    length: 8
+    origins:
+    - type: Derived
+    method: "Withheld from publication: the received define states this text."
+- name: SRCVAR
+  type: str
+  label: Source Variable
+  derivation: _SRCVAR
+  submission:
+    core: Req
+    mandatory: true
+    length: 50
+    origins:
+    - type: Derived
+    method: "Withheld from publication: the received define states this text."
+- name: _RN_SYMPT
+  type: int
+  derivation:
+    row_number:
+      window: T2_SYMPT_RN
+- name: _FIRST_SYMPTDT
+  type: date
+  derivation:
+    case:
+    - when: _RN_SYMPT = 1
+      then: SYMPTDT
+- name: _SYMPTDT_MIN
+  type: date
+  derivation:
+    locf:
+      source: _FIRST_SYMPTDT
+      window: T2_SYMPT_LOCF
+- name: _EXPOSEDT_LE
+  type: date
+  derivation:
+    case:
+    - when: "EXPOSEDT IS NOT NULL AND _SYMPTDT_MIN IS NOT NULL AND EXPOSEDT <= _SYMPTDT_MIN"
+      then: EXPOSEDT
+- name: _RN_EXPOSE
+  type: int
+  derivation:
+    row_number:
+      window: T2_EXPOSE_RN
+- name: _LAST_EXPOSEDT
+  type: date
+  derivation:
+    case:
+    - when: _RN_EXPOSE = 1
+      then: _EXPOSEDT_LE
+- name: _EXPOSEDT_MAX
+  type: date
+  derivation:
+    locf:
+      source: _LAST_EXPOSEDT
+      window: T2_EXPOSE_LOCF
+- name: T2FSYMP
+  type: int
+  label: Time from Last Exposure to First Symptom
+  derivation:
+    study_day:
+      source: _SYMPTDT_MIN
+      reference: _EXPOSEDT_MAX
+  submission:
+    core: Perm
+    mandatory: false
+    length: 8
+    display_format: '3.'
+    origins:
+    - type: Derived
+    method: "Withheld from publication: the received define states this text."
+- name: AWRANGE
+  type: str
+  label: Analysis Window Valid Relative Range
+  derivation:
+    mapping:
+      source: AVISIT
+      dict:
+        'Day 1': '<=1'
+        'Day 8': 'Day 2 - Day 11'
+        'Day 15': 'Day 12 - Day 22'
+        'Day 29': 'Day 23 - Day 32'
+        'Day 36': 'Day 33 - Day 39'
+        'Day 43': 'Day 40 - Day 50'
+        'Day 57': 'Day 51 - Day 133'
+        'Day 209': 'Day 134 - Day 301'
+        'Day 394': '>= Day 302'
+      unmapped: null
+  submission:
+    core: Req
+    mandatory: false
+    length: 50
+    origins:
+    - type: Derived
+    method: "Withheld from publication: the received define states this text."
+- name: AWTARGET
+  type: int
+  label: Analysis Window Target
+  derivation:
+    mapping:
+      source: AVISIT
+      dict:
+        'Day 1': 1
+        'Day 8': 8
+        'Day 15': 15
+        'Day 29': 29
+        'Day 36': 36
+        'Day 43': 43
+        'Day 57': 57
+        'Day 209': 209
+        'Day 394': 394
+      unmapped: null
+  submission:
+    core: Req
+    mandatory: false
+    length: 8
+    display_format: '3.'
+    origins:
+    - type: Derived
+    method: "Withheld from publication: the received define states this text."
+- name: AWTDIFF
+  type: int
+  label: Analysis Window Diff from Target
+  derivation:
+    case:
+    - when: "ADY IS NOT NULL AND AWTARGET IS NOT NULL"
+      then: "ABS(ADY - AWTARGET)"
+  submission:
+    core: Perm
+    mandatory: false
+    length: 8
+    display_format: '3.'
+    origins:
+    - type: Derived
+    method: "Withheld from publication: the received define states this text."
+- name: _ID
+  type: int
+  derivation:
+    case:
+    - when: str_contains(VISIT, ' Unsch')
+      then: 2
+    - otherwise: 1
+- name: _RN_NY
+  type: int
+  derivation:
+    row_number:
+      window: ANL01_NY
+- name: _RN_OTH
+  type: int
+  derivation:
+    row_number:
+      window: ANL01_OTH
+- name: ANL01FL
+  type: str
+  label: Analysis Flag 01
+  derivation:
+    case:
+    - when: _RN_NY = 1 OR _RN_OTH = 1
+      then: '''Y'''
+  submission:
+    core: Perm
+    mandatory: false
+    length: 1
+    origins:
+    - type: Derived
+    method: "Withheld from publication: the received define states this text."
+output:
+  path: <adam-dir>/adcov-yamaa.parquet
+  order_by:
+  - STUDYID
+  - USUBJID
+  - PARCAT1
+  - PARAMCD
+  - VISIT
+  - VISITNUM
+  columns:
+  - STUDYID
+  - USUBJID
+  - SUBJID
+  - SITEID
+  - COUNTRY
+  - AGE
+  - AGEU
+  - AGEGR1
+  - AGEGR1N
+  - AGEGR2
+  - AGEGR2N
+  - SEX
+  - RACE
+  - RACESPY
+  - ETHNIC
+  - RANDFL
+  - SAFFL
+  - FASBABFL
+  - FASNABFL
+  - PPBABFL
+  - PPNABFL
+  - PPBD29FL
+  - PPBD57FL
+  - PPND29FL
+  - PPND57FL
+  - SAR1FL
+  - SAR2FL
+  - SARAFL
+  - FASNA2FL
+  - PPNAB2FL
+  - PN2D29FL
+  - PN2D57FL
+  - COMPLFL
+  - DVBABFL
+  - DVNABFL
+  - DOSE1FL
+  - DOSE2FL
+  - DOSEROFL
+  - COV19BL
+  - COV19FL
+  - SENTLFL
+  - D29W7DFL
+  - TRT01P
+  - TRT01PN
+  - TRT01A
+  - TRT01AN
+  - TR01SDT
+  - TR01SDTM
+  - TR01EDT
+  - TR01EDTM
+  - TRTSDTM
+  - TRTEDTM
+  - DOSE2DT
+  - DOS2DTM
+  - ADT
+  - ADY
+  - VISIT
+  - VISITNUM
+  - AVISIT
+  - AVISITN
+  - PARCAT1
+  - PARAMCD
+  - PARAM
+  - AVAL
+  - AVALC
+  - T2FSYMP
+  - AWRANGE
+  - AWTARGET
+  - AWTDIFF
+  - ANL01FL
+  - SYMPTDT
+  - EXPOSEDT
+  - OTHSPY
+  - SRCDOM
+  - SRCSEQ
+  - SRCVAR

@@ -1,0 +1,593 @@
+# C4591001 ADSL helper: the infection-evidence events that exclude a subject
+# from EV1MD2FL (subject without evidence of infection 1 month post Dose 2).
+#
+# Transcribes adsl.sas (spec/source/program/adam, the S1 program) from
+# symp_all_1 to the pos_s, pos_s_c and sym_n tables, reading ADSYMPT as the
+# program does:
+#   - symptom groups (symp1): per subject and analysis visit, group 1 (the
+#     nine CDC symptoms) and group 2 (those plus five more), with the highest
+#     status (N=2, IND=3, Y=4) and the group's start and end dates;
+#   - unplanned swab results (nva_naat2 .. cnt_lcl2): central RTCOV2NS
+#     (group 22) and local SARSCOV2 (group 23) results, each valid when dated
+#     from 4 days before the symptom start to 4 days after the symptom end of
+#     its analysis visit (else of its own visit); the concluded result of a
+#     visit is its central result when valid, else its local one;
+#   - events: a group with a symptom (status 4) at an analysis visit whose
+#     concluded result is not NEG (sym_n, dated at the symptom start); a
+#     concluded result that is not NEG (pos_s, at its date); a central result
+#     that is not NEG (pos_s_c, at its date).
+# ADSL excludes a subject with an event from Dose 1 to the visit 3 date.
+#
+# The program folds a group's dates record by record (symp_all_5); in its
+# sort order (status, start, visit, end) the fold ends with: the start is
+# the earliest start among the records of the highest status (missing when
+# one is missing, unless that status is 4: then the earliest present start),
+# and the end is missing when a record of the highest status has no end,
+# else their latest end.
+yamaa: '1.0'
+type: spec
+model: ADaM
+domain: ADSLEV1
+keys:
+- USUBJID
+- SEQ
+input:
+  ADSYMPT: <adam-dir>/adsympt.parquet
+intermediates:
+# The highest status of a subject's group-1 and group-2 symptoms at a visit.
+- id: _G1MAX
+  dataset: ADSYMPT
+  key:
+    USUBJID: ADSYMPT.USUBJID
+    AVISITN: ADSYMPT.AVISITN
+    AVISIT: ADSYMPT.AVISIT
+  filter: ADSYMPT.PARAMCD IN ('CHILLS', 'DIARRHEA', 'FEVER', 'NLTSTSML', 'NCOUG', 'NSTBRTH',
+    'NMUSPN', 'NSRTHROT', 'VOMIT')
+  order_by: [ADSYMPT._SK]
+  keep: last
+  derivations:
+    _SK:
+      type: int
+      derivation:
+        case:
+        - when: ADSYMPT.AVALC IN ('Y', 'POS')
+          then: 4
+        - when: ADSYMPT.AVALC = 'IND'
+          then: 3
+        - when: ADSYMPT.AVALC IN ('N', 'NEG')
+          then: 2
+        - when: ADSYMPT.AVALC IN ('UNK', 'UNKNOWN')
+          then: 1
+        - otherwise: 0
+- id: _G2MAX
+  dataset: ADSYMPT
+  key:
+    USUBJID: ADSYMPT.USUBJID
+    AVISITN: ADSYMPT.AVISITN
+    AVISIT: ADSYMPT.AVISIT
+  filter: ADSYMPT.PARAMCD IN ('CHILLS', 'DIARRHEA', 'FEVER', 'NLTSTSML', 'NCOUG', 'NSTBRTH',
+    'NMUSPN', 'NSRTHROT', 'VOMIT', 'FATIGUE', 'HEADACHE', 'RIHNRA', 'NAUSEA', 'NNSLCONG')
+  order_by: [ADSYMPT._SK]
+  keep: last
+  derivations:
+    _SK:
+      type: int
+      derivation:
+        case:
+        - when: ADSYMPT.AVALC IN ('Y', 'POS')
+          then: 4
+        - when: ADSYMPT.AVALC = 'IND'
+          then: 3
+        - when: ADSYMPT.AVALC IN ('N', 'NEG')
+          then: 2
+        - when: ADSYMPT.AVALC IN ('UNK', 'UNKNOWN')
+          then: 1
+        - otherwise: 0
+- id: _SY1
+  dataset: ADSYMPT
+  filter: ADSYMPT.PARAMCD IN ('CHILLS', 'DIARRHEA', 'FEVER', 'NLTSTSML', 'NCOUG', 'NSTBRTH',
+    'NMUSPN', 'NSRTHROT', 'VOMIT')
+  columns: [_USUBJID, _AVISITN, _AVISIT, _SK, _ISMAX, _AST, _AEN, _NOST, _NOEN]
+  derivations:
+    _USUBJID: {type: str, derivation: ADSYMPT.USUBJID}
+    _AVISITN: {type: int, derivation: ADSYMPT.AVISITN}
+    _AVISIT: {type: str, derivation: ADSYMPT.AVISIT}
+    _SK:
+      type: int
+      derivation:
+        case:
+        - when: ADSYMPT.AVALC IN ('Y', 'POS')
+          then: 4
+        - when: ADSYMPT.AVALC = 'IND'
+          then: 3
+        - when: ADSYMPT.AVALC IN ('N', 'NEG')
+          then: 2
+        - when: ADSYMPT.AVALC IN ('UNK', 'UNKNOWN')
+          then: 1
+        - otherwise: 0
+    _ISMAX:
+      type: int
+      derivation:
+        case:
+        - when: _SK = _G1MAX._SK
+          then: 1
+        - otherwise: 0
+    _AST: {type: date, derivation: ADSYMPT.ASTDT}
+    _AEN: {type: date, derivation: ADSYMPT.AENDT}
+    _NOST:
+      type: int
+      derivation:
+        case:
+        - when: _ISMAX = 1 AND _AST IS NULL
+          then: 1
+        - otherwise: 0
+    _NOEN:
+      type: int
+      derivation:
+        case:
+        - when: _ISMAX = 1 AND _AEN IS NULL
+          then: 1
+        - otherwise: 0
+- id: _SY2
+  dataset: ADSYMPT
+  filter: ADSYMPT.PARAMCD IN ('CHILLS', 'DIARRHEA', 'FEVER', 'NLTSTSML', 'NCOUG', 'NSTBRTH',
+    'NMUSPN', 'NSRTHROT', 'VOMIT', 'FATIGUE', 'HEADACHE', 'RIHNRA', 'NAUSEA', 'NNSLCONG')
+  columns: [_USUBJID, _AVISITN, _AVISIT, _SK, _ISMAX, _AST, _AEN, _NOST, _NOEN]
+  derivations:
+    _USUBJID: {type: str, derivation: ADSYMPT.USUBJID}
+    _AVISITN: {type: int, derivation: ADSYMPT.AVISITN}
+    _AVISIT: {type: str, derivation: ADSYMPT.AVISIT}
+    _SK:
+      type: int
+      derivation:
+        case:
+        - when: ADSYMPT.AVALC IN ('Y', 'POS')
+          then: 4
+        - when: ADSYMPT.AVALC = 'IND'
+          then: 3
+        - when: ADSYMPT.AVALC IN ('N', 'NEG')
+          then: 2
+        - when: ADSYMPT.AVALC IN ('UNK', 'UNKNOWN')
+          then: 1
+        - otherwise: 0
+    _ISMAX:
+      type: int
+      derivation:
+        case:
+        - when: _SK = _G2MAX._SK
+          then: 1
+        - otherwise: 0
+    _AST: {type: date, derivation: ADSYMPT.ASTDT}
+    _AEN: {type: date, derivation: ADSYMPT.AENDT}
+    _NOST:
+      type: int
+      derivation:
+        case:
+        - when: _ISMAX = 1 AND _AST IS NULL
+          then: 1
+        - otherwise: 0
+    _NOEN:
+      type: int
+      derivation:
+        case:
+        - when: _ISMAX = 1 AND _AEN IS NULL
+          then: 1
+        - otherwise: 0
+# Symptom records with a start, by collected visit (the fallback window).
+- id: _SYV
+  dataset: ADSYMPT
+  filter: ADSYMPT.PARAMCD IN ('CHILLS', 'DIARRHEA', 'FEVER', 'NLTSTSML', 'NCOUG', 'NSTBRTH',
+    'NMUSPN', 'NSRTHROT', 'VOMIT', 'FATIGUE', 'HEADACHE', 'RIHNRA', 'NAUSEA', 'NNSLCONG')
+    AND ADSYMPT.ASTDT IS NOT NULL
+  columns: [_USUBJID, _VISITNUM, _VISIT, _AST, _AEN]
+  derivations:
+    _USUBJID: {type: str, derivation: ADSYMPT.USUBJID}
+    _VISITNUM: {type: int, derivation: ADSYMPT.VISITNUM}
+    _VISIT: {type: str, derivation: ADSYMPT.VISIT}
+    _AST: {type: date, derivation: ADSYMPT.ASTDT}
+    _AEN: {type: date, derivation: ADSYMPT.AENDT}
+# Swab results at visits other than the two planned swab visits.
+- id: _NA
+  dataset: ADSYMPT
+  filter: ADSYMPT.PARAMCD IN ('RTCOV2NS', 'SARSCOV2') AND (ADSYMPT.AVISIT IS NULL OR ADSYMPT.AVISIT
+    NOT IN ('V1_DAY1_VAX1_L', 'V2_VAX2_L'))
+  columns: [_USUBJID, _AVISITN, _AVISIT, _VISITNUM, _VISIT, _GRP, _SK, _ADT]
+  derivations:
+    _USUBJID: {type: str, derivation: ADSYMPT.USUBJID}
+    _AVISITN: {type: int, derivation: ADSYMPT.AVISITN}
+    _AVISIT: {type: str, derivation: ADSYMPT.AVISIT}
+    _VISITNUM: {type: int, derivation: ADSYMPT.VISITNUM}
+    _VISIT: {type: str, derivation: ADSYMPT.VISIT}
+    _GRP:
+      type: int
+      derivation:
+        case:
+        - when: ADSYMPT.PARAMCD = 'RTCOV2NS'
+          then: 22
+        - otherwise: 23
+    _SK:
+      type: int
+      derivation:
+        case:
+        - when: ADSYMPT.AVALC IN ('Y', 'POS')
+          then: 4
+        - when: ADSYMPT.AVALC = 'IND'
+          then: 3
+        - when: ADSYMPT.AVALC IN ('N', 'NEG')
+          then: 2
+        - when: ADSYMPT.AVALC IN ('UNK', 'UNKNOWN')
+          then: 1
+    _ADT: {type: date, derivation: ADSYMPT.ADT}
+# The symptom windows a swab result is checked against (nva_naat1a/1b).
+- id: _W1
+  dataset: SELF
+  key:
+    USUBJID: USUBJID
+    AVISITN: AVISITN
+    AVISIT: AVISIT
+  filter: KIND = 'SYM' AND GRP = 1 AND GSTDT IS NOT NULL
+  order_by: [GRP]
+  keep: first
+- id: _W2
+  dataset: SELF
+  key:
+    USUBJID: USUBJID
+    AVISITN: AVISITN
+    AVISIT: AVISIT
+  filter: KIND = 'SYM' AND GRP = 2 AND GSTDT IS NOT NULL
+  order_by: [GRP]
+  keep: first
+- id: _WV
+  dataset: SELF
+  key:
+    USUBJID: USUBJID
+    VISITNUM: VISITNUM
+    VISIT: VISIT
+  filter: KIND = 'SYMV'
+  order_by: [GRP]
+  keep: first
+rows:
+- id: sym1
+  dataset: _SY1
+  group_by: [_SY1._USUBJID, _SY1._AVISITN, _SY1._AVISIT]
+  derivations:
+    KIND: "'SYM'"
+    GRP: 1
+    USUBJID: _SY1._USUBJID
+    AVISITN: _SY1._AVISITN
+    AVISIT: _SY1._AVISIT
+    VISITNUM: null
+    VISIT: null
+    STAT: {aggregate: MAX(_SY1._SK)}
+    _MINM: {aggregate: {expr: MIN(_SY1._AST), filter: _SY1._ISMAX = 1}}
+    _MAXE: {aggregate: {expr: MAX(_SY1._AEN), filter: _SY1._ISMAX = 1}}
+    _NMS: {aggregate: SUM(_SY1._NOST)}
+    _NME: {aggregate: SUM(_SY1._NOEN)}
+    ADT: null
+    VSTDT: null
+    VENDT: null
+    _S1: null
+    _S2: null
+    _E1: null
+    _E2: null
+    _SV: null
+    _EV: null
+- id: sym2
+  dataset: _SY2
+  group_by: [_SY2._USUBJID, _SY2._AVISITN, _SY2._AVISIT]
+  derivations:
+    KIND: "'SYM'"
+    GRP: 2
+    USUBJID: _SY2._USUBJID
+    AVISITN: _SY2._AVISITN
+    AVISIT: _SY2._AVISIT
+    VISITNUM: null
+    VISIT: null
+    STAT: {aggregate: MAX(_SY2._SK)}
+    _MINM: {aggregate: {expr: MIN(_SY2._AST), filter: _SY2._ISMAX = 1}}
+    _MAXE: {aggregate: {expr: MAX(_SY2._AEN), filter: _SY2._ISMAX = 1}}
+    _NMS: {aggregate: SUM(_SY2._NOST)}
+    _NME: {aggregate: SUM(_SY2._NOEN)}
+    ADT: null
+    VSTDT: null
+    VENDT: null
+    _S1: null
+    _S2: null
+    _E1: null
+    _E2: null
+    _SV: null
+    _EV: null
+- id: symv
+  dataset: _SYV
+  group_by: [_SYV._USUBJID, _SYV._VISITNUM, _SYV._VISIT]
+  derivations:
+    KIND: "'SYMV'"
+    GRP: null
+    USUBJID: _SYV._USUBJID
+    AVISITN: null
+    AVISIT: null
+    VISITNUM: _SYV._VISITNUM
+    VISIT: _SYV._VISIT
+    STAT: null
+    _MINM: null
+    _MAXE: null
+    _NMS: null
+    _NME: null
+    ADT: null
+    VSTDT: {aggregate: MIN(_SYV._AST)}
+    VENDT: {aggregate: MAX(_SYV._AEN)}
+    _S1: null
+    _S2: null
+    _E1: null
+    _E2: null
+    _SV: null
+    _EV: null
+- id: naat
+  dataset: _NA
+  derivations:
+    KIND: "'NAAT'"
+    GRP: _NA._GRP
+    USUBJID: _NA._USUBJID
+    AVISITN: _NA._AVISITN
+    AVISIT: _NA._AVISIT
+    VISITNUM: _NA._VISITNUM
+    VISIT: _NA._VISIT
+    STAT: _NA._SK
+    _MINM: null
+    _MAXE: null
+    _NMS: null
+    _NME: null
+    ADT: _NA._ADT
+    VSTDT: null
+    VENDT: null
+    _S1: _W1.GSTDT
+    _S2: _W2.GSTDT
+    _E1: _W1.GENDT
+    _E2: _W2.GENDT
+    _SV: _WV.VSTDT
+    _EV: _WV.VENDT
+columns:
+- {name: KIND, type: str, label: 'Row kind (SYM symptom group; SYMV symptom visit; NAAT swab)'}
+- {name: GRP, type: int, label: 'Group (1 or 2 symptoms; 22 central or 23 local swab)'}
+- {name: USUBJID, type: str, label: Unique Subject Identifier}
+- {name: AVISITN, type: int, label: Analysis Visit (N)}
+- {name: AVISIT, type: str, label: Analysis Visit}
+- {name: VISITNUM, type: int, label: Visit Number}
+- {name: VISIT, type: str, label: Visit Name}
+- {name: STAT, type: int, label: 'Status (2 N/NEG; 3 IND; 4 Y/POS)'}
+- {name: _MINM, type: date}
+- {name: _MAXE, type: date}
+- {name: _NMS, type: int}
+- {name: _NME, type: int}
+- {name: ADT, type: date, label: Swab Date}
+- {name: VSTDT, type: date, label: Symptom Start of the visit}
+- {name: VENDT, type: date, label: Symptom End of the visit}
+- {name: _S1, type: date}
+- {name: _S2, type: date}
+- {name: _E1, type: date}
+- {name: _E2, type: date}
+- {name: _SV, type: date}
+- {name: _EV, type: date}
+- name: GSTDT
+  type: date
+  label: Symptom Group Start
+  derivation:
+    case:
+    - when: KIND = 'SYM' AND (STAT = 4 OR _NMS = 0)
+      then: _MINM
+- name: GENDT
+  type: date
+  label: Symptom Group End
+  derivation:
+    case:
+    - when: KIND = 'SYM' AND _NME = 0
+      then: _MAXE
+# The swab's validity window (nva_naat2): the analysis visit's symptom
+# groups with a start, else the collected visit's symptom records.
+- name: _SAV
+  type: date
+  derivation: {least: {sources: [_S1, _S2]}}
+- name: _EAV
+  type: date
+  derivation: {greatest: {sources: [_E1, _E2]}}
+- name: _ADTE
+  type: int
+  derivation: {to_epoch_day: {source: ADT}}
+- name: _SAVE
+  type: int
+  derivation: {to_epoch_day: {source: _SAV}}
+- name: _EAVE
+  type: int
+  derivation: {to_epoch_day: {source: _EAV}}
+- name: _SVE
+  type: int
+  derivation: {to_epoch_day: {source: _SV}}
+- name: _EVE
+  type: int
+  derivation: {to_epoch_day: {source: _EV}}
+- name: VLD
+  type: str
+  label: Valid Result Flag (X when the visit has no symptoms)
+  derivation:
+    case:
+    - when: KIND <> 'NAAT'
+      then: null
+    - when: _SAVE IS NOT NULL AND _EAVE IS NULL AND _SAVE - 4 <= _ADTE
+      then: "'Y'"
+    - when: _SAVE IS NOT NULL AND _EAVE IS NOT NULL AND _SAVE - 4 <= _ADTE AND _ADTE <= _EAVE + 4
+      then: "'Y'"
+    - when: _SAVE IS NOT NULL
+      then: "'N'"
+    - when: _SVE IS NOT NULL AND _EVE IS NULL AND _SVE - 4 <= _ADTE
+      then: "'Y'"
+    - when: _SVE IS NOT NULL AND _EVE IS NOT NULL AND _SVE - 4 <= _ADTE AND _ADTE <= _EVE + 4
+      then: "'Y'"
+    - when: _SVE IS NOT NULL
+      then: "'N'"
+    - otherwise: "'X'"
+# A result is concluded when it is its visit's only result of its kind or a
+# valid one (cncrslfl); the visit's concluded result of a kind is the one of
+# the highest status, latest (nva_naat4d / nva_naat4e).
+- name: _ONE
+  type: int
+  derivation:
+    case:
+    - when: KIND = 'NAAT'
+      then: 1
+- name: _NG
+  type: int
+  derivation:
+    aggregate: {expr: SUM(_ONE), group_by: [USUBJID, AVISITN, AVISIT, VISITNUM, VISIT, GRP]}
+- name: CNCR
+  type: int
+  label: Concluded Result Flag
+  derivation:
+    case:
+    - when: KIND = 'NAAT' AND (_NG = 1 OR VLD <> 'N')
+      then: 1
+    - otherwise: 0
+- name: _CONCN
+  type: int
+  derivation:
+    row_number:
+      window:
+        group_by: [USUBJID, AVISITN, AVISIT, VISITNUM, VISIT, GRP]
+        order_by:
+        - {variable: STAT, direction: desc, nulls: last}
+        - {variable: ADT, direction: desc, nulls: last}
+        filter: CNCR = 1
+- name: _CST
+  type: int
+  derivation:
+    case:
+    - when: _CONCN = 1 AND GRP = 22
+      then: STAT
+- name: _CDT
+  type: date
+  derivation:
+    case:
+    - when: _CONCN = 1 AND GRP = 22
+      then: ADT
+- name: _CVY
+  type: int
+  derivation:
+    case:
+    - when: _CONCN = 1 AND GRP = 22 AND VLD = 'Y'
+      then: 1
+    - otherwise: 0
+- name: _LST
+  type: int
+  derivation:
+    case:
+    - when: _CONCN = 1 AND GRP = 23
+      then: STAT
+- name: _LDT
+  type: date
+  derivation:
+    case:
+    - when: _CONCN = 1 AND GRP = 23
+      then: ADT
+- name: _LVY
+  type: int
+  derivation:
+    case:
+    - when: _CONCN = 1 AND GRP = 23 AND VLD = 'Y'
+      then: 1
+    - otherwise: 0
+# cnt_lcl1 for each analysis visit and collected visit.
+- name: CNTUNP
+  type: int
+  label: Central Result (concluded)
+  derivation:
+    aggregate: {expr: MAX(_CST), group_by: [USUBJID, AVISITN, AVISIT, VISITNUM, VISIT]}
+- name: CNTDT
+  type: date
+  label: Central Result Date
+  derivation:
+    aggregate: {expr: MAX(_CDT), group_by: [USUBJID, AVISITN, AVISIT, VISITNUM, VISIT]}
+- name: _CV
+  type: int
+  derivation:
+    aggregate: {expr: MAX(_CVY), group_by: [USUBJID, AVISITN, AVISIT, VISITNUM, VISIT]}
+- name: _LU
+  type: int
+  derivation:
+    aggregate: {expr: MAX(_LST), group_by: [USUBJID, AVISITN, AVISIT, VISITNUM, VISIT]}
+- name: _LUD
+  type: date
+  derivation:
+    aggregate: {expr: MAX(_LDT), group_by: [USUBJID, AVISITN, AVISIT, VISITNUM, VISIT]}
+- name: _LV
+  type: int
+  derivation:
+    aggregate: {expr: MAX(_LVY), group_by: [USUBJID, AVISITN, AVISIT, VISITNUM, VISIT]}
+- name: NAATUNP
+  type: int
+  label: Concluded NAAT Result (valid central, else valid local)
+  derivation:
+    case:
+    - when: KIND = 'NAAT' AND _CV = 1
+      then: CNTUNP
+    - when: KIND = 'NAAT' AND _LV = 1
+      then: _LU
+- name: NAATDT
+  type: date
+  label: Concluded NAAT Result Date
+  derivation:
+    case:
+    - when: KIND = 'NAAT' AND _CV = 1
+      then: CNTDT
+    - when: KIND = 'NAAT' AND _LV = 1
+      then: _LUD
+# cnt_lcl2's kept record of an analysis visit: a valid result first, then
+# the highest concluded result.
+- name: _NUK
+  type: int
+  derivation:
+    aggregate: {expr: MAX(NAATUNP), group_by: [USUBJID, AVISITN]}
+- name: _REP
+  type: int
+  derivation:
+    row_number:
+      window:
+        group_by: [USUBJID, AVISITN, AVISIT, VISITNUM, VISIT]
+        order_by: [GRP, ADT]
+        filter: KIND = 'NAAT'
+- name: EVSYMDT
+  type: date
+  label: Symptom without a negative concluded result (sym_n)
+  derivation:
+    case:
+    - when: KIND = 'SYM' AND STAT = 4 AND (_NUK IS NULL OR _NUK <> 2)
+      then: GSTDT
+- name: EVPOSDT
+  type: date
+  label: Concluded result not negative (pos_s)
+  derivation:
+    case:
+    - when: _REP = 1 AND (NAATUNP IS NULL OR NAATUNP <> 2)
+      then: NAATDT
+- name: EVPOSCDT
+  type: date
+  label: Central result not negative (pos_s_c)
+  derivation:
+    case:
+    - when: _REP = 1 AND (CNTUNP IS NULL OR CNTUNP <> 2)
+      then: CNTDT
+- name: SEQ
+  type: int
+  label: Row Sequence
+  derivation:
+    row_number:
+      window:
+        group_by: [USUBJID]
+        order_by:
+        - KIND
+        - {variable: GRP, nulls: first}
+        - {variable: AVISITN, nulls: first}
+        - {variable: VISITNUM, nulls: first}
+        - {variable: ADT, nulls: first}
+output:
+  path: <work-dir>/adsl_ev1.parquet
+  columns: [USUBJID, SEQ, KIND, GRP, AVISITN, AVISIT, VISITNUM, VISIT, STAT, ADT, GSTDT, GENDT,
+    VSTDT, VENDT, VLD, CNCR, CNTUNP, CNTDT, NAATUNP, NAATDT, EVSYMDT, EVPOSDT, EVPOSCDT]

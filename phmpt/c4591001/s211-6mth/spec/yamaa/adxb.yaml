@@ -1,0 +1,600 @@
+# ADXB for Pfizer C4591001, S211 6-month cut (BLA 125742 sequence 45), the
+# 12-15-year-old cohort. Implements the 6-month adxb.sas, which differs from
+# S6's (c4591001/s6/spec/yamaa/adxb.yaml) in ways a layer cannot express: it
+# reads the WGSCLINE records of MB instead of XB, keeps only FC19D27 of the
+# onset flags and drops MULENRFL, and takes STATE from a site list written
+# into the program. ADC19EF is this cut's, through the S6 helper
+# (studies.yaml standalone).
+yamaa: '1.0'
+type: spec
+model: ADaM
+parent: ../../../spec/yamaa/base/adam-base.yaml
+domain: ADXB
+keys:
+- USUBJID
+- _SEQ
+input:
+  MB: <sdtm-dir>/mb.parquet
+  ADC19EF:
+    path: <work-dir>/adc19ef_xb.parquet
+    schema: ../../../s6/spec/yamaa/helper/adc19ef_xb.yaml
+  ADSL:
+    path: <adam-dir>/adsl.parquet
+    key:
+    - STUDYID
+    - USUBJID
+submission:
+  label: Sequencing Analysis Dataset
+  class: BASIC DATA STRUCTURE
+  structure: One record per subject per analysis parameter per analysis timepoint
+  repeating: true
+rows:
+- id: records
+  dataset: MB
+  filter: MB.MBTESTCD = 'WGSCLINE' AND ADSL.USUBJID IS NOT NULL
+intermediates:
+- id: EFF_ANY
+  dataset: ADC19EF
+  key:
+  - USUBJID
+  keep: first
+  order_by:
+  - ADC19EF.PARAMCD
+  derivations:
+    _PDP27FL:
+      type: str
+      derivation: ADC19EF.PDP27FL
+- id: EFF_C19
+  dataset: ADC19EF
+  key:
+  - USUBJID
+  filter: ADC19EF.PARAMCD = 'C19ONST' AND ADC19EF.FILOCRFL = 'Y' AND ADC19EF.AVALC = 'POS' AND ADC19EF.PDRMUPFL
+    = 'N' AND ADC19EF.ILD27FL = 'Y' AND (ADC19EF.DVSTDT IS NULL OR ADC19EF.ADT <= ADC19EF.DVSTDT) AND ADC19EF.EVALEFFL
+    = 'Y'
+  order_by:
+  - ADC19EF.ADT
+  keep: first
+  derivations:
+    _AVISIT:
+      type: str
+      derivation: ADC19EF.AVISIT
+- id: POS_FC19D27
+  dataset: ADC19EF
+  key:
+    USUBJID: MB.USUBJID
+    VISIT: MB.VISIT
+    _DTC: MB.MBDTC
+  filter: ADC19EF.PARAMCD IN ('RTCOV2NS', 'SARSCOV2') AND ADC19EF.AVALC = 'POS'
+  order_by:
+  - variable: ADC19EF._F
+    direction: desc
+  keep: first
+  derivations:
+    _DTC:
+      type: str
+      derivation: ADC19EF.ADT
+    _F:
+      type: int
+      derivation:
+        case:
+        - when: ADC19EF.AVISIT = EFF_C19._AVISIT
+          then: 1
+        - otherwise: 0
+columns:
+- name: STUDYID
+  derivation: MB.STUDYID
+  submission:
+    origins:
+    - type: Predecessor
+      description: MB.STUDYID
+- name: USUBJID
+  derivation: MB.USUBJID
+  submission:
+    origins:
+    - type: Predecessor
+      description: MB.USUBJID
+- name: SITEID
+  derivation: ADSL.SITEID
+  submission:
+    origins:
+    - type: Predecessor
+      description: ADSL.SITEID
+- name: SUBJID
+  derivation: ADSL.SUBJID
+  submission:
+    origins:
+    - type: Predecessor
+      description: ADSL.SUBJID
+- name: SEX
+  derivation: ADSL.SEX
+  submission:
+    origins:
+    - type: Predecessor
+      description: ADSL.SEX
+- name: RACE
+  derivation: ADSL.RACE
+  submission:
+    origins:
+    - type: Predecessor
+      description: ADSL.RACE
+- name: ETHNIC
+  derivation: ADSL.ETHNIC
+  submission:
+    origins:
+    - type: Predecessor
+      description: ADSL.ETHNIC
+- name: ARMCD
+  derivation: ADSL.ARMCD
+  submission:
+    origins:
+    - type: Predecessor
+      description: ADSL.ARMCD
+- name: ARM
+  derivation: ADSL.ARM
+  submission:
+    origins:
+    - type: Predecessor
+      description: ADSL.ARM
+- name: ACTARMCD
+  derivation: ADSL.ACTARMCD
+  submission:
+    origins:
+    - type: Predecessor
+      description: ADSL.ACTARMCD
+- name: ACTARM
+  derivation: ADSL.ACTARM
+  submission:
+    origins:
+    - type: Predecessor
+      description: ADSL.ACTARM
+- name: TRTSDT
+  derivation: ADSL.TRTSDT
+  submission:
+    origins:
+    - type: Predecessor
+      description: ADSL.TRTSDT
+- name: TRTEDT
+  derivation: ADSL.TRTEDT
+  submission:
+    origins:
+    - type: Predecessor
+      description: ADSL.TRTEDT
+- name: TRT01A
+  derivation: ADSL.TRT01A
+  submission:
+    origins:
+    - type: Predecessor
+      description: ADSL.TRT01A
+- name: TRT01AN
+  derivation: ADSL.TRT01AN
+  submission:
+    origins:
+    - type: Predecessor
+      description: ADSL.TRT01AN
+- name: TRT01P
+  derivation: ADSL.TRT01P
+  submission:
+    origins:
+    - type: Predecessor
+      description: ADSL.TRT01P
+- name: TRT01PN
+  derivation: ADSL.TRT01PN
+  submission:
+    origins:
+    - type: Predecessor
+      description: ADSL.TRT01PN
+- name: RANDFL
+  derivation: ADSL.RANDFL
+  submission:
+    origins:
+    - type: Predecessor
+      description: ADSL.RANDFL
+- name: AGEGR1N
+  derivation: ADSL.AGEGR1N
+  type: int
+  label: Pooled Age Group 1 (N)
+  submission:
+    core: Req
+    mandatory: true
+    length: 8
+    origins:
+    - type: Predecessor
+      description: ADSL.AGEGR1N
+- name: AGEGR1
+  derivation: ADSL.AGEGR1
+  type: str
+  label: Pooled Age Group 1
+  submission:
+    core: Req
+    mandatory: true
+    length: 11
+    origins:
+    - type: Predecessor
+      description: ADSL.AGEGR1
+- name: COUNTRY
+  derivation: ADSL.COUNTRY
+  type: str
+  label: Country
+  submission:
+    core: Req
+    mandatory: true
+    length: 3
+    origins:
+    - type: Predecessor
+      description: ADSL.COUNTRY
+- name: STATE
+  type: str
+  label: State
+  derivation:
+    mapping:
+      source: SITEID
+      dict:
+        '1005': NEW YORK
+        '1006': UTAH
+        '1007': OHIO
+        '1008': MISSOURI
+        '1009': UTAH
+        '1013': FLORIDA
+        '1016': KENTUCKY
+        '1039': TEXAS
+        '1044': VIRGINIA
+        '1057': FLORIDA
+        '1084': TEXAS
+        '1091': OHIO
+        '1123': NEBRASKA
+        '1124': RHODE ISLAND
+        '1139': NORTH CAROLINA
+        '1142': TEXAS
+        '1150': OHIO
+        '1152': CALIFORNIA
+        '1156': FLORIDA
+        '1235': LOUISIANA
+        '1270': CALIFORNIA
+      unmapped: null
+  submission:
+    core: Perm
+    mandatory: false
+    length: 14
+    origins:
+    - type: Derived
+    method: "Withheld from publication: the received define states this text."
+- name: RANDDT
+  derivation: ADSL.RANDDT
+  type: date
+  label: Date of Randomization
+  submission:
+    core: Req
+    mandatory: true
+    origins:
+    - type: Predecessor
+      description: ADSL.RANDDT
+- name: VAX101DT
+  derivation: ADSL.VAX101DT
+  type: date
+  label: Vaccination Date 01
+  submission:
+    core: Req
+    mandatory: true
+    origins:
+    - type: Predecessor
+      description: ADSL.VAX101DT
+- name: VAX102DT
+  derivation: ADSL.VAX102DT
+  type: date
+  label: Vaccination Date 02
+  submission:
+    core: Perm
+    mandatory: false
+    origins:
+    - type: Predecessor
+      description: ADSL.VAX102DT
+- name: DVSTDT
+  derivation: ADSL.DVSTDT
+  type: date
+  label: Start Date of Important PD
+  submission:
+    core: Perm
+    mandatory: false
+    origins:
+    - type: Predecessor
+      description: ADSL.DVSTDT
+- name: UNBLNDDT
+  derivation: ADSL.UNBLNDDT
+  type: date
+  label: Treatment Unblinded Date
+  submission:
+    core: Perm
+    mandatory: false
+    origins:
+    - type: Predecessor
+      description: ADSL.UNBLNDDT
+- name: EVALEFFL
+  derivation: ADSL.EVALEFFL
+  type: str
+  label: Evaluable Efficacy Popu Flag
+  submission:
+    core: Req
+    mandatory: true
+    length: 1
+    origins:
+    - type: Predecessor
+      description: ADSL.EVALEFFL
+- name: AAI1EFFL
+  derivation: ADSL.AAI1EFFL
+  type: str
+  label: Dose 1 all-available Efficacy Popu Flag
+  submission:
+    core: Req
+    mandatory: true
+    length: 1
+    origins:
+    - type: Predecessor
+      description: ADSL.AAI1EFFL
+- name: AAI2EFFL
+  derivation: ADSL.AAI2EFFL
+  type: str
+  label: Dose 2 all-available Efficacy Popu Flag
+  submission:
+    core: Req
+    mandatory: true
+    length: 1
+    origins:
+    - type: Predecessor
+      description: ADSL.AAI2EFFL
+- name: PHASE
+  derivation: ADSL.PHASE
+  type: str
+  label: Study Phase
+  submission:
+    core: Req
+    mandatory: true
+    length: 20
+    origins:
+    - type: Predecessor
+      description: ADSL.PHASE
+- name: PHASEN
+  derivation: ADSL.PHASEN
+  type: int
+  label: Study Phase (N)
+  submission:
+    core: Req
+    mandatory: true
+    length: 8
+    origins:
+    - type: Predecessor
+      description: ADSL.PHASEN
+- name: HIVFL
+  derivation: ADSL.HIVFL
+  type: str
+  label: HIV Positive Subjects Flag
+  submission:
+    core: Req
+    mandatory: true
+    length: 1
+    origins:
+    - type: Predecessor
+      description: ADSL.HIVFL
+- name: _XBTESTCD_U
+  type: str
+  derivation:
+    str_case:
+      source: MB.MBTESTCD
+      to: upper
+- name: PARAMN
+  type: int
+  label: Parameter (N)
+  derivation:
+    case:
+    - when: _XBTESTCD_U = 'WGSCLINE'
+      then: 1
+  submission:
+    core: Req
+    mandatory: true
+    length: 8
+    origins:
+    - type: Derived
+    method: "Withheld from publication: the received define states this text."
+- name: PARAMCD
+  type: str
+  label: Parameter Code
+  derivation: MB.MBTESTCD
+  submission:
+    core: Req
+    mandatory: true
+    length: 8
+    origins:
+    - type: Predecessor
+      description: MB.MBTESTCD
+- name: PARAM
+  type: str
+  label: Parameter
+  derivation: MB.MBTEST
+  submission:
+    core: Req
+    mandatory: true
+    length: 39
+    origins:
+    - type: Predecessor
+      description: MB.MBTEST
+- name: PARCAT1
+  type: str
+  label: Parameter Category 1
+  derivation: MB.MBCAT
+  submission:
+    core: Req
+    mandatory: true
+    length: 8
+    origins:
+    - type: Predecessor
+      description: MB.MBCAT
+- name: AVAL
+  type: float
+  label: Analysis Value
+  derivation: null
+  submission:
+    core: Perm
+    mandatory: false
+    length: 8
+    significant_digits: 0
+    origins:
+    - type: Assigned
+    method: "Withheld from publication: the received define states this text."
+- name: AVALC
+  type: str
+  label: Analysis Value (C)
+  derivation: MB.MBSTRESC
+  submission:
+    core: Req
+    mandatory: true
+    length: 13
+    origins:
+    - type: Predecessor
+      description: MB.MBSTRESC
+- name: AVISITN
+  type: int
+  label: Analysis Visit (N)
+  derivation: MB.VISITNUM
+  submission:
+    core: Perm
+    mandatory: false
+    length: 8
+    origins:
+    - type: Predecessor
+      description: MB.VISITNUM
+- name: AVISIT
+  type: str
+  label: Analysis Visit
+  derivation: MB.VISIT
+  submission:
+    core: Req
+    mandatory: true
+    length: 11
+    origins:
+    - type: Predecessor
+      description: MB.VISIT
+- name: ADT
+  type: date
+  label: Analysis Date
+  derivation:
+    to_date:
+      source: MB.MBDTC
+  submission:
+    core: Req
+    mandatory: true
+    origins:
+    - type: Derived
+    method: "Withheld from publication: the received define states this text."
+- name: _DY0
+  type: int
+  derivation:
+    diff:
+      type: date
+      start: TRTSDT
+      end: ADT
+      unit: day
+- name: ADY
+  type: int
+  label: Analysis Relative Day
+  derivation:
+    case:
+    - when: _DY0 >= 0
+      then: _DY0 + 1
+    - otherwise: _DY0
+  submission:
+    core: Req
+    mandatory: true
+    length: 8
+    origins:
+    - type: Derived
+    method: "Withheld from publication: the received define states this text."
+- name: PDP27FL
+  type: str
+  label: VE Prot Def Pop Incl 7D Post D2 Flag
+  derivation: EFF_ANY._PDP27FL
+  submission:
+    core: Req
+    mandatory: true
+    length: 1
+    origins:
+    - type: Derived
+    method: "Withheld from publication: the received define states this text."
+- name: FC19D27
+  type: str
+  label: First COVID Onset 7D Post D2 (PD)
+  derivation:
+    case:
+    - when: POS_FC19D27._F = 1
+      then: '''Y'''
+    - otherwise: '''N'''
+  submission:
+    core: Req
+    mandatory: true
+    length: 1
+    origins:
+    - type: Derived
+    method: "Withheld from publication: the received define states this text."
+- name: _SEQ
+  type: int
+  label: XB sequence number
+  derivation: MB.MBSEQ
+  submission:
+    core: Perm
+    mandatory: true
+    length: 8
+    origins:
+    - type: Predecessor
+      description: MB.MBSEQ
+output:
+  path: <adam-dir>/adxb-yamaa.parquet
+  order_by:
+  - STUDYID
+  - USUBJID
+  - PARAMN
+  - ADT
+  columns:
+  - STUDYID
+  - USUBJID
+  - SITEID
+  - SUBJID
+  - AGEGR1N
+  - AGEGR1
+  - SEX
+  - RACE
+  - ETHNIC
+  - COUNTRY
+  - STATE
+  - ARMCD
+  - ARM
+  - ACTARMCD
+  - ACTARM
+  - RANDDT
+  - TRTSDT
+  - TRTEDT
+  - TRT01A
+  - TRT01AN
+  - TRT01P
+  - TRT01PN
+  - VAX101DT
+  - VAX102DT
+  - DVSTDT
+  - UNBLNDDT
+  - RANDFL
+  - EVALEFFL
+  - AAI1EFFL
+  - AAI2EFFL
+  - PHASE
+  - PHASEN
+  - HIVFL
+  - PARAMN
+  - PARAMCD
+  - PARAM
+  - PARCAT1
+  - AVAL
+  - AVALC
+  - AVISITN
+  - AVISIT
+  - ADT
+  - ADY
+  - PDP27FL
+  - FC19D27
+  - _SEQ

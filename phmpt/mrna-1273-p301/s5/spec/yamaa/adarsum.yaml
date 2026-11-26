@@ -1,0 +1,219 @@
+# ADARSUM for Moderna mRNA-1273-P301, cut S5 (First Interim Analysis IA1b, cutoff 2020-11-25).
+# Layer over the S3 spec: the summary rows are built from this cut's
+# submitted ADAR and ADARP7D, FAAE, VS and ADSL as in S3
+# (scripts/reproduce.py verify --study mrna-1273-p301 --cut s5). The output keeps
+# this cut's columns: the IA ADSL carries COMPLFL and none of S3's own ADSL
+# columns.
+yamaa: '1.0'
+type: spec
+parent: ../../../s3/spec/yamaa/adarsum.yaml
+clear:
+- columns.AGEGR3.submission
+- columns.AGEGR3N.submission
+- columns.AGEGR4.submission
+- columns.AGEGR4N.submission
+- columns.RANDIGFL.submission
+- columns.PPSIFL.submission
+- columns.CCIASFL.submission
+- columns.OLDOS1FL.submission
+- columns.OLDOS2FL.submission
+- columns.TRT02P.submission
+- columns.TRT02PN.submission
+- columns.TRT02A.submission
+- columns.TRT02AN.submission
+- columns.TRTSEQP.submission
+- columns.TRTSEQPN.submission
+- columns.TRTSEQA.submission
+- columns.TRTSEQAN.submission
+- columns.TRTSDT.submission
+- columns.TRTEDT.submission
+- columns.TR02SDT.submission
+- columns.TR02SDTM.submission
+- columns.TR02EDT.submission
+- columns.TR02EDTM.submission
+- columns.OLDOS2DT.submission
+- columns.OLDO2DTM.submission
+- columns.EUAVACDT.submission
+- columns.EFFCODT.submission
+- columns.AP01SDT.submission
+- columns.AP01EDT.submission
+- columns.AP02SDT.submission
+- columns.AP02EDT.submission
+- columns.AP01SSDT.submission
+- columns.AP01SEDT.submission
+- columns.AP02SSDT.submission
+- columns.AP02SEDT.submission
+- columns.STUDDUR3.submission
+- columns.COVIDAFL.submission
+- columns.CVDSVAFL.submission
+columns:
+# S5 names the lymph-node parameters Lymphadenopathy (S3: Underarm Gland
+# Swelling or Tenderness).
+- name: PARAM
+  derivation:
+    case:
+    - when: PARAMCD = 'LYMPHDUR'
+      then: '''Number of Days for Lymphadenopathy'''
+    - when: PARAMCD = 'PAINDUR'
+      then: '''Number of Days for Pain'''
+    - when: PARAMCD = 'ERYTHDUR'
+      then: '''Number of Days for Erythema'''
+    - when: PARAMCD = 'SWELLDUR'
+      then: '''Number of Days for Swelling'''
+    - when: PARAMCD = 'HEADADUR'
+      then: '''Number of Days for Headache'''
+    - when: PARAMCD = 'FATIGDUR'
+      then: '''Number of Days for Fatigue'''
+    - when: PARAMCD = 'MYALGDUR'
+      then: '''Number of Days for Myalgia'''
+    - when: PARAMCD = 'ARTHRDUR'
+      then: '''Number of Days for Arthralgia'''
+    - when: PARAMCD = 'NAUSEDUR'
+      then: '''Number of Days for Nausea'''
+    - when: PARAMCD = 'CHILLDUR'
+      then: '''Number of Days for Chills'''
+    - when: PARAMCD = 'FEVERDUR'
+      then: '''Number of Days for Fever'''
+    - when: PARAMCD = 'ANYDUR'
+      then: '''Number of Days for Any Solicited AR'''
+    - when: PARAMCD = 'LOCDUR'
+      then: '''Number of Days for Local Solicited AR'''
+    - when: PARAMCD = 'SYSDUR'
+      then: '''Number of Days for Systemic Solicited AR'''
+    - when: PARAMCD = 'WLYMPH'
+      then: '''Worst Analysis Toxicity Grade for Lymphadenopathy between Day 1 and Day 7'''
+    - when: PARAMCD = 'WPAIN'
+      then: '''Worst Analysis Toxicity Grade for Pain between Day 1 and Day 7'''
+    - when: PARAMCD = 'WERYTH'
+      then: '''Worst Analysis Toxicity Grade for Erythema between Day 1 and Day 7'''
+    - when: PARAMCD = 'WSWELL'
+      then: '''Worst Analysis Toxicity Grade for Swelling between Day 1 and Day 7'''
+    - when: PARAMCD = 'WHEAD'
+      then: '''Worst Analysis Toxicity Grade for Headache between Day 1 and Day 7'''
+    - when: PARAMCD = 'WFATIGUE'
+      then: '''Worst Analysis Toxicity Grade for Fatigue between Day 1 and Day 7'''
+    - when: PARAMCD = 'WMYALGIA'
+      then: '''Worst Analysis Toxicity Grade for Myalgia between Day 1 and Day 7'''
+    - when: PARAMCD = 'WARTHR'
+      then: '''Worst Analysis Toxicity Grade for Arthralgia between Day 1 and Day 7'''
+    - when: PARAMCD = 'WNAUSEA'
+      then: '''Worst Analysis Toxicity Grade for Nausea between Day 1 and Day 7'''
+    - when: PARAMCD = 'WCHILLS'
+      then: '''Worst Analysis Toxicity Grade for Chills between Day 1 and Day 7'''
+    - when: PARAMCD = 'WFEVER'
+      then: '''Worst Analysis Toxicity Grade for Fever between Day 1 and Day 7'''
+    - when: PARAMCD = 'WSAR'
+      then: '''Worst Analysis Toxicity Grade for Any Solicited AR between Day 1 and Day 7'''
+    - when: PARAMCD = 'WSLAR'
+      then: '''Worst Analysis Toxicity Grade for Any Solicited Local AR between Day 1 and Day 7'''
+    - when: PARAMCD = 'WSSAR'
+      then: '''Worst Analysis Toxicity Grade for Any Solicited Systemic AR between Day 1 and Day 7'''
+    - otherwise: null
+# One S5 subject has no RACE in ADSL (as in the other S5 datasets).
+- name: RACE
+  submission:
+    mandatory: false
+# The S5 program (A_P_adar, adarsum part) selects Day 8+ ADARP7D records by
+# ANL04FL (S3: ANL06FL).
+- name: _C2P7D_ANY
+  derivation:
+    aggregate:
+      distinct: true
+      expr: COUNT(ADARP7D.ATPTGR1)
+      filter: ADARP7D.ATOXGRN > 0 AND ADARP7D.ANL04FL = 'Y' AND ADARP7D.ATPTN >= 8
+      key:
+        ATPTREF: ATPTREF
+        USUBJID: USUBJID
+- name: _C2P7D_LOC
+  derivation:
+    aggregate:
+      distinct: true
+      expr: COUNT(ADARP7D.ATPTGR1)
+      filter: ADARP7D.ATOXGRN > 0 AND ADARP7D.ANL04FL = 'Y' AND ADARP7D.ATPTN >= 8 AND ADARP7D.PARCAT1 = 'LOCAL'
+      key:
+        ATPTREF: ATPTREF
+        USUBJID: USUBJID
+- name: _C2P7D_SYS
+  derivation:
+    aggregate:
+      distinct: true
+      expr: COUNT(ADARP7D.ATPTGR1)
+      filter: ADARP7D.ATOXGRN > 0 AND ADARP7D.ANL04FL = 'Y' AND ADARP7D.ATPTN >= 8 AND ADARP7D.PARCAT1 = 'SYSTEMIC'
+      key:
+        ATPTREF: ATPTREF
+        USUBJID: USUBJID
+- name: COMPLFL
+  derivation: ADSL.COMPLFL
+  submission:
+    origins:
+    - type: Predecessor
+      description: ADSL.COMPLFL
+output:
+  columns:
+  - STUDYID
+  - USUBJID
+  - SUBJID
+  - SITEID
+  - COUNTRY
+  - AGE
+  - AGEU
+  - STRATAR
+  - STRATARN
+  - AGEGR1
+  - AGEGR1N
+  - AGEGR2
+  - AGEGR2N
+  - SEX
+  - RACE
+  - RACESPY
+  - ETHNIC
+  - RANDFL
+  - FASFL
+  - SAFFL
+  - SAR1FL
+  - SAR2FL
+  - SARAFL
+  - MITTFL
+  - PPROTFL
+  - COMPLFL
+  - DOSE1FL
+  - DOSE2FL
+  - RTPCRBL
+  - ELECSBL
+  - SCOV2BL
+  - TRT01P
+  - TRT01PN
+  - TRT01A
+  - TRT01AN
+  - TR01SDT
+  - TR01SDTM
+  - TR01EDT
+  - TR01EDTM
+  - DOSE2DT
+  - DOS2DTM
+  - RSKF1
+  - RSKF2
+  - RSKF3
+  - RSKF4
+  - RSKF5
+  - RSKF6
+  - STRATAV
+  - STRATAVN
+  - MINORITY
+  - RACEGR1
+  - RACEGR1N
+  - RISKGR1
+  - RISKGR1N
+  - RETHGR1
+  - RETHGR1N
+  - ATPTREF
+  - PARCAT1
+  - PARCAT1N
+  - PARAMCD
+  - PARAM
+  - AVAL
+  - AVALC
+  - ATOXGR
+  - ATOXGRN
+  - ANL01FL
+  - ANL02FL

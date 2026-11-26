@@ -1,0 +1,2351 @@
+# ADAE for Moderna mRNA-1273-P301, cut S80 (First Interim Analysis
+# IA1a, cutoff 2020-11-11). Parent: ../../../spec/yamaa/base/adam-base-ia.yaml (which
+# chains to ../../../spec/yamaa/base/adam-base.yaml; 86 shared + 6 IA-only ADSL
+# columns). Derivations implement the S80 A20ADAE program (Bates
+# 5653940-5653948). One row template drives on SDTM AE, inner-joined
+# to the verified ADSL on (USUBJID, SUBJID), filtered to AETERM
+# present and REMOVEFL <> 'Y' (SUPPAE pivot): 14,479 AE rows ->
+# 13,359 submitted rows (1,081 REMOVEFL='Y' + 29 empty AETERM +
+# 10 non-ADSL subjects). IA ADAE reads NO FACE/FAAE and NO S27 file.
+# Honest gaps: RACESPY, 391 rows (the RACEOTH tail is redacted to
+# '(b)(6)' in SDTM and survives only in the submitted ADAE -- the
+# originals are not guessed; the NUL carries through end-to-end,
+# 0 MULTIPLE-without-RACE6 mismatches); AETERM, 3 space-only NBSP
+# cells (the faithful CLN step leaves two spaces where the submitted
+# value has one); ASTTM/AENTM, 3,052 cells value-correct as times
+# of day (0 time-of-day mismatches) but reported as mismatches
+# because the target stores them as timedelta64 while yamaa's time
+# type yields datetime.time -- a representation gap, not a spec
+# error (see the generator header). TRTEMFL, 160 rows where the
+# program sets SAS ' ' and the submitted file carries '' (emitted
+# as missing, equal under the configured comparison). AEDISFL is
+# all blank (the rule never fires on 3 DS EOS rows / 7 SUPPDS rows
+# for different subjects).
+# See the generator header for the full design notes.
+yamaa: '1.0'
+type: spec
+model: ADaM
+parent: ../../../spec/yamaa/base/adam-base-ia.yaml
+domain: ADAE
+keys:
+- STUDYID
+- USUBJID
+- AESEQ
+input:
+  AE: <sdtm-dir>/ae.parquet
+  SUPPAE: <sdtm-dir>/suppae.parquet
+  HO: <sdtm-dir>/ho.parquet
+  SUPPHO: <sdtm-dir>/suppho.parquet
+  DS: <sdtm-dir>/ds.parquet
+  SUPPDS: <sdtm-dir>/suppds.parquet
+  EX: <sdtm-dir>/ex.parquet
+  SUPPDM: <sdtm-dir>/suppdm.parquet
+  ADSL:
+    path: <adam-dir>/adsl.parquet
+    key:
+    - STUDYID
+    - USUBJID
+submission:
+  label: Adverse Event Analysis Dataset
+  class: OCCURRENCE DATA STRUCTURE
+  structure: One record per subject per adverse event
+  repeating: true
+rows:
+- id: ae_rows
+  dataset: AE
+  derivations:
+    STUDYID: AE.STUDYID
+    USUBJID: AE.USUBJID
+    _AESEQ: AE.AESEQ
+    _AESOFL: SUPP_AE.AESOFL
+    _MAAEFL: SUPP_AE.MAAEFL
+    _AECVDIAG: SUPP_AE.AECVDIAG
+    _AEHOSPST: SUPP_AE.AEHOSPST
+    _AEHOSPEN: SUPP_AE.AEHOSPEN
+    _AEOUTSP: SUPP_AE.AEOUTSP
+    _REMOVEFL: SUPP_AE.REMOVEFL
+    _HOSPIDX: SUPP_AE.HOSPIDX
+    _AEGRPID: AE.AEGRPID
+  filter: _ADSL IS NOT NULL AND AE.AETERM IS NOT NULL AND AE.AETERM NOT IN ('') AND (_REMOVEFL IS NULL OR _REMOVEFL NOT IN ('Y'))
+intermediates:
+- id: SUPP_AE
+  dataset: SUPPAE
+  key:
+    STUDYID: STUDYID
+    USUBJID: USUBJID
+    IDVARVAL:
+      str_decimal:
+        source: _AESEQ
+        decimals: 0
+  filter: SUPPAE.QNAM IN ('AESOFL', 'MAAEFL', 'AECVDIAG', 'AEHOSPST', 'AEHOSPEN', 'AEOUTSP', 'REMOVEFL', 'HOSPIDX') AND SUPPAE.IDVAR = 'AESEQ'
+  pivot:
+    name: QNAM
+    value: QVAL
+    fields:
+    - AESOFL
+    - MAAEFL
+    - AECVDIAG
+    - AEHOSPST
+    - AEHOSPEN
+    - AEOUTSP
+    - REMOVEFL
+    - HOSPIDX
+- id: SUPP_HO
+  dataset: SUPPHO
+  key:
+    STUDYID: HO.STUDYID
+    USUBJID: HO.USUBJID
+    IDVARVAL:
+      str_decimal:
+        source: HO.HOSEQ
+        decimals: 0
+  filter: SUPPHO.QNAM = 'HOSPIDX' AND SUPPHO.IDVAR = 'HOSEQ'
+  pivot:
+    name: QNAM
+    value: QVAL
+    fields:
+    - HOSPIDX
+- id: HO_ICU
+  dataset: HO
+  key:
+    STUDYID: STUDYID
+    USUBJID: USUBJID
+    SUBJID: SUBJID
+    HOSPIDX: _HOSPIDX
+  filter: HO.HODECOD = 'ICU' AND HO.HOOCCUR = 'Y'
+  order_by:
+  - variable: HO.HODUR
+    direction: desc
+  - variable: HO.HOOCCUR
+    direction: desc
+  - variable: HO.HODECOD
+    direction: desc
+  keep: first
+  derivations:
+    HOSPIDX: SUPP_HO.HOSPIDX
+- id: SUPP_DS
+  dataset: SUPPDS
+  key:
+    STUDYID: DS.STUDYID
+    USUBJID: DS.USUBJID
+    IDVARVAL:
+      str_decimal:
+        source: DS.DSSEQ
+        decimals: 0
+  filter: SUPPDS.QNAM = 'AESPIDX' AND SUPPDS.IDVAR = 'DSSEQ'
+  pivot:
+    name: QNAM
+    value: QVAL
+    fields:
+    - AESPIDX
+- id: DS_EOS
+  dataset: DS
+  key:
+  - STUDYID
+  - USUBJID
+  - SUBJID
+  filter: DS.DSDECOD IN ('SAE', 'AE', 'ADVERSE EVENT', 'SERIOUS ADVERSE EVENT') AND DS.DSSCAT = 'END OF STUDY'
+  derivations:
+    AESPIDX: SUPP_DS.AESPIDX
+- id: EX_DOSE1
+  dataset: EX
+  key:
+  - STUDYID
+  - USUBJID
+  filter: EX.VISIT IS NOT NULL AND str_contains(EX.VISIT, '[Dd][Aa][Yy] 1( |$)')
+  order_by: [EX.EXSTDTC]
+  keep: first
+- id: EX_DOSE2
+  dataset: EX
+  key:
+  - STUDYID
+  - USUBJID
+  filter: EX.VISIT IS NOT NULL AND str_contains(EX.VISIT, '[Dd][Aa][Yy] 29')
+  order_by: [EX.EXSTDTC]
+  keep: first
+- id: SUPP_DM
+  dataset: SUPPDM
+  key:
+  - STUDYID
+  - USUBJID
+  filter: SUPPDM.QNAM IN ('RACE1', 'RACE2', 'RACE3', 'RACE4', 'RACE5', 'RACE6', 'RACEOTH')
+  pivot:
+    name: QNAM
+    value: QVAL
+    fields:
+    - RACE1
+    - RACE2
+    - RACE3
+    - RACE4
+    - RACE5
+    - RACE6
+    - RACEOTH
+windows:
+  ADURN_W:
+    group_by: [USUBJID, SUBJID, MDOSREF, _FLAGFL, AEDECOD]
+    order_by:
+    - ADURSDT
+    - ADUREDT
+columns:
+- name: _ADSL
+  type: str
+  derivation: ADSL.USUBJID
+- name: STUDYID
+  submission:
+    origins:
+    - type: Derived
+    method: "Withheld from publication: the received define states this text."
+- name: USUBJID
+  submission:
+    origins:
+    - type: Derived
+    method: "Withheld from publication: the received define states this text."
+- name: _AESEQ
+  type: float
+- name: _AESOFL
+  type: str
+- name: _MAAEFL
+  type: str
+- name: _AECVDIAG
+  type: str
+- name: _AEHOSPST
+  type: str
+- name: _AEHOSPEN
+  type: str
+- name: _AEOUTSP
+  type: str
+- name: _REMOVEFL
+  type: str
+- name: _HOSPIDX
+  type: str
+- name: _AEGRPID
+  type: str
+- name: _AST_TIME
+  type: str
+  derivation:
+    str_extract:
+      source: AE.AESTDTC
+      pattern: 'T([0-9]{2}:[0-9]{2})'
+      group: 1
+      no_match: ''
+- name: _AST_DATE
+  type: str
+  derivation:
+    str_substr:
+      source: AE.AESTDTC
+      start: 1
+      length: 10
+- name: _ASTDT_TXT
+  type: str
+  derivation:
+    case:
+    - when: _AST_TIME IS NOT NULL AND _AST_TIME NOT IN ('')
+      then:
+        str_template:
+          template: '{_AST_DATE}T{_AST_TIME}'
+          missing: ''
+    - otherwise: _AST_DATE
+- name: _AEN_TIME
+  type: str
+  derivation:
+    str_extract:
+      source: AE.AEENDTC
+      pattern: 'T([0-9]{2}:[0-9]{2})'
+      group: 1
+      no_match: ''
+- name: _AEN_DATE
+  type: str
+  derivation:
+    str_substr:
+      source: AE.AEENDTC
+      start: 1
+      length: 10
+- name: _AENDT_TXT
+  type: str
+  derivation:
+    case:
+    - when: _AEN_TIME IS NOT NULL AND _AEN_TIME NOT IN ('')
+      then:
+        str_template:
+          template: '{_AEN_DATE}T{_AEN_TIME}'
+          missing: ''
+    - otherwise: _AEN_DATE
+- name: _TR01EDT_P27
+  type: date
+  derivation:
+    shift:
+      type: date
+      source: ADSL.TR01EDT
+      days: 27
+- name: _END_OK
+  type: int
+  derivation:
+    case:
+    - when: (AENDT IS NULL OR (ADSL.TR01SDTM IS NOT NULL AND AENDTM IS NOT NULL AND ADSL.TR01SDTM <= AENDTM) OR (ADSL.TR01SDT IS NOT NULL AND AENDT IS NOT NULL AND ADSL.TR01SDT < AENDT) OR (AENDTM IS NULL AND ADSL.TR01SDT IS NOT NULL AND AENDT IS NOT NULL AND ADSL.TR01SDT = AENDT))
+      then: 1
+    - otherwise: 0
+- name: _S_D1
+  type: float
+  derivation:
+    diff:
+      type: datetime
+      start: ADSL.TR01SDTM
+      end: ASTDTM
+      unit: day
+- name: _S_D2
+  type: float
+  derivation:
+    diff:
+      type: datetime
+      start: ADSL.DOS2DTM
+      end: ASTDTM
+      unit: day
+- name: _S_DT1
+  type: int
+  derivation:
+    diff:
+      type: date
+      start: ADSL.TR01SDT
+      end: ASTDT
+      unit: day
+- name: _S_DT2
+  type: int
+  derivation:
+    diff:
+      type: date
+      start: ADSL.DOSE2DT
+      end: ASTDT
+      unit: day
+- name: _E_D1
+  type: float
+  derivation:
+    diff:
+      type: datetime
+      start: ADSL.TR01SDTM
+      end: AENDTM
+      unit: day
+- name: _E_D2
+  type: float
+  derivation:
+    diff:
+      type: datetime
+      start: ADSL.DOS2DTM
+      end: AENDTM
+      unit: day
+- name: _E_DT1
+  type: int
+  derivation:
+    diff:
+      type: date
+      start: ADSL.TR01SDT
+      end: AENDT
+      unit: day
+- name: _E_DT2
+  type: int
+  derivation:
+    diff:
+      type: date
+      start: ADSL.DOSE2DT
+      end: AENDT
+      unit: day
+- name: _MDOSREF_RAW
+  type: str
+  derivation:
+    case:
+    - when: ADSL.TR01SDTM IS NOT NULL AND ASTDTM IS NOT NULL AND ADSL.TR01SDTM <= ASTDTM AND ((ADSL.DOS2DTM IS NOT NULL AND ASTDTM < ADSL.DOS2DTM) OR ADSL.DOSE2DT IS NULL OR (ASTDT IS NOT NULL AND ADSL.DOSE2DT IS NOT NULL AND ASTDT < ADSL.DOSE2DT))
+      then: '''Vaccination 1'''
+    - when: (ADSL.TR01SDTM IS NULL OR ASTDTM IS NULL) AND ((ADSL.DOSE2DT IS NULL AND ADSL.TR01SDT IS NOT NULL AND ASTDT IS NOT NULL AND ADSL.TR01SDT <= ASTDT) OR (ADSL.TR01SDT IS NOT NULL AND ASTDT IS NOT NULL AND ADSL.TR01SDT <= ASTDT AND ADSL.DOSE2DT IS NOT NULL AND ASTDT < ADSL.DOSE2DT))
+      then: '''Vaccination 1'''
+    - when: ADSL.DOS2DTM IS NOT NULL AND ASTDTM IS NOT NULL AND ADSL.DOS2DTM <= ASTDTM
+      then: '''Vaccination 2'''
+    - when: (ASTDTM IS NULL OR ADSL.DOS2DTM IS NULL) AND ADSL.DOSE2DT IS NOT NULL AND ASTDT IS NOT NULL AND ADSL.DOSE2DT <= ASTDT
+      then: '''Vaccination 2'''
+- name: _MRDSTDY_RAW
+  type: int
+  derivation:
+    case:
+    - when: ADSL.TR01SDTM IS NOT NULL AND ASTDTM IS NOT NULL AND ADSL.TR01SDTM <= ASTDTM AND ((ADSL.DOS2DTM IS NOT NULL AND ASTDTM < ADSL.DOS2DTM) OR ADSL.DOSE2DT IS NULL OR (ASTDT IS NOT NULL AND ADSL.DOSE2DT IS NOT NULL AND ASTDT < ADSL.DOSE2DT))
+      then: FLOOR(_S_D1 + 1)
+    - when: (ADSL.TR01SDTM IS NULL OR ASTDTM IS NULL) AND ((ADSL.DOSE2DT IS NULL AND ADSL.TR01SDT IS NOT NULL AND ASTDT IS NOT NULL AND ADSL.TR01SDT <= ASTDT) OR (ADSL.TR01SDT IS NOT NULL AND ASTDT IS NOT NULL AND ADSL.TR01SDT <= ASTDT AND ADSL.DOSE2DT IS NOT NULL AND ASTDT < ADSL.DOSE2DT))
+      then: _S_DT1 + 1
+    - when: ADSL.DOS2DTM IS NOT NULL AND ASTDTM IS NOT NULL AND ADSL.DOS2DTM <= ASTDTM
+      then: FLOOR(_S_D2 + 1)
+    - when: (ASTDTM IS NULL OR ADSL.DOS2DTM IS NULL) AND ADSL.DOSE2DT IS NOT NULL AND ASTDT IS NOT NULL AND ADSL.DOSE2DT <= ASTDT
+      then: _S_DT2 + 1
+- name: _MRDENDY_RAW
+  type: int
+  derivation:
+    case:
+    - when: ADSL.TR01SDTM IS NOT NULL AND AENDTM IS NOT NULL AND ADSL.TR01SDTM <= AENDTM AND ((ADSL.DOS2DTM IS NOT NULL AND AENDTM < ADSL.DOS2DTM) OR ADSL.DOSE2DT IS NULL OR (AENDT IS NOT NULL AND ADSL.DOSE2DT IS NOT NULL AND AENDT < ADSL.DOSE2DT))
+      then: FLOOR(_E_D1 + 1)
+    - when: (ADSL.TR01SDTM IS NULL OR AENDTM IS NULL) AND ((ADSL.DOSE2DT IS NULL AND ADSL.TR01SDT IS NOT NULL AND AENDT IS NOT NULL AND ADSL.TR01SDT <= AENDT) OR (ADSL.TR01SDT IS NOT NULL AND AENDT IS NOT NULL AND ADSL.TR01SDT <= AENDT AND ADSL.DOSE2DT IS NOT NULL AND AENDT < ADSL.DOSE2DT))
+      then: _E_DT1 + 1
+    - when: MDOSREF = 'Vaccination 1' AND ADSL.TR01SDTM IS NOT NULL AND AENDTM IS NOT NULL AND ADSL.TR01SDTM <= AENDTM
+      then: FLOOR(_E_D1 + 1)
+    - when: MDOSREF = 'Vaccination 1' AND ADSL.TR01SDT IS NOT NULL AND AENDT IS NOT NULL AND ADSL.TR01SDT <= AENDT AND AENDTM IS NULL
+      then: _E_DT1 + 1
+    - when: ADSL.DOS2DTM IS NOT NULL AND AENDTM IS NOT NULL AND ADSL.DOS2DTM <= AENDTM
+      then: FLOOR(_E_D2 + 1)
+    - when: (AENDTM IS NULL OR ADSL.DOS2DTM IS NULL) AND ADSL.DOSE2DT IS NOT NULL AND AENDT IS NOT NULL AND ADSL.DOSE2DT <= AENDT
+      then: _E_DT2 + 1
+- name: _EXTRT1_UP
+  type: str
+  derivation:
+    str_case:
+      source: EX_DOSE1.EXTRT
+      to: upper
+- name: _EXTRT2_UP
+  type: str
+  derivation:
+    str_case:
+      source: EX_DOSE2.EXTRT
+      to: upper
+- name: _ASEV_PROP
+  type: str
+  derivation:
+    str_case:
+      source: AE.AESEV
+      to: title
+- name: _AE_GRP
+  type: str
+  derivation:
+    str_template:
+      template: 'AE-{_AEGRPID}'
+      missing: ''
+- name: _AESPIDX1
+  type: str
+  derivation:
+    str_extract:
+      source: DS_EOS.AESPIDX
+      pattern: '^([^,]*)'
+      group: 1
+      no_match: ''
+- name: _AESPIDX2
+  type: str
+  derivation:
+    str_extract:
+      source: DS_EOS.AESPIDX
+      pattern: '^[^,]*,([^,]*)'
+      group: 1
+      no_match: ''
+- name: _RACE1
+  type: str
+  derivation: SUPP_DM.RACE1
+- name: _RACE2
+  type: str
+  derivation: SUPP_DM.RACE2
+- name: _RACE3
+  type: str
+  derivation: SUPP_DM.RACE3
+- name: _RACE4
+  type: str
+  derivation: SUPP_DM.RACE4
+- name: _RACE5
+  type: str
+  derivation: SUPP_DM.RACE5
+- name: _RACE6
+  type: str
+  derivation: SUPP_DM.RACE6
+- name: _RACEOTH
+  type: str
+  derivation: SUPP_DM.RACEOTH
+- name: _RACE1M
+  type: str
+  derivation:
+    case:
+    - when: _RACE1 = 'WHITE'
+      then: '''White'''
+- name: _RACE2M
+  type: str
+  derivation:
+    case:
+    - when: _RACE2 = 'BLACK OR AFRICAN AMERICAN'
+      then: '''Black or African American'''
+- name: _RACE3M
+  type: str
+  derivation:
+    case:
+    - when: _RACE3 = 'ASIAN'
+      then: '''Asian'''
+- name: _RACE4M
+  type: str
+  derivation:
+    case:
+    - when: _RACE4 = 'AMERICAN INDIAN OR ALASKA NATIVE'
+      then: '''American Indian or Alaska Native'''
+- name: _RACE5M
+  type: str
+  derivation:
+    case:
+    - when: _RACE5 = 'NATIVE HAWAIIAN OR OTHER PACIFIC ISLANDER'
+      then: '''Native Hawaiian or other Pacific Islander'''
+- name: _RACE6M
+  type: str
+  derivation:
+    case:
+    - when: _RACE6 = 'OTHER' AND _RACEOTH IS NOT NULL AND _RACEOTH NOT IN ('')
+      then:
+        str_template:
+          template: 'Other: {_RACEOTH}'
+          missing: ''
+    - when: _RACE6 = 'OTHER'
+      then: '''Other'''
+- name: _S1
+  type: str
+  derivation:
+    _RACE1M
+- name: _S2
+  type: str
+  derivation:
+    case:
+    - when: _S1 IS NOT NULL AND _S1 NOT IN ('') AND _RACE2M IS NOT NULL AND _RACE2M NOT IN ('')
+      then:
+        str_template:
+          template: '{_S1}, {_RACE2M}'
+          missing: ''
+    - when: _S1 IS NOT NULL AND _S1 NOT IN ('')
+      then: _S1
+    - when: _RACE2M IS NOT NULL AND _RACE2M NOT IN ('')
+      then: _RACE2M
+- name: _S3
+  type: str
+  derivation:
+    case:
+    - when: _S2 IS NOT NULL AND _S2 NOT IN ('') AND _RACE3M IS NOT NULL AND _RACE3M NOT IN ('')
+      then:
+        str_template:
+          template: '{_S2}, {_RACE3M}'
+          missing: ''
+    - when: _S2 IS NOT NULL AND _S2 NOT IN ('')
+      then: _S2
+    - when: _RACE3M IS NOT NULL AND _RACE3M NOT IN ('')
+      then: _RACE3M
+- name: _S4
+  type: str
+  derivation:
+    case:
+    - when: _S3 IS NOT NULL AND _S3 NOT IN ('') AND _RACE4M IS NOT NULL AND _RACE4M NOT IN ('')
+      then:
+        str_template:
+          template: '{_S3}, {_RACE4M}'
+          missing: ''
+    - when: _S3 IS NOT NULL AND _S3 NOT IN ('')
+      then: _S3
+    - when: _RACE4M IS NOT NULL AND _RACE4M NOT IN ('')
+      then: _RACE4M
+- name: _S5
+  type: str
+  derivation:
+    case:
+    - when: _S4 IS NOT NULL AND _S4 NOT IN ('') AND _RACE5M IS NOT NULL AND _RACE5M NOT IN ('')
+      then:
+        str_template:
+          template: '{_S4}, {_RACE5M}'
+          missing: ''
+    - when: _S4 IS NOT NULL AND _S4 NOT IN ('')
+      then: _S4
+    - when: _RACE5M IS NOT NULL AND _RACE5M NOT IN ('')
+      then: _RACE5M
+- name: _S
+  type: str
+  derivation:
+    case:
+    - when: _S5 IS NOT NULL AND _S5 NOT IN ('') AND _RACE6M IS NOT NULL AND _RACE6M NOT IN ('')
+      then:
+        str_template:
+          template: '{_S5}, {_RACE6M}'
+          missing: ''
+    - when: _S5 IS NOT NULL AND _S5 NOT IN ('')
+      then: _S5
+    - when: _RACE6M IS NOT NULL AND _RACE6M NOT IN ('')
+      then: _RACE6M
+- name: _RACESPY_TAIL
+  type: str
+  derivation:
+    str_substr:
+      source: _S
+      start: 8
+- name: _FLAGFL
+  type: str
+  derivation:
+    case:
+    - when: SMQ01FL = 'Y' OR ANL01FL = 'Y'
+      then: '''Y'''
+    - otherwise: '''N'''
+- name: _DUR_OK
+  type: int
+  derivation:
+    case:
+    - when: ADURSDT IS NOT NULL
+      then: 1
+    - otherwise: 0
+- name: _RN
+  type: int
+  derivation:
+    row_number:
+      window: ADURN_W
+- name: _RETAINSDT_PREV
+  type: date
+  derivation:
+    row_value:
+      source: _RETAINSDT
+      offset: -1
+      window: ADURN_W
+- name: _RETAINEDT_PREV
+  type: date
+  derivation:
+    row_value:
+      source: _RETAINEDT
+      offset: -1
+      window: ADURN_W
+- name: _DELDY_PREV
+  type: int
+  derivation:
+    row_value:
+      source: _DELDY
+      offset: -1
+      window: ADURN_W
+- name: _ADURSDT_PREV
+  type: date
+  derivation:
+    row_value:
+      source: ADURSDT
+      offset: -1
+      window: ADURN_W
+- name: _ADUREDT_PREV
+  type: date
+  derivation:
+    row_value:
+      source: ADUREDT
+      offset: -1
+      window: ADURN_W
+- name: _RETAINSDT
+  type: date
+  derivation:
+    case:
+    - when: _RN = 1 AND _FLAGFL = 'Y'
+      then: ADURSDT
+    - when: _RETAINSDT_PREV IS NOT NULL
+      then: _RETAINSDT_PREV
+- name: _RETAINEDT
+  type: date
+  derivation:
+    case:
+    - when: _RN = 1 AND _FLAGFL = 'Y'
+      then: ADUREDT
+    - when: ADUREDT IS NOT NULL AND _RETAINEDT_PREV IS NOT NULL AND ADUREDT > _RETAINEDT_PREV
+      then: ADUREDT
+    - when: _RETAINEDT_PREV IS NOT NULL
+      then: _RETAINEDT_PREV
+- name: _GAP_DAYS
+  type: int
+  derivation:
+    diff:
+      type: date
+      start: _RETAINEDT_PREV
+      end: ADURSDT
+      unit: day
+- name: _DELDY
+  type: int
+  derivation:
+    case:
+    - when: _RN = 1
+      then: 0
+    - when: _DELDY_PREV IS NOT NULL AND _GAP_DAYS IS NOT NULL AND _GAP_DAYS > 1 AND NOT (_ADURSDT_PREV IS NOT NULL AND _ADUREDT_PREV IS NOT NULL AND ADURSDT IS NOT NULL AND ADURSDT >= _ADURSDT_PREV AND ADURSDT <= _ADUREDT_PREV)
+      then: _DELDY_PREV + _GAP_DAYS - 1
+    - when: _DELDY_PREV IS NOT NULL
+      then: _DELDY_PREV
+- name: _SPAN_DAYS
+  type: int
+  derivation:
+    diff:
+      type: date
+      start: _RETAINSDT
+      end: _RETAINEDT
+      unit: day
+      closed: both
+- name: _ADURN_INT
+  type: int
+  derivation:
+    case:
+    - when: _SPAN_DAYS IS NOT NULL AND _DELDY IS NOT NULL
+      then: _SPAN_DAYS - _DELDY
+- name: _RETAIN_ADURN
+  type: int
+  derivation:
+    aggregate:
+      group_by: [USUBJID, SUBJID, MDOSREF, AEDECOD]
+      expr: MAX(_ADURN_INT)
+- name: _ALL_PRESENT
+  type: int
+  derivation:
+    aggregate:
+      group_by: [USUBJID, SUBJID, MDOSREF, AEDECOD]
+      expr: MIN(_DUR_OK)
+- name: SUBJID
+  derivation: ADSL.SUBJID
+  submission:
+    origins:
+    - type: Predecessor
+      description: ADSL.SUBJID
+- name: SITEID
+  derivation: ADSL.SITEID
+  submission:
+    origins:
+    - type: Predecessor
+      description: ADSL.SITEID
+- name: COUNTRY
+  derivation: ADSL.COUNTRY
+  submission:
+    origins:
+    - type: Predecessor
+      description: ADSL.COUNTRY
+- name: AGE
+  derivation: ADSL.AGE
+  submission:
+    origins:
+    - type: Predecessor
+      description: ADSL.AGE
+- name: AGEU
+  derivation: ADSL.AGEU
+  submission:
+    mandatory: false
+    origins:
+    - type: Predecessor
+      description: ADSL.AGEU
+- name: STRATAR
+  derivation: ADSL.STRATAR
+  submission:
+    mandatory: false
+    origins:
+    - type: Predecessor
+      description: ADSL.STRATAR
+- name: STRATARN
+  derivation: ADSL.STRATARN
+  submission:
+    origins:
+    - type: Predecessor
+      description: ADSL.STRATARN
+- name: AGEGR1
+  derivation: ADSL.AGEGR1
+  submission:
+    origins:
+    - type: Predecessor
+      description: ADSL.AGEGR1
+- name: AGEGR1N
+  derivation: ADSL.AGEGR1N
+  submission:
+    mandatory: false
+    origins:
+    - type: Predecessor
+      description: ADSL.AGEGR1N
+- name: AGEGR2
+  derivation: ADSL.AGEGR2
+  submission:
+    mandatory: false
+    origins:
+    - type: Predecessor
+      description: ADSL.AGEGR2
+- name: AGEGR2N
+  derivation: ADSL.AGEGR2N
+  submission:
+    mandatory: false
+    origins:
+    - type: Predecessor
+      description: ADSL.AGEGR2N
+- name: SEX
+  derivation: ADSL.SEX
+  submission:
+    mandatory: false
+    origins:
+    - type: Predecessor
+      description: ADSL.SEX
+- name: RACE
+  derivation: ADSL.RACE
+  submission:
+    mandatory: false
+    origins:
+    - type: Predecessor
+      description: ADSL.RACE
+- name: ETHNIC
+  derivation: ADSL.ETHNIC
+  submission:
+    mandatory: false
+    origins:
+    - type: Predecessor
+      description: ADSL.ETHNIC
+- name: RANDFL
+  derivation: ADSL.RANDFL
+  submission:
+    mandatory: false
+    origins:
+    - type: Predecessor
+      description: ADSL.RANDFL
+- name: FASFL
+  derivation: ADSL.FASFL
+  submission:
+    origins:
+    - type: Predecessor
+      description: ADSL.FASFL
+- name: SAFFL
+  derivation: ADSL.SAFFL
+  submission:
+    origins:
+    - type: Predecessor
+      description: ADSL.SAFFL
+- name: SAR1FL
+  derivation: ADSL.SAR1FL
+  submission:
+    origins:
+    - type: Predecessor
+      description: ADSL.SAR1FL
+- name: SAR2FL
+  derivation: ADSL.SAR2FL
+  submission:
+    origins:
+    - type: Predecessor
+      description: ADSL.SAR2FL
+- name: SARAFL
+  derivation: ADSL.SARAFL
+  submission:
+    origins:
+    - type: Predecessor
+      description: ADSL.SARAFL
+- name: MITTFL
+  derivation: ADSL.MITTFL
+  submission:
+    origins:
+    - type: Predecessor
+      description: ADSL.MITTFL
+- name: PPROTFL
+  derivation: ADSL.PPROTFL
+  submission:
+    origins:
+    - type: Predecessor
+      description: ADSL.PPROTFL
+- name: COMPLFL
+  derivation: ADSL.COMPLFL
+  submission:
+    origins:
+    - type: Predecessor
+      description: ADSL.COMPLFL
+- name: DOSE1FL
+  derivation: ADSL.DOSE1FL
+  submission:
+    mandatory: false
+    origins:
+    - type: Predecessor
+      description: ADSL.DOSE1FL
+- name: DOSE2FL
+  derivation: ADSL.DOSE2FL
+  submission:
+    origins:
+    - type: Predecessor
+      description: ADSL.DOSE2FL
+- name: ELECSBL
+  derivation: ADSL.ELECSBL
+  submission:
+    origins:
+    - type: Predecessor
+      description: ADSL.ELECSBL
+- name: SCOV2BL
+  derivation: ADSL.SCOV2BL
+  submission:
+    origins:
+    - type: Predecessor
+      description: ADSL.SCOV2BL
+- name: TRT01P
+  derivation: ADSL.TRT01P
+  submission:
+    origins:
+    - type: Predecessor
+      description: ADSL.TRT01P
+- name: TRT01PN
+  derivation: ADSL.TRT01PN
+  submission:
+    origins:
+    - type: Predecessor
+      description: ADSL.TRT01PN
+- name: TRT01A
+  derivation: ADSL.TRT01A
+  submission:
+    origins:
+    - type: Predecessor
+      description: ADSL.TRT01A
+- name: TRT01AN
+  derivation: ADSL.TRT01AN
+  submission:
+    origins:
+    - type: Predecessor
+      description: ADSL.TRT01AN
+- name: TR01SDT
+  derivation: ADSL.TR01SDT
+  submission:
+    origins:
+    - type: Predecessor
+      description: ADSL.TR01SDT
+- name: TR01SDTM
+  derivation: ADSL.TR01SDTM
+  submission:
+    origins:
+    - type: Predecessor
+      description: ADSL.TR01SDTM
+- name: TR01EDT
+  derivation: ADSL.TR01EDT
+  submission:
+    origins:
+    - type: Predecessor
+      description: ADSL.TR01EDT
+- name: TR01EDTM
+  derivation: ADSL.TR01EDTM
+  submission:
+    origins:
+    - type: Predecessor
+      description: ADSL.TR01EDTM
+- name: DOSE2DT
+  derivation: ADSL.DOSE2DT
+  submission:
+    origins:
+    - type: Predecessor
+      description: ADSL.DOSE2DT
+- name: DOS2DTM
+  derivation: ADSL.DOS2DTM
+  submission:
+    origins:
+    - type: Predecessor
+      description: ADSL.DOS2DTM
+- name: RSKF1
+  derivation: ADSL.RSKF1
+  submission:
+    origins:
+    - type: Predecessor
+      description: ADSL.RSKF1
+- name: RSKF2
+  derivation: ADSL.RSKF2
+  submission:
+    origins:
+    - type: Predecessor
+      description: ADSL.RSKF2
+- name: RSKF3
+  derivation: ADSL.RSKF3
+  submission:
+    origins:
+    - type: Predecessor
+      description: ADSL.RSKF3
+- name: RSKF4
+  derivation: ADSL.RSKF4
+  submission:
+    origins:
+    - type: Predecessor
+      description: ADSL.RSKF4
+- name: RSKF5
+  derivation: ADSL.RSKF5
+  submission:
+    origins:
+    - type: Predecessor
+      description: ADSL.RSKF5
+- name: RSKF6
+  derivation: ADSL.RSKF6
+  submission:
+    origins:
+    - type: Predecessor
+      description: ADSL.RSKF6
+- name: STRATAV
+  derivation: ADSL.STRATAV
+  submission:
+    origins:
+    - type: Predecessor
+      description: ADSL.STRATAV
+- name: STRATAVN
+  derivation: ADSL.STRATAVN
+  submission:
+    origins:
+    - type: Predecessor
+      description: ADSL.STRATAVN
+- name: MINORITY
+  derivation: ADSL.MINORITY
+  submission:
+    origins:
+    - type: Predecessor
+      description: ADSL.MINORITY
+- name: RACEGR1
+  derivation: ADSL.RACEGR1
+  submission:
+    mandatory: false
+    origins:
+    - type: Predecessor
+      description: ADSL.RACEGR1
+- name: RACEGR1N
+  derivation: ADSL.RACEGR1N
+  submission:
+    mandatory: false
+    origins:
+    - type: Predecessor
+      description: ADSL.RACEGR1N
+- name: RISKGR1
+  derivation: ADSL.RISKGR1
+  submission:
+    origins:
+    - type: Predecessor
+      description: ADSL.RISKGR1
+- name: RISKGR1N
+  derivation: ADSL.RISKGR1N
+  submission:
+    origins:
+    - type: Predecessor
+      description: ADSL.RISKGR1N
+- name: RETHGR1
+  derivation: ADSL.RETHGR1
+  submission:
+    origins:
+    - type: Predecessor
+      description: ADSL.RETHGR1
+- name: RETHGR1N
+  derivation: ADSL.RETHGR1N
+  submission:
+    origins:
+    - type: Predecessor
+      description: ADSL.RETHGR1N
+- name: ACTARM
+  derivation: null
+- name: ARM
+  derivation: null
+- name: BMIBL
+  derivation: null
+- name: CBNRS
+  derivation: null
+- name: CHILDBP
+  derivation: null
+- name: CUTOFFDT
+  derivation: null
+- name: DCSREAS
+  derivation: null
+- name: DCSREASP
+  derivation: null
+- name: DCTREAS
+  derivation: null
+- name: DCTREASP
+  derivation: null
+- name: DTHAUTOP
+  derivation: null
+- name: DTHDT
+  derivation: null
+- name: EFFCODT
+  derivation: null
+- name: EOSDT
+  derivation: null
+- name: EOSDY
+  derivation: null
+- name: EOSSTT
+  derivation: null
+- name: EOTDT
+  derivation: null
+- name: EOTDY
+  derivation: null
+- name: EOTSTT
+  derivation: null
+- name: FASEREAS
+  derivation: null
+- name: HEIGHTBL
+  derivation: null
+- name: MITTERS
+  derivation: null
+- name: PPEREAS
+  derivation: null
+- name: PREVSCR
+  derivation: null
+- name: PROTVER
+  derivation: null
+- name: RANDDT
+  derivation: null
+- name: RANDNUM
+  derivation: null
+- name: RFICDT
+  derivation: null
+- name: RFXSTDTC
+  derivation: null
+- name: RTPCRBL
+  derivation: null
+- name: SAFEREAS
+  derivation: null
+- name: SAR1ERS
+  derivation: null
+- name: SAR2ERS
+  derivation: null
+- name: STUDDUR1
+  derivation: null
+- name: STUDDUR2
+  derivation: null
+- name: STUDDUR3
+  derivation: null
+- name: WEIGHTBL
+  derivation: null
+- name: AELNKGRP
+  type: str
+  label: 'Link Group ID'
+  derivation: AE.AELNKGRP
+  submission:
+    core: Perm
+    mandatory: false
+    length: 4
+    origins:
+    - type: Predecessor
+      description: 'AE.AELNKGRP'
+- name: AESPID
+  type: str
+  label: 'Sponsor-Defined Identifier'
+  derivation: AE.AESPID
+  submission:
+    core: Perm
+    mandatory: false
+    length: 40
+    origins:
+    - type: Predecessor
+      description: 'AE.AESPID'
+- name: AESEQ
+  type: int
+  label: 'Sequence Number'
+  derivation: AE.AESEQ
+  submission:
+    core: Perm
+    mandatory: true
+    length: 8
+    display_format: '3.'
+    origins:
+    - type: Predecessor
+      description: 'AE.AESEQ'
+- name: AECAT
+  type: str
+  label: 'Category for Adverse Event'
+  derivation: AE.AECAT
+  submission:
+    core: Perm
+    mandatory: false
+    length: 25
+    origins:
+    - type: Predecessor
+      description: 'AE.AECAT'
+- name: AEDECOD
+  type: str
+  label: 'Dictionary-Derived Term'
+  derivation: AE.AEDECOD
+  submission:
+    core: Perm
+    mandatory: false
+    length: 200
+    origins:
+    - type: Predecessor
+      description: 'AE.AEDECOD'
+- name: AEBODSYS
+  type: str
+  label: 'Body System or Organ Class'
+  derivation: AE.AEBODSYS
+  submission:
+    core: Perm
+    mandatory: false
+    length: 200
+    origins:
+    - type: Predecessor
+      description: 'AE.AEBODSYS'
+- name: AEBDSYCD
+  type: int
+  label: 'Body System or Organ Class Code'
+  derivation: AE.AEBDSYCD
+  submission:
+    # SUB-29 (yamaa #4820): numeric widths here fit the derived values. The received
+    # define's Pinnacle 21 widths stay in the reproduced define layer (define/).
+    core: Perm
+    mandatory: false
+    length: 8
+    origins:
+    - type: Predecessor
+      description: 'AE.AEBDSYCD'
+- name: AELLT
+  type: str
+  label: 'Lowest Level Term'
+  derivation: AE.AELLT
+  submission:
+    core: Perm
+    mandatory: false
+    length: 200
+    origins:
+    - type: Predecessor
+      description: 'AE.AELLT'
+- name: AELLTCD
+  type: int
+  label: 'Lowest Level Term Code'
+  derivation: AE.AELLTCD
+  submission:
+    # SUB-29 (yamaa #4820): numeric widths here fit the derived values. The received
+    # define's Pinnacle 21 widths stay in the reproduced define layer (define/).
+    core: Perm
+    mandatory: false
+    length: 8
+    origins:
+    - type: Predecessor
+      description: 'AE.AELLTCD'
+- name: AEPTCD
+  type: int
+  label: 'Preferred Term Code'
+  derivation: AE.AEPTCD
+  submission:
+    # SUB-29 (yamaa #4820): numeric widths here fit the derived values. The received
+    # define's Pinnacle 21 widths stay in the reproduced define layer (define/).
+    core: Perm
+    mandatory: false
+    length: 8
+    origins:
+    - type: Predecessor
+      description: 'AE.AEPTCD'
+- name: AEHLT
+  type: str
+  label: 'High Level Term'
+  derivation: AE.AEHLT
+  submission:
+    core: Perm
+    mandatory: false
+    length: 200
+    origins:
+    - type: Predecessor
+      description: 'AE.AEHLT'
+- name: AEHLTCD
+  type: int
+  label: 'High Level Term Code'
+  derivation: AE.AEHLTCD
+  submission:
+    # SUB-29 (yamaa #4820): numeric widths here fit the derived values. The received
+    # define's Pinnacle 21 widths stay in the reproduced define layer (define/).
+    core: Perm
+    mandatory: false
+    length: 8
+    origins:
+    - type: Predecessor
+      description: 'AE.AEHLTCD'
+- name: AEHLGT
+  type: str
+  label: 'High Level Group Term'
+  derivation: AE.AEHLGT
+  submission:
+    core: Perm
+    mandatory: false
+    length: 200
+    origins:
+    - type: Predecessor
+      description: 'AE.AEHLGT'
+- name: AEHLGTCD
+  type: int
+  label: 'High Level Group Term Code'
+  derivation: AE.AEHLGTCD
+  submission:
+    # SUB-29 (yamaa #4820): numeric widths here fit the derived values. The received
+    # define's Pinnacle 21 widths stay in the reproduced define layer (define/).
+    core: Perm
+    mandatory: false
+    length: 8
+    origins:
+    - type: Predecessor
+      description: 'AE.AEHLGTCD'
+- name: AESOC
+  type: str
+  label: 'Primary System Organ Class'
+  derivation: AE.AESOC
+  submission:
+    core: Perm
+    mandatory: false
+    length: 200
+    origins:
+    - type: Predecessor
+      description: 'AE.AESOC'
+- name: AESOCCD
+  type: int
+  label: 'Primary System Organ Class Code'
+  derivation: AE.AESOCCD
+  submission:
+    # SUB-29 (yamaa #4820): numeric widths here fit the derived values. The received
+    # define's Pinnacle 21 widths stay in the reproduced define layer (define/).
+    core: Perm
+    mandatory: false
+    length: 8
+    origins:
+    - type: Predecessor
+      description: 'AE.AESOCCD'
+- name: AESTDTC
+  type: str
+  label: 'Start Date/Time of Adverse Event'
+  derivation: AE.AESTDTC
+  submission:
+    core: Perm
+    mandatory: false
+    length: 20
+    origins:
+    - type: Predecessor
+      description: 'AE.AESTDTC'
+- name: AEENDTC
+  type: str
+  label: 'End Date/Time of Adverse Event'
+  derivation: AE.AEENDTC
+  submission:
+    core: Perm
+    mandatory: false
+    length: 20
+    origins:
+    - type: Predecessor
+      description: 'AE.AEENDTC'
+- name: AESTDY
+  type: int
+  label: 'Study Day of Start of Adverse Event'
+  derivation: AE.AESTDY
+  submission:
+    core: Perm
+    mandatory: false
+    length: 8
+    display_format: '3.'
+    origins:
+    - type: Predecessor
+      description: 'AE.AESTDY'
+- name: AEENDY
+  type: int
+  label: 'Study Day of End of Adverse Event'
+  derivation: AE.AEENDY
+  submission:
+    core: Perm
+    mandatory: false
+    length: 8
+    display_format: '3.'
+    origins:
+    - type: Predecessor
+      description: 'AE.AEENDY'
+- name: AEENRF
+  type: str
+  label: 'End Relative to Reference Period'
+  derivation: AE.AEENRF
+  submission:
+    core: Perm
+    mandatory: false
+    length: 20
+    origins:
+    - type: Predecessor
+      description: 'AE.AEENRF'
+- name: AEDUR
+  type: str
+  label: 'Duration of Adverse Event'
+  derivation: AE.AEDUR
+  submission:
+    core: Perm
+    mandatory: false
+    length: 20
+    origins:
+    - type: Predecessor
+      description: 'AE.AEDUR'
+- name: AESER
+  type: str
+  label: 'Serious Event'
+  derivation: AE.AESER
+  submission:
+    core: Perm
+    mandatory: false
+    length: 9
+    origins:
+    - type: Predecessor
+      description: 'AE.AESER'
+- name: AESDISAB
+  type: str
+  label: 'Persist or Signif Disability/Incapacity'
+  derivation: AE.AESDISAB
+  submission:
+    core: Perm
+    mandatory: false
+    length: 8
+    origins:
+    - type: Predecessor
+      description: 'AE.AESDISAB'
+- name: AESDTH
+  type: str
+  label: 'Results in Death'
+  derivation: AE.AESDTH
+  submission:
+    core: Perm
+    mandatory: false
+    length: 8
+    origins:
+    - type: Predecessor
+      description: 'AE.AESDTH'
+- name: AESHOSP
+  type: str
+  label: 'Requires or Prolongs Hospitalization'
+  derivation: AE.AESHOSP
+  submission:
+    core: Perm
+    mandatory: false
+    length: 8
+    origins:
+    - type: Predecessor
+      description: 'AE.AESHOSP'
+- name: AESLIFE
+  type: str
+  label: 'Is Life Threatening'
+  derivation: AE.AESLIFE
+  submission:
+    core: Perm
+    mandatory: false
+    length: 8
+    origins:
+    - type: Predecessor
+      description: 'AE.AESLIFE'
+- name: AESMIE
+  type: str
+  label: 'Other Medically Important Serious Event'
+  derivation: AE.AESMIE
+  submission:
+    core: Perm
+    mandatory: false
+    length: 8
+    origins:
+    - type: Predecessor
+      description: 'AE.AESMIE'
+- name: AEREL
+  type: str
+  label: 'Causality'
+  derivation: AE.AEREL
+  submission:
+    core: Perm
+    mandatory: false
+    length: 60
+    origins:
+    - type: Predecessor
+      description: 'AE.AEREL'
+- name: AERELNST
+  type: str
+  label: 'Relationship to Non-Study Treatment'
+  derivation: AE.AERELNST
+  submission:
+    core: Perm
+    mandatory: false
+    length: 25
+    origins:
+    - type: Predecessor
+      description: 'AE.AERELNST'
+- name: AETOXGR
+  type: str
+  label: 'Standard Toxicity Grade'
+  derivation: AE.AETOXGR
+  submission:
+    core: Perm
+    mandatory: false
+    length: 20
+    origins:
+    - type: Predecessor
+      description: 'AE.AETOXGR'
+- name: AESEV
+  type: str
+  label: 'Severity/Intensity'
+  derivation: AE.AESEV
+  submission:
+    core: Perm
+    mandatory: false
+    length: 60
+    origins:
+    - type: Predecessor
+      description: 'AE.AESEV'
+- name: AEACN
+  type: str
+  label: 'Action Taken with Study Treatment'
+  derivation: AE.AEACN
+  submission:
+    core: Perm
+    mandatory: false
+    length: 99
+    origins:
+    - type: Predecessor
+      description: 'AE.AEACN'
+- name: AEACNOTH
+  type: str
+  label: 'Other Action Taken'
+  derivation: AE.AEACNOTH
+  submission:
+    core: Perm
+    mandatory: false
+    length: 200
+    origins:
+    - type: Predecessor
+      description: 'AE.AEACNOTH'
+- name: AEOUT
+  type: str
+  label: 'Outcome of Adverse Event'
+  derivation: AE.AEOUT
+  submission:
+    core: Perm
+    mandatory: false
+    length: 105
+    origins:
+    - type: Predecessor
+      description: 'AE.AEOUT'
+- name: ASTDT
+  type: date
+  label: 'Analysis Start Date'
+  derivation:
+    to_date:
+      source: AE.AESTDTC
+  submission:
+    core: Perm
+    mandatory: false
+    origins:
+    - type: Derived
+    method: "Withheld from publication: the received define states this text."
+- name: ASTDTM
+  type: datetime
+  label: 'Analysis Start Date/Time'
+  derivation:
+    case:
+    - when: _AST_TIME IS NOT NULL AND _AST_TIME NOT IN ('')
+      then:
+        impute:
+          type: datetime
+          source: _ASTDT_TXT
+          time: first
+  submission:
+    core: Perm
+    mandatory: false
+    origins:
+    - type: Derived
+    method: "Withheld from publication: the received define states this text."
+- name: ASTTM
+  type: time
+  label: 'Analysis Start Time'
+  derivation:
+    case:
+    - when: _AST_TIME IS NOT NULL AND _AST_TIME NOT IN ('')
+      then:
+        to_time:
+          source: ASTDTM
+  submission:
+    core: Perm
+    mandatory: false
+    origins:
+    - type: Derived
+    method: "Withheld from publication: the received define states this text."
+- name: AENDT
+  type: date
+  label: 'Analysis End Date'
+  derivation:
+    to_date:
+      source: AE.AEENDTC
+  submission:
+    core: Perm
+    mandatory: false
+    origins:
+    - type: Derived
+    method: "Withheld from publication: the received define states this text."
+- name: AENDTM
+  type: datetime
+  label: 'Analysis End Date/Time'
+  derivation:
+    case:
+    - when: _AEN_TIME IS NOT NULL AND _AEN_TIME NOT IN ('')
+      then:
+        impute:
+          type: datetime
+          source: _AENDT_TXT
+          time: first
+  submission:
+    core: Perm
+    mandatory: false
+    origins:
+    - type: Derived
+    method: "Withheld from publication: the received define states this text."
+- name: AENTM
+  type: time
+  label: 'Analysis End Time'
+  derivation:
+    case:
+    - when: _AEN_TIME IS NOT NULL AND _AEN_TIME NOT IN ('')
+      then:
+        to_time:
+          source: AENDTM
+  submission:
+    core: Perm
+    mandatory: false
+    origins:
+    - type: Derived
+    method: "Withheld from publication: the received define states this text."
+- name: ASTDTF
+  type: str
+  label: 'Analysis Start Date Imputation Flag'
+  derivation:
+    null
+  submission:
+    core: Perm
+    mandatory: false
+    length: 1
+    origins:
+    - type: Assigned
+    method: "Withheld from publication: the received define states this text."
+- name: ASTTMF
+  type: str
+  label: 'Analysis Start Time Imputation Flag'
+  derivation:
+    null
+  submission:
+    core: Perm
+    mandatory: false
+    length: 1
+    origins:
+    - type: Assigned
+    method: "Withheld from publication: the received define states this text."
+- name: ASTDY
+  type: int
+  label: 'Analysis Start Relative Day'
+  derivation:
+    study_day:
+      source: ASTDT
+      reference: ADSL.TR01SDT
+  submission:
+    core: Perm
+    mandatory: false
+    length: 8
+    display_format: '3.'
+    origins:
+    - type: Derived
+    method: "Withheld from publication: the received define states this text."
+- name: ASTAGE
+  type: str
+  label: 'Stage'
+  derivation:
+    case:
+    - when: ADSL.TR01EDT IS NOT NULL AND ASTDT IS NOT NULL AND ASTDT > _TR01EDT_P27
+      then: '''Follow-Up Analysis Period'''
+    - when: _END_OK = 1 AND ADSL.TR01SDTM IS NOT NULL AND ASTDTM IS NOT NULL AND ADSL.TR01SDTM <= ASTDTM AND ((ASTDT IS NOT NULL AND ADSL.TR01EDT IS NOT NULL AND ASTDT <= _TR01EDT_P27) OR ADSL.TR01EDT IS NULL)
+      then: '''Vaccination stage'''
+    - when: _END_OK = 1 AND (ADSL.TR01SDTM IS NULL OR ASTDTM IS NULL) AND ADSL.TR01SDT IS NOT NULL AND ASTDT IS NOT NULL AND ADSL.TR01SDT <= ASTDT AND ((ASTDT IS NOT NULL AND ADSL.TR01EDT IS NOT NULL AND ASTDT <= _TR01EDT_P27) OR ADSL.TR01EDT IS NULL)
+      then: '''Vaccination stage'''
+  submission:
+    core: Req
+    mandatory: false
+    length: 30
+    origins:
+    - type: Derived
+    method: "Withheld from publication: the received define states this text."
+- name: ASTAGEN
+  type: int
+  label: 'Stage (N)'
+  derivation:
+    case:
+    - when: ASTAGE = 'Vaccination stage'
+      then: 1
+    - when: ASTAGE = 'Follow-Up Analysis Period'
+      then: 2
+  submission:
+    core: Req
+    mandatory: false
+    length: 8
+    display_format: '3.'
+    origins:
+    - type: Assigned
+    method: "Withheld from publication: the received define states this text."
+- name: MDOSREF
+  type: str
+  label: 'Most Recent Dose Reference'
+  derivation:
+    case:
+    - when: ASTAGE IS NOT NULL
+      then: _MDOSREF_RAW
+  submission:
+    core: Req
+    mandatory: false
+    length: 50
+    origins:
+    - type: Derived
+    method: "Withheld from publication: the received define states this text."
+- name: MRDSTDY
+  type: int
+  label: 'Relative Start Day from Most Recent Dose'
+  derivation:
+    case:
+    - when: ASTAGE IS NOT NULL
+      then: _MRDSTDY_RAW
+  submission:
+    core: Req
+    mandatory: false
+    length: 8
+    display_format: '3.'
+    origins:
+    - type: Derived
+    method: "Withheld from publication: the received define states this text."
+- name: MRDENDY
+  type: int
+  label: 'Relative End Day from Most Recent Dose'
+  derivation:
+    case:
+    - when: ASTAGE IS NOT NULL AND MDOSREF IS NOT NULL AND MDOSREF NOT IN ('')
+      then: _MRDENDY_RAW
+  submission:
+    core: Perm
+    mandatory: false
+    length: 8
+    display_format: '3.'
+    origins:
+    - type: Derived
+    method: "Withheld from publication: the received define states this text."
+- name: TRTEMFL
+  type: str
+  label: 'Treatment Emergent Analysis Flag'
+  derivation:
+    case:
+    - when: NOT ((AENDTM IS NOT NULL AND ADSL.TR01SDTM IS NOT NULL AND AENDTM < ADSL.TR01SDTM) OR (AENDT IS NOT NULL AND ADSL.TR01SDT IS NOT NULL AND AENDT < ADSL.TR01SDT)) AND ((ADSL.TR01SDTM IS NOT NULL AND ASTDTM IS NOT NULL AND ADSL.TR01SDTM <= ASTDTM) OR (ASTDT IS NULL AND AENDT IS NULL) OR (ASTDT IS NULL AND ADSL.TR01SDTM IS NOT NULL AND AENDTM IS NOT NULL AND ADSL.TR01SDTM <= AENDTM))
+      then: '''Y'''
+    - when: NOT ((AENDTM IS NOT NULL AND ADSL.TR01SDTM IS NOT NULL AND AENDTM < ADSL.TR01SDTM) OR (AENDT IS NOT NULL AND ADSL.TR01SDT IS NOT NULL AND AENDT < ADSL.TR01SDT)) AND (ASTDT IS NULL AND ADSL.TR01SDT IS NOT NULL AND AENDT IS NOT NULL AND ADSL.TR01SDT < AENDT AND AENDTM IS NULL)
+      then: '''Y'''
+    - when: NOT ((AENDTM IS NOT NULL AND ADSL.TR01SDTM IS NOT NULL AND AENDTM < ADSL.TR01SDTM) OR (AENDT IS NOT NULL AND ADSL.TR01SDT IS NOT NULL AND AENDT < ADSL.TR01SDT)) AND ((ADSL.TR01SDTM IS NULL OR ASTDTM IS NULL) AND ADSL.TR01SDT IS NOT NULL AND ASTDT IS NOT NULL AND ADSL.TR01SDT <= ASTDT)
+      then: '''Y'''
+  submission:
+    core: Req
+    mandatory: false
+    length: 1
+    origins:
+    - type: Derived
+    method: "Withheld from publication: the received define states this text."
+- name: D28FL
+  type: str
+  label: 'AE Through 28 Days Analysis Flag'
+  derivation:
+    case:
+    - when: MRDSTDY IS NOT NULL AND MRDSTDY >= 0 AND MRDSTDY <= 28
+      then: '''Y'''
+  submission:
+    core: Req
+    mandatory: false
+    length: 1
+    origins:
+    - type: Derived
+    method: "Withheld from publication: the received define states this text."
+- name: AESOFL
+  type: str
+  label: 'Solicited Adverse Reaction?'
+  derivation:
+    _AESOFL
+  submission:
+    core: Perm
+    mandatory: false
+    length: 1
+    origins:
+    - type: Derived
+    method: "Withheld from publication: the received define states this text."
+- name: AEMAFL
+  type: str
+  label: 'Medically-Attended Flag'
+  derivation:
+    _MAAEFL
+  submission:
+    core: Perm
+    mandatory: false
+    length: 20
+    origins:
+    - type: Derived
+    method: "Withheld from publication: the received define states this text."
+- name: AREL
+  type: str
+  label: 'Analysis Causality'
+  derivation:
+    AE.AEREL
+  submission:
+    core: Perm
+    mandatory: false
+    length: 20
+    origins:
+    - type: Derived
+    method: "Withheld from publication: the received define states this text."
+- name: ARELN
+  type: int
+  label: 'Analysis Causality (N)'
+  derivation:
+    case:
+    - when: AREL = 'NOT RELATED'
+      then: 1
+    - when: AREL = 'RELATED'
+      then: 2
+    - when: AREL = 'NOT APPLICABLE'
+      then: 3
+  submission:
+    core: Perm
+    mandatory: false
+    length: 8
+    display_format: '3.'
+    origins:
+    - type: Assigned
+    method: "Withheld from publication: the received define states this text."
+- name: ATOXGR
+  type: str
+  label: 'Analysis Toxicity Grade'
+  derivation:
+    case:
+    - when: AE.AETOXGR = '1'
+      then: '''Grade 1'''
+    - when: AE.AETOXGR = '2'
+      then: '''Grade 2'''
+    - when: AE.AETOXGR = '3'
+      then: '''Grade 3'''
+    - when: AE.AETOXGR = '4'
+      then: '''Grade 4'''
+  submission:
+    core: Perm
+    mandatory: false
+    length: 20
+    origins:
+    - type: Derived
+    method: "Withheld from publication: the received define states this text."
+- name: ATOXGRN
+  type: int
+  label: 'Analysis Toxicity Grade (N)'
+  derivation:
+    case:
+    - when: ATOXGR = 'Grade 1'
+      then: 1
+    - when: ATOXGR = 'Grade 2'
+      then: 2
+    - when: ATOXGR = 'Grade 3'
+      then: 3
+    - when: ATOXGR = 'Grade 4'
+      then: 4
+  submission:
+    core: Perm
+    mandatory: false
+    length: 8
+    display_format: '3.'
+    origins:
+    - type: Assigned
+    method: "Withheld from publication: the received define states this text."
+- name: ASEV
+  type: str
+  label: 'Analysis Severity/Intensity'
+  derivation:
+    case:
+    - when: AE.AESEV IS NOT NULL AND AE.AESEV NOT IN ('')
+      then:
+        str_template:
+          template: '{ATOXGR}/{_ASEV_PROP}'
+          missing: ''
+    - when: ATOXGR IS NOT NULL
+      then: ATOXGR
+  submission:
+    core: Perm
+    mandatory: false
+    length: 20
+    origins:
+    - type: Derived
+    method: "Withheld from publication: the received define states this text."
+- name: ASEVN
+  type: int
+  label: 'Analysis Severity/Intensity (N)'
+  derivation:
+    case:
+    - when: ASEV = 'Grade 1/Mild'
+      then: 1
+    - when: ASEV = 'Grade 2/Moderate'
+      then: 2
+    - when: ASEV = 'Grade 3/Severe'
+      then: 3
+    - when: ASEV = 'Grade 4'
+      then: 4
+  submission:
+    core: Perm
+    mandatory: false
+    length: 8
+    display_format: '3.'
+    origins:
+    - type: Assigned
+    method: "Withheld from publication: the received define states this text."
+- name: TOXGGR1
+  type: str
+  label: 'Pooled Toxicity Grade Group 1'
+  derivation:
+    case:
+    - when: ATOXGRN >= 3
+      then: '''>=3'''
+    - when: ATOXGRN IS NOT NULL AND ATOXGRN < 3
+      then: '''<3'''
+  submission:
+    core: Perm
+    mandatory: false
+    length: 20
+    origins:
+    - type: Derived
+    method: "Withheld from publication: the received define states this text."
+- name: TOXGGR1N
+  type: int
+  label: 'Pooled Toxicity Grade 1 (N)'
+  derivation:
+    case:
+    - when: ATOXGRN >= 3
+      then: 2
+    - when: ATOXGRN IS NOT NULL AND ATOXGRN < 3
+      then: 1
+  submission:
+    core: Perm
+    mandatory: false
+    length: 8
+    display_format: '3.'
+    origins:
+    - type: Assigned
+    method: "Withheld from publication: the received define states this text."
+- name: AEDISFL
+  type: str
+  label: 'Leading to Study Discontinuation Flag'
+  derivation:
+    case:
+    - when: DS_EOS.AESPIDX IS NOT NULL AND (_AESPIDX1 = _AE_GRP OR _AESPIDX2 = _AE_GRP)
+      then: '''Y'''
+  submission:
+    core: Perm
+    mandatory: false
+    length: 1
+    origins:
+    - type: Derived
+    method: "Withheld from publication: the received define states this text."
+- name: SMQ01FL
+  type: str
+  label: 'SMQ 01 Flag'
+  derivation:
+    case:
+    - when: AE.AEDECOD IN ('Accelerated hypertension', 'Blood pressure diastolic increased', 'Blood pressure increased', 'Blood pressure systolic increased', 'Diastolic hypertension', 'Essential hypertension', 'Hypertension', 'Hypertensive emergency', 'Hypertensive urgency', 'Labile hypertension', 'Systolic hypertension')
+      then: '''Y'''
+  submission:
+    core: Perm
+    mandatory: false
+    length: 1
+    origins:
+    - type: Derived
+    method: "Withheld from publication: the received define states this text."
+- name: CMQ01FL
+  type: str
+  label: 'CMQ 01 Flag'
+  derivation:
+    case:
+    - when: AE.AEDECOD IN ('Induration', 'Injection site bruising', 'Injection site discolouration', 'Injection site discomfort', 'Injection site erythema', 'Injection site haematoma', 'Injection site haemorrhage', 'Injection site hypoaesthesia', 'Injection site induration', 'Injection site irritation', 'Injection site joint pain', 'Injection site lymphadenopathy', 'Injection site mass', 'Injection site nodule', 'Injection site pain', 'Injection site paraesthesia', 'Injection site pruritus', 'Injection site rash', 'Injection site reaction', 'Injection site scab', 'Injection site swelling', 'Injection site urticaria', 'Injection site warmth', 'Peripheral swelling', 'Skin mass', 'Vaccination site bruising', 'Vaccination site erythema', 'Vaccination site induration', 'Vaccination site inflammation', 'Vaccination site lymphadenopathy', 'Vaccination site nodule', 'Vaccination site pain', 'Vaccination site pruritus', 'Vaccination site rash', 'Vaccination site swelling')
+      then: '''Y'''
+  submission:
+    core: Perm
+    mandatory: false
+    length: 1
+    origins:
+    - type: Derived
+    method: "Withheld from publication: the received define states this text."
+- name: AEONSTDY
+  type: int
+  label: 'AE Onset Day'
+  derivation:
+    case:
+    - when: MDOSREF IS NOT NULL AND str_contains(MDOSREF, '1')
+      then: ASTDY
+    - when: MDOSREF IS NOT NULL AND str_contains(MDOSREF, '2')
+      then: _S_DT2 + 1
+  submission:
+    core: Perm
+    mandatory: false
+    length: 8
+    display_format: '3.'
+    origins:
+    - type: Derived
+    method: "Withheld from publication: the received define states this text."
+- name: ANL01FL
+  type: str
+  label: 'Analysis Flag 01'
+  derivation:
+    case:
+    - when: CMQ01FL = 'Y' AND AEONSTDY IS NOT NULL AND AEONSTDY >= 8
+      then: '''Y'''
+  submission:
+    core: Perm
+    mandatory: false
+    length: 1
+    origins:
+    - type: Derived
+    method: "Withheld from publication: the received define states this text."
+- name: ADURSDT
+  type: date
+  label: 'Analysis Duration Start Date'
+  derivation:
+    case:
+    - when: TRTEMFL = 'Y' AND ASTDT IS NULL
+      then: ADSL.TR01SDT
+    - otherwise: ASTDT
+  submission:
+    core: Perm
+    mandatory: false
+    origins:
+    - type: Derived
+    method: "Withheld from publication: the received define states this text."
+- name: ADUREDT
+  type: date
+  label: 'Analysis Duration End Date'
+  derivation:
+    case:
+    - when: AENDT IS NOT NULL
+      then: AENDT
+    - when: ADURSDT IS NOT NULL
+      then:
+        least:
+          sources:
+          - ADSL.CUTOFFDT
+          - ADSL.EOSDT
+  submission:
+    core: Perm
+    mandatory: false
+    origins:
+    - type: Derived
+    method: "Withheld from publication: the received define states this text."
+- name: ADURN
+  type: int
+  label: 'Analysis Duration (N)'
+  derivation:
+    case:
+    - when: _FLAGFL = 'Y' AND MDOSREF IS NOT NULL AND MDOSREF NOT IN ('') AND _ALL_PRESENT = 1 AND _RETAIN_ADURN IS NOT NULL
+      then: _RETAIN_ADURN
+  submission:
+    core: Perm
+    mandatory: false
+    length: 8
+    display_format: '3.'
+    origins:
+    - type: Derived
+    method: "Withheld from publication: the received define states this text."
+- name: AEHSTDTC
+  type: str
+  label: 'Hospital Admission Date'
+  derivation:
+    _AEHOSPST
+  submission:
+    core: Perm
+    mandatory: false
+    length: 20
+    origins:
+    - type: Derived
+    method: "Withheld from publication: the received define states this text."
+- name: AEHENDTC
+  type: str
+  label: 'Hospital Discharge Date'
+  derivation:
+    _AEHOSPEN
+  submission:
+    core: Perm
+    mandatory: false
+    length: 20
+    origins:
+    - type: Derived
+    method: "Withheld from publication: the received define states this text."
+- name: ICUAD
+  type: str
+  label: 'Admitted to ICU'
+  derivation:
+    case:
+    - when: HO_ICU.HODECOD IS NOT NULL
+      then: '''Y'''
+  submission:
+    core: Perm
+    mandatory: false
+    length: 20
+    origins:
+    - type: Derived
+    method: "Withheld from publication: the received define states this text."
+- name: ICUDAY
+  type: int
+  label: 'Number of Days in ICU'
+  derivation:
+    case:
+    - when: HO_ICU.HODUR = '1'
+      then: 1
+    - when: HO_ICU.HODUR = '2'
+      then: 2
+    - when: HO_ICU.HODUR = '3'
+      then: 3
+    - when: HO_ICU.HODUR = '4'
+      then: 4
+    - when: HO_ICU.HODUR = '5'
+      then: 5
+    - when: HO_ICU.HODUR = '7'
+      then: 7
+    - when: HO_ICU.HODUR = '9'
+      then: 9
+    - when: HO_ICU.HODUR = '10'
+      then: 10
+  submission:
+    core: Perm
+    mandatory: false
+    length: 8
+    display_format: '3.'
+    origins:
+    - type: Derived
+    method: "Withheld from publication: the received define states this text."
+- name: AECVDIAG
+  type: str
+  label: 'confirmed diagnosis Symptom Covid-19'
+  derivation:
+    _AECVDIAG
+  submission:
+    core: Perm
+    mandatory: false
+    length: 200
+    origins:
+    - type: Derived
+    method: "Withheld from publication: the received define states this text."
+- name: AEOUTSP
+  type: str
+  label: 'Recovered/Resolved with Sequelae,Spec'
+  derivation:
+    _AEOUTSP
+  submission:
+    core: Perm
+    mandatory: false
+    length: 200
+    origins:
+    - type: Derived
+    method: "Withheld from publication: the received define states this text."
+- name: TRTA
+  type: str
+  label: 'Actual Treatment'
+  derivation:
+    case:
+    - when: MDOSREF = 'Vaccination 1' AND _EXTRT1_UP = 'PLACEBO'
+      then: '''Placebo'''
+    - when: MDOSREF = 'Vaccination 1' AND _EXTRT1_UP IS NOT NULL AND str_contains(_EXTRT1_UP, 'MRNA') AND EX_DOSE1.EXDOSE IS NOT NULL AND EX_DOSE1.EXDOSE > 0
+      then: '''mRNA-1273'''
+    - when: MDOSREF = 'Vaccination 2' AND _EXTRT2_UP = 'PLACEBO'
+      then: '''Placebo'''
+    - when: MDOSREF = 'Vaccination 2' AND _EXTRT2_UP IS NOT NULL AND str_contains(_EXTRT2_UP, 'MRNA') AND EX_DOSE2.EXDOSE IS NOT NULL AND EX_DOSE2.EXDOSE > 0
+      then: '''mRNA-1273'''
+  submission:
+    core: Req
+    mandatory: false
+    length: 50
+    origins:
+    - type: Derived
+    method: "Withheld from publication: the received define states this text."
+- name: TRTAN
+  type: int
+  label: 'Actual Treatment (N)'
+  derivation:
+    case:
+    - when: TRTA = 'Placebo'
+      then: 1
+    - when: TRTA = 'mRNA-1273'
+      then: 2
+  submission:
+    core: Req
+    mandatory: false
+    length: 8
+    display_format: '3.'
+    origins:
+    - type: Assigned
+    method: "Withheld from publication: the received define states this text."
+- name: RACESPY
+  type: str
+  label: 'Race Specify'
+  derivation:
+    case:
+    - when: ADSL.RACE = 'MULTIPLE' AND _S IS NOT NULL AND _S NOT IN ('')
+      then:
+        str_template:
+          template: "(b)(6)\u0000{_RACESPY_TAIL}"
+          missing: ''
+    - otherwise: ADSL.RACESPY
+  submission:
+    core: Perm
+    mandatory: false
+    length: 200
+    origins:
+    - type: Derived
+    method: "Withheld from publication: the received define states this text."
+- name: AESCONG
+  type: str
+  label: 'Congenital Anomaly or Birth Defect'
+  derivation:
+    null
+  submission:
+    core: Perm
+    mandatory: false
+    length: 8
+    origins:
+    - type: Assigned
+    method: "Withheld from publication: the received define states this text."
+- name: _AETERM_1
+  type: str
+  derivation:
+    str_replace:
+      source: AE.AETERM
+      pattern: '\t '
+      replacement: '  '
+- name: _AETERM_2
+  type: str
+  derivation:
+    str_replace:
+      source: _AETERM_1
+      pattern: '^\s+|\s+$'
+      replacement: ''
+- name: _AETERM_3
+  type: str
+  derivation:
+    str_replace:
+      source: _AETERM_2
+      pattern: '[\r\n\x0c\u00c2\u00b0\u00a0]'
+      replacement: ' '
+- name: _AETERM_4
+  type: str
+  derivation:
+    str_replace:
+      source: _AETERM_3
+      pattern: "\u201c"
+      replacement: "\u00e2\u20ac\u0153"
+- name: AETERM
+  type: str
+  label: 'Reported Term for the Adverse Event'
+  derivation:
+    str_replace:
+      source: _AETERM_4
+      pattern: "\u201d"
+      replacement: "\u00e2\u20ac\ufffd"
+  submission:
+    core: Perm
+    mandatory: false
+    length: 200
+    origins:
+    - type: Derived
+    method: "Withheld from publication: the received define states this text."
+output:
+  path: <adam-dir>/adae-yamaa.parquet
+  order_by:
+  - USUBJID
+  - AESEQ
+  columns:
+  - STUDYID
+  - USUBJID
+  - SUBJID
+  - SITEID
+  - COUNTRY
+  - AGE
+  - AGEU
+  - STRATAR
+  - STRATARN
+  - AGEGR1
+  - AGEGR1N
+  - AGEGR2
+  - AGEGR2N
+  - SEX
+  - RACE
+  - RACESPY
+  - ETHNIC
+  - RANDFL
+  - FASFL
+  - SAFFL
+  - SAR1FL
+  - SAR2FL
+  - SARAFL
+  - MITTFL
+  - PPROTFL
+  - COMPLFL
+  - DOSE1FL
+  - DOSE2FL
+  - ELECSBL
+  - SCOV2BL
+  - TRT01P
+  - TRT01PN
+  - TRT01A
+  - TRT01AN
+  - TR01SDT
+  - TR01SDTM
+  - TR01EDT
+  - TR01EDTM
+  - DOSE2DT
+  - DOS2DTM
+  - RSKF1
+  - RSKF2
+  - RSKF3
+  - RSKF4
+  - RSKF5
+  - RSKF6
+  - STRATAV
+  - STRATAVN
+  - MINORITY
+  - RACEGR1
+  - RACEGR1N
+  - RISKGR1
+  - RISKGR1N
+  - RETHGR1
+  - RETHGR1N
+  - AELNKGRP
+  - TRTA
+  - TRTAN
+  - AESPID
+  - AESEQ
+  - AECAT
+  - AETERM
+  - AEDECOD
+  - AEBODSYS
+  - AEBDSYCD
+  - AELLT
+  - AELLTCD
+  - AEPTCD
+  - AEHLT
+  - AEHLTCD
+  - AEHLGT
+  - AEHLGTCD
+  - AESOC
+  - AESOCCD
+  - AESTDTC
+  - AEENDTC
+  - AESTDY
+  - AEENDY
+  - AEENRF
+  - ASTDT
+  - ASTTM
+  - ASTDTM
+  - ASTDTF
+  - ASTTMF
+  - ASTDY
+  - AENDT
+  - AENTM
+  - AENDTM
+  - AEDUR
+  - ASTAGE
+  - ASTAGEN
+  - MDOSREF
+  - MRDSTDY
+  - MRDENDY
+  - TRTEMFL
+  - AEMAFL
+  - D28FL
+  - AEDISFL
+  - AESOFL
+  - AESER
+  - AESCONG
+  - AESDISAB
+  - AESDTH
+  - AESHOSP
+  - AESLIFE
+  - AESMIE
+  - AEREL
+  - AERELNST
+  - AREL
+  - ARELN
+  - AETOXGR
+  - AESEV
+  - ATOXGR
+  - ATOXGRN
+  - ASEV
+  - ASEVN
+  - TOXGGR1
+  - TOXGGR1N
+  - AEACN
+  - AEACNOTH
+  - AEOUT
+  - AEOUTSP
+  - AEHSTDTC
+  - AEHENDTC
+  - ICUAD
+  - ICUDAY
+  - AECVDIAG
+  - SMQ01FL
+  - CMQ01FL
+  - AEONSTDY
+  - ADURSDT
+  - ADUREDT
+  - ANL01FL
+  - ADURN

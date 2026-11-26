@@ -1,0 +1,127 @@
+# ADSYMPT for Pfizer C4591001, EUA 27034 sequence S1 (safety and final
+# efficacy analysis, data snapshot of November 2020).
+# Layer over the 1-month spec (S1's, with the ADSL birth date named BRTHDT
+# as in this cut's ADSL), run on this cut's SDTM
+# (scripts/reproduce.py verify --study c4591001 --cut s1-safety-fa-eff). The
+# output keeps the EUA file's columns, in its order.
+yamaa: '1.0'
+type: spec
+parent: ../../../s211-1mth/spec/yamaa/adsympt.yaml
+# The EUA adsympt.sas keeps N-binding results at Visit 1 only (all
+# phases), reads no DD (no PRCDTH), and takes ICU stays only from HO records
+# with HOTERM ICU (no SUPPHO-based HCUICU or HCUHSP records).
+rows:
+- id: is
+  filter: _ISTESTCD = 'C19NIG' AND VISIT = 'V1_DAY1_VAX1_L'
+- id: cm
+  derivations:
+    _AVALC_RAW:
+      case:
+      - when: CM.CMDECOD <> ''
+        then:
+          str_case:
+            source: CM.CMDECOD
+            to: upper
+      - otherwise:
+          str_case:
+            source: CM.CMTRT
+            to: upper
+- id: dd_a
+  filter: DD.USUBJID IS NULL
+- id: dd_b
+  filter: ADSL.USUBJID IS NULL
+- id: ho_hcuicu_m
+  filter: _HO_PAIRS.USUBJID IS NULL
+- id: ho_hcuicu_u
+  filter: HO.USUBJID IS NULL
+- id: ho_hcuhsp_m
+  filter: _HO_PAIRS.USUBJID IS NULL
+- id: ho_hcuhsp_u
+  filter: HO.USUBJID IS NULL
+# VS comes from the S135 helper: this cut's VSSTRESN is text, as in S135.
+input:
+  VS:
+    path: <work-dir>/vs.parquet
+    schema: ../../../s135/spec/yamaa/helper/sdtm_vs.yaml
+clear:
+- columns.C19ILHFL.submission
+columns:
+- name: EV14EFFL
+  type: str
+  label: Evaluable Efficacy Popu Flag - 14 days
+  derivation: ADSL.EV14EFFL
+  submission:
+    core: Perm
+    mandatory: false
+    length: 1
+    origins:
+    - type: Predecessor
+      description: ADSL.EV14EFFL
+- name: HIVFL
+  type: str
+  label: HIV Positive Subjects Flag
+  derivation: ADSL.HIVFL
+  submission:
+    core: Perm
+    mandatory: false
+    length: 1
+    origins:
+    - type: Predecessor
+      description: ADSL.HIVFL
+- name: AVALC
+  submission:
+    length: 50
+output:
+  columns:
+  - STUDYID
+  - USUBJID
+  - SITEID
+  - SUBJID
+  - BRTHDT
+  - AGEGR1N
+  - AGEGR1
+  - SEX
+  - RACE
+  - ETHNIC
+  - ARMCD
+  - ARM
+  - ACTARMCD
+  - ACTARM
+  - PARAMN
+  - PARAMCD
+  - PARAM
+  - PARCAT1
+  - PARCAT2
+  - AVAL
+  - AVALC
+  - VISITNUM
+  - VISIT
+  - AVISITN
+  - AVISIT
+  - ADT
+  - ADY
+  - ASTDT
+  - ASTDY
+  - AENDT
+  - AENDY
+  - ISSPEC
+  - ISMETHOD
+  - MBLOC
+  - MBSPEC
+  - MBMETHOD
+  - PRPRESP
+  - VSSTRESU
+  - RANDDT
+  - TRTSDT
+  - TRTEDT
+  - VAX101DT
+  - VAX102DT
+  - ENRLFL
+  - RANDFL
+  - SAFFL
+  - EVALEFFL
+  - EV14EFFL
+  - AAI1EFFL
+  - AAI2EFFL
+  - HIVFL
+  - _SEQ

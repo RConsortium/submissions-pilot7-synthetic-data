@@ -1,0 +1,1817 @@
+# ADEFF2 for Moderna mRNA-1273-P301, cut S3 (BLA Interim Analysis,
+# cutoff 2021-03-26). Parent: ../../../spec/yamaa/base/adam-base-s3.yaml (which
+# chains to ../../../spec/yamaa/base/adam-base.yaml; 86 shared + 59 S3-only ADSL
+# columns). Derivations implement the S3 A50ADEFF2 program, one
+# row template per (PARAMCD, AWRANGEN) over the per-subject ALL
+# intermediate (18 templates: BOD7D/BOD28D x awrangen 1-4,
+# BOI7D/BOI28D x awrangen 1-5). Where the SAS code and the define
+# disagree, the code is followed (see README.md). The define
+# carries no MethodDefs for ADEFF2, so the program is the sole
+# derivation authority. File order is authoritative over define
+# order: the submitted file puts TRTSEQP/TRTSEQPN/TRTSEQA/TRTSEQAN/
+# TRTSDT/TRTEDT before TR01SDT/TR01SDTM, while the define lists
+# TR01SDT/TR01SDTM first; output columns follow the file.
+# SAP note (closed 2026-11-24, no-impact): the file labelled "SAP v3"
+# (19745_S68_M5_sap-v3.pdf) is the P201 SAP v3.0 (27 Oct 2020), not a
+# P301 SAP version; the only P301 SAP in the set is v1.0 (10 Sep 2020).
+# The case definitions below are the program's own, so the spec follows
+# the program, not a SAP version.
+# Keys: unlike ADEFF, ADEFF2 HAS a usable key: (STUDYID, USUBJID,
+# PARAMCD, AWRANGEN) is unique and non-missing on the submitted
+# target, so verify.py can align this spec end to end. The full
+# run may still OOM in this 6 GB cell (536,274 output rows);
+# verification then falls back to 4 pruned dependency-closure
+# groups (one per PARAMCD), recorded honestly in
+# adeff2/verify_report.json (original work tree), with a single full-spec
+# re-run in a roomier cell owed.
+# Honest gaps: none in the derivation (see the generator header for
+# the HOSTDTC datetime form, the exact-threshold note, and the
+# unexercised missing-EVENTMO edge).
+yamaa: '1.0'
+type: spec
+model: ADaM
+parent: ../../../spec/yamaa/base/adam-base-s3.yaml
+domain: ADEFF2
+keys:
+- STUDYID
+- USUBJID
+- PARAMCD
+- AWRANGEN
+input:
+  ADEFF:
+    path: <adam-dir>/adeff.parquet
+    key:
+    - STUDYID
+    - USUBJID
+  ADSL:
+    path: <adam-dir>/adsl.parquet
+    key:
+    - STUDYID
+    - USUBJID
+  HO: <sdtm-dir>/ho.parquet
+submission:
+  label: BOD/BOI Score Analysis Dataset
+  class: BASIC DATA STRUCTURE
+  structure: One record per subject per BOD/BOI parameter per analysis window
+  repeating: true
+rows:
+- id: bod7d_1_rows
+  dataset: ALL
+  derivations:
+    STUDYID: ALL._STUDYID
+    USUBJID: ALL._USUBJID
+    PARAMCD: '''BOD7D'''
+    ADT: ALL._ADT1
+    AWRANGE: '''Randomization through 6 Months'''
+    AWRANGEN: 1
+    AVAL: ALL._BOD7D_AVAL_1
+    ANL01FL: "''"
+- id: bod7d_2_rows
+  dataset: ALL
+  derivations:
+    STUDYID: ALL._STUDYID
+    USUBJID: ALL._USUBJID
+    PARAMCD: '''BOD7D'''
+    ADT: ALL._ADT1
+    AWRANGE: '''After 6 Months through 12 Months'''
+    AWRANGEN: 2
+    AVAL: ALL._BOD7D_AVAL_2
+    ANL01FL: "''"
+  filter: ALL._EVENTMO1 >= 6 OR ALL._ADT1 IS NULL
+- id: bod7d_3_rows
+  dataset: ALL
+  derivations:
+    STUDYID: ALL._STUDYID
+    USUBJID: ALL._USUBJID
+    PARAMCD: '''BOD7D'''
+    ADT: ALL._ADT1
+    AWRANGE: '''After 12 Months through 18 Months'''
+    AWRANGEN: 3
+    AVAL: ALL._BOD7D_AVAL_3
+    ANL01FL: "''"
+  filter: ALL._EVENTMO1 >= 12 OR ALL._ADT1 IS NULL
+- id: bod7d_4_rows
+  dataset: ALL
+  derivations:
+    STUDYID: ALL._STUDYID
+    USUBJID: ALL._USUBJID
+    PARAMCD: '''BOD7D'''
+    ADT: ALL._ADT1
+    AWRANGE: '''After 18 Months through Completion'''
+    AWRANGEN: 4
+    AVAL: ALL._BOD7D_AVAL_4
+    ANL01FL: "''"
+  filter: ALL._EVENTMO1 >= 18 OR ALL._ADT1 IS NULL
+- id: bod28d_1_rows
+  dataset: ALL
+  derivations:
+    STUDYID: ALL._STUDYID
+    USUBJID: ALL._USUBJID
+    PARAMCD: '''BOD28D'''
+    ADT: ALL._ADT1
+    AWRANGE: '''Randomization through 6 Months'''
+    AWRANGEN: 1
+    AVAL: ALL._BOD28D_AVAL_1
+    ANL01FL:
+      case:
+      - when: AVAL = ALL._MAXAVAL_BOD28D AND AWRANGEN = ALL._MAXAWR_BOD28D
+        then: '''Y'''
+      - otherwise: "''"
+- id: bod28d_2_rows
+  dataset: ALL
+  derivations:
+    STUDYID: ALL._STUDYID
+    USUBJID: ALL._USUBJID
+    PARAMCD: '''BOD28D'''
+    ADT: ALL._ADT1
+    AWRANGE: '''After 6 Months through 12 Months'''
+    AWRANGEN: 2
+    AVAL: ALL._BOD28D_AVAL_2
+    ANL01FL:
+      case:
+      - when: AVAL = ALL._MAXAVAL_BOD28D AND AWRANGEN = ALL._MAXAWR_BOD28D
+        then: '''Y'''
+      - otherwise: "''"
+  filter: ALL._EVENTMO1 >= 6 OR ALL._ADT1 IS NULL
+- id: bod28d_3_rows
+  dataset: ALL
+  derivations:
+    STUDYID: ALL._STUDYID
+    USUBJID: ALL._USUBJID
+    PARAMCD: '''BOD28D'''
+    ADT: ALL._ADT1
+    AWRANGE: '''After 12 Months through 18 Months'''
+    AWRANGEN: 3
+    AVAL: ALL._BOD28D_AVAL_3
+    ANL01FL:
+      case:
+      - when: AVAL = ALL._MAXAVAL_BOD28D AND AWRANGEN = ALL._MAXAWR_BOD28D
+        then: '''Y'''
+      - otherwise: "''"
+  filter: ALL._EVENTMO1 >= 12 OR ALL._ADT1 IS NULL
+- id: bod28d_4_rows
+  dataset: ALL
+  derivations:
+    STUDYID: ALL._STUDYID
+    USUBJID: ALL._USUBJID
+    PARAMCD: '''BOD28D'''
+    ADT: ALL._ADT1
+    AWRANGE: '''After 18 Months through Completion'''
+    AWRANGEN: 4
+    AVAL: ALL._BOD28D_AVAL_4
+    ANL01FL:
+      case:
+      - when: AVAL = ALL._MAXAVAL_BOD28D AND AWRANGEN = ALL._MAXAWR_BOD28D
+        then: '''Y'''
+      - otherwise: "''"
+  filter: ALL._EVENTMO1 >= 18 OR ALL._ADT1 IS NULL
+- id: boi7d_1_rows
+  dataset: ALL
+  derivations:
+    STUDYID: ALL._STUDYID
+    USUBJID: ALL._USUBJID
+    PARAMCD: '''BOI7D'''
+    ADT: ALL._ADT_BOI
+    AWRANGE: '''Baseline through Month 1'''
+    AWRANGEN: 1
+    AVAL: ALL._BOI7D_AVAL_1
+    ANL01FL: "''"
+- id: boi7d_2_rows
+  dataset: ALL
+  derivations:
+    STUDYID: ALL._STUDYID
+    USUBJID: ALL._USUBJID
+    PARAMCD: '''BOI7D'''
+    ADT: ALL._ADT_BOI
+    AWRANGE: '''After Month 1 through Month 2'''
+    AWRANGEN: 2
+    AVAL: ALL._BOI7D_AVAL_2
+    ANL01FL: "''"
+  filter: ALL._EVENTMO2 >= 1 OR ALL._ADT_BOI IS NULL
+- id: boi7d_3_rows
+  dataset: ALL
+  derivations:
+    STUDYID: ALL._STUDYID
+    USUBJID: ALL._USUBJID
+    PARAMCD: '''BOI7D'''
+    ADT: ALL._ADT_BOI
+    AWRANGE: '''After Month 2 through Month 7'''
+    AWRANGEN: 3
+    AVAL: ALL._BOI7D_AVAL_3
+    ANL01FL: "''"
+  filter: ALL._EVENTMO2 >= 2 OR ALL._ADT_BOI IS NULL
+- id: boi7d_4_rows
+  dataset: ALL
+  derivations:
+    STUDYID: ALL._STUDYID
+    USUBJID: ALL._USUBJID
+    PARAMCD: '''BOI7D'''
+    ADT: ALL._ADT_BOI
+    AWRANGE: '''After Month 7 through Month 13'''
+    AWRANGEN: 4
+    AVAL: ALL._BOI7D_AVAL_4
+    ANL01FL: "''"
+  filter: ALL._EVENTMO2 >= 7 OR ALL._ADT_BOI IS NULL
+- id: boi7d_5_rows
+  dataset: ALL
+  derivations:
+    STUDYID: ALL._STUDYID
+    USUBJID: ALL._USUBJID
+    PARAMCD: '''BOI7D'''
+    ADT: ALL._ADT_BOI
+    AWRANGE: '''After Month 13 through Month 25'''
+    AWRANGEN: 5
+    AVAL: ALL._BOI7D_AVAL_5
+    ANL01FL: "''"
+  filter: ALL._EVENTMO2 >= 13 OR ALL._ADT_BOI IS NULL
+- id: boi28d_1_rows
+  dataset: ALL
+  derivations:
+    STUDYID: ALL._STUDYID
+    USUBJID: ALL._USUBJID
+    PARAMCD: '''BOI28D'''
+    ADT: ALL._ADT_BOI
+    AWRANGE: '''Baseline through Month 1'''
+    AWRANGEN: 1
+    AVAL: ALL._BOI28D_AVAL_1
+    ANL01FL:
+      case:
+      - when: AVAL = ALL._MAXAVAL_BOI28D AND AWRANGEN = ALL._MAXAWR_BOI28D
+        then: '''Y'''
+      - otherwise: "''"
+- id: boi28d_2_rows
+  dataset: ALL
+  derivations:
+    STUDYID: ALL._STUDYID
+    USUBJID: ALL._USUBJID
+    PARAMCD: '''BOI28D'''
+    ADT: ALL._ADT_BOI
+    AWRANGE: '''After Month 1 through Month 2'''
+    AWRANGEN: 2
+    AVAL: ALL._BOI28D_AVAL_2
+    ANL01FL:
+      case:
+      - when: AVAL = ALL._MAXAVAL_BOI28D AND AWRANGEN = ALL._MAXAWR_BOI28D
+        then: '''Y'''
+      - otherwise: "''"
+  filter: ALL._EVENTMO2 >= 1 OR ALL._ADT_BOI IS NULL
+- id: boi28d_3_rows
+  dataset: ALL
+  derivations:
+    STUDYID: ALL._STUDYID
+    USUBJID: ALL._USUBJID
+    PARAMCD: '''BOI28D'''
+    ADT: ALL._ADT_BOI
+    AWRANGE: '''After Month 2 through Month 7'''
+    AWRANGEN: 3
+    AVAL: ALL._BOI28D_AVAL_3
+    ANL01FL:
+      case:
+      - when: AVAL = ALL._MAXAVAL_BOI28D AND AWRANGEN = ALL._MAXAWR_BOI28D
+        then: '''Y'''
+      - otherwise: "''"
+  filter: ALL._EVENTMO2 >= 2 OR ALL._ADT_BOI IS NULL
+- id: boi28d_4_rows
+  dataset: ALL
+  derivations:
+    STUDYID: ALL._STUDYID
+    USUBJID: ALL._USUBJID
+    PARAMCD: '''BOI28D'''
+    ADT: ALL._ADT_BOI
+    AWRANGE: '''After Month 7 through Month 13'''
+    AWRANGEN: 4
+    AVAL: ALL._BOI28D_AVAL_4
+    ANL01FL:
+      case:
+      - when: AVAL = ALL._MAXAVAL_BOI28D AND AWRANGEN = ALL._MAXAWR_BOI28D
+        then: '''Y'''
+      - otherwise: "''"
+  filter: ALL._EVENTMO2 >= 7 OR ALL._ADT_BOI IS NULL
+- id: boi28d_5_rows
+  dataset: ALL
+  derivations:
+    STUDYID: ALL._STUDYID
+    USUBJID: ALL._USUBJID
+    PARAMCD: '''BOI28D'''
+    ADT: ALL._ADT_BOI
+    AWRANGE: '''After Month 13 through Month 25'''
+    AWRANGEN: 5
+    AVAL: ALL._BOI28D_AVAL_5
+    ANL01FL:
+      case:
+      - when: AVAL = ALL._MAXAVAL_BOI28D AND AWRANGEN = ALL._MAXAWR_BOI28D
+        then: '''Y'''
+      - otherwise: "''"
+  filter: ALL._EVENTMO2 >= 13 OR ALL._ADT_BOI IS NULL
+intermediates:
+- id: ADSL_LK
+  dataset: ADSL
+  key:
+  - USUBJID
+  columns:
+  - ACTARM
+  - AGE
+  - AGEGR1
+  - AGEGR1N
+  - AGEGR2
+  - AGEGR2N
+  - AGEGR3
+  - AGEGR3N
+  - AGEGR4
+  - AGEGR4N
+  - AGEU
+  - AP01EDT
+  - AP01SDT
+  - AP01SEDT
+  - AP01SSDT
+  - AP02EDT
+  - AP02SDT
+  - AP02SEDT
+  - AP02SSDT
+  - ARM
+  - BMIBL
+  - CBNRS
+  - CCIASFL
+  - CHILDBP
+  - COMPLFL
+  - COUNTRY
+  - COVIDAFL
+  - CUTOFFDT
+  - CVDSVAFL
+  - DCSREAS
+  - DCSREASP
+  - DCT01RS
+  - DCT01RSP
+  - DCT02RS
+  - DCT02RSP
+  - DOS2DTM
+  - DOSE1FL
+  - DOSE2DT
+  - DOSE2FL
+  - DSDTHSP
+  - DTHAUTOP
+  - DTHCAUS
+  - DTHDT
+  - EFFCODT
+  - ELECSBL
+  - EOSDT
+  - EOSDY
+  - EOSSTT
+  - EOT01DT
+  - EOT01DY
+  - EOT01STT
+  - EOT02DT
+  - EOT02DY
+  - EOT02STT
+  - ETHNIC
+  - EUAVACDT
+  - EXTDT
+  - FASEREAS
+  - FASFL
+  - HEIGHTBL
+  - IRTVISDT
+  - MINORITY
+  - MITTERS
+  - MITTFL
+  - OLDO2DTM
+  - OLDOS1FL
+  - OLDOS2DT
+  - OLDOS2FL
+  - PDVDT
+  - PPEREAS
+  - PPROTFL
+  - PPSIEREA
+  - PPSIFL
+  - PREVSCR
+  - PROTVER
+  - RACE
+  - RACEGR1
+  - RACEGR1N
+  - RACESPY
+  - RANDDT
+  - RANDFL
+  - RANDIGFL
+  - RANDNUM
+  - RETHGR1
+  - RETHGR1N
+  - RFICDT
+  - RISKGR1
+  - RISKGR1N
+  - RSKF1
+  - RSKF2
+  - RSKF3
+  - RSKF4
+  - RSKF5
+  - RSKF6
+  - RTPCRBL
+  - SAFEREAS
+  - SAFFL
+  - SAR1ERS
+  - SAR1FL
+  - SAR2ERS
+  - SAR2FL
+  - SARAFL
+  - SCOV2BL
+  - SEX
+  - SITEID
+  - STRATAR
+  - STRATARN
+  - STRATAV
+  - STRATAVN
+  - STUDDUR1
+  - STUDDUR2
+  - STUDDUR3
+  - STUDDUR4
+  - STUDDUR5
+  - STUDDUR6
+  - STUDYID
+  - SUBJID
+  - TR01EDT
+  - TR01EDTM
+  - TR01SDT
+  - TR01SDTM
+  - TR02EDT
+  - TR02EDTM
+  - TR02SDT
+  - TR02SDTM
+  - TRT01A
+  - TRT01AN
+  - TRT01P
+  - TRT01PN
+  - TRT02A
+  - TRT02AN
+  - TRT02P
+  - TRT02PN
+  - TRTEDT
+  - TRTSDT
+  - TRTSEQA
+  - TRTSEQAN
+  - TRTSEQP
+  - TRTSEQPN
+  - TTDTH1
+  - TTDTH2
+  - UBLDDT
+  - UICDT
+  - USUBJID
+  - WEIGHTBL
+- id: EFF1
+  dataset: ADEFF
+  key:
+  - USUBJID
+  filter: ADEFF.PARAMCD = 'COVIDA' AND ADEFF.APERIOD = 1 AND ADEFF.ADT IS NOT NULL AND ADEFF.ADT <= ADEFF.EFFCODT
+  order_by:
+  - ADEFF.ADT
+  keep: first
+  columns: [_ADT1, _AVALC1]
+  derivations:
+    _ADT1:
+      type: date
+      derivation: ADEFF.ADT
+    _AVALC1:
+      type: str
+      derivation: ADEFF.AVALC
+- id: EFF2
+  dataset: ADEFF
+  key:
+  - USUBJID
+  filter: ADEFF.PARAMCD = 'ASYMPINF' AND ADEFF.APERIOD = 1 AND ADEFF.ADT IS NOT NULL AND ADEFF.ADT <= ADEFF.EFFCODT
+  order_by:
+  - ADEFF.ADT
+  keep: first
+  columns: [_ADT2, _AVALC2]
+  derivations:
+    _ADT2:
+      type: date
+      derivation: ADEFF.ADT
+    _AVALC2:
+      type: str
+      derivation: ADEFF.AVALC
+- id: HO1
+  dataset: HO
+  key:
+  - USUBJID
+  filter: HO.HOOCCUR = 'Y' AND HO.HOSTDTC IS NOT NULL AND HO.HOSTDTC NOT IN ('') AND (HO.HOTERM IS NULL OR HO.HOTERM <> 'MEDICALLY ATTENDED') AND HO._HOSTDT IS NOT NULL AND HO._ADT1 IS NOT NULL AND HO._HOSTDT >= HO._ADT1
+  order_by:
+  - HO._HODY1
+  keep: first
+  columns: [_HODY1]
+  derivations:
+    _HOSTDT:
+      type: date
+      derivation:
+        to_date:
+          source: HO.HOSTDTC
+    _HOSTDT_EPOCH:
+      type: int
+      derivation:
+        to_epoch_day:
+          source: _HOSTDT
+    _ADT1:
+      type: date
+      derivation: EFF1._ADT1
+    _ADT1_EPOCH:
+      type: int
+      derivation:
+        to_epoch_day:
+          source: _ADT1
+    _HODY1:
+      type: int
+      derivation: _HOSTDT_EPOCH - _ADT1_EPOCH + 1
+- id: HO2
+  dataset: HO
+  key:
+  - USUBJID
+  filter: HO.HOOCCUR = 'Y' AND HO.HOSTDTC IS NOT NULL AND HO.HOSTDTC NOT IN ('') AND (HO.HOTERM IS NULL OR HO.HOTERM <> 'MEDICALLY ATTENDED') AND HO._HODY2 IS NOT NULL AND HO._HODY2 >= 1
+  order_by:
+  - HO._HODY2
+  keep: first
+  columns: [_HODY2]
+  derivations:
+    _HOSTDT:
+      type: date
+      derivation:
+        to_date:
+          source: HO.HOSTDTC
+    _HOSTDT_EPOCH:
+      type: int
+      derivation:
+        to_epoch_day:
+          source: _HOSTDT
+    _ADT1:
+      type: date
+      derivation: EFF1._ADT1
+    _ADT2:
+      type: date
+      derivation: EFF2._ADT2
+    _ADT_CO:
+      type: date
+      derivation:
+        first_available: {sources: [_ADT1, _ADT2]}
+    _ADT_CO_EPOCH:
+      type: int
+      derivation:
+        to_epoch_day:
+          source: _ADT_CO
+    _HODY2:
+      type: int
+      derivation: _HOSTDT_EPOCH - _ADT_CO_EPOCH + 1
+- id: ALL
+  dataset: ADSL
+  filter: ADSL.RANDFL = 'Y'
+  columns: [_STUDYID, _USUBJID, _RANDDT, _DTHDT, _TR01SDT, _ADT1, _AVALC1, _ADT2, _AVALC2, _HODY1, _HODY2, _ADT_BOI, _AVALCT, _ADT1_EPOCH, _ADT_BOI_EPOCH, _RANDDT_EPOCH, _TR01SDT_EPOCH, _DTHDT_EPOCH, _EVENTMO1, _EVENTMO2, _DTHDY1, _DTHDY2, _BOD7D_AVAL_1, _BOD7D_AVAL_2, _BOD7D_AVAL_3, _BOD7D_AVAL_4, _BOD28D_AVAL_1, _BOD28D_AVAL_2, _BOD28D_AVAL_3, _BOD28D_AVAL_4, _BOI7D_AVAL_1, _BOI7D_AVAL_2, _BOI7D_AVAL_3, _BOI7D_AVAL_4, _BOI7D_AVAL_5, _BOI28D_AVAL_1, _BOI28D_AVAL_2, _BOI28D_AVAL_3, _BOI28D_AVAL_4, _BOI28D_AVAL_5, _MAXAVAL_BOD7D, _MAXAWR_BOD7D, _MAXAVAL_BOD28D, _MAXAWR_BOD28D, _MAXAVAL_BOI7D, _MAXAWR_BOI7D, _MAXAVAL_BOI28D, _MAXAWR_BOI28D]
+  derivations:
+    _STUDYID:
+      type: str
+      derivation:
+        str_template:
+          template: '{ADSL.STUDYID}'
+          missing: ''
+    _USUBJID:
+      type: str
+      derivation:
+        str_template:
+          template: '{ADSL.USUBJID}'
+          missing: ''
+    _RANDDT:
+      type: date
+      derivation: ADSL_LK.RANDDT
+    _DTHDT:
+      type: date
+      derivation: ADSL_LK.DTHDT
+    _TR01SDT:
+      type: date
+      derivation: ADSL_LK.TR01SDT
+    _ADT1:
+      type: date
+      derivation: EFF1._ADT1
+    _AVALC1:
+      type: str
+      derivation: EFF1._AVALC1
+    _ADT2:
+      type: date
+      derivation: EFF2._ADT2
+    _AVALC2:
+      type: str
+      derivation: EFF2._AVALC2
+    _HODY1:
+      type: int
+      derivation: HO1._HODY1
+    _HODY2:
+      type: int
+      derivation: HO2._HODY2
+    _ADT_BOI:
+      type: date
+      derivation:
+        first_available: {sources: [_ADT1, _ADT2]}
+    _AVALCT:
+      type: str
+      derivation:
+        first_available: {sources: [_AVALC1, _AVALC2]}
+    _ADT1_EPOCH:
+      type: int
+      derivation:
+        to_epoch_day:
+          source: _ADT1
+    _ADT_BOI_EPOCH:
+      type: int
+      derivation:
+        to_epoch_day:
+          source: _ADT_BOI
+    _RANDDT_EPOCH:
+      type: int
+      derivation:
+        to_epoch_day:
+          source: _RANDDT
+    _TR01SDT_EPOCH:
+      type: int
+      derivation:
+        to_epoch_day:
+          source: _TR01SDT
+    _DTHDT_EPOCH:
+      type: int
+      derivation:
+        to_epoch_day:
+          source: _DTHDT
+    _EVENTMO1:
+      type: float
+      derivation: (_ADT1_EPOCH - _RANDDT_EPOCH + 1) / 30.4375
+    _EVENTMO2:
+      type: float
+      derivation: (_ADT_BOI_EPOCH - _TR01SDT_EPOCH + 1) / 30.4375
+    _DTHDY1:
+      type: int
+      derivation: _DTHDT_EPOCH - _ADT1_EPOCH + 1
+    _DTHDY2:
+      type: int
+      derivation: _DTHDT_EPOCH - _ADT_BOI_EPOCH + 1
+    _BOD7D_AVAL_1:
+      type: float
+      derivation:
+        case:
+        - when: (_AVALC1 IS NULL OR NOT (_AVALC1 LIKE 'Y%')) OR (_EVENTMO1 IS NOT NULL AND _EVENTMO1 > 6)
+          then: 0.0
+        - when: _EVENTMO1 IS NOT NULL AND 0 < _EVENTMO1 AND _EVENTMO1 <= 6 AND _AVALC1 LIKE 'Y%' AND _DTHDY1 IS NOT NULL AND _DTHDY1 <= 7
+          then: 3.0
+        - when: _EVENTMO1 IS NOT NULL AND 0 < _EVENTMO1 AND _EVENTMO1 <= 6 AND _AVALC1 LIKE 'Y%' AND _HODY1 IS NOT NULL AND 1 <= _HODY1 AND _HODY1 <= 7
+          then: 2.0
+        - when: _EVENTMO1 IS NOT NULL AND 0 < _EVENTMO1 AND _EVENTMO1 <= 6 AND _AVALC1 LIKE 'Y%'
+          then: 1.0
+    _BOD7D_AVAL_2:
+      type: float
+      derivation:
+        case:
+        - when: (_AVALC1 IS NULL OR NOT (_AVALC1 LIKE 'Y%')) OR (_EVENTMO1 IS NOT NULL AND _EVENTMO1 > 12)
+          then: 0.0
+        - when: _EVENTMO1 IS NOT NULL AND 6 < _EVENTMO1 AND _EVENTMO1 <= 12 AND _AVALC1 LIKE 'Y%' AND _DTHDY1 IS NOT NULL AND _DTHDY1 <= 7
+          then: 3.0
+        - when: _EVENTMO1 IS NOT NULL AND 6 < _EVENTMO1 AND _EVENTMO1 <= 12 AND _AVALC1 LIKE 'Y%' AND _HODY1 IS NOT NULL AND 1 <= _HODY1 AND _HODY1 <= 7
+          then: 2.0
+        - when: _EVENTMO1 IS NOT NULL AND 6 < _EVENTMO1 AND _EVENTMO1 <= 12 AND _AVALC1 LIKE 'Y%'
+          then: 1.0
+    _BOD7D_AVAL_3:
+      type: float
+      derivation:
+        case:
+        - when: (_AVALC1 IS NULL OR NOT (_AVALC1 LIKE 'Y%')) OR (_EVENTMO1 IS NOT NULL AND _EVENTMO1 > 18)
+          then: 0.0
+        - when: _EVENTMO1 IS NOT NULL AND 12 < _EVENTMO1 AND _EVENTMO1 <= 18 AND _AVALC1 LIKE 'Y%' AND _DTHDY1 IS NOT NULL AND _DTHDY1 <= 7
+          then: 3.0
+        - when: _EVENTMO1 IS NOT NULL AND 12 < _EVENTMO1 AND _EVENTMO1 <= 18 AND _AVALC1 LIKE 'Y%' AND _HODY1 IS NOT NULL AND 1 <= _HODY1 AND _HODY1 <= 7
+          then: 2.0
+        - when: _EVENTMO1 IS NOT NULL AND 12 < _EVENTMO1 AND _EVENTMO1 <= 18 AND _AVALC1 LIKE 'Y%'
+          then: 1.0
+    _BOD7D_AVAL_4:
+      type: float
+      derivation:
+        case:
+        - when: (_AVALC1 IS NULL OR NOT (_AVALC1 LIKE 'Y%'))
+          then: 0.0
+        - when: _EVENTMO1 IS NOT NULL AND _EVENTMO1 > 18 AND _AVALC1 LIKE 'Y%' AND _DTHDY1 IS NOT NULL AND _DTHDY1 <= 7
+          then: 3.0
+        - when: _EVENTMO1 IS NOT NULL AND _EVENTMO1 > 18 AND _AVALC1 LIKE 'Y%' AND _HODY1 IS NOT NULL AND 1 <= _HODY1 AND _HODY1 <= 7
+          then: 2.0
+        - when: _EVENTMO1 IS NOT NULL AND _EVENTMO1 > 18 AND _AVALC1 LIKE 'Y%'
+          then: 1.0
+    _BOD28D_AVAL_1:
+      type: float
+      derivation:
+        case:
+        - when: (_AVALC1 IS NULL OR NOT (_AVALC1 LIKE 'Y%')) OR (_EVENTMO1 IS NOT NULL AND _EVENTMO1 > 6)
+          then: 0.0
+        - when: _EVENTMO1 IS NOT NULL AND 0 < _EVENTMO1 AND _EVENTMO1 <= 6 AND _AVALC1 LIKE 'Y%' AND _DTHDY1 IS NOT NULL AND _DTHDY1 <= 28
+          then: 3.0
+        - when: _EVENTMO1 IS NOT NULL AND 0 < _EVENTMO1 AND _EVENTMO1 <= 6 AND _AVALC1 LIKE 'Y%' AND _HODY1 IS NOT NULL AND 1 <= _HODY1 AND _HODY1 <= 28
+          then: 2.0
+        - when: _EVENTMO1 IS NOT NULL AND 0 < _EVENTMO1 AND _EVENTMO1 <= 6 AND _AVALC1 LIKE 'Y%'
+          then: 1.0
+    _BOD28D_AVAL_2:
+      type: float
+      derivation:
+        case:
+        - when: (_AVALC1 IS NULL OR NOT (_AVALC1 LIKE 'Y%')) OR (_EVENTMO1 IS NOT NULL AND _EVENTMO1 > 12)
+          then: 0.0
+        - when: _EVENTMO1 IS NOT NULL AND 6 < _EVENTMO1 AND _EVENTMO1 <= 12 AND _AVALC1 LIKE 'Y%' AND _DTHDY1 IS NOT NULL AND _DTHDY1 <= 28
+          then: 3.0
+        - when: _EVENTMO1 IS NOT NULL AND 6 < _EVENTMO1 AND _EVENTMO1 <= 12 AND _AVALC1 LIKE 'Y%' AND _HODY1 IS NOT NULL AND 1 <= _HODY1 AND _HODY1 <= 28
+          then: 2.0
+        - when: _EVENTMO1 IS NOT NULL AND 6 < _EVENTMO1 AND _EVENTMO1 <= 12 AND _AVALC1 LIKE 'Y%'
+          then: 1.0
+    _BOD28D_AVAL_3:
+      type: float
+      derivation:
+        case:
+        - when: (_AVALC1 IS NULL OR NOT (_AVALC1 LIKE 'Y%')) OR (_EVENTMO1 IS NOT NULL AND _EVENTMO1 > 18)
+          then: 0.0
+        - when: _EVENTMO1 IS NOT NULL AND 12 < _EVENTMO1 AND _EVENTMO1 <= 18 AND _AVALC1 LIKE 'Y%' AND _DTHDY1 IS NOT NULL AND _DTHDY1 <= 28
+          then: 3.0
+        - when: _EVENTMO1 IS NOT NULL AND 12 < _EVENTMO1 AND _EVENTMO1 <= 18 AND _AVALC1 LIKE 'Y%' AND _HODY1 IS NOT NULL AND 1 <= _HODY1 AND _HODY1 <= 28
+          then: 2.0
+        - when: _EVENTMO1 IS NOT NULL AND 12 < _EVENTMO1 AND _EVENTMO1 <= 18 AND _AVALC1 LIKE 'Y%'
+          then: 1.0
+    _BOD28D_AVAL_4:
+      type: float
+      derivation:
+        case:
+        - when: (_AVALC1 IS NULL OR NOT (_AVALC1 LIKE 'Y%'))
+          then: 0.0
+        - when: _EVENTMO1 IS NOT NULL AND _EVENTMO1 > 18 AND _AVALC1 LIKE 'Y%' AND _DTHDY1 IS NOT NULL AND _DTHDY1 <= 28
+          then: 3.0
+        - when: _EVENTMO1 IS NOT NULL AND _EVENTMO1 > 18 AND _AVALC1 LIKE 'Y%' AND _HODY1 IS NOT NULL AND 1 <= _HODY1 AND _HODY1 <= 28
+          then: 2.0
+        - when: _EVENTMO1 IS NOT NULL AND _EVENTMO1 > 18 AND _AVALC1 LIKE 'Y%'
+          then: 1.0
+    _BOI7D_AVAL_1:
+      type: float
+      derivation:
+        case:
+        - when: (_AVALCT IS NULL OR NOT (_AVALCT LIKE 'Y%')) OR (_EVENTMO2 IS NOT NULL AND _EVENTMO2 > 1)
+          then: 0.0
+        - when: _EVENTMO2 IS NOT NULL AND 0 < _EVENTMO2 AND _EVENTMO2 <= 1 AND _AVALC1 LIKE 'Y%' AND _DTHDY2 IS NOT NULL AND _DTHDY2 <= 7
+          then: 3.0
+        - when: _EVENTMO2 IS NOT NULL AND 0 < _EVENTMO2 AND _EVENTMO2 <= 1 AND _AVALC1 LIKE 'Y%' AND _HODY2 IS NOT NULL AND 1 <= _HODY2 AND _HODY2 <= 7
+          then: 2.0
+        - when: _EVENTMO2 IS NOT NULL AND 0 < _EVENTMO2 AND _EVENTMO2 <= 1 AND _AVALC1 LIKE 'Y%'
+          then: 1.0
+        - when: _EVENTMO2 IS NOT NULL AND 0 < _EVENTMO2 AND _EVENTMO2 <= 1 AND _AVALC2 LIKE 'Y%'
+          then: 0.5
+    _BOI7D_AVAL_2:
+      type: float
+      derivation:
+        case:
+        - when: (_AVALCT IS NULL OR NOT (_AVALCT LIKE 'Y%')) OR (_EVENTMO2 IS NOT NULL AND _EVENTMO2 > 2)
+          then: 0.0
+        - when: _EVENTMO2 IS NOT NULL AND 1 < _EVENTMO2 AND _EVENTMO2 <= 2 AND _AVALC1 LIKE 'Y%' AND _DTHDY2 IS NOT NULL AND _DTHDY2 <= 7
+          then: 3.0
+        - when: _EVENTMO2 IS NOT NULL AND 1 < _EVENTMO2 AND _EVENTMO2 <= 2 AND _AVALC1 LIKE 'Y%' AND _HODY2 IS NOT NULL AND 1 <= _HODY2 AND _HODY2 <= 7
+          then: 2.0
+        - when: _EVENTMO2 IS NOT NULL AND 1 < _EVENTMO2 AND _EVENTMO2 <= 2 AND _AVALC1 LIKE 'Y%'
+          then: 1.0
+        - when: _EVENTMO2 IS NOT NULL AND 1 < _EVENTMO2 AND _EVENTMO2 <= 2 AND _AVALC2 LIKE 'Y%'
+          then: 0.5
+    _BOI7D_AVAL_3:
+      type: float
+      derivation:
+        case:
+        - when: (_AVALCT IS NULL OR NOT (_AVALCT LIKE 'Y%')) OR (_EVENTMO2 IS NOT NULL AND _EVENTMO2 > 7)
+          then: 0.0
+        - when: _EVENTMO2 IS NOT NULL AND 2 < _EVENTMO2 AND _EVENTMO2 <= 7 AND _AVALC1 LIKE 'Y%' AND _DTHDY2 IS NOT NULL AND _DTHDY2 <= 7
+          then: 3.0
+        - when: _EVENTMO2 IS NOT NULL AND 2 < _EVENTMO2 AND _EVENTMO2 <= 7 AND _AVALC1 LIKE 'Y%' AND _HODY2 IS NOT NULL AND 1 <= _HODY2 AND _HODY2 <= 7
+          then: 2.0
+        - when: _EVENTMO2 IS NOT NULL AND 2 < _EVENTMO2 AND _EVENTMO2 <= 7 AND _AVALC1 LIKE 'Y%'
+          then: 1.0
+        - when: _EVENTMO2 IS NOT NULL AND 2 < _EVENTMO2 AND _EVENTMO2 <= 7 AND _AVALC2 LIKE 'Y%'
+          then: 0.5
+    _BOI7D_AVAL_4:
+      type: float
+      derivation:
+        case:
+        - when: (_AVALCT IS NULL OR NOT (_AVALCT LIKE 'Y%')) OR (_EVENTMO2 IS NOT NULL AND _EVENTMO2 > 13)
+          then: 0.0
+        - when: _EVENTMO2 IS NOT NULL AND 7 < _EVENTMO2 AND _EVENTMO2 <= 13 AND _AVALC1 LIKE 'Y%' AND _DTHDY2 IS NOT NULL AND _DTHDY2 <= 7
+          then: 3.0
+        - when: _EVENTMO2 IS NOT NULL AND 7 < _EVENTMO2 AND _EVENTMO2 <= 13 AND _AVALC1 LIKE 'Y%' AND _HODY2 IS NOT NULL AND 1 <= _HODY2 AND _HODY2 <= 7
+          then: 2.0
+        - when: _EVENTMO2 IS NOT NULL AND 7 < _EVENTMO2 AND _EVENTMO2 <= 13 AND _AVALC1 LIKE 'Y%'
+          then: 1.0
+        - when: _EVENTMO2 IS NOT NULL AND 7 < _EVENTMO2 AND _EVENTMO2 <= 13 AND _AVALC2 LIKE 'Y%'
+          then: 0.5
+    _BOI7D_AVAL_5:
+      type: float
+      derivation:
+        case:
+        - when: (_AVALCT IS NULL OR NOT (_AVALCT LIKE 'Y%')) OR (_EVENTMO2 IS NOT NULL AND _EVENTMO2 > 25)
+          then: 0.0
+        - when: _EVENTMO2 IS NOT NULL AND 13 < _EVENTMO2 AND _EVENTMO2 <= 25 AND _AVALC1 LIKE 'Y%' AND _DTHDY2 IS NOT NULL AND _DTHDY2 <= 7
+          then: 3.0
+        - when: _EVENTMO2 IS NOT NULL AND 13 < _EVENTMO2 AND _EVENTMO2 <= 25 AND _AVALC1 LIKE 'Y%' AND _HODY2 IS NOT NULL AND 1 <= _HODY2 AND _HODY2 <= 7
+          then: 2.0
+        - when: _EVENTMO2 IS NOT NULL AND 13 < _EVENTMO2 AND _EVENTMO2 <= 25 AND _AVALC1 LIKE 'Y%'
+          then: 1.0
+        - when: _EVENTMO2 IS NOT NULL AND 13 < _EVENTMO2 AND _EVENTMO2 <= 25 AND _AVALC2 LIKE 'Y%'
+          then: 0.5
+    _BOI28D_AVAL_1:
+      type: float
+      derivation:
+        case:
+        - when: (_AVALCT IS NULL OR NOT (_AVALCT LIKE 'Y%')) OR (_EVENTMO2 IS NOT NULL AND _EVENTMO2 > 1)
+          then: 0.0
+        - when: _EVENTMO2 IS NOT NULL AND 0 < _EVENTMO2 AND _EVENTMO2 <= 1 AND _AVALC1 LIKE 'Y%' AND _DTHDY2 IS NOT NULL AND _DTHDY2 <= 28
+          then: 3.0
+        - when: _EVENTMO2 IS NOT NULL AND 0 < _EVENTMO2 AND _EVENTMO2 <= 1 AND _AVALC1 LIKE 'Y%' AND _HODY2 IS NOT NULL AND 1 <= _HODY2 AND _HODY2 <= 28
+          then: 2.0
+        - when: _EVENTMO2 IS NOT NULL AND 0 < _EVENTMO2 AND _EVENTMO2 <= 1 AND _AVALC1 LIKE 'Y%'
+          then: 1.0
+        - when: _EVENTMO2 IS NOT NULL AND 0 < _EVENTMO2 AND _EVENTMO2 <= 1 AND _AVALC2 LIKE 'Y%'
+          then: 0.5
+    _BOI28D_AVAL_2:
+      type: float
+      derivation:
+        case:
+        - when: (_AVALCT IS NULL OR NOT (_AVALCT LIKE 'Y%')) OR (_EVENTMO2 IS NOT NULL AND _EVENTMO2 > 2)
+          then: 0.0
+        - when: _EVENTMO2 IS NOT NULL AND 1 < _EVENTMO2 AND _EVENTMO2 <= 2 AND _AVALC1 LIKE 'Y%' AND _DTHDY2 IS NOT NULL AND _DTHDY2 <= 28
+          then: 3.0
+        - when: _EVENTMO2 IS NOT NULL AND 1 < _EVENTMO2 AND _EVENTMO2 <= 2 AND _AVALC1 LIKE 'Y%' AND _HODY2 IS NOT NULL AND 1 <= _HODY2 AND _HODY2 <= 28
+          then: 2.0
+        - when: _EVENTMO2 IS NOT NULL AND 1 < _EVENTMO2 AND _EVENTMO2 <= 2 AND _AVALC1 LIKE 'Y%'
+          then: 1.0
+        - when: _EVENTMO2 IS NOT NULL AND 1 < _EVENTMO2 AND _EVENTMO2 <= 2 AND _AVALC2 LIKE 'Y%'
+          then: 0.5
+    _BOI28D_AVAL_3:
+      type: float
+      derivation:
+        case:
+        - when: (_AVALCT IS NULL OR NOT (_AVALCT LIKE 'Y%')) OR (_EVENTMO2 IS NOT NULL AND _EVENTMO2 > 7)
+          then: 0.0
+        - when: _EVENTMO2 IS NOT NULL AND 2 < _EVENTMO2 AND _EVENTMO2 <= 7 AND _AVALC1 LIKE 'Y%' AND _DTHDY2 IS NOT NULL AND _DTHDY2 <= 28
+          then: 3.0
+        - when: _EVENTMO2 IS NOT NULL AND 2 < _EVENTMO2 AND _EVENTMO2 <= 7 AND _AVALC1 LIKE 'Y%' AND _HODY2 IS NOT NULL AND 1 <= _HODY2 AND _HODY2 <= 28
+          then: 2.0
+        - when: _EVENTMO2 IS NOT NULL AND 2 < _EVENTMO2 AND _EVENTMO2 <= 7 AND _AVALC1 LIKE 'Y%'
+          then: 1.0
+        - when: _EVENTMO2 IS NOT NULL AND 2 < _EVENTMO2 AND _EVENTMO2 <= 7 AND _AVALC2 LIKE 'Y%'
+          then: 0.5
+    _BOI28D_AVAL_4:
+      type: float
+      derivation:
+        case:
+        - when: (_AVALCT IS NULL OR NOT (_AVALCT LIKE 'Y%')) OR (_EVENTMO2 IS NOT NULL AND _EVENTMO2 > 13)
+          then: 0.0
+        - when: _EVENTMO2 IS NOT NULL AND 7 < _EVENTMO2 AND _EVENTMO2 <= 13 AND _AVALC1 LIKE 'Y%' AND _DTHDY2 IS NOT NULL AND _DTHDY2 <= 28
+          then: 3.0
+        - when: _EVENTMO2 IS NOT NULL AND 7 < _EVENTMO2 AND _EVENTMO2 <= 13 AND _AVALC1 LIKE 'Y%' AND _HODY2 IS NOT NULL AND 1 <= _HODY2 AND _HODY2 <= 28
+          then: 2.0
+        - when: _EVENTMO2 IS NOT NULL AND 7 < _EVENTMO2 AND _EVENTMO2 <= 13 AND _AVALC1 LIKE 'Y%'
+          then: 1.0
+        - when: _EVENTMO2 IS NOT NULL AND 7 < _EVENTMO2 AND _EVENTMO2 <= 13 AND _AVALC2 LIKE 'Y%'
+          then: 0.5
+    _BOI28D_AVAL_5:
+      type: float
+      derivation:
+        case:
+        - when: (_AVALCT IS NULL OR NOT (_AVALCT LIKE 'Y%')) OR (_EVENTMO2 IS NOT NULL AND _EVENTMO2 > 25)
+          then: 0.0
+        - when: _EVENTMO2 IS NOT NULL AND 13 < _EVENTMO2 AND _EVENTMO2 <= 25 AND _AVALC1 LIKE 'Y%' AND _DTHDY2 IS NOT NULL AND _DTHDY2 <= 28
+          then: 3.0
+        - when: _EVENTMO2 IS NOT NULL AND 13 < _EVENTMO2 AND _EVENTMO2 <= 25 AND _AVALC1 LIKE 'Y%' AND _HODY2 IS NOT NULL AND 1 <= _HODY2 AND _HODY2 <= 28
+          then: 2.0
+        - when: _EVENTMO2 IS NOT NULL AND 13 < _EVENTMO2 AND _EVENTMO2 <= 25 AND _AVALC1 LIKE 'Y%'
+          then: 1.0
+        - when: _EVENTMO2 IS NOT NULL AND 13 < _EVENTMO2 AND _EVENTMO2 <= 25 AND _AVALC2 LIKE 'Y%'
+          then: 0.5
+    _MAXAVAL_BOD7D:
+      type: float
+      derivation:
+        greatest: {sources: [_BOD7D_AVAL_1, _BOD7D_AVAL_2, _BOD7D_AVAL_3, _BOD7D_AVAL_4]}
+    _MAXAWR_BOD7D:
+      type: int
+      derivation:
+        case:
+        - when: _BOD7D_AVAL_4 = _MAXAVAL_BOD7D
+          then: 4
+        - when: _BOD7D_AVAL_3 = _MAXAVAL_BOD7D
+          then: 3
+        - when: _BOD7D_AVAL_2 = _MAXAVAL_BOD7D
+          then: 2
+        - when: _BOD7D_AVAL_1 = _MAXAVAL_BOD7D
+          then: 1
+    _MAXAVAL_BOD28D:
+      type: float
+      derivation:
+        greatest: {sources: [_BOD28D_AVAL_1, _BOD28D_AVAL_2, _BOD28D_AVAL_3, _BOD28D_AVAL_4]}
+    _MAXAWR_BOD28D:
+      type: int
+      derivation:
+        case:
+        - when: _BOD28D_AVAL_4 = _MAXAVAL_BOD28D
+          then: 4
+        - when: _BOD28D_AVAL_3 = _MAXAVAL_BOD28D
+          then: 3
+        - when: _BOD28D_AVAL_2 = _MAXAVAL_BOD28D
+          then: 2
+        - when: _BOD28D_AVAL_1 = _MAXAVAL_BOD28D
+          then: 1
+    _MAXAVAL_BOI7D:
+      type: float
+      derivation:
+        greatest: {sources: [_BOI7D_AVAL_1, _BOI7D_AVAL_2, _BOI7D_AVAL_3, _BOI7D_AVAL_4, _BOI7D_AVAL_5]}
+    _MAXAWR_BOI7D:
+      type: int
+      derivation:
+        case:
+        - when: _BOI7D_AVAL_5 = _MAXAVAL_BOI7D
+          then: 5
+        - when: _BOI7D_AVAL_4 = _MAXAVAL_BOI7D
+          then: 4
+        - when: _BOI7D_AVAL_3 = _MAXAVAL_BOI7D
+          then: 3
+        - when: _BOI7D_AVAL_2 = _MAXAVAL_BOI7D
+          then: 2
+        - when: _BOI7D_AVAL_1 = _MAXAVAL_BOI7D
+          then: 1
+    _MAXAVAL_BOI28D:
+      type: float
+      derivation:
+        greatest: {sources: [_BOI28D_AVAL_1, _BOI28D_AVAL_2, _BOI28D_AVAL_3, _BOI28D_AVAL_4, _BOI28D_AVAL_5]}
+    _MAXAWR_BOI28D:
+      type: int
+      derivation:
+        case:
+        - when: _BOI28D_AVAL_5 = _MAXAVAL_BOI28D
+          then: 5
+        - when: _BOI28D_AVAL_4 = _MAXAVAL_BOI28D
+          then: 4
+        - when: _BOI28D_AVAL_3 = _MAXAVAL_BOI28D
+          then: 3
+        - when: _BOI28D_AVAL_2 = _MAXAVAL_BOI28D
+          then: 2
+        - when: _BOI28D_AVAL_1 = _MAXAVAL_BOI28D
+          then: 1
+columns:
+- name: STUDYID
+  submission:
+    origins:
+    - type: Derived
+    method: "Withheld from publication: the received define states this text."
+- name: USUBJID
+  submission:
+    origins:
+    - type: Derived
+    method: "Withheld from publication: the received define states this text."
+- name: SUBJID
+  derivation: ADSL_LK.SUBJID
+  submission:
+    origins:
+    - type: Predecessor
+      description: ADSL.SUBJID
+- name: SITEID
+  derivation: ADSL_LK.SITEID
+  submission:
+    origins:
+    - type: Predecessor
+      description: ADSL.SITEID
+- name: COUNTRY
+  derivation: ADSL_LK.COUNTRY
+  submission:
+    origins:
+    - type: Predecessor
+      description: ADSL.COUNTRY
+- name: AGE
+  derivation: ADSL_LK.AGE
+  submission:
+    origins:
+    - type: Predecessor
+      description: ADSL.AGE
+- name: AGEU
+  derivation: ADSL_LK.AGEU
+  submission:
+    origins:
+    - type: Predecessor
+      description: ADSL.AGEU
+- name: STRATAR
+  derivation: ADSL_LK.STRATAR
+  submission:
+    origins:
+    - type: Predecessor
+      description: ADSL.STRATAR
+- name: STRATARN
+  derivation: ADSL_LK.STRATARN
+  submission:
+    origins:
+    - type: Predecessor
+      description: ADSL.STRATARN
+- name: AGEGR1
+  derivation: ADSL_LK.AGEGR1
+  submission:
+    origins:
+    - type: Predecessor
+      description: ADSL.AGEGR1
+- name: AGEGR1N
+  derivation: ADSL_LK.AGEGR1N
+  submission:
+    origins:
+    - type: Predecessor
+      description: ADSL.AGEGR1N
+- name: AGEGR2
+  derivation: ADSL_LK.AGEGR2
+  submission:
+    origins:
+    - type: Predecessor
+      description: ADSL.AGEGR2
+- name: AGEGR2N
+  derivation: ADSL_LK.AGEGR2N
+  submission:
+    origins:
+    - type: Predecessor
+      description: ADSL.AGEGR2N
+- name: AGEGR3
+  derivation: ADSL_LK.AGEGR3
+  submission:
+    origins:
+    - type: Predecessor
+      description: ADSL.AGEGR3
+- name: AGEGR3N
+  derivation: ADSL_LK.AGEGR3N
+  submission:
+    origins:
+    - type: Predecessor
+      description: ADSL.AGEGR3N
+- name: AGEGR4
+  derivation: ADSL_LK.AGEGR4
+  submission:
+    mandatory: false
+    origins:
+    - type: Predecessor
+      description: ADSL.AGEGR4
+- name: AGEGR4N
+  derivation: ADSL_LK.AGEGR4N
+  submission:
+    mandatory: false
+    origins:
+    - type: Predecessor
+      description: ADSL.AGEGR4N
+- name: SEX
+  derivation: ADSL_LK.SEX
+  submission:
+    origins:
+    - type: Predecessor
+      description: ADSL.SEX
+- name: RACE
+  derivation: ADSL_LK.RACE
+  submission:
+    origins:
+    - type: Predecessor
+      description: ADSL.RACE
+- name: RACESPY
+  derivation: ADSL_LK.RACESPY
+  submission:
+    origins:
+    - type: Predecessor
+      description: ADSL.RACESPY
+- name: ETHNIC
+  derivation: ADSL_LK.ETHNIC
+  submission:
+    origins:
+    - type: Predecessor
+      description: ADSL.ETHNIC
+- name: RANDFL
+  derivation: ADSL_LK.RANDFL
+  submission:
+    origins:
+    - type: Predecessor
+      description: ADSL.RANDFL
+- name: FASFL
+  derivation: ADSL_LK.FASFL
+  submission:
+    origins:
+    - type: Predecessor
+      description: ADSL.FASFL
+- name: SAFFL
+  derivation: ADSL_LK.SAFFL
+  submission:
+    origins:
+    - type: Predecessor
+      description: ADSL.SAFFL
+- name: SAR1FL
+  derivation: ADSL_LK.SAR1FL
+  submission:
+    origins:
+    - type: Predecessor
+      description: ADSL.SAR1FL
+- name: SAR2FL
+  derivation: ADSL_LK.SAR2FL
+  submission:
+    origins:
+    - type: Predecessor
+      description: ADSL.SAR2FL
+- name: SARAFL
+  derivation: ADSL_LK.SARAFL
+  submission:
+    origins:
+    - type: Predecessor
+      description: ADSL.SARAFL
+- name: MITTFL
+  derivation: ADSL_LK.MITTFL
+  submission:
+    origins:
+    - type: Predecessor
+      description: ADSL.MITTFL
+- name: PPROTFL
+  derivation: ADSL_LK.PPROTFL
+  submission:
+    origins:
+    - type: Predecessor
+      description: ADSL.PPROTFL
+- name: RANDIGFL
+  derivation: ADSL_LK.RANDIGFL
+  submission:
+    origins:
+    - type: Predecessor
+      description: ADSL.RANDIGFL
+- name: PPSIFL
+  derivation: ADSL_LK.PPSIFL
+  submission:
+    origins:
+    - type: Predecessor
+      description: ADSL.PPSIFL
+- name: CCIASFL
+  derivation: ADSL_LK.CCIASFL
+  submission:
+    origins:
+    - type: Predecessor
+      description: ADSL.CCIASFL
+- name: DOSE1FL
+  derivation: ADSL_LK.DOSE1FL
+  submission:
+    mandatory: false
+    origins:
+    - type: Predecessor
+      description: ADSL.DOSE1FL
+- name: DOSE2FL
+  derivation: ADSL_LK.DOSE2FL
+  submission:
+    origins:
+    - type: Predecessor
+      description: ADSL.DOSE2FL
+- name: OLDOS1FL
+  derivation: ADSL_LK.OLDOS1FL
+  submission:
+    origins:
+    - type: Predecessor
+      description: ADSL.OLDOS1FL
+- name: OLDOS2FL
+  derivation: ADSL_LK.OLDOS2FL
+  submission:
+    origins:
+    - type: Predecessor
+      description: ADSL.OLDOS2FL
+- name: RTPCRBL
+  derivation: ADSL_LK.RTPCRBL
+  submission:
+    origins:
+    - type: Predecessor
+      description: ADSL.RTPCRBL
+- name: ELECSBL
+  derivation: ADSL_LK.ELECSBL
+  submission:
+    origins:
+    - type: Predecessor
+      description: ADSL.ELECSBL
+- name: SCOV2BL
+  derivation: ADSL_LK.SCOV2BL
+  submission:
+    origins:
+    - type: Predecessor
+      description: ADSL.SCOV2BL
+- name: TRT01P
+  derivation: ADSL_LK.TRT01P
+  submission:
+    mandatory: false
+    origins:
+    - type: Predecessor
+      description: ADSL.TRT01P
+- name: TRT01PN
+  derivation: ADSL_LK.TRT01PN
+  submission:
+    mandatory: false
+    origins:
+    - type: Predecessor
+      description: ADSL.TRT01PN
+- name: TRT01A
+  derivation: ADSL_LK.TRT01A
+  submission:
+    origins:
+    - type: Predecessor
+      description: ADSL.TRT01A
+- name: TRT01AN
+  derivation: ADSL_LK.TRT01AN
+  submission:
+    origins:
+    - type: Predecessor
+      description: ADSL.TRT01AN
+- name: TRT02P
+  derivation: ADSL_LK.TRT02P
+  submission:
+    origins:
+    - type: Predecessor
+      description: ADSL.TRT02P
+- name: TRT02PN
+  derivation: ADSL_LK.TRT02PN
+  submission:
+    origins:
+    - type: Predecessor
+      description: ADSL.TRT02PN
+- name: TRT02A
+  derivation: ADSL_LK.TRT02A
+  submission:
+    origins:
+    - type: Predecessor
+      description: ADSL.TRT02A
+- name: TRT02AN
+  derivation: ADSL_LK.TRT02AN
+  submission:
+    origins:
+    - type: Predecessor
+      description: ADSL.TRT02AN
+- name: TRTSEQP
+  derivation: ADSL_LK.TRTSEQP
+  submission:
+    origins:
+    - type: Predecessor
+      description: ADSL.TRTSEQP
+- name: TRTSEQPN
+  derivation: ADSL_LK.TRTSEQPN
+  submission:
+    origins:
+    - type: Predecessor
+      description: ADSL.TRTSEQPN
+- name: TRTSEQA
+  derivation: ADSL_LK.TRTSEQA
+  submission:
+    origins:
+    - type: Predecessor
+      description: ADSL.TRTSEQA
+- name: TRTSEQAN
+  derivation: ADSL_LK.TRTSEQAN
+  submission:
+    origins:
+    - type: Predecessor
+      description: ADSL.TRTSEQAN
+- name: TRTSDT
+  derivation: ADSL_LK.TRTSDT
+  submission:
+    origins:
+    - type: Predecessor
+      description: ADSL.TRTSDT
+- name: TRTEDT
+  derivation: ADSL_LK.TRTEDT
+  submission:
+    origins:
+    - type: Predecessor
+      description: ADSL.TRTEDT
+- name: TR01SDT
+  derivation: ADSL_LK.TR01SDT
+  submission:
+    origins:
+    - type: Predecessor
+      description: ADSL.TR01SDT
+- name: TR01SDTM
+  derivation: ADSL_LK.TR01SDTM
+  submission:
+    origins:
+    - type: Predecessor
+      description: ADSL.TR01SDTM
+- name: TR01EDT
+  derivation: ADSL_LK.TR01EDT
+  submission:
+    origins:
+    - type: Predecessor
+      description: ADSL.TR01EDT
+- name: TR01EDTM
+  derivation: ADSL_LK.TR01EDTM
+  submission:
+    origins:
+    - type: Predecessor
+      description: ADSL.TR01EDTM
+- name: DOSE2DT
+  derivation: ADSL_LK.DOSE2DT
+  submission:
+    origins:
+    - type: Predecessor
+      description: ADSL.DOSE2DT
+- name: DOS2DTM
+  derivation: ADSL_LK.DOS2DTM
+  submission:
+    origins:
+    - type: Predecessor
+      description: ADSL.DOS2DTM
+- name: TR02SDT
+  derivation: ADSL_LK.TR02SDT
+  submission:
+    origins:
+    - type: Predecessor
+      description: ADSL.TR02SDT
+- name: TR02SDTM
+  derivation: ADSL_LK.TR02SDTM
+  submission:
+    origins:
+    - type: Predecessor
+      description: ADSL.TR02SDTM
+- name: TR02EDT
+  derivation: ADSL_LK.TR02EDT
+  submission:
+    origins:
+    - type: Predecessor
+      description: ADSL.TR02EDT
+- name: TR02EDTM
+  derivation: ADSL_LK.TR02EDTM
+  submission:
+    origins:
+    - type: Predecessor
+      description: ADSL.TR02EDTM
+- name: OLDOS2DT
+  derivation: ADSL_LK.OLDOS2DT
+  submission:
+    origins:
+    - type: Predecessor
+      description: ADSL.OLDOS2DT
+- name: OLDO2DTM
+  derivation: ADSL_LK.OLDO2DTM
+  submission:
+    origins:
+    - type: Predecessor
+      description: ADSL.OLDO2DTM
+- name: EUAVACDT
+  derivation: ADSL_LK.EUAVACDT
+  submission:
+    mandatory: false
+    origins:
+    - type: Predecessor
+      description: ADSL.EUAVACDT
+- name: EFFCODT
+  derivation: ADSL_LK.EFFCODT
+  submission:
+    mandatory: false
+    origins:
+    - type: Predecessor
+      description: ADSL.EFFCODT
+- name: AP01SDT
+  derivation: ADSL_LK.AP01SDT
+  submission:
+    origins:
+    - type: Predecessor
+      description: ADSL.AP01SDT
+- name: AP01EDT
+  derivation: ADSL_LK.AP01EDT
+  submission:
+    mandatory: false
+    origins:
+    - type: Predecessor
+      description: ADSL.AP01EDT
+- name: AP02SDT
+  derivation: ADSL_LK.AP02SDT
+  submission:
+    origins:
+    - type: Predecessor
+      description: ADSL.AP02SDT
+- name: AP02EDT
+  derivation: ADSL_LK.AP02EDT
+  submission:
+    origins:
+    - type: Predecessor
+      description: ADSL.AP02EDT
+- name: AP01SSDT
+  derivation: ADSL_LK.AP01SSDT
+  submission:
+    origins:
+    - type: Predecessor
+      description: ADSL.AP01SSDT
+- name: AP01SEDT
+  derivation: ADSL_LK.AP01SEDT
+  submission:
+    mandatory: false
+    origins:
+    - type: Predecessor
+      description: ADSL.AP01SEDT
+- name: AP02SSDT
+  derivation: ADSL_LK.AP02SSDT
+  submission:
+    origins:
+    - type: Predecessor
+      description: ADSL.AP02SSDT
+- name: AP02SEDT
+  derivation: ADSL_LK.AP02SEDT
+  submission:
+    origins:
+    - type: Predecessor
+      description: ADSL.AP02SEDT
+- name: RSKF1
+  derivation: ADSL_LK.RSKF1
+  submission:
+    origins:
+    - type: Predecessor
+      description: ADSL.RSKF1
+- name: RSKF2
+  derivation: ADSL_LK.RSKF2
+  submission:
+    origins:
+    - type: Predecessor
+      description: ADSL.RSKF2
+- name: RSKF3
+  derivation: ADSL_LK.RSKF3
+  submission:
+    origins:
+    - type: Predecessor
+      description: ADSL.RSKF3
+- name: RSKF4
+  derivation: ADSL_LK.RSKF4
+  submission:
+    origins:
+    - type: Predecessor
+      description: ADSL.RSKF4
+- name: RSKF5
+  derivation: ADSL_LK.RSKF5
+  submission:
+    origins:
+    - type: Predecessor
+      description: ADSL.RSKF5
+- name: RSKF6
+  derivation: ADSL_LK.RSKF6
+  submission:
+    origins:
+    - type: Predecessor
+      description: ADSL.RSKF6
+- name: STRATAV
+  derivation: ADSL_LK.STRATAV
+  submission:
+    mandatory: true
+    origins:
+    - type: Predecessor
+      description: ADSL.STRATAV
+- name: STRATAVN
+  derivation: ADSL_LK.STRATAVN
+  submission:
+    mandatory: true
+    origins:
+    - type: Predecessor
+      description: ADSL.STRATAVN
+- name: STUDDUR3
+  derivation: ADSL_LK.STUDDUR3
+  submission:
+    origins:
+    - type: Predecessor
+      description: ADSL.STUDDUR3
+- name: MINORITY
+  derivation: ADSL_LK.MINORITY
+  submission:
+    origins:
+    - type: Predecessor
+      description: ADSL.MINORITY
+- name: RACEGR1
+  derivation: ADSL_LK.RACEGR1
+  submission:
+    mandatory: false
+    origins:
+    - type: Predecessor
+      description: ADSL.RACEGR1
+- name: RACEGR1N
+  derivation: ADSL_LK.RACEGR1N
+  submission:
+    mandatory: false
+    origins:
+    - type: Predecessor
+      description: ADSL.RACEGR1N
+- name: RISKGR1
+  derivation: ADSL_LK.RISKGR1
+  submission:
+    origins:
+    - type: Predecessor
+      description: ADSL.RISKGR1
+- name: RISKGR1N
+  derivation: ADSL_LK.RISKGR1N
+  submission:
+    origins:
+    - type: Predecessor
+      description: ADSL.RISKGR1N
+- name: RETHGR1
+  derivation: ADSL_LK.RETHGR1
+  submission:
+    origins:
+    - type: Predecessor
+      description: ADSL.RETHGR1
+- name: RETHGR1N
+  derivation: ADSL_LK.RETHGR1N
+  submission:
+    origins:
+    - type: Predecessor
+      description: ADSL.RETHGR1N
+- name: COVIDAFL
+  derivation: ADSL_LK.COVIDAFL
+  submission:
+    origins:
+    - type: Predecessor
+      description: ADSL.COVIDAFL
+- name: CVDSVAFL
+  derivation: ADSL_LK.CVDSVAFL
+  submission:
+    origins:
+    - type: Predecessor
+      description: ADSL.CVDSVAFL
+- name: RANDDT
+  derivation: ADSL_LK.RANDDT
+  submission:
+    mandatory: false
+    origins:
+    - type: Predecessor
+      description: ADSL.RANDDT
+- name: ACTARM
+  derivation: null
+- name: ARM
+  derivation: null
+- name: BMIBL
+  derivation: null
+- name: CBNRS
+  derivation: null
+- name: CHILDBP
+  derivation: null
+- name: COMPLFL
+  derivation: null
+- name: CUTOFFDT
+  derivation: null
+- name: DCSREAS
+  derivation: null
+- name: DCSREASP
+  derivation: null
+- name: DCT01RS
+  derivation: null
+- name: DCT01RSP
+  derivation: null
+- name: DCT02RS
+  derivation: null
+- name: DCT02RSP
+  derivation: null
+- name: DSDTHSP
+  derivation: null
+- name: DTHAUTOP
+  derivation: null
+- name: DTHCAUS
+  derivation: null
+- name: DTHDT
+  derivation: null
+- name: EOSDT
+  derivation: null
+- name: EOSDY
+  derivation: null
+- name: EOSSTT
+  derivation: null
+- name: EOT01DT
+  derivation: null
+- name: EOT01DY
+  derivation: null
+- name: EOT01STT
+  derivation: null
+- name: EOT02DT
+  derivation: null
+- name: EOT02DY
+  derivation: null
+- name: EOT02STT
+  derivation: null
+- name: EXTDT
+  derivation: null
+- name: FASEREAS
+  derivation: null
+- name: HEIGHTBL
+  derivation: null
+- name: IRTVISDT
+  derivation: null
+- name: MITTERS
+  derivation: null
+- name: PDVDT
+  derivation: null
+- name: PPEREAS
+  derivation: null
+- name: PPSIEREA
+  derivation: null
+- name: PREVSCR
+  derivation: null
+- name: PROTVER
+  derivation: null
+- name: RANDNUM
+  derivation: null
+- name: RFICDT
+  derivation: null
+- name: SAFEREAS
+  derivation: null
+- name: SAR1ERS
+  derivation: null
+- name: SAR2ERS
+  derivation: null
+- name: STUDDUR1
+  derivation: null
+- name: STUDDUR2
+  derivation: null
+- name: STUDDUR4
+  derivation: null
+- name: STUDDUR5
+  derivation: null
+- name: STUDDUR6
+  derivation: null
+- name: TTDTH1
+  derivation: null
+- name: TTDTH2
+  derivation: null
+- name: UBLDDT
+  derivation: null
+- name: UICDT
+  derivation: null
+- name: WEIGHTBL
+  derivation: null
+- name: ADT
+  type: date
+  label: Analysis Date
+  submission:
+    core: Perm
+    mandatory: false
+    origins:
+    - type: Derived
+    method: "Withheld from publication: the received define states this text."
+- name: PARAMCD
+  type: str
+  label: Parameter Code
+  submission:
+    core: Perm
+    mandatory: true
+    length: 8
+    origins:
+    - type: Assigned
+    method: "Withheld from publication: the received define states this text."
+- name: PARAM
+  type: str
+  label: Parameter
+  derivation:
+    mapping:
+      source: PARAMCD
+      dict:
+        BOD28D: 'Burden of Disease Score in 28 Days'
+        BOD7D: 'Burden of Disease Score in 7 Days'
+        BOI28D: 'Burden of Infection Score in 28 Days'
+        BOI7D: 'Burden of Infection Score in 7 Days'
+      unmapped: null
+  submission:
+    core: Perm
+    mandatory: false
+    length: 40
+    origins:
+    - type: Derived
+    method: "Withheld from publication: the received define states this text."
+- name: AWRANGE
+  type: str
+  label: Analysis Window Valid Relative Range
+  submission:
+    core: Perm
+    mandatory: false
+    length: 40
+    origins:
+    - type: Assigned
+    method: "Withheld from publication: the received define states this text."
+- name: AWRANGEN
+  type: int
+  label: Analysis Window Valid Relative Range (N)
+  submission:
+    core: Perm
+    mandatory: true
+    length: 8
+    display_format: '3.'
+    origins:
+    - type: Assigned
+    method: "Withheld from publication: the received define states this text."
+- name: AVAL
+  type: float
+  label: Analysis Value
+  submission:
+    core: Perm
+    mandatory: false
+    length: 8
+    significant_digits: 2
+    origins:
+    - type: Derived
+    method: "Withheld from publication: the received define states this text."
+- name: ANL01FL
+  type: str
+  label: Analysis Flag 01
+  submission:
+    core: Perm
+    mandatory: false
+    length: 1
+    origins:
+    - type: Derived
+    method: "Withheld from publication: the received define states this text."
+output:
+  path: <adam-dir>/adeff2-yamaa.parquet
+  order_by:
+  - USUBJID
+  - PARAMCD
+  - AWRANGEN
+  columns:
+  - STUDYID
+  - USUBJID
+  - SUBJID
+  - SITEID
+  - COUNTRY
+  - AGE
+  - AGEU
+  - STRATAR
+  - STRATARN
+  - AGEGR1
+  - AGEGR1N
+  - AGEGR2
+  - AGEGR2N
+  - AGEGR3
+  - AGEGR3N
+  - AGEGR4
+  - AGEGR4N
+  - SEX
+  - RACE
+  - RACESPY
+  - ETHNIC
+  - RANDFL
+  - FASFL
+  - SAFFL
+  - SAR1FL
+  - SAR2FL
+  - SARAFL
+  - MITTFL
+  - PPROTFL
+  - RANDIGFL
+  - PPSIFL
+  - CCIASFL
+  - DOSE1FL
+  - DOSE2FL
+  - OLDOS1FL
+  - OLDOS2FL
+  - RTPCRBL
+  - ELECSBL
+  - SCOV2BL
+  - TRT01P
+  - TRT01PN
+  - TRT01A
+  - TRT01AN
+  - TRT02P
+  - TRT02PN
+  - TRT02A
+  - TRT02AN
+  - TRTSEQP
+  - TRTSEQPN
+  - TRTSEQA
+  - TRTSEQAN
+  - TRTSDT
+  - TRTEDT
+  - TR01SDT
+  - TR01SDTM
+  - TR01EDT
+  - TR01EDTM
+  - DOSE2DT
+  - DOS2DTM
+  - TR02SDT
+  - TR02SDTM
+  - TR02EDT
+  - TR02EDTM
+  - OLDOS2DT
+  - OLDO2DTM
+  - EUAVACDT
+  - EFFCODT
+  - AP01SDT
+  - AP01EDT
+  - AP02SDT
+  - AP02EDT
+  - AP01SSDT
+  - AP01SEDT
+  - AP02SSDT
+  - AP02SEDT
+  - RSKF1
+  - RSKF2
+  - RSKF3
+  - RSKF4
+  - RSKF5
+  - RSKF6
+  - STRATAV
+  - STRATAVN
+  - STUDDUR3
+  - MINORITY
+  - RACEGR1
+  - RACEGR1N
+  - RISKGR1
+  - RISKGR1N
+  - RETHGR1
+  - RETHGR1N
+  - COVIDAFL
+  - CVDSVAFL
+  - RANDDT
+  - ADT
+  - PARAMCD
+  - PARAM
+  - AWRANGE
+  - AWRANGEN
+  - AVAL
+  - ANL01FL

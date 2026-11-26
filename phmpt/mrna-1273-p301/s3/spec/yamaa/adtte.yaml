@@ -1,0 +1,5955 @@
+# ADTTE for Moderna mRNA-1273-P301, cut S3 (BLA Interim Analysis,
+# cutoff 2021-03-26). Parent: ../../../spec/yamaa/base/adam-base-s3.yaml (which
+# chains to ../../../spec/yamaa/base/adam-base.yaml; 86 shared + 59 S3-only ADSL
+# columns). Derivations implement the S3 A50ADTTE program: one row
+# per FAS subject per PARAMCD (51 PARAMCDs), from the submitted
+# ADEFF (first event per subject per PARAMCD), the verified ADSL,
+# and first positive MB / IS dates for the prior-infection rule.
+# Where the SAS code and the define.xml method text disagree, the
+# code is followed (see README.md). SAP note (closed 2026-11-24,
+# no-impact): the file labelled "SAP v3" (19745_S68_M5_sap-v3.pdf) is
+# the P201 SAP v3.0 (27 Oct 2020), not a P301 SAP version; the only
+# P301 SAP in the set is v1.0 (10 Sep 2020). The case definitions below
+# are the program's own, so the spec follows the program, not a SAP
+# version. Program-vs-data note: the program
+# also calls %dev_tte for TTCVD / TTCVDSE / TTCVDSD, but the submitted
+# ADTTE has zero rows for those 18 PARAMCDs and the define's own
+# CL.ADTTE.PARAMCD codelist lists exactly the 51 PARAMCDs present in
+# the data, so the spec emits only those 51. KEYS: unlike ADEFF,
+# ADTTE HAS a usable key: (STUDYID, USUBJID, PARAMCD) is unique and
+# non-missing on the submitted target, and there is no ASEQ column.
+# Honest gaps: none. A pandas prototype reproduces the submitted
+# target exactly on all 102 columns (0 mismatches), and the yamaa
+# spec is expected to verify EXACT MATCH the same way; if the full
+# verify.py run OOMs in this 6 GB cell (1,522,428 rows), verification
+# falls back to pruned dependency-closure groups with a single
+# full-spec re-run in a roomier cell still owed (see
+# adtte/verify_report.json, original work tree).
+# Split-by-subject full-spec verification (session 51, 2026-11-23):
+# the UNCHANGED spec run end to end in 4 partitions (SEX x AGE
+# <=55/>55: P0 M<=55 438,392; P1 F<=55 411,587; P2 M>55 361,940;
+# P3 F>55 310,509 rows) -- P0/P1 via the lean Arrow driver
+# (adtte/verify_split_lean.py), P2/P3 via verify.py -- EXACT MATCH
+# strict on every partition, 1,522,428 rows combined, 0 mismatched
+# cells, identical per-column to the pruned-group baseline. The
+# roomier-cell re-run is therefore discharged; see
+# adtte/verify_report_s3_split.json (original work tree; runner
+# adtte/run_batch_s3.py; staged inputs + per-partition reports in
+# adtte/batch-s3-tmp/).
+yamaa: '1.0'
+type: spec
+model: ADaM
+parent: ../../../spec/yamaa/base/adam-base-s3.yaml
+domain: ADTTE
+keys:
+- STUDYID
+- USUBJID
+- PARAMCD
+input:
+  MB: <sdtm-dir>/mb.parquet
+  IS: <sdtm-dir>/is.parquet
+  ADEFF:
+    path: <adam-dir>/adeff.parquet
+    key:
+    - STUDYID
+    - USUBJID
+  ADSL:
+    path: <adam-dir>/adsl.parquet
+    key:
+    - STUDYID
+    - USUBJID
+submission:
+  label: Time to Event Analysis Dataset
+  class: BASIC DATA STRUCTURE
+  structure: One record per subject per parameter
+  repeating: true
+rows:
+- id: ttcvdc1_rows
+  dataset: ADSL
+  derivations:
+    STUDYID: ADSL.STUDYID
+    USUBJID: ADSL.USUBJID
+    PARAMCD: '''TTCVDC1'''
+    _EVENT_DT: EV_COVIDS_1._ADT
+    _EVENT_EPOCH:
+      to_epoch_day:
+        source: _EVENT_DT
+    _PCRDT_E: EV_COVIDS_1._PCRDT
+    _PCRDT_EPOCH:
+      to_epoch_day:
+        source: _PCRDT_E
+    _APERIOD_E: EV_COVIDS_1._APERIOD
+    _COVID_DT: null
+    _COVID_EPOCH:
+      to_epoch_day:
+        source: _COVID_DT
+    _PCR_POS_DT: PCR_POS_1._DT
+    _PCR_POS_EPOCH:
+      to_epoch_day:
+        source: _PCR_POS_DT
+    _ELEC_POS_DT: ELEC_POS_1._DT
+    _ELEC_POS_EPOCH:
+      to_epoch_day:
+        source: _ELEC_POS_DT
+    _EARLY: SUBJ_EARLY._ADT
+    _DOSE2_EPOCH:
+      to_epoch_day:
+        source: ADSL.DOSE2DT
+    _TR01_EPOCH:
+      to_epoch_day:
+        source: ADSL.TR01SDT
+    _RAND_EPOCH:
+      to_epoch_day:
+        source: ADSL.RANDDT
+    _DTHDT_EPOCH:
+      to_epoch_day:
+        source: ADSL.DTHDT
+    _EOSDT_EPOCH:
+      to_epoch_day:
+        source: ADSL.EOSDT
+    _CUTOFFDT_EPOCH:
+      to_epoch_day:
+        source: ADSL.CUTOFFDT
+    _EFFCODT_EPOCH:
+      to_epoch_day:
+        source: ADSL.EFFCODT
+    _AP01EDT_EPOCH:
+      to_epoch_day:
+        source: ADSL.AP01EDT
+    _MINDT_EPOCH:
+      least: {sources: [_DTHDT_EPOCH, _EOSDT_EPOCH, _CUTOFFDT_EPOCH, _EFFCODT_EPOCH]}
+    _INWIN:
+      case:
+      - when: _EVENT_DT IS NOT NULL AND _EVENT_EPOCH <= _MINDT_EPOCH
+        then: 1
+      - otherwise: 0
+    _CENSDT:
+      least: {sources: [ADSL.DTHDT, ADSL.EOSDT, ADSL.CUTOFFDT, ADSL.EFFCODT, ADSL.AP01EDT]}
+    _CENSDT_EPOCH:
+      to_epoch_day:
+        source: _CENSDT
+    _ADT_RAW:
+      case:
+      - when: ((_PCR_POS_EPOCH IS NOT NULL AND _PCR_POS_EPOCH < _PCRDT_EPOCH) OR ((_ELEC_POS_EPOCH IS NOT NULL AND _ELEC_POS_EPOCH < _PCRDT_EPOCH) AND _INWIN = 1))
+        then:
+          least: {sources: [_PCR_POS_DT, _ELEC_POS_DT]}
+      - when: _INWIN = 1 AND _DOSE2_EPOCH IS NOT NULL AND _DOSE2_EPOCH + 14 <= _EVENT_EPOCH
+        then: _EVENT_DT
+      - when: _INWIN = 1 AND (_DOSE2_EPOCH IS NULL OR _DOSE2_EPOCH + 14 > _EVENT_EPOCH)
+        then: _EVENT_DT
+      - otherwise: _CENSDT
+    _CNSR_RAW:
+      case:
+      - when: ((_PCR_POS_EPOCH IS NOT NULL AND _PCR_POS_EPOCH < _PCRDT_EPOCH) OR ((_ELEC_POS_EPOCH IS NOT NULL AND _ELEC_POS_EPOCH < _PCRDT_EPOCH) AND _INWIN = 1))
+        then: 1
+      - when: _INWIN = 1 AND _DOSE2_EPOCH IS NOT NULL AND _DOSE2_EPOCH + 14 <= _EVENT_EPOCH
+        then: 0
+      - when: _INWIN = 1 AND (_DOSE2_EPOCH IS NULL OR _DOSE2_EPOCH + 14 > _EVENT_EPOCH)
+        then: 1
+      - otherwise: 1
+    _EVNTDESC_RAW:
+      case:
+      - when: ((_PCR_POS_EPOCH IS NOT NULL AND _PCR_POS_EPOCH < _PCRDT_EPOCH) OR ((_ELEC_POS_EPOCH IS NOT NULL AND _ELEC_POS_EPOCH < _PCRDT_EPOCH) AND _INWIN = 1))
+        then: '''Infection Prior to COVID-19 (Considering Scheduled RT-PCR and Prior Infection Censoring)'''
+      - when: _INWIN = 1 AND _DOSE2_EPOCH IS NOT NULL AND _DOSE2_EPOCH + 14 <= _EVENT_EPOCH
+        then: '''COVID-19 (Considering Scheduled RT-PCR and Prior Infection Censoring)'''
+      - when: _INWIN = 1 AND (_DOSE2_EPOCH IS NULL OR _DOSE2_EPOCH + 14 > _EVENT_EPOCH)
+        then: '''Early COVID-19 (Considering Scheduled RT-PCR and Prior Infection Censoring)'''
+      - otherwise: '''No COVID-19 (Considering Scheduled RT-PCR and Prior Infection Censoring)'''
+  filter: ADSL.FASFL = 'Y'
+- id: ttcvdc2_rows
+  dataset: ADSL
+  derivations:
+    STUDYID: ADSL.STUDYID
+    USUBJID: ADSL.USUBJID
+    PARAMCD: '''TTCVDC2'''
+    _EVENT_DT: EV_COVIDS_1._ADT
+    _EVENT_EPOCH:
+      to_epoch_day:
+        source: _EVENT_DT
+    _PCRDT_E: EV_COVIDS_1._PCRDT
+    _PCRDT_EPOCH:
+      to_epoch_day:
+        source: _PCRDT_E
+    _APERIOD_E: EV_COVIDS_1._APERIOD
+    _COVID_DT: null
+    _COVID_EPOCH:
+      to_epoch_day:
+        source: _COVID_DT
+    _PCR_POS_DT: PCR_POS_1._DT
+    _PCR_POS_EPOCH:
+      to_epoch_day:
+        source: _PCR_POS_DT
+    _ELEC_POS_DT: ELEC_POS_1._DT
+    _ELEC_POS_EPOCH:
+      to_epoch_day:
+        source: _ELEC_POS_DT
+    _EARLY: SUBJ_EARLY._ADT
+    _DOSE2_EPOCH:
+      to_epoch_day:
+        source: ADSL.DOSE2DT
+    _TR01_EPOCH:
+      to_epoch_day:
+        source: ADSL.TR01SDT
+    _RAND_EPOCH:
+      to_epoch_day:
+        source: ADSL.RANDDT
+    _DTHDT_EPOCH:
+      to_epoch_day:
+        source: ADSL.DTHDT
+    _EOSDT_EPOCH:
+      to_epoch_day:
+        source: ADSL.EOSDT
+    _CUTOFFDT_EPOCH:
+      to_epoch_day:
+        source: ADSL.CUTOFFDT
+    _EFFCODT_EPOCH:
+      to_epoch_day:
+        source: ADSL.EFFCODT
+    _AP01EDT_EPOCH:
+      to_epoch_day:
+        source: ADSL.AP01EDT
+    _MINDT_EPOCH:
+      least: {sources: [_DTHDT_EPOCH, _EOSDT_EPOCH, _CUTOFFDT_EPOCH, _EFFCODT_EPOCH]}
+    _INWIN:
+      case:
+      - when: _EVENT_DT IS NOT NULL AND _EVENT_EPOCH <= _MINDT_EPOCH
+        then: 1
+      - otherwise: 0
+    _CENSDT:
+      least: {sources: [ADSL.DTHDT, ADSL.EOSDT, ADSL.CUTOFFDT, ADSL.EFFCODT, ADSL.AP01EDT]}
+    _CENSDT_EPOCH:
+      to_epoch_day:
+        source: _CENSDT
+    _ADT_RAW:
+      case:
+      - when: ((_PCR_POS_EPOCH IS NOT NULL AND _PCR_POS_EPOCH < _PCRDT_EPOCH) OR ((_ELEC_POS_EPOCH IS NOT NULL AND _ELEC_POS_EPOCH < _PCRDT_EPOCH) AND _INWIN = 1))
+        then:
+          least: {sources: [_PCR_POS_DT, _ELEC_POS_DT]}
+      - when: _INWIN = 1 AND _DOSE2_EPOCH IS NOT NULL AND _DOSE2_EPOCH <= _EVENT_EPOCH
+        then: _EVENT_DT
+      - when: _INWIN = 1 AND (_DOSE2_EPOCH IS NULL OR _DOSE2_EPOCH > _EVENT_EPOCH)
+        then: _EVENT_DT
+      - otherwise: _CENSDT
+    _CNSR_RAW:
+      case:
+      - when: ((_PCR_POS_EPOCH IS NOT NULL AND _PCR_POS_EPOCH < _PCRDT_EPOCH) OR ((_ELEC_POS_EPOCH IS NOT NULL AND _ELEC_POS_EPOCH < _PCRDT_EPOCH) AND _INWIN = 1))
+        then: 1
+      - when: _INWIN = 1 AND _DOSE2_EPOCH IS NOT NULL AND _DOSE2_EPOCH <= _EVENT_EPOCH
+        then: 0
+      - when: _INWIN = 1 AND (_DOSE2_EPOCH IS NULL OR _DOSE2_EPOCH > _EVENT_EPOCH)
+        then: 1
+      - otherwise: 1
+    _EVNTDESC_RAW:
+      case:
+      - when: ((_PCR_POS_EPOCH IS NOT NULL AND _PCR_POS_EPOCH < _PCRDT_EPOCH) OR ((_ELEC_POS_EPOCH IS NOT NULL AND _ELEC_POS_EPOCH < _PCRDT_EPOCH) AND _INWIN = 1))
+        then: '''Infection Prior to COVID-19 (Considering Scheduled RT-PCR and Prior Infection Censoring)'''
+      - when: _INWIN = 1 AND _DOSE2_EPOCH IS NOT NULL AND _DOSE2_EPOCH <= _EVENT_EPOCH
+        then: '''COVID-19 (Considering Scheduled RT-PCR and Prior Infection Censoring)'''
+      - when: _INWIN = 1 AND (_DOSE2_EPOCH IS NULL OR _DOSE2_EPOCH > _EVENT_EPOCH)
+        then: '''Early COVID-19 (Considering Scheduled RT-PCR and Prior Infection Censoring)'''
+      - otherwise: '''No COVID-19 (Considering Scheduled RT-PCR and Prior Infection Censoring)'''
+  filter: ADSL.FASFL = 'Y'
+- id: ttcvdc3_rows
+  dataset: ADSL
+  derivations:
+    STUDYID: ADSL.STUDYID
+    USUBJID: ADSL.USUBJID
+    PARAMCD: '''TTCVDC3'''
+    _EVENT_DT: EV_COVIDS_1._ADT
+    _EVENT_EPOCH:
+      to_epoch_day:
+        source: _EVENT_DT
+    _PCRDT_E: EV_COVIDS_1._PCRDT
+    _PCRDT_EPOCH:
+      to_epoch_day:
+        source: _PCRDT_E
+    _APERIOD_E: EV_COVIDS_1._APERIOD
+    _COVID_DT: null
+    _COVID_EPOCH:
+      to_epoch_day:
+        source: _COVID_DT
+    _PCR_POS_DT: PCR_POS_1._DT
+    _PCR_POS_EPOCH:
+      to_epoch_day:
+        source: _PCR_POS_DT
+    _ELEC_POS_DT: ELEC_POS_1._DT
+    _ELEC_POS_EPOCH:
+      to_epoch_day:
+        source: _ELEC_POS_DT
+    _EARLY: SUBJ_EARLY._ADT
+    _DOSE2_EPOCH:
+      to_epoch_day:
+        source: ADSL.DOSE2DT
+    _TR01_EPOCH:
+      to_epoch_day:
+        source: ADSL.TR01SDT
+    _RAND_EPOCH:
+      to_epoch_day:
+        source: ADSL.RANDDT
+    _DTHDT_EPOCH:
+      to_epoch_day:
+        source: ADSL.DTHDT
+    _EOSDT_EPOCH:
+      to_epoch_day:
+        source: ADSL.EOSDT
+    _CUTOFFDT_EPOCH:
+      to_epoch_day:
+        source: ADSL.CUTOFFDT
+    _EFFCODT_EPOCH:
+      to_epoch_day:
+        source: ADSL.EFFCODT
+    _AP01EDT_EPOCH:
+      to_epoch_day:
+        source: ADSL.AP01EDT
+    _MINDT_EPOCH:
+      least: {sources: [_DTHDT_EPOCH, _EOSDT_EPOCH, _CUTOFFDT_EPOCH, _EFFCODT_EPOCH]}
+    _INWIN:
+      case:
+      - when: _EVENT_DT IS NOT NULL AND _EVENT_EPOCH <= _MINDT_EPOCH
+        then: 1
+      - otherwise: 0
+    _CENSDT:
+      least: {sources: [ADSL.DTHDT, ADSL.EOSDT, ADSL.CUTOFFDT, ADSL.EFFCODT, ADSL.AP01EDT]}
+    _CENSDT_EPOCH:
+      to_epoch_day:
+        source: _CENSDT
+    _ADT_RAW:
+      case:
+      - when: ((_PCR_POS_EPOCH IS NOT NULL AND _PCR_POS_EPOCH < _PCRDT_EPOCH) OR ((_ELEC_POS_EPOCH IS NOT NULL AND _ELEC_POS_EPOCH < _PCRDT_EPOCH) AND _INWIN = 1 AND _TR01_EPOCH IS NOT NULL))
+        then:
+          least: {sources: [_PCR_POS_DT, _ELEC_POS_DT]}
+      - when: _INWIN = 1 AND _TR01_EPOCH IS NOT NULL AND _TR01_EPOCH + 14 <= _EVENT_EPOCH
+        then: _EVENT_DT
+      - when: _INWIN = 1 AND _TR01_EPOCH IS NOT NULL AND _TR01_EPOCH + 14 > _EVENT_EPOCH
+        then: _EVENT_DT
+      - otherwise: _CENSDT
+    _CNSR_RAW:
+      case:
+      - when: ((_PCR_POS_EPOCH IS NOT NULL AND _PCR_POS_EPOCH < _PCRDT_EPOCH) OR ((_ELEC_POS_EPOCH IS NOT NULL AND _ELEC_POS_EPOCH < _PCRDT_EPOCH) AND _INWIN = 1 AND _TR01_EPOCH IS NOT NULL))
+        then: 1
+      - when: _INWIN = 1 AND _TR01_EPOCH IS NOT NULL AND _TR01_EPOCH + 14 <= _EVENT_EPOCH
+        then: 0
+      - when: _INWIN = 1 AND _TR01_EPOCH IS NOT NULL AND _TR01_EPOCH + 14 > _EVENT_EPOCH
+        then: 1
+      - otherwise: 1
+    _EVNTDESC_RAW:
+      case:
+      - when: ((_PCR_POS_EPOCH IS NOT NULL AND _PCR_POS_EPOCH < _PCRDT_EPOCH) OR ((_ELEC_POS_EPOCH IS NOT NULL AND _ELEC_POS_EPOCH < _PCRDT_EPOCH) AND _INWIN = 1 AND _TR01_EPOCH IS NOT NULL))
+        then: '''Infection Prior to COVID-19 (Considering Scheduled RT-PCR and Prior Infection Censoring)'''
+      - when: _INWIN = 1 AND _TR01_EPOCH IS NOT NULL AND _TR01_EPOCH + 14 <= _EVENT_EPOCH
+        then: '''COVID-19 (Considering Scheduled RT-PCR and Prior Infection Censoring)'''
+      - when: _INWIN = 1 AND _TR01_EPOCH IS NOT NULL AND _TR01_EPOCH + 14 > _EVENT_EPOCH
+        then: '''Early COVID-19 (Considering Scheduled RT-PCR and Prior Infection Censoring)'''
+      - otherwise: '''No COVID-19 (Considering Scheduled RT-PCR and Prior Infection Censoring)'''
+  filter: ADSL.FASFL = 'Y'
+- id: ttcvdc4_rows
+  dataset: ADSL
+  derivations:
+    STUDYID: ADSL.STUDYID
+    USUBJID: ADSL.USUBJID
+    PARAMCD: '''TTCVDC4'''
+    _EVENT_DT: EV_COVIDS_1._ADT
+    _EVENT_EPOCH:
+      to_epoch_day:
+        source: _EVENT_DT
+    _PCRDT_E: EV_COVIDS_1._PCRDT
+    _PCRDT_EPOCH:
+      to_epoch_day:
+        source: _PCRDT_E
+    _APERIOD_E: EV_COVIDS_1._APERIOD
+    _COVID_DT: null
+    _COVID_EPOCH:
+      to_epoch_day:
+        source: _COVID_DT
+    _PCR_POS_DT: PCR_POS_1._DT
+    _PCR_POS_EPOCH:
+      to_epoch_day:
+        source: _PCR_POS_DT
+    _ELEC_POS_DT: ELEC_POS_1._DT
+    _ELEC_POS_EPOCH:
+      to_epoch_day:
+        source: _ELEC_POS_DT
+    _EARLY: SUBJ_EARLY._ADT
+    _DOSE2_EPOCH:
+      to_epoch_day:
+        source: ADSL.DOSE2DT
+    _TR01_EPOCH:
+      to_epoch_day:
+        source: ADSL.TR01SDT
+    _RAND_EPOCH:
+      to_epoch_day:
+        source: ADSL.RANDDT
+    _DTHDT_EPOCH:
+      to_epoch_day:
+        source: ADSL.DTHDT
+    _EOSDT_EPOCH:
+      to_epoch_day:
+        source: ADSL.EOSDT
+    _CUTOFFDT_EPOCH:
+      to_epoch_day:
+        source: ADSL.CUTOFFDT
+    _EFFCODT_EPOCH:
+      to_epoch_day:
+        source: ADSL.EFFCODT
+    _AP01EDT_EPOCH:
+      to_epoch_day:
+        source: ADSL.AP01EDT
+    _MINDT_EPOCH:
+      least: {sources: [_DTHDT_EPOCH, _EOSDT_EPOCH, _CUTOFFDT_EPOCH, _EFFCODT_EPOCH]}
+    _INWIN:
+      case:
+      - when: _EVENT_DT IS NOT NULL AND _EVENT_EPOCH <= _MINDT_EPOCH
+        then: 1
+      - otherwise: 0
+    _CENSDT:
+      least: {sources: [ADSL.DTHDT, ADSL.EOSDT, ADSL.CUTOFFDT, ADSL.EFFCODT, ADSL.AP01EDT]}
+    _CENSDT_EPOCH:
+      to_epoch_day:
+        source: _CENSDT
+    _ADT_RAW:
+      case:
+      - when: ((_PCR_POS_EPOCH IS NOT NULL AND _PCR_POS_EPOCH < _PCRDT_EPOCH) OR ((_ELEC_POS_EPOCH IS NOT NULL AND _ELEC_POS_EPOCH < _PCRDT_EPOCH) AND _INWIN = 1 AND _TR01_EPOCH IS NOT NULL))
+        then:
+          least: {sources: [_PCR_POS_DT, _ELEC_POS_DT]}
+      - when: _INWIN = 1 AND _TR01_EPOCH IS NOT NULL AND _TR01_EPOCH <= _EVENT_EPOCH
+        then: _EVENT_DT
+      - when: _INWIN = 1 AND _TR01_EPOCH IS NOT NULL AND _TR01_EPOCH > _EVENT_EPOCH
+        then: _EVENT_DT
+      - otherwise: _CENSDT
+    _CNSR_RAW:
+      case:
+      - when: ((_PCR_POS_EPOCH IS NOT NULL AND _PCR_POS_EPOCH < _PCRDT_EPOCH) OR ((_ELEC_POS_EPOCH IS NOT NULL AND _ELEC_POS_EPOCH < _PCRDT_EPOCH) AND _INWIN = 1 AND _TR01_EPOCH IS NOT NULL))
+        then: 1
+      - when: _INWIN = 1 AND _TR01_EPOCH IS NOT NULL AND _TR01_EPOCH <= _EVENT_EPOCH
+        then: 0
+      - when: _INWIN = 1 AND _TR01_EPOCH IS NOT NULL AND _TR01_EPOCH > _EVENT_EPOCH
+        then: 1
+      - otherwise: 1
+    _EVNTDESC_RAW:
+      case:
+      - when: ((_PCR_POS_EPOCH IS NOT NULL AND _PCR_POS_EPOCH < _PCRDT_EPOCH) OR ((_ELEC_POS_EPOCH IS NOT NULL AND _ELEC_POS_EPOCH < _PCRDT_EPOCH) AND _INWIN = 1 AND _TR01_EPOCH IS NOT NULL))
+        then: '''Infection Prior to COVID-19 (Considering Scheduled RT-PCR and Prior Infection Censoring)'''
+      - when: _INWIN = 1 AND _TR01_EPOCH IS NOT NULL AND _TR01_EPOCH <= _EVENT_EPOCH
+        then: '''COVID-19 (Considering Scheduled RT-PCR and Prior Infection Censoring)'''
+      - when: _INWIN = 1 AND _TR01_EPOCH IS NOT NULL AND _TR01_EPOCH > _EVENT_EPOCH
+        then: '''Early COVID-19 (Considering Scheduled RT-PCR and Prior Infection Censoring)'''
+      - otherwise: '''No COVID-19 (Considering Scheduled RT-PCR and Prior Infection Censoring)'''
+  filter: ADSL.FASFL = 'Y'
+- id: ttcvdc5_rows
+  dataset: ADSL
+  derivations:
+    STUDYID: ADSL.STUDYID
+    USUBJID: ADSL.USUBJID
+    PARAMCD: '''TTCVDC5'''
+    _EVENT_DT: EV_COVIDS_1._ADT
+    _EVENT_EPOCH:
+      to_epoch_day:
+        source: _EVENT_DT
+    _PCRDT_E: EV_COVIDS_1._PCRDT
+    _PCRDT_EPOCH:
+      to_epoch_day:
+        source: _PCRDT_E
+    _APERIOD_E: EV_COVIDS_1._APERIOD
+    _COVID_DT: null
+    _COVID_EPOCH:
+      to_epoch_day:
+        source: _COVID_DT
+    _PCR_POS_DT: PCR_POS_1._DT
+    _PCR_POS_EPOCH:
+      to_epoch_day:
+        source: _PCR_POS_DT
+    _ELEC_POS_DT: ELEC_POS_1._DT
+    _ELEC_POS_EPOCH:
+      to_epoch_day:
+        source: _ELEC_POS_DT
+    _EARLY: SUBJ_EARLY._ADT
+    _DOSE2_EPOCH:
+      to_epoch_day:
+        source: ADSL.DOSE2DT
+    _TR01_EPOCH:
+      to_epoch_day:
+        source: ADSL.TR01SDT
+    _RAND_EPOCH:
+      to_epoch_day:
+        source: ADSL.RANDDT
+    _DTHDT_EPOCH:
+      to_epoch_day:
+        source: ADSL.DTHDT
+    _EOSDT_EPOCH:
+      to_epoch_day:
+        source: ADSL.EOSDT
+    _CUTOFFDT_EPOCH:
+      to_epoch_day:
+        source: ADSL.CUTOFFDT
+    _EFFCODT_EPOCH:
+      to_epoch_day:
+        source: ADSL.EFFCODT
+    _AP01EDT_EPOCH:
+      to_epoch_day:
+        source: ADSL.AP01EDT
+    _MINDT_EPOCH:
+      least: {sources: [_DTHDT_EPOCH, _EOSDT_EPOCH, _CUTOFFDT_EPOCH, _EFFCODT_EPOCH]}
+    _INWIN:
+      case:
+      - when: _EVENT_DT IS NOT NULL AND _EVENT_EPOCH <= _MINDT_EPOCH
+        then: 1
+      - otherwise: 0
+    _CENSDT:
+      least: {sources: [ADSL.DTHDT, ADSL.EOSDT, ADSL.CUTOFFDT, ADSL.EFFCODT, ADSL.AP01EDT]}
+    _CENSDT_EPOCH:
+      to_epoch_day:
+        source: _CENSDT
+    _ADT_RAW:
+      case:
+      - when: ((_PCR_POS_EPOCH IS NOT NULL AND _PCR_POS_EPOCH < _PCRDT_EPOCH) OR ((_ELEC_POS_EPOCH IS NOT NULL AND _ELEC_POS_EPOCH < _PCRDT_EPOCH) AND _INWIN = 1 AND _RAND_EPOCH IS NOT NULL AND _RAND_EPOCH <= _EVENT_EPOCH))
+        then:
+          least: {sources: [_PCR_POS_DT, _ELEC_POS_DT]}
+      - when: _INWIN = 1 AND _RAND_EPOCH IS NOT NULL AND _RAND_EPOCH <= _EVENT_EPOCH
+        then: _EVENT_DT
+      - otherwise: _CENSDT
+    _CNSR_RAW:
+      case:
+      - when: ((_PCR_POS_EPOCH IS NOT NULL AND _PCR_POS_EPOCH < _PCRDT_EPOCH) OR ((_ELEC_POS_EPOCH IS NOT NULL AND _ELEC_POS_EPOCH < _PCRDT_EPOCH) AND _INWIN = 1 AND _RAND_EPOCH IS NOT NULL AND _RAND_EPOCH <= _EVENT_EPOCH))
+        then: 1
+      - when: _INWIN = 1 AND _RAND_EPOCH IS NOT NULL AND _RAND_EPOCH <= _EVENT_EPOCH
+        then: 0
+      - otherwise: 1
+    _EVNTDESC_RAW:
+      case:
+      - when: ((_PCR_POS_EPOCH IS NOT NULL AND _PCR_POS_EPOCH < _PCRDT_EPOCH) OR ((_ELEC_POS_EPOCH IS NOT NULL AND _ELEC_POS_EPOCH < _PCRDT_EPOCH) AND _INWIN = 1 AND _RAND_EPOCH IS NOT NULL AND _RAND_EPOCH <= _EVENT_EPOCH))
+        then: '''Infection Prior to COVID-19 (Considering Scheduled RT-PCR and Prior Infection Censoring)'''
+      - when: _INWIN = 1 AND _RAND_EPOCH IS NOT NULL AND _RAND_EPOCH <= _EVENT_EPOCH
+        then: '''COVID-19 (Considering Scheduled RT-PCR and Prior Infection Censoring)'''
+      - otherwise: '''No COVID-19 (Considering Scheduled RT-PCR and Prior Infection Censoring)'''
+  filter: ADSL.FASFL = 'Y'
+- id: ttcvdc6_rows
+  dataset: ADSL
+  derivations:
+    STUDYID: ADSL.STUDYID
+    USUBJID: ADSL.USUBJID
+    PARAMCD: '''TTCVDC6'''
+    _EVENT_DT: EV_COVIDS_1._ADT
+    _EVENT_EPOCH:
+      to_epoch_day:
+        source: _EVENT_DT
+    _PCRDT_E: EV_COVIDS_1._PCRDT
+    _PCRDT_EPOCH:
+      to_epoch_day:
+        source: _PCRDT_E
+    _APERIOD_E: EV_COVIDS_1._APERIOD
+    _COVID_DT: null
+    _COVID_EPOCH:
+      to_epoch_day:
+        source: _COVID_DT
+    _PCR_POS_DT: PCR_POS_1._DT
+    _PCR_POS_EPOCH:
+      to_epoch_day:
+        source: _PCR_POS_DT
+    _ELEC_POS_DT: ELEC_POS_1._DT
+    _ELEC_POS_EPOCH:
+      to_epoch_day:
+        source: _ELEC_POS_DT
+    _EARLY: SUBJ_EARLY._ADT
+    _DOSE2_EPOCH:
+      to_epoch_day:
+        source: ADSL.DOSE2DT
+    _TR01_EPOCH:
+      to_epoch_day:
+        source: ADSL.TR01SDT
+    _RAND_EPOCH:
+      to_epoch_day:
+        source: ADSL.RANDDT
+    _DTHDT_EPOCH:
+      to_epoch_day:
+        source: ADSL.DTHDT
+    _EOSDT_EPOCH:
+      to_epoch_day:
+        source: ADSL.EOSDT
+    _CUTOFFDT_EPOCH:
+      to_epoch_day:
+        source: ADSL.CUTOFFDT
+    _EFFCODT_EPOCH:
+      to_epoch_day:
+        source: ADSL.EFFCODT
+    _AP01EDT_EPOCH:
+      to_epoch_day:
+        source: ADSL.AP01EDT
+    _MINDT_EPOCH:
+      least: {sources: [_DTHDT_EPOCH, _EOSDT_EPOCH, _CUTOFFDT_EPOCH, _EFFCODT_EPOCH]}
+    _INWIN:
+      case:
+      - when: _EVENT_DT IS NOT NULL AND _EVENT_EPOCH <= _MINDT_EPOCH
+        then: 1
+      - otherwise: 0
+    _CENSDT:
+      least: {sources: [ADSL.DTHDT, ADSL.EOSDT, ADSL.CUTOFFDT, ADSL.EFFCODT, ADSL.AP01EDT]}
+    _CENSDT_EPOCH:
+      to_epoch_day:
+        source: _CENSDT
+    _ADT_RAW:
+      case:
+      - when: ((_PCR_POS_EPOCH IS NOT NULL AND _PCR_POS_EPOCH < _PCRDT_EPOCH) OR ((_ELEC_POS_EPOCH IS NOT NULL AND _ELEC_POS_EPOCH < _PCRDT_EPOCH) AND _INWIN = 1))
+        then:
+          least: {sources: [_PCR_POS_DT, _ELEC_POS_DT]}
+      - when: _INWIN = 1 AND _DOSE2_EPOCH IS NOT NULL AND _DOSE2_EPOCH + 35 <= _EVENT_EPOCH
+        then: _EVENT_DT
+      - when: _INWIN = 1 AND (_DOSE2_EPOCH IS NULL OR _DOSE2_EPOCH + 35 > _EVENT_EPOCH)
+        then: _EVENT_DT
+      - otherwise: _CENSDT
+    _CNSR_RAW:
+      case:
+      - when: ((_PCR_POS_EPOCH IS NOT NULL AND _PCR_POS_EPOCH < _PCRDT_EPOCH) OR ((_ELEC_POS_EPOCH IS NOT NULL AND _ELEC_POS_EPOCH < _PCRDT_EPOCH) AND _INWIN = 1))
+        then: 1
+      - when: _INWIN = 1 AND _DOSE2_EPOCH IS NOT NULL AND _DOSE2_EPOCH + 35 <= _EVENT_EPOCH
+        then: 0
+      - when: _INWIN = 1 AND (_DOSE2_EPOCH IS NULL OR _DOSE2_EPOCH + 35 > _EVENT_EPOCH)
+        then: 1
+      - otherwise: 1
+    _EVNTDESC_RAW:
+      case:
+      - when: ((_PCR_POS_EPOCH IS NOT NULL AND _PCR_POS_EPOCH < _PCRDT_EPOCH) OR ((_ELEC_POS_EPOCH IS NOT NULL AND _ELEC_POS_EPOCH < _PCRDT_EPOCH) AND _INWIN = 1))
+        then: '''Infection Prior to COVID-19 (Considering Scheduled RT-PCR and Prior Infection Censoring)'''
+      - when: _INWIN = 1 AND _DOSE2_EPOCH IS NOT NULL AND _DOSE2_EPOCH + 35 <= _EVENT_EPOCH
+        then: '''COVID-19 (Considering Scheduled RT-PCR and Prior Infection Censoring)'''
+      - when: _INWIN = 1 AND (_DOSE2_EPOCH IS NULL OR _DOSE2_EPOCH + 35 > _EVENT_EPOCH)
+        then: '''Early COVID-19 (Considering Scheduled RT-PCR and Prior Infection Censoring)'''
+      - otherwise: '''No COVID-19 (Considering Scheduled RT-PCR and Prior Infection Censoring)'''
+  filter: ADSL.FASFL = 'Y'
+- id: ttcvdc9_rows
+  dataset: ADSL
+  derivations:
+    STUDYID: ADSL.STUDYID
+    USUBJID: ADSL.USUBJID
+    PARAMCD: '''TTCVDC9'''
+    _EVENT_DT: EV_COVIDS_2._ADT
+    _EVENT_EPOCH:
+      to_epoch_day:
+        source: _EVENT_DT
+    _PCRDT_E: EV_COVIDS_2._PCRDT
+    _PCRDT_EPOCH:
+      to_epoch_day:
+        source: _PCRDT_E
+    _APERIOD_E: EV_COVIDS_2._APERIOD
+    _COVID_DT: null
+    _COVID_EPOCH:
+      to_epoch_day:
+        source: _COVID_DT
+    _PCR_POS_DT: PCR_POS_2._DT
+    _PCR_POS_EPOCH:
+      to_epoch_day:
+        source: _PCR_POS_DT
+    _ELEC_POS_DT: ELEC_POS_2._DT
+    _ELEC_POS_EPOCH:
+      to_epoch_day:
+        source: _ELEC_POS_DT
+    _EARLY: SUBJ_EARLY._ADT
+    _DOSE2_EPOCH:
+      to_epoch_day:
+        source: ADSL.DOSE2DT
+    _TR01_EPOCH:
+      to_epoch_day:
+        source: ADSL.TR01SDT
+    _RAND_EPOCH:
+      to_epoch_day:
+        source: ADSL.RANDDT
+    _DTHDT_EPOCH:
+      to_epoch_day:
+        source: ADSL.DTHDT
+    _EOSDT_EPOCH:
+      to_epoch_day:
+        source: ADSL.EOSDT
+    _CUTOFFDT_EPOCH:
+      to_epoch_day:
+        source: ADSL.CUTOFFDT
+    _EFFCODT_EPOCH:
+      to_epoch_day:
+        source: ADSL.EFFCODT
+    _AP01EDT_EPOCH:
+      to_epoch_day:
+        source: ADSL.AP01EDT
+    _MINDT_EPOCH:
+      least: {sources: [_DTHDT_EPOCH, _EOSDT_EPOCH, _CUTOFFDT_EPOCH, _EFFCODT_EPOCH]}
+    _INWIN:
+      case:
+      - when: _EVENT_DT IS NOT NULL AND _EVENT_EPOCH <= _MINDT_EPOCH
+        then: 1
+      - otherwise: 0
+    _CENSDT:
+      least: {sources: [ADSL.DTHDT, ADSL.EOSDT, ADSL.CUTOFFDT, ADSL.EFFCODT]}
+    _CENSDT_EPOCH:
+      to_epoch_day:
+        source: _CENSDT
+    _ADT_RAW:
+      case:
+      - when: ((_PCR_POS_EPOCH IS NOT NULL AND _PCR_POS_EPOCH < _PCRDT_EPOCH) OR ((_ELEC_POS_EPOCH IS NOT NULL AND _ELEC_POS_EPOCH < _PCRDT_EPOCH) AND _INWIN = 1))
+        then:
+          least: {sources: [_PCR_POS_DT, _ELEC_POS_DT]}
+      - when: _INWIN = 1 AND _APERIOD_E = 2
+        then: _EVENT_DT
+      - when: _INWIN = 1 AND (_APERIOD_E IS NULL OR _APERIOD_E <> 2)
+        then: _EVENT_DT
+      - otherwise: _CENSDT
+    _CNSR_RAW:
+      case:
+      - when: ((_PCR_POS_EPOCH IS NOT NULL AND _PCR_POS_EPOCH < _PCRDT_EPOCH) OR ((_ELEC_POS_EPOCH IS NOT NULL AND _ELEC_POS_EPOCH < _PCRDT_EPOCH) AND _INWIN = 1))
+        then: 1
+      - when: _INWIN = 1 AND _APERIOD_E = 2
+        then: 0
+      - when: _INWIN = 1 AND (_APERIOD_E IS NULL OR _APERIOD_E <> 2)
+        then: 1
+      - otherwise: 1
+    _EVNTDESC_RAW:
+      case:
+      - when: ((_PCR_POS_EPOCH IS NOT NULL AND _PCR_POS_EPOCH < _PCRDT_EPOCH) OR ((_ELEC_POS_EPOCH IS NOT NULL AND _ELEC_POS_EPOCH < _PCRDT_EPOCH) AND _INWIN = 1))
+        then: '''Infection Prior to COVID-19 (Considering Scheduled RT-PCR and Prior Infection Censoring)'''
+      - when: _INWIN = 1 AND _APERIOD_E = 2
+        then: '''COVID-19 (Considering Scheduled RT-PCR and Prior Infection Censoring)'''
+      - when: _INWIN = 1 AND (_APERIOD_E IS NULL OR _APERIOD_E <> 2)
+        then: '''Early COVID-19 (Considering Scheduled RT-PCR and Prior Infection Censoring)'''
+      - otherwise: '''No COVID-19 (Considering Scheduled RT-PCR and Prior Infection Censoring)'''
+  filter: ADSL.FASFL = 'Y' AND ADSL.AP02SDT IS NOT NULL AND ADSL.AP02SDT <= ADSL.EFFCODT AND (ADSL.SCOV2BL IS NULL OR ADSL.SCOV2BL <> 'Positive') AND _EARLY IS NULL
+- id: tcvdsvc1_rows
+  dataset: ADSL
+  derivations:
+    STUDYID: ADSL.STUDYID
+    USUBJID: ADSL.USUBJID
+    PARAMCD: '''TCVDSVC1'''
+    _EVENT_DT: EV_COVIDSVS_1._ADT
+    _EVENT_EPOCH:
+      to_epoch_day:
+        source: _EVENT_DT
+    _PCRDT_E: EV_COVIDSVS_1._PCRDT
+    _PCRDT_EPOCH:
+      to_epoch_day:
+        source: _PCRDT_E
+    _APERIOD_E: EV_COVIDSVS_1._APERIOD
+    _COVID_DT: null
+    _COVID_EPOCH:
+      to_epoch_day:
+        source: _COVID_DT
+    _PCR_POS_DT: PCR_POS_1._DT
+    _PCR_POS_EPOCH:
+      to_epoch_day:
+        source: _PCR_POS_DT
+    _ELEC_POS_DT: ELEC_POS_1._DT
+    _ELEC_POS_EPOCH:
+      to_epoch_day:
+        source: _ELEC_POS_DT
+    _EARLY: SUBJ_EARLY._ADT
+    _DOSE2_EPOCH:
+      to_epoch_day:
+        source: ADSL.DOSE2DT
+    _TR01_EPOCH:
+      to_epoch_day:
+        source: ADSL.TR01SDT
+    _RAND_EPOCH:
+      to_epoch_day:
+        source: ADSL.RANDDT
+    _DTHDT_EPOCH:
+      to_epoch_day:
+        source: ADSL.DTHDT
+    _EOSDT_EPOCH:
+      to_epoch_day:
+        source: ADSL.EOSDT
+    _CUTOFFDT_EPOCH:
+      to_epoch_day:
+        source: ADSL.CUTOFFDT
+    _EFFCODT_EPOCH:
+      to_epoch_day:
+        source: ADSL.EFFCODT
+    _AP01EDT_EPOCH:
+      to_epoch_day:
+        source: ADSL.AP01EDT
+    _MINDT_EPOCH:
+      least: {sources: [_DTHDT_EPOCH, _EOSDT_EPOCH, _CUTOFFDT_EPOCH, _EFFCODT_EPOCH]}
+    _INWIN:
+      case:
+      - when: _EVENT_DT IS NOT NULL AND _EVENT_EPOCH <= _MINDT_EPOCH
+        then: 1
+      - otherwise: 0
+    _CENSDT:
+      least: {sources: [ADSL.DTHDT, ADSL.EOSDT, ADSL.CUTOFFDT, ADSL.EFFCODT, ADSL.AP01EDT]}
+    _CENSDT_EPOCH:
+      to_epoch_day:
+        source: _CENSDT
+    _ADT_RAW:
+      case:
+      - when: ((_PCR_POS_EPOCH IS NOT NULL AND _PCR_POS_EPOCH < _PCRDT_EPOCH) OR ((_ELEC_POS_EPOCH IS NOT NULL AND _ELEC_POS_EPOCH < _PCRDT_EPOCH) AND _INWIN = 1))
+        then:
+          least: {sources: [_PCR_POS_DT, _ELEC_POS_DT]}
+      - when: _INWIN = 1 AND _DOSE2_EPOCH IS NOT NULL AND _DOSE2_EPOCH + 14 <= _EVENT_EPOCH
+        then: _EVENT_DT
+      - when: _INWIN = 1 AND (_DOSE2_EPOCH IS NULL OR _DOSE2_EPOCH + 14 > _EVENT_EPOCH)
+        then: _EVENT_DT
+      - otherwise: _CENSDT
+    _CNSR_RAW:
+      case:
+      - when: ((_PCR_POS_EPOCH IS NOT NULL AND _PCR_POS_EPOCH < _PCRDT_EPOCH) OR ((_ELEC_POS_EPOCH IS NOT NULL AND _ELEC_POS_EPOCH < _PCRDT_EPOCH) AND _INWIN = 1))
+        then: 1
+      - when: _INWIN = 1 AND _DOSE2_EPOCH IS NOT NULL AND _DOSE2_EPOCH + 14 <= _EVENT_EPOCH
+        then: 0
+      - when: _INWIN = 1 AND (_DOSE2_EPOCH IS NULL OR _DOSE2_EPOCH + 14 > _EVENT_EPOCH)
+        then: 1
+      - otherwise: 1
+    _EVNTDESC_RAW:
+      case:
+      - when: ((_PCR_POS_EPOCH IS NOT NULL AND _PCR_POS_EPOCH < _PCRDT_EPOCH) OR ((_ELEC_POS_EPOCH IS NOT NULL AND _ELEC_POS_EPOCH < _PCRDT_EPOCH) AND _INWIN = 1))
+        then: '''Infection Prior to Severe COVID-19 (Considering Scheduled RT-PCR and Prior Infection Censoring)'''
+      - when: _INWIN = 1 AND _DOSE2_EPOCH IS NOT NULL AND _DOSE2_EPOCH + 14 <= _EVENT_EPOCH
+        then: '''Severe COVID-19 (Considering Scheduled RT-PCR and Prior Infection Censoring)'''
+      - when: _INWIN = 1 AND (_DOSE2_EPOCH IS NULL OR _DOSE2_EPOCH + 14 > _EVENT_EPOCH)
+        then: '''Early Severe COVID-19 (Considering Scheduled RT-PCR and Prior Infection Censoring)'''
+      - otherwise: '''No Severe COVID-19 (Considering Scheduled RT-PCR and Prior Infection Censoring)'''
+  filter: ADSL.FASFL = 'Y'
+- id: tcvdsvc2_rows
+  dataset: ADSL
+  derivations:
+    STUDYID: ADSL.STUDYID
+    USUBJID: ADSL.USUBJID
+    PARAMCD: '''TCVDSVC2'''
+    _EVENT_DT: EV_COVIDSVS_1._ADT
+    _EVENT_EPOCH:
+      to_epoch_day:
+        source: _EVENT_DT
+    _PCRDT_E: EV_COVIDSVS_1._PCRDT
+    _PCRDT_EPOCH:
+      to_epoch_day:
+        source: _PCRDT_E
+    _APERIOD_E: EV_COVIDSVS_1._APERIOD
+    _COVID_DT: null
+    _COVID_EPOCH:
+      to_epoch_day:
+        source: _COVID_DT
+    _PCR_POS_DT: PCR_POS_1._DT
+    _PCR_POS_EPOCH:
+      to_epoch_day:
+        source: _PCR_POS_DT
+    _ELEC_POS_DT: ELEC_POS_1._DT
+    _ELEC_POS_EPOCH:
+      to_epoch_day:
+        source: _ELEC_POS_DT
+    _EARLY: SUBJ_EARLY._ADT
+    _DOSE2_EPOCH:
+      to_epoch_day:
+        source: ADSL.DOSE2DT
+    _TR01_EPOCH:
+      to_epoch_day:
+        source: ADSL.TR01SDT
+    _RAND_EPOCH:
+      to_epoch_day:
+        source: ADSL.RANDDT
+    _DTHDT_EPOCH:
+      to_epoch_day:
+        source: ADSL.DTHDT
+    _EOSDT_EPOCH:
+      to_epoch_day:
+        source: ADSL.EOSDT
+    _CUTOFFDT_EPOCH:
+      to_epoch_day:
+        source: ADSL.CUTOFFDT
+    _EFFCODT_EPOCH:
+      to_epoch_day:
+        source: ADSL.EFFCODT
+    _AP01EDT_EPOCH:
+      to_epoch_day:
+        source: ADSL.AP01EDT
+    _MINDT_EPOCH:
+      least: {sources: [_DTHDT_EPOCH, _EOSDT_EPOCH, _CUTOFFDT_EPOCH, _EFFCODT_EPOCH]}
+    _INWIN:
+      case:
+      - when: _EVENT_DT IS NOT NULL AND _EVENT_EPOCH <= _MINDT_EPOCH
+        then: 1
+      - otherwise: 0
+    _CENSDT:
+      least: {sources: [ADSL.DTHDT, ADSL.EOSDT, ADSL.CUTOFFDT, ADSL.EFFCODT, ADSL.AP01EDT]}
+    _CENSDT_EPOCH:
+      to_epoch_day:
+        source: _CENSDT
+    _ADT_RAW:
+      case:
+      - when: ((_PCR_POS_EPOCH IS NOT NULL AND _PCR_POS_EPOCH < _PCRDT_EPOCH) OR ((_ELEC_POS_EPOCH IS NOT NULL AND _ELEC_POS_EPOCH < _PCRDT_EPOCH) AND _INWIN = 1))
+        then:
+          least: {sources: [_PCR_POS_DT, _ELEC_POS_DT]}
+      - when: _INWIN = 1 AND _DOSE2_EPOCH IS NOT NULL AND _DOSE2_EPOCH <= _EVENT_EPOCH
+        then: _EVENT_DT
+      - when: _INWIN = 1 AND (_DOSE2_EPOCH IS NULL OR _DOSE2_EPOCH > _EVENT_EPOCH)
+        then: _EVENT_DT
+      - otherwise: _CENSDT
+    _CNSR_RAW:
+      case:
+      - when: ((_PCR_POS_EPOCH IS NOT NULL AND _PCR_POS_EPOCH < _PCRDT_EPOCH) OR ((_ELEC_POS_EPOCH IS NOT NULL AND _ELEC_POS_EPOCH < _PCRDT_EPOCH) AND _INWIN = 1))
+        then: 1
+      - when: _INWIN = 1 AND _DOSE2_EPOCH IS NOT NULL AND _DOSE2_EPOCH <= _EVENT_EPOCH
+        then: 0
+      - when: _INWIN = 1 AND (_DOSE2_EPOCH IS NULL OR _DOSE2_EPOCH > _EVENT_EPOCH)
+        then: 1
+      - otherwise: 1
+    _EVNTDESC_RAW:
+      case:
+      - when: ((_PCR_POS_EPOCH IS NOT NULL AND _PCR_POS_EPOCH < _PCRDT_EPOCH) OR ((_ELEC_POS_EPOCH IS NOT NULL AND _ELEC_POS_EPOCH < _PCRDT_EPOCH) AND _INWIN = 1))
+        then: '''Infection Prior to Severe COVID-19 (Considering Scheduled RT-PCR and Prior Infection Censoring)'''
+      - when: _INWIN = 1 AND _DOSE2_EPOCH IS NOT NULL AND _DOSE2_EPOCH <= _EVENT_EPOCH
+        then: '''Severe COVID-19 (Considering Scheduled RT-PCR and Prior Infection Censoring)'''
+      - when: _INWIN = 1 AND (_DOSE2_EPOCH IS NULL OR _DOSE2_EPOCH > _EVENT_EPOCH)
+        then: '''Early Severe COVID-19 (Considering Scheduled RT-PCR and Prior Infection Censoring)'''
+      - otherwise: '''No Severe COVID-19 (Considering Scheduled RT-PCR and Prior Infection Censoring)'''
+  filter: ADSL.FASFL = 'Y'
+- id: tcvdsvc3_rows
+  dataset: ADSL
+  derivations:
+    STUDYID: ADSL.STUDYID
+    USUBJID: ADSL.USUBJID
+    PARAMCD: '''TCVDSVC3'''
+    _EVENT_DT: EV_COVIDSVS_1._ADT
+    _EVENT_EPOCH:
+      to_epoch_day:
+        source: _EVENT_DT
+    _PCRDT_E: EV_COVIDSVS_1._PCRDT
+    _PCRDT_EPOCH:
+      to_epoch_day:
+        source: _PCRDT_E
+    _APERIOD_E: EV_COVIDSVS_1._APERIOD
+    _COVID_DT: null
+    _COVID_EPOCH:
+      to_epoch_day:
+        source: _COVID_DT
+    _PCR_POS_DT: PCR_POS_1._DT
+    _PCR_POS_EPOCH:
+      to_epoch_day:
+        source: _PCR_POS_DT
+    _ELEC_POS_DT: ELEC_POS_1._DT
+    _ELEC_POS_EPOCH:
+      to_epoch_day:
+        source: _ELEC_POS_DT
+    _EARLY: SUBJ_EARLY._ADT
+    _DOSE2_EPOCH:
+      to_epoch_day:
+        source: ADSL.DOSE2DT
+    _TR01_EPOCH:
+      to_epoch_day:
+        source: ADSL.TR01SDT
+    _RAND_EPOCH:
+      to_epoch_day:
+        source: ADSL.RANDDT
+    _DTHDT_EPOCH:
+      to_epoch_day:
+        source: ADSL.DTHDT
+    _EOSDT_EPOCH:
+      to_epoch_day:
+        source: ADSL.EOSDT
+    _CUTOFFDT_EPOCH:
+      to_epoch_day:
+        source: ADSL.CUTOFFDT
+    _EFFCODT_EPOCH:
+      to_epoch_day:
+        source: ADSL.EFFCODT
+    _AP01EDT_EPOCH:
+      to_epoch_day:
+        source: ADSL.AP01EDT
+    _MINDT_EPOCH:
+      least: {sources: [_DTHDT_EPOCH, _EOSDT_EPOCH, _CUTOFFDT_EPOCH, _EFFCODT_EPOCH]}
+    _INWIN:
+      case:
+      - when: _EVENT_DT IS NOT NULL AND _EVENT_EPOCH <= _MINDT_EPOCH
+        then: 1
+      - otherwise: 0
+    _CENSDT:
+      least: {sources: [ADSL.DTHDT, ADSL.EOSDT, ADSL.CUTOFFDT, ADSL.EFFCODT, ADSL.AP01EDT]}
+    _CENSDT_EPOCH:
+      to_epoch_day:
+        source: _CENSDT
+    _ADT_RAW:
+      case:
+      - when: ((_PCR_POS_EPOCH IS NOT NULL AND _PCR_POS_EPOCH < _PCRDT_EPOCH) OR ((_ELEC_POS_EPOCH IS NOT NULL AND _ELEC_POS_EPOCH < _PCRDT_EPOCH) AND _INWIN = 1 AND _TR01_EPOCH IS NOT NULL))
+        then:
+          least: {sources: [_PCR_POS_DT, _ELEC_POS_DT]}
+      - when: _INWIN = 1 AND _TR01_EPOCH IS NOT NULL AND _TR01_EPOCH + 14 <= _EVENT_EPOCH
+        then: _EVENT_DT
+      - when: _INWIN = 1 AND _TR01_EPOCH IS NOT NULL AND _TR01_EPOCH + 14 > _EVENT_EPOCH
+        then: _EVENT_DT
+      - otherwise: _CENSDT
+    _CNSR_RAW:
+      case:
+      - when: ((_PCR_POS_EPOCH IS NOT NULL AND _PCR_POS_EPOCH < _PCRDT_EPOCH) OR ((_ELEC_POS_EPOCH IS NOT NULL AND _ELEC_POS_EPOCH < _PCRDT_EPOCH) AND _INWIN = 1 AND _TR01_EPOCH IS NOT NULL))
+        then: 1
+      - when: _INWIN = 1 AND _TR01_EPOCH IS NOT NULL AND _TR01_EPOCH + 14 <= _EVENT_EPOCH
+        then: 0
+      - when: _INWIN = 1 AND _TR01_EPOCH IS NOT NULL AND _TR01_EPOCH + 14 > _EVENT_EPOCH
+        then: 1
+      - otherwise: 1
+    _EVNTDESC_RAW:
+      case:
+      - when: ((_PCR_POS_EPOCH IS NOT NULL AND _PCR_POS_EPOCH < _PCRDT_EPOCH) OR ((_ELEC_POS_EPOCH IS NOT NULL AND _ELEC_POS_EPOCH < _PCRDT_EPOCH) AND _INWIN = 1 AND _TR01_EPOCH IS NOT NULL))
+        then: '''Infection Prior to Severe COVID-19 (Considering Scheduled RT-PCR and Prior Infection Censoring)'''
+      - when: _INWIN = 1 AND _TR01_EPOCH IS NOT NULL AND _TR01_EPOCH + 14 <= _EVENT_EPOCH
+        then: '''Severe COVID-19 (Considering Scheduled RT-PCR and Prior Infection Censoring)'''
+      - when: _INWIN = 1 AND _TR01_EPOCH IS NOT NULL AND _TR01_EPOCH + 14 > _EVENT_EPOCH
+        then: '''Early Severe COVID-19 (Considering Scheduled RT-PCR and Prior Infection Censoring)'''
+      - otherwise: '''No Severe COVID-19 (Considering Scheduled RT-PCR and Prior Infection Censoring)'''
+  filter: ADSL.FASFL = 'Y'
+- id: tcvdsvc4_rows
+  dataset: ADSL
+  derivations:
+    STUDYID: ADSL.STUDYID
+    USUBJID: ADSL.USUBJID
+    PARAMCD: '''TCVDSVC4'''
+    _EVENT_DT: EV_COVIDSVS_1._ADT
+    _EVENT_EPOCH:
+      to_epoch_day:
+        source: _EVENT_DT
+    _PCRDT_E: EV_COVIDSVS_1._PCRDT
+    _PCRDT_EPOCH:
+      to_epoch_day:
+        source: _PCRDT_E
+    _APERIOD_E: EV_COVIDSVS_1._APERIOD
+    _COVID_DT: null
+    _COVID_EPOCH:
+      to_epoch_day:
+        source: _COVID_DT
+    _PCR_POS_DT: PCR_POS_1._DT
+    _PCR_POS_EPOCH:
+      to_epoch_day:
+        source: _PCR_POS_DT
+    _ELEC_POS_DT: ELEC_POS_1._DT
+    _ELEC_POS_EPOCH:
+      to_epoch_day:
+        source: _ELEC_POS_DT
+    _EARLY: SUBJ_EARLY._ADT
+    _DOSE2_EPOCH:
+      to_epoch_day:
+        source: ADSL.DOSE2DT
+    _TR01_EPOCH:
+      to_epoch_day:
+        source: ADSL.TR01SDT
+    _RAND_EPOCH:
+      to_epoch_day:
+        source: ADSL.RANDDT
+    _DTHDT_EPOCH:
+      to_epoch_day:
+        source: ADSL.DTHDT
+    _EOSDT_EPOCH:
+      to_epoch_day:
+        source: ADSL.EOSDT
+    _CUTOFFDT_EPOCH:
+      to_epoch_day:
+        source: ADSL.CUTOFFDT
+    _EFFCODT_EPOCH:
+      to_epoch_day:
+        source: ADSL.EFFCODT
+    _AP01EDT_EPOCH:
+      to_epoch_day:
+        source: ADSL.AP01EDT
+    _MINDT_EPOCH:
+      least: {sources: [_DTHDT_EPOCH, _EOSDT_EPOCH, _CUTOFFDT_EPOCH, _EFFCODT_EPOCH]}
+    _INWIN:
+      case:
+      - when: _EVENT_DT IS NOT NULL AND _EVENT_EPOCH <= _MINDT_EPOCH
+        then: 1
+      - otherwise: 0
+    _CENSDT:
+      least: {sources: [ADSL.DTHDT, ADSL.EOSDT, ADSL.CUTOFFDT, ADSL.EFFCODT, ADSL.AP01EDT]}
+    _CENSDT_EPOCH:
+      to_epoch_day:
+        source: _CENSDT
+    _ADT_RAW:
+      case:
+      - when: ((_PCR_POS_EPOCH IS NOT NULL AND _PCR_POS_EPOCH < _PCRDT_EPOCH) OR ((_ELEC_POS_EPOCH IS NOT NULL AND _ELEC_POS_EPOCH < _PCRDT_EPOCH) AND _INWIN = 1 AND _TR01_EPOCH IS NOT NULL))
+        then:
+          least: {sources: [_PCR_POS_DT, _ELEC_POS_DT]}
+      - when: _INWIN = 1 AND _TR01_EPOCH IS NOT NULL AND _TR01_EPOCH <= _EVENT_EPOCH
+        then: _EVENT_DT
+      - when: _INWIN = 1 AND _TR01_EPOCH IS NOT NULL AND _TR01_EPOCH > _EVENT_EPOCH
+        then: _EVENT_DT
+      - otherwise: _CENSDT
+    _CNSR_RAW:
+      case:
+      - when: ((_PCR_POS_EPOCH IS NOT NULL AND _PCR_POS_EPOCH < _PCRDT_EPOCH) OR ((_ELEC_POS_EPOCH IS NOT NULL AND _ELEC_POS_EPOCH < _PCRDT_EPOCH) AND _INWIN = 1 AND _TR01_EPOCH IS NOT NULL))
+        then: 1
+      - when: _INWIN = 1 AND _TR01_EPOCH IS NOT NULL AND _TR01_EPOCH <= _EVENT_EPOCH
+        then: 0
+      - when: _INWIN = 1 AND _TR01_EPOCH IS NOT NULL AND _TR01_EPOCH > _EVENT_EPOCH
+        then: 1
+      - otherwise: 1
+    _EVNTDESC_RAW:
+      case:
+      - when: ((_PCR_POS_EPOCH IS NOT NULL AND _PCR_POS_EPOCH < _PCRDT_EPOCH) OR ((_ELEC_POS_EPOCH IS NOT NULL AND _ELEC_POS_EPOCH < _PCRDT_EPOCH) AND _INWIN = 1 AND _TR01_EPOCH IS NOT NULL))
+        then: '''Infection Prior to Severe COVID-19 (Considering Scheduled RT-PCR and Prior Infection Censoring)'''
+      - when: _INWIN = 1 AND _TR01_EPOCH IS NOT NULL AND _TR01_EPOCH <= _EVENT_EPOCH
+        then: '''Severe COVID-19 (Considering Scheduled RT-PCR and Prior Infection Censoring)'''
+      - when: _INWIN = 1 AND _TR01_EPOCH IS NOT NULL AND _TR01_EPOCH > _EVENT_EPOCH
+        then: '''Early Severe COVID-19 (Considering Scheduled RT-PCR and Prior Infection Censoring)'''
+      - otherwise: '''No Severe COVID-19 (Considering Scheduled RT-PCR and Prior Infection Censoring)'''
+  filter: ADSL.FASFL = 'Y'
+- id: tcvdsvc5_rows
+  dataset: ADSL
+  derivations:
+    STUDYID: ADSL.STUDYID
+    USUBJID: ADSL.USUBJID
+    PARAMCD: '''TCVDSVC5'''
+    _EVENT_DT: EV_COVIDSVS_1._ADT
+    _EVENT_EPOCH:
+      to_epoch_day:
+        source: _EVENT_DT
+    _PCRDT_E: EV_COVIDSVS_1._PCRDT
+    _PCRDT_EPOCH:
+      to_epoch_day:
+        source: _PCRDT_E
+    _APERIOD_E: EV_COVIDSVS_1._APERIOD
+    _COVID_DT: null
+    _COVID_EPOCH:
+      to_epoch_day:
+        source: _COVID_DT
+    _PCR_POS_DT: PCR_POS_1._DT
+    _PCR_POS_EPOCH:
+      to_epoch_day:
+        source: _PCR_POS_DT
+    _ELEC_POS_DT: ELEC_POS_1._DT
+    _ELEC_POS_EPOCH:
+      to_epoch_day:
+        source: _ELEC_POS_DT
+    _EARLY: SUBJ_EARLY._ADT
+    _DOSE2_EPOCH:
+      to_epoch_day:
+        source: ADSL.DOSE2DT
+    _TR01_EPOCH:
+      to_epoch_day:
+        source: ADSL.TR01SDT
+    _RAND_EPOCH:
+      to_epoch_day:
+        source: ADSL.RANDDT
+    _DTHDT_EPOCH:
+      to_epoch_day:
+        source: ADSL.DTHDT
+    _EOSDT_EPOCH:
+      to_epoch_day:
+        source: ADSL.EOSDT
+    _CUTOFFDT_EPOCH:
+      to_epoch_day:
+        source: ADSL.CUTOFFDT
+    _EFFCODT_EPOCH:
+      to_epoch_day:
+        source: ADSL.EFFCODT
+    _AP01EDT_EPOCH:
+      to_epoch_day:
+        source: ADSL.AP01EDT
+    _MINDT_EPOCH:
+      least: {sources: [_DTHDT_EPOCH, _EOSDT_EPOCH, _CUTOFFDT_EPOCH, _EFFCODT_EPOCH]}
+    _INWIN:
+      case:
+      - when: _EVENT_DT IS NOT NULL AND _EVENT_EPOCH <= _MINDT_EPOCH
+        then: 1
+      - otherwise: 0
+    _CENSDT:
+      least: {sources: [ADSL.DTHDT, ADSL.EOSDT, ADSL.CUTOFFDT, ADSL.EFFCODT, ADSL.AP01EDT]}
+    _CENSDT_EPOCH:
+      to_epoch_day:
+        source: _CENSDT
+    _ADT_RAW:
+      case:
+      - when: ((_PCR_POS_EPOCH IS NOT NULL AND _PCR_POS_EPOCH < _PCRDT_EPOCH) OR ((_ELEC_POS_EPOCH IS NOT NULL AND _ELEC_POS_EPOCH < _PCRDT_EPOCH) AND _INWIN = 1 AND _RAND_EPOCH IS NOT NULL AND _RAND_EPOCH <= _EVENT_EPOCH))
+        then:
+          least: {sources: [_PCR_POS_DT, _ELEC_POS_DT]}
+      - when: _INWIN = 1 AND _RAND_EPOCH IS NOT NULL AND _RAND_EPOCH <= _EVENT_EPOCH
+        then: _EVENT_DT
+      - otherwise: _CENSDT
+    _CNSR_RAW:
+      case:
+      - when: ((_PCR_POS_EPOCH IS NOT NULL AND _PCR_POS_EPOCH < _PCRDT_EPOCH) OR ((_ELEC_POS_EPOCH IS NOT NULL AND _ELEC_POS_EPOCH < _PCRDT_EPOCH) AND _INWIN = 1 AND _RAND_EPOCH IS NOT NULL AND _RAND_EPOCH <= _EVENT_EPOCH))
+        then: 1
+      - when: _INWIN = 1 AND _RAND_EPOCH IS NOT NULL AND _RAND_EPOCH <= _EVENT_EPOCH
+        then: 0
+      - otherwise: 1
+    _EVNTDESC_RAW:
+      case:
+      - when: ((_PCR_POS_EPOCH IS NOT NULL AND _PCR_POS_EPOCH < _PCRDT_EPOCH) OR ((_ELEC_POS_EPOCH IS NOT NULL AND _ELEC_POS_EPOCH < _PCRDT_EPOCH) AND _INWIN = 1 AND _RAND_EPOCH IS NOT NULL AND _RAND_EPOCH <= _EVENT_EPOCH))
+        then: '''Infection Prior to Severe COVID-19 (Considering Scheduled RT-PCR and Prior Infection Censoring)'''
+      - when: _INWIN = 1 AND _RAND_EPOCH IS NOT NULL AND _RAND_EPOCH <= _EVENT_EPOCH
+        then: '''Severe COVID-19 (Considering Scheduled RT-PCR and Prior Infection Censoring)'''
+      - otherwise: '''No Severe COVID-19 (Considering Scheduled RT-PCR and Prior Infection Censoring)'''
+  filter: ADSL.FASFL = 'Y'
+- id: tcvdsvc6_rows
+  dataset: ADSL
+  derivations:
+    STUDYID: ADSL.STUDYID
+    USUBJID: ADSL.USUBJID
+    PARAMCD: '''TCVDSVC6'''
+    _EVENT_DT: EV_COVIDSVS_1._ADT
+    _EVENT_EPOCH:
+      to_epoch_day:
+        source: _EVENT_DT
+    _PCRDT_E: EV_COVIDSVS_1._PCRDT
+    _PCRDT_EPOCH:
+      to_epoch_day:
+        source: _PCRDT_E
+    _APERIOD_E: EV_COVIDSVS_1._APERIOD
+    _COVID_DT: null
+    _COVID_EPOCH:
+      to_epoch_day:
+        source: _COVID_DT
+    _PCR_POS_DT: PCR_POS_1._DT
+    _PCR_POS_EPOCH:
+      to_epoch_day:
+        source: _PCR_POS_DT
+    _ELEC_POS_DT: ELEC_POS_1._DT
+    _ELEC_POS_EPOCH:
+      to_epoch_day:
+        source: _ELEC_POS_DT
+    _EARLY: SUBJ_EARLY._ADT
+    _DOSE2_EPOCH:
+      to_epoch_day:
+        source: ADSL.DOSE2DT
+    _TR01_EPOCH:
+      to_epoch_day:
+        source: ADSL.TR01SDT
+    _RAND_EPOCH:
+      to_epoch_day:
+        source: ADSL.RANDDT
+    _DTHDT_EPOCH:
+      to_epoch_day:
+        source: ADSL.DTHDT
+    _EOSDT_EPOCH:
+      to_epoch_day:
+        source: ADSL.EOSDT
+    _CUTOFFDT_EPOCH:
+      to_epoch_day:
+        source: ADSL.CUTOFFDT
+    _EFFCODT_EPOCH:
+      to_epoch_day:
+        source: ADSL.EFFCODT
+    _AP01EDT_EPOCH:
+      to_epoch_day:
+        source: ADSL.AP01EDT
+    _MINDT_EPOCH:
+      least: {sources: [_DTHDT_EPOCH, _EOSDT_EPOCH, _CUTOFFDT_EPOCH, _EFFCODT_EPOCH]}
+    _INWIN:
+      case:
+      - when: _EVENT_DT IS NOT NULL AND _EVENT_EPOCH <= _MINDT_EPOCH
+        then: 1
+      - otherwise: 0
+    _CENSDT:
+      least: {sources: [ADSL.DTHDT, ADSL.EOSDT, ADSL.CUTOFFDT, ADSL.EFFCODT, ADSL.AP01EDT]}
+    _CENSDT_EPOCH:
+      to_epoch_day:
+        source: _CENSDT
+    _ADT_RAW:
+      case:
+      - when: ((_PCR_POS_EPOCH IS NOT NULL AND _PCR_POS_EPOCH < _PCRDT_EPOCH) OR ((_ELEC_POS_EPOCH IS NOT NULL AND _ELEC_POS_EPOCH < _PCRDT_EPOCH) AND _INWIN = 1))
+        then:
+          least: {sources: [_PCR_POS_DT, _ELEC_POS_DT]}
+      - when: _INWIN = 1 AND _DOSE2_EPOCH IS NOT NULL AND _DOSE2_EPOCH + 35 <= _EVENT_EPOCH
+        then: _EVENT_DT
+      - when: _INWIN = 1 AND (_DOSE2_EPOCH IS NULL OR _DOSE2_EPOCH + 35 > _EVENT_EPOCH)
+        then: _EVENT_DT
+      - otherwise: _CENSDT
+    _CNSR_RAW:
+      case:
+      - when: ((_PCR_POS_EPOCH IS NOT NULL AND _PCR_POS_EPOCH < _PCRDT_EPOCH) OR ((_ELEC_POS_EPOCH IS NOT NULL AND _ELEC_POS_EPOCH < _PCRDT_EPOCH) AND _INWIN = 1))
+        then: 1
+      - when: _INWIN = 1 AND _DOSE2_EPOCH IS NOT NULL AND _DOSE2_EPOCH + 35 <= _EVENT_EPOCH
+        then: 0
+      - when: _INWIN = 1 AND (_DOSE2_EPOCH IS NULL OR _DOSE2_EPOCH + 35 > _EVENT_EPOCH)
+        then: 1
+      - otherwise: 1
+    _EVNTDESC_RAW:
+      case:
+      - when: ((_PCR_POS_EPOCH IS NOT NULL AND _PCR_POS_EPOCH < _PCRDT_EPOCH) OR ((_ELEC_POS_EPOCH IS NOT NULL AND _ELEC_POS_EPOCH < _PCRDT_EPOCH) AND _INWIN = 1))
+        then: '''Infection Prior to Severe COVID-19 (Considering Scheduled RT-PCR and Prior Infection Censoring)'''
+      - when: _INWIN = 1 AND _DOSE2_EPOCH IS NOT NULL AND _DOSE2_EPOCH + 35 <= _EVENT_EPOCH
+        then: '''Severe COVID-19 (Considering Scheduled RT-PCR and Prior Infection Censoring)'''
+      - when: _INWIN = 1 AND (_DOSE2_EPOCH IS NULL OR _DOSE2_EPOCH + 35 > _EVENT_EPOCH)
+        then: '''Early Severe COVID-19 (Considering Scheduled RT-PCR and Prior Infection Censoring)'''
+      - otherwise: '''No Severe COVID-19 (Considering Scheduled RT-PCR and Prior Infection Censoring)'''
+  filter: ADSL.FASFL = 'Y'
+- id: tcvdsvc9_rows
+  dataset: ADSL
+  derivations:
+    STUDYID: ADSL.STUDYID
+    USUBJID: ADSL.USUBJID
+    PARAMCD: '''TCVDSVC9'''
+    _EVENT_DT: EV_COVIDSVS_2._ADT
+    _EVENT_EPOCH:
+      to_epoch_day:
+        source: _EVENT_DT
+    _PCRDT_E: EV_COVIDSVS_2._PCRDT
+    _PCRDT_EPOCH:
+      to_epoch_day:
+        source: _PCRDT_E
+    _APERIOD_E: EV_COVIDSVS_2._APERIOD
+    _COVID_DT: null
+    _COVID_EPOCH:
+      to_epoch_day:
+        source: _COVID_DT
+    _PCR_POS_DT: PCR_POS_2._DT
+    _PCR_POS_EPOCH:
+      to_epoch_day:
+        source: _PCR_POS_DT
+    _ELEC_POS_DT: ELEC_POS_2._DT
+    _ELEC_POS_EPOCH:
+      to_epoch_day:
+        source: _ELEC_POS_DT
+    _EARLY: SUBJ_EARLY._ADT
+    _DOSE2_EPOCH:
+      to_epoch_day:
+        source: ADSL.DOSE2DT
+    _TR01_EPOCH:
+      to_epoch_day:
+        source: ADSL.TR01SDT
+    _RAND_EPOCH:
+      to_epoch_day:
+        source: ADSL.RANDDT
+    _DTHDT_EPOCH:
+      to_epoch_day:
+        source: ADSL.DTHDT
+    _EOSDT_EPOCH:
+      to_epoch_day:
+        source: ADSL.EOSDT
+    _CUTOFFDT_EPOCH:
+      to_epoch_day:
+        source: ADSL.CUTOFFDT
+    _EFFCODT_EPOCH:
+      to_epoch_day:
+        source: ADSL.EFFCODT
+    _AP01EDT_EPOCH:
+      to_epoch_day:
+        source: ADSL.AP01EDT
+    _MINDT_EPOCH:
+      least: {sources: [_DTHDT_EPOCH, _EOSDT_EPOCH, _CUTOFFDT_EPOCH, _EFFCODT_EPOCH]}
+    _INWIN:
+      case:
+      - when: _EVENT_DT IS NOT NULL AND _EVENT_EPOCH <= _MINDT_EPOCH
+        then: 1
+      - otherwise: 0
+    _CENSDT:
+      least: {sources: [ADSL.DTHDT, ADSL.EOSDT, ADSL.CUTOFFDT, ADSL.EFFCODT]}
+    _CENSDT_EPOCH:
+      to_epoch_day:
+        source: _CENSDT
+    _ADT_RAW:
+      case:
+      - when: ((_PCR_POS_EPOCH IS NOT NULL AND _PCR_POS_EPOCH < _PCRDT_EPOCH) OR ((_ELEC_POS_EPOCH IS NOT NULL AND _ELEC_POS_EPOCH < _PCRDT_EPOCH) AND _INWIN = 1))
+        then:
+          least: {sources: [_PCR_POS_DT, _ELEC_POS_DT]}
+      - when: _INWIN = 1 AND _APERIOD_E = 2
+        then: _EVENT_DT
+      - when: _INWIN = 1 AND (_APERIOD_E IS NULL OR _APERIOD_E <> 2)
+        then: _EVENT_DT
+      - otherwise: _CENSDT
+    _CNSR_RAW:
+      case:
+      - when: ((_PCR_POS_EPOCH IS NOT NULL AND _PCR_POS_EPOCH < _PCRDT_EPOCH) OR ((_ELEC_POS_EPOCH IS NOT NULL AND _ELEC_POS_EPOCH < _PCRDT_EPOCH) AND _INWIN = 1))
+        then: 1
+      - when: _INWIN = 1 AND _APERIOD_E = 2
+        then: 0
+      - when: _INWIN = 1 AND (_APERIOD_E IS NULL OR _APERIOD_E <> 2)
+        then: 1
+      - otherwise: 1
+    _EVNTDESC_RAW:
+      case:
+      - when: ((_PCR_POS_EPOCH IS NOT NULL AND _PCR_POS_EPOCH < _PCRDT_EPOCH) OR ((_ELEC_POS_EPOCH IS NOT NULL AND _ELEC_POS_EPOCH < _PCRDT_EPOCH) AND _INWIN = 1))
+        then: '''Infection Prior to Severe COVID-19 (Considering Scheduled RT-PCR and Prior Infection Censoring)'''
+      - when: _INWIN = 1 AND _APERIOD_E = 2
+        then: '''Severe COVID-19 (Considering Scheduled RT-PCR and Prior Infection Censoring)'''
+      - when: _INWIN = 1 AND (_APERIOD_E IS NULL OR _APERIOD_E <> 2)
+        then: '''Early Severe COVID-19 (Considering Scheduled RT-PCR and Prior Infection Censoring)'''
+      - otherwise: '''No Severe COVID-19 (Considering Scheduled RT-PCR and Prior Infection Censoring)'''
+  filter: ADSL.FASFL = 'Y' AND ADSL.AP02SDT IS NOT NULL AND ADSL.AP02SDT <= ADSL.EFFCODT AND (ADSL.SCOV2BL IS NULL OR ADSL.SCOV2BL <> 'Positive') AND _EARLY IS NULL
+- id: tcvdsdc1_rows
+  dataset: ADSL
+  derivations:
+    STUDYID: ADSL.STUDYID
+    USUBJID: ADSL.USUBJID
+    PARAMCD: '''TCVDSDC1'''
+    _EVENT_DT: EV_COVIDSDS_1._ADT
+    _EVENT_EPOCH:
+      to_epoch_day:
+        source: _EVENT_DT
+    _PCRDT_E: EV_COVIDSDS_1._PCRDT
+    _PCRDT_EPOCH:
+      to_epoch_day:
+        source: _PCRDT_E
+    _APERIOD_E: EV_COVIDSDS_1._APERIOD
+    _COVID_DT: null
+    _COVID_EPOCH:
+      to_epoch_day:
+        source: _COVID_DT
+    _PCR_POS_DT: PCR_POS_1._DT
+    _PCR_POS_EPOCH:
+      to_epoch_day:
+        source: _PCR_POS_DT
+    _ELEC_POS_DT: ELEC_POS_1._DT
+    _ELEC_POS_EPOCH:
+      to_epoch_day:
+        source: _ELEC_POS_DT
+    _EARLY: SUBJ_EARLY._ADT
+    _DOSE2_EPOCH:
+      to_epoch_day:
+        source: ADSL.DOSE2DT
+    _TR01_EPOCH:
+      to_epoch_day:
+        source: ADSL.TR01SDT
+    _RAND_EPOCH:
+      to_epoch_day:
+        source: ADSL.RANDDT
+    _DTHDT_EPOCH:
+      to_epoch_day:
+        source: ADSL.DTHDT
+    _EOSDT_EPOCH:
+      to_epoch_day:
+        source: ADSL.EOSDT
+    _CUTOFFDT_EPOCH:
+      to_epoch_day:
+        source: ADSL.CUTOFFDT
+    _EFFCODT_EPOCH:
+      to_epoch_day:
+        source: ADSL.EFFCODT
+    _AP01EDT_EPOCH:
+      to_epoch_day:
+        source: ADSL.AP01EDT
+    _MINDT_EPOCH:
+      least: {sources: [_DTHDT_EPOCH, _EOSDT_EPOCH, _CUTOFFDT_EPOCH, _EFFCODT_EPOCH]}
+    _INWIN:
+      case:
+      - when: _EVENT_DT IS NOT NULL AND _EVENT_EPOCH <= _MINDT_EPOCH
+        then: 1
+      - otherwise: 0
+    _CENSDT:
+      least: {sources: [ADSL.DTHDT, ADSL.EOSDT, ADSL.CUTOFFDT, ADSL.EFFCODT, ADSL.AP01EDT]}
+    _CENSDT_EPOCH:
+      to_epoch_day:
+        source: _CENSDT
+    _ADT_RAW:
+      case:
+      - when: ((_PCR_POS_EPOCH IS NOT NULL AND _PCR_POS_EPOCH < _PCRDT_EPOCH) OR ((_ELEC_POS_EPOCH IS NOT NULL AND _ELEC_POS_EPOCH < _PCRDT_EPOCH) AND _INWIN = 1))
+        then:
+          least: {sources: [_PCR_POS_DT, _ELEC_POS_DT]}
+      - when: _INWIN = 1 AND _DOSE2_EPOCH IS NOT NULL AND _DOSE2_EPOCH + 14 <= _EVENT_EPOCH
+        then: _EVENT_DT
+      - when: _INWIN = 1 AND (_DOSE2_EPOCH IS NULL OR _DOSE2_EPOCH + 14 > _EVENT_EPOCH)
+        then: _EVENT_DT
+      - otherwise: _CENSDT
+    _CNSR_RAW:
+      case:
+      - when: ((_PCR_POS_EPOCH IS NOT NULL AND _PCR_POS_EPOCH < _PCRDT_EPOCH) OR ((_ELEC_POS_EPOCH IS NOT NULL AND _ELEC_POS_EPOCH < _PCRDT_EPOCH) AND _INWIN = 1))
+        then: 1
+      - when: _INWIN = 1 AND _DOSE2_EPOCH IS NOT NULL AND _DOSE2_EPOCH + 14 <= _EVENT_EPOCH
+        then: 0
+      - when: _INWIN = 1 AND (_DOSE2_EPOCH IS NULL OR _DOSE2_EPOCH + 14 > _EVENT_EPOCH)
+        then: 1
+      - otherwise: 1
+    _EVNTDESC_RAW:
+      case:
+      - when: ((_PCR_POS_EPOCH IS NOT NULL AND _PCR_POS_EPOCH < _PCRDT_EPOCH) OR ((_ELEC_POS_EPOCH IS NOT NULL AND _ELEC_POS_EPOCH < _PCRDT_EPOCH) AND _INWIN = 1))
+        then: '''Infection Prior to COVID-19 (Secondary Definition, Considering Scheduled RT-PCR and Prior Infection Censoring)'''
+      - when: _INWIN = 1 AND _DOSE2_EPOCH IS NOT NULL AND _DOSE2_EPOCH + 14 <= _EVENT_EPOCH
+        then: '''COVID-19 (Secondary Definition, Considering Scheduled RT-PCR and Prior Infection Censoring)'''
+      - when: _INWIN = 1 AND (_DOSE2_EPOCH IS NULL OR _DOSE2_EPOCH + 14 > _EVENT_EPOCH)
+        then: '''Early COVID-19 (Secondary Definition, Considering Scheduled RT-PCR and Prior Infection Censoring)'''
+      - otherwise: '''No COVID-19 (Secondary Definition, Considering Scheduled RT-PCR and Prior Infection Censoring)'''
+  filter: ADSL.FASFL = 'Y'
+- id: tcvdsdc2_rows
+  dataset: ADSL
+  derivations:
+    STUDYID: ADSL.STUDYID
+    USUBJID: ADSL.USUBJID
+    PARAMCD: '''TCVDSDC2'''
+    _EVENT_DT: EV_COVIDSDS_1._ADT
+    _EVENT_EPOCH:
+      to_epoch_day:
+        source: _EVENT_DT
+    _PCRDT_E: EV_COVIDSDS_1._PCRDT
+    _PCRDT_EPOCH:
+      to_epoch_day:
+        source: _PCRDT_E
+    _APERIOD_E: EV_COVIDSDS_1._APERIOD
+    _COVID_DT: null
+    _COVID_EPOCH:
+      to_epoch_day:
+        source: _COVID_DT
+    _PCR_POS_DT: PCR_POS_1._DT
+    _PCR_POS_EPOCH:
+      to_epoch_day:
+        source: _PCR_POS_DT
+    _ELEC_POS_DT: ELEC_POS_1._DT
+    _ELEC_POS_EPOCH:
+      to_epoch_day:
+        source: _ELEC_POS_DT
+    _EARLY: SUBJ_EARLY._ADT
+    _DOSE2_EPOCH:
+      to_epoch_day:
+        source: ADSL.DOSE2DT
+    _TR01_EPOCH:
+      to_epoch_day:
+        source: ADSL.TR01SDT
+    _RAND_EPOCH:
+      to_epoch_day:
+        source: ADSL.RANDDT
+    _DTHDT_EPOCH:
+      to_epoch_day:
+        source: ADSL.DTHDT
+    _EOSDT_EPOCH:
+      to_epoch_day:
+        source: ADSL.EOSDT
+    _CUTOFFDT_EPOCH:
+      to_epoch_day:
+        source: ADSL.CUTOFFDT
+    _EFFCODT_EPOCH:
+      to_epoch_day:
+        source: ADSL.EFFCODT
+    _AP01EDT_EPOCH:
+      to_epoch_day:
+        source: ADSL.AP01EDT
+    _MINDT_EPOCH:
+      least: {sources: [_DTHDT_EPOCH, _EOSDT_EPOCH, _CUTOFFDT_EPOCH, _EFFCODT_EPOCH]}
+    _INWIN:
+      case:
+      - when: _EVENT_DT IS NOT NULL AND _EVENT_EPOCH <= _MINDT_EPOCH
+        then: 1
+      - otherwise: 0
+    _CENSDT:
+      least: {sources: [ADSL.DTHDT, ADSL.EOSDT, ADSL.CUTOFFDT, ADSL.EFFCODT, ADSL.AP01EDT]}
+    _CENSDT_EPOCH:
+      to_epoch_day:
+        source: _CENSDT
+    _ADT_RAW:
+      case:
+      - when: ((_PCR_POS_EPOCH IS NOT NULL AND _PCR_POS_EPOCH < _PCRDT_EPOCH) OR ((_ELEC_POS_EPOCH IS NOT NULL AND _ELEC_POS_EPOCH < _PCRDT_EPOCH) AND _INWIN = 1))
+        then:
+          least: {sources: [_PCR_POS_DT, _ELEC_POS_DT]}
+      - when: _INWIN = 1 AND _DOSE2_EPOCH IS NOT NULL AND _DOSE2_EPOCH <= _EVENT_EPOCH
+        then: _EVENT_DT
+      - when: _INWIN = 1 AND (_DOSE2_EPOCH IS NULL OR _DOSE2_EPOCH > _EVENT_EPOCH)
+        then: _EVENT_DT
+      - otherwise: _CENSDT
+    _CNSR_RAW:
+      case:
+      - when: ((_PCR_POS_EPOCH IS NOT NULL AND _PCR_POS_EPOCH < _PCRDT_EPOCH) OR ((_ELEC_POS_EPOCH IS NOT NULL AND _ELEC_POS_EPOCH < _PCRDT_EPOCH) AND _INWIN = 1))
+        then: 1
+      - when: _INWIN = 1 AND _DOSE2_EPOCH IS NOT NULL AND _DOSE2_EPOCH <= _EVENT_EPOCH
+        then: 0
+      - when: _INWIN = 1 AND (_DOSE2_EPOCH IS NULL OR _DOSE2_EPOCH > _EVENT_EPOCH)
+        then: 1
+      - otherwise: 1
+    _EVNTDESC_RAW:
+      case:
+      - when: ((_PCR_POS_EPOCH IS NOT NULL AND _PCR_POS_EPOCH < _PCRDT_EPOCH) OR ((_ELEC_POS_EPOCH IS NOT NULL AND _ELEC_POS_EPOCH < _PCRDT_EPOCH) AND _INWIN = 1))
+        then: '''Infection Prior to COVID-19 (Secondary Definition, Considering Scheduled RT-PCR and Prior Infection Censoring)'''
+      - when: _INWIN = 1 AND _DOSE2_EPOCH IS NOT NULL AND _DOSE2_EPOCH <= _EVENT_EPOCH
+        then: '''COVID-19 (Secondary Definition, Considering Scheduled RT-PCR and Prior Infection Censoring)'''
+      - when: _INWIN = 1 AND (_DOSE2_EPOCH IS NULL OR _DOSE2_EPOCH > _EVENT_EPOCH)
+        then: '''Early COVID-19 (Secondary Definition, Considering Scheduled RT-PCR and Prior Infection Censoring)'''
+      - otherwise: '''No COVID-19 (Secondary Definition, Considering Scheduled RT-PCR and Prior Infection Censoring)'''
+  filter: ADSL.FASFL = 'Y'
+- id: tcvdsdc3_rows
+  dataset: ADSL
+  derivations:
+    STUDYID: ADSL.STUDYID
+    USUBJID: ADSL.USUBJID
+    PARAMCD: '''TCVDSDC3'''
+    _EVENT_DT: EV_COVIDSDS_1._ADT
+    _EVENT_EPOCH:
+      to_epoch_day:
+        source: _EVENT_DT
+    _PCRDT_E: EV_COVIDSDS_1._PCRDT
+    _PCRDT_EPOCH:
+      to_epoch_day:
+        source: _PCRDT_E
+    _APERIOD_E: EV_COVIDSDS_1._APERIOD
+    _COVID_DT: null
+    _COVID_EPOCH:
+      to_epoch_day:
+        source: _COVID_DT
+    _PCR_POS_DT: PCR_POS_1._DT
+    _PCR_POS_EPOCH:
+      to_epoch_day:
+        source: _PCR_POS_DT
+    _ELEC_POS_DT: ELEC_POS_1._DT
+    _ELEC_POS_EPOCH:
+      to_epoch_day:
+        source: _ELEC_POS_DT
+    _EARLY: SUBJ_EARLY._ADT
+    _DOSE2_EPOCH:
+      to_epoch_day:
+        source: ADSL.DOSE2DT
+    _TR01_EPOCH:
+      to_epoch_day:
+        source: ADSL.TR01SDT
+    _RAND_EPOCH:
+      to_epoch_day:
+        source: ADSL.RANDDT
+    _DTHDT_EPOCH:
+      to_epoch_day:
+        source: ADSL.DTHDT
+    _EOSDT_EPOCH:
+      to_epoch_day:
+        source: ADSL.EOSDT
+    _CUTOFFDT_EPOCH:
+      to_epoch_day:
+        source: ADSL.CUTOFFDT
+    _EFFCODT_EPOCH:
+      to_epoch_day:
+        source: ADSL.EFFCODT
+    _AP01EDT_EPOCH:
+      to_epoch_day:
+        source: ADSL.AP01EDT
+    _MINDT_EPOCH:
+      least: {sources: [_DTHDT_EPOCH, _EOSDT_EPOCH, _CUTOFFDT_EPOCH, _EFFCODT_EPOCH]}
+    _INWIN:
+      case:
+      - when: _EVENT_DT IS NOT NULL AND _EVENT_EPOCH <= _MINDT_EPOCH
+        then: 1
+      - otherwise: 0
+    _CENSDT:
+      least: {sources: [ADSL.DTHDT, ADSL.EOSDT, ADSL.CUTOFFDT, ADSL.EFFCODT, ADSL.AP01EDT]}
+    _CENSDT_EPOCH:
+      to_epoch_day:
+        source: _CENSDT
+    _ADT_RAW:
+      case:
+      - when: ((_PCR_POS_EPOCH IS NOT NULL AND _PCR_POS_EPOCH < _PCRDT_EPOCH) OR ((_ELEC_POS_EPOCH IS NOT NULL AND _ELEC_POS_EPOCH < _PCRDT_EPOCH) AND _INWIN = 1 AND _TR01_EPOCH IS NOT NULL))
+        then:
+          least: {sources: [_PCR_POS_DT, _ELEC_POS_DT]}
+      - when: _INWIN = 1 AND _TR01_EPOCH IS NOT NULL AND _TR01_EPOCH + 14 <= _EVENT_EPOCH
+        then: _EVENT_DT
+      - when: _INWIN = 1 AND _TR01_EPOCH IS NOT NULL AND _TR01_EPOCH + 14 > _EVENT_EPOCH
+        then: _EVENT_DT
+      - otherwise: _CENSDT
+    _CNSR_RAW:
+      case:
+      - when: ((_PCR_POS_EPOCH IS NOT NULL AND _PCR_POS_EPOCH < _PCRDT_EPOCH) OR ((_ELEC_POS_EPOCH IS NOT NULL AND _ELEC_POS_EPOCH < _PCRDT_EPOCH) AND _INWIN = 1 AND _TR01_EPOCH IS NOT NULL))
+        then: 1
+      - when: _INWIN = 1 AND _TR01_EPOCH IS NOT NULL AND _TR01_EPOCH + 14 <= _EVENT_EPOCH
+        then: 0
+      - when: _INWIN = 1 AND _TR01_EPOCH IS NOT NULL AND _TR01_EPOCH + 14 > _EVENT_EPOCH
+        then: 1
+      - otherwise: 1
+    _EVNTDESC_RAW:
+      case:
+      - when: ((_PCR_POS_EPOCH IS NOT NULL AND _PCR_POS_EPOCH < _PCRDT_EPOCH) OR ((_ELEC_POS_EPOCH IS NOT NULL AND _ELEC_POS_EPOCH < _PCRDT_EPOCH) AND _INWIN = 1 AND _TR01_EPOCH IS NOT NULL))
+        then: '''Infection Prior to COVID-19 (Secondary Definition, Considering Scheduled RT-PCR and Prior Infection Censoring)'''
+      - when: _INWIN = 1 AND _TR01_EPOCH IS NOT NULL AND _TR01_EPOCH + 14 <= _EVENT_EPOCH
+        then: '''COVID-19 (Secondary Definition, Considering Scheduled RT-PCR and Prior Infection Censoring)'''
+      - when: _INWIN = 1 AND _TR01_EPOCH IS NOT NULL AND _TR01_EPOCH + 14 > _EVENT_EPOCH
+        then: '''Early COVID-19 (Secondary Definition, Considering Scheduled RT-PCR and Prior Infection Censoring)'''
+      - otherwise: '''No COVID-19 (Secondary Definition, Considering Scheduled RT-PCR and Prior Infection Censoring)'''
+  filter: ADSL.FASFL = 'Y'
+- id: tcvdsdc4_rows
+  dataset: ADSL
+  derivations:
+    STUDYID: ADSL.STUDYID
+    USUBJID: ADSL.USUBJID
+    PARAMCD: '''TCVDSDC4'''
+    _EVENT_DT: EV_COVIDSDS_1._ADT
+    _EVENT_EPOCH:
+      to_epoch_day:
+        source: _EVENT_DT
+    _PCRDT_E: EV_COVIDSDS_1._PCRDT
+    _PCRDT_EPOCH:
+      to_epoch_day:
+        source: _PCRDT_E
+    _APERIOD_E: EV_COVIDSDS_1._APERIOD
+    _COVID_DT: null
+    _COVID_EPOCH:
+      to_epoch_day:
+        source: _COVID_DT
+    _PCR_POS_DT: PCR_POS_1._DT
+    _PCR_POS_EPOCH:
+      to_epoch_day:
+        source: _PCR_POS_DT
+    _ELEC_POS_DT: ELEC_POS_1._DT
+    _ELEC_POS_EPOCH:
+      to_epoch_day:
+        source: _ELEC_POS_DT
+    _EARLY: SUBJ_EARLY._ADT
+    _DOSE2_EPOCH:
+      to_epoch_day:
+        source: ADSL.DOSE2DT
+    _TR01_EPOCH:
+      to_epoch_day:
+        source: ADSL.TR01SDT
+    _RAND_EPOCH:
+      to_epoch_day:
+        source: ADSL.RANDDT
+    _DTHDT_EPOCH:
+      to_epoch_day:
+        source: ADSL.DTHDT
+    _EOSDT_EPOCH:
+      to_epoch_day:
+        source: ADSL.EOSDT
+    _CUTOFFDT_EPOCH:
+      to_epoch_day:
+        source: ADSL.CUTOFFDT
+    _EFFCODT_EPOCH:
+      to_epoch_day:
+        source: ADSL.EFFCODT
+    _AP01EDT_EPOCH:
+      to_epoch_day:
+        source: ADSL.AP01EDT
+    _MINDT_EPOCH:
+      least: {sources: [_DTHDT_EPOCH, _EOSDT_EPOCH, _CUTOFFDT_EPOCH, _EFFCODT_EPOCH]}
+    _INWIN:
+      case:
+      - when: _EVENT_DT IS NOT NULL AND _EVENT_EPOCH <= _MINDT_EPOCH
+        then: 1
+      - otherwise: 0
+    _CENSDT:
+      least: {sources: [ADSL.DTHDT, ADSL.EOSDT, ADSL.CUTOFFDT, ADSL.EFFCODT, ADSL.AP01EDT]}
+    _CENSDT_EPOCH:
+      to_epoch_day:
+        source: _CENSDT
+    _ADT_RAW:
+      case:
+      - when: ((_PCR_POS_EPOCH IS NOT NULL AND _PCR_POS_EPOCH < _PCRDT_EPOCH) OR ((_ELEC_POS_EPOCH IS NOT NULL AND _ELEC_POS_EPOCH < _PCRDT_EPOCH) AND _INWIN = 1 AND _TR01_EPOCH IS NOT NULL))
+        then:
+          least: {sources: [_PCR_POS_DT, _ELEC_POS_DT]}
+      - when: _INWIN = 1 AND _TR01_EPOCH IS NOT NULL AND _TR01_EPOCH <= _EVENT_EPOCH
+        then: _EVENT_DT
+      - when: _INWIN = 1 AND _TR01_EPOCH IS NOT NULL AND _TR01_EPOCH > _EVENT_EPOCH
+        then: _EVENT_DT
+      - otherwise: _CENSDT
+    _CNSR_RAW:
+      case:
+      - when: ((_PCR_POS_EPOCH IS NOT NULL AND _PCR_POS_EPOCH < _PCRDT_EPOCH) OR ((_ELEC_POS_EPOCH IS NOT NULL AND _ELEC_POS_EPOCH < _PCRDT_EPOCH) AND _INWIN = 1 AND _TR01_EPOCH IS NOT NULL))
+        then: 1
+      - when: _INWIN = 1 AND _TR01_EPOCH IS NOT NULL AND _TR01_EPOCH <= _EVENT_EPOCH
+        then: 0
+      - when: _INWIN = 1 AND _TR01_EPOCH IS NOT NULL AND _TR01_EPOCH > _EVENT_EPOCH
+        then: 1
+      - otherwise: 1
+    _EVNTDESC_RAW:
+      case:
+      - when: ((_PCR_POS_EPOCH IS NOT NULL AND _PCR_POS_EPOCH < _PCRDT_EPOCH) OR ((_ELEC_POS_EPOCH IS NOT NULL AND _ELEC_POS_EPOCH < _PCRDT_EPOCH) AND _INWIN = 1 AND _TR01_EPOCH IS NOT NULL))
+        then: '''Infection Prior to COVID-19 (Secondary Definition, Considering Scheduled RT-PCR and Prior Infection Censoring)'''
+      - when: _INWIN = 1 AND _TR01_EPOCH IS NOT NULL AND _TR01_EPOCH <= _EVENT_EPOCH
+        then: '''COVID-19 (Secondary Definition, Considering Scheduled RT-PCR and Prior Infection Censoring)'''
+      - when: _INWIN = 1 AND _TR01_EPOCH IS NOT NULL AND _TR01_EPOCH > _EVENT_EPOCH
+        then: '''Early COVID-19 (Secondary Definition, Considering Scheduled RT-PCR and Prior Infection Censoring)'''
+      - otherwise: '''No COVID-19 (Secondary Definition, Considering Scheduled RT-PCR and Prior Infection Censoring)'''
+  filter: ADSL.FASFL = 'Y'
+- id: tcvdsdc5_rows
+  dataset: ADSL
+  derivations:
+    STUDYID: ADSL.STUDYID
+    USUBJID: ADSL.USUBJID
+    PARAMCD: '''TCVDSDC5'''
+    _EVENT_DT: EV_COVIDSDS_1._ADT
+    _EVENT_EPOCH:
+      to_epoch_day:
+        source: _EVENT_DT
+    _PCRDT_E: EV_COVIDSDS_1._PCRDT
+    _PCRDT_EPOCH:
+      to_epoch_day:
+        source: _PCRDT_E
+    _APERIOD_E: EV_COVIDSDS_1._APERIOD
+    _COVID_DT: null
+    _COVID_EPOCH:
+      to_epoch_day:
+        source: _COVID_DT
+    _PCR_POS_DT: PCR_POS_1._DT
+    _PCR_POS_EPOCH:
+      to_epoch_day:
+        source: _PCR_POS_DT
+    _ELEC_POS_DT: ELEC_POS_1._DT
+    _ELEC_POS_EPOCH:
+      to_epoch_day:
+        source: _ELEC_POS_DT
+    _EARLY: SUBJ_EARLY._ADT
+    _DOSE2_EPOCH:
+      to_epoch_day:
+        source: ADSL.DOSE2DT
+    _TR01_EPOCH:
+      to_epoch_day:
+        source: ADSL.TR01SDT
+    _RAND_EPOCH:
+      to_epoch_day:
+        source: ADSL.RANDDT
+    _DTHDT_EPOCH:
+      to_epoch_day:
+        source: ADSL.DTHDT
+    _EOSDT_EPOCH:
+      to_epoch_day:
+        source: ADSL.EOSDT
+    _CUTOFFDT_EPOCH:
+      to_epoch_day:
+        source: ADSL.CUTOFFDT
+    _EFFCODT_EPOCH:
+      to_epoch_day:
+        source: ADSL.EFFCODT
+    _AP01EDT_EPOCH:
+      to_epoch_day:
+        source: ADSL.AP01EDT
+    _MINDT_EPOCH:
+      least: {sources: [_DTHDT_EPOCH, _EOSDT_EPOCH, _CUTOFFDT_EPOCH, _EFFCODT_EPOCH]}
+    _INWIN:
+      case:
+      - when: _EVENT_DT IS NOT NULL AND _EVENT_EPOCH <= _MINDT_EPOCH
+        then: 1
+      - otherwise: 0
+    _CENSDT:
+      least: {sources: [ADSL.DTHDT, ADSL.EOSDT, ADSL.CUTOFFDT, ADSL.EFFCODT, ADSL.AP01EDT]}
+    _CENSDT_EPOCH:
+      to_epoch_day:
+        source: _CENSDT
+    _ADT_RAW:
+      case:
+      - when: ((_PCR_POS_EPOCH IS NOT NULL AND _PCR_POS_EPOCH < _PCRDT_EPOCH) OR ((_ELEC_POS_EPOCH IS NOT NULL AND _ELEC_POS_EPOCH < _PCRDT_EPOCH) AND _INWIN = 1 AND _RAND_EPOCH IS NOT NULL AND _RAND_EPOCH <= _EVENT_EPOCH))
+        then:
+          least: {sources: [_PCR_POS_DT, _ELEC_POS_DT]}
+      - when: _INWIN = 1 AND _RAND_EPOCH IS NOT NULL AND _RAND_EPOCH <= _EVENT_EPOCH
+        then: _EVENT_DT
+      - otherwise: _CENSDT
+    _CNSR_RAW:
+      case:
+      - when: ((_PCR_POS_EPOCH IS NOT NULL AND _PCR_POS_EPOCH < _PCRDT_EPOCH) OR ((_ELEC_POS_EPOCH IS NOT NULL AND _ELEC_POS_EPOCH < _PCRDT_EPOCH) AND _INWIN = 1 AND _RAND_EPOCH IS NOT NULL AND _RAND_EPOCH <= _EVENT_EPOCH))
+        then: 1
+      - when: _INWIN = 1 AND _RAND_EPOCH IS NOT NULL AND _RAND_EPOCH <= _EVENT_EPOCH
+        then: 0
+      - otherwise: 1
+    _EVNTDESC_RAW:
+      case:
+      - when: ((_PCR_POS_EPOCH IS NOT NULL AND _PCR_POS_EPOCH < _PCRDT_EPOCH) OR ((_ELEC_POS_EPOCH IS NOT NULL AND _ELEC_POS_EPOCH < _PCRDT_EPOCH) AND _INWIN = 1 AND _RAND_EPOCH IS NOT NULL AND _RAND_EPOCH <= _EVENT_EPOCH))
+        then: '''Infection Prior to COVID-19 (Secondary Definition, Considering Scheduled RT-PCR and Prior Infection Censoring)'''
+      - when: _INWIN = 1 AND _RAND_EPOCH IS NOT NULL AND _RAND_EPOCH <= _EVENT_EPOCH
+        then: '''COVID-19 (Secondary Definition, Considering Scheduled RT-PCR and Prior Infection Censoring)'''
+      - otherwise: '''No COVID-19 (Secondary Definition, Considering Scheduled RT-PCR and Prior Infection Censoring)'''
+  filter: ADSL.FASFL = 'Y'
+- id: tcvdsdc6_rows
+  dataset: ADSL
+  derivations:
+    STUDYID: ADSL.STUDYID
+    USUBJID: ADSL.USUBJID
+    PARAMCD: '''TCVDSDC6'''
+    _EVENT_DT: EV_COVIDSDS_1._ADT
+    _EVENT_EPOCH:
+      to_epoch_day:
+        source: _EVENT_DT
+    _PCRDT_E: EV_COVIDSDS_1._PCRDT
+    _PCRDT_EPOCH:
+      to_epoch_day:
+        source: _PCRDT_E
+    _APERIOD_E: EV_COVIDSDS_1._APERIOD
+    _COVID_DT: null
+    _COVID_EPOCH:
+      to_epoch_day:
+        source: _COVID_DT
+    _PCR_POS_DT: PCR_POS_1._DT
+    _PCR_POS_EPOCH:
+      to_epoch_day:
+        source: _PCR_POS_DT
+    _ELEC_POS_DT: ELEC_POS_1._DT
+    _ELEC_POS_EPOCH:
+      to_epoch_day:
+        source: _ELEC_POS_DT
+    _EARLY: SUBJ_EARLY._ADT
+    _DOSE2_EPOCH:
+      to_epoch_day:
+        source: ADSL.DOSE2DT
+    _TR01_EPOCH:
+      to_epoch_day:
+        source: ADSL.TR01SDT
+    _RAND_EPOCH:
+      to_epoch_day:
+        source: ADSL.RANDDT
+    _DTHDT_EPOCH:
+      to_epoch_day:
+        source: ADSL.DTHDT
+    _EOSDT_EPOCH:
+      to_epoch_day:
+        source: ADSL.EOSDT
+    _CUTOFFDT_EPOCH:
+      to_epoch_day:
+        source: ADSL.CUTOFFDT
+    _EFFCODT_EPOCH:
+      to_epoch_day:
+        source: ADSL.EFFCODT
+    _AP01EDT_EPOCH:
+      to_epoch_day:
+        source: ADSL.AP01EDT
+    _MINDT_EPOCH:
+      least: {sources: [_DTHDT_EPOCH, _EOSDT_EPOCH, _CUTOFFDT_EPOCH, _EFFCODT_EPOCH]}
+    _INWIN:
+      case:
+      - when: _EVENT_DT IS NOT NULL AND _EVENT_EPOCH <= _MINDT_EPOCH
+        then: 1
+      - otherwise: 0
+    _CENSDT:
+      least: {sources: [ADSL.DTHDT, ADSL.EOSDT, ADSL.CUTOFFDT, ADSL.EFFCODT, ADSL.AP01EDT]}
+    _CENSDT_EPOCH:
+      to_epoch_day:
+        source: _CENSDT
+    _ADT_RAW:
+      case:
+      - when: ((_PCR_POS_EPOCH IS NOT NULL AND _PCR_POS_EPOCH < _PCRDT_EPOCH) OR ((_ELEC_POS_EPOCH IS NOT NULL AND _ELEC_POS_EPOCH < _PCRDT_EPOCH) AND _INWIN = 1))
+        then:
+          least: {sources: [_PCR_POS_DT, _ELEC_POS_DT]}
+      - when: _INWIN = 1 AND _DOSE2_EPOCH IS NOT NULL AND _DOSE2_EPOCH + 35 <= _EVENT_EPOCH
+        then: _EVENT_DT
+      - when: _INWIN = 1 AND (_DOSE2_EPOCH IS NULL OR _DOSE2_EPOCH + 35 > _EVENT_EPOCH)
+        then: _EVENT_DT
+      - otherwise: _CENSDT
+    _CNSR_RAW:
+      case:
+      - when: ((_PCR_POS_EPOCH IS NOT NULL AND _PCR_POS_EPOCH < _PCRDT_EPOCH) OR ((_ELEC_POS_EPOCH IS NOT NULL AND _ELEC_POS_EPOCH < _PCRDT_EPOCH) AND _INWIN = 1))
+        then: 1
+      - when: _INWIN = 1 AND _DOSE2_EPOCH IS NOT NULL AND _DOSE2_EPOCH + 35 <= _EVENT_EPOCH
+        then: 0
+      - when: _INWIN = 1 AND (_DOSE2_EPOCH IS NULL OR _DOSE2_EPOCH + 35 > _EVENT_EPOCH)
+        then: 1
+      - otherwise: 1
+    _EVNTDESC_RAW:
+      case:
+      - when: ((_PCR_POS_EPOCH IS NOT NULL AND _PCR_POS_EPOCH < _PCRDT_EPOCH) OR ((_ELEC_POS_EPOCH IS NOT NULL AND _ELEC_POS_EPOCH < _PCRDT_EPOCH) AND _INWIN = 1))
+        then: '''Infection Prior to COVID-19 (Secondary Definition, Considering Scheduled RT-PCR and Prior Infection Censoring)'''
+      - when: _INWIN = 1 AND _DOSE2_EPOCH IS NOT NULL AND _DOSE2_EPOCH + 35 <= _EVENT_EPOCH
+        then: '''COVID-19 (Secondary Definition, Considering Scheduled RT-PCR and Prior Infection Censoring)'''
+      - when: _INWIN = 1 AND (_DOSE2_EPOCH IS NULL OR _DOSE2_EPOCH + 35 > _EVENT_EPOCH)
+        then: '''Early COVID-19 (Secondary Definition, Considering Scheduled RT-PCR and Prior Infection Censoring)'''
+      - otherwise: '''No COVID-19 (Secondary Definition, Considering Scheduled RT-PCR and Prior Infection Censoring)'''
+  filter: ADSL.FASFL = 'Y'
+- id: tcvdsdc9_rows
+  dataset: ADSL
+  derivations:
+    STUDYID: ADSL.STUDYID
+    USUBJID: ADSL.USUBJID
+    PARAMCD: '''TCVDSDC9'''
+    _EVENT_DT: EV_COVIDSDS_2._ADT
+    _EVENT_EPOCH:
+      to_epoch_day:
+        source: _EVENT_DT
+    _PCRDT_E: EV_COVIDSDS_2._PCRDT
+    _PCRDT_EPOCH:
+      to_epoch_day:
+        source: _PCRDT_E
+    _APERIOD_E: EV_COVIDSDS_2._APERIOD
+    _COVID_DT: null
+    _COVID_EPOCH:
+      to_epoch_day:
+        source: _COVID_DT
+    _PCR_POS_DT: PCR_POS_2._DT
+    _PCR_POS_EPOCH:
+      to_epoch_day:
+        source: _PCR_POS_DT
+    _ELEC_POS_DT: ELEC_POS_2._DT
+    _ELEC_POS_EPOCH:
+      to_epoch_day:
+        source: _ELEC_POS_DT
+    _EARLY: SUBJ_EARLY._ADT
+    _DOSE2_EPOCH:
+      to_epoch_day:
+        source: ADSL.DOSE2DT
+    _TR01_EPOCH:
+      to_epoch_day:
+        source: ADSL.TR01SDT
+    _RAND_EPOCH:
+      to_epoch_day:
+        source: ADSL.RANDDT
+    _DTHDT_EPOCH:
+      to_epoch_day:
+        source: ADSL.DTHDT
+    _EOSDT_EPOCH:
+      to_epoch_day:
+        source: ADSL.EOSDT
+    _CUTOFFDT_EPOCH:
+      to_epoch_day:
+        source: ADSL.CUTOFFDT
+    _EFFCODT_EPOCH:
+      to_epoch_day:
+        source: ADSL.EFFCODT
+    _AP01EDT_EPOCH:
+      to_epoch_day:
+        source: ADSL.AP01EDT
+    _MINDT_EPOCH:
+      least: {sources: [_DTHDT_EPOCH, _EOSDT_EPOCH, _CUTOFFDT_EPOCH, _EFFCODT_EPOCH]}
+    _INWIN:
+      case:
+      - when: _EVENT_DT IS NOT NULL AND _EVENT_EPOCH <= _MINDT_EPOCH
+        then: 1
+      - otherwise: 0
+    _CENSDT:
+      least: {sources: [ADSL.DTHDT, ADSL.EOSDT, ADSL.CUTOFFDT, ADSL.EFFCODT]}
+    _CENSDT_EPOCH:
+      to_epoch_day:
+        source: _CENSDT
+    _ADT_RAW:
+      case:
+      - when: ((_PCR_POS_EPOCH IS NOT NULL AND _PCR_POS_EPOCH < _PCRDT_EPOCH) OR ((_ELEC_POS_EPOCH IS NOT NULL AND _ELEC_POS_EPOCH < _PCRDT_EPOCH) AND _INWIN = 1))
+        then:
+          least: {sources: [_PCR_POS_DT, _ELEC_POS_DT]}
+      - when: _INWIN = 1 AND _APERIOD_E = 2
+        then: _EVENT_DT
+      - when: _INWIN = 1 AND (_APERIOD_E IS NULL OR _APERIOD_E <> 2)
+        then: _EVENT_DT
+      - otherwise: _CENSDT
+    _CNSR_RAW:
+      case:
+      - when: ((_PCR_POS_EPOCH IS NOT NULL AND _PCR_POS_EPOCH < _PCRDT_EPOCH) OR ((_ELEC_POS_EPOCH IS NOT NULL AND _ELEC_POS_EPOCH < _PCRDT_EPOCH) AND _INWIN = 1))
+        then: 1
+      - when: _INWIN = 1 AND _APERIOD_E = 2
+        then: 0
+      - when: _INWIN = 1 AND (_APERIOD_E IS NULL OR _APERIOD_E <> 2)
+        then: 1
+      - otherwise: 1
+    _EVNTDESC_RAW:
+      case:
+      - when: ((_PCR_POS_EPOCH IS NOT NULL AND _PCR_POS_EPOCH < _PCRDT_EPOCH) OR ((_ELEC_POS_EPOCH IS NOT NULL AND _ELEC_POS_EPOCH < _PCRDT_EPOCH) AND _INWIN = 1))
+        then: '''Infection Prior to COVID-19 (Secondary Definition, Considering Scheduled RT-PCR and Prior Infection Censoring)'''
+      - when: _INWIN = 1 AND _APERIOD_E = 2
+        then: '''COVID-19 (Secondary Definition, Considering Scheduled RT-PCR and Prior Infection Censoring)'''
+      - when: _INWIN = 1 AND (_APERIOD_E IS NULL OR _APERIOD_E <> 2)
+        then: '''Early COVID-19 (Secondary Definition, Considering Scheduled RT-PCR and Prior Infection Censoring)'''
+      - otherwise: '''No COVID-19 (Secondary Definition, Considering Scheduled RT-PCR and Prior Infection Censoring)'''
+  filter: ADSL.FASFL = 'Y' AND ADSL.AP02SDT IS NOT NULL AND ADSL.AP02SDT <= ADSL.EFFCODT AND (ADSL.SCOV2BL IS NULL OR ADSL.SCOV2BL <> 'Positive') AND _EARLY IS NULL
+- id: ttasymp1_rows
+  dataset: ADSL
+  derivations:
+    STUDYID: ADSL.STUDYID
+    USUBJID: ADSL.USUBJID
+    PARAMCD: '''TTASYMP1'''
+    _EVENT_DT: EV_ASYMPINF_1._ADT
+    _EVENT_EPOCH:
+      to_epoch_day:
+        source: _EVENT_DT
+    _PCRDT_E: EV_ASYMPINF_1._PCRDT
+    _PCRDT_EPOCH:
+      to_epoch_day:
+        source: _PCRDT_E
+    _APERIOD_E: EV_ASYMPINF_1._APERIOD
+    _COVID_DT: COVID_1._ADT
+    _COVID_EPOCH:
+      to_epoch_day:
+        source: _COVID_DT
+    _PCR_POS_DT: null
+    _PCR_POS_EPOCH:
+      to_epoch_day:
+        source: _PCR_POS_DT
+    _ELEC_POS_DT: null
+    _ELEC_POS_EPOCH:
+      to_epoch_day:
+        source: _ELEC_POS_DT
+    _EARLY: SUBJ_EARLY._ADT
+    _DOSE2_EPOCH:
+      to_epoch_day:
+        source: ADSL.DOSE2DT
+    _TR01_EPOCH:
+      to_epoch_day:
+        source: ADSL.TR01SDT
+    _RAND_EPOCH:
+      to_epoch_day:
+        source: ADSL.RANDDT
+    _DTHDT_EPOCH:
+      to_epoch_day:
+        source: ADSL.DTHDT
+    _EOSDT_EPOCH:
+      to_epoch_day:
+        source: ADSL.EOSDT
+    _CUTOFFDT_EPOCH:
+      to_epoch_day:
+        source: ADSL.CUTOFFDT
+    _EFFCODT_EPOCH:
+      to_epoch_day:
+        source: ADSL.EFFCODT
+    _AP01EDT_EPOCH:
+      to_epoch_day:
+        source: ADSL.AP01EDT
+    _MINDT_EPOCH:
+      least: {sources: [_DTHDT_EPOCH, _EOSDT_EPOCH, _CUTOFFDT_EPOCH, _EFFCODT_EPOCH]}
+    _INWIN:
+      case:
+      - when: _EVENT_DT IS NOT NULL AND _EVENT_EPOCH <= _MINDT_EPOCH
+        then: 1
+      - otherwise: 0
+    _CENSDT:
+      least: {sources: [ADSL.DTHDT, ADSL.EOSDT, ADSL.CUTOFFDT, ADSL.EFFCODT, ADSL.AP01EDT]}
+    _CENSDT_EPOCH:
+      to_epoch_day:
+        source: _CENSDT
+    _ADT_RAW:
+      case:
+      - when: _INWIN = 1 AND _DOSE2_EPOCH IS NOT NULL AND _DOSE2_EPOCH + 14 <= _EVENT_EPOCH
+        then: _EVENT_DT
+      - when: _INWIN = 1 AND (_DOSE2_EPOCH IS NULL OR _DOSE2_EPOCH + 14 > _EVENT_EPOCH)
+        then: _EVENT_DT
+      - when: _COVID_DT IS NOT NULL AND _COVID_EPOCH <= _MINDT_EPOCH
+        then: _COVID_DT
+      - otherwise: _CENSDT
+    _CNSR_RAW:
+      case:
+      - when: _INWIN = 1 AND _DOSE2_EPOCH IS NOT NULL AND _DOSE2_EPOCH + 14 <= _EVENT_EPOCH
+        then: 0
+      - when: _INWIN = 1 AND (_DOSE2_EPOCH IS NULL OR _DOSE2_EPOCH + 14 > _EVENT_EPOCH)
+        then: 1
+      - when: _COVID_DT IS NOT NULL AND _COVID_EPOCH <= _MINDT_EPOCH
+        then: 1
+      - otherwise: 1
+    _EVNTDESC_RAW:
+      case:
+      - when: _INWIN = 1 AND _DOSE2_EPOCH IS NOT NULL AND _DOSE2_EPOCH + 14 <= _EVENT_EPOCH
+        then: '''Asymptomatic SARS-CoV-2 Infection'''
+      - when: _INWIN = 1 AND (_DOSE2_EPOCH IS NULL OR _DOSE2_EPOCH + 14 > _EVENT_EPOCH)
+        then: '''Early Asymptomatic SARS-CoV-2 Infection'''
+      - when: _COVID_DT IS NOT NULL AND _COVID_EPOCH <= _MINDT_EPOCH
+        then: '''Symptomatic SARS-CoV-2 Infection'''
+      - otherwise: '''No Asymptomatic SARS-CoV-2 Infection'''
+  filter: ADSL.FASFL = 'Y'
+- id: ttasymp2_rows
+  dataset: ADSL
+  derivations:
+    STUDYID: ADSL.STUDYID
+    USUBJID: ADSL.USUBJID
+    PARAMCD: '''TTASYMP2'''
+    _EVENT_DT: EV_ASYMPINF_1._ADT
+    _EVENT_EPOCH:
+      to_epoch_day:
+        source: _EVENT_DT
+    _PCRDT_E: EV_ASYMPINF_1._PCRDT
+    _PCRDT_EPOCH:
+      to_epoch_day:
+        source: _PCRDT_E
+    _APERIOD_E: EV_ASYMPINF_1._APERIOD
+    _COVID_DT: COVID_1._ADT
+    _COVID_EPOCH:
+      to_epoch_day:
+        source: _COVID_DT
+    _PCR_POS_DT: null
+    _PCR_POS_EPOCH:
+      to_epoch_day:
+        source: _PCR_POS_DT
+    _ELEC_POS_DT: null
+    _ELEC_POS_EPOCH:
+      to_epoch_day:
+        source: _ELEC_POS_DT
+    _EARLY: SUBJ_EARLY._ADT
+    _DOSE2_EPOCH:
+      to_epoch_day:
+        source: ADSL.DOSE2DT
+    _TR01_EPOCH:
+      to_epoch_day:
+        source: ADSL.TR01SDT
+    _RAND_EPOCH:
+      to_epoch_day:
+        source: ADSL.RANDDT
+    _DTHDT_EPOCH:
+      to_epoch_day:
+        source: ADSL.DTHDT
+    _EOSDT_EPOCH:
+      to_epoch_day:
+        source: ADSL.EOSDT
+    _CUTOFFDT_EPOCH:
+      to_epoch_day:
+        source: ADSL.CUTOFFDT
+    _EFFCODT_EPOCH:
+      to_epoch_day:
+        source: ADSL.EFFCODT
+    _AP01EDT_EPOCH:
+      to_epoch_day:
+        source: ADSL.AP01EDT
+    _MINDT_EPOCH:
+      least: {sources: [_DTHDT_EPOCH, _EOSDT_EPOCH, _CUTOFFDT_EPOCH, _EFFCODT_EPOCH]}
+    _INWIN:
+      case:
+      - when: _EVENT_DT IS NOT NULL AND _EVENT_EPOCH <= _MINDT_EPOCH
+        then: 1
+      - otherwise: 0
+    _CENSDT:
+      least: {sources: [ADSL.DTHDT, ADSL.EOSDT, ADSL.CUTOFFDT, ADSL.EFFCODT, ADSL.AP01EDT]}
+    _CENSDT_EPOCH:
+      to_epoch_day:
+        source: _CENSDT
+    _ADT_RAW:
+      case:
+      - when: _INWIN = 1 AND _DOSE2_EPOCH IS NOT NULL AND _DOSE2_EPOCH <= _EVENT_EPOCH
+        then: _EVENT_DT
+      - when: _INWIN = 1 AND (_DOSE2_EPOCH IS NULL OR _DOSE2_EPOCH > _EVENT_EPOCH)
+        then: _EVENT_DT
+      - when: _COVID_DT IS NOT NULL AND _COVID_EPOCH <= _MINDT_EPOCH
+        then: _COVID_DT
+      - otherwise: _CENSDT
+    _CNSR_RAW:
+      case:
+      - when: _INWIN = 1 AND _DOSE2_EPOCH IS NOT NULL AND _DOSE2_EPOCH <= _EVENT_EPOCH
+        then: 0
+      - when: _INWIN = 1 AND (_DOSE2_EPOCH IS NULL OR _DOSE2_EPOCH > _EVENT_EPOCH)
+        then: 1
+      - when: _COVID_DT IS NOT NULL AND _COVID_EPOCH <= _MINDT_EPOCH
+        then: 1
+      - otherwise: 1
+    _EVNTDESC_RAW:
+      case:
+      - when: _INWIN = 1 AND _DOSE2_EPOCH IS NOT NULL AND _DOSE2_EPOCH <= _EVENT_EPOCH
+        then: '''Asymptomatic SARS-CoV-2 Infection'''
+      - when: _INWIN = 1 AND (_DOSE2_EPOCH IS NULL OR _DOSE2_EPOCH > _EVENT_EPOCH)
+        then: '''Early Asymptomatic SARS-CoV-2 Infection'''
+      - when: _COVID_DT IS NOT NULL AND _COVID_EPOCH <= _MINDT_EPOCH
+        then: '''Symptomatic SARS-CoV-2 Infection'''
+      - otherwise: '''No Asymptomatic SARS-CoV-2 Infection'''
+  filter: ADSL.FASFL = 'Y'
+- id: ttasymp3_rows
+  dataset: ADSL
+  derivations:
+    STUDYID: ADSL.STUDYID
+    USUBJID: ADSL.USUBJID
+    PARAMCD: '''TTASYMP3'''
+    _EVENT_DT: EV_ASYMPINF_1._ADT
+    _EVENT_EPOCH:
+      to_epoch_day:
+        source: _EVENT_DT
+    _PCRDT_E: EV_ASYMPINF_1._PCRDT
+    _PCRDT_EPOCH:
+      to_epoch_day:
+        source: _PCRDT_E
+    _APERIOD_E: EV_ASYMPINF_1._APERIOD
+    _COVID_DT: COVID_1._ADT
+    _COVID_EPOCH:
+      to_epoch_day:
+        source: _COVID_DT
+    _PCR_POS_DT: null
+    _PCR_POS_EPOCH:
+      to_epoch_day:
+        source: _PCR_POS_DT
+    _ELEC_POS_DT: null
+    _ELEC_POS_EPOCH:
+      to_epoch_day:
+        source: _ELEC_POS_DT
+    _EARLY: SUBJ_EARLY._ADT
+    _DOSE2_EPOCH:
+      to_epoch_day:
+        source: ADSL.DOSE2DT
+    _TR01_EPOCH:
+      to_epoch_day:
+        source: ADSL.TR01SDT
+    _RAND_EPOCH:
+      to_epoch_day:
+        source: ADSL.RANDDT
+    _DTHDT_EPOCH:
+      to_epoch_day:
+        source: ADSL.DTHDT
+    _EOSDT_EPOCH:
+      to_epoch_day:
+        source: ADSL.EOSDT
+    _CUTOFFDT_EPOCH:
+      to_epoch_day:
+        source: ADSL.CUTOFFDT
+    _EFFCODT_EPOCH:
+      to_epoch_day:
+        source: ADSL.EFFCODT
+    _AP01EDT_EPOCH:
+      to_epoch_day:
+        source: ADSL.AP01EDT
+    _MINDT_EPOCH:
+      least: {sources: [_DTHDT_EPOCH, _EOSDT_EPOCH, _CUTOFFDT_EPOCH, _EFFCODT_EPOCH]}
+    _INWIN:
+      case:
+      - when: _EVENT_DT IS NOT NULL AND _EVENT_EPOCH <= _MINDT_EPOCH
+        then: 1
+      - otherwise: 0
+    _CENSDT:
+      least: {sources: [ADSL.DTHDT, ADSL.EOSDT, ADSL.CUTOFFDT, ADSL.EFFCODT, ADSL.AP01EDT]}
+    _CENSDT_EPOCH:
+      to_epoch_day:
+        source: _CENSDT
+    _ADT_RAW:
+      case:
+      - when: _INWIN = 1 AND _TR01_EPOCH IS NOT NULL AND _TR01_EPOCH + 14 <= _EVENT_EPOCH
+        then: _EVENT_DT
+      - when: _INWIN = 1 AND _TR01_EPOCH IS NOT NULL AND _TR01_EPOCH + 14 > _EVENT_EPOCH
+        then: _EVENT_DT
+      - when: _COVID_DT IS NOT NULL AND _COVID_EPOCH <= _MINDT_EPOCH
+        then: _COVID_DT
+      - otherwise: _CENSDT
+    _CNSR_RAW:
+      case:
+      - when: _INWIN = 1 AND _TR01_EPOCH IS NOT NULL AND _TR01_EPOCH + 14 <= _EVENT_EPOCH
+        then: 0
+      - when: _INWIN = 1 AND _TR01_EPOCH IS NOT NULL AND _TR01_EPOCH + 14 > _EVENT_EPOCH
+        then: 1
+      - when: _COVID_DT IS NOT NULL AND _COVID_EPOCH <= _MINDT_EPOCH
+        then: 1
+      - otherwise: 1
+    _EVNTDESC_RAW:
+      case:
+      - when: _INWIN = 1 AND _TR01_EPOCH IS NOT NULL AND _TR01_EPOCH + 14 <= _EVENT_EPOCH
+        then: '''Asymptomatic SARS-CoV-2 Infection'''
+      - when: _INWIN = 1 AND _TR01_EPOCH IS NOT NULL AND _TR01_EPOCH + 14 > _EVENT_EPOCH
+        then: '''Early Asymptomatic SARS-CoV-2 Infection'''
+      - when: _COVID_DT IS NOT NULL AND _COVID_EPOCH <= _MINDT_EPOCH
+        then: '''Symptomatic SARS-CoV-2 Infection'''
+      - otherwise: '''No Asymptomatic SARS-CoV-2 Infection'''
+  filter: ADSL.FASFL = 'Y'
+- id: ttasymp4_rows
+  dataset: ADSL
+  derivations:
+    STUDYID: ADSL.STUDYID
+    USUBJID: ADSL.USUBJID
+    PARAMCD: '''TTASYMP4'''
+    _EVENT_DT: EV_ASYMPINF_1._ADT
+    _EVENT_EPOCH:
+      to_epoch_day:
+        source: _EVENT_DT
+    _PCRDT_E: EV_ASYMPINF_1._PCRDT
+    _PCRDT_EPOCH:
+      to_epoch_day:
+        source: _PCRDT_E
+    _APERIOD_E: EV_ASYMPINF_1._APERIOD
+    _COVID_DT: COVID_1._ADT
+    _COVID_EPOCH:
+      to_epoch_day:
+        source: _COVID_DT
+    _PCR_POS_DT: null
+    _PCR_POS_EPOCH:
+      to_epoch_day:
+        source: _PCR_POS_DT
+    _ELEC_POS_DT: null
+    _ELEC_POS_EPOCH:
+      to_epoch_day:
+        source: _ELEC_POS_DT
+    _EARLY: SUBJ_EARLY._ADT
+    _DOSE2_EPOCH:
+      to_epoch_day:
+        source: ADSL.DOSE2DT
+    _TR01_EPOCH:
+      to_epoch_day:
+        source: ADSL.TR01SDT
+    _RAND_EPOCH:
+      to_epoch_day:
+        source: ADSL.RANDDT
+    _DTHDT_EPOCH:
+      to_epoch_day:
+        source: ADSL.DTHDT
+    _EOSDT_EPOCH:
+      to_epoch_day:
+        source: ADSL.EOSDT
+    _CUTOFFDT_EPOCH:
+      to_epoch_day:
+        source: ADSL.CUTOFFDT
+    _EFFCODT_EPOCH:
+      to_epoch_day:
+        source: ADSL.EFFCODT
+    _AP01EDT_EPOCH:
+      to_epoch_day:
+        source: ADSL.AP01EDT
+    _MINDT_EPOCH:
+      least: {sources: [_DTHDT_EPOCH, _EOSDT_EPOCH, _CUTOFFDT_EPOCH, _EFFCODT_EPOCH]}
+    _INWIN:
+      case:
+      - when: _EVENT_DT IS NOT NULL AND _EVENT_EPOCH <= _MINDT_EPOCH
+        then: 1
+      - otherwise: 0
+    _CENSDT:
+      least: {sources: [ADSL.DTHDT, ADSL.EOSDT, ADSL.CUTOFFDT, ADSL.EFFCODT, ADSL.AP01EDT]}
+    _CENSDT_EPOCH:
+      to_epoch_day:
+        source: _CENSDT
+    _ADT_RAW:
+      case:
+      - when: _INWIN = 1 AND _TR01_EPOCH IS NOT NULL AND _TR01_EPOCH <= _EVENT_EPOCH
+        then: _EVENT_DT
+      - when: _INWIN = 1 AND _TR01_EPOCH IS NOT NULL AND _TR01_EPOCH > _EVENT_EPOCH
+        then: _EVENT_DT
+      - when: _COVID_DT IS NOT NULL AND _COVID_EPOCH <= _MINDT_EPOCH
+        then: _COVID_DT
+      - otherwise: _CENSDT
+    _CNSR_RAW:
+      case:
+      - when: _INWIN = 1 AND _TR01_EPOCH IS NOT NULL AND _TR01_EPOCH <= _EVENT_EPOCH
+        then: 0
+      - when: _INWIN = 1 AND _TR01_EPOCH IS NOT NULL AND _TR01_EPOCH > _EVENT_EPOCH
+        then: 1
+      - when: _COVID_DT IS NOT NULL AND _COVID_EPOCH <= _MINDT_EPOCH
+        then: 1
+      - otherwise: 1
+    _EVNTDESC_RAW:
+      case:
+      - when: _INWIN = 1 AND _TR01_EPOCH IS NOT NULL AND _TR01_EPOCH <= _EVENT_EPOCH
+        then: '''Asymptomatic SARS-CoV-2 Infection'''
+      - when: _INWIN = 1 AND _TR01_EPOCH IS NOT NULL AND _TR01_EPOCH > _EVENT_EPOCH
+        then: '''Early Asymptomatic SARS-CoV-2 Infection'''
+      - when: _COVID_DT IS NOT NULL AND _COVID_EPOCH <= _MINDT_EPOCH
+        then: '''Symptomatic SARS-CoV-2 Infection'''
+      - otherwise: '''No Asymptomatic SARS-CoV-2 Infection'''
+  filter: ADSL.FASFL = 'Y'
+- id: ttasymp5_rows
+  dataset: ADSL
+  derivations:
+    STUDYID: ADSL.STUDYID
+    USUBJID: ADSL.USUBJID
+    PARAMCD: '''TTASYMP5'''
+    _EVENT_DT: EV_ASYMPINF_1._ADT
+    _EVENT_EPOCH:
+      to_epoch_day:
+        source: _EVENT_DT
+    _PCRDT_E: EV_ASYMPINF_1._PCRDT
+    _PCRDT_EPOCH:
+      to_epoch_day:
+        source: _PCRDT_E
+    _APERIOD_E: EV_ASYMPINF_1._APERIOD
+    _COVID_DT: COVID_1._ADT
+    _COVID_EPOCH:
+      to_epoch_day:
+        source: _COVID_DT
+    _PCR_POS_DT: null
+    _PCR_POS_EPOCH:
+      to_epoch_day:
+        source: _PCR_POS_DT
+    _ELEC_POS_DT: null
+    _ELEC_POS_EPOCH:
+      to_epoch_day:
+        source: _ELEC_POS_DT
+    _EARLY: SUBJ_EARLY._ADT
+    _DOSE2_EPOCH:
+      to_epoch_day:
+        source: ADSL.DOSE2DT
+    _TR01_EPOCH:
+      to_epoch_day:
+        source: ADSL.TR01SDT
+    _RAND_EPOCH:
+      to_epoch_day:
+        source: ADSL.RANDDT
+    _DTHDT_EPOCH:
+      to_epoch_day:
+        source: ADSL.DTHDT
+    _EOSDT_EPOCH:
+      to_epoch_day:
+        source: ADSL.EOSDT
+    _CUTOFFDT_EPOCH:
+      to_epoch_day:
+        source: ADSL.CUTOFFDT
+    _EFFCODT_EPOCH:
+      to_epoch_day:
+        source: ADSL.EFFCODT
+    _AP01EDT_EPOCH:
+      to_epoch_day:
+        source: ADSL.AP01EDT
+    _MINDT_EPOCH:
+      least: {sources: [_DTHDT_EPOCH, _EOSDT_EPOCH, _CUTOFFDT_EPOCH, _EFFCODT_EPOCH]}
+    _INWIN:
+      case:
+      - when: _EVENT_DT IS NOT NULL AND _EVENT_EPOCH <= _MINDT_EPOCH
+        then: 1
+      - otherwise: 0
+    _CENSDT:
+      least: {sources: [ADSL.DTHDT, ADSL.EOSDT, ADSL.CUTOFFDT, ADSL.EFFCODT, ADSL.AP01EDT]}
+    _CENSDT_EPOCH:
+      to_epoch_day:
+        source: _CENSDT
+    _ADT_RAW:
+      case:
+      - when: _INWIN = 1 AND _RAND_EPOCH IS NOT NULL AND _RAND_EPOCH <= _EVENT_EPOCH
+        then: _EVENT_DT
+      - when: _COVID_DT IS NOT NULL AND _COVID_EPOCH <= _MINDT_EPOCH
+        then: _COVID_DT
+      - otherwise: _CENSDT
+    _CNSR_RAW:
+      case:
+      - when: _INWIN = 1 AND _RAND_EPOCH IS NOT NULL AND _RAND_EPOCH <= _EVENT_EPOCH
+        then: 0
+      - when: _COVID_DT IS NOT NULL AND _COVID_EPOCH <= _MINDT_EPOCH
+        then: 1
+      - otherwise: 1
+    _EVNTDESC_RAW:
+      case:
+      - when: _INWIN = 1 AND _RAND_EPOCH IS NOT NULL AND _RAND_EPOCH <= _EVENT_EPOCH
+        then: '''Asymptomatic SARS-CoV-2 Infection'''
+      - when: _COVID_DT IS NOT NULL AND _COVID_EPOCH <= _MINDT_EPOCH
+        then: '''Symptomatic SARS-CoV-2 Infection'''
+      - otherwise: '''No Asymptomatic SARS-CoV-2 Infection'''
+  filter: ADSL.FASFL = 'Y'
+- id: ttasymp6_rows
+  dataset: ADSL
+  derivations:
+    STUDYID: ADSL.STUDYID
+    USUBJID: ADSL.USUBJID
+    PARAMCD: '''TTASYMP6'''
+    _EVENT_DT: EV_ASYMPINF_1._ADT
+    _EVENT_EPOCH:
+      to_epoch_day:
+        source: _EVENT_DT
+    _PCRDT_E: EV_ASYMPINF_1._PCRDT
+    _PCRDT_EPOCH:
+      to_epoch_day:
+        source: _PCRDT_E
+    _APERIOD_E: EV_ASYMPINF_1._APERIOD
+    _COVID_DT: COVID_1._ADT
+    _COVID_EPOCH:
+      to_epoch_day:
+        source: _COVID_DT
+    _PCR_POS_DT: null
+    _PCR_POS_EPOCH:
+      to_epoch_day:
+        source: _PCR_POS_DT
+    _ELEC_POS_DT: null
+    _ELEC_POS_EPOCH:
+      to_epoch_day:
+        source: _ELEC_POS_DT
+    _EARLY: SUBJ_EARLY._ADT
+    _DOSE2_EPOCH:
+      to_epoch_day:
+        source: ADSL.DOSE2DT
+    _TR01_EPOCH:
+      to_epoch_day:
+        source: ADSL.TR01SDT
+    _RAND_EPOCH:
+      to_epoch_day:
+        source: ADSL.RANDDT
+    _DTHDT_EPOCH:
+      to_epoch_day:
+        source: ADSL.DTHDT
+    _EOSDT_EPOCH:
+      to_epoch_day:
+        source: ADSL.EOSDT
+    _CUTOFFDT_EPOCH:
+      to_epoch_day:
+        source: ADSL.CUTOFFDT
+    _EFFCODT_EPOCH:
+      to_epoch_day:
+        source: ADSL.EFFCODT
+    _AP01EDT_EPOCH:
+      to_epoch_day:
+        source: ADSL.AP01EDT
+    _MINDT_EPOCH:
+      least: {sources: [_DTHDT_EPOCH, _EOSDT_EPOCH, _CUTOFFDT_EPOCH, _EFFCODT_EPOCH]}
+    _INWIN:
+      case:
+      - when: _EVENT_DT IS NOT NULL AND _EVENT_EPOCH <= _MINDT_EPOCH
+        then: 1
+      - otherwise: 0
+    _CENSDT:
+      least: {sources: [ADSL.DTHDT, ADSL.EOSDT, ADSL.CUTOFFDT, ADSL.EFFCODT, ADSL.AP01EDT]}
+    _CENSDT_EPOCH:
+      to_epoch_day:
+        source: _CENSDT
+    _ADT_RAW:
+      case:
+      - when: _INWIN = 1 AND _DOSE2_EPOCH IS NOT NULL AND _DOSE2_EPOCH + 35 <= _EVENT_EPOCH
+        then: _EVENT_DT
+      - when: _INWIN = 1 AND (_DOSE2_EPOCH IS NULL OR _DOSE2_EPOCH + 35 > _EVENT_EPOCH)
+        then: _EVENT_DT
+      - when: _COVID_DT IS NOT NULL AND _COVID_EPOCH <= _MINDT_EPOCH
+        then: _COVID_DT
+      - otherwise: _CENSDT
+    _CNSR_RAW:
+      case:
+      - when: _INWIN = 1 AND _DOSE2_EPOCH IS NOT NULL AND _DOSE2_EPOCH + 35 <= _EVENT_EPOCH
+        then: 0
+      - when: _INWIN = 1 AND (_DOSE2_EPOCH IS NULL OR _DOSE2_EPOCH + 35 > _EVENT_EPOCH)
+        then: 1
+      - when: _COVID_DT IS NOT NULL AND _COVID_EPOCH <= _MINDT_EPOCH
+        then: 1
+      - otherwise: 1
+    _EVNTDESC_RAW:
+      case:
+      - when: _INWIN = 1 AND _DOSE2_EPOCH IS NOT NULL AND _DOSE2_EPOCH + 35 <= _EVENT_EPOCH
+        then: '''Asymptomatic SARS-CoV-2 Infection'''
+      - when: _INWIN = 1 AND (_DOSE2_EPOCH IS NULL OR _DOSE2_EPOCH + 35 > _EVENT_EPOCH)
+        then: '''Early Asymptomatic SARS-CoV-2 Infection'''
+      - when: _COVID_DT IS NOT NULL AND _COVID_EPOCH <= _MINDT_EPOCH
+        then: '''Symptomatic SARS-CoV-2 Infection'''
+      - otherwise: '''No Asymptomatic SARS-CoV-2 Infection'''
+  filter: ADSL.FASFL = 'Y'
+- id: ttasymp9_rows
+  dataset: ADSL
+  derivations:
+    STUDYID: ADSL.STUDYID
+    USUBJID: ADSL.USUBJID
+    PARAMCD: '''TTASYMP9'''
+    _EVENT_DT: EV_ASYMPINF_2._ADT
+    _EVENT_EPOCH:
+      to_epoch_day:
+        source: _EVENT_DT
+    _PCRDT_E: EV_ASYMPINF_2._PCRDT
+    _PCRDT_EPOCH:
+      to_epoch_day:
+        source: _PCRDT_E
+    _APERIOD_E: EV_ASYMPINF_2._APERIOD
+    _COVID_DT: COVID_2._ADT
+    _COVID_EPOCH:
+      to_epoch_day:
+        source: _COVID_DT
+    _PCR_POS_DT: null
+    _PCR_POS_EPOCH:
+      to_epoch_day:
+        source: _PCR_POS_DT
+    _ELEC_POS_DT: null
+    _ELEC_POS_EPOCH:
+      to_epoch_day:
+        source: _ELEC_POS_DT
+    _EARLY: SUBJ_EARLY._ADT
+    _DOSE2_EPOCH:
+      to_epoch_day:
+        source: ADSL.DOSE2DT
+    _TR01_EPOCH:
+      to_epoch_day:
+        source: ADSL.TR01SDT
+    _RAND_EPOCH:
+      to_epoch_day:
+        source: ADSL.RANDDT
+    _DTHDT_EPOCH:
+      to_epoch_day:
+        source: ADSL.DTHDT
+    _EOSDT_EPOCH:
+      to_epoch_day:
+        source: ADSL.EOSDT
+    _CUTOFFDT_EPOCH:
+      to_epoch_day:
+        source: ADSL.CUTOFFDT
+    _EFFCODT_EPOCH:
+      to_epoch_day:
+        source: ADSL.EFFCODT
+    _AP01EDT_EPOCH:
+      to_epoch_day:
+        source: ADSL.AP01EDT
+    _MINDT_EPOCH:
+      least: {sources: [_DTHDT_EPOCH, _EOSDT_EPOCH, _CUTOFFDT_EPOCH, _EFFCODT_EPOCH]}
+    _INWIN:
+      case:
+      - when: _EVENT_DT IS NOT NULL AND _EVENT_EPOCH <= _MINDT_EPOCH
+        then: 1
+      - otherwise: 0
+    _CENSDT:
+      least: {sources: [ADSL.DTHDT, ADSL.EOSDT, ADSL.CUTOFFDT, ADSL.EFFCODT]}
+    _CENSDT_EPOCH:
+      to_epoch_day:
+        source: _CENSDT
+    _ADT_RAW:
+      case:
+      - when: _INWIN = 1 AND _APERIOD_E = 2
+        then: _EVENT_DT
+      - when: _INWIN = 1 AND (_APERIOD_E IS NULL OR _APERIOD_E <> 2)
+        then: _EVENT_DT
+      - when: _COVID_DT IS NOT NULL AND _COVID_EPOCH <= _MINDT_EPOCH
+        then: _COVID_DT
+      - otherwise: _CENSDT
+    _CNSR_RAW:
+      case:
+      - when: _INWIN = 1 AND _APERIOD_E = 2
+        then: 0
+      - when: _INWIN = 1 AND (_APERIOD_E IS NULL OR _APERIOD_E <> 2)
+        then: 1
+      - when: _COVID_DT IS NOT NULL AND _COVID_EPOCH <= _MINDT_EPOCH
+        then: 1
+      - otherwise: 1
+    _EVNTDESC_RAW:
+      case:
+      - when: _INWIN = 1 AND _APERIOD_E = 2
+        then: '''Asymptomatic SARS-CoV-2 Infection'''
+      - when: _INWIN = 1 AND (_APERIOD_E IS NULL OR _APERIOD_E <> 2)
+        then: '''Early Asymptomatic SARS-CoV-2 Infection'''
+      - when: _COVID_DT IS NOT NULL AND _COVID_EPOCH <= _MINDT_EPOCH
+        then: '''Symptomatic SARS-CoV-2 Infection'''
+      - otherwise: '''No Asymptomatic SARS-CoV-2 Infection'''
+  filter: ADSL.FASFL = 'Y' AND ADSL.AP02SDT IS NOT NULL AND ADSL.AP02SDT <= ADSL.EFFCODT AND (ADSL.SCOV2BL IS NULL OR ADSL.SCOV2BL <> 'Positive') AND _EARLY IS NULL
+- id: ttasycr1_rows
+  dataset: ADSL
+  derivations:
+    STUDYID: ADSL.STUDYID
+    USUBJID: ADSL.USUBJID
+    PARAMCD: '''TTASYCR1'''
+    _EVENT_DT: EV_ASYMPINF_1._ADT
+    _EVENT_EPOCH:
+      to_epoch_day:
+        source: _EVENT_DT
+    _PCRDT_E: EV_ASYMPINF_1._PCRDT
+    _PCRDT_EPOCH:
+      to_epoch_day:
+        source: _PCRDT_E
+    _APERIOD_E: EV_ASYMPINF_1._APERIOD
+    _COVID_DT: COVID_1._ADT
+    _COVID_EPOCH:
+      to_epoch_day:
+        source: _COVID_DT
+    _PCR_POS_DT: null
+    _PCR_POS_EPOCH:
+      to_epoch_day:
+        source: _PCR_POS_DT
+    _ELEC_POS_DT: null
+    _ELEC_POS_EPOCH:
+      to_epoch_day:
+        source: _ELEC_POS_DT
+    _EARLY: SUBJ_EARLY._ADT
+    _DOSE2_EPOCH:
+      to_epoch_day:
+        source: ADSL.DOSE2DT
+    _TR01_EPOCH:
+      to_epoch_day:
+        source: ADSL.TR01SDT
+    _RAND_EPOCH:
+      to_epoch_day:
+        source: ADSL.RANDDT
+    _DTHDT_EPOCH:
+      to_epoch_day:
+        source: ADSL.DTHDT
+    _EOSDT_EPOCH:
+      to_epoch_day:
+        source: ADSL.EOSDT
+    _CUTOFFDT_EPOCH:
+      to_epoch_day:
+        source: ADSL.CUTOFFDT
+    _EFFCODT_EPOCH:
+      to_epoch_day:
+        source: ADSL.EFFCODT
+    _AP01EDT_EPOCH:
+      to_epoch_day:
+        source: ADSL.AP01EDT
+    _MINDT_EPOCH:
+      least: {sources: [_DTHDT_EPOCH, _EOSDT_EPOCH, _CUTOFFDT_EPOCH, _EFFCODT_EPOCH]}
+    _INWIN:
+      case:
+      - when: _EVENT_DT IS NOT NULL AND _EVENT_EPOCH <= _MINDT_EPOCH
+        then: 1
+      - otherwise: 0
+    _CENSDT:
+      least: {sources: [ADSL.DTHDT, ADSL.EOSDT, ADSL.CUTOFFDT, ADSL.EFFCODT, ADSL.AP01EDT]}
+    _CENSDT_EPOCH:
+      to_epoch_day:
+        source: _CENSDT
+    _ADT_RAW:
+      case:
+      - when: _INWIN = 1 AND _DOSE2_EPOCH IS NOT NULL AND _DOSE2_EPOCH + 14 <= _EVENT_EPOCH
+        then: _EVENT_DT
+      - when: _INWIN = 1 AND (_DOSE2_EPOCH IS NULL OR _DOSE2_EPOCH + 14 > _EVENT_EPOCH)
+        then: _EVENT_DT
+      - when: _COVID_DT IS NOT NULL AND _COVID_EPOCH <= _MINDT_EPOCH
+        then: _COVID_DT
+      - otherwise: _CENSDT
+    _CNSR_RAW:
+      case:
+      - when: _INWIN = 1 AND _DOSE2_EPOCH IS NOT NULL AND _DOSE2_EPOCH + 14 <= _EVENT_EPOCH
+        then: 0
+      - when: _INWIN = 1 AND (_DOSE2_EPOCH IS NULL OR _DOSE2_EPOCH + 14 > _EVENT_EPOCH)
+        then: 1
+      - when: _COVID_DT IS NOT NULL AND _COVID_EPOCH <= _MINDT_EPOCH
+        then: 2
+      - otherwise: 1
+    _EVNTDESC_RAW:
+      case:
+      - when: _INWIN = 1 AND _DOSE2_EPOCH IS NOT NULL AND _DOSE2_EPOCH + 14 <= _EVENT_EPOCH
+        then: '''Asymptomatic SARS-CoV-2 Infection'''
+      - when: _INWIN = 1 AND (_DOSE2_EPOCH IS NULL OR _DOSE2_EPOCH + 14 > _EVENT_EPOCH)
+        then: '''Early Asymptomatic SARS-CoV-2 Infection'''
+      - when: _COVID_DT IS NOT NULL AND _COVID_EPOCH <= _MINDT_EPOCH
+        then: '''COVID-19 or Second Definition of COVID-19'''
+      - otherwise: '''No Asymptomatic SARS-CoV-2 Infection'''
+  filter: ADSL.FASFL = 'Y'
+- id: ttasycr2_rows
+  dataset: ADSL
+  derivations:
+    STUDYID: ADSL.STUDYID
+    USUBJID: ADSL.USUBJID
+    PARAMCD: '''TTASYCR2'''
+    _EVENT_DT: EV_ASYMPINF_1._ADT
+    _EVENT_EPOCH:
+      to_epoch_day:
+        source: _EVENT_DT
+    _PCRDT_E: EV_ASYMPINF_1._PCRDT
+    _PCRDT_EPOCH:
+      to_epoch_day:
+        source: _PCRDT_E
+    _APERIOD_E: EV_ASYMPINF_1._APERIOD
+    _COVID_DT: COVID_1._ADT
+    _COVID_EPOCH:
+      to_epoch_day:
+        source: _COVID_DT
+    _PCR_POS_DT: null
+    _PCR_POS_EPOCH:
+      to_epoch_day:
+        source: _PCR_POS_DT
+    _ELEC_POS_DT: null
+    _ELEC_POS_EPOCH:
+      to_epoch_day:
+        source: _ELEC_POS_DT
+    _EARLY: SUBJ_EARLY._ADT
+    _DOSE2_EPOCH:
+      to_epoch_day:
+        source: ADSL.DOSE2DT
+    _TR01_EPOCH:
+      to_epoch_day:
+        source: ADSL.TR01SDT
+    _RAND_EPOCH:
+      to_epoch_day:
+        source: ADSL.RANDDT
+    _DTHDT_EPOCH:
+      to_epoch_day:
+        source: ADSL.DTHDT
+    _EOSDT_EPOCH:
+      to_epoch_day:
+        source: ADSL.EOSDT
+    _CUTOFFDT_EPOCH:
+      to_epoch_day:
+        source: ADSL.CUTOFFDT
+    _EFFCODT_EPOCH:
+      to_epoch_day:
+        source: ADSL.EFFCODT
+    _AP01EDT_EPOCH:
+      to_epoch_day:
+        source: ADSL.AP01EDT
+    _MINDT_EPOCH:
+      least: {sources: [_DTHDT_EPOCH, _EOSDT_EPOCH, _CUTOFFDT_EPOCH, _EFFCODT_EPOCH]}
+    _INWIN:
+      case:
+      - when: _EVENT_DT IS NOT NULL AND _EVENT_EPOCH <= _MINDT_EPOCH
+        then: 1
+      - otherwise: 0
+    _CENSDT:
+      least: {sources: [ADSL.DTHDT, ADSL.EOSDT, ADSL.CUTOFFDT, ADSL.EFFCODT, ADSL.AP01EDT]}
+    _CENSDT_EPOCH:
+      to_epoch_day:
+        source: _CENSDT
+    _ADT_RAW:
+      case:
+      - when: _INWIN = 1 AND _DOSE2_EPOCH IS NOT NULL AND _DOSE2_EPOCH <= _EVENT_EPOCH
+        then: _EVENT_DT
+      - when: _INWIN = 1 AND (_DOSE2_EPOCH IS NULL OR _DOSE2_EPOCH > _EVENT_EPOCH)
+        then: _EVENT_DT
+      - when: _COVID_DT IS NOT NULL AND _COVID_EPOCH <= _MINDT_EPOCH
+        then: _COVID_DT
+      - otherwise: _CENSDT
+    _CNSR_RAW:
+      case:
+      - when: _INWIN = 1 AND _DOSE2_EPOCH IS NOT NULL AND _DOSE2_EPOCH <= _EVENT_EPOCH
+        then: 0
+      - when: _INWIN = 1 AND (_DOSE2_EPOCH IS NULL OR _DOSE2_EPOCH > _EVENT_EPOCH)
+        then: 1
+      - when: _COVID_DT IS NOT NULL AND _COVID_EPOCH <= _MINDT_EPOCH
+        then: 2
+      - otherwise: 1
+    _EVNTDESC_RAW:
+      case:
+      - when: _INWIN = 1 AND _DOSE2_EPOCH IS NOT NULL AND _DOSE2_EPOCH <= _EVENT_EPOCH
+        then: '''Asymptomatic SARS-CoV-2 Infection'''
+      - when: _INWIN = 1 AND (_DOSE2_EPOCH IS NULL OR _DOSE2_EPOCH > _EVENT_EPOCH)
+        then: '''Early Asymptomatic SARS-CoV-2 Infection'''
+      - when: _COVID_DT IS NOT NULL AND _COVID_EPOCH <= _MINDT_EPOCH
+        then: '''COVID-19 or Second Definition of COVID-19'''
+      - otherwise: '''No Asymptomatic SARS-CoV-2 Infection'''
+  filter: ADSL.FASFL = 'Y'
+- id: ttasycr3_rows
+  dataset: ADSL
+  derivations:
+    STUDYID: ADSL.STUDYID
+    USUBJID: ADSL.USUBJID
+    PARAMCD: '''TTASYCR3'''
+    _EVENT_DT: EV_ASYMPINF_1._ADT
+    _EVENT_EPOCH:
+      to_epoch_day:
+        source: _EVENT_DT
+    _PCRDT_E: EV_ASYMPINF_1._PCRDT
+    _PCRDT_EPOCH:
+      to_epoch_day:
+        source: _PCRDT_E
+    _APERIOD_E: EV_ASYMPINF_1._APERIOD
+    _COVID_DT: COVID_1._ADT
+    _COVID_EPOCH:
+      to_epoch_day:
+        source: _COVID_DT
+    _PCR_POS_DT: null
+    _PCR_POS_EPOCH:
+      to_epoch_day:
+        source: _PCR_POS_DT
+    _ELEC_POS_DT: null
+    _ELEC_POS_EPOCH:
+      to_epoch_day:
+        source: _ELEC_POS_DT
+    _EARLY: SUBJ_EARLY._ADT
+    _DOSE2_EPOCH:
+      to_epoch_day:
+        source: ADSL.DOSE2DT
+    _TR01_EPOCH:
+      to_epoch_day:
+        source: ADSL.TR01SDT
+    _RAND_EPOCH:
+      to_epoch_day:
+        source: ADSL.RANDDT
+    _DTHDT_EPOCH:
+      to_epoch_day:
+        source: ADSL.DTHDT
+    _EOSDT_EPOCH:
+      to_epoch_day:
+        source: ADSL.EOSDT
+    _CUTOFFDT_EPOCH:
+      to_epoch_day:
+        source: ADSL.CUTOFFDT
+    _EFFCODT_EPOCH:
+      to_epoch_day:
+        source: ADSL.EFFCODT
+    _AP01EDT_EPOCH:
+      to_epoch_day:
+        source: ADSL.AP01EDT
+    _MINDT_EPOCH:
+      least: {sources: [_DTHDT_EPOCH, _EOSDT_EPOCH, _CUTOFFDT_EPOCH, _EFFCODT_EPOCH]}
+    _INWIN:
+      case:
+      - when: _EVENT_DT IS NOT NULL AND _EVENT_EPOCH <= _MINDT_EPOCH
+        then: 1
+      - otherwise: 0
+    _CENSDT:
+      least: {sources: [ADSL.DTHDT, ADSL.EOSDT, ADSL.CUTOFFDT, ADSL.EFFCODT, ADSL.AP01EDT]}
+    _CENSDT_EPOCH:
+      to_epoch_day:
+        source: _CENSDT
+    _ADT_RAW:
+      case:
+      - when: _INWIN = 1 AND _TR01_EPOCH IS NOT NULL AND _TR01_EPOCH + 14 <= _EVENT_EPOCH
+        then: _EVENT_DT
+      - when: _INWIN = 1 AND _TR01_EPOCH IS NOT NULL AND _TR01_EPOCH + 14 > _EVENT_EPOCH
+        then: _EVENT_DT
+      - when: _COVID_DT IS NOT NULL AND _COVID_EPOCH <= _MINDT_EPOCH
+        then: _COVID_DT
+      - otherwise: _CENSDT
+    _CNSR_RAW:
+      case:
+      - when: _INWIN = 1 AND _TR01_EPOCH IS NOT NULL AND _TR01_EPOCH + 14 <= _EVENT_EPOCH
+        then: 0
+      - when: _INWIN = 1 AND _TR01_EPOCH IS NOT NULL AND _TR01_EPOCH + 14 > _EVENT_EPOCH
+        then: 1
+      - when: _COVID_DT IS NOT NULL AND _COVID_EPOCH <= _MINDT_EPOCH
+        then: 2
+      - otherwise: 1
+    _EVNTDESC_RAW:
+      case:
+      - when: _INWIN = 1 AND _TR01_EPOCH IS NOT NULL AND _TR01_EPOCH + 14 <= _EVENT_EPOCH
+        then: '''Asymptomatic SARS-CoV-2 Infection'''
+      - when: _INWIN = 1 AND _TR01_EPOCH IS NOT NULL AND _TR01_EPOCH + 14 > _EVENT_EPOCH
+        then: '''Early Asymptomatic SARS-CoV-2 Infection'''
+      - when: _COVID_DT IS NOT NULL AND _COVID_EPOCH <= _MINDT_EPOCH
+        then: '''COVID-19 or Second Definition of COVID-19'''
+      - otherwise: '''No Asymptomatic SARS-CoV-2 Infection'''
+  filter: ADSL.FASFL = 'Y'
+- id: ttasycr4_rows
+  dataset: ADSL
+  derivations:
+    STUDYID: ADSL.STUDYID
+    USUBJID: ADSL.USUBJID
+    PARAMCD: '''TTASYCR4'''
+    _EVENT_DT: EV_ASYMPINF_1._ADT
+    _EVENT_EPOCH:
+      to_epoch_day:
+        source: _EVENT_DT
+    _PCRDT_E: EV_ASYMPINF_1._PCRDT
+    _PCRDT_EPOCH:
+      to_epoch_day:
+        source: _PCRDT_E
+    _APERIOD_E: EV_ASYMPINF_1._APERIOD
+    _COVID_DT: COVID_1._ADT
+    _COVID_EPOCH:
+      to_epoch_day:
+        source: _COVID_DT
+    _PCR_POS_DT: null
+    _PCR_POS_EPOCH:
+      to_epoch_day:
+        source: _PCR_POS_DT
+    _ELEC_POS_DT: null
+    _ELEC_POS_EPOCH:
+      to_epoch_day:
+        source: _ELEC_POS_DT
+    _EARLY: SUBJ_EARLY._ADT
+    _DOSE2_EPOCH:
+      to_epoch_day:
+        source: ADSL.DOSE2DT
+    _TR01_EPOCH:
+      to_epoch_day:
+        source: ADSL.TR01SDT
+    _RAND_EPOCH:
+      to_epoch_day:
+        source: ADSL.RANDDT
+    _DTHDT_EPOCH:
+      to_epoch_day:
+        source: ADSL.DTHDT
+    _EOSDT_EPOCH:
+      to_epoch_day:
+        source: ADSL.EOSDT
+    _CUTOFFDT_EPOCH:
+      to_epoch_day:
+        source: ADSL.CUTOFFDT
+    _EFFCODT_EPOCH:
+      to_epoch_day:
+        source: ADSL.EFFCODT
+    _AP01EDT_EPOCH:
+      to_epoch_day:
+        source: ADSL.AP01EDT
+    _MINDT_EPOCH:
+      least: {sources: [_DTHDT_EPOCH, _EOSDT_EPOCH, _CUTOFFDT_EPOCH, _EFFCODT_EPOCH]}
+    _INWIN:
+      case:
+      - when: _EVENT_DT IS NOT NULL AND _EVENT_EPOCH <= _MINDT_EPOCH
+        then: 1
+      - otherwise: 0
+    _CENSDT:
+      least: {sources: [ADSL.DTHDT, ADSL.EOSDT, ADSL.CUTOFFDT, ADSL.EFFCODT, ADSL.AP01EDT]}
+    _CENSDT_EPOCH:
+      to_epoch_day:
+        source: _CENSDT
+    _ADT_RAW:
+      case:
+      - when: _INWIN = 1 AND _TR01_EPOCH IS NOT NULL AND _TR01_EPOCH <= _EVENT_EPOCH
+        then: _EVENT_DT
+      - when: _INWIN = 1 AND _TR01_EPOCH IS NOT NULL AND _TR01_EPOCH > _EVENT_EPOCH
+        then: _EVENT_DT
+      - when: _COVID_DT IS NOT NULL AND _COVID_EPOCH <= _MINDT_EPOCH
+        then: _COVID_DT
+      - otherwise: _CENSDT
+    _CNSR_RAW:
+      case:
+      - when: _INWIN = 1 AND _TR01_EPOCH IS NOT NULL AND _TR01_EPOCH <= _EVENT_EPOCH
+        then: 0
+      - when: _INWIN = 1 AND _TR01_EPOCH IS NOT NULL AND _TR01_EPOCH > _EVENT_EPOCH
+        then: 1
+      - when: _COVID_DT IS NOT NULL AND _COVID_EPOCH <= _MINDT_EPOCH
+        then: 2
+      - otherwise: 1
+    _EVNTDESC_RAW:
+      case:
+      - when: _INWIN = 1 AND _TR01_EPOCH IS NOT NULL AND _TR01_EPOCH <= _EVENT_EPOCH
+        then: '''Asymptomatic SARS-CoV-2 Infection'''
+      - when: _INWIN = 1 AND _TR01_EPOCH IS NOT NULL AND _TR01_EPOCH > _EVENT_EPOCH
+        then: '''Early Asymptomatic SARS-CoV-2 Infection'''
+      - when: _COVID_DT IS NOT NULL AND _COVID_EPOCH <= _MINDT_EPOCH
+        then: '''COVID-19 or Second Definition of COVID-19'''
+      - otherwise: '''No Asymptomatic SARS-CoV-2 Infection'''
+  filter: ADSL.FASFL = 'Y'
+- id: ttasycr5_rows
+  dataset: ADSL
+  derivations:
+    STUDYID: ADSL.STUDYID
+    USUBJID: ADSL.USUBJID
+    PARAMCD: '''TTASYCR5'''
+    _EVENT_DT: EV_ASYMPINF_1._ADT
+    _EVENT_EPOCH:
+      to_epoch_day:
+        source: _EVENT_DT
+    _PCRDT_E: EV_ASYMPINF_1._PCRDT
+    _PCRDT_EPOCH:
+      to_epoch_day:
+        source: _PCRDT_E
+    _APERIOD_E: EV_ASYMPINF_1._APERIOD
+    _COVID_DT: COVID_1._ADT
+    _COVID_EPOCH:
+      to_epoch_day:
+        source: _COVID_DT
+    _PCR_POS_DT: null
+    _PCR_POS_EPOCH:
+      to_epoch_day:
+        source: _PCR_POS_DT
+    _ELEC_POS_DT: null
+    _ELEC_POS_EPOCH:
+      to_epoch_day:
+        source: _ELEC_POS_DT
+    _EARLY: SUBJ_EARLY._ADT
+    _DOSE2_EPOCH:
+      to_epoch_day:
+        source: ADSL.DOSE2DT
+    _TR01_EPOCH:
+      to_epoch_day:
+        source: ADSL.TR01SDT
+    _RAND_EPOCH:
+      to_epoch_day:
+        source: ADSL.RANDDT
+    _DTHDT_EPOCH:
+      to_epoch_day:
+        source: ADSL.DTHDT
+    _EOSDT_EPOCH:
+      to_epoch_day:
+        source: ADSL.EOSDT
+    _CUTOFFDT_EPOCH:
+      to_epoch_day:
+        source: ADSL.CUTOFFDT
+    _EFFCODT_EPOCH:
+      to_epoch_day:
+        source: ADSL.EFFCODT
+    _AP01EDT_EPOCH:
+      to_epoch_day:
+        source: ADSL.AP01EDT
+    _MINDT_EPOCH:
+      least: {sources: [_DTHDT_EPOCH, _EOSDT_EPOCH, _CUTOFFDT_EPOCH, _EFFCODT_EPOCH]}
+    _INWIN:
+      case:
+      - when: _EVENT_DT IS NOT NULL AND _EVENT_EPOCH <= _MINDT_EPOCH
+        then: 1
+      - otherwise: 0
+    _CENSDT:
+      least: {sources: [ADSL.DTHDT, ADSL.EOSDT, ADSL.CUTOFFDT, ADSL.EFFCODT, ADSL.AP01EDT]}
+    _CENSDT_EPOCH:
+      to_epoch_day:
+        source: _CENSDT
+    _ADT_RAW:
+      case:
+      - when: _INWIN = 1 AND _RAND_EPOCH IS NOT NULL AND _RAND_EPOCH <= _EVENT_EPOCH
+        then: _EVENT_DT
+      - when: _COVID_DT IS NOT NULL AND _COVID_EPOCH <= _MINDT_EPOCH
+        then: _COVID_DT
+      - otherwise: _CENSDT
+    _CNSR_RAW:
+      case:
+      - when: _INWIN = 1 AND _RAND_EPOCH IS NOT NULL AND _RAND_EPOCH <= _EVENT_EPOCH
+        then: 0
+      - when: _COVID_DT IS NOT NULL AND _COVID_EPOCH <= _MINDT_EPOCH
+        then: 2
+      - otherwise: 1
+    _EVNTDESC_RAW:
+      case:
+      - when: _INWIN = 1 AND _RAND_EPOCH IS NOT NULL AND _RAND_EPOCH <= _EVENT_EPOCH
+        then: '''Asymptomatic SARS-CoV-2 Infection'''
+      - when: _COVID_DT IS NOT NULL AND _COVID_EPOCH <= _MINDT_EPOCH
+        then: '''COVID-19 or Second Definition of COVID-19'''
+      - otherwise: '''No Asymptomatic SARS-CoV-2 Infection'''
+  filter: ADSL.FASFL = 'Y'
+- id: ttasycr6_rows
+  dataset: ADSL
+  derivations:
+    STUDYID: ADSL.STUDYID
+    USUBJID: ADSL.USUBJID
+    PARAMCD: '''TTASYCR6'''
+    _EVENT_DT: EV_ASYMPINF_1._ADT
+    _EVENT_EPOCH:
+      to_epoch_day:
+        source: _EVENT_DT
+    _PCRDT_E: EV_ASYMPINF_1._PCRDT
+    _PCRDT_EPOCH:
+      to_epoch_day:
+        source: _PCRDT_E
+    _APERIOD_E: EV_ASYMPINF_1._APERIOD
+    _COVID_DT: COVID_1._ADT
+    _COVID_EPOCH:
+      to_epoch_day:
+        source: _COVID_DT
+    _PCR_POS_DT: null
+    _PCR_POS_EPOCH:
+      to_epoch_day:
+        source: _PCR_POS_DT
+    _ELEC_POS_DT: null
+    _ELEC_POS_EPOCH:
+      to_epoch_day:
+        source: _ELEC_POS_DT
+    _EARLY: SUBJ_EARLY._ADT
+    _DOSE2_EPOCH:
+      to_epoch_day:
+        source: ADSL.DOSE2DT
+    _TR01_EPOCH:
+      to_epoch_day:
+        source: ADSL.TR01SDT
+    _RAND_EPOCH:
+      to_epoch_day:
+        source: ADSL.RANDDT
+    _DTHDT_EPOCH:
+      to_epoch_day:
+        source: ADSL.DTHDT
+    _EOSDT_EPOCH:
+      to_epoch_day:
+        source: ADSL.EOSDT
+    _CUTOFFDT_EPOCH:
+      to_epoch_day:
+        source: ADSL.CUTOFFDT
+    _EFFCODT_EPOCH:
+      to_epoch_day:
+        source: ADSL.EFFCODT
+    _AP01EDT_EPOCH:
+      to_epoch_day:
+        source: ADSL.AP01EDT
+    _MINDT_EPOCH:
+      least: {sources: [_DTHDT_EPOCH, _EOSDT_EPOCH, _CUTOFFDT_EPOCH, _EFFCODT_EPOCH]}
+    _INWIN:
+      case:
+      - when: _EVENT_DT IS NOT NULL AND _EVENT_EPOCH <= _MINDT_EPOCH
+        then: 1
+      - otherwise: 0
+    _CENSDT:
+      least: {sources: [ADSL.DTHDT, ADSL.EOSDT, ADSL.CUTOFFDT, ADSL.EFFCODT, ADSL.AP01EDT]}
+    _CENSDT_EPOCH:
+      to_epoch_day:
+        source: _CENSDT
+    _ADT_RAW:
+      case:
+      - when: _INWIN = 1 AND _DOSE2_EPOCH IS NOT NULL AND _DOSE2_EPOCH + 35 <= _EVENT_EPOCH
+        then: _EVENT_DT
+      - when: _INWIN = 1 AND (_DOSE2_EPOCH IS NULL OR _DOSE2_EPOCH + 35 > _EVENT_EPOCH)
+        then: _EVENT_DT
+      - when: _COVID_DT IS NOT NULL AND _COVID_EPOCH <= _MINDT_EPOCH
+        then: _COVID_DT
+      - otherwise: _CENSDT
+    _CNSR_RAW:
+      case:
+      - when: _INWIN = 1 AND _DOSE2_EPOCH IS NOT NULL AND _DOSE2_EPOCH + 35 <= _EVENT_EPOCH
+        then: 0
+      - when: _INWIN = 1 AND (_DOSE2_EPOCH IS NULL OR _DOSE2_EPOCH + 35 > _EVENT_EPOCH)
+        then: 1
+      - when: _COVID_DT IS NOT NULL AND _COVID_EPOCH <= _MINDT_EPOCH
+        then: 2
+      - otherwise: 1
+    _EVNTDESC_RAW:
+      case:
+      - when: _INWIN = 1 AND _DOSE2_EPOCH IS NOT NULL AND _DOSE2_EPOCH + 35 <= _EVENT_EPOCH
+        then: '''Asymptomatic SARS-CoV-2 Infection'''
+      - when: _INWIN = 1 AND (_DOSE2_EPOCH IS NULL OR _DOSE2_EPOCH + 35 > _EVENT_EPOCH)
+        then: '''Early Asymptomatic SARS-CoV-2 Infection'''
+      - when: _COVID_DT IS NOT NULL AND _COVID_EPOCH <= _MINDT_EPOCH
+        then: '''COVID-19 or Second Definition of COVID-19'''
+      - otherwise: '''No Asymptomatic SARS-CoV-2 Infection'''
+  filter: ADSL.FASFL = 'Y'
+- id: ttasycr9_rows
+  dataset: ADSL
+  derivations:
+    STUDYID: ADSL.STUDYID
+    USUBJID: ADSL.USUBJID
+    PARAMCD: '''TTASYCR9'''
+    _EVENT_DT: EV_ASYMPINF_2._ADT
+    _EVENT_EPOCH:
+      to_epoch_day:
+        source: _EVENT_DT
+    _PCRDT_E: EV_ASYMPINF_2._PCRDT
+    _PCRDT_EPOCH:
+      to_epoch_day:
+        source: _PCRDT_E
+    _APERIOD_E: EV_ASYMPINF_2._APERIOD
+    _COVID_DT: COVID_2._ADT
+    _COVID_EPOCH:
+      to_epoch_day:
+        source: _COVID_DT
+    _PCR_POS_DT: null
+    _PCR_POS_EPOCH:
+      to_epoch_day:
+        source: _PCR_POS_DT
+    _ELEC_POS_DT: null
+    _ELEC_POS_EPOCH:
+      to_epoch_day:
+        source: _ELEC_POS_DT
+    _EARLY: SUBJ_EARLY._ADT
+    _DOSE2_EPOCH:
+      to_epoch_day:
+        source: ADSL.DOSE2DT
+    _TR01_EPOCH:
+      to_epoch_day:
+        source: ADSL.TR01SDT
+    _RAND_EPOCH:
+      to_epoch_day:
+        source: ADSL.RANDDT
+    _DTHDT_EPOCH:
+      to_epoch_day:
+        source: ADSL.DTHDT
+    _EOSDT_EPOCH:
+      to_epoch_day:
+        source: ADSL.EOSDT
+    _CUTOFFDT_EPOCH:
+      to_epoch_day:
+        source: ADSL.CUTOFFDT
+    _EFFCODT_EPOCH:
+      to_epoch_day:
+        source: ADSL.EFFCODT
+    _AP01EDT_EPOCH:
+      to_epoch_day:
+        source: ADSL.AP01EDT
+    _MINDT_EPOCH:
+      least: {sources: [_DTHDT_EPOCH, _EOSDT_EPOCH, _CUTOFFDT_EPOCH, _EFFCODT_EPOCH]}
+    _INWIN:
+      case:
+      - when: _EVENT_DT IS NOT NULL AND _EVENT_EPOCH <= _MINDT_EPOCH
+        then: 1
+      - otherwise: 0
+    _CENSDT:
+      least: {sources: [ADSL.DTHDT, ADSL.EOSDT, ADSL.CUTOFFDT, ADSL.EFFCODT]}
+    _CENSDT_EPOCH:
+      to_epoch_day:
+        source: _CENSDT
+    _ADT_RAW:
+      case:
+      - when: _INWIN = 1 AND _APERIOD_E = 2
+        then: _EVENT_DT
+      - when: _INWIN = 1 AND (_APERIOD_E IS NULL OR _APERIOD_E <> 2)
+        then: _EVENT_DT
+      - when: _COVID_DT IS NOT NULL AND _COVID_EPOCH <= _MINDT_EPOCH
+        then: _COVID_DT
+      - otherwise: _CENSDT
+    _CNSR_RAW:
+      case:
+      - when: _INWIN = 1 AND _APERIOD_E = 2
+        then: 0
+      - when: _INWIN = 1 AND (_APERIOD_E IS NULL OR _APERIOD_E <> 2)
+        then: 1
+      - when: _COVID_DT IS NOT NULL AND _COVID_EPOCH <= _MINDT_EPOCH
+        then: 2
+      - otherwise: 1
+    _EVNTDESC_RAW:
+      case:
+      - when: _INWIN = 1 AND _APERIOD_E = 2
+        then: '''Asymptomatic SARS-CoV-2 Infection'''
+      - when: _INWIN = 1 AND (_APERIOD_E IS NULL OR _APERIOD_E <> 2)
+        then: '''Early Asymptomatic SARS-CoV-2 Infection'''
+      - when: _COVID_DT IS NOT NULL AND _COVID_EPOCH <= _MINDT_EPOCH
+        then: '''COVID-19 or Second Definition of COVID-19'''
+      - otherwise: '''No Asymptomatic SARS-CoV-2 Infection'''
+  filter: ADSL.FASFL = 'Y' AND ADSL.AP02SDT IS NOT NULL AND ADSL.AP02SDT <= ADSL.EFFCODT AND (ADSL.SCOV2BL IS NULL OR ADSL.SCOV2BL <> 'Positive') AND _EARLY IS NULL
+- id: ttinf1_rows
+  dataset: ADSL
+  derivations:
+    STUDYID: ADSL.STUDYID
+    USUBJID: ADSL.USUBJID
+    PARAMCD: '''TTINF1'''
+    _EVENT_DT: EV_INFECT_1._ADT
+    _EVENT_EPOCH:
+      to_epoch_day:
+        source: _EVENT_DT
+    _PCRDT_E: EV_INFECT_1._PCRDT
+    _PCRDT_EPOCH:
+      to_epoch_day:
+        source: _PCRDT_E
+    _APERIOD_E: EV_INFECT_1._APERIOD
+    _COVID_DT: null
+    _COVID_EPOCH:
+      to_epoch_day:
+        source: _COVID_DT
+    _PCR_POS_DT: null
+    _PCR_POS_EPOCH:
+      to_epoch_day:
+        source: _PCR_POS_DT
+    _ELEC_POS_DT: null
+    _ELEC_POS_EPOCH:
+      to_epoch_day:
+        source: _ELEC_POS_DT
+    _EARLY: SUBJ_EARLY._ADT
+    _DOSE2_EPOCH:
+      to_epoch_day:
+        source: ADSL.DOSE2DT
+    _TR01_EPOCH:
+      to_epoch_day:
+        source: ADSL.TR01SDT
+    _RAND_EPOCH:
+      to_epoch_day:
+        source: ADSL.RANDDT
+    _DTHDT_EPOCH:
+      to_epoch_day:
+        source: ADSL.DTHDT
+    _EOSDT_EPOCH:
+      to_epoch_day:
+        source: ADSL.EOSDT
+    _CUTOFFDT_EPOCH:
+      to_epoch_day:
+        source: ADSL.CUTOFFDT
+    _EFFCODT_EPOCH:
+      to_epoch_day:
+        source: ADSL.EFFCODT
+    _AP01EDT_EPOCH:
+      to_epoch_day:
+        source: ADSL.AP01EDT
+    _MINDT_EPOCH:
+      least: {sources: [_DTHDT_EPOCH, _EOSDT_EPOCH, _CUTOFFDT_EPOCH, _EFFCODT_EPOCH]}
+    _INWIN:
+      case:
+      - when: _EVENT_DT IS NOT NULL AND _EVENT_EPOCH <= _MINDT_EPOCH
+        then: 1
+      - otherwise: 0
+    _CENSDT:
+      least: {sources: [ADSL.DTHDT, ADSL.EOSDT, ADSL.CUTOFFDT, ADSL.EFFCODT, ADSL.AP01EDT]}
+    _CENSDT_EPOCH:
+      to_epoch_day:
+        source: _CENSDT
+    _ADT_RAW:
+      case:
+      - when: _INWIN = 1 AND _DOSE2_EPOCH IS NOT NULL AND _DOSE2_EPOCH + 14 <= _EVENT_EPOCH
+        then: _EVENT_DT
+      - when: _INWIN = 1 AND (_DOSE2_EPOCH IS NULL OR _DOSE2_EPOCH + 14 > _EVENT_EPOCH)
+        then: _EVENT_DT
+      - otherwise: _CENSDT
+    _CNSR_RAW:
+      case:
+      - when: _INWIN = 1 AND _DOSE2_EPOCH IS NOT NULL AND _DOSE2_EPOCH + 14 <= _EVENT_EPOCH
+        then: 0
+      - when: _INWIN = 1 AND (_DOSE2_EPOCH IS NULL OR _DOSE2_EPOCH + 14 > _EVENT_EPOCH)
+        then: 1
+      - otherwise: 1
+    _EVNTDESC_RAW:
+      case:
+      - when: _INWIN = 1 AND _DOSE2_EPOCH IS NOT NULL AND _DOSE2_EPOCH + 14 <= _EVENT_EPOCH
+        then: '''SARS-CoV-2 Infection Regardless of Symptomatology or Severity'''
+      - when: _INWIN = 1 AND (_DOSE2_EPOCH IS NULL OR _DOSE2_EPOCH + 14 > _EVENT_EPOCH)
+        then: '''Early SARS-CoV-2 Infection Regardless of Symptomatology or Severity'''
+      - otherwise: '''No SARS-CoV-2 Infection Regardless of Symptomatology or Severity'''
+  filter: ADSL.FASFL = 'Y'
+- id: ttinf2_rows
+  dataset: ADSL
+  derivations:
+    STUDYID: ADSL.STUDYID
+    USUBJID: ADSL.USUBJID
+    PARAMCD: '''TTINF2'''
+    _EVENT_DT: EV_INFECT_1._ADT
+    _EVENT_EPOCH:
+      to_epoch_day:
+        source: _EVENT_DT
+    _PCRDT_E: EV_INFECT_1._PCRDT
+    _PCRDT_EPOCH:
+      to_epoch_day:
+        source: _PCRDT_E
+    _APERIOD_E: EV_INFECT_1._APERIOD
+    _COVID_DT: null
+    _COVID_EPOCH:
+      to_epoch_day:
+        source: _COVID_DT
+    _PCR_POS_DT: null
+    _PCR_POS_EPOCH:
+      to_epoch_day:
+        source: _PCR_POS_DT
+    _ELEC_POS_DT: null
+    _ELEC_POS_EPOCH:
+      to_epoch_day:
+        source: _ELEC_POS_DT
+    _EARLY: SUBJ_EARLY._ADT
+    _DOSE2_EPOCH:
+      to_epoch_day:
+        source: ADSL.DOSE2DT
+    _TR01_EPOCH:
+      to_epoch_day:
+        source: ADSL.TR01SDT
+    _RAND_EPOCH:
+      to_epoch_day:
+        source: ADSL.RANDDT
+    _DTHDT_EPOCH:
+      to_epoch_day:
+        source: ADSL.DTHDT
+    _EOSDT_EPOCH:
+      to_epoch_day:
+        source: ADSL.EOSDT
+    _CUTOFFDT_EPOCH:
+      to_epoch_day:
+        source: ADSL.CUTOFFDT
+    _EFFCODT_EPOCH:
+      to_epoch_day:
+        source: ADSL.EFFCODT
+    _AP01EDT_EPOCH:
+      to_epoch_day:
+        source: ADSL.AP01EDT
+    _MINDT_EPOCH:
+      least: {sources: [_DTHDT_EPOCH, _EOSDT_EPOCH, _CUTOFFDT_EPOCH, _EFFCODT_EPOCH]}
+    _INWIN:
+      case:
+      - when: _EVENT_DT IS NOT NULL AND _EVENT_EPOCH <= _MINDT_EPOCH
+        then: 1
+      - otherwise: 0
+    _CENSDT:
+      least: {sources: [ADSL.DTHDT, ADSL.EOSDT, ADSL.CUTOFFDT, ADSL.EFFCODT, ADSL.AP01EDT]}
+    _CENSDT_EPOCH:
+      to_epoch_day:
+        source: _CENSDT
+    _ADT_RAW:
+      case:
+      - when: _INWIN = 1 AND _DOSE2_EPOCH IS NOT NULL AND _DOSE2_EPOCH <= _EVENT_EPOCH
+        then: _EVENT_DT
+      - when: _INWIN = 1 AND (_DOSE2_EPOCH IS NULL OR _DOSE2_EPOCH > _EVENT_EPOCH)
+        then: _EVENT_DT
+      - otherwise: _CENSDT
+    _CNSR_RAW:
+      case:
+      - when: _INWIN = 1 AND _DOSE2_EPOCH IS NOT NULL AND _DOSE2_EPOCH <= _EVENT_EPOCH
+        then: 0
+      - when: _INWIN = 1 AND (_DOSE2_EPOCH IS NULL OR _DOSE2_EPOCH > _EVENT_EPOCH)
+        then: 1
+      - otherwise: 1
+    _EVNTDESC_RAW:
+      case:
+      - when: _INWIN = 1 AND _DOSE2_EPOCH IS NOT NULL AND _DOSE2_EPOCH <= _EVENT_EPOCH
+        then: '''SARS-CoV-2 Infection Regardless of Symptomatology or Severity'''
+      - when: _INWIN = 1 AND (_DOSE2_EPOCH IS NULL OR _DOSE2_EPOCH > _EVENT_EPOCH)
+        then: '''Early SARS-CoV-2 Infection Regardless of Symptomatology or Severity'''
+      - otherwise: '''No SARS-CoV-2 Infection Regardless of Symptomatology or Severity'''
+  filter: ADSL.FASFL = 'Y'
+- id: ttinf3_rows
+  dataset: ADSL
+  derivations:
+    STUDYID: ADSL.STUDYID
+    USUBJID: ADSL.USUBJID
+    PARAMCD: '''TTINF3'''
+    _EVENT_DT: EV_INFECT_1._ADT
+    _EVENT_EPOCH:
+      to_epoch_day:
+        source: _EVENT_DT
+    _PCRDT_E: EV_INFECT_1._PCRDT
+    _PCRDT_EPOCH:
+      to_epoch_day:
+        source: _PCRDT_E
+    _APERIOD_E: EV_INFECT_1._APERIOD
+    _COVID_DT: null
+    _COVID_EPOCH:
+      to_epoch_day:
+        source: _COVID_DT
+    _PCR_POS_DT: null
+    _PCR_POS_EPOCH:
+      to_epoch_day:
+        source: _PCR_POS_DT
+    _ELEC_POS_DT: null
+    _ELEC_POS_EPOCH:
+      to_epoch_day:
+        source: _ELEC_POS_DT
+    _EARLY: SUBJ_EARLY._ADT
+    _DOSE2_EPOCH:
+      to_epoch_day:
+        source: ADSL.DOSE2DT
+    _TR01_EPOCH:
+      to_epoch_day:
+        source: ADSL.TR01SDT
+    _RAND_EPOCH:
+      to_epoch_day:
+        source: ADSL.RANDDT
+    _DTHDT_EPOCH:
+      to_epoch_day:
+        source: ADSL.DTHDT
+    _EOSDT_EPOCH:
+      to_epoch_day:
+        source: ADSL.EOSDT
+    _CUTOFFDT_EPOCH:
+      to_epoch_day:
+        source: ADSL.CUTOFFDT
+    _EFFCODT_EPOCH:
+      to_epoch_day:
+        source: ADSL.EFFCODT
+    _AP01EDT_EPOCH:
+      to_epoch_day:
+        source: ADSL.AP01EDT
+    _MINDT_EPOCH:
+      least: {sources: [_DTHDT_EPOCH, _EOSDT_EPOCH, _CUTOFFDT_EPOCH, _EFFCODT_EPOCH]}
+    _INWIN:
+      case:
+      - when: _EVENT_DT IS NOT NULL AND _EVENT_EPOCH <= _MINDT_EPOCH
+        then: 1
+      - otherwise: 0
+    _CENSDT:
+      least: {sources: [ADSL.DTHDT, ADSL.EOSDT, ADSL.CUTOFFDT, ADSL.EFFCODT, ADSL.AP01EDT]}
+    _CENSDT_EPOCH:
+      to_epoch_day:
+        source: _CENSDT
+    _ADT_RAW:
+      case:
+      - when: _INWIN = 1 AND _TR01_EPOCH IS NOT NULL AND _TR01_EPOCH + 14 <= _EVENT_EPOCH
+        then: _EVENT_DT
+      - when: _INWIN = 1 AND _TR01_EPOCH IS NOT NULL AND _TR01_EPOCH + 14 > _EVENT_EPOCH
+        then: _EVENT_DT
+      - otherwise: _CENSDT
+    _CNSR_RAW:
+      case:
+      - when: _INWIN = 1 AND _TR01_EPOCH IS NOT NULL AND _TR01_EPOCH + 14 <= _EVENT_EPOCH
+        then: 0
+      - when: _INWIN = 1 AND _TR01_EPOCH IS NOT NULL AND _TR01_EPOCH + 14 > _EVENT_EPOCH
+        then: 1
+      - otherwise: 1
+    _EVNTDESC_RAW:
+      case:
+      - when: _INWIN = 1 AND _TR01_EPOCH IS NOT NULL AND _TR01_EPOCH + 14 <= _EVENT_EPOCH
+        then: '''SARS-CoV-2 Infection Regardless of Symptomatology or Severity'''
+      - when: _INWIN = 1 AND _TR01_EPOCH IS NOT NULL AND _TR01_EPOCH + 14 > _EVENT_EPOCH
+        then: '''Early SARS-CoV-2 Infection Regardless of Symptomatology or Severity'''
+      - otherwise: '''No SARS-CoV-2 Infection Regardless of Symptomatology or Severity'''
+  filter: ADSL.FASFL = 'Y'
+- id: ttinf4_rows
+  dataset: ADSL
+  derivations:
+    STUDYID: ADSL.STUDYID
+    USUBJID: ADSL.USUBJID
+    PARAMCD: '''TTINF4'''
+    _EVENT_DT: EV_INFECT_1._ADT
+    _EVENT_EPOCH:
+      to_epoch_day:
+        source: _EVENT_DT
+    _PCRDT_E: EV_INFECT_1._PCRDT
+    _PCRDT_EPOCH:
+      to_epoch_day:
+        source: _PCRDT_E
+    _APERIOD_E: EV_INFECT_1._APERIOD
+    _COVID_DT: null
+    _COVID_EPOCH:
+      to_epoch_day:
+        source: _COVID_DT
+    _PCR_POS_DT: null
+    _PCR_POS_EPOCH:
+      to_epoch_day:
+        source: _PCR_POS_DT
+    _ELEC_POS_DT: null
+    _ELEC_POS_EPOCH:
+      to_epoch_day:
+        source: _ELEC_POS_DT
+    _EARLY: SUBJ_EARLY._ADT
+    _DOSE2_EPOCH:
+      to_epoch_day:
+        source: ADSL.DOSE2DT
+    _TR01_EPOCH:
+      to_epoch_day:
+        source: ADSL.TR01SDT
+    _RAND_EPOCH:
+      to_epoch_day:
+        source: ADSL.RANDDT
+    _DTHDT_EPOCH:
+      to_epoch_day:
+        source: ADSL.DTHDT
+    _EOSDT_EPOCH:
+      to_epoch_day:
+        source: ADSL.EOSDT
+    _CUTOFFDT_EPOCH:
+      to_epoch_day:
+        source: ADSL.CUTOFFDT
+    _EFFCODT_EPOCH:
+      to_epoch_day:
+        source: ADSL.EFFCODT
+    _AP01EDT_EPOCH:
+      to_epoch_day:
+        source: ADSL.AP01EDT
+    _MINDT_EPOCH:
+      least: {sources: [_DTHDT_EPOCH, _EOSDT_EPOCH, _CUTOFFDT_EPOCH, _EFFCODT_EPOCH]}
+    _INWIN:
+      case:
+      - when: _EVENT_DT IS NOT NULL AND _EVENT_EPOCH <= _MINDT_EPOCH
+        then: 1
+      - otherwise: 0
+    _CENSDT:
+      least: {sources: [ADSL.DTHDT, ADSL.EOSDT, ADSL.CUTOFFDT, ADSL.EFFCODT, ADSL.AP01EDT]}
+    _CENSDT_EPOCH:
+      to_epoch_day:
+        source: _CENSDT
+    _ADT_RAW:
+      case:
+      - when: _INWIN = 1 AND _TR01_EPOCH IS NOT NULL AND _TR01_EPOCH <= _EVENT_EPOCH
+        then: _EVENT_DT
+      - when: _INWIN = 1 AND _TR01_EPOCH IS NOT NULL AND _TR01_EPOCH > _EVENT_EPOCH
+        then: _EVENT_DT
+      - otherwise: _CENSDT
+    _CNSR_RAW:
+      case:
+      - when: _INWIN = 1 AND _TR01_EPOCH IS NOT NULL AND _TR01_EPOCH <= _EVENT_EPOCH
+        then: 0
+      - when: _INWIN = 1 AND _TR01_EPOCH IS NOT NULL AND _TR01_EPOCH > _EVENT_EPOCH
+        then: 1
+      - otherwise: 1
+    _EVNTDESC_RAW:
+      case:
+      - when: _INWIN = 1 AND _TR01_EPOCH IS NOT NULL AND _TR01_EPOCH <= _EVENT_EPOCH
+        then: '''SARS-CoV-2 Infection Regardless of Symptomatology or Severity'''
+      - when: _INWIN = 1 AND _TR01_EPOCH IS NOT NULL AND _TR01_EPOCH > _EVENT_EPOCH
+        then: '''Early SARS-CoV-2 Infection Regardless of Symptomatology or Severity'''
+      - otherwise: '''No SARS-CoV-2 Infection Regardless of Symptomatology or Severity'''
+  filter: ADSL.FASFL = 'Y'
+- id: ttinf5_rows
+  dataset: ADSL
+  derivations:
+    STUDYID: ADSL.STUDYID
+    USUBJID: ADSL.USUBJID
+    PARAMCD: '''TTINF5'''
+    _EVENT_DT: EV_INFECT_1._ADT
+    _EVENT_EPOCH:
+      to_epoch_day:
+        source: _EVENT_DT
+    _PCRDT_E: EV_INFECT_1._PCRDT
+    _PCRDT_EPOCH:
+      to_epoch_day:
+        source: _PCRDT_E
+    _APERIOD_E: EV_INFECT_1._APERIOD
+    _COVID_DT: null
+    _COVID_EPOCH:
+      to_epoch_day:
+        source: _COVID_DT
+    _PCR_POS_DT: null
+    _PCR_POS_EPOCH:
+      to_epoch_day:
+        source: _PCR_POS_DT
+    _ELEC_POS_DT: null
+    _ELEC_POS_EPOCH:
+      to_epoch_day:
+        source: _ELEC_POS_DT
+    _EARLY: SUBJ_EARLY._ADT
+    _DOSE2_EPOCH:
+      to_epoch_day:
+        source: ADSL.DOSE2DT
+    _TR01_EPOCH:
+      to_epoch_day:
+        source: ADSL.TR01SDT
+    _RAND_EPOCH:
+      to_epoch_day:
+        source: ADSL.RANDDT
+    _DTHDT_EPOCH:
+      to_epoch_day:
+        source: ADSL.DTHDT
+    _EOSDT_EPOCH:
+      to_epoch_day:
+        source: ADSL.EOSDT
+    _CUTOFFDT_EPOCH:
+      to_epoch_day:
+        source: ADSL.CUTOFFDT
+    _EFFCODT_EPOCH:
+      to_epoch_day:
+        source: ADSL.EFFCODT
+    _AP01EDT_EPOCH:
+      to_epoch_day:
+        source: ADSL.AP01EDT
+    _MINDT_EPOCH:
+      least: {sources: [_DTHDT_EPOCH, _EOSDT_EPOCH, _CUTOFFDT_EPOCH, _EFFCODT_EPOCH]}
+    _INWIN:
+      case:
+      - when: _EVENT_DT IS NOT NULL AND _EVENT_EPOCH <= _MINDT_EPOCH
+        then: 1
+      - otherwise: 0
+    _CENSDT:
+      least: {sources: [ADSL.DTHDT, ADSL.EOSDT, ADSL.CUTOFFDT, ADSL.EFFCODT, ADSL.AP01EDT]}
+    _CENSDT_EPOCH:
+      to_epoch_day:
+        source: _CENSDT
+    _ADT_RAW:
+      case:
+      - when: _INWIN = 1 AND _RAND_EPOCH IS NOT NULL AND _RAND_EPOCH <= _EVENT_EPOCH
+        then: _EVENT_DT
+      - otherwise: _CENSDT
+    _CNSR_RAW:
+      case:
+      - when: _INWIN = 1 AND _RAND_EPOCH IS NOT NULL AND _RAND_EPOCH <= _EVENT_EPOCH
+        then: 0
+      - otherwise: 1
+    _EVNTDESC_RAW:
+      case:
+      - when: _INWIN = 1 AND _RAND_EPOCH IS NOT NULL AND _RAND_EPOCH <= _EVENT_EPOCH
+        then: '''SARS-CoV-2 Infection Regardless of Symptomatology or Severity'''
+      - otherwise: '''No SARS-CoV-2 Infection Regardless of Symptomatology or Severity'''
+  filter: ADSL.FASFL = 'Y'
+- id: ttinf6_rows
+  dataset: ADSL
+  derivations:
+    STUDYID: ADSL.STUDYID
+    USUBJID: ADSL.USUBJID
+    PARAMCD: '''TTINF6'''
+    _EVENT_DT: EV_INFECT_1._ADT
+    _EVENT_EPOCH:
+      to_epoch_day:
+        source: _EVENT_DT
+    _PCRDT_E: EV_INFECT_1._PCRDT
+    _PCRDT_EPOCH:
+      to_epoch_day:
+        source: _PCRDT_E
+    _APERIOD_E: EV_INFECT_1._APERIOD
+    _COVID_DT: null
+    _COVID_EPOCH:
+      to_epoch_day:
+        source: _COVID_DT
+    _PCR_POS_DT: null
+    _PCR_POS_EPOCH:
+      to_epoch_day:
+        source: _PCR_POS_DT
+    _ELEC_POS_DT: null
+    _ELEC_POS_EPOCH:
+      to_epoch_day:
+        source: _ELEC_POS_DT
+    _EARLY: SUBJ_EARLY._ADT
+    _DOSE2_EPOCH:
+      to_epoch_day:
+        source: ADSL.DOSE2DT
+    _TR01_EPOCH:
+      to_epoch_day:
+        source: ADSL.TR01SDT
+    _RAND_EPOCH:
+      to_epoch_day:
+        source: ADSL.RANDDT
+    _DTHDT_EPOCH:
+      to_epoch_day:
+        source: ADSL.DTHDT
+    _EOSDT_EPOCH:
+      to_epoch_day:
+        source: ADSL.EOSDT
+    _CUTOFFDT_EPOCH:
+      to_epoch_day:
+        source: ADSL.CUTOFFDT
+    _EFFCODT_EPOCH:
+      to_epoch_day:
+        source: ADSL.EFFCODT
+    _AP01EDT_EPOCH:
+      to_epoch_day:
+        source: ADSL.AP01EDT
+    _MINDT_EPOCH:
+      least: {sources: [_DTHDT_EPOCH, _EOSDT_EPOCH, _CUTOFFDT_EPOCH, _EFFCODT_EPOCH]}
+    _INWIN:
+      case:
+      - when: _EVENT_DT IS NOT NULL AND _EVENT_EPOCH <= _MINDT_EPOCH
+        then: 1
+      - otherwise: 0
+    _CENSDT:
+      least: {sources: [ADSL.DTHDT, ADSL.EOSDT, ADSL.CUTOFFDT, ADSL.EFFCODT, ADSL.AP01EDT]}
+    _CENSDT_EPOCH:
+      to_epoch_day:
+        source: _CENSDT
+    _ADT_RAW:
+      case:
+      - when: _INWIN = 1 AND _DOSE2_EPOCH IS NOT NULL AND _DOSE2_EPOCH + 35 <= _EVENT_EPOCH
+        then: _EVENT_DT
+      - when: _INWIN = 1 AND (_DOSE2_EPOCH IS NULL OR _DOSE2_EPOCH + 35 > _EVENT_EPOCH)
+        then: _EVENT_DT
+      - otherwise: _CENSDT
+    _CNSR_RAW:
+      case:
+      - when: _INWIN = 1 AND _DOSE2_EPOCH IS NOT NULL AND _DOSE2_EPOCH + 35 <= _EVENT_EPOCH
+        then: 0
+      - when: _INWIN = 1 AND (_DOSE2_EPOCH IS NULL OR _DOSE2_EPOCH + 35 > _EVENT_EPOCH)
+        then: 1
+      - otherwise: 1
+    _EVNTDESC_RAW:
+      case:
+      - when: _INWIN = 1 AND _DOSE2_EPOCH IS NOT NULL AND _DOSE2_EPOCH + 35 <= _EVENT_EPOCH
+        then: '''SARS-CoV-2 Infection Regardless of Symptomatology or Severity'''
+      - when: _INWIN = 1 AND (_DOSE2_EPOCH IS NULL OR _DOSE2_EPOCH + 35 > _EVENT_EPOCH)
+        then: '''Early SARS-CoV-2 Infection Regardless of Symptomatology or Severity'''
+      - otherwise: '''No SARS-CoV-2 Infection Regardless of Symptomatology or Severity'''
+  filter: ADSL.FASFL = 'Y'
+- id: ttinf9_rows
+  dataset: ADSL
+  derivations:
+    STUDYID: ADSL.STUDYID
+    USUBJID: ADSL.USUBJID
+    PARAMCD: '''TTINF9'''
+    _EVENT_DT: EV_INFECT_2._ADT
+    _EVENT_EPOCH:
+      to_epoch_day:
+        source: _EVENT_DT
+    _PCRDT_E: EV_INFECT_2._PCRDT
+    _PCRDT_EPOCH:
+      to_epoch_day:
+        source: _PCRDT_E
+    _APERIOD_E: EV_INFECT_2._APERIOD
+    _COVID_DT: null
+    _COVID_EPOCH:
+      to_epoch_day:
+        source: _COVID_DT
+    _PCR_POS_DT: null
+    _PCR_POS_EPOCH:
+      to_epoch_day:
+        source: _PCR_POS_DT
+    _ELEC_POS_DT: null
+    _ELEC_POS_EPOCH:
+      to_epoch_day:
+        source: _ELEC_POS_DT
+    _EARLY: SUBJ_EARLY._ADT
+    _DOSE2_EPOCH:
+      to_epoch_day:
+        source: ADSL.DOSE2DT
+    _TR01_EPOCH:
+      to_epoch_day:
+        source: ADSL.TR01SDT
+    _RAND_EPOCH:
+      to_epoch_day:
+        source: ADSL.RANDDT
+    _DTHDT_EPOCH:
+      to_epoch_day:
+        source: ADSL.DTHDT
+    _EOSDT_EPOCH:
+      to_epoch_day:
+        source: ADSL.EOSDT
+    _CUTOFFDT_EPOCH:
+      to_epoch_day:
+        source: ADSL.CUTOFFDT
+    _EFFCODT_EPOCH:
+      to_epoch_day:
+        source: ADSL.EFFCODT
+    _AP01EDT_EPOCH:
+      to_epoch_day:
+        source: ADSL.AP01EDT
+    _MINDT_EPOCH:
+      least: {sources: [_DTHDT_EPOCH, _EOSDT_EPOCH, _CUTOFFDT_EPOCH, _EFFCODT_EPOCH]}
+    _INWIN:
+      case:
+      - when: _EVENT_DT IS NOT NULL AND _EVENT_EPOCH <= _MINDT_EPOCH
+        then: 1
+      - otherwise: 0
+    _CENSDT:
+      least: {sources: [ADSL.DTHDT, ADSL.EOSDT, ADSL.CUTOFFDT, ADSL.EFFCODT]}
+    _CENSDT_EPOCH:
+      to_epoch_day:
+        source: _CENSDT
+    _ADT_RAW:
+      case:
+      - when: _INWIN = 1 AND _APERIOD_E = 2
+        then: _EVENT_DT
+      - when: _INWIN = 1 AND (_APERIOD_E IS NULL OR _APERIOD_E <> 2)
+        then: _EVENT_DT
+      - otherwise: _CENSDT
+    _CNSR_RAW:
+      case:
+      - when: _INWIN = 1 AND _APERIOD_E = 2
+        then: 0
+      - when: _INWIN = 1 AND (_APERIOD_E IS NULL OR _APERIOD_E <> 2)
+        then: 1
+      - otherwise: 1
+    _EVNTDESC_RAW:
+      case:
+      - when: _INWIN = 1 AND _APERIOD_E = 2
+        then: '''SARS-CoV-2 Infection Regardless of Symptomatology or Severity'''
+      - when: _INWIN = 1 AND (_APERIOD_E IS NULL OR _APERIOD_E <> 2)
+        then: '''Early SARS-CoV-2 Infection Regardless of Symptomatology or Severity'''
+      - otherwise: '''No SARS-CoV-2 Infection Regardless of Symptomatology or Severity'''
+  filter: ADSL.FASFL = 'Y' AND ADSL.AP02SDT IS NOT NULL AND ADSL.AP02SDT <= ADSL.EFFCODT AND (ADSL.SCOV2BL IS NULL OR ADSL.SCOV2BL <> 'Positive') AND _EARLY IS NULL
+- id: ttdthcv1_rows
+  dataset: ADSL
+  derivations:
+    STUDYID: ADSL.STUDYID
+    USUBJID: ADSL.USUBJID
+    PARAMCD: '''TTDTHCV1'''
+    _EVENT_DT: EV_DEATHCVD_1._ADT
+    _EVENT_EPOCH:
+      to_epoch_day:
+        source: _EVENT_DT
+    _PCRDT_E: EV_DEATHCVD_1._PCRDT
+    _PCRDT_EPOCH:
+      to_epoch_day:
+        source: _PCRDT_E
+    _APERIOD_E: EV_DEATHCVD_1._APERIOD
+    _COVID_DT: null
+    _COVID_EPOCH:
+      to_epoch_day:
+        source: _COVID_DT
+    _PCR_POS_DT: null
+    _PCR_POS_EPOCH:
+      to_epoch_day:
+        source: _PCR_POS_DT
+    _ELEC_POS_DT: null
+    _ELEC_POS_EPOCH:
+      to_epoch_day:
+        source: _ELEC_POS_DT
+    _EARLY: SUBJ_EARLY._ADT
+    _DOSE2_EPOCH:
+      to_epoch_day:
+        source: ADSL.DOSE2DT
+    _TR01_EPOCH:
+      to_epoch_day:
+        source: ADSL.TR01SDT
+    _RAND_EPOCH:
+      to_epoch_day:
+        source: ADSL.RANDDT
+    _DTHDT_EPOCH:
+      to_epoch_day:
+        source: ADSL.DTHDT
+    _EOSDT_EPOCH:
+      to_epoch_day:
+        source: ADSL.EOSDT
+    _CUTOFFDT_EPOCH:
+      to_epoch_day:
+        source: ADSL.CUTOFFDT
+    _EFFCODT_EPOCH:
+      to_epoch_day:
+        source: ADSL.EFFCODT
+    _AP01EDT_EPOCH:
+      to_epoch_day:
+        source: ADSL.AP01EDT
+    _MINDT_EPOCH:
+      least: {sources: [_DTHDT_EPOCH, _EOSDT_EPOCH, _CUTOFFDT_EPOCH, _EFFCODT_EPOCH]}
+    _INWIN:
+      case:
+      - when: _EVENT_DT IS NOT NULL AND _EVENT_EPOCH <= _MINDT_EPOCH
+        then: 1
+      - otherwise: 0
+    _CENSDT:
+      least: {sources: [ADSL.DTHDT, ADSL.EOSDT, ADSL.CUTOFFDT, ADSL.EFFCODT, ADSL.AP01EDT]}
+    _CENSDT_EPOCH:
+      to_epoch_day:
+        source: _CENSDT
+    _ADT_RAW:
+      case:
+      - when: _INWIN = 1 AND _DOSE2_EPOCH IS NOT NULL AND _DOSE2_EPOCH + 14 <= _EVENT_EPOCH
+        then: _EVENT_DT
+      - when: _INWIN = 1 AND (_DOSE2_EPOCH IS NULL OR _DOSE2_EPOCH + 14 > _EVENT_EPOCH)
+        then: _EVENT_DT
+      - otherwise: _CENSDT
+    _CNSR_RAW:
+      case:
+      - when: _INWIN = 1 AND _DOSE2_EPOCH IS NOT NULL AND _DOSE2_EPOCH + 14 <= _EVENT_EPOCH
+        then: 0
+      - when: _INWIN = 1 AND (_DOSE2_EPOCH IS NULL OR _DOSE2_EPOCH + 14 > _EVENT_EPOCH)
+        then: 1
+      - otherwise: 1
+    _EVNTDESC_RAW:
+      case:
+      - when: _INWIN = 1 AND _DOSE2_EPOCH IS NOT NULL AND _DOSE2_EPOCH + 14 <= _EVENT_EPOCH
+        then: '''Death Caused by COVID-19'''
+      - when: _INWIN = 1 AND (_DOSE2_EPOCH IS NULL OR _DOSE2_EPOCH + 14 > _EVENT_EPOCH)
+        then: '''Early Death Caused by COVID-19'''
+      - otherwise: '''No Death Caused by COVID-19'''
+  filter: ADSL.FASFL = 'Y'
+- id: ttdthcv2_rows
+  dataset: ADSL
+  derivations:
+    STUDYID: ADSL.STUDYID
+    USUBJID: ADSL.USUBJID
+    PARAMCD: '''TTDTHCV2'''
+    _EVENT_DT: EV_DEATHCVD_1._ADT
+    _EVENT_EPOCH:
+      to_epoch_day:
+        source: _EVENT_DT
+    _PCRDT_E: EV_DEATHCVD_1._PCRDT
+    _PCRDT_EPOCH:
+      to_epoch_day:
+        source: _PCRDT_E
+    _APERIOD_E: EV_DEATHCVD_1._APERIOD
+    _COVID_DT: null
+    _COVID_EPOCH:
+      to_epoch_day:
+        source: _COVID_DT
+    _PCR_POS_DT: null
+    _PCR_POS_EPOCH:
+      to_epoch_day:
+        source: _PCR_POS_DT
+    _ELEC_POS_DT: null
+    _ELEC_POS_EPOCH:
+      to_epoch_day:
+        source: _ELEC_POS_DT
+    _EARLY: SUBJ_EARLY._ADT
+    _DOSE2_EPOCH:
+      to_epoch_day:
+        source: ADSL.DOSE2DT
+    _TR01_EPOCH:
+      to_epoch_day:
+        source: ADSL.TR01SDT
+    _RAND_EPOCH:
+      to_epoch_day:
+        source: ADSL.RANDDT
+    _DTHDT_EPOCH:
+      to_epoch_day:
+        source: ADSL.DTHDT
+    _EOSDT_EPOCH:
+      to_epoch_day:
+        source: ADSL.EOSDT
+    _CUTOFFDT_EPOCH:
+      to_epoch_day:
+        source: ADSL.CUTOFFDT
+    _EFFCODT_EPOCH:
+      to_epoch_day:
+        source: ADSL.EFFCODT
+    _AP01EDT_EPOCH:
+      to_epoch_day:
+        source: ADSL.AP01EDT
+    _MINDT_EPOCH:
+      least: {sources: [_DTHDT_EPOCH, _EOSDT_EPOCH, _CUTOFFDT_EPOCH, _EFFCODT_EPOCH]}
+    _INWIN:
+      case:
+      - when: _EVENT_DT IS NOT NULL AND _EVENT_EPOCH <= _MINDT_EPOCH
+        then: 1
+      - otherwise: 0
+    _CENSDT:
+      least: {sources: [ADSL.DTHDT, ADSL.EOSDT, ADSL.CUTOFFDT, ADSL.EFFCODT, ADSL.AP01EDT]}
+    _CENSDT_EPOCH:
+      to_epoch_day:
+        source: _CENSDT
+    _ADT_RAW:
+      case:
+      - when: _INWIN = 1 AND _DOSE2_EPOCH IS NOT NULL AND _DOSE2_EPOCH <= _EVENT_EPOCH
+        then: _EVENT_DT
+      - when: _INWIN = 1 AND (_DOSE2_EPOCH IS NULL OR _DOSE2_EPOCH > _EVENT_EPOCH)
+        then: _EVENT_DT
+      - otherwise: _CENSDT
+    _CNSR_RAW:
+      case:
+      - when: _INWIN = 1 AND _DOSE2_EPOCH IS NOT NULL AND _DOSE2_EPOCH <= _EVENT_EPOCH
+        then: 0
+      - when: _INWIN = 1 AND (_DOSE2_EPOCH IS NULL OR _DOSE2_EPOCH > _EVENT_EPOCH)
+        then: 1
+      - otherwise: 1
+    _EVNTDESC_RAW:
+      case:
+      - when: _INWIN = 1 AND _DOSE2_EPOCH IS NOT NULL AND _DOSE2_EPOCH <= _EVENT_EPOCH
+        then: '''Death Caused by COVID-19'''
+      - when: _INWIN = 1 AND (_DOSE2_EPOCH IS NULL OR _DOSE2_EPOCH > _EVENT_EPOCH)
+        then: '''Early Death Caused by COVID-19'''
+      - otherwise: '''No Death Caused by COVID-19'''
+  filter: ADSL.FASFL = 'Y'
+- id: ttdthcv3_rows
+  dataset: ADSL
+  derivations:
+    STUDYID: ADSL.STUDYID
+    USUBJID: ADSL.USUBJID
+    PARAMCD: '''TTDTHCV3'''
+    _EVENT_DT: EV_DEATHCVD_1._ADT
+    _EVENT_EPOCH:
+      to_epoch_day:
+        source: _EVENT_DT
+    _PCRDT_E: EV_DEATHCVD_1._PCRDT
+    _PCRDT_EPOCH:
+      to_epoch_day:
+        source: _PCRDT_E
+    _APERIOD_E: EV_DEATHCVD_1._APERIOD
+    _COVID_DT: null
+    _COVID_EPOCH:
+      to_epoch_day:
+        source: _COVID_DT
+    _PCR_POS_DT: null
+    _PCR_POS_EPOCH:
+      to_epoch_day:
+        source: _PCR_POS_DT
+    _ELEC_POS_DT: null
+    _ELEC_POS_EPOCH:
+      to_epoch_day:
+        source: _ELEC_POS_DT
+    _EARLY: SUBJ_EARLY._ADT
+    _DOSE2_EPOCH:
+      to_epoch_day:
+        source: ADSL.DOSE2DT
+    _TR01_EPOCH:
+      to_epoch_day:
+        source: ADSL.TR01SDT
+    _RAND_EPOCH:
+      to_epoch_day:
+        source: ADSL.RANDDT
+    _DTHDT_EPOCH:
+      to_epoch_day:
+        source: ADSL.DTHDT
+    _EOSDT_EPOCH:
+      to_epoch_day:
+        source: ADSL.EOSDT
+    _CUTOFFDT_EPOCH:
+      to_epoch_day:
+        source: ADSL.CUTOFFDT
+    _EFFCODT_EPOCH:
+      to_epoch_day:
+        source: ADSL.EFFCODT
+    _AP01EDT_EPOCH:
+      to_epoch_day:
+        source: ADSL.AP01EDT
+    _MINDT_EPOCH:
+      least: {sources: [_DTHDT_EPOCH, _EOSDT_EPOCH, _CUTOFFDT_EPOCH, _EFFCODT_EPOCH]}
+    _INWIN:
+      case:
+      - when: _EVENT_DT IS NOT NULL AND _EVENT_EPOCH <= _MINDT_EPOCH
+        then: 1
+      - otherwise: 0
+    _CENSDT:
+      least: {sources: [ADSL.DTHDT, ADSL.EOSDT, ADSL.CUTOFFDT, ADSL.EFFCODT, ADSL.AP01EDT]}
+    _CENSDT_EPOCH:
+      to_epoch_day:
+        source: _CENSDT
+    _ADT_RAW:
+      case:
+      - when: _INWIN = 1 AND _TR01_EPOCH IS NOT NULL AND _TR01_EPOCH + 14 <= _EVENT_EPOCH
+        then: _EVENT_DT
+      - when: _INWIN = 1 AND _TR01_EPOCH IS NOT NULL AND _TR01_EPOCH + 14 > _EVENT_EPOCH
+        then: _EVENT_DT
+      - otherwise: _CENSDT
+    _CNSR_RAW:
+      case:
+      - when: _INWIN = 1 AND _TR01_EPOCH IS NOT NULL AND _TR01_EPOCH + 14 <= _EVENT_EPOCH
+        then: 0
+      - when: _INWIN = 1 AND _TR01_EPOCH IS NOT NULL AND _TR01_EPOCH + 14 > _EVENT_EPOCH
+        then: 1
+      - otherwise: 1
+    _EVNTDESC_RAW:
+      case:
+      - when: _INWIN = 1 AND _TR01_EPOCH IS NOT NULL AND _TR01_EPOCH + 14 <= _EVENT_EPOCH
+        then: '''Death Caused by COVID-19'''
+      - when: _INWIN = 1 AND _TR01_EPOCH IS NOT NULL AND _TR01_EPOCH + 14 > _EVENT_EPOCH
+        then: '''Early Death Caused by COVID-19'''
+      - otherwise: '''No Death Caused by COVID-19'''
+  filter: ADSL.FASFL = 'Y'
+- id: ttdthcv4_rows
+  dataset: ADSL
+  derivations:
+    STUDYID: ADSL.STUDYID
+    USUBJID: ADSL.USUBJID
+    PARAMCD: '''TTDTHCV4'''
+    _EVENT_DT: EV_DEATHCVD_1._ADT
+    _EVENT_EPOCH:
+      to_epoch_day:
+        source: _EVENT_DT
+    _PCRDT_E: EV_DEATHCVD_1._PCRDT
+    _PCRDT_EPOCH:
+      to_epoch_day:
+        source: _PCRDT_E
+    _APERIOD_E: EV_DEATHCVD_1._APERIOD
+    _COVID_DT: null
+    _COVID_EPOCH:
+      to_epoch_day:
+        source: _COVID_DT
+    _PCR_POS_DT: null
+    _PCR_POS_EPOCH:
+      to_epoch_day:
+        source: _PCR_POS_DT
+    _ELEC_POS_DT: null
+    _ELEC_POS_EPOCH:
+      to_epoch_day:
+        source: _ELEC_POS_DT
+    _EARLY: SUBJ_EARLY._ADT
+    _DOSE2_EPOCH:
+      to_epoch_day:
+        source: ADSL.DOSE2DT
+    _TR01_EPOCH:
+      to_epoch_day:
+        source: ADSL.TR01SDT
+    _RAND_EPOCH:
+      to_epoch_day:
+        source: ADSL.RANDDT
+    _DTHDT_EPOCH:
+      to_epoch_day:
+        source: ADSL.DTHDT
+    _EOSDT_EPOCH:
+      to_epoch_day:
+        source: ADSL.EOSDT
+    _CUTOFFDT_EPOCH:
+      to_epoch_day:
+        source: ADSL.CUTOFFDT
+    _EFFCODT_EPOCH:
+      to_epoch_day:
+        source: ADSL.EFFCODT
+    _AP01EDT_EPOCH:
+      to_epoch_day:
+        source: ADSL.AP01EDT
+    _MINDT_EPOCH:
+      least: {sources: [_DTHDT_EPOCH, _EOSDT_EPOCH, _CUTOFFDT_EPOCH, _EFFCODT_EPOCH]}
+    _INWIN:
+      case:
+      - when: _EVENT_DT IS NOT NULL AND _EVENT_EPOCH <= _MINDT_EPOCH
+        then: 1
+      - otherwise: 0
+    _CENSDT:
+      least: {sources: [ADSL.DTHDT, ADSL.EOSDT, ADSL.CUTOFFDT, ADSL.EFFCODT, ADSL.AP01EDT]}
+    _CENSDT_EPOCH:
+      to_epoch_day:
+        source: _CENSDT
+    _ADT_RAW:
+      case:
+      - when: _INWIN = 1 AND _TR01_EPOCH IS NOT NULL AND _TR01_EPOCH <= _EVENT_EPOCH
+        then: _EVENT_DT
+      - when: _INWIN = 1 AND _TR01_EPOCH IS NOT NULL AND _TR01_EPOCH > _EVENT_EPOCH
+        then: _EVENT_DT
+      - otherwise: _CENSDT
+    _CNSR_RAW:
+      case:
+      - when: _INWIN = 1 AND _TR01_EPOCH IS NOT NULL AND _TR01_EPOCH <= _EVENT_EPOCH
+        then: 0
+      - when: _INWIN = 1 AND _TR01_EPOCH IS NOT NULL AND _TR01_EPOCH > _EVENT_EPOCH
+        then: 1
+      - otherwise: 1
+    _EVNTDESC_RAW:
+      case:
+      - when: _INWIN = 1 AND _TR01_EPOCH IS NOT NULL AND _TR01_EPOCH <= _EVENT_EPOCH
+        then: '''Death Caused by COVID-19'''
+      - when: _INWIN = 1 AND _TR01_EPOCH IS NOT NULL AND _TR01_EPOCH > _EVENT_EPOCH
+        then: '''Early Death Caused by COVID-19'''
+      - otherwise: '''No Death Caused by COVID-19'''
+  filter: ADSL.FASFL = 'Y'
+- id: ttdthcv5_rows
+  dataset: ADSL
+  derivations:
+    STUDYID: ADSL.STUDYID
+    USUBJID: ADSL.USUBJID
+    PARAMCD: '''TTDTHCV5'''
+    _EVENT_DT: EV_DEATHCVD_1._ADT
+    _EVENT_EPOCH:
+      to_epoch_day:
+        source: _EVENT_DT
+    _PCRDT_E: EV_DEATHCVD_1._PCRDT
+    _PCRDT_EPOCH:
+      to_epoch_day:
+        source: _PCRDT_E
+    _APERIOD_E: EV_DEATHCVD_1._APERIOD
+    _COVID_DT: null
+    _COVID_EPOCH:
+      to_epoch_day:
+        source: _COVID_DT
+    _PCR_POS_DT: null
+    _PCR_POS_EPOCH:
+      to_epoch_day:
+        source: _PCR_POS_DT
+    _ELEC_POS_DT: null
+    _ELEC_POS_EPOCH:
+      to_epoch_day:
+        source: _ELEC_POS_DT
+    _EARLY: SUBJ_EARLY._ADT
+    _DOSE2_EPOCH:
+      to_epoch_day:
+        source: ADSL.DOSE2DT
+    _TR01_EPOCH:
+      to_epoch_day:
+        source: ADSL.TR01SDT
+    _RAND_EPOCH:
+      to_epoch_day:
+        source: ADSL.RANDDT
+    _DTHDT_EPOCH:
+      to_epoch_day:
+        source: ADSL.DTHDT
+    _EOSDT_EPOCH:
+      to_epoch_day:
+        source: ADSL.EOSDT
+    _CUTOFFDT_EPOCH:
+      to_epoch_day:
+        source: ADSL.CUTOFFDT
+    _EFFCODT_EPOCH:
+      to_epoch_day:
+        source: ADSL.EFFCODT
+    _AP01EDT_EPOCH:
+      to_epoch_day:
+        source: ADSL.AP01EDT
+    _MINDT_EPOCH:
+      least: {sources: [_DTHDT_EPOCH, _EOSDT_EPOCH, _CUTOFFDT_EPOCH, _EFFCODT_EPOCH]}
+    _INWIN:
+      case:
+      - when: _EVENT_DT IS NOT NULL AND _EVENT_EPOCH <= _MINDT_EPOCH
+        then: 1
+      - otherwise: 0
+    _CENSDT:
+      least: {sources: [ADSL.DTHDT, ADSL.EOSDT, ADSL.CUTOFFDT, ADSL.EFFCODT, ADSL.AP01EDT]}
+    _CENSDT_EPOCH:
+      to_epoch_day:
+        source: _CENSDT
+    _ADT_RAW:
+      case:
+      - when: _INWIN = 1 AND _RAND_EPOCH IS NOT NULL AND _RAND_EPOCH <= _EVENT_EPOCH
+        then: _EVENT_DT
+      - otherwise: _CENSDT
+    _CNSR_RAW:
+      case:
+      - when: _INWIN = 1 AND _RAND_EPOCH IS NOT NULL AND _RAND_EPOCH <= _EVENT_EPOCH
+        then: 0
+      - otherwise: 1
+    _EVNTDESC_RAW:
+      case:
+      - when: _INWIN = 1 AND _RAND_EPOCH IS NOT NULL AND _RAND_EPOCH <= _EVENT_EPOCH
+        then: '''Death Caused by COVID-19'''
+      - otherwise: '''No Death Caused by COVID-19'''
+  filter: ADSL.FASFL = 'Y'
+- id: ttdthcv6_rows
+  dataset: ADSL
+  derivations:
+    STUDYID: ADSL.STUDYID
+    USUBJID: ADSL.USUBJID
+    PARAMCD: '''TTDTHCV6'''
+    _EVENT_DT: EV_DEATHCVD_1._ADT
+    _EVENT_EPOCH:
+      to_epoch_day:
+        source: _EVENT_DT
+    _PCRDT_E: EV_DEATHCVD_1._PCRDT
+    _PCRDT_EPOCH:
+      to_epoch_day:
+        source: _PCRDT_E
+    _APERIOD_E: EV_DEATHCVD_1._APERIOD
+    _COVID_DT: null
+    _COVID_EPOCH:
+      to_epoch_day:
+        source: _COVID_DT
+    _PCR_POS_DT: null
+    _PCR_POS_EPOCH:
+      to_epoch_day:
+        source: _PCR_POS_DT
+    _ELEC_POS_DT: null
+    _ELEC_POS_EPOCH:
+      to_epoch_day:
+        source: _ELEC_POS_DT
+    _EARLY: SUBJ_EARLY._ADT
+    _DOSE2_EPOCH:
+      to_epoch_day:
+        source: ADSL.DOSE2DT
+    _TR01_EPOCH:
+      to_epoch_day:
+        source: ADSL.TR01SDT
+    _RAND_EPOCH:
+      to_epoch_day:
+        source: ADSL.RANDDT
+    _DTHDT_EPOCH:
+      to_epoch_day:
+        source: ADSL.DTHDT
+    _EOSDT_EPOCH:
+      to_epoch_day:
+        source: ADSL.EOSDT
+    _CUTOFFDT_EPOCH:
+      to_epoch_day:
+        source: ADSL.CUTOFFDT
+    _EFFCODT_EPOCH:
+      to_epoch_day:
+        source: ADSL.EFFCODT
+    _AP01EDT_EPOCH:
+      to_epoch_day:
+        source: ADSL.AP01EDT
+    _MINDT_EPOCH:
+      least: {sources: [_DTHDT_EPOCH, _EOSDT_EPOCH, _CUTOFFDT_EPOCH, _EFFCODT_EPOCH]}
+    _INWIN:
+      case:
+      - when: _EVENT_DT IS NOT NULL AND _EVENT_EPOCH <= _MINDT_EPOCH
+        then: 1
+      - otherwise: 0
+    _CENSDT:
+      least: {sources: [ADSL.DTHDT, ADSL.EOSDT, ADSL.CUTOFFDT, ADSL.EFFCODT, ADSL.AP01EDT]}
+    _CENSDT_EPOCH:
+      to_epoch_day:
+        source: _CENSDT
+    _ADT_RAW:
+      case:
+      - when: _INWIN = 1 AND _DOSE2_EPOCH IS NOT NULL AND _DOSE2_EPOCH + 35 <= _EVENT_EPOCH
+        then: _EVENT_DT
+      - when: _INWIN = 1 AND (_DOSE2_EPOCH IS NULL OR _DOSE2_EPOCH + 35 > _EVENT_EPOCH)
+        then: _EVENT_DT
+      - otherwise: _CENSDT
+    _CNSR_RAW:
+      case:
+      - when: _INWIN = 1 AND _DOSE2_EPOCH IS NOT NULL AND _DOSE2_EPOCH + 35 <= _EVENT_EPOCH
+        then: 0
+      - when: _INWIN = 1 AND (_DOSE2_EPOCH IS NULL OR _DOSE2_EPOCH + 35 > _EVENT_EPOCH)
+        then: 1
+      - otherwise: 1
+    _EVNTDESC_RAW:
+      case:
+      - when: _INWIN = 1 AND _DOSE2_EPOCH IS NOT NULL AND _DOSE2_EPOCH + 35 <= _EVENT_EPOCH
+        then: '''Death Caused by COVID-19'''
+      - when: _INWIN = 1 AND (_DOSE2_EPOCH IS NULL OR _DOSE2_EPOCH + 35 > _EVENT_EPOCH)
+        then: '''Early Death Caused by COVID-19'''
+      - otherwise: '''No Death Caused by COVID-19'''
+  filter: ADSL.FASFL = 'Y'
+- id: ttdthcv9_rows
+  dataset: ADSL
+  derivations:
+    STUDYID: ADSL.STUDYID
+    USUBJID: ADSL.USUBJID
+    PARAMCD: '''TTDTHCV9'''
+    _EVENT_DT: EV_DEATHCVD_2._ADT
+    _EVENT_EPOCH:
+      to_epoch_day:
+        source: _EVENT_DT
+    _PCRDT_E: EV_DEATHCVD_2._PCRDT
+    _PCRDT_EPOCH:
+      to_epoch_day:
+        source: _PCRDT_E
+    _APERIOD_E: EV_DEATHCVD_2._APERIOD
+    _COVID_DT: null
+    _COVID_EPOCH:
+      to_epoch_day:
+        source: _COVID_DT
+    _PCR_POS_DT: null
+    _PCR_POS_EPOCH:
+      to_epoch_day:
+        source: _PCR_POS_DT
+    _ELEC_POS_DT: null
+    _ELEC_POS_EPOCH:
+      to_epoch_day:
+        source: _ELEC_POS_DT
+    _EARLY: SUBJ_EARLY._ADT
+    _DOSE2_EPOCH:
+      to_epoch_day:
+        source: ADSL.DOSE2DT
+    _TR01_EPOCH:
+      to_epoch_day:
+        source: ADSL.TR01SDT
+    _RAND_EPOCH:
+      to_epoch_day:
+        source: ADSL.RANDDT
+    _DTHDT_EPOCH:
+      to_epoch_day:
+        source: ADSL.DTHDT
+    _EOSDT_EPOCH:
+      to_epoch_day:
+        source: ADSL.EOSDT
+    _CUTOFFDT_EPOCH:
+      to_epoch_day:
+        source: ADSL.CUTOFFDT
+    _EFFCODT_EPOCH:
+      to_epoch_day:
+        source: ADSL.EFFCODT
+    _AP01EDT_EPOCH:
+      to_epoch_day:
+        source: ADSL.AP01EDT
+    _MINDT_EPOCH:
+      least: {sources: [_DTHDT_EPOCH, _EOSDT_EPOCH, _CUTOFFDT_EPOCH, _EFFCODT_EPOCH]}
+    _INWIN:
+      case:
+      - when: _EVENT_DT IS NOT NULL AND _EVENT_EPOCH <= _MINDT_EPOCH
+        then: 1
+      - otherwise: 0
+    _CENSDT:
+      least: {sources: [ADSL.DTHDT, ADSL.EOSDT, ADSL.CUTOFFDT, ADSL.EFFCODT]}
+    _CENSDT_EPOCH:
+      to_epoch_day:
+        source: _CENSDT
+    _ADT_RAW:
+      case:
+      - when: _INWIN = 1 AND _APERIOD_E = 2
+        then: _EVENT_DT
+      - when: _INWIN = 1 AND (_APERIOD_E IS NULL OR _APERIOD_E <> 2)
+        then: _EVENT_DT
+      - otherwise: _CENSDT
+    _CNSR_RAW:
+      case:
+      - when: _INWIN = 1 AND _APERIOD_E = 2
+        then: 0
+      - when: _INWIN = 1 AND (_APERIOD_E IS NULL OR _APERIOD_E <> 2)
+        then: 1
+      - otherwise: 1
+    _EVNTDESC_RAW:
+      case:
+      - when: _INWIN = 1 AND _APERIOD_E = 2
+        then: '''Death Caused by COVID-19'''
+      - when: _INWIN = 1 AND (_APERIOD_E IS NULL OR _APERIOD_E <> 2)
+        then: '''Early Death Caused by COVID-19'''
+      - otherwise: '''No Death Caused by COVID-19'''
+  filter: ADSL.FASFL = 'Y' AND ADSL.AP02SDT IS NOT NULL AND ADSL.AP02SDT <= ADSL.EFFCODT
+- id: ttdeath_rows
+  dataset: ADSL
+  derivations:
+    STUDYID: ADSL.STUDYID
+    USUBJID: ADSL.USUBJID
+    PARAMCD: '''TTDEATH'''
+    _EVENT_DT: null
+    _EVENT_EPOCH:
+      to_epoch_day:
+        source: _EVENT_DT
+    _PCRDT_E: null
+    _PCRDT_EPOCH:
+      to_epoch_day:
+        source: _PCRDT_E
+    _APERIOD_E: null
+    _COVID_DT: null
+    _COVID_EPOCH:
+      to_epoch_day:
+        source: _COVID_DT
+    _PCR_POS_DT: null
+    _PCR_POS_EPOCH:
+      to_epoch_day:
+        source: _PCR_POS_DT
+    _ELEC_POS_DT: null
+    _ELEC_POS_EPOCH:
+      to_epoch_day:
+        source: _ELEC_POS_DT
+    _EARLY: SUBJ_EARLY._ADT
+    _DOSE2_EPOCH:
+      to_epoch_day:
+        source: ADSL.DOSE2DT
+    _TR01_EPOCH:
+      to_epoch_day:
+        source: ADSL.TR01SDT
+    _RAND_EPOCH:
+      to_epoch_day:
+        source: ADSL.RANDDT
+    _DTHDT_EPOCH:
+      to_epoch_day:
+        source: ADSL.DTHDT
+    _EOSDT_EPOCH:
+      to_epoch_day:
+        source: ADSL.EOSDT
+    _CUTOFFDT_EPOCH:
+      to_epoch_day:
+        source: ADSL.CUTOFFDT
+    _EFFCODT_EPOCH:
+      to_epoch_day:
+        source: ADSL.EFFCODT
+    _AP01EDT_EPOCH:
+      to_epoch_day:
+        source: ADSL.AP01EDT
+    _MINDT_EPOCH:
+      least: {sources: [_DTHDT_EPOCH, _EOSDT_EPOCH, _CUTOFFDT_EPOCH, _EFFCODT_EPOCH]}
+    _INWIN:
+      case:
+      - when: _EVENT_DT IS NOT NULL AND _EVENT_EPOCH <= _MINDT_EPOCH
+        then: 1
+      - otherwise: 0
+    _CENSDT:
+      least: {sources: [ADSL.EOSDT, ADSL.EFFCODT, ADSL.AP01EDT]}
+    _CENSDT_EPOCH:
+      to_epoch_day:
+        source: _CENSDT
+    _ADT_RAW:
+      case:
+      - when: ADSL.DTHDT IS NOT NULL AND ADSL.AP02SDT IS NULL AND _DTHDT_EPOCH <= _CENSDT_EPOCH
+        then: ADSL.DTHDT
+      - otherwise: _CENSDT
+    _CNSR_RAW:
+      case:
+      - when: ADSL.DTHDT IS NOT NULL AND ADSL.AP02SDT IS NULL AND _DTHDT_EPOCH <= _CENSDT_EPOCH
+        then: 0
+      - otherwise: 1
+    _EVNTDESC_RAW:
+      case:
+      - when: ADSL.DTHDT IS NOT NULL AND ADSL.AP02SDT IS NULL AND _DTHDT_EPOCH <= _CENSDT_EPOCH
+        then: '''All-Cause Death'''
+      - otherwise: '''No All-Cause Death'''
+  filter: ADSL.FASFL = 'Y'
+- id: ttdeath9_rows
+  dataset: ADSL
+  derivations:
+    STUDYID: ADSL.STUDYID
+    USUBJID: ADSL.USUBJID
+    PARAMCD: '''TTDEATH9'''
+    _EVENT_DT: null
+    _EVENT_EPOCH:
+      to_epoch_day:
+        source: _EVENT_DT
+    _PCRDT_E: null
+    _PCRDT_EPOCH:
+      to_epoch_day:
+        source: _PCRDT_E
+    _APERIOD_E: null
+    _COVID_DT: null
+    _COVID_EPOCH:
+      to_epoch_day:
+        source: _COVID_DT
+    _PCR_POS_DT: null
+    _PCR_POS_EPOCH:
+      to_epoch_day:
+        source: _PCR_POS_DT
+    _ELEC_POS_DT: null
+    _ELEC_POS_EPOCH:
+      to_epoch_day:
+        source: _ELEC_POS_DT
+    _EARLY: SUBJ_EARLY._ADT
+    _DOSE2_EPOCH:
+      to_epoch_day:
+        source: ADSL.DOSE2DT
+    _TR01_EPOCH:
+      to_epoch_day:
+        source: ADSL.TR01SDT
+    _RAND_EPOCH:
+      to_epoch_day:
+        source: ADSL.RANDDT
+    _DTHDT_EPOCH:
+      to_epoch_day:
+        source: ADSL.DTHDT
+    _EOSDT_EPOCH:
+      to_epoch_day:
+        source: ADSL.EOSDT
+    _CUTOFFDT_EPOCH:
+      to_epoch_day:
+        source: ADSL.CUTOFFDT
+    _EFFCODT_EPOCH:
+      to_epoch_day:
+        source: ADSL.EFFCODT
+    _AP01EDT_EPOCH:
+      to_epoch_day:
+        source: ADSL.AP01EDT
+    _MINDT_EPOCH:
+      least: {sources: [_DTHDT_EPOCH, _EOSDT_EPOCH, _CUTOFFDT_EPOCH, _EFFCODT_EPOCH]}
+    _INWIN:
+      case:
+      - when: _EVENT_DT IS NOT NULL AND _EVENT_EPOCH <= _MINDT_EPOCH
+        then: 1
+      - otherwise: 0
+    _CENSDT:
+      least: {sources: [ADSL.EOSDT, ADSL.EFFCODT]}
+    _CENSDT_EPOCH:
+      to_epoch_day:
+        source: _CENSDT
+    _ADT_RAW:
+      case:
+      - when: ADSL.DTHDT IS NOT NULL AND ADSL.AP02SDT IS NOT NULL AND _DTHDT_EPOCH <= _CENSDT_EPOCH
+        then: ADSL.DTHDT
+      - otherwise: _CENSDT
+    _CNSR_RAW:
+      case:
+      - when: ADSL.DTHDT IS NOT NULL AND ADSL.AP02SDT IS NOT NULL AND _DTHDT_EPOCH <= _CENSDT_EPOCH
+        then: 0
+      - otherwise: 1
+    _EVNTDESC_RAW:
+      case:
+      - when: ADSL.DTHDT IS NOT NULL AND ADSL.AP02SDT IS NOT NULL AND _DTHDT_EPOCH <= _CENSDT_EPOCH
+        then: '''All-Cause Death'''
+      - otherwise: '''No All-Cause Death'''
+  filter: ADSL.FASFL = 'Y' AND ADSL.AP02SDT IS NOT NULL AND ADSL.AP02SDT <= ADSL.EFFCODT
+intermediates:
+- id: EV_COVIDS_1
+  dataset: ADEFF
+  key:
+  - USUBJID
+  filter: ADEFF.PARAMCD = 'COVIDS' AND ADEFF.ANL01FL = 'Y' AND ADEFF.ADT IS NOT NULL AND ADEFF.APERIOD = 1
+  order_by:
+  - ADEFF.ADT
+  keep: first
+  derivations:
+    _ADT:
+      type: date
+      derivation: ADEFF.ADT
+    _PCRDT:
+      type: date
+      derivation: ADEFF.PCRDT
+    _APERIOD:
+      type: float
+      derivation: ADEFF.APERIOD
+- id: EV_COVIDS_2
+  dataset: ADEFF
+  key:
+  - USUBJID
+  filter: ADEFF.PARAMCD = 'COVIDS' AND ADEFF.ANL01FL = 'Y' AND ADEFF.ADT IS NOT NULL
+  order_by:
+  - ADEFF.ADT
+  keep: first
+  derivations:
+    _ADT:
+      type: date
+      derivation: ADEFF.ADT
+    _PCRDT:
+      type: date
+      derivation: ADEFF.PCRDT
+    _APERIOD:
+      type: float
+      derivation: ADEFF.APERIOD
+- id: EV_COVIDSVS_1
+  dataset: ADEFF
+  key:
+  - USUBJID
+  filter: ADEFF.PARAMCD = 'COVIDSVS' AND ADEFF.ANL01FL = 'Y' AND ADEFF.ADT IS NOT NULL AND ADEFF.APERIOD = 1
+  order_by:
+  - ADEFF.ADT
+  keep: first
+  derivations:
+    _ADT:
+      type: date
+      derivation: ADEFF.ADT
+    _PCRDT:
+      type: date
+      derivation: ADEFF.PCRDT
+    _APERIOD:
+      type: float
+      derivation: ADEFF.APERIOD
+- id: EV_COVIDSVS_2
+  dataset: ADEFF
+  key:
+  - USUBJID
+  filter: ADEFF.PARAMCD = 'COVIDSVS' AND ADEFF.ANL01FL = 'Y' AND ADEFF.ADT IS NOT NULL
+  order_by:
+  - ADEFF.ADT
+  keep: first
+  derivations:
+    _ADT:
+      type: date
+      derivation: ADEFF.ADT
+    _PCRDT:
+      type: date
+      derivation: ADEFF.PCRDT
+    _APERIOD:
+      type: float
+      derivation: ADEFF.APERIOD
+- id: EV_COVIDSDS_1
+  dataset: ADEFF
+  key:
+  - USUBJID
+  filter: ADEFF.PARAMCD = 'COVIDSDS' AND ADEFF.ANL01FL = 'Y' AND ADEFF.ADT IS NOT NULL AND ADEFF.APERIOD = 1
+  order_by:
+  - ADEFF.ADT
+  keep: first
+  derivations:
+    _ADT:
+      type: date
+      derivation: ADEFF.ADT
+    _PCRDT:
+      type: date
+      derivation: ADEFF.PCRDT
+    _APERIOD:
+      type: float
+      derivation: ADEFF.APERIOD
+- id: EV_COVIDSDS_2
+  dataset: ADEFF
+  key:
+  - USUBJID
+  filter: ADEFF.PARAMCD = 'COVIDSDS' AND ADEFF.ANL01FL = 'Y' AND ADEFF.ADT IS NOT NULL
+  order_by:
+  - ADEFF.ADT
+  keep: first
+  derivations:
+    _ADT:
+      type: date
+      derivation: ADEFF.ADT
+    _PCRDT:
+      type: date
+      derivation: ADEFF.PCRDT
+    _APERIOD:
+      type: float
+      derivation: ADEFF.APERIOD
+- id: EV_ASYMPINF_1
+  dataset: ADEFF
+  key:
+  - USUBJID
+  filter: ADEFF.PARAMCD = 'ASYMPINF' AND ADEFF.ANL01FL = 'Y' AND ADEFF.ADT IS NOT NULL AND ADEFF.APERIOD = 1
+  order_by:
+  - ADEFF.ADT
+  keep: first
+  derivations:
+    _ADT:
+      type: date
+      derivation: ADEFF.ADT
+    _PCRDT:
+      type: date
+      derivation: ADEFF.PCRDT
+    _APERIOD:
+      type: float
+      derivation: ADEFF.APERIOD
+- id: EV_ASYMPINF_2
+  dataset: ADEFF
+  key:
+  - USUBJID
+  filter: ADEFF.PARAMCD = 'ASYMPINF' AND ADEFF.ANL01FL = 'Y' AND ADEFF.ADT IS NOT NULL
+  order_by:
+  - ADEFF.ADT
+  keep: first
+  derivations:
+    _ADT:
+      type: date
+      derivation: ADEFF.ADT
+    _PCRDT:
+      type: date
+      derivation: ADEFF.PCRDT
+    _APERIOD:
+      type: float
+      derivation: ADEFF.APERIOD
+- id: EV_INFECT_1
+  dataset: ADEFF
+  key:
+  - USUBJID
+  filter: ADEFF.PARAMCD = 'INFECT' AND ADEFF.ANL01FL = 'Y' AND ADEFF.ADT IS NOT NULL AND ADEFF.APERIOD = 1
+  order_by:
+  - ADEFF.ADT
+  keep: first
+  derivations:
+    _ADT:
+      type: date
+      derivation: ADEFF.ADT
+    _PCRDT:
+      type: date
+      derivation: ADEFF.PCRDT
+    _APERIOD:
+      type: float
+      derivation: ADEFF.APERIOD
+- id: EV_INFECT_2
+  dataset: ADEFF
+  key:
+  - USUBJID
+  filter: ADEFF.PARAMCD = 'INFECT' AND ADEFF.ANL01FL = 'Y' AND ADEFF.ADT IS NOT NULL
+  order_by:
+  - ADEFF.ADT
+  keep: first
+  derivations:
+    _ADT:
+      type: date
+      derivation: ADEFF.ADT
+    _PCRDT:
+      type: date
+      derivation: ADEFF.PCRDT
+    _APERIOD:
+      type: float
+      derivation: ADEFF.APERIOD
+- id: EV_DEATHCVD_1
+  dataset: ADEFF
+  key:
+  - USUBJID
+  filter: ADEFF.PARAMCD = 'DEATHCVD' AND ADEFF.ANL01FL = 'Y' AND ADEFF.ADT IS NOT NULL AND ADEFF.APERIOD = 1
+  order_by:
+  - ADEFF.ADT
+  keep: first
+  derivations:
+    _ADT:
+      type: date
+      derivation: ADEFF.ADT
+    _PCRDT:
+      type: date
+      derivation: ADEFF.PCRDT
+    _APERIOD:
+      type: float
+      derivation: ADEFF.APERIOD
+- id: EV_DEATHCVD_2
+  dataset: ADEFF
+  key:
+  - USUBJID
+  filter: ADEFF.PARAMCD = 'DEATHCVD' AND ADEFF.ANL01FL = 'Y' AND ADEFF.ADT IS NOT NULL
+  order_by:
+  - ADEFF.ADT
+  keep: first
+  derivations:
+    _ADT:
+      type: date
+      derivation: ADEFF.ADT
+    _PCRDT:
+      type: date
+      derivation: ADEFF.PCRDT
+    _APERIOD:
+      type: float
+      derivation: ADEFF.APERIOD
+- id: COVID_1
+  dataset: ADEFF
+  key:
+  - USUBJID
+  filter: ADEFF.PARAMCD IN ('COVIDS', 'COVIDSDS') AND ADEFF.ANL01FL = 'Y' AND ADEFF.ADT IS NOT NULL AND ADEFF.APERIOD = 1
+  order_by:
+  - ADEFF.ADT
+  keep: first
+  derivations:
+    _ADT:
+      type: date
+      derivation: ADEFF.ADT
+    _PCRDT:
+      type: date
+      derivation: ADEFF.PCRDT
+    _APERIOD:
+      type: float
+      derivation: ADEFF.APERIOD
+- id: COVID_2
+  dataset: ADEFF
+  key:
+  - USUBJID
+  filter: ADEFF.PARAMCD IN ('COVIDS', 'COVIDSDS') AND ADEFF.ANL01FL = 'Y' AND ADEFF.ADT IS NOT NULL
+  order_by:
+  - ADEFF.ADT
+  keep: first
+  derivations:
+    _ADT:
+      type: date
+      derivation: ADEFF.ADT
+    _PCRDT:
+      type: date
+      derivation: ADEFF.PCRDT
+    _APERIOD:
+      type: float
+      derivation: ADEFF.APERIOD
+- id: PCR_POS_1
+  dataset: MB
+  key:
+  - USUBJID
+  filter: MB.MBTESTCD = 'SARSCOV2' AND MB.MBSTRESC IN ('Detected', 'Positive') AND MB.VISIT IN ('Visit 2 Day 29') AND MB.MBDTC IS NOT NULL AND MB.MBDTC NOT IN ('')
+  order_by:
+  - MB.MBDTC
+  keep: first
+  derivations:
+    _DT:
+      type: date
+      derivation:
+        to_date:
+          source: MB.MBDTC
+- id: PCR_POS_2
+  dataset: MB
+  key:
+  - USUBJID
+  filter: MB.MBTESTCD = 'SARSCOV2' AND MB.MBSTRESC IN ('Detected', 'Positive') AND MB.VISIT IN ('Visit 2 Day 29', 'Participant Decision Visit / OL-D1') AND MB.MBDTC IS NOT NULL AND MB.MBDTC NOT IN ('')
+  order_by:
+  - MB.MBDTC
+  keep: first
+  derivations:
+    _DT:
+      type: date
+      derivation:
+        to_date:
+          source: MB.MBDTC
+- id: ELEC_POS_1
+  dataset: IS
+  key:
+  - USUBJID
+  filter: IS.ISTESTCD = 'SARSCOV2' AND IS.ISSTRESC IN ('Positive') AND IS.VISIT IN ('Visit 2 Day 29', 'Visit 3 Day 57', 'Visit4 Day 209') AND IS.ISDTC IS NOT NULL AND IS.ISDTC NOT IN ('')
+  order_by:
+  - IS.ISDTC
+  keep: first
+  derivations:
+    _DT:
+      type: date
+      derivation:
+        to_date:
+          source: IS.ISDTC
+- id: ELEC_POS_2
+  dataset: IS
+  key:
+  - USUBJID
+  filter: IS.ISTESTCD = 'SARSCOV2' AND IS.ISSTRESC IN ('Positive') AND IS.VISIT IN ('Visit 2 Day 29', 'Visit 3 Day 57', 'Visit4 Day 209', 'Participant Decision Visit / OL-D1', 'OL-D29', 'OL-D57') AND IS.ISDTC IS NOT NULL AND IS.ISDTC NOT IN ('')
+  order_by:
+  - IS.ISDTC
+  keep: first
+  derivations:
+    _DT:
+      type: date
+      derivation:
+        to_date:
+          source: IS.ISDTC
+- id: SUBJ_EARLY
+  dataset: ADEFF
+  key:
+  - USUBJID
+  filter: ADEFF.PARAMCD IN ('COVIDS', 'COVIDA', 'INFECT') AND ADEFF.ADT IS NOT NULL AND ADEFF.AP02SDT IS NOT NULL AND ADEFF.ADT < ADEFF.AP02SDT
+  order_by:
+  - ADEFF.ADT
+  keep: first
+  derivations:
+    _ADT:
+      type: date
+      derivation: ADEFF.ADT
+columns:
+- name: _ADSL
+  type: str
+  derivation: ADSL.USUBJID
+- name: STUDYID
+  submission:
+    origins:
+    - type: Derived
+    method: "Withheld from publication: the received define states this text."
+- name: USUBJID
+  submission:
+    origins:
+    - type: Derived
+    method: "Withheld from publication: the received define states this text."
+- name: _EVENT_DT
+  type: date
+- name: _EVENT_EPOCH
+  type: int
+- name: _PCRDT_E
+  type: date
+- name: _PCRDT_EPOCH
+  type: int
+- name: _APERIOD_E
+  type: float
+- name: _COVID_DT
+  type: date
+- name: _COVID_EPOCH
+  type: int
+- name: _PCR_POS_DT
+  type: date
+- name: _PCR_POS_EPOCH
+  type: int
+- name: _ELEC_POS_DT
+  type: date
+- name: _ELEC_POS_EPOCH
+  type: int
+- name: _EARLY
+  type: date
+- name: _DOSE2_EPOCH
+  type: int
+- name: _TR01_EPOCH
+  type: int
+- name: _RAND_EPOCH
+  type: int
+- name: _DTHDT_EPOCH
+  type: int
+- name: _EOSDT_EPOCH
+  type: int
+- name: _CUTOFFDT_EPOCH
+  type: int
+- name: _EFFCODT_EPOCH
+  type: int
+- name: _AP01EDT_EPOCH
+  type: int
+- name: _MINDT_EPOCH
+  type: int
+- name: _INWIN
+  type: int
+- name: _CENSDT
+  type: date
+- name: _CENSDT_EPOCH
+  type: int
+- name: _ADT_RAW
+  type: date
+- name: _CNSR_RAW
+  type: int
+- name: _EVNTDESC_RAW
+  type: str
+- name: SUBJID
+  derivation: ADSL.SUBJID
+  submission:
+    origins:
+    - type: Predecessor
+      description: ADSL.SUBJID
+- name: SITEID
+  derivation: ADSL.SITEID
+  submission:
+    origins:
+    - type: Predecessor
+      description: ADSL.SITEID
+- name: COUNTRY
+  derivation: ADSL.COUNTRY
+  submission:
+    origins:
+    - type: Predecessor
+      description: ADSL.COUNTRY
+- name: AGE
+  derivation: ADSL.AGE
+  submission:
+    origins:
+    - type: Predecessor
+      description: ADSL.AGE
+- name: AGEU
+  derivation: ADSL.AGEU
+  submission:
+    origins:
+    - type: Predecessor
+      description: ADSL.AGEU
+- name: STRATAR
+  derivation: ADSL.STRATAR
+  submission:
+    origins:
+    - type: Predecessor
+      description: ADSL.STRATAR
+- name: STRATARN
+  derivation: ADSL.STRATARN
+  submission:
+    origins:
+    - type: Predecessor
+      description: ADSL.STRATARN
+- name: AGEGR1
+  derivation: ADSL.AGEGR1
+  submission:
+    origins:
+    - type: Predecessor
+      description: ADSL.AGEGR1
+- name: AGEGR1N
+  derivation: ADSL.AGEGR1N
+  submission:
+    origins:
+    - type: Predecessor
+      description: ADSL.AGEGR1N
+- name: AGEGR2
+  derivation: ADSL.AGEGR2
+  submission:
+    origins:
+    - type: Predecessor
+      description: ADSL.AGEGR2
+- name: AGEGR2N
+  derivation: ADSL.AGEGR2N
+  submission:
+    origins:
+    - type: Predecessor
+      description: ADSL.AGEGR2N
+- name: AGEGR3
+  derivation: ADSL.AGEGR3
+  submission:
+    origins:
+    - type: Predecessor
+      description: ADSL.AGEGR3
+- name: AGEGR3N
+  derivation: ADSL.AGEGR3N
+  submission:
+    origins:
+    - type: Predecessor
+      description: ADSL.AGEGR3N
+- name: AGEGR4
+  derivation: ADSL.AGEGR4
+  submission:
+    mandatory: false
+    origins:
+    - type: Predecessor
+      description: ADSL.AGEGR4
+- name: AGEGR4N
+  derivation: ADSL.AGEGR4N
+  submission:
+    mandatory: false
+    origins:
+    - type: Predecessor
+      description: ADSL.AGEGR4N
+- name: SEX
+  derivation: ADSL.SEX
+  submission:
+    origins:
+    - type: Predecessor
+      description: ADSL.SEX
+- name: RACE
+  derivation: ADSL.RACE
+  submission:
+    origins:
+    - type: Predecessor
+      description: ADSL.RACE
+- name: RACESPY
+  derivation: ADSL.RACESPY
+  submission:
+    origins:
+    - type: Predecessor
+      description: ADSL.RACESPY
+- name: ETHNIC
+  derivation: ADSL.ETHNIC
+  submission:
+    origins:
+    - type: Predecessor
+      description: ADSL.ETHNIC
+- name: RANDFL
+  derivation: ADSL.RANDFL
+  submission:
+    origins:
+    - type: Predecessor
+      description: ADSL.RANDFL
+- name: FASFL
+  derivation: ADSL.FASFL
+  submission:
+    origins:
+    - type: Predecessor
+      description: ADSL.FASFL
+- name: SAFFL
+  derivation: ADSL.SAFFL
+  submission:
+    origins:
+    - type: Predecessor
+      description: ADSL.SAFFL
+- name: SAR1FL
+  derivation: ADSL.SAR1FL
+  submission:
+    origins:
+    - type: Predecessor
+      description: ADSL.SAR1FL
+- name: SAR2FL
+  derivation: ADSL.SAR2FL
+  submission:
+    origins:
+    - type: Predecessor
+      description: ADSL.SAR2FL
+- name: SARAFL
+  derivation: ADSL.SARAFL
+  submission:
+    origins:
+    - type: Predecessor
+      description: ADSL.SARAFL
+- name: MITTFL
+  derivation: ADSL.MITTFL
+  submission:
+    origins:
+    - type: Predecessor
+      description: ADSL.MITTFL
+- name: PPROTFL
+  derivation: ADSL.PPROTFL
+  submission:
+    origins:
+    - type: Predecessor
+      description: ADSL.PPROTFL
+- name: RANDIGFL
+  derivation: ADSL.RANDIGFL
+  submission:
+    origins:
+    - type: Predecessor
+      description: ADSL.RANDIGFL
+- name: PPSIFL
+  derivation: ADSL.PPSIFL
+  submission:
+    origins:
+    - type: Predecessor
+      description: ADSL.PPSIFL
+- name: CCIASFL
+  derivation: ADSL.CCIASFL
+  submission:
+    origins:
+    - type: Predecessor
+      description: ADSL.CCIASFL
+- name: DOSE1FL
+  derivation: ADSL.DOSE1FL
+  submission:
+    origins:
+    - type: Predecessor
+      description: ADSL.DOSE1FL
+- name: DOSE2FL
+  derivation: ADSL.DOSE2FL
+  submission:
+    origins:
+    - type: Predecessor
+      description: ADSL.DOSE2FL
+- name: OLDOS1FL
+  derivation: ADSL.OLDOS1FL
+  submission:
+    origins:
+    - type: Predecessor
+      description: ADSL.OLDOS1FL
+- name: OLDOS2FL
+  derivation: ADSL.OLDOS2FL
+  submission:
+    origins:
+    - type: Predecessor
+      description: ADSL.OLDOS2FL
+- name: RTPCRBL
+  derivation: ADSL.RTPCRBL
+  submission:
+    origins:
+    - type: Predecessor
+      description: ADSL.RTPCRBL
+- name: ELECSBL
+  derivation: ADSL.ELECSBL
+  submission:
+    origins:
+    - type: Predecessor
+      description: ADSL.ELECSBL
+- name: SCOV2BL
+  derivation: ADSL.SCOV2BL
+  submission:
+    origins:
+    - type: Predecessor
+      description: ADSL.SCOV2BL
+- name: TRT01P
+  derivation: ADSL.TRT01P
+  submission:
+    origins:
+    - type: Predecessor
+      description: ADSL.TRT01P
+- name: TRT01PN
+  derivation: ADSL.TRT01PN
+  submission:
+    origins:
+    - type: Predecessor
+      description: ADSL.TRT01PN
+- name: TRT01A
+  derivation: ADSL.TRT01A
+  submission:
+    origins:
+    - type: Predecessor
+      description: ADSL.TRT01A
+- name: TRT01AN
+  derivation: ADSL.TRT01AN
+  submission:
+    origins:
+    - type: Predecessor
+      description: ADSL.TRT01AN
+- name: TRT02P
+  derivation: ADSL.TRT02P
+  submission:
+    origins:
+    - type: Predecessor
+      description: ADSL.TRT02P
+- name: TRT02PN
+  derivation: ADSL.TRT02PN
+  submission:
+    origins:
+    - type: Predecessor
+      description: ADSL.TRT02PN
+- name: TRT02A
+  derivation: ADSL.TRT02A
+  submission:
+    origins:
+    - type: Predecessor
+      description: ADSL.TRT02A
+- name: TRT02AN
+  derivation: ADSL.TRT02AN
+  submission:
+    origins:
+    - type: Predecessor
+      description: ADSL.TRT02AN
+- name: TRTSEQP
+  derivation: ADSL.TRTSEQP
+  submission:
+    origins:
+    - type: Predecessor
+      description: ADSL.TRTSEQP
+- name: TRTSEQPN
+  derivation: ADSL.TRTSEQPN
+  submission:
+    origins:
+    - type: Predecessor
+      description: ADSL.TRTSEQPN
+- name: TRTSEQA
+  derivation: ADSL.TRTSEQA
+  submission:
+    origins:
+    - type: Predecessor
+      description: ADSL.TRTSEQA
+- name: TRTSEQAN
+  derivation: ADSL.TRTSEQAN
+  submission:
+    origins:
+    - type: Predecessor
+      description: ADSL.TRTSEQAN
+- name: TRTSDT
+  derivation: ADSL.TRTSDT
+  submission:
+    origins:
+    - type: Predecessor
+      description: ADSL.TRTSDT
+- name: TRTEDT
+  derivation: ADSL.TRTEDT
+  submission:
+    origins:
+    - type: Predecessor
+      description: ADSL.TRTEDT
+- name: TR01SDT
+  derivation: ADSL.TR01SDT
+  submission:
+    origins:
+    - type: Predecessor
+      description: ADSL.TR01SDT
+- name: TR01SDTM
+  derivation: ADSL.TR01SDTM
+  submission:
+    origins:
+    - type: Predecessor
+      description: ADSL.TR01SDTM
+- name: TR01EDT
+  derivation: ADSL.TR01EDT
+  submission:
+    origins:
+    - type: Predecessor
+      description: ADSL.TR01EDT
+- name: TR01EDTM
+  derivation: ADSL.TR01EDTM
+  submission:
+    origins:
+    - type: Predecessor
+      description: ADSL.TR01EDTM
+- name: DOSE2DT
+  derivation: ADSL.DOSE2DT
+  submission:
+    origins:
+    - type: Predecessor
+      description: ADSL.DOSE2DT
+- name: DOS2DTM
+  derivation: ADSL.DOS2DTM
+  submission:
+    origins:
+    - type: Predecessor
+      description: ADSL.DOS2DTM
+- name: TR02SDT
+  derivation: ADSL.TR02SDT
+  submission:
+    origins:
+    - type: Predecessor
+      description: ADSL.TR02SDT
+- name: TR02SDTM
+  derivation: ADSL.TR02SDTM
+  submission:
+    origins:
+    - type: Predecessor
+      description: ADSL.TR02SDTM
+- name: TR02EDT
+  derivation: ADSL.TR02EDT
+  submission:
+    origins:
+    - type: Predecessor
+      description: ADSL.TR02EDT
+- name: TR02EDTM
+  derivation: ADSL.TR02EDTM
+  submission:
+    origins:
+    - type: Predecessor
+      description: ADSL.TR02EDTM
+- name: OLDOS2DT
+  derivation: ADSL.OLDOS2DT
+  submission:
+    origins:
+    - type: Predecessor
+      description: ADSL.OLDOS2DT
+- name: OLDO2DTM
+  derivation: ADSL.OLDO2DTM
+  submission:
+    origins:
+    - type: Predecessor
+      description: ADSL.OLDO2DTM
+- name: EUAVACDT
+  derivation: ADSL.EUAVACDT
+  submission:
+    mandatory: false
+    origins:
+    - type: Predecessor
+      description: ADSL.EUAVACDT
+- name: EFFCODT
+  derivation: ADSL.EFFCODT
+  submission:
+    origins:
+    - type: Predecessor
+      description: ADSL.EFFCODT
+- name: AP01SDT
+  derivation: ADSL.AP01SDT
+  submission:
+    origins:
+    - type: Predecessor
+      description: ADSL.AP01SDT
+- name: AP01EDT
+  derivation: ADSL.AP01EDT
+  submission:
+    mandatory: false
+    origins:
+    - type: Predecessor
+      description: ADSL.AP01EDT
+- name: AP02SDT
+  derivation: ADSL.AP02SDT
+  submission:
+    origins:
+    - type: Predecessor
+      description: ADSL.AP02SDT
+- name: AP02EDT
+  derivation: ADSL.AP02EDT
+  submission:
+    origins:
+    - type: Predecessor
+      description: ADSL.AP02EDT
+- name: AP01SSDT
+  derivation: ADSL.AP01SSDT
+  submission:
+    origins:
+    - type: Predecessor
+      description: ADSL.AP01SSDT
+- name: AP01SEDT
+  derivation: ADSL.AP01SEDT
+  submission:
+    mandatory: false
+    origins:
+    - type: Predecessor
+      description: ADSL.AP01SEDT
+- name: AP02SSDT
+  derivation: ADSL.AP02SSDT
+  submission:
+    origins:
+    - type: Predecessor
+      description: ADSL.AP02SSDT
+- name: AP02SEDT
+  derivation: ADSL.AP02SEDT
+  submission:
+    origins:
+    - type: Predecessor
+      description: ADSL.AP02SEDT
+- name: RSKF1
+  derivation: ADSL.RSKF1
+  submission:
+    origins:
+    - type: Predecessor
+      description: ADSL.RSKF1
+- name: RSKF2
+  derivation: ADSL.RSKF2
+  submission:
+    origins:
+    - type: Predecessor
+      description: ADSL.RSKF2
+- name: RSKF3
+  derivation: ADSL.RSKF3
+  submission:
+    origins:
+    - type: Predecessor
+      description: ADSL.RSKF3
+- name: RSKF4
+  derivation: ADSL.RSKF4
+  submission:
+    origins:
+    - type: Predecessor
+      description: ADSL.RSKF4
+- name: RSKF5
+  derivation: ADSL.RSKF5
+  submission:
+    origins:
+    - type: Predecessor
+      description: ADSL.RSKF5
+- name: RSKF6
+  derivation: ADSL.RSKF6
+  submission:
+    origins:
+    - type: Predecessor
+      description: ADSL.RSKF6
+- name: STRATAV
+  derivation: ADSL.STRATAV
+  submission:
+    origins:
+    - type: Predecessor
+      description: ADSL.STRATAV
+- name: STRATAVN
+  derivation: ADSL.STRATAVN
+  submission:
+    origins:
+    - type: Predecessor
+      description: ADSL.STRATAVN
+- name: STUDDUR3
+  derivation: ADSL.STUDDUR3
+  submission:
+    origins:
+    - type: Predecessor
+      description: ADSL.STUDDUR3
+- name: MINORITY
+  derivation: ADSL.MINORITY
+  submission:
+    origins:
+    - type: Predecessor
+      description: ADSL.MINORITY
+- name: RACEGR1
+  derivation: ADSL.RACEGR1
+  submission:
+    mandatory: false
+    origins:
+    - type: Predecessor
+      description: ADSL.RACEGR1
+- name: RACEGR1N
+  derivation: ADSL.RACEGR1N
+  submission:
+    mandatory: false
+    origins:
+    - type: Predecessor
+      description: ADSL.RACEGR1N
+- name: RISKGR1
+  derivation: ADSL.RISKGR1
+  submission:
+    origins:
+    - type: Predecessor
+      description: ADSL.RISKGR1
+- name: RISKGR1N
+  derivation: ADSL.RISKGR1N
+  submission:
+    origins:
+    - type: Predecessor
+      description: ADSL.RISKGR1N
+- name: RETHGR1
+  derivation: ADSL.RETHGR1
+  submission:
+    origins:
+    - type: Predecessor
+      description: ADSL.RETHGR1
+- name: RETHGR1N
+  derivation: ADSL.RETHGR1N
+  submission:
+    origins:
+    - type: Predecessor
+      description: ADSL.RETHGR1N
+- name: COVIDAFL
+  derivation: ADSL.COVIDAFL
+  submission:
+    origins:
+    - type: Predecessor
+      description: ADSL.COVIDAFL
+- name: CVDSVAFL
+  derivation: ADSL.CVDSVAFL
+  submission:
+    origins:
+    - type: Predecessor
+      description: ADSL.CVDSVAFL
+- name: ACTARM
+  derivation: null
+- name: ARM
+  derivation: null
+- name: BMIBL
+  derivation: null
+- name: CBNRS
+  derivation: null
+- name: CHILDBP
+  derivation: null
+- name: COMPLFL
+  derivation: null
+- name: CUTOFFDT
+  derivation: null
+- name: DCSREAS
+  derivation: null
+- name: DCSREASP
+  derivation: null
+- name: DCT01RS
+  derivation: null
+- name: DCT01RSP
+  derivation: null
+- name: DCT02RS
+  derivation: null
+- name: DCT02RSP
+  derivation: null
+- name: DSDTHSP
+  derivation: null
+- name: DTHAUTOP
+  derivation: null
+- name: DTHCAUS
+  derivation: null
+- name: DTHDT
+  derivation: null
+- name: EOSDT
+  derivation: null
+- name: EOSDY
+  derivation: null
+- name: EOSSTT
+  derivation: null
+- name: EOT01DT
+  derivation: null
+- name: EOT01DY
+  derivation: null
+- name: EOT01STT
+  derivation: null
+- name: EOT02DT
+  derivation: null
+- name: EOT02DY
+  derivation: null
+- name: EOT02STT
+  derivation: null
+- name: EXTDT
+  derivation: null
+- name: FASEREAS
+  derivation: null
+- name: HEIGHTBL
+  derivation: null
+- name: IRTVISDT
+  derivation: null
+- name: MITTERS
+  derivation: null
+- name: PDVDT
+  derivation: null
+- name: PPEREAS
+  derivation: null
+- name: PPSIEREA
+  derivation: null
+- name: PREVSCR
+  derivation: null
+- name: PROTVER
+  derivation: null
+- name: RANDDT
+  derivation: null
+- name: RANDNUM
+  derivation: null
+- name: RFICDT
+  derivation: null
+- name: SAFEREAS
+  derivation: null
+- name: SAR1ERS
+  derivation: null
+- name: SAR2ERS
+  derivation: null
+- name: STUDDUR1
+  derivation: null
+- name: STUDDUR2
+  derivation: null
+- name: STUDDUR4
+  derivation: null
+- name: STUDDUR5
+  derivation: null
+- name: STUDDUR6
+  derivation: null
+- name: TTDTH1
+  derivation: null
+- name: TTDTH2
+  derivation: null
+- name: UBLDDT
+  derivation: null
+- name: UICDT
+  derivation: null
+- name: WEIGHTBL
+  derivation: null
+- name: PARCAT1
+  type: str
+  label: Parameter Category 1
+  derivation:
+    case:
+    - when: PARAMCD IS NOT NULL
+      then: '''DERIVED PER SAP'''
+    - otherwise: '''DERIVED PER SAP'''
+  submission:
+    core: Req
+    mandatory: true
+    length: 15
+    origins:
+    - type: Derived
+    method: "Withheld from publication: the received define states this text."
+- name: PARAM
+  type: str
+  label: Parameter
+  derivation:
+    mapping:
+      source: PARAMCD
+      dict:
+        TCVDSDC1: Time to COVID-19 (Secondary Definition, Considering Scheduled RT-PCR and Prior Infection Censoring) 14 Days after Dose 2 (Days)
+        TCVDSDC2: Time to COVID-19 (Secondary Definition, Considering Scheduled RT-PCR and Prior Infection Censoring) after Dose 2 (Days)
+        TCVDSDC3: Time to COVID-19 (Secondary Definition, Considering Scheduled RT-PCR and Prior Infection Censoring) 14 Days after Dose 1 (Days)
+        TCVDSDC4: Time to COVID-19 (Secondary Definition, Considering Scheduled RT-PCR and Prior Infection Censoring) after Dose 1 (Days)
+        TCVDSDC5: Time to COVID-19 (Secondary Definition, Considering Scheduled RT-PCR and Prior Infection Censoring) after Randomization (Days)
+        TCVDSDC6: Time to COVID-19 (Secondary Definition, Considering Scheduled RT-PCR and Prior Infection Censoring) 35 Days after Dose 2 (Days)
+        TCVDSDC9: Time to COVID-19 (Secondary Definition, Considering Scheduled RT-PCR and Prior Infection Censoring) in Open Label Phase (Days)
+        TCVDSVC1: Time to Severe COVID-19 (Considering Scheduled RT-PCR and Prior Infection Censoring) 14 Days after Dose 2 (Days)
+        TCVDSVC2: Time to Severe COVID-19 (Considering Scheduled RT-PCR and Prior Infection Censoring) after Dose 2 (Days)
+        TCVDSVC3: Time to Severe COVID-19 (Considering Scheduled RT-PCR and Prior Infection Censoring) 14 Days after Dose 1 (Days)
+        TCVDSVC4: Time to Severe COVID-19 (Considering Scheduled RT-PCR and Prior Infection Censoring) after Dose 1 (Days)
+        TCVDSVC5: Time to Severe COVID-19 (Considering Scheduled RT-PCR and Prior Infection Censoring) after Randomization (Days)
+        TCVDSVC6: Time to Severe COVID-19 (Considering Scheduled RT-PCR and Prior Infection Censoring) 35 Days after Dose 2 (Days)
+        TCVDSVC9: Time to Severe COVID-19 (Considering Scheduled RT-PCR and Prior Infection Censoring) in Open Label Phase (Days)
+        TTASYCR1: Time to Asymptomatic SARS-CoV-2 Infection (Competing Risk) 14 Days after Dose 2 (Days)
+        TTASYCR2: Time to Asymptomatic SARS-CoV-2 Infection (Competing Risk) after Dose 2 (Days)
+        TTASYCR3: Time to Asymptomatic SARS-CoV-2 Infection (Competing Risk) 14 Days after Dose 1 (Days)
+        TTASYCR4: Time to Asymptomatic SARS-CoV-2 Infection (Competing Risk) after Dose 1 (Days)
+        TTASYCR5: Time to Asymptomatic SARS-CoV-2 Infection (Competing Risk) after Randomization (Days)
+        TTASYCR6: Time to Asymptomatic SARS-CoV-2 Infection (Competing Risk) 35 Days after Dose 2 (Days)
+        TTASYCR9: Time to Asymptomatic SARS-CoV-2 Infection (Competing Risk) in Open Label Phase (Days)
+        TTASYMP1: Time to Asymptomatic SARS-CoV-2 Infection 14 Days after Dose 2 (Days)
+        TTASYMP2: Time to Asymptomatic SARS-CoV-2 Infection after Dose 2 (Days)
+        TTASYMP3: Time to Asymptomatic SARS-CoV-2 Infection 14 Days after Dose 1 (Days)
+        TTASYMP4: Time to Asymptomatic SARS-CoV-2 Infection after Dose 1 (Days)
+        TTASYMP5: Time to Asymptomatic SARS-CoV-2 Infection after Randomization (Days)
+        TTASYMP6: Time to Asymptomatic SARS-CoV-2 Infection 35 Days after Dose 2 (Days)
+        TTASYMP9: Time to Asymptomatic SARS-CoV-2 Infection in Open Label Phase (Days)
+        TTCVDC1: Time to COVID-19 (Considering Scheduled RT-PCR and Prior Infection Censoring) 14 Days after Dose 2 (Days)
+        TTCVDC2: Time to COVID-19 (Considering Scheduled RT-PCR and Prior Infection Censoring) after Dose 2 (Days)
+        TTCVDC3: Time to COVID-19 (Considering Scheduled RT-PCR and Prior Infection Censoring) 14 Days after Dose 1 (Days)
+        TTCVDC4: Time to COVID-19 (Considering Scheduled RT-PCR and Prior Infection Censoring) after Dose 1 (Days)
+        TTCVDC5: Time to COVID-19 (Considering Scheduled RT-PCR and Prior Infection Censoring) after Randomization (Days)
+        TTCVDC6: Time to COVID-19 (Considering Scheduled RT-PCR and Prior Infection Censoring) 35 Days after Dose 2 (Days)
+        TTCVDC9: Time to COVID-19 (Considering Scheduled RT-PCR and Prior Infection Censoring) in Open Label Phase (Days)
+        TTDEATH: Time to All-Cause Death after Randomization (Days)
+        TTDEATH9: Time to All-Cause Death in Open Label Phase (Days)
+        TTDTHCV1: Time to Death Caused by COVID-19 14 Days after Dose 2 (Days)
+        TTDTHCV2: Time to Death Caused by COVID-19 after Dose 2 (Days)
+        TTDTHCV3: Time to Death Caused by COVID-19 14 Days after Dose 1 (Days)
+        TTDTHCV4: Time to Death Caused by COVID-19 after Dose 1 (Days)
+        TTDTHCV5: Time to Death Caused by COVID-19 after Randomization (Days)
+        TTDTHCV6: Time to Death Caused by COVID-19 35 Days after Dose 2 (Days)
+        TTDTHCV9: Time to Death Caused by COVID-19 in Open Label Phase (Days)
+        TTINF1: Time to SARS-CoV-2 Infection Regardless of Symptomatology or Severity 14 Days after Dose 2 (Days)
+        TTINF2: Time to SARS-CoV-2 Infection Regardless of Symptomatology or Severity after Dose 2 (Days)
+        TTINF3: Time to SARS-CoV-2 Infection Regardless of Symptomatology or Severity 14 Days after Dose 1 (Days)
+        TTINF4: Time to SARS-CoV-2 Infection Regardless of Symptomatology or Severity after Dose 1 (Days)
+        TTINF5: Time to SARS-CoV-2 Infection Regardless of Symptomatology or Severity after Randomization (Days)
+        TTINF6: Time to SARS-CoV-2 Infection Regardless of Symptomatology or Severity 35 Days after Dose 2 (Days)
+        TTINF9: Time to SARS-CoV-2 Infection Regardless of Symptomatology or Severity in Open Label Phase (Days)
+      unmapped: null
+  submission:
+    core: Req
+    mandatory: true
+    length: 200
+    origins:
+    - type: Derived
+    method: "Withheld from publication: the received define states this text."
+- name: PARAMCD
+  type: str
+  label: Parameter Code
+  submission:
+    core: Req
+    mandatory: true
+    length: 8
+    origins:
+    - type: Assigned
+- name: STARTDT
+  type: date
+  label: Time-to-Event Origin Date for Subject
+  derivation:
+    case:
+    - when: PARAMCD IN ('TTCVDC9', 'TCVDSVC9', 'TCVDSDC9', 'TTASYMP9', 'TTASYCR9', 'TTINF9', 'TTDTHCV9', 'TTDEATH9')
+      then: ADSL.AP02SDT
+    - otherwise: ADSL.RANDDT
+  submission:
+    core: Req
+    mandatory: true
+    origins:
+    - type: Derived
+    method: "Withheld from publication: the received define states this text."
+- name: ADT
+  type: date
+  label: Analysis Date
+  derivation:
+    case:
+    - when: _ADT_RAW IS NOT NULL AND STARTDT IS NOT NULL AND _ADT_RAW < STARTDT
+      then: STARTDT
+    - otherwise: _ADT_RAW
+  submission:
+    core: Req
+    mandatory: true
+    origins:
+    - type: Derived
+    method: "Withheld from publication: the received define states this text."
+- name: APERIOD
+  type: int
+  label: Period
+  derivation:
+    case:
+    - when: ADSL.AP02SDT IS NOT NULL AND ADSL.AP02SDT <= ADT
+      then: 2
+    - otherwise: 1
+  submission:
+    core: Perm
+    mandatory: false
+    length: 8
+    display_format: '3.'
+    origins:
+    - type: Derived
+    method: "Withheld from publication: the received define states this text."
+- name: AVAL
+  type: int
+  label: Analysis Value
+  derivation:
+    study_day:
+      source: ADT
+      reference: STARTDT
+  submission:
+    core: Req
+    mandatory: true
+    length: 8
+    display_format: '3.'
+    origins:
+    - type: Derived
+    method: "Withheld from publication: the received define states this text."
+- name: CNSR
+  type: int
+  label: Censor
+  derivation: _CNSR_RAW
+  submission:
+    core: Req
+    mandatory: true
+    length: 8
+    display_format: '3.'
+    origins:
+    - type: Derived
+    method: "Withheld from publication: the received define states this text."
+- name: EVNTDESC
+  type: str
+  label: Event or Censoring Description
+  derivation: _EVNTDESC_RAW
+  submission:
+    core: Req
+    mandatory: true
+    length: 200
+    origins:
+    - type: Derived
+    method: "Withheld from publication: the received define states this text."
+output:
+  path: <adam-dir>/adtte-yamaa.parquet
+  order_by:
+  - USUBJID
+  - PARAMCD
+  columns:
+  - STUDYID
+  - USUBJID
+  - SUBJID
+  - SITEID
+  - COUNTRY
+  - AGE
+  - AGEU
+  - STRATAR
+  - STRATARN
+  - AGEGR1
+  - AGEGR1N
+  - AGEGR2
+  - AGEGR2N
+  - AGEGR3
+  - AGEGR3N
+  - AGEGR4
+  - AGEGR4N
+  - SEX
+  - RACE
+  - RACESPY
+  - ETHNIC
+  - RANDFL
+  - FASFL
+  - SAFFL
+  - SAR1FL
+  - SAR2FL
+  - SARAFL
+  - MITTFL
+  - PPROTFL
+  - RANDIGFL
+  - PPSIFL
+  - CCIASFL
+  - DOSE1FL
+  - DOSE2FL
+  - OLDOS1FL
+  - OLDOS2FL
+  - RTPCRBL
+  - ELECSBL
+  - SCOV2BL
+  - TRT01P
+  - TRT01PN
+  - TRT01A
+  - TRT01AN
+  - TRT02P
+  - TRT02PN
+  - TRT02A
+  - TRT02AN
+  - TRTSEQP
+  - TRTSEQPN
+  - TRTSEQA
+  - TRTSEQAN
+  - TRTSDT
+  - TRTEDT
+  - TR01SDT
+  - TR01SDTM
+  - TR01EDT
+  - TR01EDTM
+  - DOSE2DT
+  - DOS2DTM
+  - TR02SDT
+  - TR02SDTM
+  - TR02EDT
+  - TR02EDTM
+  - OLDOS2DT
+  - OLDO2DTM
+  - EUAVACDT
+  - EFFCODT
+  - AP01SDT
+  - AP01EDT
+  - AP02SDT
+  - AP02EDT
+  - AP01SSDT
+  - AP01SEDT
+  - AP02SSDT
+  - AP02SEDT
+  - RSKF1
+  - RSKF2
+  - RSKF3
+  - RSKF4
+  - RSKF5
+  - RSKF6
+  - STRATAV
+  - STRATAVN
+  - STUDDUR3
+  - MINORITY
+  - RACEGR1
+  - RACEGR1N
+  - RISKGR1
+  - RISKGR1N
+  - RETHGR1
+  - RETHGR1N
+  - COVIDAFL
+  - CVDSVAFL
+  - PARCAT1
+  - PARAM
+  - PARAMCD
+  - STARTDT
+  - ADT
+  - APERIOD
+  - AVAL
+  - CNSR
+  - EVNTDESC

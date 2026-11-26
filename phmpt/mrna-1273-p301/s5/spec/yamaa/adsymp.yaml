@@ -1,0 +1,1034 @@
+# ADSYMP for Moderna mRNA-1273-P301, cut S5 (First Interim Analysis
+# IA1b, efficacy cutoff 2020-11-21). Parent: ../../../spec/yamaa/base/adam-base-ia.yaml (which
+# chains to ../../../spec/yamaa/base/adam-base.yaml; 86 shared + 6 IA-only ADSL
+# columns). Derivations implement the S5 A20ADSY program (Bates
+# 5657932-5657936, dsetname=adsymp; byte-identical to the S80 program): VS rows
+# (OXYSAT<=93 / TEMP>=38C), FAEF rows (FACAT EFFICACY), PR rows
+# (PRCAT EFFICACY, PROCCUR present), HO rows (ICU admissions), each
+# inner-joined to the verified ADSL on USUBJID, with ASEQ assigned
+# per subject by the SAS sort (parcat1, paramcd, avisitn, adt, srcseq).
+# Each source block filters on its date <= the efficacy cutoff 2020-11-21
+# (&cut_effi., inferred from the S5 ADSL EFFCODT, uniformly 2020-11-21,
+# and the exact row-count reconciliation; a missing cutoff date passes
+# the filter in SAS, so the clause is (_CUTDT IS NULL OR _CUTDT <=
+# DATE '2020-11-21')). No APERIOD / EUAVACFL in this cut, no tranwrd
+# step (PARAM keeps '<=93%' with no space), no PR renames. Where the SAS
+# code and the define.xml method text disagree, the code is followed
+# (see README.md). SAP note (closed 2026-11-24, no-impact): the file
+# labelled "SAP v3" (19745_S68_M5_sap-v3.pdf) is the P201 SAP v3.0
+# (27 Oct 2020), not a P301 SAP version; the only P301 SAP in the set
+# is v1.0 (10 Sep 2020). This spec follows the IA program's own
+# definitions. Honest gaps: none. The spec verifies EXACT MATCH in a
+# single full verify.py run against unpruned inputs: 0 mismatches, 0
+# within-tolerance cells, 0 space-only cells on all 72 non-key columns
+# (see verify_report.json). No pruned groups were needed at 324,428
+# rows, unlike the S3 ADSYMP spec.
+yamaa: '1.0'
+type: spec
+model: ADaM
+parent: ../../../spec/yamaa/base/adam-base-ia.yaml
+domain: ADSYMP
+keys:
+- STUDYID
+- USUBJID
+- ASEQ
+input:
+  VS: <sdtm-dir>/vs.parquet
+  FAEF: <sdtm-dir>/faef.parquet
+  SUPPFAEF: <sdtm-dir>/suppfaef.parquet
+  PR: <sdtm-dir>/pr.parquet
+  HO: <sdtm-dir>/ho.parquet
+  ADSL:
+    path: <adam-dir>/adsl.parquet
+    key:
+    - STUDYID
+    - USUBJID
+submission:
+  label: COVID-19 Symptom Analysis Dataset
+  class: BASIC DATA STRUCTURE
+  structure: One record per subject, per parameter, per analysis timepoint
+  repeating: true
+rows:
+- id: vs_rows
+  dataset: VS
+  derivations:
+    STUDYID: VS.STUDYID
+    USUBJID: VS.USUBJID
+    _ADTC: VS.VSDTC
+    _ASTDTC: null
+    _AENDTC: null
+    _PARAM_RAW:
+      case:
+      - when: VS.VSTESTCD = 'OXYSAT'
+        then: '''O2 Saturation <=93%'''
+      - when: VS.VSTESTCD = 'TEMP'
+        then: '''Fever'''
+    _AVALC: '''Y'''
+    _SEV: null
+    _PARCAT1_RAW: VS.VSSCAT
+    _ATPT: VS.VSTPT
+    _LNKID: VS.VSSPID
+    _SRCSEQ: VS.VSSEQ
+    _SRC: '''VS'''
+    _FASEQ: null
+    _CUTDTC: VS.VSDTC
+    _STRESN:
+      value: VS.VSSTRESN
+      unconvertible: null
+  filter: VS.VSSCAT = 'COVID-19' AND VS.VSTESTCD IN ('OXYSAT', 'TEMP') AND (VS.VSSTAT IS NULL OR VS.VSSTAT <> 'NOT DONE') AND ((VS.VSTESTCD = 'OXYSAT' AND _STRESN IS NOT NULL AND _STRESN <= 93) OR (VS.VSTESTCD = 'TEMP' AND _STRESN IS NOT NULL AND _STRESN >= 38 AND VS.VSSTRESU = 'C')) AND (_CUTDT IS NULL OR _CUTDT <= DATE '2020-11-21') AND _ADSL IS NOT NULL
+- id: faef_rows
+  dataset: FAEF
+  derivations:
+    STUDYID: FAEF.STUDYID
+    USUBJID: FAEF.USUBJID
+    _ADTC: FAEF.FADTC
+    _ASTDTC: SUPP_P.FAEVDTC
+    _AENDTC: FAEF.FAENDTC
+    _PARAM_RAW:
+      case:
+      - when: FAEF.FAOBJ = 'Evidence of Shock Requires Vasopressors'
+        then: '''Vasopressors Required'''
+      - when: FAEF.FAOBJ = 'Myalgia'
+        then: '''Muscle Aches (Myalgia)'''
+      - when: FAEF.FAOBJ = 'Rhinorrhea'
+        then: '''Runny Nose (Rhinorrhea)'''
+      - otherwise: FAEF.FAOBJ
+    _AVALC:
+      case:
+      - when: FAEF.FASCAT = 'COVID-19' AND FAEF.FASTRESC IN ('MILD', 'MODERATE', 'SEVERE')
+        then: '''Y'''
+      - when: FAEF.FASCAT = 'COVID-19' AND FAEF.FASTRESC = 'NONE'
+        then: '''N'''
+      - otherwise: FAEF.FASTRESC
+    _SEV:
+      case:
+      - when: FAEF.FASCAT = 'COVID-19' AND FAEF.FASTRESC IN ('MILD', 'MODERATE', 'SEVERE')
+        then: FAEF.FASTRESC
+    _PARCAT1_RAW: FAEF.FASCAT
+    _ATPT: FAEF.FATPT
+    _LNKID: FAEF.FASPID
+    _SRCSEQ: FAEF.FASEQ
+    _SRC: '''FA'''
+    _FASEQ: FAEF.FASEQ
+    _CUTDTC:
+      case:
+      - when: SUPP_P.FAEVDTC IS NOT NULL AND SUPP_P.FAEVDTC NOT IN ('')
+        then: SUPP_P.FAEVDTC
+      - otherwise: FAEF.FADTC
+    _STRESN: null
+  filter: FAEF.FACAT = 'EFFICACY' AND (FAEF.FASTAT IS NULL OR FAEF.FASTAT <> 'NOT DONE') AND (_CUTDT IS NULL OR _CUTDT <= DATE '2020-11-21') AND _ADSL IS NOT NULL
+- id: pr_rows
+  dataset: PR
+  derivations:
+    STUDYID: PR.STUDYID
+    USUBJID: PR.USUBJID
+    _ADTC: null
+    _ASTDTC: PR.PRSTDTC
+    _AENDTC: PR.PRENDTC
+    _PARAM_RAW: PR.PRTRT
+    _AVALC: PR.PROCCUR
+    _SEV: null
+    _PARCAT1_RAW: PR.PRSCAT
+    _ATPT: null
+    _LNKID: PR.PRLNKID
+    _SRCSEQ: PR.PRSEQ
+    _SRC: '''PR'''
+    _FASEQ: null
+    _CUTDTC: PR.PRSTDTC
+    _STRESN: null
+  filter: PR.PRCAT = 'EFFICACY' AND (PR.PRSTAT IS NULL OR PR.PRSTAT <> 'NOT DONE') AND PR.PROCCUR IS NOT NULL AND PR.PROCCUR NOT IN ('') AND (_CUTDT IS NULL OR _CUTDT <= DATE '2020-11-21') AND _ADSL IS NOT NULL
+- id: ho_rows
+  dataset: HO
+  derivations:
+    STUDYID: HO.STUDYID
+    USUBJID: HO.USUBJID
+    _ADTC: HO.HODTC
+    _ASTDTC: HO.HOSTDTC
+    _AENDTC: HO.HOENDTC
+    _PARAM_RAW: '''Admission to an intensive care unit due to SARS-CoV-2'''
+    _AVALC: HO.HOOCCUR
+    _SEV: null
+    _PARCAT1_RAW: '''COVID-19 SEVERITY'''
+    _ATPT: null
+    _LNKID: HO.HOSPID
+    _SRCSEQ: HO.HOSEQ
+    _SRC: '''HO'''
+    _FASEQ: null
+    _CUTDTC:
+      case:
+      - when: HO.HOSTDTC IS NOT NULL AND HO.HOSTDTC NOT IN ('')
+        then: HO.HOSTDTC
+      - otherwise: HO.HODTC
+    _STRESN: null
+  filter: HO.HOCAT = 'EFFICACY' AND HO.HOTERM = 'ADMITTED TO ICU' AND HO.HOOCCUR IS NOT NULL AND HO.HOOCCUR NOT IN ('') AND (_CUTDT IS NULL OR _CUTDT <= DATE '2020-11-21') AND _ADSL IS NOT NULL
+intermediates:
+- id: SUPP_P
+  dataset: SUPPFAEF
+  key:
+    STUDYID: STUDYID
+    USUBJID: USUBJID
+    IDVARVAL:
+      str_decimal:
+        source: _FASEQ
+        decimals: 0
+  filter: SUPPFAEF.QNAM = 'FAEVDTC' AND SUPPFAEF.IDVAR = 'FASEQ'
+  pivot:
+    name: QNAM
+    value: QVAL
+    fields:
+    - FAEVDTC
+windows:
+  NUM_W:
+    group_by:
+    - USUBJID
+    - PARAMCD
+    - ATPT
+    order_by:
+    - variable: ADT
+      nulls: first
+    - SRCSEQ
+  ASEQ_W:
+    group_by:
+    - USUBJID
+    order_by:
+    - PARCAT1
+    - PARAMCD
+    - variable: AVISITN
+      nulls: first
+    - variable: ADT
+      nulls: first
+    - SRCSEQ
+columns:
+- name: _ADSL
+  type: str
+  derivation: ADSL.USUBJID
+- name: STUDYID
+  submission:
+    origins:
+    - type: Derived
+    method: "Withheld from publication: the received define states this text."
+- name: USUBJID
+  submission:
+    origins:
+    - type: Derived
+    method: "Withheld from publication: the received define states this text."
+- name: _ADTC
+  type: str
+- name: _ASTDTC
+  type: str
+- name: _AENDTC
+  type: str
+- name: _PARAM_RAW
+  type: str
+- name: _AVALC
+  type: str
+- name: _SEV
+  type: str
+- name: _PARCAT1_RAW
+  type: str
+- name: _ATPT
+  type: str
+- name: _LNKID
+  type: str
+- name: _SRCSEQ
+  type: float
+- name: _SRC
+  type: str
+- name: _FASEQ
+  type: float
+- name: _STRESN
+  type: float
+- name: _CUTDTC
+  type: str
+- name: _CUTDT
+  type: date
+  derivation:
+    to_date:
+      source: _CUTDTC
+- name: SUBJID
+  derivation: ADSL.SUBJID
+  submission:
+    origins:
+    - type: Predecessor
+      description: ADSL.SUBJID
+- name: SITEID
+  derivation: ADSL.SITEID
+  submission:
+    origins:
+    - type: Predecessor
+      description: ADSL.SITEID
+- name: COUNTRY
+  derivation: ADSL.COUNTRY
+  submission:
+    origins:
+    - type: Predecessor
+      description: ADSL.COUNTRY
+- name: AGE
+  derivation: ADSL.AGE
+  submission:
+    origins:
+    - type: Predecessor
+      description: ADSL.AGE
+- name: AGEU
+  derivation: ADSL.AGEU
+  submission:
+    origins:
+    - type: Predecessor
+      description: ADSL.AGEU
+- name: STRATAR
+  derivation: ADSL.STRATAR
+  submission:
+    origins:
+    - type: Predecessor
+      description: ADSL.STRATAR
+- name: STRATARN
+  derivation: ADSL.STRATARN
+  submission:
+    origins:
+    - type: Predecessor
+      description: ADSL.STRATARN
+- name: AGEGR1
+  derivation: ADSL.AGEGR1
+  submission:
+    origins:
+    - type: Predecessor
+      description: ADSL.AGEGR1
+- name: AGEGR1N
+  derivation: ADSL.AGEGR1N
+  submission:
+    origins:
+    - type: Predecessor
+      description: ADSL.AGEGR1N
+- name: AGEGR2
+  derivation: ADSL.AGEGR2
+  submission:
+    origins:
+    - type: Predecessor
+      description: ADSL.AGEGR2
+- name: AGEGR2N
+  derivation: ADSL.AGEGR2N
+  submission:
+    origins:
+    - type: Predecessor
+      description: ADSL.AGEGR2N
+- name: SEX
+  derivation: ADSL.SEX
+  submission:
+    origins:
+    - type: Predecessor
+      description: ADSL.SEX
+- name: RACE
+  derivation: ADSL.RACE
+  submission:
+    origins:
+    - type: Predecessor
+      description: ADSL.RACE
+- name: RACESPY
+  derivation: ADSL.RACESPY
+  submission:
+    origins:
+    - type: Predecessor
+      description: ADSL.RACESPY
+- name: ETHNIC
+  derivation: ADSL.ETHNIC
+  submission:
+    origins:
+    - type: Predecessor
+      description: ADSL.ETHNIC
+- name: RANDFL
+  derivation: ADSL.RANDFL
+  submission:
+    origins:
+    - type: Predecessor
+      description: ADSL.RANDFL
+- name: FASFL
+  derivation: ADSL.FASFL
+  submission:
+    origins:
+    - type: Predecessor
+      description: ADSL.FASFL
+- name: SAFFL
+  derivation: ADSL.SAFFL
+  submission:
+    origins:
+    - type: Predecessor
+      description: ADSL.SAFFL
+- name: SAR1FL
+  derivation: ADSL.SAR1FL
+  submission:
+    origins:
+    - type: Predecessor
+      description: ADSL.SAR1FL
+- name: SAR2FL
+  derivation: ADSL.SAR2FL
+  submission:
+    origins:
+    - type: Predecessor
+      description: ADSL.SAR2FL
+- name: SARAFL
+  derivation: ADSL.SARAFL
+  submission:
+    origins:
+    - type: Predecessor
+      description: ADSL.SARAFL
+- name: MITTFL
+  derivation: ADSL.MITTFL
+  submission:
+    origins:
+    - type: Predecessor
+      description: ADSL.MITTFL
+- name: PPROTFL
+  derivation: ADSL.PPROTFL
+  submission:
+    origins:
+    - type: Predecessor
+      description: ADSL.PPROTFL
+- name: COMPLFL
+  derivation: ADSL.COMPLFL
+  submission:
+    origins:
+    - type: Predecessor
+      description: ADSL.COMPLFL
+- name: DOSE1FL
+  derivation: ADSL.DOSE1FL
+  submission:
+    origins:
+    - type: Predecessor
+      description: ADSL.DOSE1FL
+- name: DOSE2FL
+  derivation: ADSL.DOSE2FL
+  submission:
+    origins:
+    - type: Predecessor
+      description: ADSL.DOSE2FL
+- name: RTPCRBL
+  derivation: ADSL.RTPCRBL
+  submission:
+    origins:
+    - type: Predecessor
+      description: ADSL.RTPCRBL
+- name: ELECSBL
+  derivation: ADSL.ELECSBL
+  submission:
+    origins:
+    - type: Predecessor
+      description: ADSL.ELECSBL
+- name: SCOV2BL
+  derivation: ADSL.SCOV2BL
+  submission:
+    origins:
+    - type: Predecessor
+      description: ADSL.SCOV2BL
+- name: TRT01P
+  derivation: ADSL.TRT01P
+  submission:
+    origins:
+    - type: Predecessor
+      description: ADSL.TRT01P
+- name: TRT01PN
+  derivation: ADSL.TRT01PN
+  submission:
+    origins:
+    - type: Predecessor
+      description: ADSL.TRT01PN
+- name: TRT01A
+  derivation: ADSL.TRT01A
+  submission:
+    origins:
+    - type: Predecessor
+      description: ADSL.TRT01A
+- name: TRT01AN
+  derivation: ADSL.TRT01AN
+  submission:
+    origins:
+    - type: Predecessor
+      description: ADSL.TRT01AN
+- name: TR01SDT
+  derivation: ADSL.TR01SDT
+  submission:
+    origins:
+    - type: Predecessor
+      description: ADSL.TR01SDT
+- name: TR01SDTM
+  derivation: ADSL.TR01SDTM
+  submission:
+    origins:
+    - type: Predecessor
+      description: ADSL.TR01SDTM
+- name: TR01EDT
+  derivation: ADSL.TR01EDT
+  submission:
+    origins:
+    - type: Predecessor
+      description: ADSL.TR01EDT
+- name: TR01EDTM
+  derivation: ADSL.TR01EDTM
+  submission:
+    origins:
+    - type: Predecessor
+      description: ADSL.TR01EDTM
+- name: DOSE2DT
+  derivation: ADSL.DOSE2DT
+  submission:
+    origins:
+    - type: Predecessor
+      description: ADSL.DOSE2DT
+- name: DOS2DTM
+  derivation: ADSL.DOS2DTM
+  submission:
+    origins:
+    - type: Predecessor
+      description: ADSL.DOS2DTM
+- name: RSKF1
+  derivation: ADSL.RSKF1
+  submission:
+    origins:
+    - type: Predecessor
+      description: ADSL.RSKF1
+- name: RSKF2
+  derivation: ADSL.RSKF2
+  submission:
+    origins:
+    - type: Predecessor
+      description: ADSL.RSKF2
+- name: RSKF3
+  derivation: ADSL.RSKF3
+  submission:
+    origins:
+    - type: Predecessor
+      description: ADSL.RSKF3
+- name: RSKF4
+  derivation: ADSL.RSKF4
+  submission:
+    origins:
+    - type: Predecessor
+      description: ADSL.RSKF4
+- name: RSKF5
+  derivation: ADSL.RSKF5
+  submission:
+    origins:
+    - type: Predecessor
+      description: ADSL.RSKF5
+- name: RSKF6
+  derivation: ADSL.RSKF6
+  submission:
+    origins:
+    - type: Predecessor
+      description: ADSL.RSKF6
+- name: STRATAV
+  derivation: ADSL.STRATAV
+  submission:
+    origins:
+    - type: Predecessor
+      description: ADSL.STRATAV
+- name: STRATAVN
+  derivation: ADSL.STRATAVN
+  submission:
+    origins:
+    - type: Predecessor
+      description: ADSL.STRATAVN
+- name: MINORITY
+  derivation: ADSL.MINORITY
+  submission:
+    origins:
+    - type: Predecessor
+      description: ADSL.MINORITY
+- name: RACEGR1
+  derivation: ADSL.RACEGR1
+  submission:
+    mandatory: false
+    origins:
+    - type: Predecessor
+      description: ADSL.RACEGR1
+- name: RACEGR1N
+  derivation: ADSL.RACEGR1N
+  submission:
+    mandatory: false
+    origins:
+    - type: Predecessor
+      description: ADSL.RACEGR1N
+- name: RISKGR1
+  derivation: ADSL.RISKGR1
+  submission:
+    origins:
+    - type: Predecessor
+      description: ADSL.RISKGR1
+- name: RISKGR1N
+  derivation: ADSL.RISKGR1N
+  submission:
+    origins:
+    - type: Predecessor
+      description: ADSL.RISKGR1N
+- name: RETHGR1
+  derivation: ADSL.RETHGR1
+  submission:
+    origins:
+    - type: Predecessor
+      description: ADSL.RETHGR1
+- name: RETHGR1N
+  derivation: ADSL.RETHGR1N
+  submission:
+    origins:
+    - type: Predecessor
+      description: ADSL.RETHGR1N
+- name: ACTARM
+  derivation: null
+- name: ARM
+  derivation: null
+- name: BMIBL
+  derivation: null
+- name: CBNRS
+  derivation: null
+- name: CHILDBP
+  derivation: null
+- name: CUTOFFDT
+  derivation: null
+- name: DCSREAS
+  derivation: null
+- name: DCSREASP
+  derivation: null
+- name: DCTREAS
+  derivation: null
+- name: DCTREASP
+  derivation: null
+- name: DTHAUTOP
+  derivation: null
+- name: DTHDT
+  derivation: null
+- name: EFFCODT
+  derivation: null
+- name: EOSDT
+  derivation: null
+- name: EOSDY
+  derivation: null
+- name: EOSSTT
+  derivation: null
+- name: EOTDT
+  derivation: null
+- name: EOTDY
+  derivation: null
+- name: EOTSTT
+  derivation: null
+- name: FASEREAS
+  derivation: null
+- name: HEIGHTBL
+  derivation: null
+- name: MITTERS
+  derivation: null
+- name: PPEREAS
+  derivation: null
+- name: PREVSCR
+  derivation: null
+- name: PROTVER
+  derivation: null
+- name: RANDDT
+  derivation: null
+- name: RANDNUM
+  derivation: null
+- name: RFICDT
+  derivation: null
+- name: RFXSTDTC
+  derivation: null
+- name: SAFEREAS
+  derivation: null
+- name: SAR1ERS
+  derivation: null
+- name: SAR2ERS
+  derivation: null
+- name: STUDDUR1
+  derivation: null
+- name: STUDDUR2
+  derivation: null
+- name: STUDDUR3
+  derivation: null
+- name: WEIGHTBL
+  derivation: null
+- name: ADT
+  type: date
+  label: Analysis Date
+  derivation:
+    to_date:
+      source: _ADTC
+  submission:
+    core: Perm
+    mandatory: false
+    origins:
+    - type: Derived
+    method: "Withheld from publication: the received define states this text."
+- name: ADY
+  type: int
+  label: Analysis Relative Day
+  derivation:
+    study_day:
+      source: ADT
+      reference: TR01SDT
+  submission:
+    # SUB-29 (yamaa #4820): numeric widths here fit the derived values. The received
+    # define's Pinnacle 21 widths stay in the reproduced define layer (define/).
+    core: Perm
+    mandatory: false
+    length: 8
+    origins:
+    - type: Derived
+    method: "Withheld from publication: the received define states this text."
+- name: ASTDT
+  type: date
+  label: Analysis Start Date
+  derivation:
+    to_date:
+      source: _ASTDTC
+  submission:
+    core: Perm
+    mandatory: false
+    origins:
+    - type: Derived
+    method: "Withheld from publication: the received define states this text."
+- name: ASTDY
+  type: int
+  label: Analysis Start Relative Day
+  derivation:
+    study_day:
+      source: ASTDT
+      reference: TR01SDT
+  submission:
+    core: Perm
+    mandatory: false
+    length: 8
+    display_format: '3.'
+    origins:
+    - type: Derived
+    method: "Withheld from publication: the received define states this text."
+- name: AENDT
+  type: date
+  label: Analysis End Date
+  derivation:
+    to_date:
+      source: _AENDTC
+  submission:
+    core: Perm
+    mandatory: false
+    origins:
+    - type: Derived
+    method: "Withheld from publication: the received define states this text."
+- name: AENDY
+  type: int
+  label: Analysis End Relative Day
+  derivation:
+    study_day:
+      source: AENDT
+      reference: TR01SDT
+  submission:
+    core: Perm
+    mandatory: false
+    length: 8
+    display_format: '3.'
+    origins:
+    - type: Derived
+    method: "Withheld from publication: the received define states this text."
+- name: AVISIT
+  type: str
+  label: Analysis Visit
+  derivation:
+    case:
+    - when: ATPT IS NOT NULL AND _NUM = 1
+      then: '''Illness Visit'''
+    - when: ATPT IS NOT NULL
+      then:
+        str_template:
+          template: 'Illness Visit {_NUM_STR}'
+          missing: ''
+    - otherwise: "''"
+  submission:
+    core: Perm
+    mandatory: false
+    length: 50
+    origins:
+    - type: Derived
+    method: "Withheld from publication: the received define states this text."
+- name: AVISITN
+  type: int
+  label: Analysis Visit (N)
+  derivation:
+    case:
+    - when: ATPT IS NOT NULL
+      then: 100 * _NUM
+  submission:
+    core: Perm
+    mandatory: false
+    length: 8
+    display_format: '3.'
+    origins:
+    - type: Derived
+    method: "Withheld from publication: the received define states this text."
+- name: ATPT
+  type: str
+  label: Analysis Timepoint
+  derivation: _ATPT
+  submission:
+    core: Perm
+    mandatory: false
+    length: 20
+    origins:
+    - type: Derived
+    method: "Withheld from publication: the received define states this text."
+- name: PARCAT1
+  type: str
+  label: Parameter Category 1
+  derivation:
+    case:
+    - when: _PARCAT1_RAW = 'COVID-19'
+      then: '''COVID-19 SYMPTOM'''
+    - otherwise: _PARCAT1_RAW
+  submission:
+    core: Req
+    mandatory: true
+    length: 50
+    origins:
+    - type: Derived
+    method: "Withheld from publication: the received define states this text."
+- name: AVALC
+  type: str
+  label: Analysis Value (C)
+  derivation: _AVALC
+  submission:
+    core: Req
+    mandatory: true
+    length: 100
+    origins:
+    - type: Derived
+    method: "Withheld from publication: the received define states this text."
+- name: SEV
+  type: str
+  label: Severity/Intensity
+  derivation: _SEV
+  submission:
+    core: Perm
+    mandatory: false
+    length: 20
+    origins:
+    - type: Derived
+    method: "Withheld from publication: the received define states this text."
+- name: LNKID
+  type: str
+  label: Link ID
+  derivation: _LNKID
+  submission:
+    core: Req
+    mandatory: true
+    length: 40
+    origins:
+    - type: Derived
+    method: "Withheld from publication: the received define states this text."
+- name: SRCDOM
+  type: str
+  label: Source Data
+  derivation: _SRC
+  submission:
+    core: Req
+    mandatory: true
+    length: 20
+    origins:
+    - type: Derived
+    method: "Withheld from publication: the received define states this text."
+- name: SRCSEQ
+  type: int
+  label: Source Sequence Number
+  derivation: _SRCSEQ
+  submission:
+    # SUB-29 (yamaa #4820): numeric widths here fit the derived values. The received
+    # define's Pinnacle 21 widths stay in the reproduced define layer (define/).
+    core: Req
+    mandatory: true
+    length: 8
+    origins:
+    - type: Derived
+    method: "Withheld from publication: the received define states this text."
+- name: SRCVAR
+  type: str
+  label: Source Variable
+  derivation:
+    case:
+    - when: _SRC = 'VS'
+      then: '''VSSTRESN'''
+    - when: _SRC = 'FA'
+      then: '''FASTRESC'''
+    - when: _SRC = 'PR'
+      then: '''PROCCUR'''
+    - when: _SRC = 'HO'
+      then: '''HOOCCUR'''
+  submission:
+    core: Req
+    mandatory: true
+    length: 50
+    origins:
+    - type: Derived
+    method: "Withheld from publication: the received define states this text."
+- name: PARAM
+  type: str
+  label: Parameter
+  derivation: _PARAM_RAW
+  submission:
+    core: Req
+    mandatory: true
+    length: 200
+    origins:
+    - type: Derived
+    method: "Withheld from publication: the received define states this text."
+- name: PARAMCD
+  type: str
+  label: Parameter Code
+  derivation:
+    mapping:
+      source: PARAM
+      dict:
+        Acute Renal Dysfunction: ARDYSF
+        Acute Respiratory Distress Syndrome (ARDS): ARDS
+        Admission to an intensive care unit due to SARS-CoV-2: ICU
+        Body Aches: BODYACHE
+        Chills: CHILLS
+        Clinical Evidence of Pneumonia: CEPNEU
+        Cough: COUGH
+        Diarrhea: DIARRHEA
+        Difficulty Breathing: DIBREATH
+        ECMO: ECMO
+        Fatigue: FATIGUE
+        Fever: FEVER
+        Headache: HEADACHE
+        Heart Rate >= 125 per Minute: HR125
+        Hepatic Dysfunction: HEPDYSF
+        High-Flow Oxygen: HFOXYGEN
+        Mechanical Ventilation: MVENT
+        Muscle Aches (Myalgia): MYALGIA
+        Nasal Congestion: NASALCON
+        Nausea: NAUSEA
+        Neurologic Dysfunction: NEURDYSF
+        New Loss of Smell: NLSMELL
+        New Loss of Taste: NLTASTE
+        Non-Invasive Ventilation: NIVENT
+        O2 Saturation <=93%: O2SAT93
+        Oxygen Saturation of SpO2 <=93% on room air at sea level: OXYGEN93
+        PaO2/FIO2 Ratio < 300 mmHg: PAO2F300
+        Radiographical Evidence of Pneumonia: REPNEU
+        Respiratory Failure: RF
+        Respiratory Rates >= 30 per Minute: RR30
+        Runny Nose (Rhinorrhea): RUNNOSE
+        Shortness of Breath: SHBREATH
+        Sore Throat: STHROAT
+        Systolic Blood Pressure < 90 mmHg, Diastolic Blood Pressure < 60 mmHg: S90D60
+        Vasopressors Required: VASOPRES
+        Vomiting: VOMIT
+      unmapped: null
+  submission:
+    core: Req
+    mandatory: true
+    length: 8
+    origins:
+    - type: Derived
+    method: "Withheld from publication: the received define states this text."
+- name: _NUM
+  type: int
+  derivation:
+    row_number:
+      window: NUM_W
+- name: _NUM_STR
+  type: str
+  derivation:
+    str_decimal:
+      source: _NUM
+      decimals: 0
+- name: ASEQ
+  type: int
+  label: Analysis Sequence Number
+  derivation:
+    row_number:
+      window: ASEQ_W
+  submission:
+    # SUB-29 (yamaa #4820): numeric widths here fit the derived values. The received
+    # define's Pinnacle 21 widths stay in the reproduced define layer (define/).
+    core: Req
+    mandatory: true
+    length: 8
+    origins:
+    - type: Derived
+    method: "Withheld from publication: the received define states this text."
+output:
+  path: <adam-dir>/adsymp-yamaa.parquet
+  order_by:
+  - USUBJID
+  - ASEQ
+  columns:
+  - STUDYID
+  - USUBJID
+  - SUBJID
+  - SITEID
+  - COUNTRY
+  - AGE
+  - AGEU
+  - STRATAR
+  - STRATARN
+  - AGEGR1
+  - AGEGR1N
+  - AGEGR2
+  - AGEGR2N
+  - SEX
+  - RACE
+  - RACESPY
+  - ETHNIC
+  - RANDFL
+  - FASFL
+  - SAFFL
+  - SAR1FL
+  - SAR2FL
+  - SARAFL
+  - MITTFL
+  - PPROTFL
+  - COMPLFL
+  - DOSE1FL
+  - DOSE2FL
+  - RTPCRBL
+  - ELECSBL
+  - SCOV2BL
+  - TRT01P
+  - TRT01PN
+  - TRT01A
+  - TRT01AN
+  - TR01SDT
+  - TR01SDTM
+  - TR01EDT
+  - TR01EDTM
+  - DOSE2DT
+  - DOS2DTM
+  - RSKF1
+  - RSKF2
+  - RSKF3
+  - RSKF4
+  - RSKF5
+  - RSKF6
+  - STRATAV
+  - STRATAVN
+  - MINORITY
+  - RACEGR1
+  - RACEGR1N
+  - RISKGR1
+  - RISKGR1N
+  - RETHGR1
+  - RETHGR1N
+  - ASEQ
+  - ADT
+  - ADY
+  - ASTDT
+  - ASTDY
+  - AENDT
+  - AENDY
+  - AVISIT
+  - AVISITN
+  - ATPT
+  - PARCAT1
+  - PARAMCD
+  - PARAM
+  - AVALC
+  - SEV
+  - LNKID
+  - SRCDOM
+  - SRCSEQ
+  - SRCVAR

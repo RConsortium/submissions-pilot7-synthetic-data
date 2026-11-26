@@ -1,0 +1,922 @@
+# ADEX for Moderna mRNA-1273-P301, cut S5 (First Interim Analysis
+# IA1b, cutoff 2020-11-25). Parent: ../../../spec/yamaa/base/adam-base-ia.yaml (which
+# chains to ../../../spec/yamaa/base/adam-base.yaml; 86 shared + 6 IA-only ADSL
+# columns). Derivations implement the S5 ADEX program (Bates
+# 5657901-5657903): EX rows plus the ECOCCUR='N' EC rows, each
+# inner-joined to the verified ADSL on USUBJID, with ASEQ assigned
+# per subject by ascending SRCDOM, VISITNUM, EXSEQ, ECSEQ -- the
+# submitted ASEQ follows that order, not the program's stated
+# sort (USUBJID VISIT exseq ecseq); see the generator header.
+# NDOSERS is EC.ECREASOC (S5 SUPPEC carries no ECREASOC QNAM);
+# NDOSRSP comes from the SUPPEC pivot (EXREASSP only). NDOSRSP1/2
+# are in the define but absent from the submitted data and are not
+# declared. No APERIOD in this cut. Honest gaps: NDOSRSP, 1 cell
+# (US348-2315); NDOSERS, 1 space-only cell (US380-2176) -- see the
+# generator header.
+yamaa: '1.0'
+type: spec
+model: ADaM
+parent: ../../../spec/yamaa/base/adam-base-ia.yaml
+domain: ADEX
+keys:
+- STUDYID
+- USUBJID
+- ASEQ
+input:
+  EX: <sdtm-dir>/ex.parquet
+  EC: <sdtm-dir>/ec.parquet
+  SUPPEC: <sdtm-dir>/suppec.parquet
+  ADSL:
+    path: <adam-dir>/adsl.parquet
+    key:
+    - STUDYID
+    - USUBJID
+submission:
+  label: Treatment Exposure Analysis Dataset
+  class: OCCURRENCE DATA STRUCTURE
+  structure: One record per subject per administration
+  repeating: true
+rows:
+- id: ex_rows
+  dataset: EX
+  derivations:
+    STUDYID: EX.STUDYID
+    USUBJID: EX.USUBJID
+    _SRC: '''EX'''
+    _EXSEQ: EX.EXSEQ
+    _ECSEQ: null
+    _TRT: EX.EXTRT
+    _DOSE: EX.EXDOSE
+    _DOSU: EX.EXDOSU
+    _DOSFRM: EX.EXDOSFRM
+    _DOSFRQ: EX.EXDOSFRQ
+    _ROUTE: EX.EXROUTE
+    _LOC: EX.EXLOC
+    _LAT: EX.EXLAT
+    _STDTC: EX.EXSTDTC
+    _ENDTC: EX.EXENDTC
+    _STDY: EX.EXSTDY
+    _VISIT: EX.VISIT
+    _VISITNUM: EX.VISITNUM
+    _NDOSERS: null
+    _NDOSRSP: null
+    _SRCSEQ: EX.EXSEQ
+  filter: _ADSL IS NOT NULL
+- id: ec_rows
+  dataset: EC
+  derivations:
+    STUDYID: EC.STUDYID
+    USUBJID: EC.USUBJID
+    _SRC: '''EC'''
+    _EXSEQ: null
+    _ECSEQ: EC.ECSEQ
+    _TRT: null
+    _DOSE: null
+    _DOSU: null
+    _DOSFRM: null
+    _DOSFRQ: null
+    _ROUTE: null
+    _LOC: null
+    _LAT: null
+    _STDTC: null
+    _ENDTC: null
+    _STDY: null
+    _VISIT: EC.VISIT
+    _VISITNUM: EC.VISITNUM
+    _NDOSERS: EC.ECREASOC
+    _NDOSRSP: SUPP_P.EXREASSP
+    _SRCSEQ: EC.ECSEQ
+  filter: EC.ECOCCUR = 'N' AND _ADSL IS NOT NULL
+intermediates:
+- id: SUPP_P
+  dataset: SUPPEC
+  key:
+    STUDYID: STUDYID
+    USUBJID: USUBJID
+    IDVARVAL:
+      str_decimal:
+        source: _ECSEQ
+        decimals: 0
+  filter: SUPPEC.QNAM IN ('EXREASSP') AND SUPPEC.IDVAR = 'ECSEQ'
+  pivot:
+    name: QNAM
+    value: QVAL
+    fields:
+    - EXREASSP
+windows:
+  ASEQ_W:
+    group_by:
+    - USUBJID
+    order_by:
+    - _SRC
+    - VISITNUM
+    - _EXSEQ
+    - _ECSEQ
+columns:
+- name: _ADSL
+  type: str
+  derivation: ADSL.USUBJID
+- name: STUDYID
+  submission:
+    origins:
+    - type: Derived
+    method: "Withheld from publication: the received define states this text."
+- name: USUBJID
+  submission:
+    origins:
+    - type: Derived
+    method: "Withheld from publication: the received define states this text."
+- name: _SRC
+  type: str
+- name: _EXSEQ
+  type: float
+- name: _ECSEQ
+  type: float
+- name: _TRT
+  type: str
+- name: _DOSE
+  type: float
+- name: _DOSU
+  type: str
+- name: _DOSFRM
+  type: str
+- name: _DOSFRQ
+  type: str
+- name: _ROUTE
+  type: str
+- name: _LOC
+  type: str
+- name: _LAT
+  type: str
+- name: _STDTC
+  type: str
+- name: _ENDTC
+  type: str
+- name: _STDY
+  type: float
+- name: _VISIT
+  type: str
+- name: _VISITNUM
+  type: float
+- name: _NDOSERS
+  type: str
+- name: _NDOSRSP
+  type: str
+- name: _SRCSEQ
+  type: float
+- name: SUBJID
+  derivation: ADSL.SUBJID
+  submission:
+    origins:
+    - type: Predecessor
+      description: ADSL.SUBJID
+- name: SITEID
+  derivation: ADSL.SITEID
+  submission:
+    origins:
+    - type: Predecessor
+      description: ADSL.SITEID
+- name: COUNTRY
+  derivation: ADSL.COUNTRY
+  submission:
+    origins:
+    - type: Predecessor
+      description: ADSL.COUNTRY
+- name: AGE
+  derivation: ADSL.AGE
+  submission:
+    mandatory: false
+    origins:
+    - type: Predecessor
+      description: ADSL.AGE
+- name: AGEU
+  derivation: ADSL.AGEU
+  submission:
+    mandatory: false
+    origins:
+    - type: Predecessor
+      description: ADSL.AGEU
+- name: STRATAR
+  derivation: ADSL.STRATAR
+  submission:
+    origins:
+    - type: Predecessor
+      description: ADSL.STRATAR
+- name: STRATARN
+  derivation: ADSL.STRATARN
+  submission:
+    origins:
+    - type: Predecessor
+      description: ADSL.STRATARN
+- name: AGEGR1
+  derivation: ADSL.AGEGR1
+  submission:
+    mandatory: false
+    origins:
+    - type: Predecessor
+      description: ADSL.AGEGR1
+- name: AGEGR1N
+  derivation: ADSL.AGEGR1N
+  submission:
+    mandatory: false
+    origins:
+    - type: Predecessor
+      description: ADSL.AGEGR1N
+- name: AGEGR2
+  derivation: ADSL.AGEGR2
+  submission:
+    mandatory: false
+    origins:
+    - type: Predecessor
+      description: ADSL.AGEGR2
+- name: AGEGR2N
+  derivation: ADSL.AGEGR2N
+  submission:
+    mandatory: false
+    origins:
+    - type: Predecessor
+      description: ADSL.AGEGR2N
+- name: SEX
+  derivation: ADSL.SEX
+  submission:
+    mandatory: false
+    origins:
+    - type: Predecessor
+      description: ADSL.SEX
+- name: RACE
+  derivation: ADSL.RACE
+  submission:
+    mandatory: false
+    origins:
+    - type: Predecessor
+      description: ADSL.RACE
+- name: RACESPY
+  derivation: ADSL.RACESPY
+  submission:
+    origins:
+    - type: Predecessor
+      description: ADSL.RACESPY
+- name: ETHNIC
+  derivation: ADSL.ETHNIC
+  submission:
+    mandatory: false
+    origins:
+    - type: Predecessor
+      description: ADSL.ETHNIC
+- name: RANDFL
+  derivation: ADSL.RANDFL
+  submission:
+    origins:
+    - type: Predecessor
+      description: ADSL.RANDFL
+- name: FASFL
+  derivation: ADSL.FASFL
+  submission:
+    origins:
+    - type: Predecessor
+      description: ADSL.FASFL
+- name: SAFFL
+  derivation: ADSL.SAFFL
+  submission:
+    origins:
+    - type: Predecessor
+      description: ADSL.SAFFL
+- name: SAR1FL
+  derivation: ADSL.SAR1FL
+  submission:
+    origins:
+    - type: Predecessor
+      description: ADSL.SAR1FL
+- name: SAR2FL
+  derivation: ADSL.SAR2FL
+  submission:
+    origins:
+    - type: Predecessor
+      description: ADSL.SAR2FL
+- name: SARAFL
+  derivation: ADSL.SARAFL
+  submission:
+    origins:
+    - type: Predecessor
+      description: ADSL.SARAFL
+- name: MITTFL
+  derivation: ADSL.MITTFL
+  submission:
+    origins:
+    - type: Predecessor
+      description: ADSL.MITTFL
+- name: PPROTFL
+  derivation: ADSL.PPROTFL
+  submission:
+    origins:
+    - type: Predecessor
+      description: ADSL.PPROTFL
+- name: COMPLFL
+  derivation: ADSL.COMPLFL
+  submission:
+    origins:
+    - type: Predecessor
+      description: ADSL.COMPLFL
+- name: DOSE1FL
+  derivation: ADSL.DOSE1FL
+  submission:
+    origins:
+    - type: Predecessor
+      description: ADSL.DOSE1FL
+- name: DOSE2FL
+  derivation: ADSL.DOSE2FL
+  submission:
+    origins:
+    - type: Predecessor
+      description: ADSL.DOSE2FL
+- name: RTPCRBL
+  derivation: ADSL.RTPCRBL
+  submission:
+    origins:
+    - type: Predecessor
+      description: ADSL.RTPCRBL
+- name: ELECSBL
+  derivation: ADSL.ELECSBL
+  submission:
+    origins:
+    - type: Predecessor
+      description: ADSL.ELECSBL
+- name: SCOV2BL
+  derivation: ADSL.SCOV2BL
+  submission:
+    origins:
+    - type: Predecessor
+      description: ADSL.SCOV2BL
+- name: TRT01P
+  derivation: ADSL.TRT01P
+  submission:
+    origins:
+    - type: Predecessor
+      description: ADSL.TRT01P
+- name: TRT01PN
+  derivation: ADSL.TRT01PN
+  submission:
+    origins:
+    - type: Predecessor
+      description: ADSL.TRT01PN
+- name: TRT01A
+  derivation: ADSL.TRT01A
+  submission:
+    origins:
+    - type: Predecessor
+      description: ADSL.TRT01A
+- name: TRT01AN
+  derivation: ADSL.TRT01AN
+  submission:
+    origins:
+    - type: Predecessor
+      description: ADSL.TRT01AN
+- name: TR01SDT
+  derivation: ADSL.TR01SDT
+  submission:
+    origins:
+    - type: Predecessor
+      description: ADSL.TR01SDT
+- name: TR01SDTM
+  derivation: ADSL.TR01SDTM
+  submission:
+    origins:
+    - type: Predecessor
+      description: ADSL.TR01SDTM
+- name: TR01EDT
+  derivation: ADSL.TR01EDT
+  submission:
+    origins:
+    - type: Predecessor
+      description: ADSL.TR01EDT
+- name: TR01EDTM
+  derivation: ADSL.TR01EDTM
+  submission:
+    origins:
+    - type: Predecessor
+      description: ADSL.TR01EDTM
+- name: DOSE2DT
+  derivation: ADSL.DOSE2DT
+  submission:
+    origins:
+    - type: Predecessor
+      description: ADSL.DOSE2DT
+- name: DOS2DTM
+  derivation: ADSL.DOS2DTM
+  submission:
+    origins:
+    - type: Predecessor
+      description: ADSL.DOS2DTM
+- name: RSKF1
+  derivation: ADSL.RSKF1
+  submission:
+    origins:
+    - type: Predecessor
+      description: ADSL.RSKF1
+- name: RSKF2
+  derivation: ADSL.RSKF2
+  submission:
+    origins:
+    - type: Predecessor
+      description: ADSL.RSKF2
+- name: RSKF3
+  derivation: ADSL.RSKF3
+  submission:
+    origins:
+    - type: Predecessor
+      description: ADSL.RSKF3
+- name: RSKF4
+  derivation: ADSL.RSKF4
+  submission:
+    origins:
+    - type: Predecessor
+      description: ADSL.RSKF4
+- name: RSKF5
+  derivation: ADSL.RSKF5
+  submission:
+    origins:
+    - type: Predecessor
+      description: ADSL.RSKF5
+- name: RSKF6
+  derivation: ADSL.RSKF6
+  submission:
+    origins:
+    - type: Predecessor
+      description: ADSL.RSKF6
+- name: STRATAV
+  derivation: ADSL.STRATAV
+  submission:
+    origins:
+    - type: Predecessor
+      description: ADSL.STRATAV
+- name: STRATAVN
+  derivation: ADSL.STRATAVN
+  submission:
+    origins:
+    - type: Predecessor
+      description: ADSL.STRATAVN
+- name: MINORITY
+  derivation: ADSL.MINORITY
+  submission:
+    origins:
+    - type: Predecessor
+      description: ADSL.MINORITY
+- name: RACEGR1
+  derivation: ADSL.RACEGR1
+  submission:
+    mandatory: false
+    origins:
+    - type: Predecessor
+      description: ADSL.RACEGR1
+- name: RACEGR1N
+  derivation: ADSL.RACEGR1N
+  submission:
+    mandatory: false
+    origins:
+    - type: Predecessor
+      description: ADSL.RACEGR1N
+- name: RISKGR1
+  derivation: ADSL.RISKGR1
+  submission:
+    origins:
+    - type: Predecessor
+      description: ADSL.RISKGR1
+- name: RISKGR1N
+  derivation: ADSL.RISKGR1N
+  submission:
+    origins:
+    - type: Predecessor
+      description: ADSL.RISKGR1N
+- name: RETHGR1
+  derivation: ADSL.RETHGR1
+  submission:
+    origins:
+    - type: Predecessor
+      description: ADSL.RETHGR1
+- name: RETHGR1N
+  derivation: ADSL.RETHGR1N
+  submission:
+    origins:
+    - type: Predecessor
+      description: ADSL.RETHGR1N
+- name: ACTARM
+  derivation: null
+- name: ARM
+  derivation: null
+- name: BMIBL
+  derivation: null
+- name: CBNRS
+  derivation: null
+- name: CHILDBP
+  derivation: null
+- name: CUTOFFDT
+  derivation: null
+- name: DCSREAS
+  derivation: null
+- name: DCSREASP
+  derivation: null
+- name: DCTREAS
+  derivation: null
+- name: DCTREASP
+  derivation: null
+- name: DTHAUTOP
+  derivation: null
+- name: DTHDT
+  derivation: null
+- name: EFFCODT
+  derivation: null
+- name: EOSDT
+  derivation: null
+- name: EOSDY
+  derivation: null
+- name: EOSSTT
+  derivation: null
+- name: EOTDT
+  derivation: null
+- name: EOTDY
+  derivation: null
+- name: EOTSTT
+  derivation: null
+- name: FASEREAS
+  derivation: null
+- name: HEIGHTBL
+  derivation: null
+- name: MITTERS
+  derivation: null
+- name: PPEREAS
+  derivation: null
+- name: PREVSCR
+  derivation: null
+- name: PROTVER
+  derivation: null
+- name: RANDDT
+  derivation: null
+- name: RANDNUM
+  derivation: null
+- name: RFICDT
+  derivation: null
+- name: RFXSTDTC
+  derivation: null
+- name: SAFEREAS
+  derivation: null
+- name: SAR1ERS
+  derivation: null
+- name: SAR2ERS
+  derivation: null
+- name: STUDDUR1
+  derivation: null
+- name: STUDDUR2
+  derivation: null
+- name: STUDDUR3
+  derivation: null
+- name: WEIGHTBL
+  derivation: null
+- name: EXTRT
+  type: str
+  label: Name of Treatment
+  derivation: _TRT
+  submission:
+    core: Perm
+    mandatory: false
+    length: 150
+    origins:
+    - type: Derived
+    method: "Withheld from publication: the received define states this text."
+- name: EXDOSE
+  type: int
+  label: Dose
+  derivation: _DOSE
+  submission:
+    core: Perm
+    mandatory: false
+    length: 8
+    display_format: '3.'
+    origins:
+    - type: Derived
+    method: "Withheld from publication: the received define states this text."
+- name: EXDOSU
+  type: str
+  label: Dose Units
+  derivation: _DOSU
+  submission:
+    core: Perm
+    mandatory: false
+    length: 20
+    origins:
+    - type: Derived
+    method: "Withheld from publication: the received define states this text."
+- name: EXDOSFRM
+  type: str
+  label: Dose Form
+  derivation: _DOSFRM
+  submission:
+    core: Perm
+    mandatory: false
+    length: 20
+    origins:
+    - type: Derived
+    method: "Withheld from publication: the received define states this text."
+- name: EXDOSFRQ
+  type: str
+  label: Dosing Frequency per Interval
+  derivation: _DOSFRQ
+  submission:
+    core: Perm
+    mandatory: false
+    length: 8
+    origins:
+    - type: Derived
+    method: "Withheld from publication: the received define states this text."
+- name: EXROUTE
+  type: str
+  label: Route of Administration
+  derivation: _ROUTE
+  submission:
+    core: Perm
+    mandatory: false
+    length: 39
+    origins:
+    - type: Derived
+    method: "Withheld from publication: the received define states this text."
+- name: EXLOC
+  type: str
+  label: Location of Dose Administration
+  derivation: _LOC
+  submission:
+    core: Perm
+    mandatory: false
+    length: 20
+    origins:
+    - type: Derived
+    method: "Withheld from publication: the received define states this text."
+- name: EXLAT
+  type: str
+  label: Laterality
+  derivation: _LAT
+  submission:
+    core: Perm
+    mandatory: false
+    length: 25
+    origins:
+    - type: Derived
+    method: "Withheld from publication: the received define states this text."
+- name: EXSTDTC
+  type: str
+  label: Start Date/Time of Treatment
+  derivation: _STDTC
+  submission:
+    core: Perm
+    mandatory: false
+    origins:
+    - type: Derived
+    method: "Withheld from publication: the received define states this text."
+- name: EXENDTC
+  type: str
+  label: End Date/Time of Treatment
+  derivation: _ENDTC
+  submission:
+    core: Perm
+    mandatory: false
+    origins:
+    - type: Derived
+    method: "Withheld from publication: the received define states this text."
+- name: EXSTDY
+  type: int
+  label: Study Day of Start of Treatment
+  derivation: _STDY
+  submission:
+    core: Perm
+    mandatory: false
+    length: 8
+    display_format: '3.'
+    origins:
+    - type: Derived
+    method: "Withheld from publication: the received define states this text."
+- name: VISIT
+  type: str
+  label: Visit Name
+  derivation: _VISIT
+  submission:
+    core: Perm
+    mandatory: false
+    length: 25
+    origins:
+    - type: Derived
+    method: "Withheld from publication: the received define states this text."
+- name: VISITNUM
+  type: int
+  label: Visit Number
+  derivation: _VISITNUM
+  submission:
+    core: Perm
+    mandatory: false
+    length: 8
+    display_format: '3.'
+    origins:
+    - type: Derived
+    method: "Withheld from publication: the received define states this text."
+- name: ASTDT
+  type: date
+  label: Analysis Start Date
+  derivation:
+    to_date:
+      source: _STDTC
+  submission:
+    core: Perm
+    mandatory: false
+    origins:
+    - type: Derived
+    method: "Withheld from publication: the received define states this text."
+- name: ASTDTM
+  type: datetime
+  label: Analysis Start Date/Time
+  derivation:
+    case:
+    - when: _STDTC IS NOT NULL AND str_contains(_STDTC, 'T')
+      then:
+        impute:
+          source: _STDTC
+          type: datetime
+          time: first
+    - otherwise: null
+  submission:
+    core: Perm
+    mandatory: false
+    origins:
+    - type: Derived
+    method: "Withheld from publication: the received define states this text."
+- name: AENDT
+  type: date
+  label: Analysis End Date
+  derivation:
+    to_date:
+      source: _ENDTC
+  submission:
+    core: Perm
+    mandatory: false
+    origins:
+    - type: Derived
+    method: "Withheld from publication: the received define states this text."
+- name: DOSEYNFL
+  type: str
+  label: Study Treatment Occurrence Flag
+  derivation:
+    case:
+    - when: _STDTC IS NOT NULL
+      then: '''Y'''
+    - when: _SRC = 'EC'
+      then: '''N'''
+  submission:
+    core: Req
+    mandatory: true
+    length: 1
+    origins:
+    - type: Derived
+    method: "Withheld from publication: the received define states this text."
+- name: NDOSERS
+  type: str
+  label: Reason Study Treatment not Given
+  derivation:
+    str_replace:
+      source: _NDOSERS
+      pattern: '\u00a0'
+      replacement: ' '
+  submission:
+    core: Perm
+    mandatory: false
+    length: 200
+    origins:
+    - type: Derived
+    method: "Withheld from publication: the received define states this text."
+- name: NDOSRSP
+  type: str
+  label: Reason Study Treatment not Given Specify
+  derivation: _NDOSRSP
+  submission:
+    core: Perm
+    mandatory: false
+    length: 200
+    origins:
+    - type: Derived
+    method: "Withheld from publication: the received define states this text."
+- name: SRCDOM
+  type: str
+  label: Source Data
+  derivation: _SRC
+  submission:
+    core: Req
+    mandatory: true
+    length: 20
+    origins:
+    - type: Derived
+    method: "Withheld from publication: the received define states this text."
+- name: SRCSEQ
+  type: int
+  label: Source Sequence Number
+  derivation: _SRCSEQ
+  submission:
+    core: Req
+    mandatory: true
+    length: 8
+    display_format: '3.'
+    origins:
+    - type: Derived
+    method: "Withheld from publication: the received define states this text."
+- name: ASEQ
+  type: int
+  label: Analysis Sequence Number
+  derivation:
+    row_number:
+      window: ASEQ_W
+  submission:
+    core: Req
+    mandatory: true
+    length: 8
+    display_format: '3.'
+    origins:
+    - type: Derived
+    method: "Withheld from publication: the received define states this text."
+output:
+  path: <adam-dir>/adex-yamaa.parquet
+  order_by:
+  - USUBJID
+  - ASEQ
+  columns:
+  - STUDYID
+  - USUBJID
+  - ASEQ
+  - SUBJID
+  - SITEID
+  - COUNTRY
+  - AGE
+  - AGEU
+  - STRATAR
+  - STRATARN
+  - AGEGR1
+  - AGEGR1N
+  - AGEGR2
+  - AGEGR2N
+  - SEX
+  - RACE
+  - RACESPY
+  - ETHNIC
+  - RANDFL
+  - FASFL
+  - SAFFL
+  - SAR1FL
+  - SAR2FL
+  - SARAFL
+  - MITTFL
+  - PPROTFL
+  - COMPLFL
+  - DOSE1FL
+  - DOSE2FL
+  - RTPCRBL
+  - ELECSBL
+  - SCOV2BL
+  - TRT01P
+  - TRT01PN
+  - TRT01A
+  - TRT01AN
+  - TR01SDT
+  - TR01SDTM
+  - TR01EDT
+  - TR01EDTM
+  - DOSE2DT
+  - DOS2DTM
+  - RSKF1
+  - RSKF2
+  - RSKF3
+  - RSKF4
+  - RSKF5
+  - RSKF6
+  - STRATAV
+  - STRATAVN
+  - MINORITY
+  - RACEGR1
+  - RACEGR1N
+  - RISKGR1
+  - RISKGR1N
+  - RETHGR1
+  - RETHGR1N
+  - EXTRT
+  - EXDOSE
+  - EXDOSU
+  - EXDOSFRM
+  - EXDOSFRQ
+  - EXROUTE
+  - EXLOC
+  - EXLAT
+  - EXSTDTC
+  - EXENDTC
+  - EXSTDY
+  - VISIT
+  - VISITNUM
+  - ASTDT
+  - ASTDTM
+  - AENDT
+  - DOSEYNFL
+  - NDOSERS
+  - NDOSRSP
+  - SRCDOM
+  - SRCSEQ

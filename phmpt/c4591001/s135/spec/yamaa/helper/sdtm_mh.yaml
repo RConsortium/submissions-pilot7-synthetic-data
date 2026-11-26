@@ -1,0 +1,133 @@
+# C4591001 S135 MH, as the S1 specs read it.
+# PHMPT released S135's MH only as a JMP table (data/jmp-sources.md). JMP
+# keeps MHDTC as a date number (seconds since 1904-01-01) and writes complete
+# MHSTDTC / MHENDTC values as M/D/YYYY. This helper copies MH and writes
+# those three as ISO 8601 text, as S1's SAS transport MH holds them (checked
+# equal to S1's MH on all 197,037 records); partial and redacted values are
+# kept as they are. The S135 ADMH, ADSL and ADSYMPT layers read it.
+yamaa: '1.0'
+type: spec
+model: SDTM
+domain: MHN
+keys: ['USUBJID', 'MHSEQ']
+input:
+  SRC: <sdtm-dir>/mh.parquet
+rows:
+- id: records
+  dataset: SRC
+  derivations:
+    STUDYID: SRC.STUDYID
+    DOMAIN: SRC.DOMAIN
+    USUBJID: SRC.USUBJID
+    MHSEQ: SRC.MHSEQ
+    MHSPID: SRC.MHSPID
+    MHTERM: SRC.MHTERM
+    MHLLT: SRC.MHLLT
+    MHLLTCD: SRC.MHLLTCD
+    MHDECOD: SRC.MHDECOD
+    MHPTCD: SRC.MHPTCD
+    MHHLT: SRC.MHHLT
+    MHHLTCD: SRC.MHHLTCD
+    MHHLGT: SRC.MHHLGT
+    MHHLGTCD: SRC.MHHLGTCD
+    MHCAT: SRC.MHCAT
+    MHBODSYS: SRC.MHBODSYS
+    MHBDSYCD: SRC.MHBDSYCD
+    MHSOC: SRC.MHSOC
+    MHSOCCD: SRC.MHSOCCD
+    VISITNUM: SRC.VISITNUM
+    VISIT: SRC.VISIT
+    EPOCH: SRC.EPOCH
+    _MHDTC_DAYS: SRC.MHDTC / 86400
+    _MHSTDTC_RAW: SRC.MHSTDTC
+    _MHSTDTC_M:
+      case:
+      - when: str_contains(SRC.MHSTDTC, '^\d{1,2}/\d{1,2}/\d{4}$')
+        then: {str_extract: {source: SRC.MHSTDTC, pattern: '^(\d{1,2})/\d{1,2}/\d{4}$', group: 1}}
+    _MHSTDTC_D:
+      case:
+      - when: str_contains(SRC.MHSTDTC, '^\d{1,2}/\d{1,2}/\d{4}$')
+        then: {str_extract: {source: SRC.MHSTDTC, pattern: '^\d{1,2}/(\d{1,2})/\d{4}$', group: 1}}
+    _MHSTDTC_Y:
+      case:
+      - when: str_contains(SRC.MHSTDTC, '^\d{1,2}/\d{1,2}/\d{4}$')
+        then: {str_extract: {source: SRC.MHSTDTC, pattern: '^\d{1,2}/\d{1,2}/(\d{4})$', group: 1}}
+    _MHENDTC_RAW: SRC.MHENDTC
+    _MHENDTC_M:
+      case:
+      - when: str_contains(SRC.MHENDTC, '^\d{1,2}/\d{1,2}/\d{4}$')
+        then: {str_extract: {source: SRC.MHENDTC, pattern: '^(\d{1,2})/\d{1,2}/\d{4}$', group: 1}}
+    _MHENDTC_D:
+      case:
+      - when: str_contains(SRC.MHENDTC, '^\d{1,2}/\d{1,2}/\d{4}$')
+        then: {str_extract: {source: SRC.MHENDTC, pattern: '^\d{1,2}/(\d{1,2})/\d{4}$', group: 1}}
+    _MHENDTC_Y:
+      case:
+      - when: str_contains(SRC.MHENDTC, '^\d{1,2}/\d{1,2}/\d{4}$')
+        then: {str_extract: {source: SRC.MHENDTC, pattern: '^\d{1,2}/\d{1,2}/(\d{4})$', group: 1}}
+    MHDY: SRC.MHDY
+    MHSTDY: SRC.MHSTDY
+    MHENDY: SRC.MHENDY
+    MHENRTPT: SRC.MHENRTPT
+    MHENTPT: SRC.MHENTPT
+    _EPOCH_TXT: "'1904-01-01'"
+columns:
+- {name: STUDYID, type: str, label: STUDYID}
+- {name: DOMAIN, type: str, label: DOMAIN}
+- {name: USUBJID, type: str, label: USUBJID}
+- {name: MHSEQ, type: float, label: MHSEQ}
+- {name: MHSPID, type: float, label: MHSPID}
+- {name: MHTERM, type: str, label: MHTERM}
+- {name: MHLLT, type: str, label: MHLLT}
+- {name: MHLLTCD, type: float, label: MHLLTCD}
+- {name: MHDECOD, type: str, label: MHDECOD}
+- {name: MHPTCD, type: float, label: MHPTCD}
+- {name: MHHLT, type: str, label: MHHLT}
+- {name: MHHLTCD, type: float, label: MHHLTCD}
+- {name: MHHLGT, type: str, label: MHHLGT}
+- {name: MHHLGTCD, type: float, label: MHHLGTCD}
+- {name: MHCAT, type: str, label: MHCAT}
+- {name: MHBODSYS, type: str, label: MHBODSYS}
+- {name: MHBDSYCD, type: float, label: MHBDSYCD}
+- {name: MHSOC, type: str, label: MHSOC}
+- {name: MHSOCCD, type: float, label: MHSOCCD}
+- {name: VISITNUM, type: float, label: VISITNUM}
+- {name: VISIT, type: str, label: VISIT}
+- {name: EPOCH, type: str, label: EPOCH}
+- {name: _MHDTC_DAYS, type: int}
+- {name: _MHSTDTC_RAW, type: str}
+- {name: _MHSTDTC_M, type: int}
+- {name: _MHSTDTC_D, type: int}
+- {name: _MHSTDTC_Y, type: int}
+- {name: _MHENDTC_RAW, type: str}
+- {name: _MHENDTC_M, type: int}
+- {name: _MHENDTC_D, type: int}
+- {name: _MHENDTC_Y, type: int}
+- {name: MHDY, type: float, label: MHDY}
+- {name: MHSTDY, type: str, label: MHSTDY}
+- {name: MHENDY, type: str, label: MHENDY}
+- {name: MHENRTPT, type: str, label: MHENRTPT}
+- {name: MHENTPT, type: str, label: MHENTPT}
+- {name: _EPOCH_TXT, type: str}
+- {name: _JMP_EPOCH, type: date, derivation: {to_date: {source: _EPOCH_TXT}}}
+- {name: _MHDTC_D, type: date, derivation: {shift: {type: date, source: _JMP_EPOCH, days: _MHDTC_DAYS}}}
+- {name: MHDTC, type: str, label: MHDTC, derivation: _MHDTC_D}
+- name: MHSTDTC
+  type: str
+  label: MHSTDTC
+  derivation:
+    case:
+    - when: _MHSTDTC_Y IS NOT NULL
+      then: {dtc: {year: _MHSTDTC_Y, month: _MHSTDTC_M, day: _MHSTDTC_D}}
+    - otherwise: _MHSTDTC_RAW
+- name: MHENDTC
+  type: str
+  label: MHENDTC
+  derivation:
+    case:
+    - when: _MHENDTC_Y IS NOT NULL
+      then: {dtc: {year: _MHENDTC_Y, month: _MHENDTC_M, day: _MHENDTC_D}}
+    - otherwise: _MHENDTC_RAW
+output:
+  path: <work-dir>/mh.parquet
+  columns: [STUDYID, DOMAIN, USUBJID, MHSEQ, MHSPID, MHTERM, MHLLT, MHLLTCD, MHDECOD, MHPTCD, MHHLT, MHHLTCD, MHHLGT, MHHLGTCD, MHCAT, MHBODSYS, MHBDSYCD, MHSOC, MHSOCCD, VISITNUM, VISIT, EPOCH, MHDTC, MHSTDTC, MHENDTC, MHDY, MHSTDY, MHENDY, MHENRTPT, MHENTPT]

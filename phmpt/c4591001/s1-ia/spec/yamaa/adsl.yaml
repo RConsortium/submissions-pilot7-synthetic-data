@@ -1,0 +1,471 @@
+# ADSL for Pfizer C4591001, EUA 27034 sequence S1, interim efficacy
+# analysis (data snapshot of 04NOV2020, adsl-ia.sas).
+# Layer over the EUA final-analysis spec, run on this cut's SDTM
+# (scripts/reproduce.py verify --study c4591001 --cut s1-ia). The output
+# keeps the interim file's columns, in its order.
+yamaa: '1.0'
+type: spec
+parent: ../../../s1-safety-fa-eff/spec/yamaa/adsl.yaml
+intermediates:
+# The interim program censors at its snapshot, &cutoff = 04NOV2020.
+- id: CUT_I
+  derivations:
+    _CUT:
+      derivation: DATE '2020-11-04'
+# V01DT (adsl-ia.sas): the month-1 blood sample or visit date, replaced by
+# the third vaccination + 35 days only when that vaccination is on or after
+# it; then the third vaccination, Dose 2 + 35 or Dose 1 + 58 days.
+- id: D_V01
+  derivations:
+    _B1:
+      derivation: null
+    _B2:
+      derivation:
+        case:
+        - when: D_BE1._BEDT IS NOT NULL AND D_VAX10U._DT IS NOT NULL AND D_VAX10U._DT >= D_BE1._BEDT
+          then:
+            shift:
+              type: date
+              source: D_VAX10U._DT
+              days: 35
+        - when: D_BE1._BEDT IS NOT NULL
+          then: D_BE1._BEDT
+    _B3:
+      derivation:
+        case:
+        - when: D_BE1S._DT IS NOT NULL AND D_VAX10U._DT IS NOT NULL AND D_VAX10U._DT >= D_BE1S._DT
+          then:
+            shift:
+              type: date
+              source: D_VAX10U._DT
+              days: 35
+        - when: D_BE1S._DT IS NOT NULL
+          then: D_BE1S._DT
+    _B4:
+      derivation:
+        case:
+        - when: D_VAX10U._DT IS NOT NULL
+          then:
+            shift:
+              type: date
+              source: D_VAX10U._DT
+              days: 35
+        - when: D_VAX102._DT IS NOT NULL
+          then:
+            shift:
+              type: date
+              source: D_VAX102._DT
+              days: 35
+# The interim program keeps COMPLDT (as the 6-month adsl.sas does) and adds
+# the 12- and 24-month blood draws (CO visits 60756 / 60769 and 60757 / 60770,
+# the later visit number winning, as for BLDV7).
+- id: DS_COMPL
+  dataset: DS
+  key:
+  - USUBJID
+  filter: DS.DSCAT = 'DISPOSITION EVENT' AND DS.DSDECOD = 'COMPLETED' AND DS.DSSTDTC IS NOT NULL
+  order_by:
+  - variable: DS._OK
+    direction: desc
+  - DS.DSSTDTC
+  keep: first
+  derivations:
+    _DT:
+      type: date
+      derivation:
+        to_date:
+          source: DS.DSSTDTC
+    _OK:
+      type: int
+      derivation:
+        case:
+        - when: SUPPDS_BYSEQ.DSPHASE = 'FOLLOW-UP'
+          then: 1
+        - otherwise: 0
+    _CAND:
+      type: date
+      derivation:
+        case:
+        - when: _OK = 1
+          then: _DT
+- id: CO_V8
+  dataset: CO
+  key:
+  - USUBJID
+  filter: CO.RDOMAIN = 'IS' AND CO.COREF = 'Sample Collected' AND CO.COVAL = 'Y' AND CO.VISITNUM IN (60756, 60769)
+  order_by:
+  - variable: CO.VISITNUM
+    direction: desc
+  - CO.CODTC
+  keep: first
+  derivations:
+    _HAS:
+      type: int
+      derivation: 1
+    _DT:
+      type: date
+      derivation:
+        to_date:
+          source: CO.CODTC
+- id: CO_V9
+  dataset: CO
+  key:
+  - USUBJID
+  filter: CO.RDOMAIN = 'IS' AND CO.COREF = 'Sample Collected' AND CO.COVAL = 'Y' AND CO.VISITNUM IN (60757, 60770)
+  order_by:
+  - variable: CO.VISITNUM
+    direction: desc
+  - CO.CODTC
+  keep: first
+  derivations:
+    _HAS:
+      type: int
+      derivation: 1
+    _DT:
+      type: date
+      derivation:
+        to_date:
+          source: CO.CODTC
+columns:
+# Two subjects have no ETHNIC in the interim snapshot's DM, and four no
+# planned treatment.
+- name: ETHNIC
+  submission:
+    mandatory: false
+- name: ETHNICN
+  submission:
+    mandatory: false
+- name: TRT01P
+  submission:
+    mandatory: false
+- name: COMPLDT
+  type: date
+  label: Date of Completion
+  derivation: DS_COMPL._CAND
+  submission:
+    core: Perm
+    mandatory: false
+    origins:
+    - type: Derived
+    method: "Withheld from publication: the received define states this text."
+- name: BLDV8FL
+  type: str
+  label: Blood Sample Drawn 12 Months after Vax 2
+  derivation:
+    case:
+    - when: CO_V8._HAS IS NOT NULL
+      then: "'Y'"
+    - otherwise: "'N'"
+  submission:
+    core: Req
+    mandatory: true
+    length: 1
+    origins:
+    - type: Derived
+    method: "Withheld from publication: the received define states this text."
+- name: BLDV8DT
+  type: date
+  label: Blood Sample Date 12 Months after Vax 2
+  derivation: CO_V8._DT
+  submission:
+    core: Perm
+    mandatory: false
+    origins:
+    - type: Derived
+    method: "Withheld from publication: the received define states this text."
+- name: BLDV9FL
+  type: str
+  label: Blood Sample Drawn 24 Months after Vax 2
+  derivation:
+    case:
+    - when: CO_V9._HAS IS NOT NULL
+      then: "'Y'"
+    - otherwise: "'N'"
+  submission:
+    core: Req
+    mandatory: true
+    length: 1
+    origins:
+    - type: Derived
+    method: "Withheld from publication: the received define states this text."
+- name: BLDV9DT
+  type: date
+  label: Blood Sample Date 24 Months after Vax 2
+  derivation: CO_V9._DT
+  submission:
+    core: Perm
+    mandatory: false
+    origins:
+    - type: Derived
+    method: "Withheld from publication: the received define states this text."
+# Rules of adsl-ia.sas that the final EUA program later changed:
+# - DS30KFL: randomized by 16SEP2020 (09OCT2020 in the final);
+- name: DS30KFL
+  derivation:
+    case:
+    - when: RFICDT >= DATE '2020-07-27' AND RANDDT IS NOT NULL AND RANDDT <= DATE '2020-09-16' AND PHASEN
+        <> 1
+      then: "'Y'"
+    - otherwise: "'N'"
+# - exclusion 7 needs Dose 2;
+- name: EXCL7FL
+  derivation:
+    case:
+    - when: ((INCL1FL = 'Y' AND INCL2FL = 'Y') AND INCL7FL = 'N' AND VAX102DT IS NOT NULL)
+      then: "'Y'"
+    - otherwise: "''"
+- name: EXCRIT7
+  derivation:
+    case:
+    - when: ((INCL1FL = 'Y' AND INCL2FL = 'Y') AND INCL7FL = 'N' AND VAX102DT IS NOT NULL)
+      then: "'did not receive all vaccination(s) as randomized or did not receive Dose 2 within the predefined\
+        \ window (19-42 days after Dose 1)'"
+    - otherwise: "''"
+# - INCL6FL: any safety deviation, an efficacy deviation less than 14
+#   days after Dose 2 (or undated), or any immunogenicity deviation;
+- name: INCL6FL
+  derivation:
+    case:
+    - when: DV_POP1._QVAL IS NOT NULL OR (DV_POP2._QVAL IS NOT NULL AND (D_CALC._DMINUS IS NULL OR
+        D_CALC._DMINUS < 14)) OR DV_POP3._QVAL IS NOT NULL
+      then: "'N'"
+    - otherwise: "'Y'"
+# - exclusion 6 names major (not important) deviations, with no
+#   7-14 days efficacy window;
+- name: _X6E
+  derivation:
+    case:
+    - when: DV_POP2._QVAL IS NOT NULL AND (D_CALC._DMINUS IS NULL OR D_CALC._DMINUS < 7)
+      then: "'Efficacy (within 7 days post Dose 2)'"
+    - otherwise: "''"
+- name: EXCRIT6
+  derivation:
+    case:
+    - when: INCL6FL = 'N' AND _X6ALL <> ''
+      then:
+        str_template: 'had major protocol deviation(s) as determined by the clinician for {_X6ALL} Population(s)'
+    - when: INCL6FL = 'N'
+      then: "'had major protocol deviation(s) as determined by the clinician for  Population(s)'"
+    - otherwise: "''"
+# - BMI of 30 or more is "Obesity";
+- name: BMICAT
+  derivation:
+    case:
+    - when: (VS_BMI._BMI > 0 AND VS_BMI._BMI < 18.5)
+      then: "'Underweight'"
+    - when: (VS_BMI._BMI >= 18.5 AND VS_BMI._BMI < 25)
+      then: "'Normal weight'"
+    - when: (VS_BMI._BMI >= 25 AND VS_BMI._BMI < 30)
+      then: "'Overweight'"
+    - when: (VS_BMI._BMI >= 30)
+      then: "'Obesity'"
+    - otherwise: "'Missing'"
+# - the Visit 1 serostatus needs Dose 1;
+- name: NIGV1FL
+  derivation:
+    case:
+    - when: (VAX101DT IS NOT NULL AND IS_V1._ISORRES = 'NEG' AND (IS_V1._ISDY IS NULL OR IS_V1._ISDY <= 1))
+      then: "'Y'"
+    - when: (VAX101DT IS NOT NULL AND IS_V1._ISORRES = 'POS' AND (IS_V1._ISDY IS NULL OR IS_V1._ISDY <= 1))
+      then: "'N'"
+    - otherwise: "''"
+- name: NAATNFL
+  derivation:
+    case:
+    - when: (VAX101DT IS NOT NULL AND MB_V1._MBORRES = 'NEG' AND (MB_V1._MBDY IS NULL OR MB_V1._MBDY <= 1))
+      then: "'Y'"
+    - when: (VAX101DT IS NOT NULL AND MB_V1._MBORRES = 'POS' AND (MB_V1._MBDY IS NULL OR MB_V1._MBDY <= 1))
+      then: "'N'"
+    - otherwise: "''"
+- name: COVBLST
+  derivation:
+    case:
+    - when: (MH_COV._DECOD IS NOT NULL OR (VAX101DT IS NOT NULL AND MB_V1._MBORRES = 'POS' AND (MB_V1._MBDY IS NULL OR MB_V1._MBDY
+        <= 1)) OR (VAX101DT IS NOT NULL AND IS_V1._ISORRES = 'POS' AND (IS_V1._ISDY IS NULL OR IS_V1._ISDY <= 1)))
+      then: "'POS'"
+    - when: (MH_COV._DECOD IS NULL AND VAX101DT IS NOT NULL AND MB_V1._MBORRES = 'NEG' AND (MB_V1._MBDY IS NULL OR MB_V1._MBDY
+        <= 1) AND IS_V1._ISORRES = 'NEG' AND (IS_V1._ISDY IS NULL OR IS_V1._ISDY <= 1))
+      then: "'NEG'"
+    - otherwise: "''"
+# - the Dose 1 population flags are N (not blank) outside Phase 1, and the
+#   all-available one has no deviation condition;
+- name: EVAL01FL
+  derivation:
+    case:
+    - when: (INCL1FL = 'Y' AND INCL2FL = 'Y' AND INCL4FL = 'Y' AND INCL5FL = 'Y' AND SAFFL = 'Y' AND
+        DV_POP3._QVAL IS NULL)
+      then: "'Y'"
+    - otherwise: "'N'"
+- name: AAI01FL
+  derivation:
+    case:
+    - when: (RANDFL = 'Y' AND SAFFL = 'Y' AND (VAX101DT IS NOT NULL OR VAX102DT IS NOT NULL) AND INCL3FL
+        = 'Y')
+      then: "'Y'"
+    - otherwise: "'N'"
+# - follow-up after Dose 2 counts both ends, from Dose 2 only.
+- name: _FU_REF
+  derivation: VAX102DT
+- name: FU2MPD2
+  derivation:
+    case:
+    - when: RANDFL = 'Y' AND VAX102DT IS NULL
+      then: 0
+    - when: RANDFL = 'Y'
+      then: _FU_D + 1
+  submission:
+    method: "Withheld from publication: the received define states this text."
+output:
+  columns:
+  - STUDYID
+  - USUBJID
+  - SUBJID
+  - SITEID
+  - AGE
+  - AGEU
+  - SEX
+  - SEXN
+  - RACE
+  - RACEN
+  - ETHNIC
+  - ETHNICN
+  - COUNTRY
+  - SAFFL
+  - RANDFL
+  - ENRLFL
+  - DTHFL
+  - ARM
+  - ARMCD
+  - ACTARM
+  - ACTARMCD
+  - TRT01P
+  - TRT01PN
+  - TRT01A
+  - TRT01AN
+  - BRTHDT
+  - BRTHDTF
+  - DTHDTC
+  - DTHDT
+  - DTHDTF
+  - RANDDT
+  - RANDNO
+  - COMPLDT
+  - RFSTDT
+  - RFSTTM
+  - RFENDT
+  - RFENTM
+  - RFPENDT
+  - RFICDT
+  - TRTSDT
+  - TRTSTM
+  - TRTEDT
+  - TRTETM
+  - TR01SDT
+  - TR01STM
+  - TR01EDT
+  - TR01ETM
+  - TRTSDTM
+  - TRTEDTM
+  - TR01SDTM
+  - TR01EDTM
+  - VAX101DT
+  - VAX102DT
+  - VAX103DT
+  - AGETR01
+  - AGETRU01
+  - AGEGR1
+  - AGEGR1N
+  - ARACE
+  - ARACEN
+  - RACEGR1
+  - RACEGR1N
+  - EOSDCDT
+  - EOSDCRS
+  - EOTDCDT
+  - EOTDCRS
+  - INVID
+  - INVNAM
+  - DOSALVL
+  - DOSPLVL
+  - DOSPLVLN
+  - DOSALVLN
+  - VAX101
+  - VAX102
+  - VAX103
+  - SCREEN
+  - COHORT
+  - COHORTN
+  - PHASEN
+  - PHASE
+  - JPNFL
+  - V01DT
+  - V02DT
+  - DVSTDT
+  - BLDV1DT
+  - BLDV2DT
+  - BLDV3ADT
+  - BLDV4ADT
+  - BLDV5ADT
+  - BLDV3DT
+  - BLDV4DT
+  - BLDV5DT
+  - BLDV6DT
+  - BLDV7DT
+  - BLDV8DT
+  - BLDV9DT
+  - INCL1FL
+  - INCL2FL
+  - INCL3FL
+  - INCL4FL
+  - INCL5FL
+  - INCL6FL
+  - INCL7FL
+  - INCL8FL
+  - INCL9FL
+  - EVAL01FL
+  - EVAL02FL
+  - AAI01FL
+  - AAI02FL
+  - EVALEFFL
+  - AAI1EFFL
+  - AAI2EFFL
+  - BLDV1FL
+  - BLDV2FL
+  - BLDV3FL
+  - BLDV4FL
+  - BLDV5FL
+  - BLDV6FL
+  - BLDV7FL
+  - BLDV8FL
+  - BLDV9FL
+  - MULENRFL
+  - STEXCFL
+  - UNKRDFL
+  - EXCL3FL
+  - EXCRIT3
+  - EXCL8FL
+  - EXCRIT8
+  - EXCL1FL
+  - EXCRIT1
+  - EXCL2FL
+  - EXCRIT2
+  - EXCL4FL
+  - EXCRIT4
+  - EXCL5FL
+  - EXCRIT5
+  - EXCL7FL
+  - EXCRIT7
+  - EXCL9FL
+  - EXCRIT9
+  - EXCL6FL
+  - EXCRIT6
+  - DS30KFL
+  - NIGV1FL
+  - NAATNFL
+  - COVBLST
+  - BMICAT
+  - BMICATN
+  - FU2MPD2
+  - F2MP2CAT
+  - F2MP2CAN
+  - COMBODFL

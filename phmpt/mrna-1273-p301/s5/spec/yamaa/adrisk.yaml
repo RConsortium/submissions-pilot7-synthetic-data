@@ -1,0 +1,765 @@
+# ADRISK for Moderna mRNA-1273-P301, cut S5 (First Interim
+# Analysis IA1b, cutoff 2020-11-25). Parent: ../../../spec/yamaa/base/adam-base-ia.yaml
+# (which chains to ../../../spec/yamaa/base/adam-base.yaml; 86 shared + 6 IA-only
+# ADSL columns). Derivations implement the S5 IA ADRISK program: one
+# row per SC record for ADSL subjects, except the duplicate-administration
+# dedupe below (SC 578,209 -> ADRISK 576,266). SCCAT is 'COVID-19
+# EXPOSURE' on every SC row, so the program's SCCAT filter drops nothing.
+# DEDUPE: 3 subjects carry two complete 19-test SC administrations (38
+# rows each); ADRISK keeps the LAST row in SC file order per (USUBJID,
+# PARAMCD) -- last-in-file-order reproduces all 576,266 keys, 0 missing,
+# first-in-file-order misses 57. Implemented with a keep: last lookup
+# (SC_LAST, keyed on STUDYID/USUBJID/SCTEST/SCSCAT, ordered by the
+# constant SC.STUDYID so LOOKUP-10's tie rule picks the later stored
+# record); the rows filter keeps a row iff its SCSEQ equals the chosen
+# record's SCSEQ. A rows filter cannot read a window, so the dedupe is
+# a lookup, not a row_number window. Row reconciliation: SC 578,209 -
+# 1,886 non-ADSL rows - 57 duplicate administrations = 576,266. NOTE: the
+# batch-2 doc's 'SC rows - ADRISK rows = non-ADSL rows (1,943)' is wrong
+# for S5 by exactly those 57 rows (1,943 = 1,886 + 57).
+# PARAMCD/PARAM follow the program's $ramcd./$ram. formats, not the define
+# method (wrong for PASTWRKR 'or', PCIHS 'In-Home', WHSSHIP 'and').
+# AVALC is 'Y' whenever SCSTRESC is blank (the program's ^missing(scorres)
+# guard never fires differently in S5 data: the 8 blank-SCORRES rows also
+# carry 'Y'). OTHSPY is the mojibake-cleaned SCORRES when SCSTRESC is
+# blank; OTHSPY1 is SUPPSC SCORRS1 on the same gate (exactly 6 rows).
+# OTHSPY2/OTHSPY3 are not in the submitted file (no SCORRS2/3 QNAM exists);
+# the spec follows the data and declares neither. SUPPSC exists as a
+# properly named file (RDOMAIN='SC'); no other S5 SUPP file carries
+# RDOMAIN='SC' (checked by content). The S5 program is NOT byte-identical
+# to the S3 program (S5 adds rfxstdtc, AVALC $50, IA AVALC/OTHSPY rules).
+# No S27 file is read. SAP v1 vs v3 CLOSED as no-impact
+# (2026-11-24) -- the S5 program's own definitions are followed.
+# Honest gap: OTHSPY, 5 cells -- the submitted ADRISK free text differs
+# from the submitted SC SCORRES on 5 rows, unrecoverably from the allowed
+# inputs: 3 rows end '...' in SC but with a single ellipsis char in ADRISK,
+# 2 rows gain a word in ADRISK ('VOLUNTEERS FOR (b)(6)', 'IN 6 MONTHS IN
+# (b)(6) OF MEDICAL SCHOOL'). No RACESPY NUL-tail gap (0 rows) and no
+# duration[us] time columns in the target. Verification: single full
+# verify.py run 2026-11-23 04:43:47-04:46:36 UTC (05:43:47-05:46:36 CET,
+# ~169 s), yamaa 0.8.0 @135082c1f: 576,266 rows x 64 cols, 61 columns
+# compared (3 key columns excluded), 5 mismatches, all OTHSPY (see
+# adrisk/verify_report_s5.json, original work tree). The shipped spec differs from
+# the verified spec only in this run-record comment.
+yamaa: '1.0'
+type: spec
+model: ADaM
+parent: ../../../spec/yamaa/base/adam-base-ia.yaml
+domain: ADRISK
+keys:
+- STUDYID
+- USUBJID
+- ASEQ
+input:
+  SC: <sdtm-dir>/sc.parquet
+  SUPPSC: <sdtm-dir>/suppsc.parquet
+  ADSL:
+    path: <adam-dir>/adsl.parquet
+    key:
+    - STUDYID
+    - USUBJID
+submission:
+  label: Risk of Exposure Analysis Dataset
+  class: BASIC DATA STRUCTURE
+  structure: One record per subject, per parameter
+  repeating: true
+rows:
+- id: risk
+  dataset: SC
+  derivations:
+    _SCTEST: SC.SCTEST
+    _SCSCAT: SC.SCSCAT
+    _SCSEQ: SC.SCSEQ
+  filter: _ADSL IS NOT NULL AND _SCSEQ = SC_LAST.SCSEQ
+intermediates:
+- id: SC_LAST
+  dataset: SC
+  key:
+    STUDYID: STUDYID
+    USUBJID: USUBJID
+    SCTEST: _SCTEST
+    SCSCAT: _SCSCAT
+  order_by: [SC.STUDYID]
+  keep: last
+- id: SUPP_P
+  dataset: SUPPSC
+  key:
+    STUDYID: STUDYID
+    USUBJID: USUBJID
+    IDVARVAL:
+      str_decimal:
+        source: ASEQ
+        decimals: 0
+  filter: SUPPSC.QNAM = 'SCORRS1' AND SUPPSC.IDVAR = 'SCSEQ'
+  pivot:
+    name: QNAM
+    value: QVAL
+    fields:
+    - SCORRS1
+columns:
+- name: _ADSL
+  type: str
+  derivation: ADSL.USUBJID
+- name: _SCTEST
+  type: str
+  derivation: SC.SCTEST
+- name: _SCSCAT
+  type: str
+  derivation: SC.SCSCAT
+- name: _SCSEQ
+  type: float
+  derivation: SC.SCSEQ
+- name: _PARAM_RAW
+  type: str
+  derivation:
+    case:
+    - when: SC.SCTEST <> 'Other'
+      then: SC.SCTEST
+    - when: SC.SCSCAT = 'OCCUPATIONAL RISK'
+      then: '''Other Occupational Risk'''
+    - otherwise: '''Other Location And Living Circumstances Risk'''
+- name: _PARAM_UP
+  type: str
+  derivation:
+    str_case:
+      source: _PARAM_RAW
+      to: upper
+- name: STUDYID
+  derivation: SC.STUDYID
+  submission:
+    origins:
+    - type: Predecessor
+      description: SC.STUDYID
+- name: USUBJID
+  derivation: SC.USUBJID
+  submission:
+    origins:
+    - type: Predecessor
+      description: SC.USUBJID
+- name: SUBJID
+  derivation: ADSL.SUBJID
+  submission:
+    origins:
+    - type: Predecessor
+      description: ADSL.SUBJID
+- name: SITEID
+  derivation: ADSL.SITEID
+  submission:
+    origins:
+    - type: Predecessor
+      description: ADSL.SITEID
+- name: COUNTRY
+  derivation: ADSL.COUNTRY
+  submission:
+    origins:
+    - type: Predecessor
+      description: ADSL.COUNTRY
+- name: AGE
+  derivation: ADSL.AGE
+  submission:
+    origins:
+    - type: Predecessor
+      description: ADSL.AGE
+- name: AGEU
+  derivation: ADSL.AGEU
+  submission:
+    origins:
+    - type: Predecessor
+      description: ADSL.AGEU
+- name: STRATAR
+  derivation: ADSL.STRATAR
+  submission:
+    mandatory: false
+    origins:
+    - type: Predecessor
+      description: ADSL.STRATAR
+- name: STRATARN
+  derivation: ADSL.STRATARN
+  submission:
+    mandatory: false
+    origins:
+    - type: Predecessor
+      description: ADSL.STRATARN
+- name: AGEGR1
+  derivation: ADSL.AGEGR1
+  submission:
+    origins:
+    - type: Predecessor
+      description: ADSL.AGEGR1
+- name: AGEGR1N
+  derivation: ADSL.AGEGR1N
+  submission:
+    origins:
+    - type: Predecessor
+      description: ADSL.AGEGR1N
+- name: AGEGR2
+  derivation: ADSL.AGEGR2
+  submission:
+    origins:
+    - type: Predecessor
+      description: ADSL.AGEGR2
+- name: AGEGR2N
+  derivation: ADSL.AGEGR2N
+  submission:
+    origins:
+    - type: Predecessor
+      description: ADSL.AGEGR2N
+- name: SEX
+  derivation: ADSL.SEX
+  submission:
+    origins:
+    - type: Predecessor
+      description: ADSL.SEX
+- name: RACE
+  derivation: ADSL.RACE
+  submission:
+    origins:
+    - type: Predecessor
+      description: ADSL.RACE
+- name: RACESPY
+  derivation: ADSL.RACESPY
+  submission:
+    origins:
+    - type: Predecessor
+      description: ADSL.RACESPY
+- name: ETHNIC
+  derivation: ADSL.ETHNIC
+  submission:
+    origins:
+    - type: Predecessor
+      description: ADSL.ETHNIC
+- name: RANDFL
+  derivation: ADSL.RANDFL
+  submission:
+    origins:
+    - type: Predecessor
+      description: ADSL.RANDFL
+- name: FASFL
+  derivation: ADSL.FASFL
+  submission:
+    origins:
+    - type: Predecessor
+      description: ADSL.FASFL
+- name: SAFFL
+  derivation: ADSL.SAFFL
+  submission:
+    origins:
+    - type: Predecessor
+      description: ADSL.SAFFL
+- name: SAR1FL
+  derivation: ADSL.SAR1FL
+  submission:
+    origins:
+    - type: Predecessor
+      description: ADSL.SAR1FL
+- name: SAR2FL
+  derivation: ADSL.SAR2FL
+  submission:
+    origins:
+    - type: Predecessor
+      description: ADSL.SAR2FL
+- name: SARAFL
+  derivation: ADSL.SARAFL
+  submission:
+    origins:
+    - type: Predecessor
+      description: ADSL.SARAFL
+- name: MITTFL
+  derivation: ADSL.MITTFL
+  submission:
+    origins:
+    - type: Predecessor
+      description: ADSL.MITTFL
+- name: PPROTFL
+  derivation: ADSL.PPROTFL
+  submission:
+    origins:
+    - type: Predecessor
+      description: ADSL.PPROTFL
+- name: COMPLFL
+  derivation: ADSL.COMPLFL
+  submission:
+    origins:
+    - type: Predecessor
+      description: ADSL.COMPLFL
+- name: DOSE1FL
+  derivation: ADSL.DOSE1FL
+  submission:
+    origins:
+    - type: Predecessor
+      description: ADSL.DOSE1FL
+- name: DOSE2FL
+  derivation: ADSL.DOSE2FL
+  submission:
+    origins:
+    - type: Predecessor
+      description: ADSL.DOSE2FL
+- name: RTPCRBL
+  derivation: ADSL.RTPCRBL
+  submission:
+    origins:
+    - type: Predecessor
+      description: ADSL.RTPCRBL
+- name: ELECSBL
+  derivation: ADSL.ELECSBL
+  submission:
+    origins:
+    - type: Predecessor
+      description: ADSL.ELECSBL
+- name: SCOV2BL
+  derivation: ADSL.SCOV2BL
+  submission:
+    origins:
+    - type: Predecessor
+      description: ADSL.SCOV2BL
+- name: TRT01P
+  derivation: ADSL.TRT01P
+  submission:
+    mandatory: false
+    origins:
+    - type: Predecessor
+      description: ADSL.TRT01P
+- name: TRT01PN
+  derivation: ADSL.TRT01PN
+  submission:
+    mandatory: false
+    origins:
+    - type: Predecessor
+      description: ADSL.TRT01PN
+- name: TRT01A
+  derivation: ADSL.TRT01A
+  submission:
+    origins:
+    - type: Predecessor
+      description: ADSL.TRT01A
+- name: TRT01AN
+  derivation: ADSL.TRT01AN
+  submission:
+    origins:
+    - type: Predecessor
+      description: ADSL.TRT01AN
+- name: TR01SDT
+  derivation: ADSL.TR01SDT
+  submission:
+    origins:
+    - type: Predecessor
+      description: ADSL.TR01SDT
+- name: TR01SDTM
+  derivation: ADSL.TR01SDTM
+  submission:
+    origins:
+    - type: Predecessor
+      description: ADSL.TR01SDTM
+- name: TR01EDT
+  derivation: ADSL.TR01EDT
+  submission:
+    origins:
+    - type: Predecessor
+      description: ADSL.TR01EDT
+- name: TR01EDTM
+  derivation: ADSL.TR01EDTM
+  submission:
+    origins:
+    - type: Predecessor
+      description: ADSL.TR01EDTM
+- name: DOSE2DT
+  derivation: ADSL.DOSE2DT
+  submission:
+    origins:
+    - type: Predecessor
+      description: ADSL.DOSE2DT
+- name: DOS2DTM
+  derivation: ADSL.DOS2DTM
+  submission:
+    origins:
+    - type: Predecessor
+      description: ADSL.DOS2DTM
+- name: RSKF1
+  derivation: ADSL.RSKF1
+  submission:
+    origins:
+    - type: Predecessor
+      description: ADSL.RSKF1
+- name: RSKF2
+  derivation: ADSL.RSKF2
+  submission:
+    origins:
+    - type: Predecessor
+      description: ADSL.RSKF2
+- name: RSKF3
+  derivation: ADSL.RSKF3
+  submission:
+    origins:
+    - type: Predecessor
+      description: ADSL.RSKF3
+- name: RSKF4
+  derivation: ADSL.RSKF4
+  submission:
+    origins:
+    - type: Predecessor
+      description: ADSL.RSKF4
+- name: RSKF5
+  derivation: ADSL.RSKF5
+  submission:
+    origins:
+    - type: Predecessor
+      description: ADSL.RSKF5
+- name: RSKF6
+  derivation: ADSL.RSKF6
+  submission:
+    origins:
+    - type: Predecessor
+      description: ADSL.RSKF6
+- name: STRATAV
+  derivation: ADSL.STRATAV
+  submission:
+    origins:
+    - type: Predecessor
+      description: ADSL.STRATAV
+- name: STRATAVN
+  derivation: ADSL.STRATAVN
+  submission:
+    origins:
+    - type: Predecessor
+      description: ADSL.STRATAVN
+- name: MINORITY
+  derivation: ADSL.MINORITY
+  submission:
+    origins:
+    - type: Predecessor
+      description: ADSL.MINORITY
+- name: RACEGR1
+  derivation: ADSL.RACEGR1
+  submission:
+    mandatory: false
+    origins:
+    - type: Predecessor
+      description: ADSL.RACEGR1
+- name: RACEGR1N
+  derivation: ADSL.RACEGR1N
+  submission:
+    mandatory: false
+    origins:
+    - type: Predecessor
+      description: ADSL.RACEGR1N
+- name: RISKGR1
+  derivation: ADSL.RISKGR1
+  submission:
+    origins:
+    - type: Predecessor
+      description: ADSL.RISKGR1
+- name: RISKGR1N
+  derivation: ADSL.RISKGR1N
+  submission:
+    origins:
+    - type: Predecessor
+      description: ADSL.RISKGR1N
+- name: RETHGR1
+  derivation: ADSL.RETHGR1
+  submission:
+    origins:
+    - type: Predecessor
+      description: ADSL.RETHGR1
+- name: RETHGR1N
+  derivation: ADSL.RETHGR1N
+  submission:
+    origins:
+    - type: Predecessor
+      description: ADSL.RETHGR1N
+- name: ACTARM
+  derivation: null
+- name: ARM
+  derivation: null
+- name: BMIBL
+  derivation: null
+- name: CBNRS
+  derivation: null
+- name: CHILDBP
+  derivation: null
+- name: CUTOFFDT
+  derivation: null
+- name: DCSREAS
+  derivation: null
+- name: DCSREASP
+  derivation: null
+- name: DCTREAS
+  derivation: null
+- name: DCTREASP
+  derivation: null
+- name: DTHAUTOP
+  derivation: null
+- name: DTHDT
+  derivation: null
+- name: EFFCODT
+  derivation: null
+- name: EOSDT
+  derivation: null
+- name: EOSDY
+  derivation: null
+- name: EOSSTT
+  derivation: null
+- name: EOTDT
+  derivation: null
+- name: EOTDY
+  derivation: null
+- name: EOTSTT
+  derivation: null
+- name: FASEREAS
+  derivation: null
+- name: HEIGHTBL
+  derivation: null
+- name: MITTERS
+  derivation: null
+- name: PPEREAS
+  derivation: null
+- name: PREVSCR
+  derivation: null
+- name: PROTVER
+  derivation: null
+- name: RANDDT
+  derivation: null
+- name: RANDNUM
+  derivation: null
+- name: RFICDT
+  derivation: null
+- name: RFXSTDTC
+  derivation: null
+- name: SAFEREAS
+  derivation: null
+- name: SAR1ERS
+  derivation: null
+- name: SAR2ERS
+  derivation: null
+- name: STUDDUR1
+  derivation: null
+- name: STUDDUR2
+  derivation: null
+- name: STUDDUR3
+  derivation: null
+- name: WEIGHTBL
+  derivation: null
+- name: ASEQ
+  type: float
+  label: Analysis Sequence Number
+  derivation: SC.SCSEQ
+  submission:
+    core: Req
+    mandatory: true
+    length: 8
+    significant_digits: 15
+    origins:
+    - type: Assigned
+    method: "Withheld from publication: the received define states this text."
+- name: PARCAT1
+  type: str
+  label: Parameter Category 1
+  derivation: SC.SCSCAT
+  submission:
+    core: Req
+    mandatory: true
+    length: 50
+    origins:
+    - type: Derived
+    method: "Withheld from publication: the received define states this text."
+- name: PARCAT1N
+  type: float
+  label: Parameter Category 1 (N)
+  derivation:
+    case:
+    - when: SC.SCSCAT = 'OCCUPATIONAL RISK'
+      then: 1
+    - when: SC.SCSCAT = 'LOCATION AND LIVING CIRCUMSTANCES RISK'
+      then: 2
+  submission:
+    core: Req
+    mandatory: true
+    length: 8
+    significant_digits: 15
+    origins:
+    - type: Assigned
+    method: "Withheld from publication: the received define states this text."
+- name: PARAMCD
+  type: str
+  label: Parameter Code
+  derivation:
+    mapping:
+      source: _PARAM_UP
+      dict:
+        'OTHER OCCUPATIONAL RISK': 'OTHEROCC'
+        'OTHER LOCATION AND LIVING CIRCUMSTANCES RISK': 'OTHERLOC'
+        'NO RISK IDENTIFIED': 'NORISK'
+        'MULTI-FAMILY DWELLING': 'MULTIFAM'
+        'NURSING HOME OR ASSISTED LIVING FACILITY': 'NURSHOM'
+        'SINGLE FAMILY HOME': 'SINFAM'
+        'HIGH DENSITY HOUSING': 'HIGHDEN'
+        'LOW DENSITY, MULTI-FAMILY SETTING': 'LOWDEN'
+        'BORDER PROTECTION AND MILITARY PERSONNEL': 'MILITARY'
+        'EDUCATORS AND STUDENTS': 'EDUSTDT'
+        'EMERGENCY RESPONSE': 'EMERGRES'
+        'HEALTHCARE WORKERS': 'HLTHWRKR'
+        'HOSPITALITY AND TOURISM WORKERS': 'HPTLTY'
+        'MANUFACTURING AND PRODUCTION OPERATIONS': 'MFGOP'
+        'PASTORAL, SOCIAL, PUBLIC HEALTH WORKERS': 'PASTWRKR'
+        'PERSONAL CARE AND IN-HOME SERVICES': 'PCIHS'
+        'RETAIL OR RESTAURANT OPERATIONS': 'RETAIL'
+        'TRANSPORTATION AND DELIVERY SERVICES': 'TRANS'
+        'WAREHOUSE SHIPPING, FULFILLMENT CENTERS': 'WHSSHIP'
+      unmapped: null
+  submission:
+    core: Req
+    mandatory: true
+    length: 8
+    origins:
+    - type: Assigned
+    method: "Withheld from publication: the received define states this text."
+- name: PARAM
+  type: str
+  label: Parameter
+  derivation:
+    mapping:
+      source: PARAMCD
+      dict:
+        'OTHEROCC': 'Other Occupational Risk'
+        'OTHERLOC': 'Other Location And Living Circumstances Risk'
+        'NORISK': 'No Risk Identified'
+        'MULTIFAM': 'Resides in Multi-Family Dwelling'
+        'NURSHOM': 'Resides in Nursing Home or Assisted Living Facility'
+        'SINFAM': 'Resides in a Single Family Home'
+        'HIGHDEN': 'Resides in High Density Housing'
+        'LOWDEN': 'Resides in Low Density, Multi-Family Setting'
+        'MILITARY': 'Border Protection and Military Personnel'
+        'EDUSTDT': 'Educators and Students'
+        'EMERGRES': 'Emergency Response'
+        'HLTHWRKR': 'Healthcare Workers'
+        'HPTLTY': 'Hospitality and Tourism Workers'
+        'MFGOP': 'Manufacturing and Production Operations'
+        'PASTWRKR': 'Pastoral, Social or Public Health Workers'
+        'PCIHS': 'Personal Care and In-Home Services'
+        'RETAIL': 'Retail or Restaurant Operations'
+        'TRANS': 'Transportation and Delivery Services'
+        'WHSSHIP': 'Warehouse Shipping and Fulfillment Centers'
+      unmapped: null
+  submission:
+    core: Req
+    mandatory: true
+    length: 200
+    origins:
+    - type: Derived
+    method: "Withheld from publication: the received define states this text."
+- name: AVALC
+  type: str
+  label: Analysis Value (C)
+  derivation:
+    case:
+    - when: SC.SCSTRESC IS NOT NULL AND SC.SCSTRESC NOT IN ('')
+      then: SC.SCSTRESC
+    - otherwise: '''Y'''
+  submission:
+    core: Perm
+    mandatory: false
+    length: 50
+    origins:
+    - type: Derived
+    method: "Withheld from publication: the received define states this text."
+- name: OTHSPY
+  type: str
+  label: Other Specify
+  derivation:
+    case:
+    - when: SC.SCSTRESC IS NULL OR SC.SCSTRESC IN ('')
+      then:
+        str_replace:
+          source: SC.SCORRES
+          pattern: ' *[\u{00C2}\u{00A0}]+ *'
+          replacement: ' '
+  submission:
+    core: Perm
+    mandatory: false
+    length: 202
+    origins:
+    - type: Derived
+    method: "Withheld from publication: the received define states this text."
+- name: OTHSPY1
+  type: str
+  label: Other Specify 1
+  derivation:
+    case:
+    - when: SC.SCSTRESC IS NULL OR SC.SCSTRESC IN ('')
+      then: SUPP_P.SCORRS1
+  submission:
+    core: Perm
+    mandatory: false
+    length: 200
+    origins:
+    - type: Derived
+    method: "Withheld from publication: the received define states this text."
+output:
+  path: <adam-dir>/adrisk-yamaa.parquet
+  order_by:
+  - USUBJID
+  - PARAMCD
+  columns:
+  - STUDYID
+  - USUBJID
+  - SUBJID
+  - SITEID
+  - COUNTRY
+  - AGE
+  - AGEU
+  - STRATAR
+  - STRATARN
+  - AGEGR1
+  - AGEGR1N
+  - AGEGR2
+  - AGEGR2N
+  - SEX
+  - RACE
+  - RACESPY
+  - ETHNIC
+  - RANDFL
+  - FASFL
+  - SAFFL
+  - SAR1FL
+  - SAR2FL
+  - SARAFL
+  - MITTFL
+  - PPROTFL
+  - COMPLFL
+  - DOSE1FL
+  - DOSE2FL
+  - RTPCRBL
+  - ELECSBL
+  - SCOV2BL
+  - TRT01P
+  - TRT01PN
+  - TRT01A
+  - TRT01AN
+  - TR01SDT
+  - TR01SDTM
+  - TR01EDT
+  - TR01EDTM
+  - DOSE2DT
+  - DOS2DTM
+  - RSKF1
+  - RSKF2
+  - RSKF3
+  - RSKF4
+  - RSKF5
+  - RSKF6
+  - STRATAV
+  - STRATAVN
+  - MINORITY
+  - RACEGR1
+  - RACEGR1N
+  - RISKGR1
+  - RISKGR1N
+  - RETHGR1
+  - RETHGR1N
+  - ASEQ
+  - PARCAT1
+  - PARCAT1N
+  - PARAMCD
+  - PARAM
+  - AVALC
+  - OTHSPY
+  - OTHSPY1

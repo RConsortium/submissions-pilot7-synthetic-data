@@ -1,0 +1,2064 @@
+# ADEFF for Moderna mRNA-1273-P301, cut S5 (First Interim Analysis
+# IA1b, cutoff 2020-11-21). Parent: ../../../spec/yamaa/base/adam-base-ia.yaml (which
+# chains to ../../../spec/yamaa/base/adam-base.yaml; 86 shared + 6 IA-only ADSL
+# columns). Derivations implement the S5 A40ADEFF program, one
+# row template per PARAMCD family in program order (COVID,
+# COVIDSD, INFECT, COVIDSEV, DEATHCVD, COVIDA, COVIDSVA,
+# ASYMPINF, ASYMPINA). Where the SAS code and the define method
+# text disagree, the code is followed (see README.md).
+# SAP note (closed 2026-11-24, no-impact): the file labelled "SAP v3"
+# (19745_S68_M5_sap-v3.pdf) is the P201 SAP v3.0 (27 Oct 2020), not a
+# P301 SAP version; the only P301 SAP in the set is v1.0 (10 Sep 2020).
+# The case definitions below are the program's own, so the spec follows
+# the program, not a SAP version.
+# Cutoff flag: &cut_effi. is used by the S5 program but its value is
+# NOT in the program text; 2020-11-21 is inferred from the S5 ADSL
+# EFFCODT (uniform 2020-11-21), the target max ADT 2020-11-21, and
+# exact row-count reconciliation (same inference as S5 ADSYMP).
+# Keys (resolved 2026-11-23, yamaa#4771 closed by PR #4775): ADEFF has
+# no submitted ASEQ and its natural key (STUDYID, USUBJID, PARAMCD,
+# ADT, PCRDT) is nullable (PCRDT null on 501 rows); no non-missing
+# unique key exists among the received columns. Per the merged rule
+# the spec derives the row identity as ASEQ (row_number over (STUDYID,
+# USUBJID), ordered by PARAMCD, ADT, PCRDT nulls first) and declares
+# keys [STUDYID, USUBJID, PARAMCD, ADT, ASEQ]; PCRDT mandatory is
+# false. ASEQ is internal row identity, not a submitted column --
+# verify.py sets it aside and aligns on the received natural key.
+# Re-verification (session 62, 2026-11-23, engine yamaa 0.8.0 built
+# from origin/main @87930dbf1): end to end, EXACT MATCH strict,
+# 2,704 rows x 64 cols, 0 mismatched cells, identical to the
+# pruned-group baseline (see adeff/verify_report_s5_e2e.json, original work tree).
+# The single full run OOMs in this 6 GB cell (killed ~30 s in), so the
+# run is split by subject, 9 partitions (SEX x AGE cells in chunks of
+# at most ~70 subjects, all through verify.py itself); the engine's
+# memory is superlinear in the subject set (the S3 run needed
+# ~27-subject chunks on the much larger S3 inputs). The pruned-group
+# baseline is preserved as verify_report_s5.json.
+# Honest gaps: none in the derivation (see the generator header for
+# the program-vs-data disagreements, the empty AE-death gate, the
+# unexercised severe pcrdt-14 fallback, and the FIRST_SEV
+# filter-precedence fix).
+yamaa: '1.0'
+type: spec
+model: ADaM
+parent: ../../../spec/yamaa/base/adam-base-ia.yaml
+domain: ADEFF
+keys:
+- STUDYID
+- USUBJID
+- PARAMCD
+- ADT
+- ASEQ
+input:
+  MB: <sdtm-dir>/mb.parquet
+  CE: <sdtm-dir>/ce.parquet
+  ADSYMP:
+    path: <adam-dir>/adsymp.parquet
+    key:
+    - STUDYID
+    - USUBJID
+    - SUBJID
+  ADIS:
+    path: <adam-dir>/adis.parquet
+    key:
+    - STUDYID
+    - USUBJID
+    - SUBJID
+  ADSL:
+    path: <adam-dir>/adsl.parquet
+    key:
+    - STUDYID
+    - USUBJID
+submission:
+  label: Efficacy Analysis Dataset
+  class: BASIC DATA STRUCTURE
+  structure: One record per subject per efficacy parameter per analysis date
+  repeating: true
+rows:
+- id: covid_rows
+  dataset: PAIR_CO
+  group_by: [PAIR_CO.STUDYID, PAIR_CO.USUBJID, PAIR_CO.SUBJID, PAIR_CO._MBDTN_EPOCH]
+  derivations:
+    STUDYID: PAIR_CO.STUDYID
+    USUBJID: PAIR_CO.USUBJID
+    PARAMCD: '''COVID'''
+    _PCRDT:
+      aggregate:
+        filter: PAIR_CO._MBDTN IS NOT NULL AND PAIR_CO._RANDFL = 'Y' AND (PAIR_CO._TR01SDT IS NULL OR PAIR_CO._MBDTN > PAIR_CO._TR01SDT)
+        expr: MAX(PAIR_CO._MBDTN)
+    _A_CHILLS:
+      aggregate:
+        filter: PAIR_CO._PCD = 'CHILLS' AND PAIR_CO._IS_EXCL = 0 AND PAIR_CO._RANDFL = 'Y' AND (PAIR_CO._TR01SDT IS NULL OR PAIR_CO._MBDTN > PAIR_CO._TR01SDT)
+        expr: MIN(PAIR_CO._ADT)
+    _A_FEVER:
+      aggregate:
+        filter: PAIR_CO._PCD = 'FEVER' AND PAIR_CO._IS_EXCL = 0 AND PAIR_CO._RANDFL = 'Y' AND (PAIR_CO._TR01SDT IS NULL OR PAIR_CO._MBDTN > PAIR_CO._TR01SDT)
+        expr: MIN(PAIR_CO._ADT)
+    _A_HEADACHE:
+      aggregate:
+        filter: PAIR_CO._PCD = 'HEADACHE' AND PAIR_CO._IS_EXCL = 0 AND PAIR_CO._RANDFL = 'Y' AND (PAIR_CO._TR01SDT IS NULL OR PAIR_CO._MBDTN > PAIR_CO._TR01SDT)
+        expr: MIN(PAIR_CO._ADT)
+    _A_MYALGIA:
+      aggregate:
+        filter: PAIR_CO._PCD = 'MYALGIA' AND PAIR_CO._IS_EXCL = 0 AND PAIR_CO._RANDFL = 'Y' AND (PAIR_CO._TR01SDT IS NULL OR PAIR_CO._MBDTN > PAIR_CO._TR01SDT)
+        expr: MIN(PAIR_CO._ADT)
+    _A_NLTASTE:
+      aggregate:
+        filter: PAIR_CO._PCD = 'NLTASTE' AND PAIR_CO._IS_EXCL = 0 AND PAIR_CO._RANDFL = 'Y' AND (PAIR_CO._TR01SDT IS NULL OR PAIR_CO._MBDTN > PAIR_CO._TR01SDT)
+        expr: MIN(PAIR_CO._ADT)
+    _A_STHROAT:
+      aggregate:
+        filter: PAIR_CO._PCD = 'STHROAT' AND PAIR_CO._IS_EXCL = 0 AND PAIR_CO._RANDFL = 'Y' AND (PAIR_CO._TR01SDT IS NULL OR PAIR_CO._MBDTN > PAIR_CO._TR01SDT)
+        expr: MIN(PAIR_CO._ADT)
+    _MIN1:
+      least: {sources: [_A_CHILLS, _A_FEVER, _A_HEADACHE, _A_MYALGIA, _A_NLTASTE, _A_STHROAT]}
+    _EQ_CHILLS:
+      case:
+      - when: _A_CHILLS = _MIN1
+        then: 1
+      - otherwise: 0
+    _EQ_FEVER:
+      case:
+      - when: _A_FEVER = _MIN1
+        then: 1
+      - otherwise: 0
+    _EQ_HEADACHE:
+      case:
+      - when: _A_HEADACHE = _MIN1
+        then: 1
+      - otherwise: 0
+    _EQ_MYALGIA:
+      case:
+      - when: _A_MYALGIA = _MIN1
+        then: 1
+      - otherwise: 0
+    _EQ_NLTASTE:
+      case:
+      - when: _A_NLTASTE = _MIN1
+        then: 1
+      - otherwise: 0
+    _EQ_STHROAT:
+      case:
+      - when: _A_STHROAT = _MIN1
+        then: 1
+      - otherwise: 0
+    _N1: _EQ_CHILLS + _EQ_FEVER + _EQ_HEADACHE + _EQ_MYALGIA + _EQ_NLTASTE + _EQ_STHROAT
+    _ABOVE_CHILLS:
+      case:
+      - when: _A_CHILLS > _MIN1
+        then: _A_CHILLS
+    _ABOVE_FEVER:
+      case:
+      - when: _A_FEVER > _MIN1
+        then: _A_FEVER
+    _ABOVE_HEADACHE:
+      case:
+      - when: _A_HEADACHE > _MIN1
+        then: _A_HEADACHE
+    _ABOVE_MYALGIA:
+      case:
+      - when: _A_MYALGIA > _MIN1
+        then: _A_MYALGIA
+    _ABOVE_NLTASTE:
+      case:
+      - when: _A_NLTASTE > _MIN1
+        then: _A_NLTASTE
+    _ABOVE_STHROAT:
+      case:
+      - when: _A_STHROAT > _MIN1
+        then: _A_STHROAT
+    _ABOVE_LEAST:
+      least: {sources: [_ABOVE_CHILLS, _ABOVE_FEVER, _ABOVE_HEADACHE, _ABOVE_MYALGIA, _ABOVE_NLTASTE, _ABOVE_STHROAT]}
+    _ONSET1:
+      case:
+      - when: _N1 >= 2
+        then: _MIN1
+      - otherwise: _ABOVE_LEAST
+    _B_CEPNEU:
+      aggregate:
+        filter: PAIR_CO._PCD = 'CEPNEU' AND PAIR_CO._IS_EXCL = 0 AND PAIR_CO._RANDFL = 'Y' AND (PAIR_CO._TR01SDT IS NULL OR PAIR_CO._MBDTN > PAIR_CO._TR01SDT)
+        expr: MIN(PAIR_CO._ADT)
+    _B_COUGH:
+      aggregate:
+        filter: PAIR_CO._PCD = 'COUGH' AND PAIR_CO._IS_EXCL = 0 AND PAIR_CO._RANDFL = 'Y' AND (PAIR_CO._TR01SDT IS NULL OR PAIR_CO._MBDTN > PAIR_CO._TR01SDT)
+        expr: MIN(PAIR_CO._ADT)
+    _B_DIBREATH:
+      aggregate:
+        filter: PAIR_CO._PCD = 'DIBREATH' AND PAIR_CO._IS_EXCL = 0 AND PAIR_CO._RANDFL = 'Y' AND (PAIR_CO._TR01SDT IS NULL OR PAIR_CO._MBDTN > PAIR_CO._TR01SDT)
+        expr: MIN(PAIR_CO._ADT)
+    _B_REPNEU:
+      aggregate:
+        filter: PAIR_CO._PCD = 'REPNEU' AND PAIR_CO._IS_EXCL = 0 AND PAIR_CO._RANDFL = 'Y' AND (PAIR_CO._TR01SDT IS NULL OR PAIR_CO._MBDTN > PAIR_CO._TR01SDT)
+        expr: MIN(PAIR_CO._ADT)
+    _B_SHBREATH:
+      aggregate:
+        filter: PAIR_CO._PCD = 'SHBREATH' AND PAIR_CO._IS_EXCL = 0 AND PAIR_CO._RANDFL = 'Y' AND (PAIR_CO._TR01SDT IS NULL OR PAIR_CO._MBDTN > PAIR_CO._TR01SDT)
+        expr: MIN(PAIR_CO._ADT)
+    _MIN2:
+      least: {sources: [_B_CEPNEU, _B_COUGH, _B_DIBREATH, _B_REPNEU, _B_SHBREATH]}
+    _ONSET:
+      least: {sources: [_ONSET1, _MIN2]}
+    ADT:
+      greatest: {sources: [_ONSET, _PCRDT]}
+    PCRDT: _PCRDT
+    _ADT_EPOCH:
+      to_epoch_day:
+        source: ADT
+    _PCRDT_EPOCH:
+      to_epoch_day:
+        source: PCRDT
+    _ONSET_SD: null
+    _MIN_ADIS_ADT: null
+    _MIN_MBDTN: null
+    _COVID_ADT: null
+    _SEV_ADT_DATE: null
+    _HAS_AENDT: null
+    _SEV_ADT_FINAL: null
+    _PCRDT_DT: null
+    _DTHDT: null
+    _CESTDTC: null
+    _MIN_CRIT5_ADT: null
+    _MIN_MB_AT: null
+    _MIN_COV_ADT: null
+    _MINADT: null
+    _HAS_COMP: null
+    _RTPCRBL: null
+    _RANDFL: null
+  filter: _ONSET IS NOT NULL
+- id: covidsd_rows
+  dataset: PAIR_SD
+  group_by: [PAIR_SD.STUDYID, PAIR_SD.USUBJID, PAIR_SD.SUBJID, PAIR_SD._MBDTN_EPOCH]
+  derivations:
+    STUDYID: PAIR_SD.STUDYID
+    USUBJID: PAIR_SD.USUBJID
+    PARAMCD: '''COVIDSD'''
+    _PCRDT:
+      aggregate:
+        filter: PAIR_SD._MBDTN IS NOT NULL AND PAIR_SD._RANDFL = 'Y' AND (PAIR_SD._TR01SDT IS NULL OR PAIR_SD._MBDTN > PAIR_SD._TR01SDT)
+        expr: MAX(PAIR_SD._MBDTN)
+    _ONSET_SD:
+      aggregate:
+        filter: PAIR_SD._PCD_RAW NOT IN ('CEPNEU', 'REPNEU') AND PAIR_SD._IS_EXCL = 0 AND PAIR_SD._RANDFL = 'Y' AND (PAIR_SD._TR01SDT IS NULL OR PAIR_SD._MBDTN > PAIR_SD._TR01SDT)
+        expr: MIN(PAIR_SD._ADT_RAW)
+    ADT:
+      greatest: {sources: [_ONSET_SD, _PCRDT]}
+    PCRDT: _PCRDT
+    _ADT_EPOCH:
+      to_epoch_day:
+        source: ADT
+    _PCRDT_EPOCH:
+      to_epoch_day:
+        source: PCRDT
+    _A_CHILLS: null
+    _A_FEVER: null
+    _A_HEADACHE: null
+    _A_MYALGIA: null
+    _A_NLTASTE: null
+    _A_STHROAT: null
+    _MIN1: null
+    _EQ_CHILLS: null
+    _EQ_FEVER: null
+    _EQ_HEADACHE: null
+    _EQ_MYALGIA: null
+    _EQ_NLTASTE: null
+    _EQ_STHROAT: null
+    _N1: null
+    _ABOVE_CHILLS: null
+    _ABOVE_FEVER: null
+    _ABOVE_HEADACHE: null
+    _ABOVE_MYALGIA: null
+    _ABOVE_NLTASTE: null
+    _ABOVE_STHROAT: null
+    _ABOVE_LEAST: null
+    _ONSET1: null
+    _B_CEPNEU: null
+    _B_COUGH: null
+    _B_DIBREATH: null
+    _B_REPNEU: null
+    _B_SHBREATH: null
+    _MIN2: null
+    _ONSET: null
+    _MIN_ADIS_ADT: null
+    _MIN_MBDTN: null
+    _COVID_ADT: null
+    _SEV_ADT_DATE: null
+    _HAS_AENDT: null
+    _SEV_ADT_FINAL: null
+    _PCRDT_DT: null
+    _DTHDT: null
+    _CESTDTC: null
+    _MIN_CRIT5_ADT: null
+    _MIN_MB_AT: null
+    _MIN_COV_ADT: null
+    _MINADT: null
+    _HAS_COMP: null
+    _RTPCRBL: null
+    _RANDFL: null
+  filter: _ONSET_SD IS NOT NULL
+- id: infect_rows
+  dataset: ADSL
+  derivations:
+    STUDYID: ADSL.STUDYID
+    USUBJID: ADSL.USUBJID
+    PARAMCD: '''INFECT'''
+    _RANDFL: ADSL.RANDFL
+    _MIN_ADIS_ADT: FIRST_ADIS._ADT
+    _MIN_MBDTN: FIRST_MB._MBDTN
+    ADT:
+      least: {sources: [_MIN_ADIS_ADT, _MIN_MBDTN]}
+    PCRDT:
+      case:
+      - when: (_MIN_MBDTN <= _MIN_ADIS_ADT OR _MIN_ADIS_ADT IS NULL)
+        then: _MIN_MBDTN
+    _ADT_EPOCH:
+      to_epoch_day:
+        source: ADT
+    _PCRDT_EPOCH:
+      to_epoch_day:
+        source: PCRDT
+    _PCRDT: null
+    _A_CHILLS: null
+    _A_FEVER: null
+    _A_HEADACHE: null
+    _A_MYALGIA: null
+    _A_NLTASTE: null
+    _A_STHROAT: null
+    _MIN1: null
+    _EQ_CHILLS: null
+    _EQ_FEVER: null
+    _EQ_HEADACHE: null
+    _EQ_MYALGIA: null
+    _EQ_NLTASTE: null
+    _EQ_STHROAT: null
+    _N1: null
+    _ABOVE_CHILLS: null
+    _ABOVE_FEVER: null
+    _ABOVE_HEADACHE: null
+    _ABOVE_MYALGIA: null
+    _ABOVE_NLTASTE: null
+    _ABOVE_STHROAT: null
+    _ABOVE_LEAST: null
+    _ONSET1: null
+    _B_CEPNEU: null
+    _B_COUGH: null
+    _B_DIBREATH: null
+    _B_REPNEU: null
+    _B_SHBREATH: null
+    _MIN2: null
+    _ONSET: null
+    _ONSET_SD: null
+    _COVID_ADT: null
+    _SEV_ADT_DATE: null
+    _HAS_AENDT: null
+    _SEV_ADT_FINAL: null
+    _PCRDT_DT: null
+    _DTHDT: null
+    _CESTDTC: null
+    _MIN_CRIT5_ADT: null
+    _MIN_MB_AT: null
+    _MIN_COV_ADT: null
+    _MINADT: null
+    _HAS_COMP: null
+    _RTPCRBL: null
+  filter: ADT IS NOT NULL AND _RANDFL = 'Y'
+- id: covidsev_rows
+  dataset: PAIR_CO
+  group_by: [PAIR_CO.STUDYID, PAIR_CO.USUBJID, PAIR_CO.SUBJID, PAIR_CO._MBDTN_EPOCH]
+  derivations:
+    STUDYID: PAIR_CO.STUDYID
+    USUBJID: PAIR_CO.USUBJID
+    PARAMCD: '''COVIDSEV'''
+    _PCRDT:
+      aggregate:
+        filter: PAIR_CO._MBDTN IS NOT NULL AND PAIR_CO._RANDFL = 'Y' AND (PAIR_CO._TR01SDT IS NULL OR PAIR_CO._MBDTN > PAIR_CO._TR01SDT)
+        expr: MAX(PAIR_CO._MBDTN)
+    _A_CHILLS:
+      aggregate:
+        filter: PAIR_CO._PCD = 'CHILLS' AND PAIR_CO._IS_EXCL = 0 AND PAIR_CO._RANDFL = 'Y' AND (PAIR_CO._TR01SDT IS NULL OR PAIR_CO._MBDTN > PAIR_CO._TR01SDT)
+        expr: MIN(PAIR_CO._ADT)
+    _A_FEVER:
+      aggregate:
+        filter: PAIR_CO._PCD = 'FEVER' AND PAIR_CO._IS_EXCL = 0 AND PAIR_CO._RANDFL = 'Y' AND (PAIR_CO._TR01SDT IS NULL OR PAIR_CO._MBDTN > PAIR_CO._TR01SDT)
+        expr: MIN(PAIR_CO._ADT)
+    _A_HEADACHE:
+      aggregate:
+        filter: PAIR_CO._PCD = 'HEADACHE' AND PAIR_CO._IS_EXCL = 0 AND PAIR_CO._RANDFL = 'Y' AND (PAIR_CO._TR01SDT IS NULL OR PAIR_CO._MBDTN > PAIR_CO._TR01SDT)
+        expr: MIN(PAIR_CO._ADT)
+    _A_MYALGIA:
+      aggregate:
+        filter: PAIR_CO._PCD = 'MYALGIA' AND PAIR_CO._IS_EXCL = 0 AND PAIR_CO._RANDFL = 'Y' AND (PAIR_CO._TR01SDT IS NULL OR PAIR_CO._MBDTN > PAIR_CO._TR01SDT)
+        expr: MIN(PAIR_CO._ADT)
+    _A_NLTASTE:
+      aggregate:
+        filter: PAIR_CO._PCD = 'NLTASTE' AND PAIR_CO._IS_EXCL = 0 AND PAIR_CO._RANDFL = 'Y' AND (PAIR_CO._TR01SDT IS NULL OR PAIR_CO._MBDTN > PAIR_CO._TR01SDT)
+        expr: MIN(PAIR_CO._ADT)
+    _A_STHROAT:
+      aggregate:
+        filter: PAIR_CO._PCD = 'STHROAT' AND PAIR_CO._IS_EXCL = 0 AND PAIR_CO._RANDFL = 'Y' AND (PAIR_CO._TR01SDT IS NULL OR PAIR_CO._MBDTN > PAIR_CO._TR01SDT)
+        expr: MIN(PAIR_CO._ADT)
+    _MIN1:
+      least: {sources: [_A_CHILLS, _A_FEVER, _A_HEADACHE, _A_MYALGIA, _A_NLTASTE, _A_STHROAT]}
+    _EQ_CHILLS:
+      case:
+      - when: _A_CHILLS = _MIN1
+        then: 1
+      - otherwise: 0
+    _EQ_FEVER:
+      case:
+      - when: _A_FEVER = _MIN1
+        then: 1
+      - otherwise: 0
+    _EQ_HEADACHE:
+      case:
+      - when: _A_HEADACHE = _MIN1
+        then: 1
+      - otherwise: 0
+    _EQ_MYALGIA:
+      case:
+      - when: _A_MYALGIA = _MIN1
+        then: 1
+      - otherwise: 0
+    _EQ_NLTASTE:
+      case:
+      - when: _A_NLTASTE = _MIN1
+        then: 1
+      - otherwise: 0
+    _EQ_STHROAT:
+      case:
+      - when: _A_STHROAT = _MIN1
+        then: 1
+      - otherwise: 0
+    _N1: _EQ_CHILLS + _EQ_FEVER + _EQ_HEADACHE + _EQ_MYALGIA + _EQ_NLTASTE + _EQ_STHROAT
+    _ABOVE_CHILLS:
+      case:
+      - when: _A_CHILLS > _MIN1
+        then: _A_CHILLS
+    _ABOVE_FEVER:
+      case:
+      - when: _A_FEVER > _MIN1
+        then: _A_FEVER
+    _ABOVE_HEADACHE:
+      case:
+      - when: _A_HEADACHE > _MIN1
+        then: _A_HEADACHE
+    _ABOVE_MYALGIA:
+      case:
+      - when: _A_MYALGIA > _MIN1
+        then: _A_MYALGIA
+    _ABOVE_NLTASTE:
+      case:
+      - when: _A_NLTASTE > _MIN1
+        then: _A_NLTASTE
+    _ABOVE_STHROAT:
+      case:
+      - when: _A_STHROAT > _MIN1
+        then: _A_STHROAT
+    _ABOVE_LEAST:
+      least: {sources: [_ABOVE_CHILLS, _ABOVE_FEVER, _ABOVE_HEADACHE, _ABOVE_MYALGIA, _ABOVE_NLTASTE, _ABOVE_STHROAT]}
+    _ONSET1:
+      case:
+      - when: _N1 >= 2
+        then: _MIN1
+      - otherwise: _ABOVE_LEAST
+    _B_CEPNEU:
+      aggregate:
+        filter: PAIR_CO._PCD = 'CEPNEU' AND PAIR_CO._IS_EXCL = 0 AND PAIR_CO._RANDFL = 'Y' AND (PAIR_CO._TR01SDT IS NULL OR PAIR_CO._MBDTN > PAIR_CO._TR01SDT)
+        expr: MIN(PAIR_CO._ADT)
+    _B_COUGH:
+      aggregate:
+        filter: PAIR_CO._PCD = 'COUGH' AND PAIR_CO._IS_EXCL = 0 AND PAIR_CO._RANDFL = 'Y' AND (PAIR_CO._TR01SDT IS NULL OR PAIR_CO._MBDTN > PAIR_CO._TR01SDT)
+        expr: MIN(PAIR_CO._ADT)
+    _B_DIBREATH:
+      aggregate:
+        filter: PAIR_CO._PCD = 'DIBREATH' AND PAIR_CO._IS_EXCL = 0 AND PAIR_CO._RANDFL = 'Y' AND (PAIR_CO._TR01SDT IS NULL OR PAIR_CO._MBDTN > PAIR_CO._TR01SDT)
+        expr: MIN(PAIR_CO._ADT)
+    _B_REPNEU:
+      aggregate:
+        filter: PAIR_CO._PCD = 'REPNEU' AND PAIR_CO._IS_EXCL = 0 AND PAIR_CO._RANDFL = 'Y' AND (PAIR_CO._TR01SDT IS NULL OR PAIR_CO._MBDTN > PAIR_CO._TR01SDT)
+        expr: MIN(PAIR_CO._ADT)
+    _B_SHBREATH:
+      aggregate:
+        filter: PAIR_CO._PCD = 'SHBREATH' AND PAIR_CO._IS_EXCL = 0 AND PAIR_CO._RANDFL = 'Y' AND (PAIR_CO._TR01SDT IS NULL OR PAIR_CO._MBDTN > PAIR_CO._TR01SDT)
+        expr: MIN(PAIR_CO._ADT)
+    _MIN2:
+      least: {sources: [_B_CEPNEU, _B_COUGH, _B_DIBREATH, _B_REPNEU, _B_SHBREATH]}
+    _ONSET:
+      least: {sources: [_ONSET1, _MIN2]}
+    PCRDT: _PCRDT
+    _PCRDT_EPOCH:
+      to_epoch_day:
+        source: _PCRDT
+    _COVID_ADT:
+      greatest: {sources: [_ONSET, _PCRDT]}
+    _SEV_ADT_DATE: FIRST_SEV._SEV_CAND_DATE
+    _HAS_AENDT:
+      case:
+      - when: FIRST_SEV_AENDT._AENDT IS NOT NULL
+        then: 1
+      - otherwise: 0
+    _SEV_ADT_FINAL:
+      case:
+      - when: _SEV_ADT_DATE IS NULL AND _HAS_AENDT = 1
+        then:
+          shift:
+            type: date
+            source: _PCRDT
+            days: -14
+      - otherwise: _SEV_ADT_DATE
+    ADT:
+      greatest: {sources: [_SEV_ADT_FINAL, PCRDT, _COVID_ADT]}
+    _ADT_EPOCH:
+      to_epoch_day:
+        source: ADT
+    _ONSET_SD: null
+    _MIN_ADIS_ADT: null
+    _MIN_MBDTN: null
+    _PCRDT_DT: null
+    _DTHDT: null
+    _CESTDTC: null
+    _MIN_CRIT5_ADT: null
+    _MIN_MB_AT: null
+    _MIN_COV_ADT: null
+    _MINADT: null
+    _HAS_COMP: null
+    _RTPCRBL: null
+    _RANDFL: null
+  filter: _ONSET IS NOT NULL AND _SEV_ADT_FINAL IS NOT NULL
+- id: deathcvd_rows
+  dataset: MB_D
+  group_by: [MB_D.STUDYID, MB_D.USUBJID, MB_D.SUBJID]
+  derivations:
+    STUDYID: MB_D.STUDYID
+    USUBJID: MB_D.USUBJID
+    PARAMCD: '''DEATHCVD'''
+    _PCRDT_DT:
+      aggregate:
+        filter: MB_D._MBDTN IS NOT NULL
+        expr: MAX(MB_D._MBDTN)
+    _DTHDT: ADSL_LK.DTHDT
+    PCRDT: _PCRDT_DT
+    ADT: _DTHDT
+    _ADT_EPOCH:
+      to_epoch_day:
+        source: ADT
+    _PCRDT_EPOCH:
+      to_epoch_day:
+        source: PCRDT
+    _PCRDT: null
+    _A_CHILLS: null
+    _A_FEVER: null
+    _A_HEADACHE: null
+    _A_MYALGIA: null
+    _A_NLTASTE: null
+    _A_STHROAT: null
+    _MIN1: null
+    _EQ_CHILLS: null
+    _EQ_FEVER: null
+    _EQ_HEADACHE: null
+    _EQ_MYALGIA: null
+    _EQ_NLTASTE: null
+    _EQ_STHROAT: null
+    _N1: null
+    _ABOVE_CHILLS: null
+    _ABOVE_FEVER: null
+    _ABOVE_HEADACHE: null
+    _ABOVE_MYALGIA: null
+    _ABOVE_NLTASTE: null
+    _ABOVE_STHROAT: null
+    _ABOVE_LEAST: null
+    _ONSET1: null
+    _B_CEPNEU: null
+    _B_COUGH: null
+    _B_DIBREATH: null
+    _B_REPNEU: null
+    _B_SHBREATH: null
+    _MIN2: null
+    _ONSET: null
+    _ONSET_SD: null
+    _MIN_ADIS_ADT: null
+    _MIN_MBDTN: null
+    _COVID_ADT: null
+    _SEV_ADT_DATE: null
+    _HAS_AENDT: null
+    _SEV_ADT_FINAL: null
+    _CESTDTC: null
+    _MIN_CRIT5_ADT: null
+    _MIN_MB_AT: null
+    _MIN_COV_ADT: null
+    _MINADT: null
+    _HAS_COMP: null
+    _RTPCRBL: null
+    _RANDFL: null
+  filter: _DTHDT IS NOT NULL
+- id: covida_rows
+  dataset: ADSL
+  group_by: [ADSL.USUBJID]
+  derivations:
+    STUDYID: ADSL_LK.STUDYID
+    USUBJID: ADSL.USUBJID
+    PARAMCD: '''COVIDA'''
+    _RANDFL: ADSL_LK.RANDFL
+    _CESTDTC: FIRST_CE_A._CESTDTC
+    ADT:
+      to_date:
+        source: _CESTDTC
+    PCRDT: null
+    _ADT_EPOCH:
+      to_epoch_day:
+        source: ADT
+    _PCRDT_EPOCH:
+      to_epoch_day:
+        source: PCRDT
+    _PCRDT: null
+    _A_CHILLS: null
+    _A_FEVER: null
+    _A_HEADACHE: null
+    _A_MYALGIA: null
+    _A_NLTASTE: null
+    _A_STHROAT: null
+    _MIN1: null
+    _EQ_CHILLS: null
+    _EQ_FEVER: null
+    _EQ_HEADACHE: null
+    _EQ_MYALGIA: null
+    _EQ_NLTASTE: null
+    _EQ_STHROAT: null
+    _N1: null
+    _ABOVE_CHILLS: null
+    _ABOVE_FEVER: null
+    _ABOVE_HEADACHE: null
+    _ABOVE_MYALGIA: null
+    _ABOVE_NLTASTE: null
+    _ABOVE_STHROAT: null
+    _ABOVE_LEAST: null
+    _ONSET1: null
+    _B_CEPNEU: null
+    _B_COUGH: null
+    _B_DIBREATH: null
+    _B_REPNEU: null
+    _B_SHBREATH: null
+    _MIN2: null
+    _ONSET: null
+    _ONSET_SD: null
+    _MIN_ADIS_ADT: null
+    _MIN_MBDTN: null
+    _COVID_ADT: null
+    _SEV_ADT_DATE: null
+    _HAS_AENDT: null
+    _SEV_ADT_FINAL: null
+    _PCRDT_DT: null
+    _DTHDT: null
+    _MIN_CRIT5_ADT: null
+    _MIN_MB_AT: null
+    _MIN_COV_ADT: null
+    _MINADT: null
+    _HAS_COMP: null
+    _RTPCRBL: null
+  filter: ADT IS NOT NULL AND _RANDFL = 'Y'
+- id: covidsva_rows
+  dataset: ADSL
+  group_by: [ADSL.USUBJID]
+  derivations:
+    STUDYID: ADSL_LK.STUDYID
+    USUBJID: ADSL.USUBJID
+    PARAMCD: '''COVIDSVA'''
+    _RANDFL: ADSL_LK.RANDFL
+    _CESTDTC: FIRST_CE_SVA._CESTDTC
+    ADT:
+      to_date:
+        source: _CESTDTC
+    PCRDT: null
+    _ADT_EPOCH:
+      to_epoch_day:
+        source: ADT
+    _PCRDT_EPOCH:
+      to_epoch_day:
+        source: PCRDT
+    _PCRDT: null
+    _A_CHILLS: null
+    _A_FEVER: null
+    _A_HEADACHE: null
+    _A_MYALGIA: null
+    _A_NLTASTE: null
+    _A_STHROAT: null
+    _MIN1: null
+    _EQ_CHILLS: null
+    _EQ_FEVER: null
+    _EQ_HEADACHE: null
+    _EQ_MYALGIA: null
+    _EQ_NLTASTE: null
+    _EQ_STHROAT: null
+    _N1: null
+    _ABOVE_CHILLS: null
+    _ABOVE_FEVER: null
+    _ABOVE_HEADACHE: null
+    _ABOVE_MYALGIA: null
+    _ABOVE_NLTASTE: null
+    _ABOVE_STHROAT: null
+    _ABOVE_LEAST: null
+    _ONSET1: null
+    _B_CEPNEU: null
+    _B_COUGH: null
+    _B_DIBREATH: null
+    _B_REPNEU: null
+    _B_SHBREATH: null
+    _MIN2: null
+    _ONSET: null
+    _ONSET_SD: null
+    _MIN_ADIS_ADT: null
+    _MIN_MBDTN: null
+    _COVID_ADT: null
+    _SEV_ADT_DATE: null
+    _HAS_AENDT: null
+    _SEV_ADT_FINAL: null
+    _PCRDT_DT: null
+    _DTHDT: null
+    _MIN_CRIT5_ADT: null
+    _MIN_MB_AT: null
+    _MIN_COV_ADT: null
+    _MINADT: null
+    _HAS_COMP: null
+    _RTPCRBL: null
+  filter: ADT IS NOT NULL AND _RANDFL = 'Y'
+- id: asympinf_rows
+  dataset: ADSL
+  group_by: [ADSL.USUBJID]
+  derivations:
+    STUDYID: ADSL_LK.STUDYID
+    USUBJID: ADSL.USUBJID
+    PARAMCD: '''ASYMPINF'''
+    _RANDFL: ADSL_LK.RANDFL
+    _RTPCRBL: ADSL_LK.RTPCRBL
+    _MIN_CRIT5_ADT: FIRST_ADIS_A._ADT
+    _MIN_MB_AT: FIRST_MB_AT._MBDTN
+    _MIN_COV_ADT: FIRST_COV.ADT
+    _MINADT:
+      least: {sources: [_MIN_CRIT5_ADT, _MIN_MB_AT]}
+    _HAS_COMP:
+      case:
+      - when: _MIN_COV_ADT IS NOT NULL AND _MIN_COV_ADT <= _MINADT
+        then: 1
+      - otherwise: 0
+    ADT: _MINADT
+    PCRDT: _MIN_MB_AT
+    _ADT_EPOCH:
+      to_epoch_day:
+        source: ADT
+    _PCRDT_EPOCH:
+      to_epoch_day:
+        source: PCRDT
+    _PCRDT: null
+    _A_CHILLS: null
+    _A_FEVER: null
+    _A_HEADACHE: null
+    _A_MYALGIA: null
+    _A_NLTASTE: null
+    _A_STHROAT: null
+    _MIN1: null
+    _EQ_CHILLS: null
+    _EQ_FEVER: null
+    _EQ_HEADACHE: null
+    _EQ_MYALGIA: null
+    _EQ_NLTASTE: null
+    _EQ_STHROAT: null
+    _N1: null
+    _ABOVE_CHILLS: null
+    _ABOVE_FEVER: null
+    _ABOVE_HEADACHE: null
+    _ABOVE_MYALGIA: null
+    _ABOVE_NLTASTE: null
+    _ABOVE_STHROAT: null
+    _ABOVE_LEAST: null
+    _ONSET1: null
+    _B_CEPNEU: null
+    _B_COUGH: null
+    _B_DIBREATH: null
+    _B_REPNEU: null
+    _B_SHBREATH: null
+    _MIN2: null
+    _ONSET: null
+    _ONSET_SD: null
+    _MIN_ADIS_ADT: null
+    _MIN_MBDTN: null
+    _COVID_ADT: null
+    _SEV_ADT_DATE: null
+    _HAS_AENDT: null
+    _SEV_ADT_FINAL: null
+    _PCRDT_DT: null
+    _DTHDT: null
+    _CESTDTC: null
+  filter: _MINADT IS NOT NULL AND _RANDFL = 'Y' AND _RTPCRBL = 'Negative' AND _HAS_COMP = 0
+- id: asympina_rows
+  dataset: ADSL
+  group_by: [ADSL.USUBJID]
+  derivations:
+    STUDYID: ADSL_LK.STUDYID
+    USUBJID: ADSL.USUBJID
+    PARAMCD: '''ASYMPINA'''
+    _RANDFL: ADSL_LK.RANDFL
+    _RTPCRBL: ADSL_LK.RTPCRBL
+    _MIN_CRIT5_ADT: FIRST_ADIS_A._ADT
+    _MIN_MB_AT: FIRST_MB_AT._MBDTN
+    _MIN_COV_ADT: FIRST_COV.ADT
+    _MINADT:
+      least: {sources: [_MIN_CRIT5_ADT, _MIN_MB_AT]}
+    _HAS_COMP:
+      case:
+      - when: _MIN_COV_ADT IS NOT NULL AND _MIN_COV_ADT <= _MINADT
+        then: 1
+      - otherwise: 0
+    ADT: _MINADT
+    PCRDT: _MIN_MB_AT
+    _ADT_EPOCH:
+      to_epoch_day:
+        source: ADT
+    _PCRDT_EPOCH:
+      to_epoch_day:
+        source: PCRDT
+    _PCRDT: null
+    _A_CHILLS: null
+    _A_FEVER: null
+    _A_HEADACHE: null
+    _A_MYALGIA: null
+    _A_NLTASTE: null
+    _A_STHROAT: null
+    _MIN1: null
+    _EQ_CHILLS: null
+    _EQ_FEVER: null
+    _EQ_HEADACHE: null
+    _EQ_MYALGIA: null
+    _EQ_NLTASTE: null
+    _EQ_STHROAT: null
+    _N1: null
+    _ABOVE_CHILLS: null
+    _ABOVE_FEVER: null
+    _ABOVE_HEADACHE: null
+    _ABOVE_MYALGIA: null
+    _ABOVE_NLTASTE: null
+    _ABOVE_STHROAT: null
+    _ABOVE_LEAST: null
+    _ONSET1: null
+    _B_CEPNEU: null
+    _B_COUGH: null
+    _B_DIBREATH: null
+    _B_REPNEU: null
+    _B_SHBREATH: null
+    _MIN2: null
+    _ONSET: null
+    _ONSET_SD: null
+    _MIN_ADIS_ADT: null
+    _MIN_MBDTN: null
+    _COVID_ADT: null
+    _SEV_ADT_DATE: null
+    _HAS_AENDT: null
+    _SEV_ADT_FINAL: null
+    _PCRDT_DT: null
+    _DTHDT: null
+    _CESTDTC: null
+  filter: _MINADT IS NOT NULL AND _RANDFL = 'Y' AND _RTPCRBL = 'Negative' AND _HAS_COMP = 0
+intermediates:
+- id: ADSL_LK
+  dataset: ADSL
+  key:
+  - USUBJID
+  columns:
+  - ACTARM
+  - AGE
+  - AGEGR1
+  - AGEGR1N
+  - AGEGR2
+  - AGEGR2N
+  - AGEU
+  - ARM
+  - BMIBL
+  - CBNRS
+  - CHILDBP
+  - COMPLFL
+  - COUNTRY
+  - CUTOFFDT
+  - DCSREAS
+  - DCSREASP
+  - DCTREAS
+  - DCTREASP
+  - DOS2DTM
+  - DOSE1FL
+  - DOSE2DT
+  - DOSE2FL
+  - DTHAUTOP
+  - DTHDT
+  - EFFCODT
+  - ELECSBL
+  - EOSDT
+  - EOSDY
+  - EOSSTT
+  - EOTDT
+  - EOTDY
+  - EOTSTT
+  - ETHNIC
+  - FASEREAS
+  - FASFL
+  - HEIGHTBL
+  - MINORITY
+  - MITTERS
+  - MITTFL
+  - PPEREAS
+  - PPROTFL
+  - PREVSCR
+  - PROTVER
+  - RACE
+  - RACEGR1
+  - RACEGR1N
+  - RACESPY
+  - RANDDT
+  - RANDFL
+  - RANDNUM
+  - RETHGR1
+  - RETHGR1N
+  - RFICDT
+  - RFXSTDTC
+  - RISKGR1
+  - RISKGR1N
+  - RSKF1
+  - RSKF2
+  - RSKF3
+  - RSKF4
+  - RSKF5
+  - RSKF6
+  - RTPCRBL
+  - SAFEREAS
+  - SAFFL
+  - SAR1ERS
+  - SAR1FL
+  - SAR2ERS
+  - SAR2FL
+  - SARAFL
+  - SCOV2BL
+  - SEX
+  - SITEID
+  - STRATAR
+  - STRATARN
+  - STRATAV
+  - STRATAVN
+  - STUDDUR1
+  - STUDDUR2
+  - STUDDUR3
+  - STUDYID
+  - SUBJID
+  - TR01EDT
+  - TR01EDTM
+  - TR01SDT
+  - TR01SDTM
+  - TRT01A
+  - TRT01AN
+  - TRT01P
+  - TRT01PN
+  - USUBJID
+  - WEIGHTBL
+- id: MB_E
+  dataset: MB
+  filter: MB.MBTESTCD = 'SARSCOV2' AND MB.MBDTC IS NOT NULL AND MB.MBDTC NOT IN ('') AND MB.MBORRES IN ('Detected', 'Y') AND MB.MBSTRESC IN ('Detected', 'Positive') AND MB._MBDTN <= DATE '2020-11-21'
+  columns:
+  - _STUDYID
+  - _USUBJID
+  - _SUBJID
+  - _MBDTN
+  - _MBDTN_EPOCH
+  - _IS_EXCL
+  - _VISIT
+  - _RANDFL
+  - _TR01SDT
+  derivations:
+    _STUDYID:
+      type: str
+      derivation:
+        str_template:
+          template: '{MB.STUDYID}'
+          missing: ''
+    _USUBJID:
+      type: str
+      derivation:
+        str_template:
+          template: '{MB.USUBJID}'
+          missing: ''
+    _SUBJID:
+      type: str
+      derivation:
+        str_template:
+          template: '{MB.SUBJID}'
+          missing: ''
+    _RANDFL:
+      type: str
+      derivation: ADSL_LK.RANDFL
+    _TR01SDT:
+      type: date
+      derivation: ADSL_LK.TR01SDT
+    _MBDTN:
+      type: date
+      derivation:
+        to_date:
+          source: MB.MBDTC
+    _MBDTN_EPOCH:
+      type: int
+      derivation:
+        to_epoch_day:
+          source: _MBDTN
+    _IS_EXCL:
+      type: int
+      derivation:
+        case:
+        - when: MB.VISIT = 'Visit 2 Day 29'
+          then: 1
+        - otherwise: 0
+    _VISIT:
+      type: str
+      derivation: MB.VISIT
+- id: MB_D
+  dataset: MB
+  filter: MB.MBTESTCD = 'SARSCOV2' AND MB.MBDTC IS NOT NULL AND MB.MBDTC NOT IN ('') AND MB.MBORRES IN ('Detected', 'Y') AND MB.MBSTRESC IN ('Detected', 'Positive') AND (MB._TR01SDT IS NULL OR MB._MBDTN > MB._TR01SDT) AND MB._MBDTN <= DATE '2020-11-21' AND MB._RANDFL = 'Y'
+  derivations:
+    _TR01SDT:
+      type: date
+      derivation: ADSL_LK.TR01SDT
+    _RANDFL:
+      type: str
+      derivation: ADSL_LK.RANDFL
+    _MBDTN:
+      to_date:
+        source: MB.MBDTC
+    _MBDTN_EPOCH:
+      to_epoch_day:
+        source: _MBDTN
+- id: SY
+  dataset: ADSYMP
+  filter: ADSYMP.AVALC IN ('Y', 'YES') AND ADSYMP.PARAMCD IN ('BODYACHE', 'CEPNEU', 'CHILLS', 'COUGH', 'DIARRHEA', 'DIBREATH', 'FATIGUE', 'FEVER', 'HEADACHE', 'MYALGIA', 'NASALCON', 'NAUSEA', 'NLSMELL', 'NLTASTE', 'REPNEU', 'RUNNOSE', 'SHBREATH', 'STHROAT', 'VOMIT')
+  columns:
+  - _USUBJID
+  - _SUBJID
+  - _PCD
+  - _PCD_RAW
+  - _ADT
+  - _ADT_RAW
+  - _ADT_EPOCH
+  - _ADT_RAW_EPOCH
+  derivations:
+    _USUBJID:
+      type: str
+      derivation:
+        str_template:
+          template: '{ADSYMP.USUBJID}'
+          missing: ''
+    _SUBJID:
+      type: str
+      derivation:
+        str_template:
+          template: '{ADSYMP.SUBJID}'
+          missing: ''
+    _PCD:
+      type: str
+      derivation:
+        case:
+        - when: ADSYMP.PARAMCD = 'NLSMELL'
+          then: '''NLTASTE'''
+        - otherwise: ADSYMP.PARAMCD
+    _PCD_RAW:
+      type: str
+      derivation: ADSYMP.PARAMCD
+    _ADT:
+      type: date
+      derivation: ADSYMP.ADT
+    _ADT_RAW:
+      type: date
+      derivation: ADSYMP.ADT
+    _ADT_EPOCH:
+      type: int
+      derivation:
+        to_epoch_day:
+          source: _ADT
+    _ADT_RAW_EPOCH:
+      type: int
+      derivation:
+        to_epoch_day:
+          source: _ADT_RAW
+- id: PAIR_CO
+  dataset: SY
+  inner_join: MB_E
+  key:
+  - _USUBJID
+  - _SUBJID
+  filter: MB_E._MBDTN_EPOCH - 14 <= SY._ADT_EPOCH AND SY._ADT_EPOCH <= MB_E._MBDTN_EPOCH + 14
+  derivations:
+    STUDYID:
+      type: str
+      derivation: MB_E._STUDYID
+    USUBJID:
+      type: str
+      derivation: SY._USUBJID
+    SUBJID:
+      type: str
+      derivation: SY._SUBJID
+    _PCD:
+      type: str
+      derivation: SY._PCD
+    _ADT:
+      type: date
+      derivation: SY._ADT
+    _ADT_EPOCH:
+      type: int
+      derivation:
+        to_epoch_day:
+          source: _ADT
+    _MBDTN:
+      type: date
+      derivation: MB_E._MBDTN
+    _MBDTN_EPOCH:
+      type: int
+      derivation: MB_E._MBDTN_EPOCH
+    _IS_EXCL:
+      type: int
+      derivation: MB_E._IS_EXCL
+    _VISIT:
+      type: str
+      derivation: MB_E._VISIT
+    _RANDFL:
+      type: str
+      derivation: MB_E._RANDFL
+    _TR01SDT:
+      type: date
+      derivation: MB_E._TR01SDT
+- id: PAIR_SD
+  dataset: SY
+  inner_join: MB_E
+  key:
+  - _USUBJID
+  - _SUBJID
+  filter: MB_E._MBDTN_EPOCH - 14 <= SY._ADT_RAW_EPOCH AND SY._ADT_RAW_EPOCH <= MB_E._MBDTN_EPOCH + 14
+  derivations:
+    STUDYID:
+      type: str
+      derivation: MB_E._STUDYID
+    USUBJID:
+      type: str
+      derivation: SY._USUBJID
+    SUBJID:
+      type: str
+      derivation: SY._SUBJID
+    _PCD_RAW:
+      type: str
+      derivation: SY._PCD_RAW
+    _ADT_RAW:
+      type: date
+      derivation: SY._ADT_RAW
+    _ADT_RAW_EPOCH:
+      type: int
+      derivation:
+        to_epoch_day:
+          source: _ADT_RAW
+    _MBDTN:
+      type: date
+      derivation: MB_E._MBDTN
+    _MBDTN_EPOCH:
+      type: int
+      derivation: MB_E._MBDTN_EPOCH
+    _IS_EXCL:
+      type: int
+      derivation: MB_E._IS_EXCL
+    _RANDFL:
+      type: str
+      derivation: MB_E._RANDFL
+    _TR01SDT:
+      type: date
+      derivation: MB_E._TR01SDT
+- id: FIRST_ADIS
+  dataset: ADIS
+  key:
+  - USUBJID
+  - SUBJID
+  filter: ADIS.CRIT5FL = 'Y' AND ADIS.ADT IS NOT NULL
+  order_by:
+  - ADIS.ADT
+  keep: first
+  derivations:
+    _ADT:
+      type: date
+      derivation: ADIS.ADT
+- id: FIRST_ADIS_A
+  dataset: ADIS
+  key:
+  - USUBJID
+  - SUBJID
+  filter: ADIS.CRIT5FL = 'Y' AND ADIS.ADT IS NOT NULL
+  order_by:
+  - ADIS.ADT
+  keep: first
+  derivations:
+    _ADT:
+      type: date
+      derivation: ADIS.ADT
+- id: FIRST_MB
+  dataset: MB
+  key:
+  - USUBJID
+  - SUBJID
+  filter: MB.MBTESTCD = 'SARSCOV2' AND MB.MBDTC IS NOT NULL AND MB.MBDTC NOT IN ('') AND MB.MBORRES IN ('Detected', 'Y') AND MB.MBSTRESC IN ('Detected', 'Positive') AND (MB._TR01SDT IS NULL OR MB._MBDTN > MB._TR01SDT) AND MB._MBDTN <= DATE '2020-11-21'
+  order_by:
+  - MB._MBDTN
+  keep: first
+  columns: [_MBDTN]
+  derivations:
+    _TR01SDT:
+      type: date
+      derivation: ADSL_LK.TR01SDT
+    _MBDTN:
+      type: date
+      derivation:
+        to_date:
+          source: MB.MBDTC
+- id: FIRST_MB_AT
+  dataset: MB
+  key:
+  - USUBJID
+  - SUBJID
+  filter: MB.MBTESTCD = 'SARSCOV2' AND MB.MBDTC IS NOT NULL AND MB.MBDTC NOT IN ('') AND MB.MBORRES IN ('Detected', 'Y') AND MB.MBSTRESC IN ('Detected', 'Positive') AND MB.VISIT = 'Visit 2 Day 29' AND (MB._TR01SDT IS NULL OR MB._MBDTN > MB._TR01SDT) AND MB._MBDTN <= DATE '2020-11-21'
+  order_by:
+  - MB._MBDTN
+  keep: first
+  columns: [_MBDTN]
+  derivations:
+    _TR01SDT:
+      type: date
+      derivation: ADSL_LK.TR01SDT
+    _MBDTN:
+      type: date
+      derivation:
+        to_date:
+          source: MB.MBDTC
+- id: FIRST_CE_A
+  dataset: CE
+  key:
+  - USUBJID
+  filter: CE.CECAT = 'ADJUDICATION' AND CE.CESTDTC IS NOT NULL AND CE.CESTDTC NOT IN ('') AND CE.CESTDTC <= '2020-11-21' AND str_contains(CE.CEREASOC, 'EVENT MEETS THE CHARTER DEFINITION OF COVID-19')
+  order_by:
+  - CE.CESTDTC
+  keep: first
+  columns: [_CESTDTC]
+  derivations:
+    _CESTDTC:
+      type: str
+      derivation: CE.CESTDTC
+- id: FIRST_CE_SVA
+  dataset: CE
+  key:
+  - USUBJID
+  filter: CE.CECAT = 'ADJUDICATION' AND CE.CESTDTC IS NOT NULL AND CE.CESTDTC NOT IN ('') AND CE.CESTDTC <= '2020-11-21' AND str_contains(CE.CEREASOC, 'EVENT MEETS THE CHARTER DEFINITION OF SEVERE COVID-19')
+  order_by:
+  - CE.CESTDTC
+  keep: first
+  columns: [_CESTDTC]
+  derivations:
+    _CESTDTC:
+      type: str
+      derivation: CE.CESTDTC
+- id: FIRST_COV
+  dataset: SELF
+  key:
+  - USUBJID
+  filter: SELF.PARAMCD IN ('COVID', 'COVIDSD')
+  order_by:
+  - SELF.ADT
+  keep: first
+- id: FIRST_SEV
+  dataset: ADSYMP
+  key:
+  - USUBJID
+  filter: ADSYMP.AVALC IN ('Y', 'YES') AND ADSYMP.PARAMCD IN ('RR30', 'HR125', 'OXYGEN93', 'O2SAT93', 'PAO2F300', 'RF', 'ARDS', 'S90D60', 'VASOPRES', 'ARDYSF', 'HEPDYSF', 'NEURDYSF', 'ICU') AND ((PAIR_CO._MBDTN_EPOCH - 14 <= ADSYMP._ADT_EPOCH AND ADSYMP._ADT_EPOCH <= PAIR_CO._MBDTN_EPOCH + 28) OR ((ADSYMP._ASTDT_EPOCH IS NULL OR ADSYMP._ASTDT_EPOCH < PAIR_CO._MBDTN_EPOCH - 14) AND ADSYMP._AENDT_EPOCH > PAIR_CO._MBDTN_EPOCH + 28) OR ADSYMP._ADT_EPOCH IS NULL OR (PAIR_CO._MBDTN_EPOCH - 14 <= ADSYMP._ASTDT_EPOCH AND ADSYMP._ASTDT_EPOCH <= PAIR_CO._MBDTN_EPOCH + 28) OR (PAIR_CO._MBDTN_EPOCH - 14 <= ADSYMP._AENDT_EPOCH AND ADSYMP._AENDT_EPOCH <= PAIR_CO._MBDTN_EPOCH + 28))
+  order_by:
+  - variable: ADSYMP._SEV_CAND_DATE
+    nulls: last
+  keep: first
+  columns: [_SEV_CAND_DATE]
+  derivations:
+    _ADT:
+      type: date
+      derivation: ADSYMP.ADT
+    _ADT_EPOCH:
+      type: int
+      derivation:
+        to_epoch_day:
+          source: _ADT
+    _ASTDT:
+      type: date
+      derivation: ADSYMP.ASTDT
+    _AENDT:
+      type: date
+      derivation: ADSYMP.AENDT
+    _ASTDT_EPOCH:
+      type: int
+      derivation:
+        to_epoch_day:
+          source: _ASTDT
+    _AENDT_EPOCH:
+      type: int
+      derivation:
+        to_epoch_day:
+          source: _AENDT
+    _SEV_CAND_DATE:
+      type: date
+      derivation:
+        case:
+        - when: _ASTDT_EPOCH IS NOT NULL AND _ASTDT_EPOCH < PAIR_CO._MBDTN_EPOCH - 14 AND _AENDT_EPOCH > PAIR_CO._MBDTN_EPOCH + 28
+          then: _ASTDT
+        - when: PAIR_CO._MBDTN_EPOCH - 14 <= _ASTDT_EPOCH AND _ASTDT_EPOCH <= PAIR_CO._MBDTN_EPOCH + 28
+          then: _ASTDT
+        - otherwise: _ADT
+- id: FIRST_SEV_AENDT
+  dataset: ADSYMP
+  key:
+  - USUBJID
+  filter: ADSYMP.AVALC IN ('Y', 'YES') AND ADSYMP.PARAMCD IN ('RR30', 'HR125', 'OXYGEN93', 'O2SAT93', 'PAO2F300', 'RF', 'ARDS', 'S90D60', 'VASOPRES', 'ARDYSF', 'HEPDYSF', 'NEURDYSF', 'ICU') AND ((PAIR_CO._MBDTN_EPOCH - 14 <= ADSYMP._ADT_EPOCH AND ADSYMP._ADT_EPOCH <= PAIR_CO._MBDTN_EPOCH + 28) OR ((ADSYMP._ASTDT_EPOCH IS NULL OR ADSYMP._ASTDT_EPOCH < PAIR_CO._MBDTN_EPOCH - 14) AND ADSYMP._AENDT_EPOCH > PAIR_CO._MBDTN_EPOCH + 28) OR ADSYMP._ADT_EPOCH IS NULL OR (PAIR_CO._MBDTN_EPOCH - 14 <= ADSYMP._ASTDT_EPOCH AND ADSYMP._ASTDT_EPOCH <= PAIR_CO._MBDTN_EPOCH + 28) OR (PAIR_CO._MBDTN_EPOCH - 14 <= ADSYMP._AENDT_EPOCH AND ADSYMP._AENDT_EPOCH <= PAIR_CO._MBDTN_EPOCH + 28)) AND ADSYMP._AENDT IS NOT NULL
+  order_by:
+  - ADSYMP._ASTDT
+  keep: first
+  columns: [_AENDT]
+  derivations:
+    _ADT:
+      type: date
+      derivation: ADSYMP.ADT
+    _ADT_EPOCH:
+      type: int
+      derivation:
+        to_epoch_day:
+          source: _ADT
+    _ASTDT:
+      type: date
+      derivation: ADSYMP.ASTDT
+    _AENDT:
+      type: date
+      derivation: ADSYMP.AENDT
+    _ASTDT_EPOCH:
+      type: int
+      derivation:
+        to_epoch_day:
+          source: _ASTDT
+    _AENDT_EPOCH:
+      type: int
+      derivation:
+        to_epoch_day:
+          source: _AENDT
+windows:
+  ANL01_W:
+    group_by:
+    - USUBJID
+    - PARAMCD
+    order_by:
+    - ADT
+    - variable: PCRDT
+      nulls: first
+columns:
+- name: _ADSL
+  type: str
+  derivation: ADSL.USUBJID
+- name: STUDYID
+  submission:
+    origins:
+    - type: Derived
+    method: "Withheld from publication: the received define states this text."
+- name: USUBJID
+  submission:
+    origins:
+    - type: Derived
+    method: "Withheld from publication: the received define states this text."
+- name: _PCRDT
+  type: date
+- name: _A_CHILLS
+  type: date
+- name: _A_FEVER
+  type: date
+- name: _A_HEADACHE
+  type: date
+- name: _A_MYALGIA
+  type: date
+- name: _A_NLTASTE
+  type: date
+- name: _A_STHROAT
+  type: date
+- name: _MIN1
+  type: date
+- name: _EQ_CHILLS
+  type: int
+- name: _EQ_FEVER
+  type: int
+- name: _EQ_HEADACHE
+  type: int
+- name: _EQ_MYALGIA
+  type: int
+- name: _EQ_NLTASTE
+  type: int
+- name: _EQ_STHROAT
+  type: int
+- name: _N1
+  type: int
+- name: _ABOVE_CHILLS
+  type: date
+- name: _ABOVE_FEVER
+  type: date
+- name: _ABOVE_HEADACHE
+  type: date
+- name: _ABOVE_MYALGIA
+  type: date
+- name: _ABOVE_NLTASTE
+  type: date
+- name: _ABOVE_STHROAT
+  type: date
+- name: _ABOVE_LEAST
+  type: date
+- name: _ONSET1
+  type: date
+- name: _B_CEPNEU
+  type: date
+- name: _B_COUGH
+  type: date
+- name: _B_DIBREATH
+  type: date
+- name: _B_REPNEU
+  type: date
+- name: _B_SHBREATH
+  type: date
+- name: _MIN2
+  type: date
+- name: _ONSET
+  type: date
+- name: _ONSET_SD
+  type: date
+- name: _MIN_ADIS_ADT
+  type: date
+- name: _MIN_MBDTN
+  type: date
+- name: _COVID_ADT
+  type: date
+- name: _SEV_ADT_DATE
+  type: date
+- name: _HAS_AENDT
+  type: int
+- name: _SEV_ADT_FINAL
+  type: date
+- name: _PCRDT_DT
+  type: date
+- name: _DTHDT
+  type: date
+- name: _CESTDTC
+  type: str
+- name: _MIN_CRIT5_ADT
+  type: date
+- name: _MIN_MB_AT
+  type: date
+- name: _MIN_COV_ADT
+  type: date
+- name: _MINADT
+  type: date
+- name: _HAS_COMP
+  type: int
+- name: _RTPCRBL
+  type: str
+- name: _RANDFL
+  type: str
+- name: _ADT_EPOCH
+  type: int
+- name: _PCRDT_EPOCH
+  type: int
+- name: SUBJID
+  derivation: ADSL_LK.SUBJID
+  submission:
+    origins:
+    - type: Predecessor
+      description: ADSL.SUBJID
+- name: SITEID
+  derivation: ADSL_LK.SITEID
+  submission:
+    origins:
+    - type: Predecessor
+      description: ADSL.SITEID
+- name: COUNTRY
+  derivation: ADSL_LK.COUNTRY
+  submission:
+    origins:
+    - type: Predecessor
+      description: ADSL.COUNTRY
+- name: AGE
+  derivation: ADSL_LK.AGE
+  submission:
+    origins:
+    - type: Predecessor
+      description: ADSL.AGE
+- name: AGEU
+  derivation: ADSL_LK.AGEU
+  submission:
+    origins:
+    - type: Predecessor
+      description: ADSL.AGEU
+- name: STRATAR
+  derivation: ADSL_LK.STRATAR
+  submission:
+    origins:
+    - type: Predecessor
+      description: ADSL.STRATAR
+- name: STRATARN
+  derivation: ADSL_LK.STRATARN
+  submission:
+    origins:
+    - type: Predecessor
+      description: ADSL.STRATARN
+- name: AGEGR1
+  derivation: ADSL_LK.AGEGR1
+  submission:
+    origins:
+    - type: Predecessor
+      description: ADSL.AGEGR1
+- name: AGEGR1N
+  derivation: ADSL_LK.AGEGR1N
+  submission:
+    origins:
+    - type: Predecessor
+      description: ADSL.AGEGR1N
+- name: AGEGR2
+  derivation: ADSL_LK.AGEGR2
+  submission:
+    origins:
+    - type: Predecessor
+      description: ADSL.AGEGR2
+- name: AGEGR2N
+  derivation: ADSL_LK.AGEGR2N
+  submission:
+    origins:
+    - type: Predecessor
+      description: ADSL.AGEGR2N
+- name: SEX
+  derivation: ADSL_LK.SEX
+  submission:
+    origins:
+    - type: Predecessor
+      description: ADSL.SEX
+- name: RACE
+  derivation: ADSL_LK.RACE
+  submission:
+    origins:
+    - type: Predecessor
+      description: ADSL.RACE
+- name: RACESPY
+  derivation: ADSL_LK.RACESPY
+  submission:
+    origins:
+    - type: Predecessor
+      description: ADSL.RACESPY
+- name: ETHNIC
+  derivation: ADSL_LK.ETHNIC
+  submission:
+    origins:
+    - type: Predecessor
+      description: ADSL.ETHNIC
+- name: RANDFL
+  derivation: ADSL_LK.RANDFL
+  submission:
+    origins:
+    - type: Predecessor
+      description: ADSL.RANDFL
+- name: FASFL
+  derivation: ADSL_LK.FASFL
+  submission:
+    origins:
+    - type: Predecessor
+      description: ADSL.FASFL
+- name: SAFFL
+  derivation: ADSL_LK.SAFFL
+  submission:
+    origins:
+    - type: Predecessor
+      description: ADSL.SAFFL
+- name: SAR1FL
+  derivation: ADSL_LK.SAR1FL
+  submission:
+    origins:
+    - type: Predecessor
+      description: ADSL.SAR1FL
+- name: SAR2FL
+  derivation: ADSL_LK.SAR2FL
+  submission:
+    origins:
+    - type: Predecessor
+      description: ADSL.SAR2FL
+- name: SARAFL
+  derivation: ADSL_LK.SARAFL
+  submission:
+    origins:
+    - type: Predecessor
+      description: ADSL.SARAFL
+- name: MITTFL
+  derivation: ADSL_LK.MITTFL
+  submission:
+    origins:
+    - type: Predecessor
+      description: ADSL.MITTFL
+- name: PPROTFL
+  derivation: ADSL_LK.PPROTFL
+  submission:
+    origins:
+    - type: Predecessor
+      description: ADSL.PPROTFL
+- name: COMPLFL
+  derivation: ADSL_LK.COMPLFL
+  submission:
+    origins:
+    - type: Predecessor
+      description: ADSL.COMPLFL
+- name: DOSE1FL
+  derivation: ADSL_LK.DOSE1FL
+  submission:
+    origins:
+    - type: Predecessor
+      description: ADSL.DOSE1FL
+- name: DOSE2FL
+  derivation: ADSL_LK.DOSE2FL
+  submission:
+    origins:
+    - type: Predecessor
+      description: ADSL.DOSE2FL
+- name: RTPCRBL
+  derivation: ADSL_LK.RTPCRBL
+  submission:
+    origins:
+    - type: Predecessor
+      description: ADSL.RTPCRBL
+- name: ELECSBL
+  derivation: ADSL_LK.ELECSBL
+  submission:
+    origins:
+    - type: Predecessor
+      description: ADSL.ELECSBL
+- name: SCOV2BL
+  derivation: ADSL_LK.SCOV2BL
+  submission:
+    origins:
+    - type: Predecessor
+      description: ADSL.SCOV2BL
+- name: TRT01P
+  derivation: ADSL_LK.TRT01P
+  submission:
+    origins:
+    - type: Predecessor
+      description: ADSL.TRT01P
+- name: TRT01PN
+  derivation: ADSL_LK.TRT01PN
+  submission:
+    origins:
+    - type: Predecessor
+      description: ADSL.TRT01PN
+- name: TRT01A
+  derivation: ADSL_LK.TRT01A
+  submission:
+    origins:
+    - type: Predecessor
+      description: ADSL.TRT01A
+- name: TRT01AN
+  derivation: ADSL_LK.TRT01AN
+  submission:
+    origins:
+    - type: Predecessor
+      description: ADSL.TRT01AN
+- name: TR01SDT
+  derivation: ADSL_LK.TR01SDT
+  submission:
+    origins:
+    - type: Predecessor
+      description: ADSL.TR01SDT
+- name: TR01SDTM
+  derivation: ADSL_LK.TR01SDTM
+  submission:
+    origins:
+    - type: Predecessor
+      description: ADSL.TR01SDTM
+- name: TR01EDT
+  derivation: ADSL_LK.TR01EDT
+  submission:
+    origins:
+    - type: Predecessor
+      description: ADSL.TR01EDT
+- name: TR01EDTM
+  derivation: ADSL_LK.TR01EDTM
+  submission:
+    origins:
+    - type: Predecessor
+      description: ADSL.TR01EDTM
+- name: DOSE2DT
+  derivation: ADSL_LK.DOSE2DT
+  submission:
+    origins:
+    - type: Predecessor
+      description: ADSL.DOSE2DT
+- name: DOS2DTM
+  derivation: ADSL_LK.DOS2DTM
+  submission:
+    origins:
+    - type: Predecessor
+      description: ADSL.DOS2DTM
+- name: RSKF1
+  derivation: ADSL_LK.RSKF1
+  submission:
+    origins:
+    - type: Predecessor
+      description: ADSL.RSKF1
+- name: RSKF2
+  derivation: ADSL_LK.RSKF2
+  submission:
+    origins:
+    - type: Predecessor
+      description: ADSL.RSKF2
+- name: RSKF3
+  derivation: ADSL_LK.RSKF3
+  submission:
+    origins:
+    - type: Predecessor
+      description: ADSL.RSKF3
+- name: RSKF4
+  derivation: ADSL_LK.RSKF4
+  submission:
+    origins:
+    - type: Predecessor
+      description: ADSL.RSKF4
+- name: RSKF5
+  derivation: ADSL_LK.RSKF5
+  submission:
+    origins:
+    - type: Predecessor
+      description: ADSL.RSKF5
+- name: RSKF6
+  derivation: ADSL_LK.RSKF6
+  submission:
+    origins:
+    - type: Predecessor
+      description: ADSL.RSKF6
+- name: STRATAV
+  derivation: ADSL_LK.STRATAV
+  submission:
+    origins:
+    - type: Predecessor
+      description: ADSL.STRATAV
+- name: STRATAVN
+  derivation: ADSL_LK.STRATAVN
+  submission:
+    origins:
+    - type: Predecessor
+      description: ADSL.STRATAVN
+- name: MINORITY
+  derivation: ADSL_LK.MINORITY
+  submission:
+    origins:
+    - type: Predecessor
+      description: ADSL.MINORITY
+- name: RACEGR1
+  derivation: ADSL_LK.RACEGR1
+  submission:
+    mandatory: false
+    origins:
+    - type: Predecessor
+      description: ADSL.RACEGR1
+- name: RACEGR1N
+  derivation: ADSL_LK.RACEGR1N
+  submission:
+    mandatory: false
+    origins:
+    - type: Predecessor
+      description: ADSL.RACEGR1N
+- name: RISKGR1
+  derivation: ADSL_LK.RISKGR1
+  submission:
+    origins:
+    - type: Predecessor
+      description: ADSL.RISKGR1
+- name: RISKGR1N
+  derivation: ADSL_LK.RISKGR1N
+  submission:
+    origins:
+    - type: Predecessor
+      description: ADSL.RISKGR1N
+- name: RETHGR1
+  derivation: ADSL_LK.RETHGR1
+  submission:
+    origins:
+    - type: Predecessor
+      description: ADSL.RETHGR1
+- name: RETHGR1N
+  derivation: ADSL_LK.RETHGR1N
+  submission:
+    origins:
+    - type: Predecessor
+      description: ADSL.RETHGR1N
+- name: ACTARM
+  derivation: null
+- name: ARM
+  derivation: null
+- name: BMIBL
+  derivation: null
+- name: CBNRS
+  derivation: null
+- name: CHILDBP
+  derivation: null
+- name: CUTOFFDT
+  derivation: null
+- name: DCSREAS
+  derivation: null
+- name: DCSREASP
+  derivation: null
+- name: DCTREAS
+  derivation: null
+- name: DCTREASP
+  derivation: null
+- name: DTHAUTOP
+  derivation: null
+- name: DTHDT
+  derivation: null
+- name: EFFCODT
+  derivation: null
+- name: EOSDT
+  derivation: null
+- name: EOSDY
+  derivation: null
+- name: EOSSTT
+  derivation: null
+- name: EOTDT
+  derivation: null
+- name: EOTDY
+  derivation: null
+- name: EOTSTT
+  derivation: null
+- name: FASEREAS
+  derivation: null
+- name: HEIGHTBL
+  derivation: null
+- name: MITTERS
+  derivation: null
+- name: PPEREAS
+  derivation: null
+- name: PREVSCR
+  derivation: null
+- name: PROTVER
+  derivation: null
+- name: RANDDT
+  derivation: null
+- name: RANDNUM
+  derivation: null
+- name: RFICDT
+  derivation: null
+- name: RFXSTDTC
+  derivation: null
+- name: SAFEREAS
+  derivation: null
+- name: SAR1ERS
+  derivation: null
+- name: SAR2ERS
+  derivation: null
+- name: STUDDUR1
+  derivation: null
+- name: STUDDUR2
+  derivation: null
+- name: STUDDUR3
+  derivation: null
+- name: WEIGHTBL
+  derivation: null
+- name: ADT
+  type: date
+  label: Analysis Date
+  submission:
+    core: Req
+    mandatory: true
+    origins:
+    - type: Derived
+    method: "Withheld from publication: the received define states this text."
+- name: ADY
+  type: int
+  label: Analysis Relative Day
+  derivation:
+    study_day:
+      source: ADT
+      reference: TR01SDT
+  submission:
+    core: Req
+    mandatory: true
+    length: 8
+    display_format: '3.'
+    origins:
+    - type: Derived
+    method: "Withheld from publication: the received define states this text."
+- name: PARCAT1
+  type: str
+  label: Parameter Category 1
+  derivation:
+    case:
+    - when: PARAMCD IN ('COVIDA', 'COVIDSVA', 'ASYMPINA')
+      then: '''DERIVED PER ADJUDICATION'''
+    - otherwise: '''DERIVED PER SAP'''
+  submission:
+    core: Req
+    mandatory: true
+    length: 50
+    origins:
+    - type: Derived
+    method: "Withheld from publication: the received define states this text."
+- name: PARAMCD
+  type: str
+  label: Parameter Code
+  submission:
+    core: Req
+    mandatory: true
+    length: 8
+    origins:
+    - type: Assigned
+    method: "Withheld from publication: the received define states this text."
+- name: PARAM
+  type: str
+  label: Parameter
+  derivation:
+    mapping:
+      source: PARAMCD
+      dict:
+        ASYMPINA: 'Asymptomatic SARS-CoV-2 Infection per Adjudication'
+        ASYMPINF: 'Asymptomatic SARS-CoV-2 Infection'
+        COVID: 'COVID-19'
+        COVIDA: 'COVID-19 per Adjudication'
+        COVIDSD: 'COVID-19 (Secondary Definition)'
+        COVIDSEV: 'Severe COVID-19'
+        COVIDSVA: 'Severe COVID-19 per Adjudication'
+        DEATHCVD: 'Death Caused by COVID-19'
+        INFECT: 'SARS-CoV-2 Infection Regardless of Symptomatology or Severity'
+      unmapped: null
+  submission:
+    core: Req
+    mandatory: true
+    length: 200
+    origins:
+    - type: Derived
+    method: "Withheld from publication: the received define states this text."
+- name: AVALC
+  type: str
+  label: Analysis Value (C)
+  derivation: '''Y'''
+  submission:
+    core: Req
+    mandatory: true
+    length: 50
+    origins:
+    - type: Assigned
+    method: "Withheld from publication: the received define states this text."
+- name: PCRDT
+  type: date
+  label: Date of Positive RT-PCR
+  submission:
+    core: Perm
+    mandatory: false
+    origins:
+    - type: Derived
+    method: "Withheld from publication: the received define states this text."
+- name: ANL01FL
+  type: str
+  label: Analysis Flag 01
+  derivation:
+    case:
+    - when: _ANL_RN = 1
+      then: '''Y'''
+    - otherwise: "''"
+  submission:
+    core: Perm
+    mandatory: false
+    length: 1
+    origins:
+    - type: Derived
+    method: "Withheld from publication: the received define states this text."
+- name: _ANL_RN
+  type: int
+  derivation:
+    row_number:
+      window: ANL01_W
+- name: ASEQ
+  type: int
+  derivation:
+    row_number:
+      window:
+        group_by:
+        - STUDYID
+        - USUBJID
+        order_by:
+        - PARAMCD
+        - ADT
+        - variable: PCRDT
+          nulls: first
+output:
+  path: <adam-dir>/adeff-yamaa.parquet
+  order_by:
+  - USUBJID
+  - PARAMCD
+  - ADT
+  - PCRDT
+  columns:
+  - STUDYID
+  - USUBJID
+  - SUBJID
+  - SITEID
+  - COUNTRY
+  - AGE
+  - AGEU
+  - STRATAR
+  - STRATARN
+  - AGEGR1
+  - AGEGR1N
+  - AGEGR2
+  - AGEGR2N
+  - SEX
+  - RACE
+  - RACESPY
+  - ETHNIC
+  - RANDFL
+  - FASFL
+  - SAFFL
+  - SAR1FL
+  - SAR2FL
+  - SARAFL
+  - MITTFL
+  - PPROTFL
+  - COMPLFL
+  - DOSE1FL
+  - DOSE2FL
+  - RTPCRBL
+  - ELECSBL
+  - SCOV2BL
+  - TRT01P
+  - TRT01PN
+  - TRT01A
+  - TRT01AN
+  - TR01SDT
+  - TR01SDTM
+  - TR01EDT
+  - TR01EDTM
+  - DOSE2DT
+  - DOS2DTM
+  - RSKF1
+  - RSKF2
+  - RSKF3
+  - RSKF4
+  - RSKF5
+  - RSKF6
+  - STRATAV
+  - STRATAVN
+  - MINORITY
+  - RACEGR1
+  - RACEGR1N
+  - RISKGR1
+  - RISKGR1N
+  - RETHGR1
+  - RETHGR1N
+  - ADT
+  - ADY
+  - PARCAT1
+  - PARAMCD
+  - PARAM
+  - AVALC
+  - PCRDT
+  - ANL01FL
+  - ASEQ

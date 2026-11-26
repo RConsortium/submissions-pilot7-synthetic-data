@@ -1,0 +1,505 @@
+# ADARP7D for Moderna mRNA-1273-P301, cut S5 (First Interim Analysis IA1b,
+# extract 2020-11-25).
+# Layer over the S3 spec: the S5 program (A_P_adar with %let dsetname =
+# adarp7d, Bates 5657866-5657875) is the S3 A20ADARP7D program (Bates
+# 3820372-3820385) with these changes, each ported below where it lands:
+#  - no MEDTAK/MEDTAKP/MEDTAKT records from SUPPVS, LYMPH = Lymphadenopathy;
+#  - the FAAE/FACE selections keep grade-0 and 'NONE' records and drop
+#    erythema/swelling occurrence records only when FAORRES = 'Y';
+#  - no AVAL-threshold deletes (S3 'if .<AVAL<25 then delete'), no
+#    day 7 / day 8 flags and no whole-group delete when no record is past
+#    day 7 (S3's witness intermediates);
+#  - grade 0 is graded, AVAL is 0 for a non-occurring erythema/swelling;
+#  - flags: ANL01FL = local parameter with ATOXGRN > 0; ANL02FL, ANL03FL
+#    and ANL04FL are S3's ANL04FL, ANL05FL and ANL06FL, computed the same
+#    way on the S5 record set; S3's ANL02FL/ANL03FL/ANL05FL/ANL06FL are
+#    not produced.
+# (scripts/reproduce.py verify --study mrna-1273-p301 --cut s5)
+#
+# Input: the S5 release carries no FACE (only SUPPFACE), so FACE and its
+# SUPPFACE are read from the S3 release (BLA 125752 S3), a later snapshot;
+# subjects whose S3 FACE records differ from the S5 snapshot do not match
+# (data/differences.yaml, missing_input). FAAE, VS and their SUPP domains
+# are this cut's.
+#
+# ADSL: the IA ADSL has none of S3's own ADSL columns, so their
+# derivations are nulled and their submission metadata cleared.
+yamaa: '1.0'
+type: spec
+parent: ../../../s3/spec/yamaa/adarp7d.yaml
+input:
+  FACE: <study-dir>/s3/data/sdtm/face.parquet
+  SUPPFACE: <study-dir>/s3/data/sdtm/suppface.parquet
+clear:
+- columns.AGEGR3.submission
+- columns.AGEGR3N.submission
+- columns.AGEGR4.submission
+- columns.AGEGR4N.submission
+- columns.RANDIGFL.submission
+- columns.PPSIFL.submission
+- columns.CCIASFL.submission
+- columns.OLDOS1FL.submission
+- columns.OLDOS2FL.submission
+- columns.TRT02P.submission
+- columns.TRT02PN.submission
+- columns.TRT02A.submission
+- columns.TRT02AN.submission
+- columns.TRTSEQP.submission
+- columns.TRTSEQPN.submission
+- columns.TRTSEQA.submission
+- columns.TRTSEQAN.submission
+- columns.TRTSDT.submission
+- columns.TRTEDT.submission
+- columns.TR02SDT.submission
+- columns.TR02SDTM.submission
+- columns.TR02EDT.submission
+- columns.TR02EDTM.submission
+- columns.OLDOS2DT.submission
+- columns.OLDO2DTM.submission
+- columns.EUAVACDT.submission
+- columns.EFFCODT.submission
+- columns.AP01SDT.submission
+- columns.AP01EDT.submission
+- columns.AP02SDT.submission
+- columns.AP02EDT.submission
+- columns.AP01SSDT.submission
+- columns.AP01SEDT.submission
+- columns.AP02SSDT.submission
+- columns.AP02SEDT.submission
+- columns.STUDDUR3.submission
+- columns.COVIDAFL.submission
+- columns.CVDSVAFL.submission
+- columns.ANL05FL.submission
+- columns.ANL06FL.submission
+intermediates:
+# data FAAE_subjid / FAAE_fv_subjid: faae_all where not ((erythema or
+# swelling) and fatest='Occurrence Indicator' and FAORRES='Y') and
+# fastat ^= 'NOT DONE' and ^missing(faTPTREF) -- no FASTRESC condition
+# (S3 also required a graded, non-'NONE' FASTRESC).
+- id: K_FAAE_FA
+  filter: NOT((FAAE.FAOBJ IN ('Erythema', 'Swelling') AND FAAE.FATEST = 'Occurrence Indicator' AND FAAE.FAORRES = 'Y') OR (FAAE.FASTAT IS NOT NULL AND FAAE.FASTAT = 'NOT DONE')) AND FAAE.FATPTREF IS NOT NULL AND FAAE.FATPTREF NOT IN ('')
+- id: K_VS_FAAE
+  filter: NOT((FAAE.FAOBJ IN ('Erythema', 'Swelling') AND FAAE.FATEST = 'Occurrence Indicator' AND FAAE.FAORRES = 'Y') OR (FAAE.FASTAT IS NOT NULL AND FAAE.FASTAT = 'NOT DONE')) AND FAAE.FATPTREF IS NOT NULL AND FAAE.FATPTREF NOT IN ('') AND FAAE._PCD_E = 'FEVER'
+rows:
+# data combine: FAAE1 where not ((erythema or swelling) and fatest=
+# 'Occurrence Indicator' and FAORRES='Y') and fastat ^= 'NOT DONE' and
+# upcase(facat) = 'REACTOGENICITY'; FAAE1 is faae_all merged with
+# _FAAE_subjid by (usubjid, PARAMCD, FATPTREF). Then the ADSL inner join and
+# the dose-2 drop (adsl dropfl step). No AVAL-threshold or witness filter.
+- id: faae_rows
+  filter: ((_K_FAAE_FA IS NOT NULL OR _K_FAAE_VS IS NOT NULL) AND NOT((_FAOBJ IN ('Erythema', 'Swelling') AND _FATEST = 'Occurrence Indicator' AND _FAORRES = 'Y') OR (_FASTAT IS NOT NULL AND _FASTAT = 'NOT DONE') OR _FACAT IS NULL OR _FACAT <> 'REACTOGENICITY') AND NOT(_ATPTREF = 'Vaccination 2' AND _DOSE2FL = 'N') AND _ADSL IS NOT NULL)
+# data combine: vs1 where vscat='REACTOGENICITY' and vsstat ^= 'NOT DONE';
+# vs1 is vs_all merged with _VS_subjid by (usubjid, VSTESTCD, vstptref),
+# every timepoint of the selected keys (no AVAL >= 38 condition).
+- id: vs_rows
+  filter: ((_K_VS_VS IS NOT NULL OR _K_VS_FAAE IS NOT NULL) AND _VSCAT = 'REACTOGENICITY' AND (_VSSTAT IS NULL OR _VSSTAT <> 'NOT DONE') AND NOT(_ATPTREF = 'Vaccination 2' AND _DOSE2FL = 'N') AND _ADSL IS NOT NULL)
+# data combine: FACE1, with the FAAE1 selection.
+- id: face_rows
+  filter: ((_K_FAAE_FA IS NOT NULL OR _K_FAAE_VS IS NOT NULL) AND NOT((_FAOBJ IN ('Erythema', 'Swelling') AND _FATEST = 'Occurrence Indicator' AND _FAORRES = 'Y') OR (_FASTAT IS NOT NULL AND _FASTAT = 'NOT DONE') OR _FACAT IS NULL OR _FACAT <> 'REACTOGENICITY') AND NOT(_ATPTREF = 'Vaccination 2' AND _DOSE2FL = 'N') AND _ADSL IS NOT NULL)
+# The S5 program has no data vs_all step outputting one record per SUPPVS
+# MEDTAK/MEDTAKP/MEDTAKT = 'Y': the S3 templates select nothing.
+- id: vs_medtak_rows
+  filter: 1 = 0
+- id: vs_medtakp_rows
+  filter: 1 = 0
+- id: vs_medtakt_rows
+  filter: 1 = 0
+windows:
+# ***ANL03FL***: last record per (usubjid, param, atptref, atpt) in the
+# sort _agfl atoxgrn descending adt descending _faeval descending srcseq
+# (S3's ANL05FL), with _agfl from the S5 grade.
+  ANL05_ORD:
+    group_by: [USUBJID, PARAM, ATPTREF, ATPT]
+    order_by:
+    - _AGFL_S5
+    - ATOXGRN
+    - variable: ADT
+      direction: desc
+    - variable: _FAEVAL_NUM
+      direction: desc
+    - variable: SRCSEQ
+      direction: desc
+columns:
+# ADSL columns the IA ADSL does not carry (see the header).
+- name: AGEGR3
+  derivation: null
+- name: AGEGR3N
+  derivation: null
+- name: AGEGR4
+  derivation: null
+- name: AGEGR4N
+  derivation: null
+- name: RANDIGFL
+  derivation: null
+- name: PPSIFL
+  derivation: null
+- name: CCIASFL
+  derivation: null
+- name: OLDOS1FL
+  derivation: null
+- name: OLDOS2FL
+  derivation: null
+- name: TRT02P
+  derivation: null
+- name: TRT02PN
+  derivation: null
+- name: TRT02A
+  derivation: null
+- name: TRT02AN
+  derivation: null
+- name: TRTSEQP
+  derivation: null
+- name: TRTSEQPN
+  derivation: null
+- name: TRTSEQA
+  derivation: null
+- name: TRTSEQAN
+  derivation: null
+- name: TRTSDT
+  derivation: null
+- name: TRTEDT
+  derivation: null
+- name: TR02SDT
+  derivation: null
+- name: TR02SDTM
+  derivation: null
+- name: TR02EDT
+  derivation: null
+- name: TR02EDTM
+  derivation: null
+- name: OLDOS2DT
+  derivation: null
+- name: OLDO2DTM
+  derivation: null
+- name: EUAVACDT
+  derivation: null
+- name: AP01SDT
+  derivation: null
+- name: AP01EDT
+  derivation: null
+- name: AP02SDT
+  derivation: null
+- name: AP02EDT
+  derivation: null
+- name: AP01SSDT
+  derivation: null
+- name: AP01SEDT
+  derivation: null
+- name: AP02SSDT
+  derivation: null
+- name: AP02SEDT
+  derivation: null
+- name: COVIDAFL
+  derivation: null
+- name: CVDSVAFL
+  derivation: null
+- name: RACE
+  submission:
+    mandatory: false
+- name: COMPLFL
+  derivation: ADSL.COMPLFL
+  submission:
+    origins:
+    - type: Predecessor
+      description: ADSL.COMPLFL
+# S3-only flag machinery (day 7 / day 8 flags, the retained ANL03FL, S3's
+# ANL05FL/ANL06FL outputs) that the S5 program does not have.
+- name: _ATPTN7
+  derivation: null
+- name: _ATPTN8
+  derivation: null
+- name: _HAS7
+  derivation: null
+- name: _HAS8
+  derivation: null
+- name: _ANL02_NUM
+  derivation: null
+- name: _ANL02_MAX
+  derivation: null
+- name: _ANL03FL
+  derivation: null
+- name: _ANL03_RN
+  derivation: null
+- name: _ANL03_SRC
+  derivation: null
+- name: _ANL03_LOCF
+  derivation: null
+- name: ANL05FL
+  derivation: null
+- name: ANL06FL
+  derivation: null
+# data combine_final: if ^missing(_atm) then ATM = input(_atm,time5.);
+# kept in S5's output (S3 drops it).
+- name: ATM
+  type: time
+  label: 'Analysis Time'
+  derivation:
+    to_time:
+      source: _ORI_ADTM
+  submission:
+    core: Perm
+    mandatory: false
+    origins:
+    - type: Derived
+    method: "Withheld from publication: the received define states this text."
+# proc format $param: LYMPH = 'Lymphadenopathy'; MEDATTEN and MEDTA* are
+# not in the S5 format.
+- name: PARAM
+  derivation:
+    case:
+    - when: PARAMCD = 'LYMPH'
+      then: '''Lymphadenopathy'''
+    - when: PARAMCD = 'PAIN'
+      then: '''Pain'''
+    - when: PARAMCD = 'ERYTHDIA'
+      then: '''Erythema Longest Diameter (mm)'''
+    - when: PARAMCD = 'SWELLDIA'
+      then: '''Swelling Longest Diameter (mm)'''
+    - when: PARAMCD = 'HEADACHE'
+      then: '''Headache'''
+    - when: PARAMCD = 'FATIGUE'
+      then: '''Fatigue'''
+    - when: PARAMCD = 'MYALGIA'
+      then: '''Myalgia'''
+    - when: PARAMCD = 'ARTHRALG'
+      then: '''Arthralgia'''
+    - when: PARAMCD = 'NAUSEA'
+      then: '''Nausea/Vomiting'''
+    - when: PARAMCD = 'CHILLS'
+      then: '''Chills'''
+    - when: PARAMCD = 'FEVER'
+      then: '''Fever (C)'''
+    - otherwise: _FAOBJ
+  submission:
+    method: "Withheld from publication: the received define states this text."
+# AVAL (combine_final step): 0 for an erythema or swelling occurrence
+# record whose result is no (the S3 program has this rule commented out);
+# otherwise VSSTRESN or FASTRESN.
+- name: AVAL
+  derivation:
+    case:
+    - when: _FAORRES_UP IN ('N', 'NO') AND _FATEST = 'Occurrence Indicator' AND _PARAMCD IN ('ERYTHDIA', 'SWELLDIA')
+      then: 0.0
+    - otherwise: _AVAL_NUM
+  submission:
+    method: "Withheld from publication: the received define states this text."
+# data combine_final, Analysis Toxicity Grade: the S5 chains grade 0
+# (S3 deleted or skipped grade-0 records).
+- name: ATOXGRN
+  derivation:
+    case:
+    - when: _PARAMCD IN ('ERYTHDIA', 'SWELLDIA') AND ((AVAL IS NOT NULL AND AVAL < 25) OR (_FASTRESC IS NOT NULL AND str_contains(_FASTRESC, 'GRADE 0')))
+      then: 0
+    - when: _PARAMCD IN ('ERYTHDIA', 'SWELLDIA') AND ((AVAL >= 25 AND AVAL <= 50) OR (_FASTRESC IS NOT NULL AND str_contains(_FASTRESC, 'GRADE 1')))
+      then: 1
+    - when: _PARAMCD IN ('ERYTHDIA', 'SWELLDIA') AND ((AVAL > 50 AND AVAL <= 100) OR (_FASTRESC IS NOT NULL AND str_contains(_FASTRESC, 'GRADE 2')))
+      then: 2
+    - when: _PARAMCD IN ('ERYTHDIA', 'SWELLDIA') AND (AVAL > 100 OR (_FASTRESC IS NOT NULL AND str_contains(_FASTRESC, 'GRADE 3')))
+      then: 3
+    - when: _PARAMCD IN ('ERYTHDIA', 'SWELLDIA') AND (_FASTRESC IS NOT NULL AND str_contains(_FASTRESC, 'GRADE 4'))
+      then: 4
+    - when: _PARAMCD = 'FEVER' AND ((AVAL IS NOT NULL AND AVAL < 38) OR (_FASTRESC IS NOT NULL AND str_contains(_FASTRESC, 'GRADE 0')))
+      then: 0
+    - when: _PARAMCD = 'FEVER' AND ((AVAL >= 38 AND AVAL <= 38.4) OR (_FASTRESC IS NOT NULL AND str_contains(_FASTRESC, 'GRADE 1')))
+      then: 1
+    - when: _PARAMCD = 'FEVER' AND ((AVAL > 38.4 AND AVAL <= 38.9) OR (_FASTRESC IS NOT NULL AND str_contains(_FASTRESC, 'GRADE 2')))
+      then: 2
+    - when: _PARAMCD = 'FEVER' AND ((AVAL > 38.9 AND AVAL <= 40) OR (_FASTRESC IS NOT NULL AND str_contains(_FASTRESC, 'GRADE 3')))
+      then: 3
+    - when: _PARAMCD = 'FEVER' AND (AVAL > 40 OR (_FASTRESC IS NOT NULL AND str_contains(_FASTRESC, 'GRADE 4')))
+      then: 4
+    - when: _PARAMCD IN ('PAIN', 'LYMPH', 'HEADACHE') AND (_AVALC_UP = 'NONE' OR (_FASTRESC IS NOT NULL AND str_contains(_FASTRESC, 'GRADE 0')))
+      then: 0
+    - when: _PARAMCD IN ('PAIN', 'LYMPH', 'HEADACHE') AND (_AVALC_UP IN ('DOES NOT INTERFERE WITH ACTIVITY', 'NO INTERFERENCE WITH ACTIVITY') OR (_FASTRESC IS NOT NULL AND str_contains(_FASTRESC, 'GRADE 1')))
+      then: 1
+    - when: _PARAMCD IN ('PAIN', 'LYMPH', 'HEADACHE') AND ((_AVALC_UP IS NOT NULL AND str_contains(_AVALC_UP, 'REPEATED')) OR (_FASTRESC IS NOT NULL AND str_contains(_FASTRESC, 'GRADE 2')))
+      then: 2
+    - when: _PARAMCD IN ('PAIN', 'LYMPH', 'HEADACHE') AND (_AVALC_UP IN ('ANY USE OF PRESCRIPTION RELIEVER OR PREVENTS DAILY ACTIVITY', 'ANY USE OF PRESCRIPTION PAIN RELIEVER OR PREVENTS DAILY ACTIVITY') OR (_FASTRESC IS NOT NULL AND str_contains(_FASTRESC, 'GRADE 3')))
+      then: 3
+    - when: _PARAMCD IN ('PAIN', 'LYMPH', 'HEADACHE') AND (_FASTRESC IS NOT NULL AND str_contains(_FASTRESC, 'GRADE 4'))
+      then: 4
+    - when: _PARAMCD IN ('FATIGUE', 'MYALGIA', 'ARTHRALG') AND (_AVALC_UP = 'NONE' OR (_FASTRESC IS NOT NULL AND str_contains(_FASTRESC, 'GRADE 0')))
+      then: 0
+    - when: _PARAMCD IN ('FATIGUE', 'MYALGIA', 'ARTHRALG') AND (_AVALC_UP = 'NO INTERFERENCE WITH ACTIVITY' OR (_FASTRESC IS NOT NULL AND str_contains(_FASTRESC, 'GRADE 1')))
+      then: 1
+    - when: _PARAMCD IN ('FATIGUE', 'MYALGIA', 'ARTHRALG') AND (_AVALC_UP = 'SOME INTERFERENCE WITH ACTIVITY' OR (_FASTRESC IS NOT NULL AND str_contains(_FASTRESC, 'GRADE 2')))
+      then: 2
+    - when: _PARAMCD IN ('FATIGUE', 'MYALGIA', 'ARTHRALG') AND (_AVALC_UP = 'SIGNIFICANT; PREVENTS DAILY ACTIVITY' OR (_FASTRESC IS NOT NULL AND str_contains(_FASTRESC, 'GRADE 3')))
+      then: 3
+    - when: _PARAMCD IN ('FATIGUE', 'MYALGIA', 'ARTHRALG') AND (_FASTRESC IS NOT NULL AND str_contains(_FASTRESC, 'GRADE 4'))
+      then: 4
+    - when: _PARAMCD = 'NAUSEA' AND (_AVALC_UP = 'NONE' OR (_FASTRESC IS NOT NULL AND str_contains(_FASTRESC, 'GRADE 0')))
+      then: 0
+    - when: _PARAMCD = 'NAUSEA' AND (_AVALC_UP = 'NO INTERFERENCE WITH ACTIVITY OR 1-2 EPISODES/24 HOURS' OR (_FASTRESC IS NOT NULL AND str_contains(_FASTRESC, 'GRADE 1')))
+      then: 1
+    - when: _PARAMCD = 'NAUSEA' AND (_AVALC_UP = 'SOME INTERFERENCE WITH ACTIVITY OR >2 EPISODES/24 HOURS' OR (_FASTRESC IS NOT NULL AND str_contains(_FASTRESC, 'GRADE 2')))
+      then: 2
+    - when: _PARAMCD = 'NAUSEA' AND (_AVALC_UP = 'PREVENTS DAILY ACTIVITY, REQUIRES OUTPATIENT IV HYDRATION' OR (_FASTRESC IS NOT NULL AND str_contains(_FASTRESC, 'GRADE 3')))
+      then: 3
+    - when: _PARAMCD = 'NAUSEA' AND (_FASTRESC IS NOT NULL AND str_contains(_FASTRESC, 'GRADE 4'))
+      then: 4
+    - when: _PARAMCD = 'CHILLS' AND (_AVALC_UP = 'NONE' OR (_FASTRESC IS NOT NULL AND str_contains(_FASTRESC, 'GRADE 0')))
+      then: 0
+    - when: _PARAMCD = 'CHILLS' AND (_AVALC_UP = 'NO INTERFERENCE WITH ACTIVITY' OR (_FASTRESC IS NOT NULL AND str_contains(_FASTRESC, 'GRADE 1')))
+      then: 1
+    - when: _PARAMCD = 'CHILLS' AND (_AVALC_UP = 'SOME INTERFERENCE WITH ACTIVITY NOT REQUIRING MEDICAL ATTENTION' OR (_FASTRESC IS NOT NULL AND str_contains(_FASTRESC, 'GRADE 2')))
+      then: 2
+    - when: _PARAMCD = 'CHILLS' AND (_AVALC_UP = 'PREVENTS DAILY ACTIVITY AND REQUIRES MEDICAL ATTENTION' OR (_FASTRESC IS NOT NULL AND str_contains(_FASTRESC, 'GRADE 3')))
+      then: 3
+    - when: _PARAMCD = 'CHILLS' AND (_FASTRESC IS NOT NULL AND str_contains(_FASTRESC, 'GRADE 4'))
+      then: 4
+    - otherwise: null
+  submission:
+    method: "Withheld from publication: the received define states this text."
+- name: ATOXGR
+  derivation:
+    case:
+    - when: ATOXGRN = 0
+      then: '''Grade 0'''
+    - when: ATOXGRN = 1
+      then: '''Grade 1'''
+    - when: ATOXGRN = 2
+      then: '''Grade 2'''
+    - when: ATOXGRN = 3
+      then: '''Grade 3'''
+    - when: ATOXGRN = 4
+      then: '''Grade 4'''
+    - otherwise: "''"
+  submission:
+    method: "Withheld from publication: the received define states this text."
+# data combine_final: if atoxgrn~=. then _agfl=1 (from the S5 grade).
+- name: _AGFL_S5
+  type: int
+  derivation:
+    case:
+    - when: ATOXGRN IS NOT NULL
+      then: 1
+    - otherwise: null
+# ANL01FL (combine_final step): Y for the three local parameters (pain,
+# erythema, swelling) with a grade above 0 (S3: the four local parameters,
+# any grade).
+- name: ANL01FL
+  derivation:
+    case:
+    - when: PARAMCD IN ('PAIN', 'ERYTHDIA', 'SWELLDIA') AND ATOXGRN > 0
+      then: '''Y'''
+    - otherwise: "''"
+  submission:
+    method: "Withheld from publication: the received define states this text."
+# ***ANL02FL***: first.ATPTREF in the sort USUBJID PARAMCD descending
+# anl01fl ATPTREF descending _atpta ATPTGR1N adt atm, with atptgr1n>=8,
+# _atpta=1 and anl01fl='Y', merged back onto the (USUBJID, PARAMCD,
+# anl01fl, ATPTREF) group -- S3's ANL04FL.
+- name: ANL02FL
+  derivation:
+    case:
+    - when: _ANL04_MAX = 1
+      then: '''Y'''
+    - otherwise: "''"
+  submission:
+    method: "Withheld from publication: the received define states this text."
+# ***ANL03FL***: if last.atpt and _agfl=1 -- S3's ANL05FL.
+- name: ANL03FL
+  derivation:
+    case:
+    - when: _ANL05_RN = _ANL05_CNT AND _AGFL_S5 = 1
+      then: '''Y'''
+    - otherwise: "''"
+  submission:
+    method: "Withheld from publication: the received define states this text."
+# proc sql __anl04fl: per (USUBJID, PARAMCD, ATPTREF), among ATOXGRN>0
+# records, .<min(ATPTGR1N)<8 and max(ATPTGR1N)>=8, merged onto every
+# record of the group -- S3's ANL06FL.
+- name: ANL04FL
+  derivation:
+    case:
+    - when: _ANL06_MIN < 8 AND _ANL06_MAX >= 8
+      then: '''Y'''
+    - otherwise: "''"
+  submission:
+    method: "Withheld from publication: the received define states this text."
+output:
+  columns:
+  - STUDYID
+  - USUBJID
+  - SUBJID
+  - SITEID
+  - COUNTRY
+  - AGE
+  - AGEU
+  - STRATAR
+  - STRATARN
+  - AGEGR1
+  - AGEGR1N
+  - AGEGR2
+  - AGEGR2N
+  - SEX
+  - RACE
+  - RACESPY
+  - ETHNIC
+  - RANDFL
+  - FASFL
+  - SAFFL
+  - SAR1FL
+  - SAR2FL
+  - SARAFL
+  - MITTFL
+  - PPROTFL
+  - COMPLFL
+  - DOSE1FL
+  - DOSE2FL
+  - RTPCRBL
+  - ELECSBL
+  - SCOV2BL
+  - TRT01P
+  - TRT01PN
+  - TRT01A
+  - TRT01AN
+  - TR01SDT
+  - TR01SDTM
+  - TR01EDT
+  - TR01EDTM
+  - DOSE2DT
+  - DOS2DTM
+  - RSKF1
+  - RSKF2
+  - RSKF3
+  - RSKF4
+  - RSKF5
+  - RSKF6
+  - STRATAV
+  - STRATAVN
+  - MINORITY
+  - RACEGR1
+  - RACEGR1N
+  - RISKGR1
+  - RISKGR1N
+  - RETHGR1
+  - RETHGR1N
+  - ASEQ
+  - ADT
+  - ATM
+  - ADTM
+  - ADY
+  - ATPTREF
+  - ATPT
+  - ATPTN
+  - PARCAT1
+  - PARCAT1N
+  - PARAMCD
+  - PARAM
+  - AVAL
+  - AVALC
+  - ATOXGR
+  - ATOXGRN
+  - SRCDOM
+  - SRCSEQ
+  - SRCVAR
+  - ANL01FL
+  - ANL02FL
+  - ANL03FL
+  - ATPTGR1
+  - ATPTGR1N
+  - FAEVAL
+  - MAAEFL
+  - ANL04FL
