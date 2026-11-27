@@ -48,7 +48,10 @@ class GateRules(unittest.TestCase):
             ("a file outside the allowlist", {"phmpt/notes.md": "x\n"},
              ["phmpt/notes.md: not in the publication allowlist"]),
             ("the site pages", {f"docs/phmpt/{p}.md": "# Page\n" for p in
-                                ("index", "coverage", "glossary", "reproduce", "findings/bnt162-01")}, []),
+                                ("index", "coverage", "glossary", "findings/bnt162-01")}, []),
+            ("the kit's runner", {"phmpt/reproduce.sh": "#!/bin/sh\n"}, []),
+            ("a retired page", {"docs/phmpt/reproduce.md": "# Page\n"},
+             ["docs/phmpt/reproduce.md: not in the publication allowlist"]),
             ("a site page outside the allowlist", {"docs/phmpt/notes.md": "x\n"},
              ["docs/phmpt/notes.md: not in the publication allowlist"]),
             ("a dataset", {"phmpt/bnt162-01/27034/data/adam/adxx.parquet": b"PAR1"},

@@ -1,0 +1,949 @@
+# ADVA for Pfizer C4591001, EUA 27034 sequence S1 (safety and final
+# efficacy analysis, data snapshot of November 2020).
+# Layer over the S1 (BLA) spec, run on this cut's SDTM
+# (scripts/reproduce.py verify --study c4591001 --cut s1-safety-fa-eff). The
+# output keeps the EUA file's columns, in its order.
+#
+# The EUA adva.sas is not in the release (only its output programs are), so
+# this layer writes what the EUA dataset and its define say differ from the
+# BLA program (spec/source/program/adam ... adva-sas.txt), a later version of
+# the same program:
+#   - Phase 1 and Phase 2 (360) subjects only: Phase 3 N-binding results are
+#     not kept;
+#   - no retests (the EUA IS has no ISTSTDTL) and no treatment periods: TRTP
+#     and TRTA are the period-01 treatments, and APERIOD, the period
+#     datetimes, the 4-fold-rise columns and the period-02 ADSL columns are
+#     not kept;
+#   - the ratio parameters to RBD IgG (NT50_RB, NT90_RB, PARAMN 13 and 14)
+#     are kept, which the BLA program drops at its end;
+#   - N-binding results keep their analysis visit and ANL01FL (the BLA
+#     program clears them);
+#   - a COVID-visit result 28 to 42 days after Dose 2 of a subject without a
+#     1-month visit takes the 1-month analysis visit but no ANL01FL (it was
+#     not windowed);
+#   - ABLPBLFL is missing without a baseline, and on ratio records it is Y or
+#     missing (no BLA final recomputation, no N);
+#   - EVIMMFL is N from the post-dose positive swab date (PD1POSDT) on;
+#   - EPOCH from IS, and from ADSL the reporting treatments (TRTPR, TRTAR)
+#     and PD1POSDT.
+# ADSL comes from helper/adsl_va.yaml: this cut's released ADSL with the
+# columns adva.sas reads that the released file lacks.
+yamaa: '1.0'
+type: spec
+parent: ../../../s1/spec/yamaa/adva.yaml
+# The BLA columns the EUA dataset does not keep.
+clear:
+- columns.APERIOD.submission
+- columns.APERIODC.submission
+- columns.APERSDTM.submission
+- columns.APEREDTM.submission
+- columns.BASE4F.submission
+- columns.R2BASE4F.submission
+- columns.FOLD4FL.submission
+- columns.ISTSTDTL.submission
+- columns.RANDFL.submission
+- columns.TRT02A.submission
+- columns.TRT02AN.submission
+- columns.TRT02P.submission
+- columns.TRT02PN.submission
+- columns.TR02SDT.submission
+- columns.TR02STM.submission
+- columns.TR02SDTM.submission
+- columns.TR02EDT.submission
+- columns.TR02ETM.submission
+- columns.TR02EDTM.submission
+- columns.VAX10UDT.submission
+- columns.VAX201DT.submission
+- columns.VAX202DT.submission
+- columns.AGEGR4.submission
+- columns.AGEGR4N.submission
+- columns.HIVFL.submission
+- columns.PEDIMMFL.submission
+- columns.EV1MD2FL.submission
+- columns.AGETR01.submission
+- columns.VAX101.submission
+- columns.VAX102.submission
+- columns.VAX10U.submission
+- columns.VAX201.submission
+- columns.VAX202.submission
+- columns.VAX20U.submission
+- columns.VAX20UDT.submission
+- columns.UNBLNDDT.submission
+- columns.MULENRFL.submission
+- columns.RAND1FL.submission
+- columns.TRTSDTM.submission
+- columns.TRTEDTM.submission
+input:
+  ADSL:
+    path: <work-dir>/adsl_va.parquet
+    schema: helper/adsl_va.yaml
+    key:
+    - STUDYID
+    - USUBJID
+rows:
+# Phase 1 and Phase 2 subjects only.
+- id: base
+  filter: ADSL.PHASEN IN (1, 2)
+  derivations:
+    EPOCH: _ISC._EPOCH
+- id: ratio_nt50_s1
+  derivations:
+    EPOCH: _SHELL4._SH_EPOCH
+    ANL01FL: _SHELL4._SH_ANL01FL
+    ABLPBLFL:
+      case:
+      - when: (_FIRST_NT50._HAS_ABL = 1) AND (_R_HAS_APS50._X IS NOT NULL)
+        then: '''Y'''
+- id: ratio_nt90_s1
+  derivations:
+    EPOCH: _SHELL4._SH_EPOCH
+    ANL01FL: _SHELL4._SH_ANL01FL
+    ABLPBLFL:
+      case:
+      - when: (_FIRST_NT90._HAS_ABL = 1) AND (_R_HAS_APS90._X IS NOT NULL)
+        then: '''Y'''
+- id: ratio_nt50_rb
+  dataset: _ISC
+  group_by:
+  - _ISC.USUBJID
+  - _ISC.VISITNUM
+  - _ISC.ADT
+  filter: _EMIT = 1
+  derivations:
+    _DERIVED: 1
+    STUDYID: '''C4591001'''
+    USUBJID: _ISC.USUBJID
+    VISITNUM: _ISC.VISITNUM
+    ADT: _ISC.ADT
+    TRTP: _SHELL4.TRTP
+    TRTA: _SHELL4.TRTA
+    TRTPN: _SHELL4.TRTPN
+    TRTAN: _SHELL4.TRTAN
+    VISIT: _SHELL4._SHELL_VISIT
+    ISDTC: _SHELL4._SHELL_ISDTC
+    ADY: _SHELL4._ADY
+    AVISIT: _SHELL4._AVISIT_PB
+    AVISITN: _SHELL4._AVISITN_PB
+    EVIMMFL: _SHELL4._EVIMMFL
+    AAIMMFL: _SHELL4._AAIMMFL
+    APERIOD: _SHELL4.APERIOD
+    APERIODC: _SHELL4.APERIODC
+    APERSDTM: _SHELL4.APERSDTM
+    APEREDTM: _SHELL4.APEREDTM
+    ISTSTDTL: ''''''
+    FOLD4FL: ''''''
+    R2BASE4F:
+      case:
+      - when: _ISC.VISITNUM = -1
+        then: 0
+    BASE4F:
+      case:
+      - when: _ISC.VISITNUM = -1
+        then: 0
+    EPOCH: _SHELL4._SH_EPOCH
+    PARAMCD: '''NT50_RB'''
+    PARAM: '''SARS-CoV-2 serum neutralizing titer 50 to COVID-19 RBD Ig'''
+    PARAMN: 13
+    PARCAT1: '''SEROLOGY'''
+    PARCAT1N: 1
+    SRCVAR: ''''''
+    SRCDOM: ''''''
+    ISSTRESC: ''''''
+    ANL03FL: ''''''
+    ANL04FL: ''''''
+    BSSEROC: ''''''
+    ISLLOQ:
+      case:
+      - when: _ISC.VISITNUM = -1
+        then: 0
+    SRCSEQ:
+      case:
+      - when: _ISC.VISITNUM = -1
+        then: 0
+    BSSERON:
+      case:
+      - when: _ISC.VISITNUM = -1
+        then: 0
+    _RATIO_RAW: _R_NT50._AVAL_IMP / _R_RB._AVAL_IMP
+    AVAL:
+      round_half_away_from_zero:
+        source: _RATIO_RAW
+        digits: 4
+    _AVAL_IMPUTED: 0
+    _BASE_IMPUTED: 0
+    _AVALC_BEST_RAW:
+      case:
+      - when: AVAL < 1
+        then:
+          str_decimal:
+            source: AVAL
+            decimals: 10
+      - when: AVAL < 10
+        then:
+          str_decimal:
+            source: AVAL
+            decimals: 10
+      - when: AVAL < 100
+        then:
+          str_decimal:
+            source: AVAL
+            decimals: 9
+      - when: AVAL < 1000
+        then:
+          str_decimal:
+            source: AVAL
+            decimals: 8
+      - when: AVAL < 10000
+        then:
+          str_decimal:
+            source: AVAL
+            decimals: 7
+      - when: AVAL < 100000
+        then:
+          str_decimal:
+            source: AVAL
+            decimals: 6
+      - otherwise:
+          str_decimal:
+            source: AVAL
+            decimals: 5
+    _AVALC_BEST_T1:
+      str_extract:
+        source: _AVALC_BEST_RAW
+        pattern: ^(\d+\.\d*[1-9])0+$
+        group: 1
+        no_match: null
+    _AVALC_BEST_T2:
+      str_extract:
+        source: _AVALC_BEST_RAW
+        pattern: ^(\d+)\.0+$
+        group: 1
+        no_match: null
+    _AVALC_BEST:
+      case:
+      - when: _AVALC_BEST_T1 IS NOT NULL
+        then: _AVALC_BEST_T1
+      - when: _AVALC_BEST_T2 IS NOT NULL
+        then: _AVALC_BEST_T2
+      - otherwise: _AVALC_BEST_RAW
+    BASE:
+      case:
+      - when: _FIRST_NT50_RB._HAS_ABL = 1
+        then: _FIRST_NT50_RB._RATIO_AVAL
+    _BASEC_RAW: ''''''
+    _BASEC_BEST_RAW:
+      case:
+      - when: BASE < 1
+        then:
+          str_decimal:
+            source: BASE
+            decimals: 10
+      - when: BASE < 10
+        then:
+          str_decimal:
+            source: BASE
+            decimals: 10
+      - when: BASE < 100
+        then:
+          str_decimal:
+            source: BASE
+            decimals: 9
+      - when: BASE < 1000
+        then:
+          str_decimal:
+            source: BASE
+            decimals: 8
+      - when: BASE < 10000
+        then:
+          str_decimal:
+            source: BASE
+            decimals: 7
+      - when: BASE < 100000
+        then:
+          str_decimal:
+            source: BASE
+            decimals: 6
+      - otherwise:
+          str_decimal:
+            source: BASE
+            decimals: 5
+    _BASEC_BEST_T1:
+      str_extract:
+        source: _BASEC_BEST_RAW
+        pattern: ^(\d+\.\d*[1-9])0+$
+        group: 1
+        no_match: null
+    _BASEC_BEST_T2:
+      str_extract:
+        source: _BASEC_BEST_RAW
+        pattern: ^(\d+)\.0+$
+        group: 1
+        no_match: null
+    _BASEC_BEST:
+      case:
+      - when: _BASEC_BEST_T1 IS NOT NULL
+        then: _BASEC_BEST_T1
+      - when: _BASEC_BEST_T2 IS NOT NULL
+        then: _BASEC_BEST_T2
+      - otherwise: _BASEC_BEST_RAW
+    BASETYPE:
+      case:
+      - when: BASE IS NOT NULL
+        then: '''Study (Derived)'''
+    R2BASE:
+      case:
+      - when: (BASE > 0) AND ((ABLFL IS NULL) OR (ABLFL <> 'Y'))
+        then: AVAL / BASE
+    DTYPE: '''Derived'''
+    ABLFL: _SHELL4._ABLFL
+    APSBLFL: _SHELL4._APSBLFL
+    ABLPBLFL:
+      case:
+      - when: (_FIRST_NT50_RB._HAS_ABL = 1) AND (_R_HAS_APS50_RB._X IS NOT NULL)
+        then: '''Y'''
+    ANL01FL: _SHELL4._SH_ANL01FL
+    _EMIT:
+      case:
+      - when: _R_NT50._AVAL_IMP IS NOT NULL AND _R_RB._AVAL_IMP IS NOT NULL
+        then: 1
+      - otherwise: 0
+- id: ratio_nt90_rb
+  dataset: _ISC
+  group_by:
+  - _ISC.USUBJID
+  - _ISC.VISITNUM
+  - _ISC.ADT
+  filter: _EMIT = 1
+  derivations:
+    _DERIVED: 1
+    STUDYID: '''C4591001'''
+    USUBJID: _ISC.USUBJID
+    VISITNUM: _ISC.VISITNUM
+    ADT: _ISC.ADT
+    TRTP: _SHELL4.TRTP
+    TRTA: _SHELL4.TRTA
+    TRTPN: _SHELL4.TRTPN
+    TRTAN: _SHELL4.TRTAN
+    VISIT: _SHELL4._SHELL_VISIT
+    ISDTC: _SHELL4._SHELL_ISDTC
+    ADY: _SHELL4._ADY
+    AVISIT: _SHELL4._AVISIT_PB
+    AVISITN: _SHELL4._AVISITN_PB
+    EVIMMFL: _SHELL4._EVIMMFL
+    AAIMMFL: _SHELL4._AAIMMFL
+    APERIOD: _SHELL4.APERIOD
+    APERIODC: _SHELL4.APERIODC
+    APERSDTM: _SHELL4.APERSDTM
+    APEREDTM: _SHELL4.APEREDTM
+    ISTSTDTL: ''''''
+    FOLD4FL: ''''''
+    R2BASE4F:
+      case:
+      - when: _ISC.VISITNUM = -1
+        then: 0
+    BASE4F:
+      case:
+      - when: _ISC.VISITNUM = -1
+        then: 0
+    EPOCH: _SHELL4._SH_EPOCH
+    PARAMCD: '''NT90_RB'''
+    PARAM: '''SARS-CoV-2 serum neutralizing titer 90 to COVID-19 RBD Ig'''
+    PARAMN: 14
+    PARCAT1: '''SEROLOGY'''
+    PARCAT1N: 1
+    SRCVAR: ''''''
+    SRCDOM: ''''''
+    ISSTRESC: ''''''
+    ANL03FL: ''''''
+    ANL04FL: ''''''
+    BSSEROC: ''''''
+    ISLLOQ:
+      case:
+      - when: _ISC.VISITNUM = -1
+        then: 0
+    SRCSEQ:
+      case:
+      - when: _ISC.VISITNUM = -1
+        then: 0
+    BSSERON:
+      case:
+      - when: _ISC.VISITNUM = -1
+        then: 0
+    _RATIO_RAW: _R_NT90._AVAL_IMP / _R_RB._AVAL_IMP
+    AVAL:
+      round_half_away_from_zero:
+        source: _RATIO_RAW
+        digits: 4
+    _AVAL_IMPUTED: 0
+    _BASE_IMPUTED: 0
+    _AVALC_BEST_RAW:
+      case:
+      - when: AVAL < 1
+        then:
+          str_decimal:
+            source: AVAL
+            decimals: 10
+      - when: AVAL < 10
+        then:
+          str_decimal:
+            source: AVAL
+            decimals: 10
+      - when: AVAL < 100
+        then:
+          str_decimal:
+            source: AVAL
+            decimals: 9
+      - when: AVAL < 1000
+        then:
+          str_decimal:
+            source: AVAL
+            decimals: 8
+      - when: AVAL < 10000
+        then:
+          str_decimal:
+            source: AVAL
+            decimals: 7
+      - when: AVAL < 100000
+        then:
+          str_decimal:
+            source: AVAL
+            decimals: 6
+      - otherwise:
+          str_decimal:
+            source: AVAL
+            decimals: 5
+    _AVALC_BEST_T1:
+      str_extract:
+        source: _AVALC_BEST_RAW
+        pattern: ^(\d+\.\d*[1-9])0+$
+        group: 1
+        no_match: null
+    _AVALC_BEST_T2:
+      str_extract:
+        source: _AVALC_BEST_RAW
+        pattern: ^(\d+)\.0+$
+        group: 1
+        no_match: null
+    _AVALC_BEST:
+      case:
+      - when: _AVALC_BEST_T1 IS NOT NULL
+        then: _AVALC_BEST_T1
+      - when: _AVALC_BEST_T2 IS NOT NULL
+        then: _AVALC_BEST_T2
+      - otherwise: _AVALC_BEST_RAW
+    BASE:
+      case:
+      - when: _FIRST_NT90_RB._HAS_ABL = 1
+        then: _FIRST_NT90_RB._RATIO_AVAL
+    _BASEC_RAW: ''''''
+    _BASEC_BEST_RAW:
+      case:
+      - when: BASE < 1
+        then:
+          str_decimal:
+            source: BASE
+            decimals: 10
+      - when: BASE < 10
+        then:
+          str_decimal:
+            source: BASE
+            decimals: 10
+      - when: BASE < 100
+        then:
+          str_decimal:
+            source: BASE
+            decimals: 9
+      - when: BASE < 1000
+        then:
+          str_decimal:
+            source: BASE
+            decimals: 8
+      - when: BASE < 10000
+        then:
+          str_decimal:
+            source: BASE
+            decimals: 7
+      - when: BASE < 100000
+        then:
+          str_decimal:
+            source: BASE
+            decimals: 6
+      - otherwise:
+          str_decimal:
+            source: BASE
+            decimals: 5
+    _BASEC_BEST_T1:
+      str_extract:
+        source: _BASEC_BEST_RAW
+        pattern: ^(\d+\.\d*[1-9])0+$
+        group: 1
+        no_match: null
+    _BASEC_BEST_T2:
+      str_extract:
+        source: _BASEC_BEST_RAW
+        pattern: ^(\d+)\.0+$
+        group: 1
+        no_match: null
+    _BASEC_BEST:
+      case:
+      - when: _BASEC_BEST_T1 IS NOT NULL
+        then: _BASEC_BEST_T1
+      - when: _BASEC_BEST_T2 IS NOT NULL
+        then: _BASEC_BEST_T2
+      - otherwise: _BASEC_BEST_RAW
+    BASETYPE:
+      case:
+      - when: BASE IS NOT NULL
+        then: '''Study (Derived)'''
+    R2BASE:
+      case:
+      - when: (BASE > 0) AND ((ABLFL IS NULL) OR (ABLFL <> 'Y'))
+        then: AVAL / BASE
+    DTYPE: '''Derived'''
+    ABLFL: _SHELL4._ABLFL
+    APSBLFL: _SHELL4._APSBLFL
+    ABLPBLFL:
+      case:
+      - when: (_FIRST_NT90_RB._HAS_ABL = 1) AND (_R_HAS_APS90_RB._X IS NOT NULL)
+        then: '''Y'''
+    ANL01FL: _SHELL4._SH_ANL01FL
+    _EMIT:
+      case:
+      - when: _R_NT90._AVAL_IMP IS NOT NULL AND _R_RB._AVAL_IMP IS NOT NULL
+        then: 1
+      - otherwise: 0
+intermediates:
+# The EUA IS has no ISTSTDTL: no record is a retest.
+- id: _RET
+  filter: 'FALSE'
+- id: _IS
+  columns:
+  - _USUBJID
+  - _ISSEQ
+  - _VISIT
+  - _VISITNUM
+  - _ISTSTDTL
+  - _ISLLOQ
+  - PARAMCD
+  - _ISTEST
+  - _ISMETHOD
+  - _ISSTRESU
+  - _AVAL_RAW
+  - _AVALC_RAW
+  - _ADY_RAW
+  - _ISDTC
+  - ADT
+  - PARCAT1
+  - SRCDOM
+  - SRCVAR
+  - _HAS_RETEST
+  - _IS_RETEST
+  - _ISUSE
+  - _IS_COVID
+  - _ATM_SEC
+  - _ADT_MIDNIGHT
+  - ADTM
+  - PARAM
+  - PARAMN
+  - PARCAT1N
+  - _AVISITN_MAP
+  - _AVISIT_MAP
+  - _EPOCH
+  derivations:
+    _ISTSTDTL:
+      derivation: "''"
+    _IS_RETEST:
+      derivation: 0
+    _EPOCH:
+      type: str
+      derivation: IS.EPOCH
+- id: _ISC
+  derivations:
+    _EPOCH:
+      type: str
+      derivation: _IS._EPOCH
+- id: _ADSL2
+  derivations:
+    _PD1POSDT:
+      type: date
+      derivation: ADSL.PD1POSDT
+- id: _R_RB
+  dataset: _ISC
+  key:
+    USUBJID: _ISC.USUBJID
+    VISITNUM: _ISC.VISITNUM
+    ADT: _ISC.ADT
+  filter: _ISC.PARAMCD = 'C19RBDIG' AND _ISC._ISUSE = 'Y'
+  order_by:
+  - _ISC.ISSEQ
+  keep: first
+  derivations:
+    _AVAL_IMP:
+      type: float
+      derivation:
+        case:
+        - when: (((_ISC._AVAL_RAW < _ISC._ISLLOQ) AND (_ISC._AVAL_RAW IS NOT NULL)) OR (_ISC._AVALC_RAW
+            = 'BLQ'))
+          then: _ISC._ISLLOQ * 0.5
+        - otherwise: _ISC._AVAL_RAW
+- id: _R_HAS_APS50_RB
+  dataset: _ISC
+  key:
+    USUBJID: _ISC.USUBJID
+  filter: _ISC.PARAMCD = 'C2NGNT50' AND _ISC._ISUSE = 'Y' AND _ISC._RB_AVAL_IMP IS NOT NULL AND _ISC._SHELL_APSBLFL
+    = 'Y'
+  order_by:
+  - _ISC.ISSEQ
+  keep: first
+  derivations:
+    _RB_AVAL_IMP:
+      type: float
+      derivation: _R_RB._AVAL_IMP
+    _SHELL_APSBLFL:
+      type: str
+      derivation: _R_SHELL_APS._APSBLFL
+    _X:
+      type: int
+      derivation: 1
+- id: _R_HAS_APS90_RB
+  dataset: _ISC
+  key:
+    USUBJID: _ISC.USUBJID
+  filter: _ISC.PARAMCD = 'C2NGNT90' AND _ISC._ISUSE = 'Y' AND _ISC._RB_AVAL_IMP IS NOT NULL AND _ISC._SHELL_APSBLFL
+    = 'Y'
+  order_by:
+  - _ISC.ISSEQ
+  keep: first
+  derivations:
+    _RB_AVAL_IMP:
+      type: float
+      derivation: _R_RB._AVAL_IMP
+    _SHELL_APSBLFL:
+      type: str
+      derivation: _R_SHELL_APS._APSBLFL
+    _X:
+      type: int
+      derivation: 1
+- id: _FIRST_NT50_RB
+  dataset: _ISC
+  key:
+    USUBJID: _ISC.USUBJID
+  filter: _ISC.PARAMCD = 'C2NGNT50' AND _ISC._ISUSE = 'Y' AND _ISC._RB_AVAL IS NOT NULL
+  order_by:
+  - _ISC.ADT
+  - _ISC.VISITNUM
+  keep: first
+  derivations:
+    _NT50_AVAL:
+      type: float
+      derivation:
+        case:
+        - when: (((_ISC._AVAL_RAW < _ISC._ISLLOQ) AND (_ISC._AVAL_RAW IS NOT NULL)) OR (_ISC._AVALC_RAW
+            = 'BLQ'))
+          then: _ISC._ISLLOQ * 0.5
+        - otherwise: _ISC._AVAL_RAW
+    _RB_AVAL:
+      type: float
+      derivation: _R_RB._AVAL_IMP
+    _RATIO_RAW:
+      type: float
+      derivation: _NT50_AVAL / _RB_AVAL
+    _RATIO_AVAL:
+      type: float
+      derivation:
+        round_half_away_from_zero:
+          source: _RATIO_RAW
+          digits: 4
+    _HAS_ABL:
+      type: int
+      derivation:
+        case:
+        - when: (_ISC.VISITNUM = _V1CELL._CELL_VISITNUM) AND (_ISC.ADT = _V1CELL._ADT)
+          then: 1
+        - otherwise: 0
+- id: _FIRST_NT90_RB
+  dataset: _ISC
+  key:
+    USUBJID: _ISC.USUBJID
+  filter: _ISC.PARAMCD = 'C2NGNT90' AND _ISC._ISUSE = 'Y' AND _ISC._RB_AVAL IS NOT NULL
+  order_by:
+  - _ISC.ADT
+  - _ISC.VISITNUM
+  keep: first
+  derivations:
+    _NT90_AVAL:
+      type: float
+      derivation:
+        case:
+        - when: (((_ISC._AVAL_RAW < _ISC._ISLLOQ) AND (_ISC._AVAL_RAW IS NOT NULL)) OR (_ISC._AVALC_RAW
+            = 'BLQ'))
+          then: _ISC._ISLLOQ * 0.5
+        - otherwise: _ISC._AVAL_RAW
+    _RB_AVAL:
+      type: float
+      derivation: _R_RB._AVAL_IMP
+    _RATIO_RAW:
+      type: float
+      derivation: _NT90_AVAL / _RB_AVAL
+    _RATIO_AVAL:
+      type: float
+      derivation:
+        round_half_away_from_zero:
+          source: _RATIO_RAW
+          digits: 4
+    _HAS_ABL:
+      type: int
+      derivation:
+        case:
+        - when: (_ISC.VISITNUM = _V1CELL._CELL_VISITNUM) AND (_ISC.ADT = _V1CELL._ADT)
+          then: 1
+        - otherwise: 0
+# Period 01 only: the treatments are TRT01P / TRT01A.
+- id: _IS2
+  derivations:
+    TRTP:
+      derivation: _TRT01P
+    TRTA:
+      derivation: _TRT01A
+    TRTPN:
+      derivation: _TRT01PN
+    TRTAN:
+      derivation: _TRT01AN
+- id: _IS4
+  derivations:
+    # A COVID-visit result was not windowed: no ANL01FL.
+    _ANL01FL_V3:
+      derivation:
+        case:
+        - when: _ISC._IS_COVID = 0
+          then: _IS2._ANL01FL
+    _EVIMMFL:
+      derivation:
+        case:
+        - when: (_ADSL2._PD1POSDT IS NOT NULL) AND (_ISC.ADT >= _ADSL2._PD1POSDT)
+          then: '''N'''
+        - when: (_ADSL2._PHASEN = 1) AND (_AVISITN_V3 < 4) AND (_ADSL2._EVAL01FL = 'Y')
+          then: '''Y'''
+        - when: (_ADSL2._PHASEN = 1) AND (_AVISITN_V3 < 4)
+          then: '''N'''
+        - when: (_ADSL2._PHASEN = 1) AND (_AVISITN_V3 >= 4) AND (_ADSL2._EVAL02FL = 'Y')
+          then: '''Y'''
+        - when: (_ADSL2._PHASEN = 1) AND (_AVISITN_V3 >= 4)
+          then: '''N'''
+        - when: ((_ADSL2._PHASEN = 2) OR (_ADSL2._PHASEN = 3) OR (_ADSL2._PHASEN = 4)) AND (_ADSL2._EVAL02FL
+            = 'Y')
+          then: '''Y'''
+        - when: ((_ADSL2._PHASEN = 2) OR (_ADSL2._PHASEN = 3) OR (_ADSL2._PHASEN = 4))
+          then: '''N'''
+    # N-binding results keep their analysis visit and flag.
+    _ANL01FL:
+      derivation: _ANL01FL_C
+    _AVISITN_F:
+      derivation: _AVISITN_V3
+    _AVISIT_F:
+      derivation: _AVISIT_V3
+    _AVISIT:
+      derivation: _AVISIT_F
+    _AVISITN:
+      derivation: _AVISITN_F
+    # Missing without a baseline record.
+    _ABLPBLFL:
+      derivation:
+        case:
+        - when: (_HAS_ABL._X IS NOT NULL) AND (_HAS_APS._X IS NOT NULL)
+          then: '''Y'''
+        - when: _HAS_ABL._X IS NOT NULL
+          then: '''N'''
+- id: _SHELL4
+  derivations:
+    _SH_EPOCH:
+      type: str
+      derivation: _ISC._EPOCH
+    _SH_ANL01FL:
+      type: str
+      derivation: _IS4._ANL01FL
+columns:
+# Missing for a subject without a baseline record.
+- name: ABLPBLFL
+  submission:
+    core: Perm
+    mandatory: false
+- name: AVALC
+  submission:
+    length: 12
+- name: ISSTRESC
+  submission:
+    length: 12
+- name: TRTP
+  submission:
+    length: 27
+    method: "Withheld from publication: the received define states this text."
+- name: TRTA
+  submission:
+    length: 27
+    method: "Withheld from publication: the received define states this text."
+- name: TRTPN
+  submission:
+    method: "Withheld from publication: the received define states this text."
+- name: TRTAN
+  submission:
+    method: "Withheld from publication: the received define states this text."
+- name: EPOCH
+  type: str
+  label: Epoch
+  submission:
+    core: Perm
+    mandatory: true
+    length: 11
+    origins:
+    - type: Other
+      description: "Withheld from publication: the received define states this text."
+- name: TRTAR
+  type: str
+  label: Actual Treatment for Reporting
+  derivation: ADSL.TRTAR
+  submission:
+    core: Perm
+    mandatory: true
+    length: 55
+    origins:
+    - type: Predecessor
+      description: ADSL.TRTAR
+- name: TRTARN
+  type: int
+  label: Actual Treatment (N) for Reporting
+  derivation: ADSL.TRTARN
+  submission:
+    core: Perm
+    mandatory: true
+    length: 8
+    origins:
+    - type: Predecessor
+      description: ADSL.TRTARN
+- name: TRTPR
+  type: str
+  label: Planned Treatment for Reporting
+  derivation: ADSL.TRTPR
+  submission:
+    core: Perm
+    mandatory: true
+    length: 55
+    origins:
+    - type: Predecessor
+      description: ADSL.TRTPR
+- name: TRTPRN
+  type: int
+  label: Planned Treatment (N) for Reporting
+  derivation: ADSL.TRTPRN
+  submission:
+    core: Perm
+    mandatory: true
+    length: 8
+    origins:
+    - type: Predecessor
+      description: ADSL.TRTPRN
+- name: PD1POSDT
+  type: date
+  label: Post-dose Positive Swab Result Date
+  derivation: ADSL.PD1POSDT
+  submission:
+    core: Perm
+    mandatory: false
+    origins:
+    - type: Predecessor
+      description: ADSL.PD1POSDT
+output:
+  columns:
+  - STUDYID
+  - USUBJID
+  - SUBJID
+  - SITEID
+  - TRTP
+  - TRTPN
+  - TRTA
+  - TRTAN
+  - ISDTC
+  - ADT
+  - ADY
+  - AVISIT
+  - AVISITN
+  - VISIT
+  - VISITNUM
+  - PARCAT1
+  - PARCAT1N
+  - PARAM
+  - PARAMN
+  - PARAMCD
+  - AVAL
+  - AVALC
+  - BASE
+  - BASEC
+  - BASETYPE
+  - ABLFL
+  - APSBLFL
+  - ABLPBLFL
+  - DTYPE
+  - R2BASE
+  - SRCDOM
+  - SRCVAR
+  - SRCSEQ
+  - ANL01FL
+  - ANL03FL
+  - ANL04FL
+  - EPOCH
+  - ISLLOQ
+  - ISSTRESC
+  - EVIMMFL
+  - AAIMMFL
+  - BSSEROC
+  - BSSERON
+  - AGE
+  - AGEU
+  - SEX
+  - SEXN
+  - RACE
+  - RACEN
+  - SAFFL
+  - ARM
+  - ARMCD
+  - ACTARM
+  - ACTARMCD
+  - TRTSDT
+  - TRTEDT
+  - TRTSTM
+  - TRTETM
+  - TRT01A
+  - TRT01AN
+  - TRT01P
+  - TRT01PN
+  - TR01SDT
+  - TR01STM
+  - TR01SDTM
+  - TR01EDT
+  - TR01ETM
+  - TR01EDTM
+  - COHORTN
+  - COHORT
+  - VAX101DT
+  - VAX102DT
+  - AAI01FL
+  - EVAL02FL
+  - AAI02FL
+  - EVAL01FL
+  - DOSALVL
+  - DOSALVLN
+  - DOSPLVL
+  - DOSPLVLN
+  - AGEGR1
+  - AGEGR1N
+  - AGEGR2
+  - AGEGR2N
+  - PHASE
+  - PHASEN
+  - TRTAR
+  - TRTARN
+  - TRTPR
+  - TRTPRN
+  - COVBLST
+  - PD1POSDT
+  - _SEQ

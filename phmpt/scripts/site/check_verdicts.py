@@ -79,9 +79,11 @@ def main() -> int:
                 bad += 1
                 continue
             got = verdict(json.loads(rep.read_text()))
-            # A missing-input match is a mismatch whose input the release lacks (data/differences.yaml).
-            want = ("mismatch" if row["verdict"] in ("matches except missing input", "reproduced on a substitute input")
-                    else row["verdict"], row.get("mismatched_cells", 0))
+            # An accepted match (missing input, a substitute input, a submitted-file defect) is a
+            # mismatch data/differences.yaml explains.
+            want = ("mismatch" if row["verdict"].startswith("matches except")
+                    or row["verdict"] == "reproduced on a substitute input" else row["verdict"],
+                    row.get("mismatched_cells", 0))
             ok = got == want
             bad += not ok
             print(f"{'ok  ' if ok else 'FAIL'} {study} {cut} {stem}: {got[0]} ({got[1]} cells)"
