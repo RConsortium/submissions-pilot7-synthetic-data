@@ -46,6 +46,12 @@ NS = {
 }
 XLINK_HREF = "{http://www.w3.org/1999/xlink}href"
 
+# Whether the yamaa in yamaa.lock admits a received codelist numbered from 0
+# (elong0527/yamaa#5062). Set it to True in the commit that moves yamaa.lock
+# to a yamaa that includes #5062, together with the re-transcribed layers;
+# before that, such a codelist is written without OrderNumber (gap G1).
+ADMITS_ORDER_ZERO = False
+
 # A where value has at least one character (SUB-12); a received empty
 # CheckValue is written as this visible placeholder and recorded, so the
 # comparison shows the difference instead of hiding it.
@@ -575,14 +581,17 @@ def codelists_docs(rec: Received) -> list[tuple[str, OrderedDict]]:
                 i["order"] = int(it.get("OrderNumber"))
             items.append(i)
         orders = [i.get("order") for i in items]
-        if None in orders or len(set(orders)) != len(orders) or any(o is not None and o < 1 for o in orders):
-            # Every item or none declares order, and ODM requires positive,
-            # unique numbers (yamaa#4846): a codelist that repeats one or
-            # starts at 0 keeps none, and the comparison shows it.
+        lowest = 0 if ADMITS_ORDER_ZERO else 1
+        if None in orders or len(set(orders)) != len(orders) or any(o is not None and o < lowest for o in orders):
+            # Every item or none declares order (CT-5), and ODM's xs:unique
+            # UC-CL-2/UC-CL-4 forbid a repeated number: a codelist that
+            # repeats one keeps none, and the comparison shows it. A number
+            # from 0 is declared as received only once the pinned yamaa
+            # admits it (ADMITS_ORDER_ZERO, yamaa#5062 for yamaa#5022).
             for i in items:
                 i.pop("order", None)
             if any(o is not None for o in orders):
-                rec.deviations.append(f"{cl.get('OID')}: OrderNumber repeated, partial or below 1; not declared")
+                rec.deviations.append(f"{cl.get('OID')}: OrderNumber repeated, partial or below {lowest}; not declared")
         extended = any(i.get("extended") for i in items)
         if items:
             if extended:

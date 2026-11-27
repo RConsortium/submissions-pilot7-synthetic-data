@@ -62,6 +62,249 @@ intermediates:
           then: 12
         - when: ADSYMPT.PARAMCD IN ('PRCDTH', 'SECDTH')
           then: 20
+# adc19ef-ia.sas checks an illness-visit NAAT result against a symptom
+# window of its own (steps nva_naat1a, nva_naat1b and nva_naat2). When the
+# analysis visit holds a record of another visit (vis_colsp1, clspflg = 1),
+# the window is that of the NAAT record's own visit (usubjid_vis:
+# symp_dates_vis_all, joined on VISITNUM alone, from the positive grp 1-2
+# records when the visit has any, else from the others) and, without one,
+# that of the analysis visit (usubjid_avis). Otherwise only the analysis
+# visit's window counts: a NAAT result of an analysis visit without symptom
+# dates is kept (cncrslfl = 'Y') but not valid (vldrslfl = 'N'). The S1
+# program this layer inherits takes the analysis visit's window first and
+# the visit's (all grp 1-2 records, joined on VISITNUM and VISIT) after it.
+# _IA_CLSP, _IA_VPOS and _IA_V_* hold the interim window, and each S1 step
+# that checks a NAAT result below reads it through its analysis-visit
+# window columns, with the visit fallback emptied.
+- id: _IA_CLSP
+  dataset: _A
+  key:
+    _USUBJID: _S1._USUBJID
+    _AVISITN: _S1._AVISITN
+    _AVISIT: _S1._AVISIT
+  filter: _A._VISITNUM <> _A._AVISITN OR _A._VISIT <> _A._AVISIT
+  order_by:
+  - _A._RECSEQ
+  keep: first
+  derivations:
+    _CLSP:
+      type: int
+      derivation: 1
+- id: _IA_VPOS
+  dataset: _S1
+  key:
+    _USUBJID: _S1._USUBJID
+    _VISITNUM: _S1._VISITNUM
+  filter: _S1._GRP_X IN (1, 2) AND _S1._ASTDT_X IS NOT NULL AND _S1._STAT = 4
+  order_by:
+  - _S1._RECSEQ
+  keep: first
+  derivations:
+    _ANY:
+      type: int
+      derivation: 1
+- id: _IA_V_ASTDT
+  dataset: _S1
+  key:
+    _USUBJID: _S1._USUBJID
+    _VISITNUM: _S1._VISITNUM
+  filter: _S1._GRP_X IN (1, 2) AND _S1._ASTDT_X IS NOT NULL AND _S1._IA_INSET = 1
+  order_by:
+  - _S1._ASTDT_X
+  keep: first
+  derivations:
+    _IA_INSET:
+      type: int
+      derivation:
+        case:
+        - when: _IA_VPOS._ANY = 1 AND _S1._STAT = 4
+          then: 1
+        - when: _IA_VPOS._ANY IS NULL AND (_S1._STAT IS NULL OR _S1._STAT <> 4)
+          then: 1
+        - otherwise: 0
+    _V_ASTDT:
+      type: date
+      derivation: _S1._ASTDT_X
+- id: _IA_V_AENDT
+  dataset: _S1
+  key:
+    _USUBJID: _S1._USUBJID
+    _VISITNUM: _S1._VISITNUM
+  filter: _S1._GRP_X IN (1, 2) AND _S1._ASTDT_X IS NOT NULL AND _S1._AENDT IS NOT NULL
+    AND _S1._IA_INSET = 1
+  order_by:
+  - variable: _S1._AENDT
+    direction: desc
+  keep: first
+  derivations:
+    _IA_INSET:
+      type: int
+      derivation:
+        case:
+        - when: _IA_VPOS._ANY = 1 AND _S1._STAT = 4
+          then: 1
+        - when: _IA_VPOS._ANY IS NULL AND (_S1._STAT IS NULL OR _S1._STAT <> 4)
+          then: 1
+        - otherwise: 0
+    _V_AENDT:
+      type: date
+      derivation: _S1._AENDT
+- id: _NVA2
+  derivations:
+    _HAS_AV_ASTDT:
+      derivation:
+        case:
+        - when: _IA_CLSP._CLSP = 1 AND _IA_V_ASTDT._V_ASTDT IS NOT NULL
+          then: _IA_V_ASTDT._V_ASTDT
+        - otherwise: _HAS_AV_ASTDT._HAS_AV_ASTDT
+    _HAS_AV_AENDT:
+      derivation:
+        case:
+        - when: _IA_CLSP._CLSP = 1 AND _IA_V_ASTDT._V_ASTDT IS NOT NULL
+          then: _IA_V_AENDT._V_AENDT
+        - otherwise: _HAS_AV_AENDT._HAS_AV_AENDT
+    _HAS_V_ASTDT:
+      derivation: null
+    _HAS_V_AENDT:
+      derivation: null
+    _AV_ASTDT_EPOCH:
+      derivation:
+        to_epoch_day:
+          source: _HAS_AV_ASTDT
+    _AV_AENDT_EPOCH:
+      derivation:
+        to_epoch_day:
+          source: _HAS_AV_AENDT
+- id: _RUN_LAST_D
+  derivations:
+    _HAS_AV_ASTDT:
+      derivation:
+        case:
+        - when: _IA_CLSP._CLSP = 1 AND _IA_V_ASTDT._V_ASTDT IS NOT NULL
+          then: _IA_V_ASTDT._V_ASTDT
+        - otherwise: _HAS_AV_ASTDT._HAS_AV_ASTDT
+    _HAS_AV_AENDT:
+      derivation:
+        case:
+        - when: _IA_CLSP._CLSP = 1 AND _IA_V_ASTDT._V_ASTDT IS NOT NULL
+          then: _IA_V_AENDT._V_AENDT
+        - otherwise: _HAS_AV_AENDT._HAS_AV_AENDT
+    _HAS_V_ASTDT:
+      derivation: null
+    _HAS_V_AENDT:
+      derivation: null
+    _AV_ASTDT_EPOCH:
+      derivation:
+        to_epoch_day:
+          source: _HAS_AV_ASTDT
+    _AV_AENDT_EPOCH:
+      derivation:
+        to_epoch_day:
+          source: _HAS_AV_AENDT
+- id: _RUN_LAST_E
+  derivations:
+    _HAS_AV_ASTDT:
+      derivation:
+        case:
+        - when: _IA_CLSP._CLSP = 1 AND _IA_V_ASTDT._V_ASTDT IS NOT NULL
+          then: _IA_V_ASTDT._V_ASTDT
+        - otherwise: _HAS_AV_ASTDT._HAS_AV_ASTDT
+    _HAS_AV_AENDT:
+      derivation:
+        case:
+        - when: _IA_CLSP._CLSP = 1 AND _IA_V_ASTDT._V_ASTDT IS NOT NULL
+          then: _IA_V_AENDT._V_AENDT
+        - otherwise: _HAS_AV_AENDT._HAS_AV_AENDT
+    _HAS_V_ASTDT:
+      derivation: null
+    _HAS_V_AENDT:
+      derivation: null
+    _AV_ASTDT_EPOCH:
+      derivation:
+        to_epoch_day:
+          source: _HAS_AV_ASTDT
+    _AV_AENDT_EPOCH:
+      derivation:
+        to_epoch_day:
+          source: _HAS_AV_AENDT
+- id: _NVA4D
+  derivations:
+    _HAS_AV_ASTDT:
+      derivation:
+        case:
+        - when: _IA_CLSP._CLSP = 1 AND _IA_V_ASTDT._V_ASTDT IS NOT NULL
+          then: _IA_V_ASTDT._V_ASTDT
+        - otherwise: _HAS_AV_ASTDT._HAS_AV_ASTDT
+    _HAS_AV_AENDT:
+      derivation:
+        case:
+        - when: _IA_CLSP._CLSP = 1 AND _IA_V_ASTDT._V_ASTDT IS NOT NULL
+          then: _IA_V_AENDT._V_AENDT
+        - otherwise: _HAS_AV_AENDT._HAS_AV_AENDT
+    _HAS_V_ASTDT:
+      derivation: null
+    _HAS_V_AENDT:
+      derivation: null
+    _AV_ASTDT_EPOCH:
+      derivation:
+        to_epoch_day:
+          source: _HAS_AV_ASTDT
+    _AV_AENDT_EPOCH:
+      derivation:
+        to_epoch_day:
+          source: _HAS_AV_AENDT
+- id: _NVA4E
+  derivations:
+    _HAS_AV_ASTDT:
+      derivation:
+        case:
+        - when: _IA_CLSP._CLSP = 1 AND _IA_V_ASTDT._V_ASTDT IS NOT NULL
+          then: _IA_V_ASTDT._V_ASTDT
+        - otherwise: _HAS_AV_ASTDT._HAS_AV_ASTDT
+    _HAS_AV_AENDT:
+      derivation:
+        case:
+        - when: _IA_CLSP._CLSP = 1 AND _IA_V_ASTDT._V_ASTDT IS NOT NULL
+          then: _IA_V_AENDT._V_AENDT
+        - otherwise: _HAS_AV_AENDT._HAS_AV_AENDT
+    _HAS_V_ASTDT:
+      derivation: null
+    _HAS_V_AENDT:
+      derivation: null
+    _AV_ASTDT_EPOCH:
+      derivation:
+        to_epoch_day:
+          source: _HAS_AV_ASTDT
+    _AV_AENDT_EPOCH:
+      derivation:
+        to_epoch_day:
+          source: _HAS_AV_AENDT
+- id: _CNT_LCL1
+  derivations:
+    _HAS_AV_ASTDT:
+      derivation:
+        case:
+        - when: _IA_CLSP._CLSP = 1 AND _IA_V_ASTDT._V_ASTDT IS NOT NULL
+          then: _IA_V_ASTDT._V_ASTDT
+        - otherwise: _HAS_AV_ASTDT._HAS_AV_ASTDT
+    _HAS_AV_AENDT:
+      derivation:
+        case:
+        - when: _IA_CLSP._CLSP = 1 AND _IA_V_ASTDT._V_ASTDT IS NOT NULL
+          then: _IA_V_AENDT._V_AENDT
+        - otherwise: _HAS_AV_AENDT._HAS_AV_AENDT
+    _HAS_V_ASTDT:
+      derivation: null
+    _HAS_V_AENDT:
+      derivation: null
+    _AV_ASTDT_EPOCH:
+      derivation:
+        to_epoch_day:
+          source: _HAS_AV_ASTDT
+    _AV_AENDT_EPOCH:
+      derivation:
+        to_epoch_day:
+          source: _HAS_AV_AENDT
 columns:
 # adc19ef-ia.sas carries COMPLDT from ADSL and ends surveillance at the
 # completion date too: srvlendt = min(dcodt, dvstdt, withdraw_dt, compldt,

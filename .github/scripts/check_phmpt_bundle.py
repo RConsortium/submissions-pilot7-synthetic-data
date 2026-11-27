@@ -46,6 +46,7 @@ _CUT = r"[a-z0-9][a-z0-9-]*"
 # Every path the bundle may hold, relative to ROOT. Anything else fails.
 ALLOWED = [re.compile(p) for p in (
     r"phmpt/(README|NOTICE)\.md",
+    r"phmpt/reproduce\.sh",
     r"phmpt/\.gitignore",
     r"phmpt/(studies\.yaml|yamaa\.lock|requirements\.txt)",
     r"phmpt/data/(sources\.csv|zips\.txt|differences\.yaml)",
@@ -54,7 +55,7 @@ ALLOWED = [re.compile(p) for p in (
     rf"phmpt/{_S}/spec/yamaa/base/[a-z0-9_-]+\.yaml",
     rf"phmpt/{_S}/{_CUT}/spec/yamaa/(helper/)?[a-z0-9_-]+\.yaml",
     r"docs/phmpt/evidence\.json",
-    r"docs/phmpt/(index|coverage|glossary|reproduce)\.md",
+    r"docs/phmpt/(index|coverage|glossary)\.md",
     r"docs/phmpt/findings/[a-z0-9-]+\.md",
     r"docs/phmpt/review/index\.md",
 )]
@@ -87,6 +88,8 @@ _DATASET = {
     "multiset": _BOOL, "rows_unpaired": _INT, "partitions": _INT,
     "missing_input": ({"missing": _STR, "reason": _STR, "decided": _STR, "columns": [_STR],
                        "cells": _COUNTS}, None),
+    "submitted_defect": ({"defect": _STR, "reason": _STR, "decided": _STR, "columns": [_STR],
+                          "cells": _COUNTS}, None),
     "reasons": [{"kind": _STR, "reason": _STR, "cells": _COUNTS}],
     "unexplained_columns": [_STR],
     "note": (_STR, None),

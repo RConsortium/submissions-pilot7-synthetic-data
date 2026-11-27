@@ -167,8 +167,9 @@ function render(root, evidence, reviewUrl) {
       <p><a href="../${esc(f.page)}">Open it on the findings page</a></p>
       <h3>Evidence</h3>${evidenceRows(evidence, f, findingRecord(evidence, f))}
       <h3>Reproduce it</h3>
-      <p>From the <a href="${REPO}/tree/main/phmpt">phmpt/</a> folder, with yamaa built from <code>yamaa.lock</code>
-      (<a href="${BLOB}README.md">setup</a>). The data comes from PHMPT; the differences print on your machine.</p>
+      <p>In the <a href="${REPO}/tree/main/phmpt">phmpt/</a> folder, after <code>sh reproduce.sh setup</code> and
+      <code>. .local-run/venv/bin/activate</code> (<a href="${BLOB}reproduce.sh">reproduce.sh</a>).
+      The data comes from PHMPT; the differences print on your machine.</p>
       <pre><code>${f.reproduce.map(esc).join("\n")}</code></pre>
       <h3>Your review</h3>
       <fieldset class="phmpt-agreement"><legend>Does the evidence support the claim?</legend>

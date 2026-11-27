@@ -18,6 +18,21 @@ input:
   VS:
     path: <work-dir>/vs.parquet
     schema: ../../../s135/spec/yamaa/helper/sdtm_vs.yaml
+# The EUA adcevd.sas reads only the reactogenicity categories of VS
+# (Specification 1.2: where vscat in ("REACTOGENICITY", "REACTOGENICITY
+# EVENT", "REACTOGENICITY - UNPLANNED TEMPERATURE", "UNPLANNED
+# TEMPERATURE")) before it picks the investigator temperatures without a
+# visit (Specification 2.1), so a GENERAL VITAL SIGNS temperature taken on
+# a diary day is not an unplanned fever assessment.
+intermediates:
+- id: _VS_INV
+  filter: >-
+    VS.VSCAT IN ('REACTOGENICITY', 'REACTOGENICITY EVENT',
+    'REACTOGENICITY - UNPLANNED TEMPERATURE', 'UNPLANNED TEMPERATURE')
+    AND str_contains(VS.VSTESTCD, 'TEMP')
+    AND ((str_contains(VS.VSCAT, 'REACTOGENICITY') AND VS.VSTPT <> '')
+    OR (VS.VISIT IS NULL AND VS.VSDTC <> ''))
+    AND VS.VSEVAL = 'INVESTIGATOR'
 clear:
 - columns.TRT02A.submission
 - columns.TRT02AN.submission
