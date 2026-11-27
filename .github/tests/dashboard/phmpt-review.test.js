@@ -2,7 +2,7 @@
 // and the pre-filled discussion. Seam: the module's pure functions; the evidence below is invented.
 import test from "node:test";
 import assert from "node:assert/strict";
-import { AGREEMENTS, discussionLink, filterFindings, findingRecord, reviewBody } from "../../../docs/assets/phmpt/review.js";
+import { AGREEMENTS, discussionLink, evidenceRows, filterFindings, findingRecord, reviewBody } from "../../../docs/assets/phmpt/review.js";
 
 const evidence = {
   schema_version: 1,
@@ -72,4 +72,19 @@ test("an assessment too long for a link opens the composer with the title only",
   assert.equal(link.prefilled, false);
   assert.equal(new URL(link.url).searchParams.get("body"), null);
   assert.ok(link.body.includes("x".repeat(9000)));
+});
+
+test("a dataset's evidence shows its submitted-file defect and note, and only when present", () => {
+  const base = { rows: 2, cols: 3, out_rows: 2, out_cols: 3, cells: 6, mismatched_cells: 1,
+    mismatched_columns: { AENDY: 1 }, redacted_columns: {}, carried_columns: [], missing_columns: [],
+    missing_input: null, submitted_defect: null, note: null, reasons: [], unexplained_columns: [],
+    spec: "s/c1/adxx.yaml", spec_lines: 9, layers: ["s/c1/adxx.yaml"], source: null };
+  const plain = evidenceRows(evidence, evidence.findings[0], base);
+  assert.ok(!plain.includes("Submitted-file defect") && !plain.includes(">Note<"));
+  const html = evidenceRows(evidence, evidence.findings[0], { ...base,
+    submitted_defect: { defect: "The submitted cell holds its value three times", reason: "Invented <reason>.",
+      decided: "2026-01-01", columns: ["AENDY"], cells: { AENDY: 1 } },
+    note: "The program & the file disagree." });
+  assert.match(html, /<th scope="row">Submitted-file defect<\/th><td>The submitted cell holds its value three times\. Invented &lt;reason&gt;\. <code>AENDY<\/code> 1<\/td>/);
+  assert.match(html, /<th scope="row">Note<\/th><td>The program &amp; the file disagree\.<\/td>/);
 });
