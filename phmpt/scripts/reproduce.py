@@ -364,7 +364,8 @@ def cmd_fetch(args):
     sys.path.insert(0, str(ROOT / "scripts"))
     from fetch_phmpt import fetch  # noqa: PLC0415
 
-    return fetch([(s, c) for s, c in scope(args, with_data_cuts=True)], args.dataset, args.out_data, args.dry_run)
+    return fetch([(s, c) for s, c in scope(args, with_data_cuts=True)], args.dataset, args.out_data, args.dry_run,
+                 args.jmp)
 
 
 # ---------------------------------------------------------------- site
@@ -398,6 +399,9 @@ def main() -> int:
             p.add_argument("--out-data", default=None,
                            help="write fetched Parquet here instead of the repo's <cut>/data/ (to compare)")
             p.add_argument("--dry-run", action="store_true", help="list what would be fetched")
+            p.add_argument("--jmp", action="store_true",
+                           help="also save each JMP-only file unconverted, as <path>.jmp, for your own conversion "
+                                "(data/sources.csv `format` jmp)")
     args = ap.parse_args()
     return {"fetch": cmd_fetch, "verify": cmd_verify, "define": cmd_define, "site": cmd_site}[args.cmd](args) or 0
 

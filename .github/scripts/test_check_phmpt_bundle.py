@@ -47,6 +47,10 @@ class GateRules(unittest.TestCase):
             ("a clean bundle", {}, []),
             ("a file outside the allowlist", {"phmpt/notes.md": "x\n"},
              ["phmpt/notes.md: not in the publication allowlist"]),
+            ("the site pages", {f"docs/phmpt/{p}.md": "# Page\n" for p in
+                                ("index", "coverage", "glossary", "reproduce", "findings/bnt162-01")}, []),
+            ("a site page outside the allowlist", {"docs/phmpt/notes.md": "x\n"},
+             ["docs/phmpt/notes.md: not in the publication allowlist"]),
             ("a dataset", {"phmpt/bnt162-01/27034/data/adam/adxx.parquet": b"PAR1"},
              ["phmpt/bnt162-01/27034/data/adam/adxx.parquet: a data or document file; never published"]),
             ("a define", {"phmpt/bnt162-01/27034/spec/define/define-adam.xml": "<ODM/>"},

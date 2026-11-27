@@ -6,9 +6,27 @@
 yamaa: '1.0'
 type: spec
 parent: ../../../s1-safety-fa-eff/spec/yamaa/adsympt.yaml
+# adsympt-ia.sas has no nodup sort of adsympt1 (see _FA_N below), so a vital
+# sign repeated on one date stays twice; and it joins its own illness-visit
+# collapse (helper/adsympt_vismap.yaml) by subject, visit and start, the
+# date for vital signs and swabs (adsympt2), in place of the final program's.
+clear:
+- rows.vs.group_by
+- intermediates._VISMAP.key
+input:
+  VISMAP:
+    path: <work-dir>/adsympt_vismap.parquet
+    schema: helper/adsympt_vismap.yaml
+intermediates:
+- id: _VISMAP
+  key:
+    USUBJID: USUBJID
+    VISITNUM: VISITNUM
+    VISIT: VISIT
+    ASTDT: _IADT
+  filter: VISMAP.CLSPFL = 'Y'
 # The interim adsympt-ia.sas counts only central swabs: it sets every local
 # SARS-CoV-2 test's device to 999, so all of them are UNKNOWN.
-intermediates:
 - id: _MB_N
   derivations:
     _AVALC_RAW:
@@ -51,6 +69,13 @@ rows:
   - _FA_N._FACAT
   - _FA_N._FASEQ
 columns:
+- name: _IADT
+  type: date
+  derivation:
+    case:
+    - when: PARAMCD IN ('RESP', 'HR', 'OXYSAT', 'DIABP', 'SYSBP', 'SARSCOV2', 'RTCOV2NS')
+      then: ADT
+    - otherwise: ASTDT
 # Two subjects have no ETHNIC in the interim snapshot's DM.
 - name: ETHNIC
   submission:

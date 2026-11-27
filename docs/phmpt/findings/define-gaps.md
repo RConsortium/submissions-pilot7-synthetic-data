@@ -12,7 +12,7 @@ Every difference between a composed define and the received one is either one of
 | **G6** Analysis-results values outside what ARM declarations admit | 3 | 3 | 8 | - | - | - | - | - | - | - | - | - | - | [yamaa#4824](https://github.com/elong0527/yamaa/issues/4824) |
 | **G7** An empty `CheckValue` (fixed by yamaa#4885) | - | - | - | - | - | - | - | - | - | - | - | - | - | [yamaa#4849](https://github.com/elong0527/yamaa/issues/4849) |
 | **G8** A method OID ending in a non-breaking space, or a MetaDataVersion OID with a comma | - | - | - | - | - | - | - | 2 | 2 | 2 | 2 | - | 1 | [yamaa#4853](https://github.com/elong0527/yamaa/issues/4853) |
-| **G9** A codelist no column binds is never written | - | - | 1 | 1 | 1 | - | - | - | - | - | - | - | - | [yamaa#4887](https://github.com/elong0527/yamaa/issues/4887) |
+| **G9** A codelist no column binds is never written (fixed by yamaa#4937) | - | - | - | - | - | - | - | - | - | - | - | - | - | [yamaa#4887](https://github.com/elong0527/yamaa/issues/4887) |
 
 Counts are differing attributes or references, not elements. One codelist with ten items differs ten times under G1.
 
@@ -34,4 +34,4 @@ Counts are differing attributes or references, not elements. One codelist with t
 
 **G8. Identifiers.** C4591001 names two documents `LF.201114-...` (a document id starting with a digit) and one method `MT.ADCM.ONPERFL` + U+00A0 (a non-breaking space).
 
-**G9. Unbound codelist.** P301 declares `CL.MedDRA`, which no column references; yamaa writes only codelists that a column binds (CT-10).
+**G9. Unbound codelist.** P301 declares `CL.MedDRA`, which no column references. yamaa wrote only codelists that a column binds (CT-10) until yamaa#4937; the transcription now declares it in the dataset's `submission: {codelists: [...]}`.

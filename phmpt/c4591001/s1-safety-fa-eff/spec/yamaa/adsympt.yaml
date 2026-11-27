@@ -38,11 +38,36 @@ rows:
   filter: _HO_PAIRS.USUBJID IS NULL
 - id: ho_hcuhsp_u
   filter: HO.USUBJID IS NULL
+# The EUA adsympt.sas sorts adsympt1 with nodup like S1's, and this cut's
+# VS repeats a vital sign result on the same date (two subjects): one row is
+# kept for each.
+- id: vs
+  group_by:
+  - VS.STUDYID
+  - VS.USUBJID
+  - VS.VSTESTCD
+  - VS.VSTEST
+  - VS.VSCAT
+  - VS.VSSTRESN
+  - VS.VSSTRESC
+  - VS.VSSTRESU
+  - VS.VSDTC
+  - VS.VISITNUM
+  - VS.VISIT
+  filter: PARCAT1 = 'GENERAL VITAL SIGNS' AND PARAMCD IN ('RESP', 'HR', 'OXYSAT', 'DIABP',
+    'SYSBP') AND (AVAL IS NOT NULL OR _AVALC_RAW <> '') AND NOT (str_contains(VISIT, '(1_S|2_S|S_R|4_S|6_S|_NS|4_L|6_L|SCR)$')
+    OR VISIT IN ('V3_MONTH1_POSTVAX2_L', 'V5_MONTH12_L')) AND _PHASEN > 1
 # VS comes from the S135 helper: this cut's VSSTRESN is text, as in S135.
+# VISMAP comes from this cut's visit helpers (helper/adsympt_visits.yaml,
+# helper/adsympt_vismap.yaml), which port the EUA program's own visit-window
+# algorithm (program lines 616-1043) over the S1 one.
 input:
   VS:
     path: <work-dir>/vs.parquet
     schema: ../../../s135/spec/yamaa/helper/sdtm_vs.yaml
+  VISMAP:
+    path: <work-dir>/adsympt_vismap.parquet
+    schema: helper/adsympt_vismap.yaml
 clear:
 - columns.C19ILHFL.submission
 columns:
@@ -71,6 +96,181 @@ columns:
 - name: AVALC
   submission:
     length: 50
+# AVISITN and AVISIT. A record with a visit takes the analysis visit of
+# VISMAP as in S1 (_AVN0, _AV0). A record without one, other than a death,
+# takes the analysis visit of the subject's records whose dates hold it
+# (adsympt5_b): visits_mod gives each analysis visit of dated records its
+# first start (_VMST) and last end (_VMEN); a record with no end date takes
+# the visit with the latest first start on or before its start or its date,
+# one with an end date a visit whose first start and last end hold its
+# start or its date, the latest such. The latest visit starting on or before
+# each of the two dates is found by carrying the visit forward over the
+# subject's records in date order (windows VMA and VMD); with an end date it
+# is kept when its last end holds the date (the program would go on to an
+# earlier visit whose window holds it; no record of this cut or the interim
+# one has a missing visit and an end date).
+- name: _ADE
+  type: int
+  derivation: {to_epoch_day: {source: ADT}}
+- name: _AVN0
+  type: int
+  derivation:
+    case:
+    - when: _VISMAP._AVISITN IS NOT NULL OR _VISMAP._AVISIT IS NOT NULL
+      then: _VISMAP._AVISITN
+    - otherwise: VISITNUM
+- name: _AV0
+  type: str
+  derivation:
+    case:
+    - when: _VISMAP._AVISITN IS NOT NULL OR _VISMAP._AVISIT IS NOT NULL
+      then: _VISMAP._AVISIT
+    - otherwise: VISIT
+- name: _VMEL
+  type: int
+  derivation:
+    case:
+    - when: ASTDT IS NOT NULL AND _AVN0 IS NOT NULL AND _AV0 <> ''
+      then: 1
+    - otherwise: 0
+- name: _VMST
+  type: int
+  derivation:
+    aggregate: {expr: MIN(_ASE), group_by: [USUBJID, _AVN0, _AV0], filter: _VMEL = 1}
+- name: _VMEN
+  type: int
+  derivation:
+    aggregate: {expr: MAX(_AEE), group_by: [USUBJID, _AVN0, _AV0], filter: _VMEL = 1}
+# One record stands for each analysis visit of visits_mod (_VMMK = 1); the
+# records to map have no visit and a start date (_VMT = 1).
+- name: _VMMK
+  type: int
+  derivation:
+    row_number:
+      window:
+        group_by: [USUBJID, _AVN0, _AV0]
+        order_by: [_ASE]
+        filter: _VMEL = 1
+- name: _VMT
+  type: int
+  derivation:
+    case:
+    - when: VISITNUM IS NULL AND ASTDT IS NOT NULL
+      then: 1
+    - otherwise: 0
+- name: _MKN
+  type: int
+  derivation:
+    case:
+    - when: _VMMK = 1
+      then: _AVN0
+- name: _MKV
+  type: str
+  derivation:
+    case:
+    - when: _VMMK = 1
+      then: _AV0
+- name: _MKS
+  type: int
+  derivation:
+    case:
+    - when: _VMMK = 1
+      then: _VMST
+- name: _MKE
+  type: int
+  derivation:
+    case:
+    - when: _VMMK = 1 AND _VMEN IS NULL
+      then: -9999999
+    - when: _VMMK = 1
+      then: _VMEN
+- name: _OT
+  type: int
+  derivation:
+    case:
+    - when: _VMMK = 1
+      then: 0
+    - otherwise: 1
+- name: _OKA
+  type: int
+  derivation:
+    case:
+    - when: _VMMK = 1
+      then: _VMST
+    - when: _VMT = 1
+      then: _ASE
+- name: _OKD
+  type: int
+  derivation:
+    case:
+    - when: _VMMK = 1
+      then: _VMST
+    - when: _VMT = 1 AND ADT IS NOT NULL
+      then: _ADE
+- {name: _AN, type: int, derivation: {locf: {source: _MKN, window: VMA}}}
+- {name: _AV, type: str, derivation: {locf: {source: _MKV, window: VMA}}}
+- {name: _AS, type: int, derivation: {locf: {source: _MKS, window: VMA}}}
+- {name: _AE, type: int, derivation: {locf: {source: _MKE, window: VMA}}}
+- {name: _DN, type: int, derivation: {locf: {source: _MKN, window: VMD}}}
+- {name: _DV, type: str, derivation: {locf: {source: _MKV, window: VMD}}}
+- {name: _DS, type: int, derivation: {locf: {source: _MKS, window: VMD}}}
+- {name: _DE, type: int, derivation: {locf: {source: _MKE, window: VMD}}}
+- name: _VA
+  type: int
+  derivation:
+    case:
+    - when: _VMT = 1 AND _AN IS NOT NULL AND (AENDT IS NULL OR _ASE <= _AE)
+      then: 1
+    - otherwise: 0
+- name: _VD
+  type: int
+  derivation:
+    case:
+    - when: _VMT = 1 AND ADT IS NOT NULL AND _DN IS NOT NULL AND (AENDT IS NULL OR _ADE
+        <= _DE)
+      then: 1
+    - otherwise: 0
+- name: _VMN
+  type: int
+  derivation:
+    case:
+    - when: _VA = 1 AND (_VD = 0 OR _AS >= _DS)
+      then: _AN
+    - when: _VD = 1
+      then: _DN
+- name: _VMV
+  type: str
+  derivation:
+    case:
+    - when: _VA = 1 AND (_VD = 0 OR _AS >= _DS)
+      then: _AV
+    - when: _VD = 1
+      then: _DV
+- name: AVISITN
+  derivation:
+    case:
+    - when: VISITNUM IS NULL AND PARAMCD <> 'DEATH'
+      then: _VMN
+    - otherwise: _AVN0
+  submission:
+    method: "Withheld from publication: the received define states this text."
+- name: AVISIT
+  derivation:
+    case:
+    - when: VISITNUM IS NULL AND PARAMCD <> 'DEATH'
+      then: _VMV
+    - otherwise: _AV0
+  submission:
+    method: "Withheld from publication: the received define states this text."
+windows:
+  VMA:
+    group_by: [USUBJID]
+    order_by: [_OKA, _OT, _MKN]
+    filter: _VMMK = 1 OR _VMT = 1
+  VMD:
+    group_by: [USUBJID]
+    order_by: [_OKD, _OT, _MKN]
+    filter: _VMMK = 1 OR (_VMT = 1 AND ADT IS NOT NULL)
 output:
   columns:
   - STUDYID

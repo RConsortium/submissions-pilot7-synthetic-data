@@ -163,6 +163,14 @@ class Received:
         self.vlds = {e.get("OID"): e for e in self.mdv.findall("def:ValueListDef", NS)}
         self.wcs = {e.get("OID"): e for e in self.mdv.findall("def:WhereClauseDef", NS)}
         self.groups = self.mdv.findall("odm:ItemGroupDef", NS)
+        # Received codelists no ItemDef binds (such as an ExternalCodeList of
+        # MedDRA). yamaa writes one only when a dataset lists it under
+        # `submission.codelists` (CT-10, elong0527/yamaa#4887); the first
+        # dataset with a spec carries them (see main).
+        bound = {r.get("CodeListOID") for r in self.mdv.iter("{%s}CodeListRef" % NS["odm"])}
+        self.unbound_codelists = [strip_prefix(c.get("OID"), "CL.") for c in self.codelists
+                                  if c.get("OID") not in bound]
+        self.unbound_owner = None
         self.stylesheet = None
         for node in self.root.itersiblings(preceding=True):
             if isinstance(node, etree._ProcessingInstruction) and node.target == "xml-stylesheet":
@@ -412,6 +420,8 @@ def dataset_wanted(rec: Received, ig) -> OrderedDict:
     com = ig.get("{%s}CommentOID" % NS["def"])
     if com:
         sub["comment"] = rec.comment(com)
+    if rec.unbound_codelists and ig.get("Name") == rec.unbound_owner:
+        sub["codelists"] = list(rec.unbound_codelists)
     return sub
 
 
@@ -867,6 +877,8 @@ def main() -> int:
     header = HEADER.format(received=args.received.name)
     notes: list[str] = []
     wrappers = []
+    rec.unbound_owner = next((ig.get("Name") for ig in rec.groups
+                              if (args.cut_dir / "spec" / "yamaa" / f"{ig.get('Name').lower()}.yaml").exists()), None)
     for ig in rec.groups:
         ds = ig.get("Name")
         spec_file = args.cut_dir / "spec" / "yamaa" / f"{ds.lower()}.yaml"

@@ -31,4 +31,4 @@ Only four studies have analysis data in Module 5. For the other eighteen, PHMPT 
 
 ## Cuts with data but no specs
 
-C4591001's S211 1-month cut is reproduced by layers over the S1 specs ([C4591001](findings/c4591001.md#s211-1mth)), each holding only what that cut changes. These cut folders hold submitted datasets but no specs yet (development issue #9): P301 `s27`; C4591001 `s135`, `s211-6mth`, `s6`, `s1-safety-fa-eff` and `s9-safety-fa-eff`.
+These released folders hold submitted data but no specs yet: mRNA-1273-P301 `s27` (8 files); C4591001 `s9-safety-fa-eff` (2 files).
