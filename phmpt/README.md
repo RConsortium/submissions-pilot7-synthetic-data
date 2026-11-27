@@ -6,9 +6,9 @@ FDA released them on [phmpt.org](https://phmpt.org/) (Module 5, Full
 Productions), and the scripts that check them. The results are on the
 [Pilot 7 site](https://rconsortium.github.io/submissions-pilot7-synthetic-data/phmpt/) and in `../docs/phmpt/evidence.json`.
 
-Exported from the development repository at `eb7d419159ea`
-with yamaa `67b14f9` (`yamaa.lock`), results collected
-2026-11-26. Do not edit this folder by hand: the next export
+Exported from the development repository at `cc7c9b7ec530`
+with yamaa `4ea397f` (`yamaa.lock`), results collected
+2026-11-27. Do not edit this folder by hand: the next export
 replaces it.
 
 ## What is here, and what is not

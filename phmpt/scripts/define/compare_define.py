@@ -30,14 +30,14 @@ from lxml import etree
 # Known yamaa engine gaps: id -> (title, the yamaa issue that tracks it).
 # A difference matched by none of these is "unexplained".
 GAPS = {
-    "G1": "received codelist OrderNumbers that ODM 1.3.2 forbids (repeated, or 0), which yamaa does not write (elong0527/yamaa#4846)",
+    "G1": "received codelist OrderNumbers that repeat, which the ODM schema forbids (xs:unique UC-CL-2/UC-CL-4) and yamaa refuses (DEFINE-20, owner decision on elong0527/yamaa#5022), or that start from 0, admitted from elong0527/yamaa#5062 on",
     "G2": "a value-level ItemDef Name or OID yamaa could not declare (fixed by elong0527/yamaa#4885)",
     "G3": "a received WhereClauseDef OID yamaa could not declare or share (fixed by elong0527/yamaa#4885)",
     "G4": "a received one-value IN/NOTIN yamaa could not declare (fixed by elong0527/yamaa#4885)",
     "G5": "xml:lang yamaa always wrote (fixed by elong0527/yamaa#4885)",
     "G6": "a received AnalysisReason/AnalysisPurpose outside the published values, or empty ARM elements (elong0527/yamaa#4824)",
     "G7": "an empty CheckValue yamaa could not declare (fixed by elong0527/yamaa#4885)",
-    "G8": "a received identifier yamaa's patterns refuse: a method OID ending in U+00A0, or a MetaDataVersion OID with a comma (elong0527/yamaa#4853)",
+    "G8": "a received identifier yamaa's patterns refuse: a method OID ending in U+00A0 (refused by owner decision D398, elong0527/yamaa#4935), or a MetaDataVersion OID with a comma (elong0527/yamaa#5024)",
 }
 
 GAPS["G9"] = "a received CodeList no column binds is never written (CT-10); elong0527/yamaa#4887, fixed by elong0527/yamaa#4937"

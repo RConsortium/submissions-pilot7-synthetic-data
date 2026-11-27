@@ -28,7 +28,7 @@ pip install -r submissions-pilot7-synthetic-data/phmpt/requirements.txt
 cd submissions-pilot7-synthetic-data/phmpt
 ```
 
-`yamaa.lock` pins the yamaa commit every published result was produced with (`67b14f9`). `requirements.txt` adds pyarrow, pandas, PyYAML and lxml; pyreadstat and zipfile-deflate64 for `fetch`; and openpyxl for `scripts/convert_lists.py`.
+`yamaa.lock` pins the yamaa commit every published result was produced with (`4ea397f`). `requirements.txt` adds pyarrow, pandas, PyYAML and lxml; pyreadstat and zipfile-deflate64 for `fetch`; and openpyxl for `scripts/convert_lists.py`.
 
 !!! note "macOS"
 
@@ -56,7 +56,7 @@ For every report in `.local-run/reports/`, this prints `ok` or `FAIL` with your 
 | --- | --- |
 | `exact` | Exact |
 | `exact under comparison rules` | Exact under the comparison rules |
-| `mismatch`, with the published number of differing cells | Matches except missing input; reproduced on a substitute input; N cells differ |
+| `mismatch`, with the published number of differing cells | Matches except missing input; reproduced on a substitute input; matches except a defect of the submitted file; N cells differ |
 
 A `mismatch` report counts the differing cells of each column (`columns.<name>.mismatches`) and shows example rows (`lines`). Those rows are participant-level data: keep them on your machine. A define report gives the `verdict` and the `unexplained` differences, which the study page's Define-XML section states for each cut.
 
@@ -83,7 +83,7 @@ python scripts/site/check_verdicts.py --evidence ../docs/phmpt/evidence.json --s
 ### mRNA-1273-P301 {#mrna-1273-p301}
 
 ```sh
-# BLA interim analysis (BLA 125752 S3): needs your conversion of 12 JMP-only files (see below)
+# BLA interim analysis (BLA 125752 S3): needs your conversion of 13 JMP-only files (see below)
 python scripts/reproduce.py fetch  --study mrna-1273-p301 --cut s3
 python scripts/reproduce.py verify --study mrna-1273-p301 --cut s3
 # Interim analysis IA1b (27073 S5): needs your conversion of 12 JMP-only files (see below)
@@ -181,12 +181,12 @@ Each table lists the JMP-only files of one cut, where PHMPT holds them, and the 
 | File | PHMPT zip and member | Published results that read it |
 | --- | --- | --- |
 | `s3/data/adam/adae.parquet` | md-production-060225.zip: `FDA-CBER-2022-1614-4147731-4148673_125752_S3_M5_mrna-1273-p301_A_D_adae.jmp` | compared with it: ADAE |
-| `s3/data/adam/adcm.parquet` | md-production-060225.zip: `FDA-CBER-2022-1614-4148674-4153549_125752_S3_M5_mrna-1273-p301_A_D_adcm.jmp` | input to ADSL |
+| `s3/data/adam/adcm.parquet` | md-production-060225.zip: `FDA-CBER-2022-1614-4148674-4153549_125752_S3_M5_mrna-1273-p301_A_D_adcm.jmp` | compared with it: ADCM; input to ADSL |
 | `s3/data/adam/admh.parquet` | md-production-060225.zip: `FDA-CBER-2022-1614-4202982-4207395_125752_S3_M5_mrna-1273-p301_A_D_admh.jmp` | compared with it: ADMH |
 | `s3/data/adam/adrisk.parquet` | md-production-060225.zip: `FDA-CBER-2022-1614-4153550-4167991_125752_S3_M5_mrna-1273-p301_A_D_adrisk.jmp` | compared with it: ADRISK |
-| `s3/data/adam/adsl.parquet` | md-production-050125.zip: `FDA-CBER-2022-1614-3824347-3825106_125752_S3_M5_mrna-1273-p301_A_D_adsl.jmp` | all 24 datasets of the cut: compared with it (ADSL), input to the other 23 |
+| `s3/data/adam/adsl.parquet` | md-production-050125.zip: `FDA-CBER-2022-1614-3824347-3825106_125752_S3_M5_mrna-1273-p301_A_D_adsl.jmp` | all 25 datasets of the cut: compared with it (ADSL), input to the other 24 |
 | `s3/data/adam/adslsf.parquet` | md-production-020325.zip: `FDA-CBER-2022-1614-2982713-2982753_125752_S3_M5_mrna-1273-p301_A_D_adslsf.jmp` | compared with it: ADSLSF |
-| `s3/data/sdtm/cm.parquet` | md-production-060225.zip: `FDA-CBER-2022-1614-4169217-4174092_125752_S3_M5_mrna-1273-p301_S_cm.jmp` | none (no published result reads it) |
+| `s3/data/sdtm/cm.parquet` | md-production-060225.zip: `FDA-CBER-2022-1614-4169217-4174092_125752_S3_M5_mrna-1273-p301_S_cm.jmp` | input to ADCM |
 | `s3/data/sdtm/ds.parquet` | md-production-050125.zip: `FDA-CBER-2022-1614-3825911-3830059_125752_S3_M5_mrna-1273-p301_S_ds.jmp` | input to ADAE, ADSL, ADSLSF |
 | `s3/data/sdtm/mh.parquet` | md-production-060225.zip: `FDA-CBER-2022-1614-4207396-4216570_125752_S3_M5_mrna-1273-p301_S_mh.jmp` | input to ADMH, ADSL |
 | `s3/data/sdtm/pr.parquet` | md-production-050125.zip: `FDA-CBER-2022-1614-3830060-3830345_125752_S3_M5_mrna-1273-p301_S_pr.jmp` | input to ADSYMP |

@@ -87,6 +87,8 @@ _DATASET = {
     "multiset": _BOOL, "rows_unpaired": _INT, "partitions": _INT,
     "missing_input": ({"missing": _STR, "reason": _STR, "decided": _STR, "columns": [_STR],
                        "cells": _COUNTS}, None),
+    "submitted_defect": ({"defect": _STR, "reason": _STR, "decided": _STR, "columns": [_STR],
+                          "cells": _COUNTS}, None),
     "reasons": [{"kind": _STR, "reason": _STR, "cells": _COUNTS}],
     "unexplained_columns": [_STR],
     "note": (_STR, None),

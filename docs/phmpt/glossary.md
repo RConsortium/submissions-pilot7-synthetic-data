@@ -54,6 +54,10 @@ Every difference comes from an input the release lacks: a licensed dictionary th
 
 The release lacks a domain, so the spec reads another release's snapshot of it. The differences are everything the two snapshots disagree on, so they are reported apart from missing input, with the number of subjects that reproduce exactly.
 
+### Matches except a defect of the submitted file {#submitted-defect}
+
+Every difference comes from the submitted file itself: a malformed cell, or rows its released program writes that the file lacks, so the file was not produced by the program text as released. The spec follows the program. Recorded under `submitted_defect` in `data/differences.yaml`, and reported apart from exact; a dataset that also lacks an input reads "matches except missing input and a defect of the submitted file".
+
 ### Open (N cells differ) {#open}
 
 The dataset still differs and the cause is still to fix. The study page gives the diagnosed cause of each difference.

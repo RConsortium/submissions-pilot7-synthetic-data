@@ -575,14 +575,15 @@ def codelists_docs(rec: Received) -> list[tuple[str, OrderedDict]]:
                 i["order"] = int(it.get("OrderNumber"))
             items.append(i)
         orders = [i.get("order") for i in items]
-        if None in orders or len(set(orders)) != len(orders) or any(o is not None and o < 1 for o in orders):
-            # Every item or none declares order, and ODM requires positive,
-            # unique numbers (yamaa#4846): a codelist that repeats one or
-            # starts at 0 keeps none, and the comparison shows it.
+        if None in orders or len(set(orders)) != len(orders) or any(o is not None and o < 0 for o in orders):
+            # Every item or none declares order (CT-5), and ODM's xs:unique
+            # UC-CL-2/UC-CL-4 forbid a repeated number: a codelist that
+            # repeats one keeps none, and the comparison shows it. A number
+            # from 0 is declared as received (reproduced mode, yamaa#5022).
             for i in items:
                 i.pop("order", None)
             if any(o is not None for o in orders):
-                rec.deviations.append(f"{cl.get('OID')}: OrderNumber repeated, partial or below 1; not declared")
+                rec.deviations.append(f"{cl.get('OID')}: OrderNumber repeated, partial or negative; not declared")
         extended = any(i.get("extended") for i in items)
         if items:
             if extended:

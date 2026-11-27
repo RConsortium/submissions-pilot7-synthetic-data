@@ -8,6 +8,11 @@
 #                  dataset is reported "matches except missing input" (owner
 #                  decision 2026-11-26), a category of its own beside "exact".
 #                  `missing` names the absent input.
+#   submitted_defect  differences that come from a defect of the submitted
+#                  file itself (a malformed cell, or rows its released
+#                  program writes that the file lacks). The dataset is
+#                  reported "matches except a submitted-file defect" (owner
+#                  decision 2026-11-27). `defect` names it.
 #   open           differences still to fix, with their diagnosed cause. The
 #                  dataset stays "differs"; the reason is shown next to it.
 #   hold           datasets on hold by the owner's decision.
@@ -24,8 +29,8 @@
 # not a few unrecoverable values but everything the two snapshots disagree
 # on. `subjects: {exact, of}` gives how many subjects reproduce exactly.
 #
-# A dataset listed under `missing_input` is reported so when the listed
-# differences are its only ones:
+# A dataset listed under `missing_input` or `submitted_defect` is reported
+# so when the listed differences are its only ones:
 #   columns      columns yamaa does not derive at all (missing from its output);
 #   rows_differ  true when the row count may differ because of those columns;
 #   cells        {column: n}: at most n cells of that column may differ.
@@ -264,6 +269,37 @@ missing_input:
     has 0. The owner extended the fa-eff ADCEVD decision to the supplement.
   decided: "2026-11-26"
 
+- study: c4591001
+  dataset: ADVA
+  cuts: [s1-safety-fa-eff]
+  cells: {SRCSEQ: 1104, ABLPBLFL: 184, AGEGR1: 3915, AGEGR1N: 11930, AGEGR2: 11930, AGEGR2N: 9322,
+          TRTEDT: 42, TRTETM: 53, TR01EDT: 42, TR01ETM: 53, TR01EDTM: 53, VAX102DT: 42,
+          EVAL02FL: 11, AAI02FL: 11, EVIMMFL: 11, AAIMMFL: 11, TRTPR: 17, TRTPRN: 17, PD1POSDT: 67}
+  rows_differ: true
+  missing: >-
+    the IS records and the ADSL the EUA ADVA read: an IS without the 184 Month-1 N-binding results the
+    released EUA IS carries, and an earlier ADSL than the released one
+  reason: >-
+    The EUA adva.sas is not in the release; the layer ports the BLA program
+    with the EUA differences its dataset and define show. The released EUA
+    IS is not the IS the EUA ADVA read: 184 Phase 2 subjects have a Visit 3
+    N-binding result that the EUA ADVA lacks (184 extra rows, its Visit 1
+    record's ABLPBLFL Y instead of N), and the EUA ADVA's IS sequence
+    numbers skip those records (SRCSEQ one lower on the six later records of
+    each subject). The ADSL the EUA ADVA read is an earlier one than the
+    released EUA ADSL: its age groups are coded differently (AGEGR1
+    18-55 / 56-85 for Phase 2, AGEGR1N and AGEGR2 renumbered, AGEGR2
+    18-34 / 35-55); one Phase 1 subject has no Dose 2 yet (VAX102DT, the
+    last-dose dates and times; TRTETM and TR01ETM of one more subject
+    differ); one subject with only a COVID-visit sample after Dose 2 is
+    Dose 2 evaluable there (EVAL02FL, AAI02FL and the record flags); two
+    Phase 2 subjects aged 64 and 66 take the 56-85 planned reporting
+    treatment (TRTPR) although their randomization number is in the 18-55
+    range the EUA adsl.sas reads; and three subjects whose first positive
+    swab is dated October or November 2020 have no PD1POSDT. Every other
+    cell is reproduced on all 11,930 records.
+  decided: "2026-11-26"
+
 - study: mrna-1273-p301
   dataset: ADCM
   cuts: [s5]
@@ -282,6 +318,30 @@ missing_input:
   missing: "the CMSTDTC / CMENDTC values of these rows, redacted to (b)(6)"
   reason: *cmflags
   decided: "2026-11-25"
+
+- study: mrna-1273-p301
+  dataset: ADCM
+  cuts: [s3]
+  columns: [CMSEQ, CMCAT, CMTRTO1, CMDECOD, CMDECOD1, CMDECOD2, CMDECOD3, CMINDC, CMDOSE, CMDOSU, CMUOTHSP,
+            CMDOSFRQ, CMFOTHSP, CMROUTE, CMROTHSP, CMSOLFL, CMMOI1FL, CMMOI2FL, CMMOI3FL, ATCLEV1T, ATCLEV2T,
+            ATCLEV3T, ATCLEV4T, CMPROTCD]
+  cells: {ASTDTF: 11}
+  missing: >-
+    CM variables the released S3 CM (a JMP conversion with 11 of its 24
+    variables) drops: CMSEQ, CMCAT, CMDECOD, CMINDC, CMCLAS, CMDOSE, CMDOSU,
+    CMDOSFRQ, CMROUTE; the sponsor file import.pain_drugcode, not submitted;
+    and the CMSTDTC values of 11 rows, redacted to (b)(6)
+  reason: >-
+    Without CMSEQ no CM record can be joined to its SUPPCM records, and
+    CMSEQ cannot be rebuilt: the released rows are sorted by start date and
+    subject, and CMSEQ follows the sponsor's entry order, which no released
+    variable carries. So the CM-coded columns, the SUPPCM columns (ATC
+    levels, CMDECOD1-3, the dose, frequency and route specifications,
+    CMSOLFL, CMPROTCD, CMTRTO1) and the flags built on them (CMMOI1FL-3FL)
+    cannot be derived; CMMOI2FL also needs the sponsor's pain drug-code list.
+    The rows are identified by a record number in their place. The start
+    date imputation flag of 11 rows comes from a CMSTDTC redacted to (b)(6).
+  decided: "2026-11-26"
 
 - study: mrna-1273-p301
   dataset: ADRISK
@@ -507,33 +567,49 @@ missing_input:
   reason: *adslfacewhy
   decided: "2026-11-26"
 
-# Differences still to fix, with their diagnosed cause.
-open:
+# Defects of the submitted files (owner decision 2026-11-27): the dataset
+# matches its released program except where the submitted file itself is
+# defective or was not produced by that program. `defect` names it.
+submitted_defect:
 - study: c4591001
   dataset: ADMH
   cuts: [s1-safety-fa-eff]
   cells: {AENDY: 1}
+  defect: "one AENDY cell holds its value three times, separated by line breaks"
   reason: >-
     One submitted AENDY cell holds -25083 three times separated by line
-    breaks (a defect of the submitted file); the derived value is -25083.
+    breaks; the derived value is -25083, as in every other record.
+  decided: "2026-11-27"
 
 - study: c4591001
   dataset: ADC19EF
   cuts: [s1-ia]
-  cells: {AVALC: 1, ADT: 1, ADY: 1}
   rows_differ: true
+  defect: "the file lacks the PRCDCSAD rows its released program writes"
   reason: >-
-    yamaa writes 1,156 PRCDCSAD rows (presence of CDC-defined symptoms)
-    that the submitted interim file does not have. The released
-    adc19ef-ia.sas writes them (grp = 2) and its final step keeps them (its
-    drop list names CDCONST and ten subject status parameters, not
-    PRCDCSAD), while the CDC surveillance times in the file do reflect
-    those symptoms: the submitted file was not produced by the program
-    text as released. One NAATRAD row of a visit whose symptoms belong to
-    the previous illness visit is NEG here and blank in the file:
-    adc19ef-ia.sas validates NAAT results against the visit windows with
-    a different rule (nva_naat, usubjid_vis / usubjid_avis), not ported yet.
+    The submitted interim file is inconsistent with its released
+    program: yamaa writes 1,156 PRCDCSAD rows
+    (presence of CDC-defined symptoms) that the file does not have, and
+    every other cell matches. adc19ef-ia.sas gives FATIGUE, HEADACHE,
+    RIHNRA and NAUSEA grp = 2 (symp_all_1; the interim ADSYMPT has 1,494
+    such records); symp_all_4 keeps the last record of each analysis
+    visit and group (keepflg, grp < 20) and symp2 to symp5 keep every one;
+    adc19ef_1 names it PARAMCD = 'PRCDCSAD' and writes it with an
+    unconditional output, then writes the CDCONST record of the same
+    record; adc19ef_3 keeps every record with a PARAMCD; the final step
+    drops only PARAMCD in ("CDCONST", "ST1PD", "ST17PD", "ST2PD",
+    "ST214PD", "ST214CD", "ST214SE", "ST1PDA", "ST17PDA", "ST2PDA",
+    "ST214PDA") and the CDC flag columns, and the closing proc sort has
+    no nodupkey. No macro, %include or where clause touches these rows.
+    The CDCONST records did exist when the file was made: ST1CD ends at
+    the first CDC onset, before ST1SE, for 109 subjects without a severe
+    onset. The file was therefore not produced by the program text as
+    released; nothing in the program or the data supports dropping the
+    rows, so the spec keeps them.
+  decided: "2026-11-27"
 
+# Differences still to fix, with their diagnosed cause.
+open:
 - study: c4591001
   dataset: ADCEVD
   cuts: [s1-supp]
@@ -567,17 +643,6 @@ hold: []
 
 # Where a released program's text and the submitted dataset disagree.
 program_notes:
-- study: c4591001
-  dataset: ADC19EF
-  cuts: [s1-ia]
-  note: >-
-    adc19ef-ia.sas writes a PRCDCSAD row (presence of CDC-defined symptoms)
-    for every CDC symptom group and its final step drops only CDCONST and ten
-    subject status parameters, yet the submitted interim ADC19EF has no
-    PRCDCSAD row at all (1,156 by the program), while its CDC surveillance
-    times do reflect those symptoms. The submitted file was not produced by
-    the program text as released.
-
 - study: mrna-1273-p301
   dataset: ADSLSF
   cuts: [s3]

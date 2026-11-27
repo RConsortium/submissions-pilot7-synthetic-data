@@ -79,7 +79,7 @@ function saveDraft(id, draft) {
   try { localStorage.setItem(DRAFTS, JSON.stringify({ ...readDrafts(), [id]: draft })); } catch { /* storage is optional */ }
 }
 
-function evidenceRows(evidence, f, rec) {
+export function evidenceRows(evidence, f, rec) {
   if (!rec) return "<p>No record behind this finding.</p>";
   const rows = [];
   if (f.kind === "dataset") {
@@ -92,6 +92,8 @@ function evidenceRows(evidence, f, rec) {
     if (rec.carried_columns.length) rows.push(["Carried from the submitted data, not derived", rec.carried_columns.map((c) => `<code>${esc(c)}</code>`).join(", ")]);
     if (rec.missing_columns.length) rows.push(["Not derived", rec.missing_columns.map((c) => `<code>${esc(c)}</code>`).join(", ")]);
     if (rec.missing_input) rows.push(["Missing input", `${esc(rec.missing_input.missing)}. ${esc(rec.missing_input.reason)}`]);
+    if (rec.submitted_defect) rows.push(["Submitted-file defect", `${esc(rec.submitted_defect.defect)}. ${esc(rec.submitted_defect.reason)} ${counts(rec.submitted_defect.cells)}`]);
+    if (rec.note) rows.push(["Note", esc(rec.note)]);
     for (const r of rec.reasons) rows.push([r.kind === "missing input" ? "Missing input" : "Known cause, to fix", `${esc(r.reason)} ${counts(r.cells)}`]);
     if (rec.unexplained_columns.length) rows.push(["No recorded reason yet", rec.unexplained_columns.map((c) => `<code>${esc(c)}</code>`).join(", ")]);
     rows.push(["Specification", `<a href="${BLOB}${esc(rec.spec)}">${esc(rec.spec)}</a> (${n(rec.spec_lines)} lines; layers: ${rec.layers.map(esc).join(" &lt; ")})`]);

@@ -1,0 +1,363 @@
+# C4591001 EUA 27034 S1: the ADSL the EUA ADVA reads. The released EUA ADSL
+# lacks the immunogenicity population flags, the reporting treatments and the
+# post-dose positive swab date that adva.sas keeps, so this helper takes the
+# released ADSL and adds them:
+#   - EVAL01FL, EVAL02FL, AAI01FL, AAI02FL as the EUA adsl.sas (17Nov2020,
+#     spec/source 27034_S1_M5 adsl-sas.pdf) derives them from the INCL flags,
+#     SAFFL / RANDFL, the dose dates and the clinician-assessed Immunogenicity
+#     deviations (SUPPDV CAPE with POP3); the program's flags carry no phase
+#     condition, so Phase 2 subjects take N for the Dose 1 flags. INCL8FL
+#     (a valid IS result after Dose 2) is derived from this cut's IS as the
+#     EUA adsl.sas does (the rule of ../adsl.yaml): the released ADSL's INCL8FL
+#     was derived from an IS without the post-Dose 2 results the EUA ADVA
+#     reads (see data/differences.yaml, ADSL);
+#   - TRTPR / TRTPRN / TRTAR / TRTARN as that program assigns them (Phase 2:
+#     ARM or ACTARM with the randomization age group; Phase 1: the first word
+#     of ARM / ACTARM, numbered 11-13). The program's last step blanks them
+#     outside Phase 2; the ADSL the EUA ADVA read predates that step (its
+#     Phase 1 records carry the Phase 1 values), so it is not applied here;
+#   - PD1POSDT, the first positive swab after Day 1 (a central RTCOV2NS POS,
+#     or a local SARSCOV2 POS from devices 34, 44 or 68 at a visit whose
+#     central result is missing or POS), as the later adsl.sas derives it
+#     (the EUA adsl.sas has no PD1POSDT);
+#   - the period-2 and unblinding columns the S1 ADVA spec reads, missing
+#     here as in the EUA program (no open-label period yet).
+yamaa: '1.0'
+type: spec
+model: ADaM
+domain: ADSLVA
+keys: [STUDYID, USUBJID]
+input:
+  SRC: <adam-dir>/adsl.parquet
+  SUPPDV: <sdtm-dir>/suppdv.parquet
+  IS: <sdtm-dir>/is.parquet
+  MB: <sdtm-dir>/mb.parquet
+intermediates:
+# A valid IS result (ISORRES not blank or NOT DONE) at a post-Dose 2 visit;
+# the 100 ug cohort (COHORTN 1.16) has its own post-Dose 2 visits.
+- id: IS_PD2
+  dataset: IS
+  key: [USUBJID]
+  filter: IS.ISORRES IS NOT NULL AND IS.ISORRES <> '' AND IS.ISORRES <> 'NOT DONE' AND IS.ISTEST IS NOT NULL
+    AND IS.VISITNUM IN (60752, 60753, 60754, 60767, 60755, 60756, 60757)
+  order_by: [IS.ISDTC]
+  keep: first
+  derivations:
+    _X:
+      type: int
+      derivation: 1
+- id: IS_PD2C
+  dataset: IS
+  key: [USUBJID]
+  filter: IS.ISORRES IS NOT NULL AND IS.ISORRES <> '' AND IS.ISORRES <> 'NOT DONE' AND IS.ISTEST IS NOT NULL
+    AND IS.VISITNUM IN (1165455, 1165456)
+  order_by: [IS.ISDTC]
+  keep: first
+  derivations:
+    _X:
+      type: int
+      derivation: 1
+# Subjects with an important deviation for the Immunogenicity population.
+- id: DV_IMM
+  dataset: SUPPDV
+  key: [USUBJID]
+  filter: SUPPDV.QNAM = 'CAPE' AND str_contains(SUPPDV.QVAL, 'POP3')
+  order_by: [SUPPDV.IDVARVAL]
+  keep: first
+  derivations:
+    _X:
+      type: int
+      derivation: 1
+- id: MB_CVIS
+  dataset: MB
+  key: [USUBJID, VISITNUM, VISIT]
+  filter: MB.MBTESTCD = 'RTCOV2NS' AND MB.MBDY > 1
+  order_by: [MB.MBDTC]
+  keep: first
+  derivations:
+    _C:
+      type: str
+      derivation: MB.MBSTRESC
+- id: PD1_C
+  dataset: MB
+  key: [USUBJID]
+  filter: MB.MBTESTCD = 'RTCOV2NS' AND MB.MBDY > 1 AND MB.MBSTRESC = 'POS' AND MB.MBDTC IS NOT NULL
+  order_by: [MB.MBDTC]
+  keep: first
+  derivations:
+    _DT:
+      type: date
+      derivation:
+        to_date:
+          source: MB.MBDTC
+- id: PD1_L
+  dataset: MB
+  key: [USUBJID]
+  filter: MB.MBTESTCD = 'SARSCOV2' AND MB.MBDY > 1 AND MB.SPDEVID IN ('34', '44', '68') AND MB.MBSTRESC = 'POS'
+    AND MB.MBDTC IS NOT NULL
+  order_by:
+  - variable: MB._OK
+    direction: desc
+  - MB.MBDTC
+  keep: first
+  derivations:
+    _DT:
+      type: date
+      derivation:
+        to_date:
+          source: MB.MBDTC
+    _OK:
+      type: int
+      derivation:
+        case:
+        - when: MB_CVIS._C IS NULL OR MB_CVIS._C = '' OR MB_CVIS._C = 'POS'
+          then: 1
+        - otherwise: 0
+    _CAND:
+      type: date
+      derivation:
+        case:
+        - when: _OK = 1
+          then: _DT
+rows:
+- id: subjects
+  dataset: SRC
+  derivations:
+    STUDYID: SRC.STUDYID
+    USUBJID: SRC.USUBJID
+    SUBJID: SRC.SUBJID
+    SITEID: SRC.SITEID
+    AGE: SRC.AGE
+    AGEU: SRC.AGEU
+    SEX: SRC.SEX
+    SEXN: SRC.SEXN
+    RACE: SRC.RACE
+    RACEN: SRC.RACEN
+    SAFFL: SRC.SAFFL
+    RANDFL: SRC.RANDFL
+    ARM: SRC.ARM
+    ARMCD: SRC.ARMCD
+    ACTARM: SRC.ACTARM
+    ACTARMCD: SRC.ACTARMCD
+    TRTSDT: SRC.TRTSDT
+    TRTEDT: SRC.TRTEDT
+    TRTSTM: SRC.TRTSTM
+    TRTETM: SRC.TRTETM
+    TRT01A: SRC.TRT01A
+    TRT01AN: SRC.TRT01AN
+    TRT01P: SRC.TRT01P
+    TRT01PN: SRC.TRT01PN
+    TR01SDT: SRC.TR01SDT
+    TR01STM: SRC.TR01STM
+    TR01SDTM: SRC.TR01SDTM
+    TR01EDT: SRC.TR01EDT
+    TR01ETM: SRC.TR01ETM
+    TR01EDTM: SRC.TR01EDTM
+    COHORTN: SRC.COHORTN
+    COHORT: SRC.COHORT
+    VAX101DT: SRC.VAX101DT
+    VAX102DT: SRC.VAX102DT
+    DOSALVL: SRC.DOSALVL
+    DOSALVLN: SRC.DOSALVLN
+    DOSPLVL: SRC.DOSPLVL
+    DOSPLVLN: SRC.DOSPLVLN
+    AGEGR1: SRC.AGEGR1
+    AGEGR1N: SRC.AGEGR1N
+    AGEGR2: SRC.AGEGR2
+    AGEGR2N: SRC.AGEGR2N
+    PHASE: SRC.PHASE
+    PHASEN: SRC.PHASEN
+    COVBLST: SRC.COVBLST
+    _IMMUNO:
+      case:
+      - when: DV_IMM._X IS NOT NULL
+        then: 1
+      - otherwise: 0
+    _INCL8FL:
+      case:
+      - when: SRC.VAX102DT IS NOT NULL AND ((IS_PD2._X IS NOT NULL AND (SRC.COHORTN IS NULL OR SRC.COHORTN <> 1.16))
+          OR (IS_PD2C._X IS NOT NULL AND SRC.COHORTN = 1.16))
+        then: "'Y'"
+      - otherwise: "'N'"
+    EVAL01FL:
+      case:
+      - when: SRC.INCL1FL = 'Y' AND SRC.INCL2FL = 'Y' AND SRC.INCL4FL = 'Y' AND SRC.INCL5FL = 'Y' AND SRC.SAFFL
+          = 'Y' AND _IMMUNO = 0
+        then: "'Y'"
+      - otherwise: "'N'"
+    EVAL02FL:
+      case:
+      - when: SRC.INCL1FL = 'Y' AND SRC.INCL2FL = 'Y' AND SRC.INCL7FL = 'Y' AND _INCL8FL = 'Y' AND SRC.SAFFL
+          = 'Y' AND SRC.INCL9FL = 'Y' AND _IMMUNO = 0
+        then: "'Y'"
+      - otherwise: "'N'"
+    AAI01FL:
+      case:
+      - when: SRC.RANDFL = 'Y' AND SRC.SAFFL = 'Y' AND (SRC.VAX101DT IS NOT NULL OR SRC.VAX102DT IS NOT NULL)
+          AND SRC.INCL3FL = 'Y'
+        then: "'Y'"
+      - otherwise: "'N'"
+    AAI02FL:
+      case:
+      - when: SRC.RANDFL = 'Y' AND SRC.SAFFL = 'Y' AND SRC.VAX102DT IS NOT NULL AND _INCL8FL = 'Y'
+        then: "'Y'"
+      - otherwise: "'N'"
+    _RANDN:
+      value: SRC.RANDNO
+      unconvertible: null
+    _AGEGR11:
+      case:
+      - when: _RANDN >= 40001 AND _RANDN <= 220000
+        then: "'18-55'"
+      - when: _RANDN >= 220001 AND _RANDN <= 400000
+        then: "'56-85'"
+    _AGEGR11N:
+      case:
+      - when: _RANDN >= 40001 AND _RANDN <= 220000
+        then: 1
+      - when: _RANDN >= 220001 AND _RANDN <= 400000
+        then: 2
+    _ARM1:
+      str_extract:
+        source: SRC.ARM
+        pattern: ^(\S+)
+        group: 1
+        no_match: null
+    _ACTARM1:
+      str_extract:
+        source: SRC.ACTARM
+        pattern: ^(\S+)
+        group: 1
+        no_match: null
+    _AGEGRA:
+      case:
+      - when: SRC.AGEGR1 = '>55 Years'
+        then: "'56-85'"
+      - when: SRC.AGEGR1 = '16-55 Years'
+        then: "'18-55'"
+    TRTPR:
+      case:
+      - when: SRC.PHASEN = 2 AND SRC.ARM IS NOT NULL AND _AGEGR11 IS NOT NULL
+        then:
+          str_template: '{SRC.ARM} (*ESC*){{unicode 2013}} {_AGEGR11}'
+      - when: SRC.PHASEN = 1 AND SRC.ARM <> 'SCREEN FAILURE' AND SRC.ARM <> 'NOT ASSIGNED'
+        then: _ARM1
+    TRTPRN:
+      case:
+      - when: SRC.PHASEN = 2 AND SRC.ARM IS NOT NULL AND _AGEGR11 IS NOT NULL
+        then: (SRC.TRT01PN - 8) * 2 + _AGEGR11N
+      - when: SRC.PHASEN = 1 AND TRTPR = 'BNT162b1'
+        then: 11
+      - when: SRC.PHASEN = 1 AND TRTPR = 'BNT162b2'
+        then: 12
+      - when: SRC.PHASEN = 1 AND TRTPR = 'Placebo'
+        then: 13
+    TRTAR:
+      case:
+      - when: SRC.PHASEN = 2 AND SRC.ACTARM <> 'Not Treated' AND SRC.ACTARM <> 'NOT ASSIGNED' AND SRC.ACTARM
+          <> 'SCREEN FAILURE' AND _AGEGRA IS NOT NULL
+        then:
+          str_template: '{SRC.ACTARM} (*ESC*){{unicode 2013}} {_AGEGRA}'
+      - when: SRC.PHASEN = 1 AND SRC.ACTARM <> 'SCREEN FAILURE' AND SRC.ACTARM <> 'NOT ASSIGNED' AND SRC.ACTARM
+          <> 'NOT TREATED'
+        then: _ACTARM1
+    TRTARN:
+      case:
+      - when: SRC.PHASEN = 2 AND TRTAR IS NOT NULL AND SRC.AGEGR1N = 2
+        then: (SRC.TRT01AN - 8) * 2 + 1
+      - when: SRC.PHASEN = 2 AND TRTAR IS NOT NULL AND SRC.AGEGR1N = 5
+        then: (SRC.TRT01AN - 8) * 2 + 2
+      - when: SRC.PHASEN = 1 AND TRTAR = TRTPR
+        then: TRTPRN
+    PD1POSDT:
+      least:
+        sources: [PD1_C._DT, PD1_L._CAND]
+    TR02SDT: null
+    TR02SDTM: null
+    TR02EDT: null
+    TR02EDTM: null
+    TRT02P: null
+    TRT02PN: null
+    TRT02A: null
+    TRT02AN: null
+    VAX201DT: null
+columns:
+- {name: STUDYID, type: str, label: STUDYID}
+- {name: USUBJID, type: str, label: USUBJID}
+- {name: SUBJID, type: str, label: SUBJID}
+- {name: SITEID, type: str, label: SITEID}
+- {name: AGE, type: int, label: AGE}
+- {name: AGEU, type: str, label: AGEU}
+- {name: SEX, type: str, label: SEX}
+- {name: SEXN, type: int, label: SEXN}
+- {name: RACE, type: str, label: RACE}
+- {name: RACEN, type: int, label: RACEN}
+- {name: SAFFL, type: str, label: SAFFL}
+- {name: RANDFL, type: str, label: RANDFL}
+- {name: ARM, type: str, label: ARM}
+- {name: ARMCD, type: str, label: ARMCD}
+- {name: ACTARM, type: str, label: ACTARM}
+- {name: ACTARMCD, type: str, label: ACTARMCD}
+- {name: TRTSDT, type: date, label: TRTSDT}
+- {name: TRTEDT, type: date, label: TRTEDT}
+- {name: TRTSTM, type: time, label: TRTSTM}
+- {name: TRTETM, type: time, label: TRTETM}
+- {name: TRT01A, type: str, label: TRT01A}
+- {name: TRT01AN, type: int, label: TRT01AN}
+- {name: TRT01P, type: str, label: TRT01P}
+- {name: TRT01PN, type: int, label: TRT01PN}
+- {name: TR01SDT, type: date, label: TR01SDT}
+- {name: TR01STM, type: time, label: TR01STM}
+- {name: TR01SDTM, type: datetime, label: TR01SDTM}
+- {name: TR01EDT, type: date, label: TR01EDT}
+- {name: TR01ETM, type: time, label: TR01ETM}
+- {name: TR01EDTM, type: datetime, label: TR01EDTM}
+- {name: COHORTN, type: float, label: COHORTN}
+- {name: COHORT, type: str, label: COHORT}
+- {name: VAX101DT, type: date, label: VAX101DT}
+- {name: VAX102DT, type: date, label: VAX102DT}
+- {name: DOSALVL, type: str, label: DOSALVL}
+- {name: DOSALVLN, type: int, label: DOSALVLN}
+- {name: DOSPLVL, type: str, label: DOSPLVL}
+- {name: DOSPLVLN, type: int, label: DOSPLVLN}
+- {name: AGEGR1, type: str, label: AGEGR1}
+- {name: AGEGR1N, type: int, label: AGEGR1N}
+- {name: AGEGR2, type: str, label: AGEGR2}
+- {name: AGEGR2N, type: int, label: AGEGR2N}
+- {name: PHASE, type: str, label: PHASE}
+- {name: PHASEN, type: int, label: PHASEN}
+- {name: COVBLST, type: str, label: COVBLST}
+- {name: _IMMUNO, type: int}
+- {name: _INCL8FL, type: str}
+- {name: EVAL01FL, type: str, label: EVAL01FL}
+- {name: EVAL02FL, type: str, label: EVAL02FL}
+- {name: AAI01FL, type: str, label: AAI01FL}
+- {name: AAI02FL, type: str, label: AAI02FL}
+- {name: _RANDN, type: float}
+- {name: _AGEGR11, type: str}
+- {name: _AGEGR11N, type: int}
+- {name: _ARM1, type: str}
+- {name: _ACTARM1, type: str}
+- {name: _AGEGRA, type: str}
+- {name: TRTPR, type: str, label: TRTPR}
+- {name: TRTPRN, type: int, label: TRTPRN}
+- {name: TRTAR, type: str, label: TRTAR}
+- {name: TRTARN, type: int, label: TRTARN}
+- {name: PD1POSDT, type: date, label: PD1POSDT}
+- {name: TR02SDT, type: date, label: TR02SDT}
+- {name: TR02SDTM, type: datetime, label: TR02SDTM}
+- {name: TR02EDT, type: date, label: TR02EDT}
+- {name: TR02EDTM, type: datetime, label: TR02EDTM}
+- {name: TRT02P, type: str, label: TRT02P}
+- {name: TRT02PN, type: int, label: TRT02PN}
+- {name: TRT02A, type: str, label: TRT02A}
+- {name: TRT02AN, type: int, label: TRT02AN}
+- {name: VAX201DT, type: date, label: VAX201DT}
+output:
+  path: <work-dir>/adsl_va.parquet
+  columns: [STUDYID, USUBJID, SUBJID, SITEID, AGE, AGEU, SEX, SEXN, RACE, RACEN, SAFFL, RANDFL, ARM, ARMCD,
+    ACTARM, ACTARMCD, TRTSDT, TRTEDT, TRTSTM, TRTETM, TRT01A, TRT01AN, TRT01P, TRT01PN, TR01SDT, TR01STM,
+    TR01SDTM, TR01EDT, TR01ETM, TR01EDTM, COHORTN, COHORT, VAX101DT, VAX102DT, DOSALVL, DOSALVLN, DOSPLVL,
+    DOSPLVLN, AGEGR1, AGEGR1N, AGEGR2, AGEGR2N, PHASE, PHASEN, COVBLST, EVAL01FL, EVAL02FL, AAI01FL, AAI02FL,
+    TRTPR, TRTPRN, TRTAR, TRTARN, PD1POSDT, TR02SDT, TR02SDTM, TR02EDT, TR02EDTM, TRT02P, TRT02PN, TRT02A,
+    TRT02AN, VAX201DT]
