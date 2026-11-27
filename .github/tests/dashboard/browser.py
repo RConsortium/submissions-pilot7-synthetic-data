@@ -419,12 +419,29 @@ def check(browser, base, site_dir, screenshots):
         page.reload()
         expect(page.locator(".spec-line.node-selected code")).to_have_text(selected)
     capture(page, screenshots, "composed-specification.png")
+    # The page was just reloaded, so this is its first route change. The route
+    # stays in the page: instant navigation must not refetch the page and
+    # replace the mounted dashboard while it renders the new view.
+    page.evaluate("document.getElementById('study-dashboard').dataset.routeProbe = 'kept'")
+    page_path = urllib.parse.urlsplit(study).path
+    refetched = []
+
+    def page_refetch(request):
+        if request.resource_type in ("xhr", "fetch") and urllib.parse.urlsplit(request.url).path == page_path:
+            refetched.append(request.url)
+
+    page.on("request", page_refetch)
     page.goto(study + "#cdiscpilot01/datasets/ADSL")
+    # The previous ADTTE view also shows 3 rows, 3 subjects and no sidebar;
+    # wait for the ADSL inputs before measuring the layout.
+    expect(page.locator(".input-group h3")).to_have_text(["DM - Demographics"])
     expect(page.locator("#output-table tbody tr")).to_have_count(3)
     expect(page.locator("#subject-summary")).to_contain_text("3 /")
     expect(page.locator(".md-sidebar--primary")).not_to_be_visible()
+    expect(page.locator("#study-dashboard")).to_have_attribute("data-route-probe", "kept")
+    page.remove_listener("request", page_refetch)
+    assert not refetched, f"A route change refetched the page: {refetched}"
     assert page.locator("#study-dashboard").bounding_box()["width"] >= 0.95 * 1600
-    expect(page.locator(".input-group h3")).to_have_text("DM - Demographics")
     expect(
         page.locator("#copy-view, #wide-mode, .provenance, [data-export]")
     ).to_have_count(0)
