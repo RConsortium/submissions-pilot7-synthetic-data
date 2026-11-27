@@ -1,0 +1,92 @@
+# Rerun part of the PHMPT reproduction from the files FDA released on
+# phmpt.org, with the kit in phmpt/ and nothing else, and require every
+# result to equal the one docs/phmpt/evidence.json publishes:
+#   * every received define is fetched, transcribed, composed and compared;
+#   * the mRNA-1273-P201 and BNT162-01 datasets are fetched and verified.
+# mRNA-1273-P301 and C4591001 take hours and run locally
+# (sh phmpt/reproduce.sh <study>).
+#
+# What the job fetches and writes is participant-level data or derived from
+# it, so it stays on the runner: nothing is cached or uploaded. Only the
+# yamaa build is cached.
+name: PHMPT reproduction
+
+on:
+  workflow_call:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  reproduce:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 120
+    env:
+      CARGO_TARGET_DIR: ${{ github.workspace }}/.build/yamaa-target
+    defaults:
+      run:
+        working-directory: phmpt
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          persist-credentials: false
+      - name: Read the yamaa commit in phmpt/yamaa.lock
+        id: lock
+        run: echo "commit=$(awk '/^commit:/{print $2}' yamaa.lock)" >> "$GITHUB_OUTPUT"
+      - uses: actions/checkout@v5
+        with:
+          repository: elong0527/yamaa
+          ref: ${{ steps.lock.outputs.commit }}
+          path: .build/yamaa
+          persist-credentials: false
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - uses: dtolnay/rust-toolchain@1.99.1
+      - uses: actions/cache@v4
+        with:
+          path: |
+            ~/.cargo/registry
+            .build/yamaa-target
+          key: phmpt-yamaa-${{ steps.lock.outputs.commit }}
+      - name: Build yamaa and install the kit
+        run: |
+          python -m pip install maturin==1.9.6
+          (cd ../.build/yamaa/python && maturin build --release -o wheels)
+          python -m pip install ../.build/yamaa/python/wheels/*.whl -r requirements.txt
+      - name: Transcribe, compose and compare every define
+        run: |
+          for s in $(python -c 'import yaml; print(*yaml.safe_load(open("studies.yaml")))'); do
+            python scripts/reproduce.py fetch --study "$s" --dataset define-adam
+            python scripts/reproduce.py define --study "$s" --transcribe
+          done
+      - name: Fetch and verify mRNA-1273-P201 and BNT162-01
+        run: |
+          for s in mrna-1273-p201 bnt162-01; do
+            python scripts/reproduce.py fetch --study "$s"
+            python scripts/reproduce.py verify --study "$s"
+          done
+      - name: Require a report for every result in scope
+        # check_verdicts.py --evidence skips a result that has no report.
+        run: |
+          python - <<'PY'
+          import json
+          import sys
+          from pathlib import Path
+          reports = Path('.local-run/reports')
+          studies = json.loads(Path('../docs/phmpt/evidence.json').read_text())['studies']
+          missing = []
+          for study, entry in studies.items():
+              for cut, results in entry['cuts'].items():
+                  if results['define']:
+                      missing += [f'define-{study}-{cut}.json'] * (not (reports / f'define-{study}-{cut}.json').exists())
+                  if study in ('mrna-1273-p201', 'bnt162-01'):
+                      for row in results['datasets']:
+                          name = f"{study}-{cut}-{Path(row['spec']).stem}.json"
+                          missing += [name] * (row['verdict'] != 'not checkable' and not (reports / name).exists())
+          print(*(f'missing report: {name}' for name in missing), sep='\n')
+          sys.exit(1 if missing else 0)
+          PY
+      - name: Compare with the published results
+        run: python scripts/site/check_verdicts.py --evidence ../docs/phmpt/evidence.json
