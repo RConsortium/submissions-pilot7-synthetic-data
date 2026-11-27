@@ -40,6 +40,11 @@ Keep explanations short, concrete, and easy to follow.
 - Edit `docs/review/index.md` for the review guide. Keep its control names
   aligned with the labels in the dashboard.
 - Edit `docs/studies/kn189.md` and `docs/studies/kn564.md` for synthetic studies.
+- `phmpt/` and `docs/phmpt/` (except `docs/phmpt/review/`) are exported from
+  the private yamaa_phmpt repository by its `scripts/publish/export.py`; do
+  not edit them here. `.github/scripts/check_phmpt_bundle.py` and its test
+  are vendored from that repository unchanged. Edit `docs/phmpt/review/index.md`
+  and `docs/assets/phmpt/review.js` for the PHMPT review page.
 - Generate pilot study pages and JSON evidence with
   `python3 .github/scripts/build_study_docs.py` after validating the studies.
   Do not hand-edit or commit these generated files.

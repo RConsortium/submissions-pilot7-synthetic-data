@@ -1,0 +1,495 @@
+# ADSL for Moderna mRNA-1273-P201, data cut add1 (Addendum 1,
+# cutoff 2021-06-11 from TS DCUTDTC).
+# Parent: ../../../s3-d57/spec/yamaa/adsl.yaml (which chains to ../../../spec/yamaa/base/adam-base.yaml) (section 3.1 core columns).
+# Derivations implement the add1 A10ADSL program (program/adam/
+# FDA-CBER-2022-1614-3818593-3818603_..._add1_A_P_a1.txt -- the
+# name is truncated to `a1`); a diff against the d57 A10ADSL
+# shows ONLY PP-related changes (two new reason codes 11/12 and
+# the Day 209 PP datasets), so all non-PP derivations are the
+# d57 ones. The sentinel macro COHORT_1_2_SENTIAL is referenced
+# but never %let anywhere, so the sentinel filter is NOT applied.
+# VERIFIED-ONLY (owner decision 2026-11-22, docs/decisions.md): the 26 PP-
+# dependent columns (12 PP flags, 12 PP reason columns,
+# DVBABFL/DVNABFL) are carried from the submitted add1 ADSL
+# (input ADSL_VO, keyed on [STUDYID, USUBJID]), NOT re-derived:
+# their derivations read PP_LIST/PP_LIST2, the manual
+# deviation-review lists, which exist only for d57 and are
+# absent from Module 5 for add1. The verify report will show
+# them matching trivially because they come from the expected
+# file; that is the documented limitation, not a derivation.
+# The other 3 new add1 columns ARE derived from SDTM: UNBLND
+# from SUPPDM UNBLNDYN, UICF from DS (OPEN LABEL / INFORMED
+# CONSENT OBTAINED), ELECSBL from IS (ISTESTCD SARSCOV2 on or
+# before the first dose; no add1 subject qualifies, so it is
+# missing for all 600 subjects, as submitted).
+# Two add1-only derivation fixes (the d57 _adsl_vars_ code in
+# Module 5 covers neither; the add1 run must have used an
+# updated copy): COV19FL uses the define's explicit AE list
+# (the d57 LIKE also matches 'Suspected COVID-19', new on
+# add1, counted N); DCSREAS/DCTREAS accept 'PHYSICIAN
+# DECISION' and bare 'WITHDRAWAL BY SUBJECT' (new add1
+# DSDECOD values).
+# Layer over ../d57/adsl.yaml: the derivations are the parent cut's, and
+# this file holds only what this cut changes (written by
+# scripts/specs/inherit_cut.py; its resolved specification
+# equals the standalone file it replaced).
+yamaa: '1.0'
+type: spec
+parent: ../../../s3-d57/spec/yamaa/adsl.yaml
+input:
+  DM: <sdtm-dir>/dm.parquet
+  DS: <sdtm-dir>/ds.parquet
+  EX: <sdtm-dir>/ex.parquet
+  IS: <sdtm-dir>/is.parquet
+  VS: <sdtm-dir>/vs.parquet
+  MB: <sdtm-dir>/mb.parquet
+  RP: <sdtm-dir>/rp.parquet
+  FACE: <sdtm-dir>/face.parquet
+  AE: <sdtm-dir>/ae.parquet
+  SUPPDM: <sdtm-dir>/suppdm.parquet
+  SUPPMB: <sdtm-dir>/suppmb.parquet
+  SUPPRP: <sdtm-dir>/supprp.parquet
+  TS: <sdtm-dir>/ts.parquet
+  ADSL_VO:
+    path: <adam-dir>/adsl.parquet
+    key:
+    - STUDYID
+    - USUBJID
+intermediates:
+- id: SUPPDM_P
+  filter: SUPPDM.QNAM IN ('COHORT', 'RACEOTH', 'MULRACE', 'PROTVER', 'SENTL', 'PREVSCR', 'UNBLNDYN')
+  pivot:
+    fields:
+    - COHORT
+    - RACEOTH
+    - MULRACE
+    - PROTVER
+    - SENTL
+    - PREVSCR
+    - UNBLNDYN
+- id: AE_COV
+  filter: AE.AEDECOD IN ('COVID-19', 'Asymptomatic COVID-19', 'SARS-CoV-2 test positive')
+- id: DS_UICF
+  dataset: DS
+  key:
+  - STUDYID
+  - USUBJID
+  filter: DS.DSSCAT = 'OPEN LABEL' AND DS.DSDECOD = 'INFORMED CONSENT OBTAINED'
+  order_by:
+  - DS.DSSTDTC
+  keep: first
+- id: IS_ELEC
+  dataset: IS
+  key:
+  - STUDYID
+  - USUBJID
+  filter: IS.ISTESTCD = 'SARSCOV2'
+  between:
+    value: TR01SDT
+    lower: ISDT_D
+  derivations:
+    ISDT_D:
+      type: date
+      derivation:
+        to_date:
+          source: IS.ISDTC
+  order_by:
+  - IS.ISDT_D
+  keep: last
+output:
+  path: <adam-dir>/adsl-add1-yamaa.parquet
+  columns:
+  - STUDYID
+  - USUBJID
+  - SUBJID
+  - SITEID
+  - COUNTRY
+  - AGE
+  - AGEU
+  - AGEGR1
+  - AGEGR1N
+  - AGEGR2
+  - AGEGR2N
+  - SEX
+  - RACE
+  - RACESPY
+  - ETHNIC
+  - PROTVER
+  - CHILDBP
+  - CBNRS
+  - RANDFL
+  - RANDNUM
+  - SAFFL
+  - FASBABFL
+  - FASNABFL
+  - PPBABFL
+  - PPNABFL
+  - PPBD29FL
+  - PPBD57FL
+  - PBD209FL
+  - PPND29FL
+  - PPND57FL
+  - PND209FL
+  - SAR1FL
+  - SAR2FL
+  - SARAFL
+  - FASNA2FL
+  - PPNAB2FL
+  - PN2D29FL
+  - PN2D57FL
+  - PN2209FL
+  - COMPLFL
+  - DVBABFL
+  - DVNABFL
+  - DOSE1FL
+  - DOSE2FL
+  - DOSEROFL
+  - COV19BL
+  - ELECSBL
+  - HEIGHTBL
+  - WEIGHTBL
+  - BMIBL
+  - COV19FL
+  - SENTLFL
+  - D29W7DFL
+  - ARM
+  - ACTARM
+  - TRT01P
+  - TRT01PN
+  - TRT01A
+  - TRT01AN
+  - RFICDT
+  - RANDDT
+  - RFXSTDTC
+  - TR01SDT
+  - TR01SDTM
+  - TR01EDT
+  - TR01EDTM
+  - TRTSDTM
+  - TRTEDTM
+  - DOSE2DT
+  - DOS2DTM
+  - EOSSTT
+  - EOSDT
+  - EOSDY
+  - DCSREAS
+  - DCSREASP
+  - EOTSTT
+  - EOTDT
+  - EOTDY
+  - DCTREAS
+  - DCTREASP
+  - DTHDT
+  - DTHAUTOP
+  - CUTOFFDT
+  - UNBLND
+  - UICF
+  - SAFEREAS
+  - SAR1ERS
+  - SAR2ERS
+  - FASBABRS
+  - FASNABRS
+  - PPBABERS
+  - PPNABERS
+  - PPBD29ER
+  - PPBD57ER
+  - PBD209ER
+  - PPND29ER
+  - PPND57ER
+  - PND209ER
+  - PPNAB2ER
+  - PN2D29ER
+  - PN2D57ER
+  - PN2209ER
+  - PREVSCR
+columns:
+- name: _DCS_RAW
+  derivation:
+    case:
+    - when: DS_EOS.DSDECOD = _EOS_TERM_UP
+      then: _EOS_TERM_PROP
+    - when: DS_EOS.DSDECOD IN ('PHYSICIAN DESICION', 'PHYSICIAN DECISION', 'PROTOCOL DEVIATION', 'OTHER')
+      then: _EOS_DEC_PROP
+    - when: DS_EOS.DSDECOD = 'ADVERSE EVENT'
+      then: '''Adverse Event (Other)'''
+    - when: DS_EOS.DSDECOD = 'AE COVID'
+      then: '''Adverse Event (COVID-19 Infection)'''
+    - when: DS_EOS.DSDECOD = 'WITHDRAWAL BY SUBJECT (OTHER)'
+      then: '''Withdrawal of Consent (Other)'''
+    - when: DS_EOS.DSDECOD = 'WITHDRAWAL BY SUBJECT'
+      then: '''Withdrawal of Consent (Other)'''
+    - when: DS_EOS.DSDECOD IN ('WITHDRAWAL BY SUBJECT (COVID-19 NON-INFECTION RELATED)', 'WITHDRAWAL COVID')
+      then: '''Withdrawal of Consent (COVID-19 Non-Infection Related)'''
+- name: _DCT_RAW
+  derivation:
+    case:
+    - when: DS_EOT.DSDECOD = _EOT_TERM_UP
+      then: _EOT_TERM_PROP
+    - when: DS_EOT.DSDECOD IN ('PHYSICIAN DESICION', 'PHYSICIAN DECISION', 'PROTOCOL DEVIATION', 'OTHER', 'LOST TO FOLLOW-UP')
+      then: _EOT_DEC_PROP
+    - when: DS_EOT.DSDECOD = 'ADVERSE EVENT'
+      then: '''Adverse Event (Other)'''
+    - when: DS_EOT.DSDECOD = 'AE COVID'
+      then: '''Adverse Event (COVID-19 Infection)'''
+    - when: DS_EOT.DSDECOD = 'WITHDRAWAL BY SUBJECT (OTHER)'
+      then: '''Withdrawal of Consent (Other)'''
+    - when: DS_EOT.DSDECOD = 'WITHDRAWAL BY SUBJECT'
+      then: '''Withdrawal of Consent (Other)'''
+    - when: DS_EOT.DSDECOD IN ('WITHDRAWAL BY SUBJECT (COVID-19 NON-INFECTION RELATED)', 'WITHDRAWAL COVID')
+      then: '''Withdrawal of Consent (COVID-19 Non-Infection Related)'''
+- name: PPBABFL
+  derivation: ADSL_VO.PPBABFL
+  submission:
+    origins:
+    - type: Predecessor
+      description: ADSL_VO.PPBABFL
+    method: "Withheld from publication: the received define states this text."
+- name: PPNABFL
+  derivation: ADSL_VO.PPNABFL
+  submission:
+    origins:
+    - type: Predecessor
+      description: ADSL_VO.PPNABFL
+    method: "Withheld from publication: the received define states this text."
+- name: PPBD29FL
+  derivation: ADSL_VO.PPBD29FL
+  submission:
+    origins:
+    - type: Predecessor
+      description: ADSL_VO.PPBD29FL
+    method: "Withheld from publication: the received define states this text."
+- name: PPBD57FL
+  derivation: ADSL_VO.PPBD57FL
+  submission:
+    origins:
+    - type: Predecessor
+      description: ADSL_VO.PPBD57FL
+    method: "Withheld from publication: the received define states this text."
+- name: PBD209FL
+  type: str
+  label: Per Protocol bAb Day 209 Flag
+  derivation: ADSL_VO.PBD209FL
+  submission:
+    core: Req
+    mandatory: true
+    length: 1
+    origins:
+    - type: Predecessor
+      description: ADSL_VO.PBD209FL
+    method: "Withheld from publication: the received define states this text."
+- name: PPND29FL
+  derivation: ADSL_VO.PPND29FL
+  submission:
+    origins:
+    - type: Predecessor
+      description: ADSL_VO.PPND29FL
+    method: "Withheld from publication: the received define states this text."
+- name: PPND57FL
+  derivation: ADSL_VO.PPND57FL
+  submission:
+    origins:
+    - type: Predecessor
+      description: ADSL_VO.PPND57FL
+    method: "Withheld from publication: the received define states this text."
+- name: PND209FL
+  type: str
+  label: Per Protocol nAb Day 209 Flag
+  derivation: ADSL_VO.PND209FL
+  submission:
+    core: Req
+    mandatory: true
+    length: 1
+    origins:
+    - type: Predecessor
+      description: ADSL_VO.PND209FL
+    method: "Withheld from publication: the received define states this text."
+- name: PPNAB2FL
+  derivation: ADSL_VO.PPNAB2FL
+  submission:
+    origins:
+    - type: Predecessor
+      description: ADSL_VO.PPNAB2FL
+    method: "Withheld from publication: the received define states this text."
+- name: PN2D29FL
+  derivation: ADSL_VO.PN2D29FL
+  submission:
+    origins:
+    - type: Predecessor
+      description: ADSL_VO.PN2D29FL
+    method: "Withheld from publication: the received define states this text."
+- name: PN2D57FL
+  derivation: ADSL_VO.PN2D57FL
+  submission:
+    origins:
+    - type: Predecessor
+      description: ADSL_VO.PN2D57FL
+    method: "Withheld from publication: the received define states this text."
+- name: PN2209FL
+  type: str
+  label: Per Protocol nAb 2 Day 209 Flag
+  derivation: ADSL_VO.PN2209FL
+  submission:
+    core: Req
+    mandatory: true
+    length: 1
+    origins:
+    - type: Predecessor
+      description: ADSL_VO.PN2209FL
+    method: "Withheld from publication: the received define states this text."
+- name: DVBABFL
+  derivation: ADSL_VO.DVBABFL
+  submission:
+    origins:
+    - type: Predecessor
+      description: ADSL_VO.DVBABFL
+    method: "Withheld from publication: the received define states this text."
+- name: DVNABFL
+  derivation: ADSL_VO.DVNABFL
+  submission:
+    origins:
+    - type: Predecessor
+      description: ADSL_VO.DVNABFL
+    method: "Withheld from publication: the received define states this text."
+- name: ELECSBL
+  type: str
+  label: Baseline Elecsys SARS CoV-2 Assay
+  derivation: IS_ELEC.ISSTRESC
+  submission:
+    core: Perm
+    mandatory: false
+    length: 20
+    origins:
+    - type: Derived
+    method: "Withheld from publication: the received define states this text."
+- name: DCSREAS
+  submission:
+    method: "Withheld from publication: the received define states this text."
+- name: DCTREAS
+  submission:
+    method: "Withheld from publication: the received define states this text."
+- name: UNBLND
+  type: str
+  label: Unblinded (Y/N)
+  derivation: SUPPDM_P.UNBLNDYN
+  submission:
+    core: Req
+    mandatory: false
+    length: 1
+    origins:
+    - type: Derived
+    method: "Withheld from publication: the received define states this text."
+- name: UICF
+  type: str
+  label: Updated Informed Consent (Y/N)
+  derivation:
+    case:
+    - when: DS_UICF.DSSTDTC IS NOT NULL
+      then: '''Y'''
+    - otherwise: '''N'''
+  submission:
+    core: Req
+    mandatory: true
+    length: 1
+    origins:
+    - type: Derived
+    method: "Withheld from publication: the received define states this text."
+- name: PPBABERS
+  derivation: ADSL_VO.PPBABERS
+  submission:
+    origins:
+    - type: Predecessor
+      description: ADSL_VO.PPBABERS
+    method: "Withheld from publication: the received define states this text."
+- name: PPNABERS
+  derivation: ADSL_VO.PPNABERS
+  submission:
+    origins:
+    - type: Predecessor
+      description: ADSL_VO.PPNABERS
+    method: "Withheld from publication: the received define states this text."
+- name: PPBD29ER
+  derivation: ADSL_VO.PPBD29ER
+  submission:
+    origins:
+    - type: Predecessor
+      description: ADSL_VO.PPBD29ER
+    method: "Withheld from publication: the received define states this text."
+- name: PPBD57ER
+  derivation: ADSL_VO.PPBD57ER
+  submission:
+    origins:
+    - type: Predecessor
+      description: ADSL_VO.PPBD57ER
+    method: "Withheld from publication: the received define states this text."
+- name: PBD209ER
+  type: str
+  label: Reason for bAb Per-Protocol Day 209 Exc
+  derivation: ADSL_VO.PBD209ER
+  submission:
+    core: Perm
+    mandatory: false
+    length: 200
+    origins:
+    - type: Predecessor
+      description: ADSL_VO.PBD209ER
+    method: "Withheld from publication: the received define states this text."
+- name: PPND29ER
+  derivation: ADSL_VO.PPND29ER
+  submission:
+    origins:
+    - type: Predecessor
+      description: ADSL_VO.PPND29ER
+    method: "Withheld from publication: the received define states this text."
+- name: PPND57ER
+  derivation: ADSL_VO.PPND57ER
+  submission:
+    origins:
+    - type: Predecessor
+      description: ADSL_VO.PPND57ER
+    method: "Withheld from publication: the received define states this text."
+- name: PND209ER
+  type: str
+  label: Reason for nAb Per-Protocol Day 209 Exc
+  derivation: ADSL_VO.PND209ER
+  submission:
+    core: Perm
+    mandatory: false
+    length: 200
+    origins:
+    - type: Predecessor
+      description: ADSL_VO.PND209ER
+    method: "Withheld from publication: the received define states this text."
+- name: PPNAB2ER
+  derivation: ADSL_VO.PPNAB2ER
+  submission:
+    length: 197
+    origins:
+    - type: Predecessor
+      description: ADSL_VO.PPNAB2ER
+    method: "Withheld from publication: the received define states this text."
+- name: PN2D29ER
+  derivation: ADSL_VO.PN2D29ER
+  submission:
+    origins:
+    - type: Predecessor
+      description: ADSL_VO.PN2D29ER
+    method: "Withheld from publication: the received define states this text."
+- name: PN2D57ER
+  derivation: ADSL_VO.PN2D57ER
+  submission:
+    origins:
+    - type: Predecessor
+      description: ADSL_VO.PN2D57ER
+    method: "Withheld from publication: the received define states this text."
+- name: PN2209ER
+  type: str
+  label: Reason for nAb 2 PP Day 209 Exc
+  derivation: ADSL_VO.PN2209ER
+  submission:
+    core: Perm
+    mandatory: false
+    length: 200
+    origins:
+    - type: Predecessor
+      description: ADSL_VO.PN2209ER
+    method: "Withheld from publication: the received define states this text."

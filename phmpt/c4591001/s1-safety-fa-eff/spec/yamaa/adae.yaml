@@ -1,0 +1,620 @@
+# ADAE for Pfizer C4591001, EUA 27034 sequence S1 (safety and final
+# efficacy analysis, data snapshot of November 2020).
+# Layer over the S1 (BLA) spec, run on this cut's SDTM
+# (scripts/reproduce.py verify --study c4591001 --cut s1-safety-fa-eff). The
+# output keeps the EUA file's columns, in its order.
+# The EUA adae.sas (16Nov2020) has one treatment period and three planned
+# vaccinations (VAX101, VAX102, VAX103 = EX EXTPTREF 'VACCINATION 3'); the
+# EUA ADSL has no second-period, unplanned-dose or unblinding columns.
+# The BLA chain's VAX10U slot (the dose checked after VAX102) carries
+# VAX103 here, which gives the EUA order of the start-date imputation, the
+# vaccination-time start datetime, ASTDY/AENDY and the latest dose before
+# onset; the period-2 slots read the missing value. VPHASE, VAXNO, PREFL and
+# the start-date clearing follow the EUA program (columns below), uncoded
+# terms are marked as the EUA program marks them, and the EUA program keeps
+# the ASTDTF='Y' records and does not blank AEACN/AESUBJDC.
+yamaa: '1.0'
+type: spec
+parent: ../../../s1/spec/yamaa/adae.yaml
+clear:
+- columns.AEACN.submission.method
+- columns.AESUBJDC.submission.method
+- columns.AGEGR4.submission
+- columns.AGEGR4N.submission
+- columns.UNBLNDDT.submission
+- columns.VAX10U.submission
+- columns.VAX201.submission
+- columns.VAX202.submission
+- columns.VAX10UDT.submission
+- columns.VAX10UTM.submission
+- columns.VAX201DT.submission
+- columns.VAX202DT.submission
+- columns.VAX201TM.submission
+- columns.VAX202TM.submission
+- columns.V03DT.submission
+- columns.V04DT.submission
+- columns.TRT02A.submission
+- columns.TRT02AN.submission
+- columns.TRT02P.submission
+- columns.TRT02PN.submission
+- columns.HIVFL.submission
+- columns.DS3KFL.submission
+- columns.EOTXDCDT.submission
+- columns.BDCSRDT.submission
+- columns.X1CSRDT.submission
+- columns.FUP1UNB.submission
+- columns.FPX1CUT.submission
+- columns.FUNBCUT.submission
+- columns.FUP1CUT.submission
+- columns.AGETR01.submission
+- columns.TR01SDTM.submission
+- columns.TR01EDTM.submission
+- columns.TR02SDTM.submission
+- columns.TR02EDTM.submission
+- columns.VAX20U.submission
+- columns.VAX20UDT.submission
+- columns.RAND1FL.submission
+- columns.SAF1FL.submission
+- columns.SAF2FL.submission
+- columns.V02OBDT.submission
+- columns.RACEGR1.submission
+- columns.RACEGR1N.submission
+intermediates:
+- id: ADSL_R
+  derivations:
+    _TR02SDT:
+      type: date
+      derivation: null
+    _TR02STM:
+      type: time
+      derivation: null
+    _TR02SDTM:
+      type: datetime
+      derivation: null
+    _TR02EDTM:
+      type: datetime
+      derivation: null
+    _VAX10UDT:
+      type: date
+      derivation: ADSL.VAX103DT
+    _VAX201DT:
+      type: date
+      derivation: null
+    _VAX202DT:
+      type: date
+      derivation: null
+    _V03DT:
+      type: date
+      derivation: null
+    _V04DT:
+      type: date
+      derivation: null
+    _UNBLNDDT:
+      type: date
+      derivation: null
+    _TRT02AN:
+      type: int
+      derivation: null
+# EX has no period-2 visits in this snapshot; 'VACCINATION 3' (no VISIT) is
+# the third dose and fills the VAX10U slot (_EXTN 103).
+- id: EX_VAX_DTM
+  derivations:
+    _EXTMP:
+      type: int
+      derivation:
+        mapping:
+          source: EX.EXTPTREF
+          dict:
+            VACCINATION 1: 1
+            VACCINATION 2: 2
+            VACCINATION 3: 3
+          unmapped: null
+- id: _AE
+  derivations:
+    # AP01EDT = TR01EDT/TR01ETM (23:59:59 when missing) + 365 days.
+    _AP01EDTM:
+      type: datetime
+      derivation: _S_TR01P365D
+    # _ASTDTMV = dhms(ASTDT,0,0,ASTTM) whenever ASTTM is set (an imputed
+    # 00:00:00 included; TRTSTM for ASTDTF='Y'), else ASTDT 23:59:59.
+    _ASTDTMV:
+      type: datetime
+      derivation:
+        case:
+        - when: _ASTDTF_RAW = 'Y' AND ADSL_R._TRTSTM IS NOT NULL
+          then: ADSL_R._TRTSDTM
+        - when: _ASTTM_RAW IS NOT NULL
+          then: _ASTDTM_BASE
+        - otherwise:
+            impute:
+              type: datetime
+              source: _ASTDT
+              time: last
+columns:
+# Uncoded terms (adae.sas Specification 2): AEDECOD = upcase(strip(AETERM))
+# || '@@', the hierarchy terms 'UNCODED TERM', and AEPTCD = _N_ + 9999999900
+# on the first record of each AEDECOD in the AEDECOD-sorted uncoded records.
+- name: _UNC
+  type: str
+  derivation:
+    case:
+    - when: AE.AEDECOD = 'Uncoded'
+      then: "'Y'"
+- name: _AETERM_S
+  type: str
+  derivation:
+    str_replace:
+      source: AE.AETERM
+      pattern: '^\s+|\s+$'
+      replacement: ''
+- name: _AETERM_U
+  type: str
+  derivation:
+    str_case:
+      source: _AETERM_S
+      to: upper
+- name: AEDECOD
+  derivation:
+    case:
+    - when: _UNC = 'Y'
+      then:
+        str_template: '{_AETERM_U}@@'
+    - otherwise: AE.AEDECOD
+  submission:
+    length: 79
+    origins:
+    - type: Derived
+    method: "Withheld from publication: the received define states this text."
+- name: _UNC_N
+  type: int
+  derivation:
+    row_number:
+      window:
+        order_by: [AEDECOD, USUBJID, AESEQ]
+        filter: _UNC = 'Y'
+- name: _UNC_G
+  type: int
+  derivation:
+    row_number:
+      window:
+        group_by: [AEDECOD]
+        order_by: [USUBJID, AESEQ]
+        filter: _UNC = 'Y'
+- name: AEPTCD
+  derivation:
+    case:
+    - when: _UNC = 'Y' AND _UNC_G = 1
+      then: 9999999900 + _UNC_N
+    - when: _UNC = 'Y'
+      then: NULL
+    - otherwise: AE.AEPTCD
+  submission:
+    mandatory: false
+    origins:
+    - type: Derived
+    method: "Withheld from publication: the received define states this text."
+- name: AEHLT
+  derivation:
+    case:
+    - when: _UNC = 'Y'
+      then: "'UNCODED TERM'"
+    - otherwise: AE.AEHLT
+  submission:
+    origins:
+    - type: Derived
+    method: "Withheld from publication: the received define states this text."
+- name: AEHLGT
+  derivation:
+    case:
+    - when: _UNC = 'Y'
+      then: "'UNCODED TERM'"
+    - otherwise: AE.AEHLGT
+  submission:
+    origins:
+    - type: Derived
+    method: "Withheld from publication: the received define states this text."
+- name: AESOC
+  derivation:
+    case:
+    - when: _UNC = 'Y'
+      then: "'UNCODED TERM'"
+    - otherwise: AE.AESOC
+  submission:
+    origins:
+    - type: Derived
+    method: "Withheld from publication: the received define states this text."
+- name: AEBODSYS
+  derivation:
+    case:
+    - when: _UNC = 'Y'
+      then: "'UNCODED TERM'"
+    - otherwise:
+        str_case:
+          source: AE.AEBODSYS
+          to: upper
+  submission:
+    method: "Withheld from publication: the received define states this text."
+# Uncoded terms carry no dictionary codes, LLT or DICTVER.
+- name: DICTVER
+  submission:
+    mandatory: false
+- name: AEBDSYCD
+  submission:
+    mandatory: false
+- name: AELLT
+  submission:
+    mandatory: false
+- name: AELLTCD
+  submission:
+    mandatory: false
+- name: AEHLTCD
+  submission:
+    mandatory: false
+- name: AEHLGTCD
+  submission:
+    mandatory: false
+- name: AESOCCD
+  submission:
+    mandatory: false
+# The EUA program does not blank AEACN/AESUBJDC.
+- name: AEACN
+  derivation: AE.AEACN
+  submission:
+    origins:
+    - type: Predecessor
+      description: AE.AEACN
+- name: AESUBJDC
+  derivation: SUPPAE_P.AESUBJDC
+  submission:
+    origins:
+    - type: Other
+      description: "Withheld from publication: the received define states this text."
+# PREFL: the emerge step flags non-medication-error records
+# ((ASTDTM ne . and ASTDTM < TRTSDTM) or ASTDT < TRTSDT, a missing ASTDT
+# counting as lowest) and clears ASTDT/ASTDY/ASTDTM of those with ASTDTF
+# 'D'/'M'; aemerge1 then adds .<ASTDTM<TRTSDTM or (ASTDTM=. and
+# ASTDT<TRTSDT) or TRTSDT=. on every record.
+- name: _PREFL1
+  type: str
+  derivation:
+    case:
+    - when: AE.AECAT <> 'MEDICATION ERROR' AND ((_AE._ASTDTM_MID IS NOT NULL AND ADSL_R._TRTSDTM IS NOT NULL
+        AND _AE._ASTDTM_MID < ADSL_R._TRTSDTM) OR (ADSL_R._TRTSDT IS NOT NULL AND (_AE._ASTDT IS NULL OR _AE._ASTDT
+        < ADSL_R._TRTSDT)))
+      then: "'Y'"
+- name: _CLR1
+  type: str
+  derivation:
+    case:
+    - when: _PREFL1 = 'Y' AND _AE._ASTDTF_RAW IN ('D', 'M')
+      then: "'Y'"
+- name: _ASTDT2
+  type: date
+  derivation:
+    case:
+    - when: _CLR1 IS NULL
+      then: _AE._ASTDT
+- name: _ASTDTM2
+  type: datetime
+  derivation:
+    case:
+    - when: _CLR1 IS NULL
+      then: _AE._ASTDTM_MID
+- name: _ASTDTF2
+  type: str
+  derivation:
+    case:
+    - when: _CLR1 IS NULL
+      then: _AE._ASTDTF_RAW
+- name: PREFL
+  derivation:
+    case:
+    - when: _PREFL1 = 'Y'
+      then: "'Y'"
+    - when: _ASTDTM2 IS NOT NULL AND ADSL_R._TRTSDTM IS NOT NULL AND _ASTDTM2 < ADSL_R._TRTSDTM
+      then: "'Y'"
+    - when: _ASTDTM2 IS NULL AND ADSL_R._TRTSDT IS NOT NULL AND (_ASTDT2 IS NULL OR _ASTDT2 < ADSL_R._TRTSDT)
+      then: "'Y'"
+    - when: ADSL_R._TRTSDT IS NULL
+      then: "'Y'"
+# VPHASE as aemerge1 assigns it (SAS comparisons: a missing value is lowest),
+# with 'Vaccination 3' kept apart until VAXNO is set.
+- name: _VAX103DT
+  type: date
+  derivation: ADSL.VAX103DT
+- name: _VP
+  type: str
+  derivation:
+    case:
+    - when: (PREFL = 'Y' AND ADSL_R._VAX101DT IS NOT NULL) OR (_ASTDT2 IS NOT NULL AND ADSL_R._VAX101DT IS NULL)
+      then: "'Pre-Vaccination'"
+    - when: (ADSL_R._VAX101DT IS NOT NULL AND _ASTDT2 IS NOT NULL AND ADSL_R._VAX101DT <= _ASTDT2 AND ADSL_R._V01DT
+        IS NOT NULL AND _ASTDT2 <= ADSL_R._V01DT AND ADSL_R._VAX102DT IS NULL) OR (ADSL_R._VAX101DT IS NOT NULL
+        AND _ASTDT2 IS NOT NULL AND ADSL_R._VAX101DT <= _ASTDT2 AND ADSL_R._VAX102DT IS NOT NULL AND _ASTDT2 <
+        ADSL_R._VAX102DT) OR (EX_VAX_DTM.VAX101 IS NOT NULL AND _ASTDTM2 IS NOT NULL AND EX_VAX_DTM.VAX101 <=
+        _ASTDTM2 AND EX_VAX_DTM.VAX102 IS NOT NULL AND _ASTDTM2 < EX_VAX_DTM.VAX102 AND _ASTDTF2 IS NULL)
+      then: "'Vaccination 1'"
+    - when: _ASTDTM2 IS NOT NULL AND EX_VAX_DTM.VAX102 IS NOT NULL AND _ASTDTM2 >= EX_VAX_DTM.VAX102 AND
+        ((ADSL_R._VAX102DT IS NOT NULL AND _ASTDT2 IS NOT NULL AND ADSL_R._VAX102DT <= _ASTDT2 AND ADSL_R._V01DT
+        IS NOT NULL AND _ASTDT2 <= ADSL_R._V01DT AND _VAX103DT IS NULL) OR (ADSL_R._VAX102DT IS NOT NULL AND
+        _ASTDT2 IS NOT NULL AND ADSL_R._VAX102DT <= _ASTDT2 AND _VAX103DT IS NOT NULL AND _ASTDT2 < _VAX103DT)
+        OR (EX_VAX_DTM.VAX10U IS NOT NULL AND _ASTDTM2 < EX_VAX_DTM.VAX10U))
+      then: "'Vaccination 2'"
+    - when: _ASTDTM2 IS NOT NULL AND EX_VAX_DTM.VAX10U IS NOT NULL AND _ASTDTM2 >= EX_VAX_DTM.VAX10U AND _VAX103DT
+        IS NOT NULL AND _ASTDT2 IS NOT NULL AND _VAX103DT <= _ASTDT2 AND ADSL_R._V01DT IS NOT NULL AND _ASTDT2
+        <= ADSL_R._V01DT
+      then: "'Vaccination 3'"
+    - when: _ASTDT2 IS NOT NULL AND (ADSL_R._V01DT IS NULL OR ADSL_R._V01DT < _ASTDT2) AND ADSL_R._V02DT IS NOT
+        NULL AND _ASTDT2 <= ADSL_R._V02DT
+      then: "'Follow Up 1'"
+    - when: _ASTDT2 IS NOT NULL AND (ADSL_R._V02DT IS NULL OR _ASTDT2 > ADSL_R._V02DT)
+      then: "'Follow Up 2'"
+- name: VPHASE
+  derivation:
+    case:
+    - when: _VP = 'Vaccination 3'
+      then: "'Vaccination 2'"
+    - otherwise: _VP
+- name: VPHASEN
+  derivation:
+    mapping:
+      source: VPHASE
+      dict:
+        Pre-Vaccination: 0
+        Vaccination 1: 1
+        Vaccination 2: 2
+        Follow Up 1: 3
+        Follow Up 2: 99
+      unmapped: null
+- name: VAXNO
+  derivation:
+    case:
+    - when: _VP IN ('Follow Up 1', 'Follow Up 2') AND _VAX103DT IS NOT NULL
+      then: 3
+    - when: _VP IN ('Follow Up 1', 'Follow Up 2') AND ADSL_R._VAX102DT IS NOT NULL
+      then: 2
+    - when: _VP IN ('Follow Up 1', 'Follow Up 2') AND ADSL_R._VAX101DT IS NOT NULL
+      then: 1
+    - when: _VP = 'Vaccination 1'
+      then: 1
+    - when: _VP = 'Vaccination 2'
+      then: 2
+    - when: _VP = 'Vaccination 3'
+      then: 3
+- name: INWDFL
+  derivation:
+    case:
+    - when: VPHASEN IS NOT NULL AND VPHASEN NOT IN (0, 99)
+      then: "'Y'"
+# Removing imputation: PREFL='Y' with ASTDTF 'D'/'M' clears ASTDT, ASTDTF and
+# ASTDTM (ASTDY only where the emerge step cleared it); ASTTMF 'M'/'H'
+# clears ASTDTM.
+- name: ASTDT
+  derivation:
+    case:
+    - when: PREFL = 'Y' AND _AE._ASTDTF_RAW IN ('D', 'M')
+      then: NULL
+    - otherwise: _AE._ASTDT
+- name: ASTDTF
+  derivation:
+    case:
+    - when: PREFL = 'Y' AND _AE._ASTDTF_RAW IN ('D', 'M')
+      then: NULL
+    - otherwise: _AE._ASTDTF_RAW
+- name: ASTDY
+  derivation:
+    case:
+    - when: _CLR1 IS NULL
+      then: _AE._ASTDY_RAW
+- name: ASTDTM
+  derivation:
+    case:
+    - when: _AE._ASTTMF_RAW IN ('M', 'H')
+      then: NULL
+    - when: PREFL = 'Y' AND _AE._ASTDTF_RAW IN ('D', 'M')
+      then: NULL
+    - otherwise: _ASTDTM2
+- name: APERIOD
+  derivation: _AE._P
+- name: APERIODC
+  derivation: _AE._APERIODC_MID
+# The period columns come from the TREATMENT 01 phase, which exists only
+# when TRT01A is set (a subject dosed outside the randomized arm has a
+# pre-treatment phase in period 1 but no period dates).
+- name: APERSDT
+  derivation:
+    case:
+    - when: ADSL_R._TRT01AN IS NOT NULL
+      then: _AE._APERSDT_MID
+- name: APERSTM
+  derivation:
+    case:
+    - when: ADSL_R._TRT01AN IS NOT NULL
+      then: _AE._APERSTM_MID
+- name: APERSDTM
+  derivation:
+    case:
+    - when: ADSL_R._TRT01AN IS NOT NULL
+      then: _AE._APERSDTM_MID
+- name: APEREDT
+  derivation:
+    case:
+    - when: ADSL_R._TRT01AN IS NOT NULL
+      then: _AE._APEREDT_MID
+- name: APERETM
+  derivation:
+    case:
+    - when: ADSL_R._TRT01AN IS NOT NULL
+      then: _AE._APERETM_MID
+- name: APEREDTM
+  derivation:
+    case:
+    - when: ADSL_R._TRT01AN IS NOT NULL
+      then: _AE._APEREDTM_MID
+- name: VAX103DT
+  type: date
+  label: Vaccination Date 03
+  derivation: ADSL.VAX103DT
+  submission:
+    core: Perm
+    mandatory: false
+    origins:
+    - type: Predecessor
+      description: ADSL.VAX103DT
+- name: VAX103TM
+  type: time
+  label: Vaccination Time 03
+  derivation: ADSL.VAX103TM
+  submission:
+    core: Perm
+    mandatory: false
+    origins:
+    - type: Predecessor
+      description: ADSL.VAX103TM
+- name: VAX103
+  type: str
+  label: Vaccination 03
+  derivation: ADSL.VAX103
+  submission:
+    core: Perm
+    mandatory: false
+    length: 36
+    origins:
+    - type: Predecessor
+      description: ADSL.VAX103
+output:
+  columns:
+  - SUBJID
+  - SITEID
+  - ARM
+  - ARMCD
+  - ACTARM
+  - ACTARMCD
+  - AGE
+  - AGEU
+  - AGEGR1
+  - AGEGR1N
+  - AGEGR2
+  - AGEGR2N
+  - AGEGR3
+  - AGEGR3N
+  - RACE
+  - RACEN
+  - SEX
+  - SEXN
+  - ETHNIC
+  - ETHNICN
+  - COUNTRY
+  - ARACE
+  - ARACEN
+  - TRTSDT
+  - TRTSTM
+  - TRTSDTM
+  - TRTEDT
+  - TRTETM
+  - TRTEDTM
+  - TRT01A
+  - TRT01AN
+  - TRT01P
+  - TRT01PN
+  - VAX101DT
+  - VAX101TM
+  - VAX102DT
+  - VAX102TM
+  - VAX103DT
+  - VAX103TM
+  - SAFFL
+  - COHORT
+  - COHORTN
+  - DOSALVL
+  - DOSALVLN
+  - DOSPLVL
+  - DOSPLVLN
+  - VAX101
+  - VAX102
+  - VAX103
+  - V01DT
+  - V02DT
+  - RANDFL
+  - PHASE
+  - PHASEN
+  - DS30KFL
+  - COVBLST
+  - MULENRFL
+  - STUDYID
+  - USUBJID
+  - AESEQ
+  - AECAT
+  - AESPID
+  - AETERM
+  - AEDECOD
+  - AEBDSYCD
+  - AEBODSYS
+  - AELLT
+  - AELLTCD
+  - AEPTCD
+  - AEHLT
+  - AEHLTCD
+  - AEHLGT
+  - AEHLGTCD
+  - AESOC
+  - AESOCCD
+  - AESTDTC
+  - AESTDY
+  - AEENDTC
+  - AEENDY
+  - AEENRTPT
+  - AEENTPT
+  - AETOXGR
+  - DICTVER
+  - ADESFL
+  - ASTDT
+  - ASTDTF
+  - ASTDY
+  - ASTTM
+  - ASTDTM
+  - AENDT
+  - AENDY
+  - AENTM
+  - AENDTM
+  - ADURN
+  - ADURU
+  - AESER
+  - AESCONG
+  - AESDISAB
+  - AESDTH
+  - AESHOSP
+  - AESLIFE
+  - AESMIE
+  - AEMERES
+  - AEREL
+  - AERELNST
+  - AERELTXT
+  - AEACN
+  - AECMGIV
+  - AENDGIV
+  - AEOUT
+  - AESUBJDC
+  - AEREFID
+  - AERELN
+  - AREL
+  - ARELN
+  - AETOXGRN
+  - ATOXGR
+  - ATOXGRN
+  - AEMEFL
+  - AETPDOS
+  - AEIMMFL
+  - APERIOD
+  - APERIODC
+  - APERSDT
+  - APERSTM
+  - APERSDTM
+  - APEREDT
+  - APERETM
+  - APEREDTM
+  - VPHASE
+  - VPHASEN
+  - INWDFL
+  - PREFL
+  - VAXNO

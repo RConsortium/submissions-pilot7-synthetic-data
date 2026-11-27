@@ -1,0 +1,318 @@
+# ADFACEVD for Pfizer C4591001, BLA 125742 S1 supplementary datasets (the
+# "Supp" deliverable of sequence S1). The supplement resends AE, CE, DM, EX,
+# FACE, RELREC and the SUPPAE, SUPPCE, SUPPFACE, SUPPMB and SUPPVS domains;
+# the others are S1's (studies.yaml sdtm_from). Layer over the S1 spec
+# (scripts/reproduce.py verify --study c4591001 --cut s1-supp).
+yamaa: '1.0'
+type: spec
+parent: ../../../s1/spec/yamaa/adfacevd.yaml
+# An assessment can be both an AE-reported and an unplanned record (PARCAT
+# tells them apart), and the investigator entered two AE-reported
+# assessments twice (the source record, SRCKEY, tells them apart; it is not
+# a submitted column).
+keys:
+- STUDYID
+- USUBJID
+- PARAMCD
+- ATPTREF
+- ATPT
+- FATESTCD
+- FAEVAL
+- AVALC
+- PARCAT
+- SRCKEY
+# The supplement's ADFACEVD:
+# - keeps the FACE records the investigator reported as adverse events
+#   (FACAT REACTOGENICITY - ADVERSE EVENT) wherever S1 keeps unplanned
+#   assessments;
+# - adds PARCAT, the FACE / VS category as collected (_PARCAT0), and VSSTRESC
+#   on the fever records;
+# - gives Phase 1 placebo doses the cohort's dose (0.5 mL; 10 ug).
+rows:
+- id: t_diam
+  derivations:
+    _PARCAT0: FACE_D.FACAT
+- id: t_maxdiam
+  derivations:
+    _PARCAT0: FACE_D.FACAT
+- id: t_sevconv
+  derivations:
+    _PARCAT0: FACE_D.FACAT
+- id: t_maxsev_rs
+  derivations:
+    _PARCAT0: FACE_D.FACAT
+- id: t_sev_local
+  filter: (FACE_D.FASCAT IS NULL OR FACE_D.FASCAT <> 'SYSTEMIC') AND (FACE_D._FAOBJ <> 'REDNESS' AND FACE_D._FAOBJ
+    <> 'SWELLING') AND FACE_D.FATESTCD = 'SEV' AND FACE_D._ATPTREF IS NOT NULL AND (FACE_D._DAYN IS NULL OR FACE_D._DAYN
+    <= 7) AND ((FACE_D._ATPTN >= 1 AND FACE_D._ATPTN <= 7) OR (FACE_D._ATPTN IS NULL AND FACE_D.FACAT IN ('REACTOGENICITY
+    - UNPLANNED ASSESSMENT', 'REACTOGENICITY - ADVERSE EVENT')))
+  derivations:
+    _PARCAT0: FACE_D.FACAT
+- id: t_maxsev_l
+  filter: (FACE_D.FASCAT IS NULL OR FACE_D.FASCAT <> 'SYSTEMIC') AND (FACE_D._FAOBJ <> 'REDNESS' AND FACE_D._FAOBJ
+    <> 'SWELLING') AND FACE_D.FATESTCD = 'SEV' AND FACE_D._ATPTREF IS NOT NULL AND (FACE_D._DAYN IS NULL OR FACE_D._DAYN
+    <= 7) AND ((FACE_D._ATPTN >= 1 AND FACE_D._ATPTN <= 7) OR (FACE_D._ATPTN IS NULL AND FACE_D.FACAT IN ('REACTOGENICITY
+    - UNPLANNED ASSESSMENT', 'REACTOGENICITY - ADVERSE EVENT'))) AND FACE_D.FASEQ = WIN_MAXSEV_L.FASEQ
+  derivations:
+    _PARCAT0: FACE_D.FACAT
+- id: t_other_local
+  derivations:
+    _PARCAT0: FACE_D.FACAT
+- id: t_rs_occ
+  derivations:
+    _PARCAT0: FACE_D.FACAT
+- id: t_fever
+  derivations:
+    VSSTRESC: VS_D._VSSTRESC
+    _PARCAT0: VS_D._VSCAT
+- id: t_maxtemp
+  derivations:
+    _PARCAT0: VS_D._VSCAT
+- id: t_sev_sys
+  filter: FACE_D.FASCAT = 'SYSTEMIC' AND FACE_D.FATESTCD = 'SEV' AND FACE_D._ATPTREF IS NOT NULL AND (FACE_D._DAYN
+    IS NULL OR FACE_D._DAYN <= 7) AND ((FACE_D._ATPTN >= 1 AND FACE_D._ATPTN <= 7) OR (FACE_D._ATPTN IS NULL AND
+    FACE_D.FACAT IN ('REACTOGENICITY - UNPLANNED ASSESSMENT', 'REACTOGENICITY - ADVERSE EVENT')))
+  derivations:
+    _PARCAT0: FACE_D.FACAT
+- id: t_maxsev_s
+  filter: FACE_D.FASCAT = 'SYSTEMIC' AND FACE_D.FATESTCD = 'SEV' AND FACE_D._ATPTREF IS NOT NULL AND (FACE_D._DAYN
+    IS NULL OR FACE_D._DAYN <= 7) AND ((FACE_D._ATPTN >= 1 AND FACE_D._ATPTN <= 7) OR (FACE_D._ATPTN IS NULL AND
+    FACE_D.FACAT IN ('REACTOGENICITY - UNPLANNED ASSESSMENT', 'REACTOGENICITY - ADVERSE EVENT'))) AND FACE_D.FASEQ
+    = WIN_MAXSEV_S.FASEQ
+  derivations:
+    _PARCAT0: FACE_D.FACAT
+- id: t_other_sys
+  derivations:
+    _PARCAT0: FACE_D.FACAT
+- id: t_meddurs
+  derivations:
+    _PARCAT0: _PARCAT1_RAW
+intermediates:
+- id: FACE_DATE
+  filter: FACE.FACAT IN ('REACTOGENICITY EVENT', 'REACTOGENICITY', 'REACTOGENICITY - UNPLANNED ASSESSMENT', 'REACTOGENICITY
+    - ADVERSE EVENT') AND FACE.FADTC IS NOT NULL
+- id: FACE_D
+  filter: FACE.FACAT IN ('REACTOGENICITY EVENT', 'REACTOGENICITY', 'REACTOGENICITY - UNPLANNED ASSESSMENT', 'REACTOGENICITY
+    - ADVERSE EVENT')
+- id: WIN_MAXSEV_L
+  filter: NOT FACE_D._FAOBJ IN ('REDNESS', 'SWELLING') AND FACE_D.FATESTCD = 'SEV' AND (FACE_D.FASCAT IS NULL OR
+    FACE_D.FASCAT <> 'SYSTEMIC') AND (FACE_D.CUTUNBFL IS NULL OR FACE_D.CUTUNBFL <> 'Y') AND ((FACE_D._ATPTN >=
+    1 AND FACE_D._ATPTN <= 7) OR (FACE_D._ATPTN IS NULL AND FACE_D.FACAT IN ('REACTOGENICITY - UNPLANNED ASSESSMENT',
+    'REACTOGENICITY - ADVERSE EVENT'))) AND FACE_D._AVAL_SEV IS NOT NULL
+- id: WIN_MAXSEV_S
+  filter: FACE_D.FASCAT = 'SYSTEMIC' AND FACE_D.FATESTCD = 'SEV' AND (FACE_D.CUTUNBFL IS NULL OR FACE_D.CUTUNBFL
+    <> 'Y') AND ((FACE_D._ATPTN >= 1 AND FACE_D._ATPTN <= 7) OR (FACE_D._ATPTN IS NULL AND FACE_D.FACAT IN ('REACTOGENICITY
+    - UNPLANNED ASSESSMENT', 'REACTOGENICITY - ADVERSE EVENT'))) AND FACE_D._AVAL_SEV IS NOT NULL
+- id: VS_D
+  derivations:
+    _VSSTRESC:
+      type: str
+      derivation: VS.VSSTRESC
+    _VSCAT:
+      type: str
+      derivation: VS.VSCAT
+- id: EX_R
+  derivations:
+    _EXDOSE:
+      type: float
+      derivation:
+        case:
+        - when: EX.EXTRT = 'Placebo' AND EX.EXDOSU = 'mL'
+          then: 0.5
+        - when: EX.EXTRT = 'Placebo' AND EX.EXDOSU = 'ug'
+          then: 10
+        - otherwise: EX.EXDOSE
+columns:
+- name: SRCKEY
+  type: int
+  label: Source Record Key
+  derivation:
+    case:
+    - when: SRCSEQ IS NULL
+      then: 0
+    - otherwise: SRCSEQ
+  submission:
+    core: Perm
+    mandatory: true
+    length: 8
+    origins:
+    - type: Derived
+    method: "Withheld from publication: the received define states this text."
+- name: PARCAT1
+  derivation:
+    case:
+    - when: _PARCAT1_RAW IN ('REACTOGENICITY - UNPLANNED ASSESSMENT', 'REACTOGENICITY - ADVERSE EVENT')
+      then: "'REACTOGENICITY'"
+    - otherwise: _PARCAT1_RAW
+# The supplement's adverse-event reactogenicity records (FACAT
+# REACTOGENICITY - ADVERSE EVENT) have no visit.
+- name: AVISITN
+  submission:
+    mandatory: false
+- name: AVISIT
+  submission:
+    mandatory: false
+- name: _PARCAT0
+  type: str
+- name: PARCAT
+  type: str
+  label: Parameter Category
+  derivation: _PARCAT0
+  submission:
+    core: Perm
+    mandatory: true
+    length: 38
+    origins:
+    - type: Derived
+    method: "Withheld from publication: the received define states this text."
+- name: VSSTRESC
+  type: str
+  derivation: null
+  label: Character Result/Finding in Std Format
+  submission:
+    core: Perm
+    mandatory: false
+    length: 5
+    origins:
+    - type: Derived
+    method: "Withheld from publication: the received define states this text."
+output:
+  columns:
+  - STUDYID
+  - USUBJID
+  - SUBJID
+  - SITEID
+  - AGE
+  - AGEU
+  - SEX
+  - SEXN
+  - RACE
+  - RACEN
+  - ARACE
+  - ARACEN
+  - ETHNIC
+  - ETHNICN
+  - COUNTRY
+  - SAFFL
+  - ARM
+  - ARMCD
+  - ACTARM
+  - ACTARMCD
+  - TRTSDT
+  - TRTSTM
+  - TRTSDTM
+  - TRTEDT
+  - TRTETM
+  - TRTEDTM
+  - TRT01A
+  - TRT01AN
+  - TRT02A
+  - TRT02AN
+  - TRT01P
+  - TRT01PN
+  - TRT02P
+  - TRT02PN
+  - TR01SDT
+  - TR01STM
+  - TR01SDTM
+  - TR01EDT
+  - TR01ETM
+  - TR01EDTM
+  - TR02SDT
+  - TR02STM
+  - TR02SDTM
+  - TR02EDT
+  - TR02ETM
+  - TR02EDTM
+  - VAX101DT
+  - VAX102DT
+  - COHORT
+  - COHORTN
+  - DOSPLVL
+  - DOSPLVLN
+  - DOSALVL
+  - DOSALVLN
+  - PHASE
+  - PHASEN
+  - AGEGR1
+  - AGEGR1N
+  - AGEGR2
+  - AGEGR2N
+  - AGEGR4
+  - AGEGR4N
+  - RACEGR1
+  - RACEGR1N
+  - VAX101
+  - VAX102
+  - DS30KFL
+  - COVBLST
+  - MULENRFL
+  - HIVFL
+  - PEDREAFL
+  - UNBLNDDT
+  - DS3KFL
+  - REACTOFL
+  - AGETR01
+  - VAX10U
+  - VAX10UDT
+  - RANDFL
+  - RAND1FL
+  - SAF1FL
+  - SAF2FL
+  - SRCDOM
+  - SRCSEQ
+  - FAGRPID
+  - FALNKID
+  - FALNKGRP
+  - FATEST
+  - FATESTCD
+  - PARAM
+  - PARAMCD
+  - PARAMN
+  - FAOBJ
+  - PARCAT
+  - PARCAT1
+  - PARCAT2
+  - AVALC
+  - AVAL
+  - AVALCAT1
+  - AVALCA1N
+  - FASTAT
+  - FAREASND
+  - FAEVAL
+  - AVISITN
+  - AVISIT
+  - ADT
+  - ADTM
+  - ADY
+  - ATPT
+  - ATPTN
+  - ATPTREF
+  - FAEVINTX
+  - DTYPE
+  - FASTINT
+  - FAENINT
+  - EXDOSE
+  - EXTRT
+  - EXDOSU
+  - EXSTDTC
+  - EXENDTC
+  - CLTYP
+  - VSORRES
+  - VSORRESU
+  - VSSTRESC
+  - VSSTRESN
+  - VSSTRESU
+  - FTEMCAT
+  - FTEMCATN
+  - KNOWVFL
+  - EVENTFL
+  - KNOWVDFL
+  - EVENTDFL
+  - CUTUNBFL
+  - EVENTOCC
+  - TRTA
+  - TRTAN
+  - TRTP
+  - TRTPN
+  - SRCKEY

@@ -1,0 +1,3082 @@
+# ADMH for Moderna mRNA-1273-P301, cut S3 (BLA Interim
+# Analysis, cutoff 2021-03-26). Parent:
+# ../../../spec/yamaa/base/adam-base-s3.yaml (which chains to
+# ../../../spec/yamaa/base/adam-base.yaml; 86 shared + 59 S3-only ADSL
+# columns). Derivations implement the S3 ADMH program
+# (Bates 3820410-3820413, %let dsetname = admh). One row
+# template drives on SDTM MH, filtered to MHCAT='GENERAL'
+# and inner-joined to the verified ADSL on (STUDYID,
+# USUBJID): 367,030 MH rows -> 176,643 GENERAL -> 176,585
+# submitted rows (58 drops are subjects not in ADSL). The
+# program reads NO S27 file; ADMH is S3-only (no IA ADMH
+# program exists). SMQ/CQ term lists are reconstructed
+# from the submitted ADMH (import.smq / import.cmq are not
+# in Module 5). The 21 ADSL date/datetime columns the S3
+# ADMH JMP file stores as DATE9 / datetime character text
+# are formatted from the ADSL values; EFFCODT, AP01SDT
+# and AP01SSDT are native dates in the target and are plain
+# ADSL copies. No gaps are known: every column was
+# prototyped against the submitted data and matched exactly.
+# See the generator header for the full design notes.
+yamaa: '1.0'
+type: spec
+model: ADaM
+parent: ../../../spec/yamaa/base/adam-base-s3.yaml
+domain: ADMH
+keys:
+- STUDYID
+- USUBJID
+- MHSEQ
+input:
+  MH: <sdtm-dir>/mh.parquet
+  ADSL:
+    path: <adam-dir>/adsl.parquet
+    key:
+    - STUDYID
+    - USUBJID
+submission:
+  label: Medical History Analysis Dataset
+  class: OCCURRENCE DATA STRUCTURE
+  structure: One record per subject per medical history
+  repeating: true
+rows:
+- id: mh_rows
+  dataset: MH
+  derivations:
+    STUDYID: MH.STUDYID
+    USUBJID: MH.USUBJID
+  filter: MH.MHCAT = 'GENERAL' AND _ADSL IS NOT NULL
+columns:
+- name: _ADSL
+  type: str
+  derivation: ADSL.USUBJID
+- name: STUDYID
+  submission:
+    origins:
+    - type: Derived
+    method: "Withheld from publication: the received define states this text."
+- name: USUBJID
+  submission:
+    origins:
+    - type: Derived
+    method: "Withheld from publication: the received define states this text."
+- name: _TRTSDT_ISO
+  type: str
+  derivation: ADSL.TRTSDT
+- name: _TRTSDT_DY
+  type: str
+  derivation:
+    str_substr:
+      source: _TRTSDT_ISO
+      start: 9
+      length: 2
+- name: _TRTSDT_MN
+  type: str
+  derivation:
+    str_substr:
+      source: _TRTSDT_ISO
+      start: 6
+      length: 2
+- name: _TRTSDT_YR
+  type: str
+  derivation:
+    str_substr:
+      source: _TRTSDT_ISO
+      start: 1
+      length: 4
+- name: _TRTSDT_MON
+  type: str
+  derivation:
+    mapping:
+      source: _TRTSDT_MN
+      dict:
+        '01': Jan
+        '02': Feb
+        '03': Mar
+        '04': Apr
+        '05': May
+        '06': Jun
+        '07': Jul
+        '08': Aug
+        '09': Sep
+        '10': Oct
+        '11': Nov
+        '12': Dec
+      unmapped: null
+- name: _TRTSDT_D9
+  type: str
+  derivation:
+    str_template:
+      template: '{_TRTSDT_DY}{_TRTSDT_MON}{_TRTSDT_YR}'
+      missing: ''
+- name: _TRTEDT_ISO
+  type: str
+  derivation: ADSL.TRTEDT
+- name: _TRTEDT_DY
+  type: str
+  derivation:
+    str_substr:
+      source: _TRTEDT_ISO
+      start: 9
+      length: 2
+- name: _TRTEDT_MN
+  type: str
+  derivation:
+    str_substr:
+      source: _TRTEDT_ISO
+      start: 6
+      length: 2
+- name: _TRTEDT_YR
+  type: str
+  derivation:
+    str_substr:
+      source: _TRTEDT_ISO
+      start: 1
+      length: 4
+- name: _TRTEDT_MON
+  type: str
+  derivation:
+    mapping:
+      source: _TRTEDT_MN
+      dict:
+        '01': Jan
+        '02': Feb
+        '03': Mar
+        '04': Apr
+        '05': May
+        '06': Jun
+        '07': Jul
+        '08': Aug
+        '09': Sep
+        '10': Oct
+        '11': Nov
+        '12': Dec
+      unmapped: null
+- name: _TRTEDT_D9
+  type: str
+  derivation:
+    str_template:
+      template: '{_TRTEDT_DY}{_TRTEDT_MON}{_TRTEDT_YR}'
+      missing: ''
+- name: _TR01SDT_ISO
+  type: str
+  derivation: ADSL.TR01SDT
+- name: _TR01SDT_DY
+  type: str
+  derivation:
+    str_substr:
+      source: _TR01SDT_ISO
+      start: 9
+      length: 2
+- name: _TR01SDT_MN
+  type: str
+  derivation:
+    str_substr:
+      source: _TR01SDT_ISO
+      start: 6
+      length: 2
+- name: _TR01SDT_YR
+  type: str
+  derivation:
+    str_substr:
+      source: _TR01SDT_ISO
+      start: 1
+      length: 4
+- name: _TR01SDT_MON
+  type: str
+  derivation:
+    mapping:
+      source: _TR01SDT_MN
+      dict:
+        '01': Jan
+        '02': Feb
+        '03': Mar
+        '04': Apr
+        '05': May
+        '06': Jun
+        '07': Jul
+        '08': Aug
+        '09': Sep
+        '10': Oct
+        '11': Nov
+        '12': Dec
+      unmapped: null
+- name: _TR01SDT_D9
+  type: str
+  derivation:
+    str_template:
+      template: '{_TR01SDT_DY}{_TR01SDT_MON}{_TR01SDT_YR}'
+      missing: ''
+- name: _TR01EDT_ISO
+  type: str
+  derivation: ADSL.TR01EDT
+- name: _TR01EDT_DY
+  type: str
+  derivation:
+    str_substr:
+      source: _TR01EDT_ISO
+      start: 9
+      length: 2
+- name: _TR01EDT_MN
+  type: str
+  derivation:
+    str_substr:
+      source: _TR01EDT_ISO
+      start: 6
+      length: 2
+- name: _TR01EDT_YR
+  type: str
+  derivation:
+    str_substr:
+      source: _TR01EDT_ISO
+      start: 1
+      length: 4
+- name: _TR01EDT_MON
+  type: str
+  derivation:
+    mapping:
+      source: _TR01EDT_MN
+      dict:
+        '01': Jan
+        '02': Feb
+        '03': Mar
+        '04': Apr
+        '05': May
+        '06': Jun
+        '07': Jul
+        '08': Aug
+        '09': Sep
+        '10': Oct
+        '11': Nov
+        '12': Dec
+      unmapped: null
+- name: _TR01EDT_D9
+  type: str
+  derivation:
+    str_template:
+      template: '{_TR01EDT_DY}{_TR01EDT_MON}{_TR01EDT_YR}'
+      missing: ''
+- name: _DOSE2DT_ISO
+  type: str
+  derivation: ADSL.DOSE2DT
+- name: _DOSE2DT_DY
+  type: str
+  derivation:
+    str_substr:
+      source: _DOSE2DT_ISO
+      start: 9
+      length: 2
+- name: _DOSE2DT_MN
+  type: str
+  derivation:
+    str_substr:
+      source: _DOSE2DT_ISO
+      start: 6
+      length: 2
+- name: _DOSE2DT_YR
+  type: str
+  derivation:
+    str_substr:
+      source: _DOSE2DT_ISO
+      start: 1
+      length: 4
+- name: _DOSE2DT_MON
+  type: str
+  derivation:
+    mapping:
+      source: _DOSE2DT_MN
+      dict:
+        '01': Jan
+        '02': Feb
+        '03': Mar
+        '04': Apr
+        '05': May
+        '06': Jun
+        '07': Jul
+        '08': Aug
+        '09': Sep
+        '10': Oct
+        '11': Nov
+        '12': Dec
+      unmapped: null
+- name: _DOSE2DT_D9
+  type: str
+  derivation:
+    str_template:
+      template: '{_DOSE2DT_DY}{_DOSE2DT_MON}{_DOSE2DT_YR}'
+      missing: ''
+- name: _TR02SDT_ISO
+  type: str
+  derivation: ADSL.TR02SDT
+- name: _TR02SDT_DY
+  type: str
+  derivation:
+    str_substr:
+      source: _TR02SDT_ISO
+      start: 9
+      length: 2
+- name: _TR02SDT_MN
+  type: str
+  derivation:
+    str_substr:
+      source: _TR02SDT_ISO
+      start: 6
+      length: 2
+- name: _TR02SDT_YR
+  type: str
+  derivation:
+    str_substr:
+      source: _TR02SDT_ISO
+      start: 1
+      length: 4
+- name: _TR02SDT_MON
+  type: str
+  derivation:
+    mapping:
+      source: _TR02SDT_MN
+      dict:
+        '01': Jan
+        '02': Feb
+        '03': Mar
+        '04': Apr
+        '05': May
+        '06': Jun
+        '07': Jul
+        '08': Aug
+        '09': Sep
+        '10': Oct
+        '11': Nov
+        '12': Dec
+      unmapped: null
+- name: _TR02SDT_D9
+  type: str
+  derivation:
+    str_template:
+      template: '{_TR02SDT_DY}{_TR02SDT_MON}{_TR02SDT_YR}'
+      missing: ''
+- name: _TR02EDT_ISO
+  type: str
+  derivation: ADSL.TR02EDT
+- name: _TR02EDT_DY
+  type: str
+  derivation:
+    str_substr:
+      source: _TR02EDT_ISO
+      start: 9
+      length: 2
+- name: _TR02EDT_MN
+  type: str
+  derivation:
+    str_substr:
+      source: _TR02EDT_ISO
+      start: 6
+      length: 2
+- name: _TR02EDT_YR
+  type: str
+  derivation:
+    str_substr:
+      source: _TR02EDT_ISO
+      start: 1
+      length: 4
+- name: _TR02EDT_MON
+  type: str
+  derivation:
+    mapping:
+      source: _TR02EDT_MN
+      dict:
+        '01': Jan
+        '02': Feb
+        '03': Mar
+        '04': Apr
+        '05': May
+        '06': Jun
+        '07': Jul
+        '08': Aug
+        '09': Sep
+        '10': Oct
+        '11': Nov
+        '12': Dec
+      unmapped: null
+- name: _TR02EDT_D9
+  type: str
+  derivation:
+    str_template:
+      template: '{_TR02EDT_DY}{_TR02EDT_MON}{_TR02EDT_YR}'
+      missing: ''
+- name: _OLDOS2DT_ISO
+  type: str
+  derivation: ADSL.OLDOS2DT
+- name: _OLDOS2DT_DY
+  type: str
+  derivation:
+    str_substr:
+      source: _OLDOS2DT_ISO
+      start: 9
+      length: 2
+- name: _OLDOS2DT_MN
+  type: str
+  derivation:
+    str_substr:
+      source: _OLDOS2DT_ISO
+      start: 6
+      length: 2
+- name: _OLDOS2DT_YR
+  type: str
+  derivation:
+    str_substr:
+      source: _OLDOS2DT_ISO
+      start: 1
+      length: 4
+- name: _OLDOS2DT_MON
+  type: str
+  derivation:
+    mapping:
+      source: _OLDOS2DT_MN
+      dict:
+        '01': Jan
+        '02': Feb
+        '03': Mar
+        '04': Apr
+        '05': May
+        '06': Jun
+        '07': Jul
+        '08': Aug
+        '09': Sep
+        '10': Oct
+        '11': Nov
+        '12': Dec
+      unmapped: null
+- name: _OLDOS2DT_D9
+  type: str
+  derivation:
+    str_template:
+      template: '{_OLDOS2DT_DY}{_OLDOS2DT_MON}{_OLDOS2DT_YR}'
+      missing: ''
+- name: _EUAVACDT_ISO
+  type: str
+  derivation: ADSL.EUAVACDT
+- name: _EUAVACDT_DY
+  type: str
+  derivation:
+    str_substr:
+      source: _EUAVACDT_ISO
+      start: 9
+      length: 2
+- name: _EUAVACDT_MN
+  type: str
+  derivation:
+    str_substr:
+      source: _EUAVACDT_ISO
+      start: 6
+      length: 2
+- name: _EUAVACDT_YR
+  type: str
+  derivation:
+    str_substr:
+      source: _EUAVACDT_ISO
+      start: 1
+      length: 4
+- name: _EUAVACDT_MON
+  type: str
+  derivation:
+    mapping:
+      source: _EUAVACDT_MN
+      dict:
+        '01': Jan
+        '02': Feb
+        '03': Mar
+        '04': Apr
+        '05': May
+        '06': Jun
+        '07': Jul
+        '08': Aug
+        '09': Sep
+        '10': Oct
+        '11': Nov
+        '12': Dec
+      unmapped: null
+- name: _EUAVACDT_D9
+  type: str
+  derivation:
+    str_template:
+      template: '{_EUAVACDT_DY}{_EUAVACDT_MON}{_EUAVACDT_YR}'
+      missing: ''
+- name: _AP01EDT_ISO
+  type: str
+  derivation: ADSL.AP01EDT
+- name: _AP01EDT_DY
+  type: str
+  derivation:
+    str_substr:
+      source: _AP01EDT_ISO
+      start: 9
+      length: 2
+- name: _AP01EDT_MN
+  type: str
+  derivation:
+    str_substr:
+      source: _AP01EDT_ISO
+      start: 6
+      length: 2
+- name: _AP01EDT_YR
+  type: str
+  derivation:
+    str_substr:
+      source: _AP01EDT_ISO
+      start: 1
+      length: 4
+- name: _AP01EDT_MON
+  type: str
+  derivation:
+    mapping:
+      source: _AP01EDT_MN
+      dict:
+        '01': Jan
+        '02': Feb
+        '03': Mar
+        '04': Apr
+        '05': May
+        '06': Jun
+        '07': Jul
+        '08': Aug
+        '09': Sep
+        '10': Oct
+        '11': Nov
+        '12': Dec
+      unmapped: null
+- name: _AP01EDT_D9
+  type: str
+  derivation:
+    str_template:
+      template: '{_AP01EDT_DY}{_AP01EDT_MON}{_AP01EDT_YR}'
+      missing: ''
+- name: _AP02SDT_ISO
+  type: str
+  derivation: ADSL.AP02SDT
+- name: _AP02SDT_DY
+  type: str
+  derivation:
+    str_substr:
+      source: _AP02SDT_ISO
+      start: 9
+      length: 2
+- name: _AP02SDT_MN
+  type: str
+  derivation:
+    str_substr:
+      source: _AP02SDT_ISO
+      start: 6
+      length: 2
+- name: _AP02SDT_YR
+  type: str
+  derivation:
+    str_substr:
+      source: _AP02SDT_ISO
+      start: 1
+      length: 4
+- name: _AP02SDT_MON
+  type: str
+  derivation:
+    mapping:
+      source: _AP02SDT_MN
+      dict:
+        '01': Jan
+        '02': Feb
+        '03': Mar
+        '04': Apr
+        '05': May
+        '06': Jun
+        '07': Jul
+        '08': Aug
+        '09': Sep
+        '10': Oct
+        '11': Nov
+        '12': Dec
+      unmapped: null
+- name: _AP02SDT_D9
+  type: str
+  derivation:
+    str_template:
+      template: '{_AP02SDT_DY}{_AP02SDT_MON}{_AP02SDT_YR}'
+      missing: ''
+- name: _AP02EDT_ISO
+  type: str
+  derivation: ADSL.AP02EDT
+- name: _AP02EDT_DY
+  type: str
+  derivation:
+    str_substr:
+      source: _AP02EDT_ISO
+      start: 9
+      length: 2
+- name: _AP02EDT_MN
+  type: str
+  derivation:
+    str_substr:
+      source: _AP02EDT_ISO
+      start: 6
+      length: 2
+- name: _AP02EDT_YR
+  type: str
+  derivation:
+    str_substr:
+      source: _AP02EDT_ISO
+      start: 1
+      length: 4
+- name: _AP02EDT_MON
+  type: str
+  derivation:
+    mapping:
+      source: _AP02EDT_MN
+      dict:
+        '01': Jan
+        '02': Feb
+        '03': Mar
+        '04': Apr
+        '05': May
+        '06': Jun
+        '07': Jul
+        '08': Aug
+        '09': Sep
+        '10': Oct
+        '11': Nov
+        '12': Dec
+      unmapped: null
+- name: _AP02EDT_D9
+  type: str
+  derivation:
+    str_template:
+      template: '{_AP02EDT_DY}{_AP02EDT_MON}{_AP02EDT_YR}'
+      missing: ''
+- name: _AP01SEDT_ISO
+  type: str
+  derivation: ADSL.AP01SEDT
+- name: _AP01SEDT_DY
+  type: str
+  derivation:
+    str_substr:
+      source: _AP01SEDT_ISO
+      start: 9
+      length: 2
+- name: _AP01SEDT_MN
+  type: str
+  derivation:
+    str_substr:
+      source: _AP01SEDT_ISO
+      start: 6
+      length: 2
+- name: _AP01SEDT_YR
+  type: str
+  derivation:
+    str_substr:
+      source: _AP01SEDT_ISO
+      start: 1
+      length: 4
+- name: _AP01SEDT_MON
+  type: str
+  derivation:
+    mapping:
+      source: _AP01SEDT_MN
+      dict:
+        '01': Jan
+        '02': Feb
+        '03': Mar
+        '04': Apr
+        '05': May
+        '06': Jun
+        '07': Jul
+        '08': Aug
+        '09': Sep
+        '10': Oct
+        '11': Nov
+        '12': Dec
+      unmapped: null
+- name: _AP01SEDT_D9
+  type: str
+  derivation:
+    str_template:
+      template: '{_AP01SEDT_DY}{_AP01SEDT_MON}{_AP01SEDT_YR}'
+      missing: ''
+- name: _AP02SSDT_ISO
+  type: str
+  derivation: ADSL.AP02SSDT
+- name: _AP02SSDT_DY
+  type: str
+  derivation:
+    str_substr:
+      source: _AP02SSDT_ISO
+      start: 9
+      length: 2
+- name: _AP02SSDT_MN
+  type: str
+  derivation:
+    str_substr:
+      source: _AP02SSDT_ISO
+      start: 6
+      length: 2
+- name: _AP02SSDT_YR
+  type: str
+  derivation:
+    str_substr:
+      source: _AP02SSDT_ISO
+      start: 1
+      length: 4
+- name: _AP02SSDT_MON
+  type: str
+  derivation:
+    mapping:
+      source: _AP02SSDT_MN
+      dict:
+        '01': Jan
+        '02': Feb
+        '03': Mar
+        '04': Apr
+        '05': May
+        '06': Jun
+        '07': Jul
+        '08': Aug
+        '09': Sep
+        '10': Oct
+        '11': Nov
+        '12': Dec
+      unmapped: null
+- name: _AP02SSDT_D9
+  type: str
+  derivation:
+    str_template:
+      template: '{_AP02SSDT_DY}{_AP02SSDT_MON}{_AP02SSDT_YR}'
+      missing: ''
+- name: _AP02SEDT_ISO
+  type: str
+  derivation: ADSL.AP02SEDT
+- name: _AP02SEDT_DY
+  type: str
+  derivation:
+    str_substr:
+      source: _AP02SEDT_ISO
+      start: 9
+      length: 2
+- name: _AP02SEDT_MN
+  type: str
+  derivation:
+    str_substr:
+      source: _AP02SEDT_ISO
+      start: 6
+      length: 2
+- name: _AP02SEDT_YR
+  type: str
+  derivation:
+    str_substr:
+      source: _AP02SEDT_ISO
+      start: 1
+      length: 4
+- name: _AP02SEDT_MON
+  type: str
+  derivation:
+    mapping:
+      source: _AP02SEDT_MN
+      dict:
+        '01': Jan
+        '02': Feb
+        '03': Mar
+        '04': Apr
+        '05': May
+        '06': Jun
+        '07': Jul
+        '08': Aug
+        '09': Sep
+        '10': Oct
+        '11': Nov
+        '12': Dec
+      unmapped: null
+- name: _AP02SEDT_D9
+  type: str
+  derivation:
+    str_template:
+      template: '{_AP02SEDT_DY}{_AP02SEDT_MON}{_AP02SEDT_YR}'
+      missing: ''
+- name: _TR01SDTM_ISO
+  type: str
+  derivation: ADSL.TR01SDTM
+- name: _TR01SDTM_DY
+  type: str
+  derivation:
+    str_substr:
+      source: _TR01SDTM_ISO
+      start: 9
+      length: 2
+- name: _TR01SDTM_MN
+  type: str
+  derivation:
+    str_substr:
+      source: _TR01SDTM_ISO
+      start: 6
+      length: 2
+- name: _TR01SDTM_YR
+  type: str
+  derivation:
+    str_substr:
+      source: _TR01SDTM_ISO
+      start: 1
+      length: 4
+- name: _TR01SDTM_MON
+  type: str
+  derivation:
+    mapping:
+      source: _TR01SDTM_MN
+      dict:
+        '01': Jan
+        '02': Feb
+        '03': Mar
+        '04': Apr
+        '05': May
+        '06': Jun
+        '07': Jul
+        '08': Aug
+        '09': Sep
+        '10': Oct
+        '11': Nov
+        '12': Dec
+      unmapped: null
+- name: _TR01SDTM_D9
+  type: str
+  derivation:
+    str_template:
+      template: '{_TR01SDTM_DY}{_TR01SDTM_MON}{_TR01SDTM_YR}'
+      missing: ''
+- name: _TR01EDTM_ISO
+  type: str
+  derivation: ADSL.TR01EDTM
+- name: _TR01EDTM_DY
+  type: str
+  derivation:
+    str_substr:
+      source: _TR01EDTM_ISO
+      start: 9
+      length: 2
+- name: _TR01EDTM_MN
+  type: str
+  derivation:
+    str_substr:
+      source: _TR01EDTM_ISO
+      start: 6
+      length: 2
+- name: _TR01EDTM_YR
+  type: str
+  derivation:
+    str_substr:
+      source: _TR01EDTM_ISO
+      start: 1
+      length: 4
+- name: _TR01EDTM_MON
+  type: str
+  derivation:
+    mapping:
+      source: _TR01EDTM_MN
+      dict:
+        '01': Jan
+        '02': Feb
+        '03': Mar
+        '04': Apr
+        '05': May
+        '06': Jun
+        '07': Jul
+        '08': Aug
+        '09': Sep
+        '10': Oct
+        '11': Nov
+        '12': Dec
+      unmapped: null
+- name: _TR01EDTM_D9
+  type: str
+  derivation:
+    str_template:
+      template: '{_TR01EDTM_DY}{_TR01EDTM_MON}{_TR01EDTM_YR}'
+      missing: ''
+- name: _DOS2DTM_ISO
+  type: str
+  derivation: ADSL.DOS2DTM
+- name: _DOS2DTM_DY
+  type: str
+  derivation:
+    str_substr:
+      source: _DOS2DTM_ISO
+      start: 9
+      length: 2
+- name: _DOS2DTM_MN
+  type: str
+  derivation:
+    str_substr:
+      source: _DOS2DTM_ISO
+      start: 6
+      length: 2
+- name: _DOS2DTM_YR
+  type: str
+  derivation:
+    str_substr:
+      source: _DOS2DTM_ISO
+      start: 1
+      length: 4
+- name: _DOS2DTM_MON
+  type: str
+  derivation:
+    mapping:
+      source: _DOS2DTM_MN
+      dict:
+        '01': Jan
+        '02': Feb
+        '03': Mar
+        '04': Apr
+        '05': May
+        '06': Jun
+        '07': Jul
+        '08': Aug
+        '09': Sep
+        '10': Oct
+        '11': Nov
+        '12': Dec
+      unmapped: null
+- name: _DOS2DTM_D9
+  type: str
+  derivation:
+    str_template:
+      template: '{_DOS2DTM_DY}{_DOS2DTM_MON}{_DOS2DTM_YR}'
+      missing: ''
+- name: _TR02SDTM_ISO
+  type: str
+  derivation: ADSL.TR02SDTM
+- name: _TR02SDTM_DY
+  type: str
+  derivation:
+    str_substr:
+      source: _TR02SDTM_ISO
+      start: 9
+      length: 2
+- name: _TR02SDTM_MN
+  type: str
+  derivation:
+    str_substr:
+      source: _TR02SDTM_ISO
+      start: 6
+      length: 2
+- name: _TR02SDTM_YR
+  type: str
+  derivation:
+    str_substr:
+      source: _TR02SDTM_ISO
+      start: 1
+      length: 4
+- name: _TR02SDTM_MON
+  type: str
+  derivation:
+    mapping:
+      source: _TR02SDTM_MN
+      dict:
+        '01': Jan
+        '02': Feb
+        '03': Mar
+        '04': Apr
+        '05': May
+        '06': Jun
+        '07': Jul
+        '08': Aug
+        '09': Sep
+        '10': Oct
+        '11': Nov
+        '12': Dec
+      unmapped: null
+- name: _TR02SDTM_D9
+  type: str
+  derivation:
+    str_template:
+      template: '{_TR02SDTM_DY}{_TR02SDTM_MON}{_TR02SDTM_YR}'
+      missing: ''
+- name: _TR02EDTM_ISO
+  type: str
+  derivation: ADSL.TR02EDTM
+- name: _TR02EDTM_DY
+  type: str
+  derivation:
+    str_substr:
+      source: _TR02EDTM_ISO
+      start: 9
+      length: 2
+- name: _TR02EDTM_MN
+  type: str
+  derivation:
+    str_substr:
+      source: _TR02EDTM_ISO
+      start: 6
+      length: 2
+- name: _TR02EDTM_YR
+  type: str
+  derivation:
+    str_substr:
+      source: _TR02EDTM_ISO
+      start: 1
+      length: 4
+- name: _TR02EDTM_MON
+  type: str
+  derivation:
+    mapping:
+      source: _TR02EDTM_MN
+      dict:
+        '01': Jan
+        '02': Feb
+        '03': Mar
+        '04': Apr
+        '05': May
+        '06': Jun
+        '07': Jul
+        '08': Aug
+        '09': Sep
+        '10': Oct
+        '11': Nov
+        '12': Dec
+      unmapped: null
+- name: _TR02EDTM_D9
+  type: str
+  derivation:
+    str_template:
+      template: '{_TR02EDTM_DY}{_TR02EDTM_MON}{_TR02EDTM_YR}'
+      missing: ''
+- name: _OLDO2DTM_ISO
+  type: str
+  derivation: ADSL.OLDO2DTM
+- name: _OLDO2DTM_DY
+  type: str
+  derivation:
+    str_substr:
+      source: _OLDO2DTM_ISO
+      start: 9
+      length: 2
+- name: _OLDO2DTM_MN
+  type: str
+  derivation:
+    str_substr:
+      source: _OLDO2DTM_ISO
+      start: 6
+      length: 2
+- name: _OLDO2DTM_YR
+  type: str
+  derivation:
+    str_substr:
+      source: _OLDO2DTM_ISO
+      start: 1
+      length: 4
+- name: _OLDO2DTM_MON
+  type: str
+  derivation:
+    mapping:
+      source: _OLDO2DTM_MN
+      dict:
+        '01': Jan
+        '02': Feb
+        '03': Mar
+        '04': Apr
+        '05': May
+        '06': Jun
+        '07': Jul
+        '08': Aug
+        '09': Sep
+        '10': Oct
+        '11': Nov
+        '12': Dec
+      unmapped: null
+- name: _OLDO2DTM_D9
+  type: str
+  derivation:
+    str_template:
+      template: '{_OLDO2DTM_DY}{_OLDO2DTM_MON}{_OLDO2DTM_YR}'
+      missing: ''
+- name: _TR01SDTM_HR
+  type: str
+  derivation:
+    str_substr:
+      source: _TR01SDTM_ISO
+      start: 12
+      length: 2
+- name: _TR01SDTM_MI
+  type: str
+  derivation:
+    str_substr:
+      source: _TR01SDTM_ISO
+      start: 15
+      length: 2
+- name: _TR01SDTM_SS
+  type: str
+  derivation:
+    str_substr:
+      source: _TR01SDTM_ISO
+      start: 18
+      length: 2
+- name: _TR01SDTM_H12
+  type: str
+  derivation:
+    case:
+    - when: _TR01SDTM_HR = '00'
+      then: '''12'''
+    - when: _TR01SDTM_HR = '01'
+      then: '''1'''
+    - when: _TR01SDTM_HR = '02'
+      then: '''2'''
+    - when: _TR01SDTM_HR = '03'
+      then: '''3'''
+    - when: _TR01SDTM_HR = '04'
+      then: '''4'''
+    - when: _TR01SDTM_HR = '05'
+      then: '''5'''
+    - when: _TR01SDTM_HR = '06'
+      then: '''6'''
+    - when: _TR01SDTM_HR = '07'
+      then: '''7'''
+    - when: _TR01SDTM_HR = '08'
+      then: '''8'''
+    - when: _TR01SDTM_HR = '09'
+      then: '''9'''
+    - when: _TR01SDTM_HR = '10'
+      then: '''10'''
+    - when: _TR01SDTM_HR = '11'
+      then: '''11'''
+    - when: _TR01SDTM_HR = '12'
+      then: '''12'''
+    - when: _TR01SDTM_HR = '13'
+      then: '''1'''
+    - when: _TR01SDTM_HR = '14'
+      then: '''2'''
+    - when: _TR01SDTM_HR = '15'
+      then: '''3'''
+    - when: _TR01SDTM_HR = '16'
+      then: '''4'''
+    - when: _TR01SDTM_HR = '17'
+      then: '''5'''
+    - when: _TR01SDTM_HR = '18'
+      then: '''6'''
+    - when: _TR01SDTM_HR = '19'
+      then: '''7'''
+    - when: _TR01SDTM_HR = '20'
+      then: '''8'''
+    - when: _TR01SDTM_HR = '21'
+      then: '''9'''
+    - when: _TR01SDTM_HR = '22'
+      then: '''10'''
+    - when: _TR01SDTM_HR = '23'
+      then: '''11'''
+- name: _TR01SDTM_AP
+  type: str
+  derivation:
+    case:
+    - when: _TR01SDTM_HR IN ('00', '01', '02', '03', '04', '05', '06', '07', '08', '09', '10', '11')
+      then: '''AM'''
+    - when: _TR01SDTM_HR IN ('12', '13', '14', '15', '16', '17', '18', '19', '20', '21', '22', '23')
+      then: '''PM'''
+- name: _TR01EDTM_HR
+  type: str
+  derivation:
+    str_substr:
+      source: _TR01EDTM_ISO
+      start: 12
+      length: 2
+- name: _TR01EDTM_MI
+  type: str
+  derivation:
+    str_substr:
+      source: _TR01EDTM_ISO
+      start: 15
+      length: 2
+- name: _TR01EDTM_SS
+  type: str
+  derivation:
+    str_substr:
+      source: _TR01EDTM_ISO
+      start: 18
+      length: 2
+- name: _TR01EDTM_H12
+  type: str
+  derivation:
+    case:
+    - when: _TR01EDTM_HR = '00'
+      then: '''12'''
+    - when: _TR01EDTM_HR = '01'
+      then: '''1'''
+    - when: _TR01EDTM_HR = '02'
+      then: '''2'''
+    - when: _TR01EDTM_HR = '03'
+      then: '''3'''
+    - when: _TR01EDTM_HR = '04'
+      then: '''4'''
+    - when: _TR01EDTM_HR = '05'
+      then: '''5'''
+    - when: _TR01EDTM_HR = '06'
+      then: '''6'''
+    - when: _TR01EDTM_HR = '07'
+      then: '''7'''
+    - when: _TR01EDTM_HR = '08'
+      then: '''8'''
+    - when: _TR01EDTM_HR = '09'
+      then: '''9'''
+    - when: _TR01EDTM_HR = '10'
+      then: '''10'''
+    - when: _TR01EDTM_HR = '11'
+      then: '''11'''
+    - when: _TR01EDTM_HR = '12'
+      then: '''12'''
+    - when: _TR01EDTM_HR = '13'
+      then: '''1'''
+    - when: _TR01EDTM_HR = '14'
+      then: '''2'''
+    - when: _TR01EDTM_HR = '15'
+      then: '''3'''
+    - when: _TR01EDTM_HR = '16'
+      then: '''4'''
+    - when: _TR01EDTM_HR = '17'
+      then: '''5'''
+    - when: _TR01EDTM_HR = '18'
+      then: '''6'''
+    - when: _TR01EDTM_HR = '19'
+      then: '''7'''
+    - when: _TR01EDTM_HR = '20'
+      then: '''8'''
+    - when: _TR01EDTM_HR = '21'
+      then: '''9'''
+    - when: _TR01EDTM_HR = '22'
+      then: '''10'''
+    - when: _TR01EDTM_HR = '23'
+      then: '''11'''
+- name: _TR01EDTM_AP
+  type: str
+  derivation:
+    case:
+    - when: _TR01EDTM_HR IN ('00', '01', '02', '03', '04', '05', '06', '07', '08', '09', '10', '11')
+      then: '''AM'''
+    - when: _TR01EDTM_HR IN ('12', '13', '14', '15', '16', '17', '18', '19', '20', '21', '22', '23')
+      then: '''PM'''
+- name: _DOS2DTM_HR
+  type: str
+  derivation:
+    str_substr:
+      source: _DOS2DTM_ISO
+      start: 12
+      length: 2
+- name: _DOS2DTM_MI
+  type: str
+  derivation:
+    str_substr:
+      source: _DOS2DTM_ISO
+      start: 15
+      length: 2
+- name: _DOS2DTM_SS
+  type: str
+  derivation:
+    str_substr:
+      source: _DOS2DTM_ISO
+      start: 18
+      length: 2
+- name: _DOS2DTM_H12
+  type: str
+  derivation:
+    case:
+    - when: _DOS2DTM_HR = '00'
+      then: '''12'''
+    - when: _DOS2DTM_HR = '01'
+      then: '''1'''
+    - when: _DOS2DTM_HR = '02'
+      then: '''2'''
+    - when: _DOS2DTM_HR = '03'
+      then: '''3'''
+    - when: _DOS2DTM_HR = '04'
+      then: '''4'''
+    - when: _DOS2DTM_HR = '05'
+      then: '''5'''
+    - when: _DOS2DTM_HR = '06'
+      then: '''6'''
+    - when: _DOS2DTM_HR = '07'
+      then: '''7'''
+    - when: _DOS2DTM_HR = '08'
+      then: '''8'''
+    - when: _DOS2DTM_HR = '09'
+      then: '''9'''
+    - when: _DOS2DTM_HR = '10'
+      then: '''10'''
+    - when: _DOS2DTM_HR = '11'
+      then: '''11'''
+    - when: _DOS2DTM_HR = '12'
+      then: '''12'''
+    - when: _DOS2DTM_HR = '13'
+      then: '''1'''
+    - when: _DOS2DTM_HR = '14'
+      then: '''2'''
+    - when: _DOS2DTM_HR = '15'
+      then: '''3'''
+    - when: _DOS2DTM_HR = '16'
+      then: '''4'''
+    - when: _DOS2DTM_HR = '17'
+      then: '''5'''
+    - when: _DOS2DTM_HR = '18'
+      then: '''6'''
+    - when: _DOS2DTM_HR = '19'
+      then: '''7'''
+    - when: _DOS2DTM_HR = '20'
+      then: '''8'''
+    - when: _DOS2DTM_HR = '21'
+      then: '''9'''
+    - when: _DOS2DTM_HR = '22'
+      then: '''10'''
+    - when: _DOS2DTM_HR = '23'
+      then: '''11'''
+- name: _DOS2DTM_AP
+  type: str
+  derivation:
+    case:
+    - when: _DOS2DTM_HR IN ('00', '01', '02', '03', '04', '05', '06', '07', '08', '09', '10', '11')
+      then: '''AM'''
+    - when: _DOS2DTM_HR IN ('12', '13', '14', '15', '16', '17', '18', '19', '20', '21', '22', '23')
+      then: '''PM'''
+- name: _TR02SDTM_HR
+  type: str
+  derivation:
+    str_substr:
+      source: _TR02SDTM_ISO
+      start: 12
+      length: 2
+- name: _TR02SDTM_MI
+  type: str
+  derivation:
+    str_substr:
+      source: _TR02SDTM_ISO
+      start: 15
+      length: 2
+- name: _TR02SDTM_SS
+  type: str
+  derivation:
+    str_substr:
+      source: _TR02SDTM_ISO
+      start: 18
+      length: 2
+- name: _TR02SDTM_H12
+  type: str
+  derivation:
+    case:
+    - when: _TR02SDTM_HR = '00'
+      then: '''12'''
+    - when: _TR02SDTM_HR = '01'
+      then: '''1'''
+    - when: _TR02SDTM_HR = '02'
+      then: '''2'''
+    - when: _TR02SDTM_HR = '03'
+      then: '''3'''
+    - when: _TR02SDTM_HR = '04'
+      then: '''4'''
+    - when: _TR02SDTM_HR = '05'
+      then: '''5'''
+    - when: _TR02SDTM_HR = '06'
+      then: '''6'''
+    - when: _TR02SDTM_HR = '07'
+      then: '''7'''
+    - when: _TR02SDTM_HR = '08'
+      then: '''8'''
+    - when: _TR02SDTM_HR = '09'
+      then: '''9'''
+    - when: _TR02SDTM_HR = '10'
+      then: '''10'''
+    - when: _TR02SDTM_HR = '11'
+      then: '''11'''
+    - when: _TR02SDTM_HR = '12'
+      then: '''12'''
+    - when: _TR02SDTM_HR = '13'
+      then: '''1'''
+    - when: _TR02SDTM_HR = '14'
+      then: '''2'''
+    - when: _TR02SDTM_HR = '15'
+      then: '''3'''
+    - when: _TR02SDTM_HR = '16'
+      then: '''4'''
+    - when: _TR02SDTM_HR = '17'
+      then: '''5'''
+    - when: _TR02SDTM_HR = '18'
+      then: '''6'''
+    - when: _TR02SDTM_HR = '19'
+      then: '''7'''
+    - when: _TR02SDTM_HR = '20'
+      then: '''8'''
+    - when: _TR02SDTM_HR = '21'
+      then: '''9'''
+    - when: _TR02SDTM_HR = '22'
+      then: '''10'''
+    - when: _TR02SDTM_HR = '23'
+      then: '''11'''
+- name: _TR02SDTM_AP
+  type: str
+  derivation:
+    case:
+    - when: _TR02SDTM_HR IN ('00', '01', '02', '03', '04', '05', '06', '07', '08', '09', '10', '11')
+      then: '''AM'''
+    - when: _TR02SDTM_HR IN ('12', '13', '14', '15', '16', '17', '18', '19', '20', '21', '22', '23')
+      then: '''PM'''
+- name: _TR02EDTM_HR
+  type: str
+  derivation:
+    str_substr:
+      source: _TR02EDTM_ISO
+      start: 12
+      length: 2
+- name: _TR02EDTM_MI
+  type: str
+  derivation:
+    str_substr:
+      source: _TR02EDTM_ISO
+      start: 15
+      length: 2
+- name: _TR02EDTM_SS
+  type: str
+  derivation:
+    str_substr:
+      source: _TR02EDTM_ISO
+      start: 18
+      length: 2
+- name: _TR02EDTM_H12
+  type: str
+  derivation:
+    case:
+    - when: _TR02EDTM_HR = '00'
+      then: '''12'''
+    - when: _TR02EDTM_HR = '01'
+      then: '''1'''
+    - when: _TR02EDTM_HR = '02'
+      then: '''2'''
+    - when: _TR02EDTM_HR = '03'
+      then: '''3'''
+    - when: _TR02EDTM_HR = '04'
+      then: '''4'''
+    - when: _TR02EDTM_HR = '05'
+      then: '''5'''
+    - when: _TR02EDTM_HR = '06'
+      then: '''6'''
+    - when: _TR02EDTM_HR = '07'
+      then: '''7'''
+    - when: _TR02EDTM_HR = '08'
+      then: '''8'''
+    - when: _TR02EDTM_HR = '09'
+      then: '''9'''
+    - when: _TR02EDTM_HR = '10'
+      then: '''10'''
+    - when: _TR02EDTM_HR = '11'
+      then: '''11'''
+    - when: _TR02EDTM_HR = '12'
+      then: '''12'''
+    - when: _TR02EDTM_HR = '13'
+      then: '''1'''
+    - when: _TR02EDTM_HR = '14'
+      then: '''2'''
+    - when: _TR02EDTM_HR = '15'
+      then: '''3'''
+    - when: _TR02EDTM_HR = '16'
+      then: '''4'''
+    - when: _TR02EDTM_HR = '17'
+      then: '''5'''
+    - when: _TR02EDTM_HR = '18'
+      then: '''6'''
+    - when: _TR02EDTM_HR = '19'
+      then: '''7'''
+    - when: _TR02EDTM_HR = '20'
+      then: '''8'''
+    - when: _TR02EDTM_HR = '21'
+      then: '''9'''
+    - when: _TR02EDTM_HR = '22'
+      then: '''10'''
+    - when: _TR02EDTM_HR = '23'
+      then: '''11'''
+- name: _TR02EDTM_AP
+  type: str
+  derivation:
+    case:
+    - when: _TR02EDTM_HR IN ('00', '01', '02', '03', '04', '05', '06', '07', '08', '09', '10', '11')
+      then: '''AM'''
+    - when: _TR02EDTM_HR IN ('12', '13', '14', '15', '16', '17', '18', '19', '20', '21', '22', '23')
+      then: '''PM'''
+- name: _OLDO2DTM_HR
+  type: str
+  derivation:
+    str_substr:
+      source: _OLDO2DTM_ISO
+      start: 12
+      length: 2
+- name: _OLDO2DTM_MI
+  type: str
+  derivation:
+    str_substr:
+      source: _OLDO2DTM_ISO
+      start: 15
+      length: 2
+- name: _OLDO2DTM_SS
+  type: str
+  derivation:
+    str_substr:
+      source: _OLDO2DTM_ISO
+      start: 18
+      length: 2
+- name: _OLDO2DTM_H12
+  type: str
+  derivation:
+    case:
+    - when: _OLDO2DTM_HR = '00'
+      then: '''12'''
+    - when: _OLDO2DTM_HR = '01'
+      then: '''1'''
+    - when: _OLDO2DTM_HR = '02'
+      then: '''2'''
+    - when: _OLDO2DTM_HR = '03'
+      then: '''3'''
+    - when: _OLDO2DTM_HR = '04'
+      then: '''4'''
+    - when: _OLDO2DTM_HR = '05'
+      then: '''5'''
+    - when: _OLDO2DTM_HR = '06'
+      then: '''6'''
+    - when: _OLDO2DTM_HR = '07'
+      then: '''7'''
+    - when: _OLDO2DTM_HR = '08'
+      then: '''8'''
+    - when: _OLDO2DTM_HR = '09'
+      then: '''9'''
+    - when: _OLDO2DTM_HR = '10'
+      then: '''10'''
+    - when: _OLDO2DTM_HR = '11'
+      then: '''11'''
+    - when: _OLDO2DTM_HR = '12'
+      then: '''12'''
+    - when: _OLDO2DTM_HR = '13'
+      then: '''1'''
+    - when: _OLDO2DTM_HR = '14'
+      then: '''2'''
+    - when: _OLDO2DTM_HR = '15'
+      then: '''3'''
+    - when: _OLDO2DTM_HR = '16'
+      then: '''4'''
+    - when: _OLDO2DTM_HR = '17'
+      then: '''5'''
+    - when: _OLDO2DTM_HR = '18'
+      then: '''6'''
+    - when: _OLDO2DTM_HR = '19'
+      then: '''7'''
+    - when: _OLDO2DTM_HR = '20'
+      then: '''8'''
+    - when: _OLDO2DTM_HR = '21'
+      then: '''9'''
+    - when: _OLDO2DTM_HR = '22'
+      then: '''10'''
+    - when: _OLDO2DTM_HR = '23'
+      then: '''11'''
+- name: _OLDO2DTM_AP
+  type: str
+  derivation:
+    case:
+    - when: _OLDO2DTM_HR IN ('00', '01', '02', '03', '04', '05', '06', '07', '08', '09', '10', '11')
+      then: '''AM'''
+    - when: _OLDO2DTM_HR IN ('12', '13', '14', '15', '16', '17', '18', '19', '20', '21', '22', '23')
+      then: '''PM'''
+- name: _MHTERM_1
+  type: str
+  derivation:
+    str_replace:
+      source: MH.MHTERM
+      pattern: " *\\u00c2\\u00a0 *|\\\\s*\\u00a0\\\\s*|\\u00c2"
+      replacement: ' '
+- name: _MHTERM_2
+  type: str
+  derivation:
+    str_replace:
+      source: _MHTERM_1
+      pattern: '\s+'
+      replacement: ' '
+- name: SUBJID
+  derivation: ADSL.SUBJID
+  submission:
+    origins:
+    - type: Predecessor
+      description: ADSL.SUBJID
+- name: SITEID
+  derivation: ADSL.SITEID
+  submission:
+    origins:
+    - type: Predecessor
+      description: ADSL.SITEID
+- name: COUNTRY
+  derivation: ADSL.COUNTRY
+  submission:
+    origins:
+    - type: Predecessor
+      description: ADSL.COUNTRY
+- name: AGE
+  derivation: ADSL.AGE
+  submission:
+    origins:
+    - type: Predecessor
+      description: ADSL.AGE
+- name: AGEU
+  derivation: ADSL.AGEU
+  submission:
+    origins:
+    - type: Predecessor
+      description: ADSL.AGEU
+- name: STRATAR
+  derivation: ADSL.STRATAR
+  submission:
+    origins:
+    - type: Predecessor
+      description: ADSL.STRATAR
+- name: STRATARN
+  derivation: ADSL.STRATARN
+  submission:
+    origins:
+    - type: Predecessor
+      description: ADSL.STRATARN
+- name: AGEGR1
+  derivation: ADSL.AGEGR1
+  submission:
+    origins:
+    - type: Predecessor
+      description: ADSL.AGEGR1
+- name: AGEGR1N
+  derivation: ADSL.AGEGR1N
+  submission:
+    origins:
+    - type: Predecessor
+      description: ADSL.AGEGR1N
+- name: AGEGR2
+  derivation: ADSL.AGEGR2
+  submission:
+    origins:
+    - type: Predecessor
+      description: ADSL.AGEGR2
+- name: AGEGR2N
+  derivation: ADSL.AGEGR2N
+  submission:
+    origins:
+    - type: Predecessor
+      description: ADSL.AGEGR2N
+- name: AGEGR3
+  derivation: ADSL.AGEGR3
+  submission:
+    origins:
+    - type: Predecessor
+      description: ADSL.AGEGR3
+- name: AGEGR3N
+  derivation: ADSL.AGEGR3N
+  submission:
+    origins:
+    - type: Predecessor
+      description: ADSL.AGEGR3N
+- name: AGEGR4
+  derivation: ADSL.AGEGR4
+  submission:
+    mandatory: false
+    origins:
+    - type: Predecessor
+      description: ADSL.AGEGR4
+- name: AGEGR4N
+  derivation: ADSL.AGEGR4N
+  submission:
+    mandatory: false
+    origins:
+    - type: Predecessor
+      description: ADSL.AGEGR4N
+- name: SEX
+  derivation: ADSL.SEX
+  submission:
+    origins:
+    - type: Predecessor
+      description: ADSL.SEX
+- name: RACE
+  derivation: ADSL.RACE
+  submission:
+    origins:
+    - type: Predecessor
+      description: ADSL.RACE
+- name: RACESPY
+  derivation: ADSL.RACESPY
+  submission:
+    origins:
+    - type: Predecessor
+      description: ADSL.RACESPY
+- name: ETHNIC
+  derivation: ADSL.ETHNIC
+  submission:
+    origins:
+    - type: Predecessor
+      description: ADSL.ETHNIC
+- name: RANDFL
+  derivation: ADSL.RANDFL
+  submission:
+    origins:
+    - type: Predecessor
+      description: ADSL.RANDFL
+- name: FASFL
+  derivation: ADSL.FASFL
+  submission:
+    origins:
+    - type: Predecessor
+      description: ADSL.FASFL
+- name: SAFFL
+  derivation: ADSL.SAFFL
+  submission:
+    origins:
+    - type: Predecessor
+      description: ADSL.SAFFL
+- name: SAR1FL
+  derivation: ADSL.SAR1FL
+  submission:
+    origins:
+    - type: Predecessor
+      description: ADSL.SAR1FL
+- name: SAR2FL
+  derivation: ADSL.SAR2FL
+  submission:
+    origins:
+    - type: Predecessor
+      description: ADSL.SAR2FL
+- name: SARAFL
+  derivation: ADSL.SARAFL
+  submission:
+    origins:
+    - type: Predecessor
+      description: ADSL.SARAFL
+- name: MITTFL
+  derivation: ADSL.MITTFL
+  submission:
+    origins:
+    - type: Predecessor
+      description: ADSL.MITTFL
+- name: PPROTFL
+  derivation: ADSL.PPROTFL
+  submission:
+    origins:
+    - type: Predecessor
+      description: ADSL.PPROTFL
+- name: RANDIGFL
+  derivation: ADSL.RANDIGFL
+  submission:
+    origins:
+    - type: Predecessor
+      description: ADSL.RANDIGFL
+- name: PPSIFL
+  derivation: ADSL.PPSIFL
+  submission:
+    origins:
+    - type: Predecessor
+      description: ADSL.PPSIFL
+- name: CCIASFL
+  derivation: ADSL.CCIASFL
+  submission:
+    origins:
+    - type: Predecessor
+      description: ADSL.CCIASFL
+- name: DOSE1FL
+  derivation: ADSL.DOSE1FL
+  submission:
+    mandatory: false
+    origins:
+    - type: Predecessor
+      description: ADSL.DOSE1FL
+- name: DOSE2FL
+  derivation: ADSL.DOSE2FL
+  submission:
+    origins:
+    - type: Predecessor
+      description: ADSL.DOSE2FL
+- name: OLDOS1FL
+  derivation: ADSL.OLDOS1FL
+  submission:
+    origins:
+    - type: Predecessor
+      description: ADSL.OLDOS1FL
+- name: OLDOS2FL
+  derivation: ADSL.OLDOS2FL
+  submission:
+    origins:
+    - type: Predecessor
+      description: ADSL.OLDOS2FL
+- name: RTPCRBL
+  derivation: ADSL.RTPCRBL
+  submission:
+    origins:
+    - type: Predecessor
+      description: ADSL.RTPCRBL
+- name: ELECSBL
+  derivation: ADSL.ELECSBL
+  submission:
+    origins:
+    - type: Predecessor
+      description: ADSL.ELECSBL
+- name: SCOV2BL
+  derivation: ADSL.SCOV2BL
+  submission:
+    origins:
+    - type: Predecessor
+      description: ADSL.SCOV2BL
+- name: TRT01P
+  derivation: ADSL.TRT01P
+  submission:
+    mandatory: false
+    origins:
+    - type: Predecessor
+      description: ADSL.TRT01P
+- name: TRT01PN
+  derivation: ADSL.TRT01PN
+  submission:
+    mandatory: false
+    origins:
+    - type: Predecessor
+      description: ADSL.TRT01PN
+- name: TRT01A
+  derivation: ADSL.TRT01A
+  submission:
+    origins:
+    - type: Predecessor
+      description: ADSL.TRT01A
+- name: TRT01AN
+  derivation: ADSL.TRT01AN
+  submission:
+    origins:
+    - type: Predecessor
+      description: ADSL.TRT01AN
+- name: TRT02P
+  derivation: ADSL.TRT02P
+  submission:
+    origins:
+    - type: Predecessor
+      description: ADSL.TRT02P
+- name: TRT02PN
+  derivation: ADSL.TRT02PN
+  submission:
+    origins:
+    - type: Predecessor
+      description: ADSL.TRT02PN
+- name: TRT02A
+  derivation: ADSL.TRT02A
+  submission:
+    origins:
+    - type: Predecessor
+      description: ADSL.TRT02A
+- name: TRT02AN
+  derivation: ADSL.TRT02AN
+  submission:
+    origins:
+    - type: Predecessor
+      description: ADSL.TRT02AN
+- name: TRTSEQP
+  derivation: ADSL.TRTSEQP
+  submission:
+    origins:
+    - type: Predecessor
+      description: ADSL.TRTSEQP
+- name: TRTSEQPN
+  derivation: ADSL.TRTSEQPN
+  submission:
+    origins:
+    - type: Predecessor
+      description: ADSL.TRTSEQPN
+- name: TRTSEQA
+  derivation: ADSL.TRTSEQA
+  submission:
+    origins:
+    - type: Predecessor
+      description: ADSL.TRTSEQA
+- name: TRTSEQAN
+  derivation: ADSL.TRTSEQAN
+  submission:
+    origins:
+    - type: Predecessor
+      description: ADSL.TRTSEQAN
+- name: EFFCODT
+  derivation: ADSL.EFFCODT
+  submission:
+    mandatory: false
+    origins:
+    - type: Predecessor
+      description: ADSL.EFFCODT
+- name: AP01SDT
+  derivation: ADSL.AP01SDT
+  submission:
+    origins:
+    - type: Predecessor
+      description: ADSL.AP01SDT
+- name: AP01SSDT
+  derivation: ADSL.AP01SSDT
+  submission:
+    origins:
+    - type: Predecessor
+      description: ADSL.AP01SSDT
+- name: RSKF1
+  derivation: ADSL.RSKF1
+  submission:
+    origins:
+    - type: Predecessor
+      description: ADSL.RSKF1
+- name: RSKF2
+  derivation: ADSL.RSKF2
+  submission:
+    origins:
+    - type: Predecessor
+      description: ADSL.RSKF2
+- name: RSKF3
+  derivation: ADSL.RSKF3
+  submission:
+    origins:
+    - type: Predecessor
+      description: ADSL.RSKF3
+- name: RSKF4
+  derivation: ADSL.RSKF4
+  submission:
+    origins:
+    - type: Predecessor
+      description: ADSL.RSKF4
+- name: RSKF5
+  derivation: ADSL.RSKF5
+  submission:
+    origins:
+    - type: Predecessor
+      description: ADSL.RSKF5
+- name: RSKF6
+  derivation: ADSL.RSKF6
+  submission:
+    origins:
+    - type: Predecessor
+      description: ADSL.RSKF6
+- name: STRATAV
+  derivation: ADSL.STRATAV
+  submission:
+    origins:
+    - type: Predecessor
+      description: ADSL.STRATAV
+- name: STRATAVN
+  derivation: ADSL.STRATAVN
+  submission:
+    origins:
+    - type: Predecessor
+      description: ADSL.STRATAVN
+- name: STUDDUR3
+  derivation: ADSL.STUDDUR3
+  submission:
+    origins:
+    - type: Predecessor
+      description: ADSL.STUDDUR3
+- name: MINORITY
+  derivation: ADSL.MINORITY
+  submission:
+    origins:
+    - type: Predecessor
+      description: ADSL.MINORITY
+- name: RACEGR1
+  derivation: ADSL.RACEGR1
+  submission:
+    mandatory: false
+    origins:
+    - type: Predecessor
+      description: ADSL.RACEGR1
+- name: RACEGR1N
+  derivation: ADSL.RACEGR1N
+  submission:
+    mandatory: false
+    origins:
+    - type: Predecessor
+      description: ADSL.RACEGR1N
+- name: RISKGR1
+  derivation: ADSL.RISKGR1
+  submission:
+    origins:
+    - type: Predecessor
+      description: ADSL.RISKGR1
+- name: RISKGR1N
+  derivation: ADSL.RISKGR1N
+  submission:
+    origins:
+    - type: Predecessor
+      description: ADSL.RISKGR1N
+- name: RETHGR1
+  derivation: ADSL.RETHGR1
+  submission:
+    origins:
+    - type: Predecessor
+      description: ADSL.RETHGR1
+- name: RETHGR1N
+  derivation: ADSL.RETHGR1N
+  submission:
+    origins:
+    - type: Predecessor
+      description: ADSL.RETHGR1N
+- name: COVIDAFL
+  derivation: ADSL.COVIDAFL
+  submission:
+    origins:
+    - type: Predecessor
+      description: ADSL.COVIDAFL
+- name: CVDSVAFL
+  derivation: ADSL.CVDSVAFL
+  submission:
+    origins:
+    - type: Predecessor
+      description: ADSL.CVDSVAFL
+- name: ACTARM
+  derivation: null
+- name: ARM
+  derivation: null
+- name: BMIBL
+  derivation: null
+- name: CBNRS
+  derivation: null
+- name: CHILDBP
+  derivation: null
+- name: COMPLFL
+  derivation: null
+- name: CUTOFFDT
+  derivation: null
+- name: DCSREAS
+  derivation: null
+- name: DCSREASP
+  derivation: null
+- name: DCT01RS
+  derivation: null
+- name: DCT01RSP
+  derivation: null
+- name: DCT02RS
+  derivation: null
+- name: DCT02RSP
+  derivation: null
+- name: DSDTHSP
+  derivation: null
+- name: DTHAUTOP
+  derivation: null
+- name: DTHCAUS
+  derivation: null
+- name: DTHDT
+  derivation: null
+- name: EOSDT
+  derivation: null
+- name: EOSDY
+  derivation: null
+- name: EOSSTT
+  derivation: null
+- name: EOT01DT
+  derivation: null
+- name: EOT01DY
+  derivation: null
+- name: EOT01STT
+  derivation: null
+- name: EOT02DT
+  derivation: null
+- name: EOT02DY
+  derivation: null
+- name: EOT02STT
+  derivation: null
+- name: EXTDT
+  derivation: null
+- name: FASEREAS
+  derivation: null
+- name: HEIGHTBL
+  derivation: null
+- name: IRTVISDT
+  derivation: null
+- name: MITTERS
+  derivation: null
+- name: PDVDT
+  derivation: null
+- name: PPEREAS
+  derivation: null
+- name: PPSIEREA
+  derivation: null
+- name: PREVSCR
+  derivation: null
+- name: PROTVER
+  derivation: null
+- name: RANDDT
+  derivation: null
+- name: RANDNUM
+  derivation: null
+- name: RFICDT
+  derivation: null
+- name: SAFEREAS
+  derivation: null
+- name: SAR1ERS
+  derivation: null
+- name: SAR2ERS
+  derivation: null
+- name: STUDDUR1
+  derivation: null
+- name: STUDDUR2
+  derivation: null
+- name: STUDDUR4
+  derivation: null
+- name: STUDDUR5
+  derivation: null
+- name: STUDDUR6
+  derivation: null
+- name: TTDTH1
+  derivation: null
+- name: TTDTH2
+  derivation: null
+- name: UBLDDT
+  derivation: null
+- name: UICDT
+  derivation: null
+- name: WEIGHTBL
+  derivation: null
+- name: MHSEQ
+  type: int
+  label: 'Sequence Number'
+  derivation: MH.MHSEQ
+  submission:
+    core: Req
+    mandatory: true
+    length: 8
+    display_format: '3.'
+    origins:
+    - type: Predecessor
+      description: 'MH.MHSEQ'
+- name: MHCAT
+  type: str
+  label: 'Category for Medical History'
+  derivation: MH.MHCAT
+  submission:
+    core: Perm
+    mandatory: false
+    length: 40
+    origins:
+    - type: Predecessor
+      description: 'MH.MHCAT'
+- name: MHBODSYS
+  type: str
+  label: 'Body System or Organ Class'
+  derivation: MH.MHBODSYS
+  submission:
+    core: Req
+    mandatory: false
+    length: 67
+    origins:
+    - type: Predecessor
+      description: 'MH.MHBODSYS'
+- name: MHDECOD
+  type: str
+  label: 'Dictionary-Derived Term'
+  derivation: MH.MHDECOD
+  submission:
+    core: Req
+    mandatory: false
+    length: 61
+    origins:
+    - type: Predecessor
+      description: 'MH.MHDECOD'
+- name: MHPTCD
+  type: str
+  label: 'Preferred Term Code'
+  derivation: MH.MHPTCD
+  submission:
+    core: Req
+    mandatory: false
+    length: 12
+    origins:
+    - type: Predecessor
+      description: 'MH.MHPTCD'
+- name: MHSTDTC
+  type: str
+  label: 'Start Date/Time of Medical History Event'
+  derivation: MH.MHSTDTC
+  submission:
+    core: Perm
+    mandatory: false
+    length: 20
+    origins:
+    - type: Predecessor
+      description: 'MH.MHSTDTC'
+- name: MHENDTC
+  type: str
+  label: 'End Date/Time of Medical History Event'
+  derivation: MH.MHENDTC
+  submission:
+    core: Perm
+    mandatory: false
+    length: 20
+    origins:
+    - type: Predecessor
+      description: 'MH.MHENDTC'
+- name: MHENRTPT
+  type: str
+  label: 'End Relative to Reference Time Point'
+  derivation: MH.MHENRTPT
+  submission:
+    core: Perm
+    mandatory: false
+    length: 10
+    origins:
+    - type: Predecessor
+      description: 'MH.MHENRTPT'
+- name: MHSTDY
+  type: str
+  label: 'Study Day of Start of Observation'
+  derivation: MH.MHSTDY
+  submission:
+    core: Perm
+    mandatory: false
+    length: 8
+    origins:
+    - type: Predecessor
+      description: 'MH.MHSTDY'
+- name: MHENDY
+  type: str
+  label: 'Study Day of End of Observation'
+  derivation: MH.MHENDY
+  submission:
+    core: Perm
+    mandatory: false
+    length: 8
+    origins:
+    - type: Predecessor
+      description: 'MH.MHENDY'
+- name: TRTSDT
+  type: str
+  label: 'Date of First Exposure to Treatment'
+  derivation: _TRTSDT_D9
+  submission:
+    core: Perm
+    mandatory: false
+    length: 9
+    origins:
+    - type: Derived
+    method: "Withheld from publication: the received define states this text."
+- name: TRTEDT
+  type: str
+  label: 'Date of Last Exposure to Treatment'
+  derivation: _TRTEDT_D9
+  submission:
+    core: Perm
+    mandatory: false
+    length: 9
+    origins:
+    - type: Derived
+    method: "Withheld from publication: the received define states this text."
+- name: TR01SDT
+  type: str
+  label: 'Date of First Exposure in Period 01'
+  derivation: _TR01SDT_D9
+  submission:
+    core: Perm
+    mandatory: false
+    length: 9
+    origins:
+    - type: Derived
+    method: "Withheld from publication: the received define states this text."
+- name: TR01EDT
+  type: str
+  label: 'Date of Last Exposure in Period 01'
+  derivation: _TR01EDT_D9
+  submission:
+    core: Perm
+    mandatory: false
+    length: 9
+    origins:
+    - type: Derived
+    method: "Withheld from publication: the received define states this text."
+- name: DOSE2DT
+  type: str
+  label: 'Date of Dose 2 in Blinded Phase'
+  derivation: _DOSE2DT_D9
+  submission:
+    core: Perm
+    mandatory: false
+    length: 9
+    origins:
+    - type: Derived
+    method: "Withheld from publication: the received define states this text."
+- name: TR02SDT
+  type: str
+  label: 'Date of First Exposure in Period 02'
+  derivation: _TR02SDT_D9
+  submission:
+    core: Perm
+    mandatory: false
+    length: 9
+    origins:
+    - type: Derived
+    method: "Withheld from publication: the received define states this text."
+- name: TR02EDT
+  type: str
+  label: 'Date of Last Exposure in Period 02'
+  derivation: _TR02EDT_D9
+  submission:
+    core: Perm
+    mandatory: false
+    length: 9
+    origins:
+    - type: Derived
+    method: "Withheld from publication: the received define states this text."
+- name: OLDOS2DT
+  type: str
+  label: 'Date of Dose 2 in Open Label Phase'
+  derivation: _OLDOS2DT_D9
+  submission:
+    core: Perm
+    mandatory: false
+    length: 9
+    origins:
+    - type: Derived
+    method: "Withheld from publication: the received define states this text."
+- name: EUAVACDT
+  type: str
+  label: 'Date of Post-EUA Off-Study COVID Vaccine'
+  derivation: _EUAVACDT_D9
+  submission:
+    core: Perm
+    mandatory: false
+    length: 9
+    origins:
+    - type: Derived
+    method: "Withheld from publication: the received define states this text."
+- name: AP01EDT
+  type: str
+  label: 'Period 01 End Date'
+  derivation: _AP01EDT_D9
+  submission:
+    core: Req
+    mandatory: false
+    length: 9
+    origins:
+    - type: Derived
+    method: "Withheld from publication: the received define states this text."
+- name: AP02SDT
+  type: str
+  label: 'Period 02 Start Date'
+  derivation: _AP02SDT_D9
+  submission:
+    core: Perm
+    mandatory: false
+    length: 9
+    origins:
+    - type: Derived
+    method: "Withheld from publication: the received define states this text."
+- name: AP02EDT
+  type: str
+  label: 'Period 02 End Date'
+  derivation: _AP02EDT_D9
+  submission:
+    core: Perm
+    mandatory: false
+    length: 9
+    origins:
+    - type: Derived
+    method: "Withheld from publication: the received define states this text."
+- name: AP01SEDT
+  type: str
+  label: 'Period 01 End Date for Safety Analysis'
+  derivation: _AP01SEDT_D9
+  submission:
+    core: Req
+    mandatory: false
+    length: 9
+    origins:
+    - type: Derived
+    method: "Withheld from publication: the received define states this text."
+- name: AP02SSDT
+  type: str
+  label: 'Period 02 Start Date for Safety Analysis'
+  derivation: _AP02SSDT_D9
+  submission:
+    core: Perm
+    mandatory: false
+    length: 9
+    origins:
+    - type: Derived
+    method: "Withheld from publication: the received define states this text."
+- name: AP02SEDT
+  type: str
+  label: 'Period 02 End Date for Safety Analysis'
+  derivation: _AP02SEDT_D9
+  submission:
+    core: Perm
+    mandatory: false
+    length: 9
+    origins:
+    - type: Derived
+    method: "Withheld from publication: the received define states this text."
+- name: TR01SDTM
+  type: str
+  label: 'Datetime of First Exposure in Period 01'
+  derivation:
+    str_template:
+      template: '{_TR01SDTM_D9} {_TR01SDTM_H12}:{_TR01SDTM_MI}:{_TR01SDTM_SS} {_TR01SDTM_AP}'
+      missing: ''
+  submission:
+    core: Perm
+    mandatory: false
+    length: 21
+    origins:
+    - type: Derived
+    method: "Withheld from publication: the received define states this text."
+- name: TR01EDTM
+  type: str
+  label: 'Datetime of Last Exposure in Period 01'
+  derivation:
+    str_template:
+      template: '{_TR01EDTM_D9} {_TR01EDTM_H12}:{_TR01EDTM_MI}:{_TR01EDTM_SS} {_TR01EDTM_AP}'
+      missing: ''
+  submission:
+    core: Perm
+    mandatory: false
+    length: 21
+    origins:
+    - type: Derived
+    method: "Withheld from publication: the received define states this text."
+- name: DOS2DTM
+  type: str
+  label: 'Datetime of Dose 2 in Blinded Phase'
+  derivation:
+    str_template:
+      template: '{_DOS2DTM_D9} {_DOS2DTM_H12}:{_DOS2DTM_MI}:{_DOS2DTM_SS} {_DOS2DTM_AP}'
+      missing: ''
+  submission:
+    core: Perm
+    mandatory: false
+    length: 21
+    origins:
+    - type: Derived
+    method: "Withheld from publication: the received define states this text."
+- name: TR02SDTM
+  type: str
+  label: 'Datetime of First Exposure in Period 02'
+  derivation:
+    str_template:
+      template: '{_TR02SDTM_D9} {_TR02SDTM_H12}:{_TR02SDTM_MI}:{_TR02SDTM_SS} {_TR02SDTM_AP}'
+      missing: ''
+  submission:
+    core: Perm
+    mandatory: false
+    length: 21
+    origins:
+    - type: Derived
+    method: "Withheld from publication: the received define states this text."
+- name: TR02EDTM
+  type: str
+  label: 'Datetime of Last Exposure in Period 02'
+  derivation:
+    str_template:
+      template: '{_TR02EDTM_D9} {_TR02EDTM_H12}:{_TR02EDTM_MI}:{_TR02EDTM_SS} {_TR02EDTM_AP}'
+      missing: ''
+  submission:
+    core: Perm
+    mandatory: false
+    length: 21
+    origins:
+    - type: Derived
+    method: "Withheld from publication: the received define states this text."
+- name: OLDO2DTM
+  type: str
+  label: 'Datetime of Dose 2 in Open Label Phase'
+  derivation:
+    str_template:
+      template: '{_OLDO2DTM_D9} {_OLDO2DTM_H12}:{_OLDO2DTM_MI}:{_OLDO2DTM_SS} {_OLDO2DTM_AP}'
+      missing: ''
+  submission:
+    core: Perm
+    mandatory: false
+    length: 21
+    origins:
+    - type: Derived
+    method: "Withheld from publication: the received define states this text."
+- name: MHTERM
+  type: str
+  label: 'Reported Term for the Medical History'
+  derivation:
+    str_replace:
+      source: _MHTERM_2
+      pattern: '^ +| +$'
+      replacement: ''
+  submission:
+    core: Req
+    mandatory: false
+    length: 200
+    origins:
+    - type: Derived
+    method: "Withheld from publication: the received define states this text."
+- name: _SMQ02_SC
+  type: str
+  derivation:
+    mapping:
+      source: MH.MHDECOD
+      dict:
+        'Angioedema': 'NARROW'
+        'Corneal oedema': 'NARROW'
+        'Drug hypersensitivity': 'BROAD'
+        'Ear swelling': 'BROAD'
+        'Eye swelling': 'NARROW'
+        'Face oedema': 'NARROW'
+        'Generalised oedema': 'BROAD'
+        'Gingival swelling': 'NARROW'
+        'Hypersensitivity': 'BROAD'
+        'Idiopathic angioedema': 'NARROW'
+        'Idiopathic urticaria': 'NARROW'
+        'Lip swelling': 'NARROW'
+        'Nasal obstruction': 'BROAD'
+        'Obstructive airways disorder': 'BROAD'
+        'Oedema': 'BROAD'
+        'Oedema peripheral': 'BROAD'
+        'Periorbital oedema': 'NARROW'
+        'Periorbital swelling': 'NARROW'
+        'Peripheral swelling': 'BROAD'
+        'Scrotal swelling': 'BROAD'
+        'Soft tissue swelling': 'BROAD'
+        'Stridor': 'BROAD'
+        'Swelling': 'BROAD'
+        'Swelling of eyelid': 'NARROW'
+        'Throat tightness': 'BROAD'
+        'Tongue oedema': 'NARROW'
+        'Tracheostomy': 'BROAD'
+        'Upper airway obstruction': 'BROAD'
+        'Urticaria': 'NARROW'
+        'Urticaria cholinergic': 'NARROW'
+        'Urticaria chronic': 'NARROW'
+        'Wheezing': 'BROAD'
+      unmapped: null
+- name: SMQ02NAM
+  type: str
+  label: 'SMQ 02 Name'
+  derivation:
+    case:
+    - when: _SMQ02_SC IS NOT NULL
+      then: '''Angioedema'''
+  submission:
+    core: Perm
+    mandatory: false
+    length: 100
+    origins:
+    - type: Derived
+    method: "Withheld from publication: the received define states this text."
+- name: SMQ02SC
+  type: str
+  label: 'SMQ 02 Scope'
+  derivation: _SMQ02_SC
+  submission:
+    core: Perm
+    mandatory: false
+    length: 40
+    origins:
+    - type: Derived
+    method: "Withheld from publication: the received define states this text."
+- name: SMQ02FL
+  type: str
+  label: 'SMQ 02 Flag'
+  derivation:
+    flag: SMQ02NAM IS NOT NULL AND SMQ02SC = 'NARROW'
+  submission:
+    core: Perm
+    mandatory: false
+    length: 1
+    origins:
+    - type: Derived
+    method: "Withheld from publication: the received define states this text."
+- name: _SMQ06_SC
+  type: str
+  derivation:
+    mapping:
+      source: MH.MHDECOD
+      dict:
+        'Acute respiratory failure': 'BROAD'
+        'Allergic bronchitis': 'NARROW'
+        'Allergic cough': 'NARROW'
+        'Allergic reaction to excipient': 'NARROW'
+        'Allergic respiratory disease': 'NARROW'
+        'Allergic sinusitis': 'NARROW'
+        'Allergy to chemicals': 'BROAD'
+        'Allergy to surgical sutures': 'NARROW'
+        'Allergy to vaccine': 'NARROW'
+        'Anaphylactic reaction': 'NARROW'
+        'Angioedema': 'NARROW'
+        'Antiallergic therapy': 'NARROW'
+        'Aspirin-exacerbated respiratory disease': 'NARROW'
+        'Asthma': 'BROAD'
+        'Asthma late onset': 'BROAD'
+        'Asthma-chronic obstructive pulmonary disease overlap syndrome': 'BROAD'
+        'Blister': 'BROAD'
+        'Bronchial hyperreactivity': 'BROAD'
+        'Bronchospasm': 'NARROW'
+        'Caffeine allergy': 'BROAD'
+        'Childhood asthma': 'BROAD'
+        'Conjunctivitis': 'BROAD'
+        'Conjunctivitis allergic': 'NARROW'
+        'Contrast media allergy': 'NARROW'
+        'Corneal oedema': 'NARROW'
+        'Cough variant asthma': 'BROAD'
+        'Dermatitis': 'NARROW'
+        'Dermatitis allergic': 'NARROW'
+        'Dermatitis atopic': 'NARROW'
+        'Dermatitis contact': 'NARROW'
+        'Drug eruption': 'NARROW'
+        'Drug hypersensitivity': 'NARROW'
+        'Ear swelling': 'BROAD'
+        'Eczema': 'NARROW'
+        'Eczema nummular': 'NARROW'
+        'Eosinophilia': 'BROAD'
+        'Eosinophilic oesophagitis': 'BROAD'
+        'Eosinophilic pneumonia': 'BROAD'
+        'Epidermolysis bullosa': 'NARROW'
+        'Erythema': 'BROAD'
+        'Eye allergy': 'NARROW'
+        'Eye swelling': 'NARROW'
+        'Face oedema': 'NARROW'
+        'Flushing': 'BROAD'
+        'Generalised oedema': 'BROAD'
+        'Gingival swelling': 'NARROW'
+        'Haemolytic transfusion reaction': 'BROAD'
+        'Hand dermatitis': 'NARROW'
+        'Henoch-Schonlein purpura': 'NARROW'
+        'Heparin-induced thrombocytopenia': 'NARROW'
+        'Hypersensitivity': 'NARROW'
+        'Idiopathic urticaria': 'NARROW'
+        'Immune thrombocytopenia': 'NARROW'
+        'Immune tolerance induction': 'NARROW'
+        'Injection related reaction': 'NARROW'
+        'Injection site eczema': 'NARROW'
+        'Interstitial lung disease': 'BROAD'
+        'Iodine allergy': 'NARROW'
+        'Laryngospasm': 'NARROW'
+        'Lip swelling': 'NARROW'
+        'Mechanical urticaria': 'BROAD'
+        'Medical device site dermatitis': 'NARROW'
+        'Mouth ulceration': 'BROAD'
+        'Multiple allergies': 'NARROW'
+        'Neurodermatitis': 'BROAD'
+        'Oral allergy syndrome': 'NARROW'
+        'Oropharyngeal spasm': 'NARROW'
+        'Panniculitis': 'BROAD'
+        'Perioral dermatitis': 'NARROW'
+        'Periorbital oedema': 'NARROW'
+        'Periorbital swelling': 'NARROW'
+        'Photosensitivity reaction': 'BROAD'
+        'Pneumonitis': 'BROAD'
+        'Pruritus': 'BROAD'
+        'Pruritus allergic': 'NARROW'
+        'Rash': 'NARROW'
+        'Rash erythematous': 'NARROW'
+        'Rash follicular': 'NARROW'
+        'Rash macular': 'NARROW'
+        'Rash maculo-papular': 'NARROW'
+        'Rash pruritic': 'NARROW'
+        'Reaction to azo-dyes': 'NARROW'
+        'Reaction to colouring': 'NARROW'
+        'Reaction to food additive': 'NARROW'
+        'Reaction to preservatives': 'NARROW'
+        'Reactive airways dysfunction syndrome': 'BROAD'
+        'Red man syndrome': 'NARROW'
+        'Respiratory failure': 'BROAD'
+        'Rhinitis allergic': 'NARROW'
+        'Rhinitis perennial': 'BROAD'
+        'Scrotal swelling': 'BROAD'
+        'Seasonal allergy': 'BROAD'
+        'Skin exfoliation': 'BROAD'
+        'Sneezing': 'BROAD'
+        'Solar urticaria': 'NARROW'
+        'Stevens-Johnson syndrome': 'NARROW'
+        'Stomatitis': 'BROAD'
+        'Stridor': 'BROAD'
+        'Swelling of eyelid': 'NARROW'
+        'Throat tightness': 'BROAD'
+        'Tongue oedema': 'NARROW'
+        'Tracheostomy': 'BROAD'
+        'Upper airway obstruction': 'BROAD'
+        'Urticaria': 'NARROW'
+        'Urticaria cholinergic': 'NARROW'
+        'Urticaria chronic': 'NARROW'
+        'Vaccination site dermatitis': 'NARROW'
+        'Wheezing': 'BROAD'
+      unmapped: null
+- name: SMQ06NAM
+  type: str
+  label: 'SMQ 06 Name'
+  derivation:
+    case:
+    - when: _SMQ06_SC IS NOT NULL
+      then: '''Hypersensitivity'''
+  submission:
+    core: Perm
+    mandatory: false
+    length: 100
+    origins:
+    - type: Derived
+    method: "Withheld from publication: the received define states this text."
+- name: SMQ06SC
+  type: str
+  label: 'SMQ 06 Scope'
+  derivation: _SMQ06_SC
+  submission:
+    core: Perm
+    mandatory: false
+    length: 40
+    origins:
+    - type: Derived
+    method: "Withheld from publication: the received define states this text."
+- name: SMQ06FL
+  type: str
+  label: 'SMQ 06 Flag'
+  derivation:
+    flag: SMQ06NAM IS NOT NULL AND SMQ06SC = 'NARROW'
+  submission:
+    core: Perm
+    mandatory: false
+    length: 1
+    origins:
+    - type: Derived
+    method: "Withheld from publication: the received define states this text."
+- name: _SMQ01_SC
+  type: str
+  derivation:
+    mapping:
+      source: MH.MHDECOD
+      dict:
+        'Acute respiratory failure': 'BROAD'
+        'Anaphylactic reaction': 'NARROW'
+        'Angioedema': 'BROAD'
+        'Asthma': 'BROAD'
+        'Blood pressure diastolic decreased': 'BROAD'
+        'Bronchospasm': 'BROAD'
+        'Cardiac arrest': 'BROAD'
+        'Chest discomfort': 'BROAD'
+        'Cough': 'BROAD'
+        'Cough variant asthma': 'BROAD'
+        'Dyspnoea': 'BROAD'
+        'Erythema': 'BROAD'
+        'Eye pruritus': 'BROAD'
+        'Eye swelling': 'BROAD'
+        'Face oedema': 'BROAD'
+        'Flushing': 'BROAD'
+        'Hypotension': 'BROAD'
+        'Laryngospasm': 'BROAD'
+        'Lip swelling': 'BROAD'
+        'Nasal obstruction': 'BROAD'
+        'Ocular hyperaemia': 'BROAD'
+        'Oedema': 'BROAD'
+        'Oropharyngeal spasm': 'BROAD'
+        'Periorbital oedema': 'BROAD'
+        'Periorbital swelling': 'BROAD'
+        'Pruritus': 'BROAD'
+        'Pruritus allergic': 'BROAD'
+        'Rash': 'BROAD'
+        'Rash erythematous': 'BROAD'
+        'Rash pruritic': 'BROAD'
+        'Respiratory failure': 'BROAD'
+        'Sensation of foreign body': 'BROAD'
+        'Sneezing': 'BROAD'
+        'Stridor': 'BROAD'
+        'Swelling': 'BROAD'
+        'Swelling of eyelid': 'BROAD'
+        'Tachypnoea': 'BROAD'
+        'Throat tightness': 'BROAD'
+        'Tongue oedema': 'BROAD'
+        'Upper airway obstruction': 'BROAD'
+        'Urticaria': 'BROAD'
+        'Wheezing': 'BROAD'
+      unmapped: null
+- name: SMQ01NAM
+  type: str
+  label: 'SMQ 01 Name'
+  derivation:
+    case:
+    - when: _SMQ01_SC IS NOT NULL
+      then: '''Anaphylactic Reaction'''
+  submission:
+    core: Perm
+    mandatory: false
+    length: 100
+    origins:
+    - type: Derived
+    method: "Withheld from publication: the received define states this text."
+- name: SMQ01SC
+  type: str
+  label: 'SMQ 01 Scope'
+  derivation: _SMQ01_SC
+  submission:
+    core: Perm
+    mandatory: false
+    length: 40
+    origins:
+    - type: Derived
+    method: "Withheld from publication: the received define states this text."
+- name: SMQ01FL
+  type: str
+  label: 'SMQ 01 Flag'
+  derivation:
+    flag: SMQ01NAM IS NOT NULL AND SMQ01SC = 'NARROW'
+  submission:
+    core: Perm
+    mandatory: false
+    length: 1
+    origins:
+    - type: Derived
+    method: "Withheld from publication: the received define states this text."
+- name: _CQ01NAM
+  type: str
+  derivation:
+    mapping:
+      source: MH.MHPTCD
+      dict:
+        '10000748': 'Autoimmune'
+        '10001130': 'Autoimmune'
+        '10001760': 'Autoimmune'
+        '10001761': 'Autoimmune'
+        '10002026': 'Autoimmune'
+        '10002556': 'Autoimmune'
+        '10002817': 'Autoimmune'
+        '10003230': 'Autoimmune'
+        '10003267': 'Autoimmune'
+        '10003827': 'Autoimmune'
+        '10003882': 'Autoimmune'
+        '10004161': 'Autoimmune'
+        '10004213': 'Autoimmune'
+        '10004265': 'Autoimmune'
+        '10007636': 'Autoimmune'
+        '10009839': 'Autoimmune'
+        '10009900': 'Autoimmune'
+        '10011401': 'Autoimmune'
+        '10013687': 'Autoimmune'
+        '10016062': 'Autoimmune'
+        '10018364': 'Autoimmune'
+        '10018367': 'Autoimmune'
+        '10018372': 'Autoimmune'
+        '10018620': 'Autoimmune'
+        '10018767': 'Autoimmune'
+        '10019617': 'Autoimmune'
+        '10020631': 'Autoimmune'
+        '10021240': 'Autoimmune'
+        '10021972': 'Autoimmune'
+        '10023320': 'Autoimmune'
+        '10024429': 'Autoimmune'
+        '10027754': 'Autoimmune'
+        '10027982': 'Autoimmune'
+        '10028245': 'Autoimmune'
+        '10028417': 'Autoimmune'
+        '10028713': 'Autoimmune'
+        '10029164': 'Autoimmune'
+        '10029223': 'Autoimmune'
+        '10029229': 'Autoimmune'
+        '10029240': 'Autoimmune'
+        '10029331': 'Autoimmune'
+        '10030942': 'Autoimmune'
+        '10030983': 'Autoimmune'
+        '10033799': 'Autoimmune'
+        '10034277': 'Autoimmune'
+        '10034280': 'Autoimmune'
+        '10034580': 'Autoimmune'
+        '10034620': 'Autoimmune'
+        '10034695': 'Autoimmune'
+        '10036099': 'Autoimmune'
+        '10036783': 'Autoimmune'
+        '10037153': 'Autoimmune'
+        '10037162': 'Autoimmune'
+        '10037430': 'Autoimmune'
+        '10037912': 'Autoimmune'
+        '10039073': 'Autoimmune'
+        '10039486': 'Autoimmune'
+        '10040026': 'Autoimmune'
+        '10040030': 'Autoimmune'
+        '10040767': 'Autoimmune'
+        '10042033': 'Autoimmune'
+        '10042945': 'Autoimmune'
+        '10043207': 'Autoimmune'
+        '10046851': 'Autoimmune'
+        '10047642': 'Autoimmune'
+        '10049046': 'Autoimmune'
+        '10053395': 'Autoimmune'
+        '10056509': 'Autoimmune'
+        '10056673': 'Autoimmune'
+        '10057332': 'Autoimmune'
+        '10059176': 'Autoimmune'
+        '10060880': 'Autoimmune'
+        '10063401': 'Autoimmune'
+        '10067584': 'Autoimmune'
+        '10068168': 'Autoimmune'
+        '10069432': 'Autoimmune'
+        '10072579': 'Autoimmune'
+        '10073928': 'Autoimmune'
+        '10080429': 'Autoimmune'
+        '10083842': 'Autoimmune'
+      unmapped: null
+- name: CQ01NAM
+  type: str
+  label: 'Customized Query 01 Name'
+  derivation: _CQ01NAM
+  submission:
+    core: Perm
+    mandatory: false
+    length: 100
+    origins:
+    - type: Derived
+    method: "Withheld from publication: the received define states this text."
+- name: CQ01FL
+  type: str
+  label: 'Customized Query 01 Flag'
+  derivation:
+    flag: CQ01NAM IS NOT NULL
+  submission:
+    core: Perm
+    mandatory: false
+    length: 1
+    origins:
+    - type: Derived
+    method: "Withheld from publication: the received define states this text."
+- name: _CQ02NAM
+  type: str
+  derivation:
+    mapping:
+      source: MH.MHDECOD
+      dict:
+        'Allergy to vaccine': 'Dermal Filler Reaction Post Vaccination'
+        'Eye swelling': 'Dermal Filler Reaction Post Vaccination'
+        'Face oedema': 'Dermal Filler Reaction Post Vaccination'
+        'Lip swelling': 'Dermal Filler Reaction Post Vaccination'
+        'Periorbital oedema': 'Dermal Filler Reaction Post Vaccination'
+        'Periorbital swelling': 'Dermal Filler Reaction Post Vaccination'
+        'Swelling of eyelid': 'Dermal Filler Reaction Post Vaccination'
+      unmapped: null
+- name: CQ02NAM
+  type: str
+  label: 'Customized Query 02 Name'
+  derivation: _CQ02NAM
+  submission:
+    core: Perm
+    mandatory: false
+    length: 100
+    origins:
+    - type: Derived
+    method: "Withheld from publication: the received define states this text."
+- name: CQ02FL
+  type: str
+  label: 'Customized Query 02 Flag'
+  derivation:
+    flag: CQ02NAM IS NOT NULL
+  submission:
+    core: Perm
+    mandatory: false
+    length: 1
+    origins:
+    - type: Derived
+    method: "Withheld from publication: the received define states this text."
+output:
+  path: <adam-dir>/admh-yamaa-s3.parquet
+  order_by:
+  - USUBJID
+  - MHSEQ
+  columns:
+  - STUDYID
+  - USUBJID
+  - SUBJID
+  - SITEID
+  - COUNTRY
+  - AGE
+  - AGEU
+  - STRATAR
+  - STRATARN
+  - AGEGR1
+  - AGEGR1N
+  - AGEGR2
+  - AGEGR2N
+  - AGEGR3
+  - AGEGR3N
+  - AGEGR4
+  - AGEGR4N
+  - SEX
+  - RACE
+  - RACESPY
+  - ETHNIC
+  - RANDFL
+  - FASFL
+  - SAFFL
+  - SAR1FL
+  - SAR2FL
+  - SARAFL
+  - MITTFL
+  - PPROTFL
+  - RANDIGFL
+  - PPSIFL
+  - CCIASFL
+  - DOSE1FL
+  - DOSE2FL
+  - OLDOS1FL
+  - OLDOS2FL
+  - RTPCRBL
+  - ELECSBL
+  - SCOV2BL
+  - TRT01P
+  - TRT01PN
+  - TRT01A
+  - TRT01AN
+  - TRT02P
+  - TRT02PN
+  - TRT02A
+  - TRT02AN
+  - TRTSEQP
+  - TRTSEQPN
+  - TRTSEQA
+  - TRTSEQAN
+  - TRTSDT
+  - TRTEDT
+  - TR01SDT
+  - TR01SDTM
+  - TR01EDT
+  - TR01EDTM
+  - DOSE2DT
+  - DOS2DTM
+  - TR02SDT
+  - TR02SDTM
+  - TR02EDT
+  - TR02EDTM
+  - OLDOS2DT
+  - OLDO2DTM
+  - EUAVACDT
+  - EFFCODT
+  - AP01SDT
+  - AP01EDT
+  - AP02SDT
+  - AP02EDT
+  - AP01SSDT
+  - AP01SEDT
+  - AP02SSDT
+  - AP02SEDT
+  - RSKF1
+  - RSKF2
+  - RSKF3
+  - RSKF4
+  - RSKF5
+  - RSKF6
+  - STRATAV
+  - STRATAVN
+  - STUDDUR3
+  - MINORITY
+  - RACEGR1
+  - RACEGR1N
+  - RISKGR1
+  - RISKGR1N
+  - RETHGR1
+  - RETHGR1N
+  - COVIDAFL
+  - CVDSVAFL
+  - MHSEQ
+  - MHCAT
+  - MHTERM
+  - MHBODSYS
+  - MHDECOD
+  - MHPTCD
+  - MHSTDTC
+  - MHENDTC
+  - MHENRTPT
+  - MHSTDY
+  - MHENDY
+  - SMQ02NAM
+  - SMQ02SC
+  - SMQ02FL
+  - SMQ06NAM
+  - SMQ06SC
+  - SMQ06FL
+  - SMQ01NAM
+  - SMQ01SC
+  - SMQ01FL
+  - CQ01NAM
+  - CQ01FL
+  - CQ02NAM
+  - CQ02FL

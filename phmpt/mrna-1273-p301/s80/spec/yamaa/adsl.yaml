@@ -1,0 +1,39 @@
+# ADSL for Moderna mRNA-1273-P301, cut S80 (IND 19745 S80, interim
+# analysis IA1a, data cutoff 2020-11-11, efficacy cutoff 2020-11-07). Layer
+# over the S5 spec: the S80 program (Bates 5654007-5654022, dsetname adsl)
+# is the S5 one, whitespace aside, except in three places, which this
+# layer redeclares:
+#   * no fatal-AE fallback for the date of death (no ae_dth step), so
+#     DTHDT is the DD death date, else the DD autopsy date;
+#   * any STUDY TREATMENT disposition of a subject without dose 2 ends
+#     treatment as DISCONTINUED (S5: one whose reason is not COMPLETED);
+#   * the macro values &cutext 11NOV2020 (CUTOFFDT) and &cut_effi 07NOV2020
+#     (EFFCODT, and the upper bound of the protocol deviations counted).
+# The S80 release carries no FACE either, so SAR1FL and SAR2FL read the S3
+# FACE as in S5.
+yamaa: '1.0'
+type: spec
+parent: ../../../s5/spec/yamaa/adsl.yaml
+columns:
+- name: _DTHDTC
+  type: str
+  derivation:
+    first_available:
+      sources:
+      - DD_DTH.DDDTC
+      - DD_AUT.DDDTC
+- name: DTHDT
+  submission:
+    method: "Withheld from publication: the received define states this text."
+- name: _EOTFL
+  type: str
+  derivation:
+    case:
+    - when: DOSE2DT IS NOT NULL
+      then: '''Y'''
+    - when: _EOT IS NOT NULL
+      then: '''N'''
+- name: CUTOFFDT
+  derivation: DATE '2020-11-11'
+- name: EFFCODT
+  derivation: DATE '2020-11-07'

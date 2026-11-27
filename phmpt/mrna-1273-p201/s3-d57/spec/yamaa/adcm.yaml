@@ -1,0 +1,1140 @@
+# ADCM for Moderna mRNA-1273-P201, data cut d57 (cutoff 2020-11-05).
+# Parent: ../../../spec/yamaa/base/adam-base.yaml (section 3.1 core columns).
+# Derivations implement the d57 A20ADCM program; where the SAS code and
+# the define.xml method text disagree, the define is followed (see
+# README.md): ONTRTFL/FUPFL use the define's +28 days (code: +27);
+# AENDT has no CUTOFFDT cap (code caps at 2020-11-05); CMMOI1FL/CMMOI2FL
+# use the define's drug list narrowed to the three analgesic components
+# (the code's cmplx flag and pain_drugcode file do not exist in the
+# filed data). CMINDC length 108 and CMROUTE length 17 correct stale
+# define lengths (83 and 13) to the observed maxima.
+yamaa: '1.0'
+type: spec
+model: ADaM
+parent: ../../../spec/yamaa/base/adam-base.yaml
+domain: ADCM
+keys:
+- STUDYID
+- USUBJID
+- CMSEQ
+input:
+  CM: <sdtm-dir>/cm.parquet
+  SUPPCM: <sdtm-dir>/suppcm.parquet
+  ADSL:
+    path: <adam-dir>/adsl.parquet
+    key:
+    - STUDYID
+    - USUBJID
+submission:
+  label: Concomitant Medication Analysis Dataset
+  class: OCCURRENCE DATA STRUCTURE
+  structure: One record per subject per medication
+  repeating: true
+rows:
+- id: medications
+  dataset: CM
+  filter: _ADSL IS NOT NULL
+intermediates:
+- id: SUPP_P
+  dataset: SUPPCM
+  key:
+    STUDYID: STUDYID
+    USUBJID: USUBJID
+    IDVARVAL:
+      str_decimal:
+        source: CMSEQ
+        decimals: 0
+  filter: SUPPCM.QNAM IN ('CMUOTHSP', 'CMFOTHSP', 'CMROTHSP', 'CMSOL', 'ATCLEV1T', 'ATCLEV3T', 'ATCLEV4T') AND SUPPCM.IDVAR = 'CMSEQ'
+  pivot:
+    name: QNAM
+    value: QVAL
+    fields:
+    - CMUOTHSP
+    - CMFOTHSP
+    - CMROTHSP
+    - CMSOL
+    - ATCLEV1T
+    - ATCLEV3T
+    - ATCLEV4T
+columns:
+- name: _ADSL
+  type: str
+  derivation: ADSL.USUBJID
+- name: ARM
+  derivation: null
+- name: ACTARM
+  derivation: null
+- name: _CMST_PREC
+  type: str
+  derivation:
+    precision:
+      type: date
+      source: CM.CMSTDTC
+      invalid: null
+- name: _CMEN_PREC
+  type: str
+  derivation:
+    precision:
+      type: date
+      source: CM.CMENDTC
+      invalid: null
+- name: _AENDT_IMP
+  type: date
+  derivation:
+    impute:
+      type: date
+      source: CM.CMENDTC
+      month: 12
+      day: last
+      invalid: null
+- name: _DTHDT
+  type: date
+  derivation:
+    impute:
+      type: date
+      source: ADSL.DTHDT
+      invalid: null
+- name: _AENDT_CAP
+  type: date
+  derivation:
+    least:
+      sources: [ADSL.EOSDT, _DTHDT]
+- name: AENDT
+  type: date
+  label: Analysis End Date
+  derivation:
+    impute:
+      type: date
+      source: CM.CMENDTC
+      month: 12
+      day: last
+      not_after: _AENDT_CAP
+      invalid: null
+  submission:
+    core: Perm
+    mandatory: false
+    origins:
+    - type: Derived
+    method: "Withheld from publication: the received define states this text."
+- name: AENDTF
+  type: str
+  label: Analysis End Date Imputation Flag
+  derivation:
+    imputation_flag:
+      source: AENDT
+      part: date
+  submission:
+    core: Perm
+    mandatory: false
+    length: 1
+    origins:
+    - type: Derived
+    method: "Withheld from publication: the received define states this text."
+- name: _END_AFTER
+  type: str
+  derivation:
+    flag: >
+      _CMEN_PREC IS NULL OR
+      ((_CMEN_PREC = 'month' OR _CMEN_PREC = 'year') AND _AENDT_IMP IS NOT NULL AND _AENDT_IMP >= ADSL.TR01SDT) OR
+      (_CMEN_PREC = 'day' AND _AENDT_IMP IS NOT NULL AND _AENDT_IMP > ADSL.TR01SDT)
+- name: ASTDTF
+  type: str
+  label: Analysis Start Date Imputation Flag
+  derivation:
+    case:
+    - when: _CMST_PREC = 'month'
+      then: '''D'''
+    - when: _CMST_PREC = 'year'
+      then: '''M'''
+  submission:
+    core: Perm
+    mandatory: false
+    length: 1
+    origins:
+    - type: Derived
+    method: "Withheld from publication: the received define states this text."
+- name: _ASTDT_IMP
+  type: date
+  derivation:
+    case:
+    - when: _CMST_PREC = 'month' AND _END_AFTER = 'Y'
+      then:
+        impute:
+          type: date
+          source: CM.CMSTDTC
+          day: first
+          not_before: ADSL.TR01SDT
+          invalid: null
+    - when: _CMST_PREC = 'month'
+      then:
+        impute:
+          type: date
+          source: CM.CMSTDTC
+          day: first
+          invalid: null
+    - when: _CMST_PREC = 'year' AND _END_AFTER = 'Y'
+      then:
+        impute:
+          type: date
+          source: CM.CMSTDTC
+          month: 1
+          day: 1
+          not_before: ADSL.TR01SDT
+          invalid: null
+    - when: _CMST_PREC = 'year'
+      then:
+        impute:
+          type: date
+          source: CM.CMSTDTC
+          month: 1
+          day: 1
+          invalid: null
+    - otherwise:
+        to_date:
+          source: CM.CMSTDTC
+- name: _ASTDT_CAP
+  type: date
+  derivation:
+    case:
+    - when: _ASTDT_IMP IS NOT NULL AND _AENDT_IMP IS NOT NULL AND _ASTDT_IMP > _AENDT_IMP
+      then: _AENDT_IMP
+    - otherwise: _ASTDT_IMP
+- name: ASTDT
+  type: date
+  label: Analysis Start Date
+  derivation:
+    case:
+    - when: _ASTDT_CAP IS NOT NULL AND AENDT IS NOT NULL AND _ASTDT_CAP > AENDT AND ASTDTF IS NOT NULL
+      then: AENDT
+    - otherwise: _ASTDT_CAP
+  submission:
+    core: Req
+    mandatory: true
+    origins:
+    - type: Derived
+    method: "Withheld from publication: the received define states this text."
+- name: _TR01EDT28
+  type: date
+  derivation:
+    shift:
+      type: date
+      source: ADSL.TR01EDT
+      days: 28
+- name: STUDYID
+  derivation: CM.STUDYID
+  submission:
+    origins:
+    - type: Predecessor
+      description: CM.STUDYID
+- name: USUBJID
+  derivation: CM.USUBJID
+  submission:
+    origins:
+    - type: Predecessor
+      description: CM.USUBJID
+- name: SUBJID
+  derivation: ADSL.SUBJID
+  submission:
+    origins:
+    - type: Predecessor
+      description: ADSL.SUBJID
+- name: SITEID
+  derivation: ADSL.SITEID
+  submission:
+    origins:
+    - type: Predecessor
+      description: ADSL.SITEID
+- name: COUNTRY
+  derivation: ADSL.COUNTRY
+  submission:
+    origins:
+    - type: Predecessor
+      description: ADSL.COUNTRY
+- name: AGE
+  derivation: ADSL.AGE
+  submission:
+    origins:
+    - type: Predecessor
+      description: ADSL.AGE
+- name: AGEU
+  derivation: ADSL.AGEU
+  submission:
+    origins:
+    - type: Predecessor
+      description: ADSL.AGEU
+- name: AGEGR1
+  type: str
+  label: Pooled Age Group 1
+  derivation: ADSL.AGEGR1
+  submission:
+    core: Req
+    mandatory: true
+    length: 30
+    origins:
+    - type: Predecessor
+      description: ADSL.AGEGR1
+- name: AGEGR1N
+  type: int
+  label: Pooled Age Group 1 (N)
+  derivation: ADSL.AGEGR1N
+  submission:
+    core: Req
+    mandatory: true
+    length: 8
+    display_format: '3.'
+    origins:
+    - type: Predecessor
+      description: ADSL.AGEGR1N
+- name: AGEGR2
+  type: str
+  label: Pooled Age Group 2
+  derivation: ADSL.AGEGR2
+  submission:
+    core: Req
+    mandatory: true
+    length: 19
+    origins:
+    - type: Predecessor
+      description: ADSL.AGEGR2
+- name: AGEGR2N
+  type: int
+  label: Pooled Age Group 2 (N)
+  derivation: ADSL.AGEGR2N
+  submission:
+    core: Req
+    mandatory: true
+    length: 8
+    display_format: '3.'
+    origins:
+    - type: Predecessor
+      description: ADSL.AGEGR2N
+- name: SEX
+  derivation: ADSL.SEX
+  submission:
+    origins:
+    - type: Predecessor
+      description: ADSL.SEX
+- name: RACE
+  derivation: ADSL.RACE
+  submission:
+    origins:
+    - type: Predecessor
+      description: ADSL.RACE
+- name: RACESPY
+  type: str
+  label: Race Specify
+  derivation: ADSL.RACESPY
+  submission:
+    core: Perm
+    mandatory: false
+    length: 200
+    origins:
+    - type: Predecessor
+      description: ADSL.RACESPY
+- name: ETHNIC
+  derivation: ADSL.ETHNIC
+  submission:
+    origins:
+    - type: Predecessor
+      description: ADSL.ETHNIC
+- name: RANDFL
+  derivation: ADSL.RANDFL
+  submission:
+    origins:
+    - type: Predecessor
+      description: ADSL.RANDFL
+- name: SAFFL
+  derivation: ADSL.SAFFL
+  submission:
+    origins:
+    - type: Predecessor
+      description: ADSL.SAFFL
+- name: FASBABFL
+  derivation: ADSL.FASBABFL
+  submission:
+    origins:
+    - type: Predecessor
+      description: ADSL.FASBABFL
+- name: FASNABFL
+  derivation: ADSL.FASNABFL
+  submission:
+    origins:
+    - type: Predecessor
+      description: ADSL.FASNABFL
+- name: PPBABFL
+  derivation: ADSL.PPBABFL
+  submission:
+    origins:
+    - type: Predecessor
+      description: ADSL.PPBABFL
+- name: PPNABFL
+  derivation: ADSL.PPNABFL
+  submission:
+    origins:
+    - type: Predecessor
+      description: ADSL.PPNABFL
+- name: PPBD29FL
+  type: str
+  label: Per Protocol bAb Day 29 Flag
+  derivation: ADSL.PPBD29FL
+  submission:
+    core: Req
+    mandatory: true
+    length: 1
+    origins:
+    - type: Predecessor
+      description: ADSL.PPBD29FL
+- name: PPBD57FL
+  type: str
+  label: Per Protocol bAb Day 57 Flag
+  derivation: ADSL.PPBD57FL
+  submission:
+    core: Req
+    mandatory: true
+    length: 1
+    origins:
+    - type: Predecessor
+      description: ADSL.PPBD57FL
+- name: PPND29FL
+  type: str
+  label: Per Protocol nAb Day 29 Flag
+  derivation: ADSL.PPND29FL
+  submission:
+    core: Req
+    mandatory: true
+    length: 1
+    origins:
+    - type: Predecessor
+      description: ADSL.PPND29FL
+- name: PPND57FL
+  type: str
+  label: Per Protocol nAb Day 57 Flag
+  derivation: ADSL.PPND57FL
+  submission:
+    core: Req
+    mandatory: true
+    length: 1
+    origins:
+    - type: Predecessor
+      description: ADSL.PPND57FL
+- name: SAR1FL
+  derivation: ADSL.SAR1FL
+  submission:
+    origins:
+    - type: Predecessor
+      description: ADSL.SAR1FL
+- name: SAR2FL
+  derivation: ADSL.SAR2FL
+  submission:
+    origins:
+    - type: Predecessor
+      description: ADSL.SAR2FL
+- name: SARAFL
+  derivation: ADSL.SARAFL
+  submission:
+    origins:
+    - type: Predecessor
+      description: ADSL.SARAFL
+- name: FASNA2FL
+  derivation: ADSL.FASNA2FL
+  submission:
+    origins:
+    - type: Predecessor
+      description: ADSL.FASNA2FL
+- name: PPNAB2FL
+  derivation: ADSL.PPNAB2FL
+  submission:
+    origins:
+    - type: Predecessor
+      description: ADSL.PPNAB2FL
+- name: PN2D29FL
+  type: str
+  label: Per Protocol nAb 2 Day 29 Flag
+  derivation: ADSL.PN2D29FL
+  submission:
+    core: Req
+    mandatory: true
+    length: 1
+    origins:
+    - type: Predecessor
+      description: ADSL.PN2D29FL
+- name: PN2D57FL
+  type: str
+  label: Per Protocol nAb 2 Day 57 Flag
+  derivation: ADSL.PN2D57FL
+  submission:
+    core: Req
+    mandatory: true
+    length: 1
+    origins:
+    - type: Predecessor
+      description: ADSL.PN2D57FL
+- name: COMPLFL
+  derivation: ADSL.COMPLFL
+  submission:
+    origins:
+    - type: Predecessor
+      description: ADSL.COMPLFL
+- name: DVBABFL
+  type: str
+  label: Deviation Impact bAb Flag
+  derivation: ADSL.DVBABFL
+  submission:
+    core: Req
+    mandatory: true
+    length: 1
+    origins:
+    - type: Predecessor
+      description: ADSL.DVBABFL
+- name: DVNABFL
+  type: str
+  label: Deviation Impact nAb Flag
+  derivation: ADSL.DVNABFL
+  submission:
+    core: Req
+    mandatory: true
+    length: 1
+    origins:
+    - type: Predecessor
+      description: ADSL.DVNABFL
+- name: DOSE1FL
+  type: str
+  label: Vaccination 1 Flag
+  derivation: ADSL.DOSE1FL
+  submission:
+    core: Req
+    mandatory: true
+    length: 1
+    origins:
+    - type: Predecessor
+      description: ADSL.DOSE1FL
+- name: DOSE2FL
+  type: str
+  label: Vaccination 2 Flag
+  derivation: ADSL.DOSE2FL
+  submission:
+    core: Req
+    mandatory: true
+    length: 1
+    origins:
+    - type: Predecessor
+      description: ADSL.DOSE2FL
+- name: DOSEROFL
+  type: str
+  label: Dosing Error Flag
+  derivation: ADSL.DOSEROFL
+  submission:
+    core: Req
+    mandatory: true
+    length: 1
+    origins:
+    - type: Predecessor
+      description: ADSL.DOSEROFL
+- name: COV19BL
+  type: str
+  label: Baseline COVID Infection
+  derivation: ADSL.COV19BL
+  submission:
+    core: Perm
+    mandatory: false
+    length: 20
+    origins:
+    - type: Predecessor
+      description: ADSL.COV19BL
+- name: COV19FL
+  type: str
+  label: COVID Infection Flag
+  derivation: ADSL.COV19FL
+  submission:
+    core: Req
+    mandatory: true
+    length: 20
+    origins:
+    - type: Predecessor
+      description: ADSL.COV19FL
+- name: SENTLFL
+  type: str
+  label: Sentinel Participant Flag
+  derivation: ADSL.SENTLFL
+  submission:
+    core: Req
+    mandatory: true
+    length: 3
+    origins:
+    - type: Predecessor
+      description: ADSL.SENTLFL
+- name: D29W7DFL
+  type: str
+  label: Day 29 Out of 7-Day Window Flag
+  derivation: ADSL.D29W7DFL
+  submission:
+    core: Req
+    mandatory: true
+    length: 1
+    origins:
+    - type: Predecessor
+      description: ADSL.D29W7DFL
+- name: TRT01P
+  derivation: ADSL.TRT01P
+  submission:
+    origins:
+    - type: Predecessor
+      description: ADSL.TRT01P
+- name: TRT01PN
+  derivation: ADSL.TRT01PN
+  submission:
+    origins:
+    - type: Predecessor
+      description: ADSL.TRT01PN
+- name: TRT01A
+  derivation: ADSL.TRT01A
+  submission:
+    origins:
+    - type: Predecessor
+      description: ADSL.TRT01A
+- name: TRT01AN
+  derivation: ADSL.TRT01AN
+  submission:
+    origins:
+    - type: Predecessor
+      description: ADSL.TRT01AN
+- name: TR01SDT
+  derivation: ADSL.TR01SDT
+  submission:
+    origins:
+    - type: Predecessor
+      description: ADSL.TR01SDT
+- name: TR01SDTM
+  derivation: ADSL.TR01SDTM
+  submission:
+    origins:
+    - type: Predecessor
+      description: ADSL.TR01SDTM
+- name: TR01EDT
+  derivation: ADSL.TR01EDT
+  submission:
+    origins:
+    - type: Predecessor
+      description: ADSL.TR01EDT
+- name: TR01EDTM
+  derivation: ADSL.TR01EDTM
+  submission:
+    origins:
+    - type: Predecessor
+      description: ADSL.TR01EDTM
+- name: TRTSDTM
+  derivation: ADSL.TRTSDTM
+  submission:
+    origins:
+    - type: Predecessor
+      description: ADSL.TRTSDTM
+- name: TRTEDTM
+  derivation: ADSL.TRTEDTM
+  submission:
+    origins:
+    - type: Predecessor
+      description: ADSL.TRTEDTM
+- name: DOSE2DT
+  type: date
+  label: Date of Dose 2
+  derivation: ADSL.DOSE2DT
+  submission:
+    core: Perm
+    mandatory: false
+    origins:
+    - type: Predecessor
+      description: ADSL.DOSE2DT
+- name: DOS2DTM
+  type: datetime
+  label: Datetime of Dose 2
+  derivation: ADSL.DOS2DTM
+  submission:
+    core: Perm
+    mandatory: false
+    origins:
+    - type: Predecessor
+      description: ADSL.DOS2DTM
+- name: CMSEQ
+  type: int
+  label: Sequence Number
+  derivation: CM.CMSEQ
+  submission:
+    core: Req
+    mandatory: true
+    length: 8
+    display_format: '3.'
+    origins:
+    - type: Predecessor
+      description: CM.CMSEQ
+- name: CMCAT
+  type: str
+  label: Category for Medication
+  derivation: CM.CMCAT
+  submission:
+    core: Req
+    mandatory: true
+    length: 44
+    origins:
+    - type: Predecessor
+      description: CM.CMCAT
+- name: CMTRT
+  type: str
+  label: Reported Name of Drug, Med, or Therapy
+  derivation: CM.CMTRT
+  submission:
+    core: Req
+    mandatory: true
+    length: 137
+    origins:
+    - type: Predecessor
+      description: CM.CMTRT
+- name: CMDECOD
+  type: str
+  label: Standardized Medication Name
+  derivation: CM.CMDECOD
+  submission:
+    core: Perm
+    mandatory: false
+    length: 189
+    origins:
+    - type: Predecessor
+      description: CM.CMDECOD
+- name: CMINDC
+  type: str
+  label: Indication
+  derivation: CM.CMINDC
+  submission:
+    core: Req
+    mandatory: true
+    length: 108
+    origins:
+    - type: Predecessor
+      description: CM.CMINDC
+- name: CMDOSE
+  type: float
+  label: Dose per Administration
+  derivation: CM.CMDOSE
+  submission:
+    core: Perm
+    mandatory: false
+    length: 8
+    significant_digits: 4
+    origins:
+    - type: Predecessor
+      description: CM.CMDOSE
+- name: CMDOSU
+  type: str
+  label: Dose Units
+  derivation: CM.CMDOSU
+  submission:
+    core: Req
+    mandatory: true
+    length: 7
+    origins:
+    - type: Predecessor
+      description: CM.CMDOSU
+- name: CMUOTHSP
+  type: str
+  label: Dose Unit Other Specficiation
+  derivation: SUPP_P.CMUOTHSP
+  submission:
+    core: Perm
+    mandatory: false
+    length: 200
+    origins:
+    - type: Derived
+    method: "Withheld from publication: the received define states this text."
+- name: CMDOSFRQ
+  type: str
+  label: Dosing Frequency per Interval
+  derivation: CM.CMDOSFRQ
+  submission:
+    core: Req
+    mandatory: true
+    length: 10
+    origins:
+    - type: Predecessor
+      description: CM.CMDOSFRQ
+- name: CMFOTHSP
+  type: str
+  label: Dose Frequency Specification
+  derivation: SUPP_P.CMFOTHSP
+  submission:
+    core: Perm
+    mandatory: false
+    length: 200
+    origins:
+    - type: Derived
+    method: "Withheld from publication: the received define states this text."
+- name: CMROUTE
+  type: str
+  label: Route of Administration
+  derivation: CM.CMROUTE
+  submission:
+    core: Req
+    mandatory: true
+    length: 17
+    origins:
+    - type: Predecessor
+      description: CM.CMROUTE
+- name: CMROTHSP
+  type: str
+  label: Dose Route Other Specification
+  derivation: SUPP_P.CMROTHSP
+  submission:
+    core: Perm
+    mandatory: false
+    length: 200
+    origins:
+    - type: Derived
+    method: "Withheld from publication: the received define states this text."
+- name: CMSTDTC
+  type: str
+  label: Start Date/Time of Medication
+  derivation: CM.CMSTDTC
+  submission:
+    core: Req
+    mandatory: true
+    length: 10
+    origins:
+    - type: Predecessor
+      description: CM.CMSTDTC
+- name: CMENDTC
+  type: str
+  label: End Date/Time of Medication
+  derivation: CM.CMENDTC
+  submission:
+    core: Perm
+    mandatory: false
+    length: 10
+    origins:
+    - type: Predecessor
+      description: CM.CMENDTC
+- name: CMSTDY
+  type: int
+  label: Study Day of Start of Medication
+  derivation: CM.CMSTDY
+  submission:
+    # SUB-29 (yamaa #4820): numeric widths here fit the derived values. The received
+    # define's Pinnacle 21 widths stay in the reproduced define layer (define/).
+    core: Perm
+    mandatory: false
+    length: 8
+    origins:
+    - type: Predecessor
+      description: CM.CMSTDY
+- name: CMENDY
+  type: int
+  label: Study Day of End of Medication
+  derivation: CM.CMENDY
+  submission:
+    # SUB-29 (yamaa #4820): numeric widths here fit the derived values. The received
+    # define's Pinnacle 21 widths stay in the reproduced define layer (define/).
+    core: Perm
+    mandatory: false
+    length: 8
+    origins:
+    - type: Predecessor
+      description: CM.CMENDY
+- name: CMENRTPT
+  type: str
+  label: End Relative to Reference Time Point
+  derivation: CM.CMENRTPT
+  submission:
+    core: Perm
+    mandatory: false
+    length: 7
+    origins:
+    - type: Predecessor
+      description: CM.CMENRTPT
+- name: CMSOLFL
+  type: str
+  label: Medication Taken for Solicited Event
+  derivation: SUPP_P.CMSOL
+  submission:
+    core: Req
+    mandatory: true
+    length: 1
+    origins:
+    - type: Derived
+    method: "Withheld from publication: the received define states this text."
+- name: ASTDY
+  type: int
+  label: Analysis Start Relative Day
+  derivation:
+    study_day:
+      source: ASTDT
+      reference: ADSL.TR01SDT
+  submission:
+    # SUB-29 (yamaa #4820): numeric widths here fit the derived values. The received
+    # define's Pinnacle 21 widths stay in the reproduced define layer (define/).
+    core: Req
+    mandatory: true
+    length: 8
+    origins:
+    - type: Derived
+    method: "Withheld from publication: the received define states this text."
+- name: AENDY
+  type: int
+  label: Analysis End Relative Day
+  derivation:
+    study_day:
+      source: AENDT
+      reference: ADSL.TR01SDT
+  submission:
+    # SUB-29 (yamaa #4820): numeric widths here fit the derived values. The received
+    # define's Pinnacle 21 widths stay in the reproduced define layer (define/).
+    core: Perm
+    mandatory: false
+    length: 8
+    origins:
+    - type: Derived
+    method: "Withheld from publication: the received define states this text."
+- name: MDOSREF
+  type: str
+  label: Most Recent Dose Reference
+  derivation:
+    case:
+    - when: ADSL.TR01SDT IS NOT NULL AND ASTDT IS NOT NULL AND ADSL.TR01SDT <= ASTDT AND (ADSL.DOSE2DT IS NULL OR ASTDT < ADSL.DOSE2DT)
+      then: '''Vaccination 1'''
+    - when: ADSL.DOSE2DT IS NOT NULL AND ASTDT IS NOT NULL AND ADSL.DOSE2DT <= ASTDT
+      then: '''Vaccination 2'''
+  submission:
+    core: Perm
+    mandatory: false
+    length: 50
+    origins:
+    - type: Derived
+    method: "Withheld from publication: the received define states this text."
+- name: MRDSTDY
+  type: int
+  label: Relative Start Day from Most Recent Dose
+  derivation:
+    case:
+    - when: MDOSREF = 'Vaccination 1'
+      then:
+        study_day:
+          source: ASTDT
+          reference: ADSL.TR01SDT
+    - when: MDOSREF = 'Vaccination 2'
+      then:
+        study_day:
+          source: ASTDT
+          reference: ADSL.DOSE2DT
+  submission:
+    core: Perm
+    mandatory: false
+    length: 8
+    display_format: '3.'
+    origins:
+    - type: Derived
+    method: "Withheld from publication: the received define states this text."
+- name: CMMOI1FL
+  type: str
+  label: Modified Indication 1 Result Flag
+  derivation:
+    flag: >
+      (str_contains(CM.CMDECOD, 'PARACETAMOL') OR
+      str_contains(CM.CMDECOD, 'IBUPROFEN') OR
+      str_contains(CM.CMDECOD, 'NAPROXEN SODIUM')) AND
+      str_contains(CM.CMINDC, 'PROPHYLAX')
+  submission:
+    core: Perm
+    mandatory: false
+    length: 1
+    origins:
+    - type: Derived
+    method: "Withheld from publication: the received define states this text."
+- name: CMMOI2FL
+  type: str
+  label: Modified Indication 2 Result Flag
+  derivation:
+    flag: >
+      str_contains(CM.CMDECOD, 'PARACETAMOL') OR
+      str_contains(CM.CMDECOD, 'IBUPROFEN') OR
+      str_contains(CM.CMDECOD, 'NAPROXEN SODIUM')
+  submission:
+    core: Perm
+    mandatory: false
+    length: 1
+    origins:
+    - type: Derived
+    method: "Withheld from publication: the received define states this text."
+- name: PREFL
+  type: str
+  label: Pre-treatment Flag
+  derivation:
+    flag: ASTDT IS NULL OR (ADSL.TR01SDT IS NOT NULL AND ASTDT < ADSL.TR01SDT)
+  submission:
+    core: Perm
+    mandatory: false
+    length: 1
+    origins:
+    - type: Derived
+    method: "Withheld from publication: the received define states this text."
+- name: ONTRTFL
+  type: str
+  label: On Treatment Record Flag
+  derivation:
+    flag: >
+      (ASTDT IS NULL OR
+      (ASTDT IS NOT NULL AND ADSL.TR01EDT IS NOT NULL AND ASTDT <= _TR01EDT28)) AND
+      (AENDT IS NULL OR (ADSL.TR01SDT IS NOT NULL AND AENDT >= ADSL.TR01SDT))
+  submission:
+    core: Perm
+    mandatory: false
+    length: 1
+    origins:
+    - type: Derived
+    method: "Withheld from publication: the received define states this text."
+- name: FUPFL
+  type: str
+  label: Follow-up Flag
+  derivation:
+    flag: AENDT IS NULL OR (ADSL.TR01EDT IS NOT NULL AND AENDT > _TR01EDT28)
+  submission:
+    core: Perm
+    mandatory: false
+    length: 1
+    origins:
+    - type: Derived
+    method: "Withheld from publication: the received define states this text."
+- name: ATCLEV1T
+  type: str
+  label: ATC Level 1
+  derivation: SUPP_P.ATCLEV1T
+  submission:
+    core: Perm
+    mandatory: false
+    length: 200
+    origins:
+    - type: Derived
+    method: "Withheld from publication: the received define states this text."
+- name: ATCLEV2T
+  type: str
+  label: ATC Level 2
+  derivation: CM.CMCLAS
+  submission:
+    core: Perm
+    mandatory: false
+    length: 200
+    origins:
+    - type: Derived
+    method: "Withheld from publication: the received define states this text."
+- name: ATCLEV3T
+  type: str
+  label: ATC Level 3
+  derivation: SUPP_P.ATCLEV3T
+  submission:
+    core: Perm
+    mandatory: false
+    length: 200
+    origins:
+    - type: Derived
+    method: "Withheld from publication: the received define states this text."
+- name: ATCLEV4T
+  type: str
+  label: ATC Level 4
+  derivation: SUPP_P.ATCLEV4T
+  submission:
+    core: Perm
+    mandatory: false
+    length: 200
+    origins:
+    - type: Derived
+    method: "Withheld from publication: the received define states this text."
+output:
+  path: <adam-dir>/adcm-yamaa.parquet
+  order_by:
+  - USUBJID
+  - CMSEQ
+  columns:
+  - STUDYID
+  - USUBJID
+  - SUBJID
+  - SITEID
+  - COUNTRY
+  - AGE
+  - AGEU
+  - AGEGR1
+  - AGEGR1N
+  - AGEGR2
+  - AGEGR2N
+  - SEX
+  - RACE
+  - RACESPY
+  - ETHNIC
+  - RANDFL
+  - SAFFL
+  - FASBABFL
+  - FASNABFL
+  - PPBABFL
+  - PPNABFL
+  - PPBD29FL
+  - PPBD57FL
+  - PPND29FL
+  - PPND57FL
+  - SAR1FL
+  - SAR2FL
+  - SARAFL
+  - FASNA2FL
+  - PPNAB2FL
+  - PN2D29FL
+  - PN2D57FL
+  - COMPLFL
+  - DVBABFL
+  - DVNABFL
+  - DOSE1FL
+  - DOSE2FL
+  - DOSEROFL
+  - COV19BL
+  - COV19FL
+  - SENTLFL
+  - D29W7DFL
+  - TRT01P
+  - TRT01PN
+  - TRT01A
+  - TRT01AN
+  - TR01SDT
+  - TR01SDTM
+  - TR01EDT
+  - TR01EDTM
+  - TRTSDTM
+  - TRTEDTM
+  - DOSE2DT
+  - DOS2DTM
+  - CMSEQ
+  - CMCAT
+  - CMTRT
+  - CMDECOD
+  - CMINDC
+  - CMDOSE
+  - CMDOSU
+  - CMUOTHSP
+  - CMDOSFRQ
+  - CMFOTHSP
+  - CMROUTE
+  - CMROTHSP
+  - CMSTDTC
+  - CMENDTC
+  - CMSTDY
+  - CMENDY
+  - CMENRTPT
+  - CMSOLFL
+  - ASTDT
+  - ASTDTF
+  - ASTDY
+  - AENDT
+  - AENDTF
+  - AENDY
+  - MDOSREF
+  - MRDSTDY
+  - CMMOI1FL
+  - CMMOI2FL
+  - PREFL
+  - ONTRTFL
+  - FUPFL
+  - ATCLEV1T
+  - ATCLEV2T
+  - ATCLEV3T
+  - ATCLEV4T

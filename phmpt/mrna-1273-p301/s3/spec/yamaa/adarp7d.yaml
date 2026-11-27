@@ -1,0 +1,3565 @@
+# ADARP7D for Moderna mRNA-1273-P301, cut S3 (BLA Interim Analysis, cutoff 2021-03-26).
+# Parent: ../../../spec/yamaa/base/adam-base-s3.yaml (chains to ../../../spec/yamaa/base/adam-base.yaml).
+# Derivations implement the S3 A20ADARP7D program (Bates 3820372-3820385,
+# %let dsetname = adarp7d) and the %trta / %xxdoserf macros in madam.sas.
+# Ground truth: the submitted S3 ADARP7D Parquet (126,750 x 121) and the
+# S3 ADaM define (tools/adarp7d_define_s3.json). A pandas prototype
+# reproduced the target EXACTLY (0 mismatched cells) before generation.
+#
+# Key findings (see the generator header for the full account):
+# - AVAL for TEMP rows with VSORRESU='F' is the full-precision F->C
+#   conversion (F-32)*0.5555555555555556, not VSSTRESN (9-dp rounded).
+# - ANL03FL replicates the program's cross-group retain leak via locf
+#   over a global window (181 rows in leaked groups).
+# - The atptn whole-group deletion is encoded as witness intermediates.
+# - Seven base-mandatory ADSL columns have gaps in the target, so the
+#   spec overrides mandatory to false on each (ADSYMP does the same):
+#   RACEGR1 (3,117 blanks) / RACEGR1N (3,117 nulls), AGEGR4 (71,763
+#   blanks) / AGEGR4N (71,763 nulls), EUAVACDT (124,967 nulls), AP01EDT
+#   (1,452 nulls), AP01SEDT (1,452 nulls). Blanks read as missing.
+# - SAP v1 vs v3 CLOSED as no-impact (2026-11-24): the 'SAP v3' file
+#   is the P201 SAP v3.0, not a P301 SAP version; the spec follows the
+#   S3 program.
+# - No evidence the program read an S27-sequence file.
+yamaa: '1.0'
+type: spec
+model: ADaM
+parent: ../../../spec/yamaa/base/adam-base-s3.yaml
+domain: ADARP7D
+keys: [STUDYID, USUBJID, ASEQ]
+input:
+  FACE: <sdtm-dir>/face.parquet
+  FAAE: <sdtm-dir>/faae.parquet
+  VS: <sdtm-dir>/vs.parquet
+  SUPPFACE: <sdtm-dir>/suppface.parquet
+  SUPPFAAE: <sdtm-dir>/suppfaae.parquet
+  SUPPVS: <sdtm-dir>/suppvs.parquet
+  ADSL:
+    path: <adam-dir>/adsl.parquet
+    key: [STUDYID, USUBJID]
+submission:
+  label: Solicited AR post D7 Analysis Dataset
+  class: BASIC DATA STRUCTURE
+  structure: One record per subject, per parameter, per analysis timepoint
+  repeating: true
+rows:
+- id: faae_rows
+  dataset: FAAE
+  derivations:
+    STUDYID: FAAE.STUDYID
+    USUBJID: FAAE.USUBJID
+    _DOMAIN: '''FA'''
+    _DTC: FAAE.FADTC
+    _FADY: FAAE.FADY
+    _VSDY: null
+    _FATPTREF: FAAE.FATPTREF
+    _VSTPTREF: null
+    _FATPT: FAAE.FATPT
+    _VSTPT: null
+    _FAOBJ: FAAE.FAOBJ
+    _FATEST: FAAE.FATEST
+    _FATESTCD: FAAE.FATESTCD
+    _FAORRES: FAAE.FAORRES
+    _FASTRESC: FAAE.FASTRESC
+    _FASTRESN: FAAE.FASTRESN
+    _FASTAT: FAAE.FASTAT
+    _FASCAT: FAAE.FASCAT
+    _FACAT: FAAE.FACAT
+    _FAEVAL: FAAE.FAEVAL
+    _FATEST_UP:
+      str_case:
+        source: _FATEST
+        to: upper
+    _FAORRES_UP:
+      str_case:
+        source: _FAORRES
+        to: upper
+    _FASEQ: FAAE.FASEQ
+    _VSTESTCD: null
+    _VSCAT: null
+    _VSSCAT: null
+    _VSSTRESC: null
+    _VSORRESU: null
+    _VSSTAT: null
+    _VSTPTNUM: null
+    _VSSEQ: null
+    _STRESN_NUM: null
+    _ORRES_NUM: null
+    _MAAEFL: SUPP_P_FAAE.MAAEFL
+    _MEDTAK: null
+    _MEDTAKP: null
+    _MEDTAKT: null
+    _PCD_E:
+      case:
+      - when: (_FAOBJ = 'Underarm Gland Swelling or Tenderness')
+        then: '''LYMPH'''
+      - when: (_FAOBJ = 'Pain')
+        then: '''PAIN'''
+      - when: (_FAOBJ = 'Erythema')
+        then: '''ERYTHDIA'''
+      - when: (_FAOBJ = 'Swelling')
+        then: '''SWELLDIA'''
+      - when: (_FAOBJ = 'Headache')
+        then: '''HEADACHE'''
+      - when: (_FAOBJ = 'Fatigue')
+        then: '''FATIGUE'''
+      - when: (_FAOBJ = 'Myalgia')
+        then: '''MYALGIA'''
+      - when: (_FAOBJ = 'Arthralgia')
+        then: '''ARTHRALG'''
+      - when: (_FAOBJ = 'Nausea/Vomiting')
+        then: '''NAUSEA'''
+      - when: (_FAOBJ = 'Chills')
+        then: '''CHILLS'''
+      - when: (_FAOBJ = 'Receive Medical Attention?')
+        then: '''MEDATTEN'''
+      - when: (_FAOBJ IN ('Pyrexia', 'Fever'))
+        then: '''FEVER'''
+      - otherwise: null
+    _PARAMCD:
+      case:
+      - when: (_VSTESTCD IN ('TEMP', 'VSALL') OR _FAOBJ IN ('Pyrexia', 'Fever'))
+        then: '''FEVER'''
+      - when: (_FAOBJ = 'Underarm Gland Swelling or Tenderness' AND _FATESTCD = 'SEV')
+        then: '''LYMPH'''
+      - when: (_FAOBJ = 'Pain')
+        then: '''PAIN'''
+      - when: (_FAOBJ = 'Nausea/Vomiting' AND _FATESTCD = 'SEV')
+        then: '''NAUSEA'''
+      - when: (_FAOBJ = 'Erythema' AND (_FATEST_UP IS NOT NULL AND str_contains(_FATEST_UP, 'OCCURRENCE')) AND _FAORRES_UP IN ('N', 'NO'))
+        then: '''ERYTHDIA'''
+      - when: (_FAOBJ = 'Swelling' AND (_FATEST_UP IS NOT NULL AND str_contains(_FATEST_UP, 'OCCURRENCE')) AND _FAORRES_UP IN ('N', 'NO'))
+        then: '''SWELLDIA'''
+      - when: (_FAOBJ = 'Erythema' AND (_FATEST_UP IS NOT NULL AND str_contains(_FATEST_UP, 'INTENSITY')))
+        then: '''ERYTHDIA'''
+      - when: (_FAOBJ = 'Swelling' AND (_FATEST_UP IS NOT NULL AND str_contains(_FATEST_UP, 'INTENSITY')))
+        then: '''SWELLDIA'''
+      - when: (_FAOBJ = 'Erythema' AND _FATEST = 'Longest Diameter')
+        then: '''ERYTHDIA'''
+      - when: (_FAOBJ = 'Swelling' AND _FATEST = 'Longest Diameter')
+        then: '''SWELLDIA'''
+      - when: (_FAOBJ = 'Headache')
+        then: '''HEADACHE'''
+      - when: (_FAOBJ = 'Fatigue')
+        then: '''FATIGUE'''
+      - when: (_FAOBJ = 'Myalgia')
+        then: '''MYALGIA'''
+      - when: (_FAOBJ = 'Arthralgia')
+        then: '''ARTHRALG'''
+      - when: (_FAOBJ = 'Chills')
+        then: '''CHILLS'''
+      - when: (_FAOBJ = 'Receive Medical Attention?')
+        then: '''MEDATTEN'''
+      - when: ((_VSTESTCD IS NOT NULL AND str_contains(_VSTESTCD, '^MEDTA')))
+        then: _VSTESTCD
+      - otherwise: null
+    _PARAM:
+      case:
+      - when: (_PARAMCD = 'LYMPH')
+        then: '''Underarm Gland Swelling or Tenderness'''
+      - when: (_PARAMCD = 'PAIN')
+        then: '''Pain'''
+      - when: (_PARAMCD = 'ERYTHDIA')
+        then: '''Erythema Longest Diameter (mm)'''
+      - when: (_PARAMCD = 'SWELLDIA')
+        then: '''Swelling Longest Diameter (mm)'''
+      - when: (_PARAMCD = 'HEADACHE')
+        then: '''Headache'''
+      - when: (_PARAMCD = 'FATIGUE')
+        then: '''Fatigue'''
+      - when: (_PARAMCD = 'MYALGIA')
+        then: '''Myalgia'''
+      - when: (_PARAMCD = 'ARTHRALG')
+        then: '''Arthralgia'''
+      - when: (_PARAMCD = 'NAUSEA')
+        then: '''Nausea/Vomiting'''
+      - when: (_PARAMCD = 'CHILLS')
+        then: '''Chills'''
+      - when: (_PARAMCD = 'MEDATTEN')
+        then: '''Receive Medical Attention?'''
+      - when: (_PARAMCD = 'FEVER')
+        then: '''Fever (C)'''
+      - when: (_PARAMCD = 'MEDTAKP')
+        then: '''Prevent Pain or Fever from Occurring'''
+      - when: (_PARAMCD = 'MEDTAKT')
+        then: '''Treat Pain or Fever already Occurred'''
+      - when: (_PARAMCD = 'MEDTAK')
+        then: '''Medication Taken Today for Pain or Fever'''
+      - otherwise: _FAOBJ
+    _PTREF:
+      case:
+      - when: (_DOMAIN = 'FA')
+        then: _FATPTREF
+      - otherwise: _VSTPTREF
+    _PTREF_NB:
+      str_replace:
+        source: _PTREF
+        pattern: ' '
+        replacement: ''
+    _ATPTREF:
+      case:
+      - when: (_PTREF_NB = 'DOSE1')
+        then: '''Vaccination 1'''
+      - when: (_PTREF_NB = 'DOSE2')
+        then: '''Vaccination 2'''
+      - otherwise: null
+    _ATPT:
+      case:
+      - when: (_DOMAIN = 'FA' AND _FATPT = 'DAY 1' AND _FAEVAL = 'INVESTIGATOR')
+        then: '''DAY 1, AFTER VACCINATION (AT HOME)'''
+      - when: (_DOMAIN = 'VS')
+        then: _VSTPT
+      - otherwise: _FATPT
+    _ATPTGR1_TOK:
+      str_extract:
+        source: _ATPT
+        pattern: '^([^,]*)'
+        group: 1
+        no_match: ''
+    _ATPTGR1:
+      case:
+      - when: (_ATPTGR1_TOK = 'DAY 1')
+        then: '''DAY 1'''
+      - otherwise: _ATPT
+    _PARCAT1:
+      case:
+      - when: (_DOMAIN = 'FA' AND _FASCAT = 'ADMINISTRATION SITE')
+        then: '''LOCAL'''
+      - when: (_DOMAIN = 'FA')
+        then: _FASCAT
+      - otherwise: _VSSCAT
+    _PARCAT1N:
+      case:
+      - when: (_PARCAT1 = 'LOCAL')
+        then: 1
+      - when: (_PARCAT1 = 'SYSTEMIC')
+        then: 2
+      - otherwise: null
+    _AVAL_NUM: _FASTRESN
+    _AVALC: _FASTRESC
+    _AVALC_UP:
+      str_case:
+        source: _AVALC
+        to: upper
+    _ATOXGRN:
+      case:
+      - when: (_PARAMCD IN ('ERYTHDIA', 'SWELLDIA') AND ((_AVAL_NUM >= 25 AND _AVAL_NUM <= 50) OR (_FASTRESC IS NOT NULL AND str_contains(_FASTRESC, 'GRADE 1'))))
+        then: 1
+      - when: (_PARAMCD IN ('ERYTHDIA', 'SWELLDIA') AND ((_AVAL_NUM > 50 AND _AVAL_NUM <= 100) OR (_FASTRESC IS NOT NULL AND str_contains(_FASTRESC, 'GRADE 2'))))
+        then: 2
+      - when: (_PARAMCD IN ('ERYTHDIA', 'SWELLDIA') AND (_AVAL_NUM > 100 OR (_FASTRESC IS NOT NULL AND str_contains(_FASTRESC, 'GRADE 3'))))
+        then: 3
+      - when: (_PARAMCD IN ('ERYTHDIA', 'SWELLDIA') AND (_FASTRESC IS NOT NULL AND str_contains(_FASTRESC, 'GRADE 4')))
+        then: 4
+      - when: (_PARAMCD = 'FEVER' AND ((_AVAL_NUM >= 38 AND _AVAL_NUM <= 38.4) OR (_FASTRESC IS NOT NULL AND str_contains(_FASTRESC, 'GRADE 1'))))
+        then: 1
+      - when: (_PARAMCD = 'FEVER' AND ((_AVAL_NUM > 38.4 AND _AVAL_NUM <= 38.9) OR (_FASTRESC IS NOT NULL AND str_contains(_FASTRESC, 'GRADE 2'))))
+        then: 2
+      - when: (_PARAMCD = 'FEVER' AND ((_AVAL_NUM > 38.9 AND _AVAL_NUM <= 40) OR (_FASTRESC IS NOT NULL AND str_contains(_FASTRESC, 'GRADE 3'))))
+        then: 3
+      - when: (_PARAMCD = 'FEVER' AND (_AVAL_NUM > 40 OR (_FASTRESC IS NOT NULL AND str_contains(_FASTRESC, 'GRADE 4'))))
+        then: 4
+      - when: (_PARAMCD IN ('PAIN', 'LYMPH', 'HEADACHE') AND (_AVALC_UP = 'DOES NOT INTERFERE WITH ACTIVITY' OR _AVALC_UP = 'NO INTERFERENCE WITH ACTIVITY' OR (_FASTRESC IS NOT NULL AND str_contains(_FASTRESC, 'GRADE 1'))))
+        then: 1
+      - when: (_PARAMCD IN ('PAIN', 'LYMPH', 'HEADACHE') AND ((_AVALC_UP IS NOT NULL AND str_contains(_AVALC_UP, 'REPEATED')) OR (_FASTRESC IS NOT NULL AND str_contains(_FASTRESC, 'GRADE 2'))))
+        then: 2
+      - when: (_PARAMCD IN ('PAIN', 'LYMPH', 'HEADACHE') AND (_AVALC_UP = 'ANY USE OF PRESCRIPTION RELIEVER OR PREVENTS DAILY ACTIVITY' OR _AVALC_UP = 'ANY USE OF PRESCRIPTION PAIN RELIEVER OR PREVENTS DAILY ACTIVITY' OR (_FASTRESC IS NOT NULL AND str_contains(_FASTRESC, 'GRADE 3'))))
+        then: 3
+      - when: (_PARAMCD IN ('PAIN', 'LYMPH', 'HEADACHE') AND (_FASTRESC IS NOT NULL AND str_contains(_FASTRESC, 'GRADE 4')))
+        then: 4
+      - when: (_PARAMCD IN ('FATIGUE', 'MYALGIA', 'ARTHRALG') AND (_AVALC_UP = 'NO INTERFERENCE WITH ACTIVITY' OR (_FASTRESC IS NOT NULL AND str_contains(_FASTRESC, 'GRADE 1'))))
+        then: 1
+      - when: (_PARAMCD IN ('FATIGUE', 'MYALGIA', 'ARTHRALG') AND (_AVALC_UP = 'SOME INTERFERENCE WITH ACTIVITY' OR (_FASTRESC IS NOT NULL AND str_contains(_FASTRESC, 'GRADE 2'))))
+        then: 2
+      - when: (_PARAMCD IN ('FATIGUE', 'MYALGIA', 'ARTHRALG') AND (_AVALC_UP = 'SIGNIFICANT; PREVENTS DAILY ACTIVITY' OR (_FASTRESC IS NOT NULL AND str_contains(_FASTRESC, 'GRADE 3'))))
+        then: 3
+      - when: (_PARAMCD IN ('FATIGUE', 'MYALGIA', 'ARTHRALG') AND (_FASTRESC IS NOT NULL AND str_contains(_FASTRESC, 'GRADE 4')))
+        then: 4
+      - when: (_PARAMCD = 'NAUSEA' AND (_AVALC_UP = 'NO INTERFERENCE WITH ACTIVITY OR 1-2 EPISODES/24 HOURS' OR (_FASTRESC IS NOT NULL AND str_contains(_FASTRESC, 'GRADE 1'))))
+        then: 1
+      - when: (_PARAMCD = 'NAUSEA' AND (_AVALC_UP = 'SOME INTERFERENCE WITH ACTIVITY OR >2 EPISODES/24 HOURS' OR (_FASTRESC IS NOT NULL AND str_contains(_FASTRESC, 'GRADE 2'))))
+        then: 2
+      - when: (_PARAMCD = 'NAUSEA' AND (_AVALC_UP = 'PREVENTS DAILY ACTIVITY, REQUIRES OUTPATIENT IV HYDRATION' OR (_FASTRESC IS NOT NULL AND str_contains(_FASTRESC, 'GRADE 3'))))
+        then: 3
+      - when: (_PARAMCD = 'NAUSEA' AND (_FASTRESC IS NOT NULL AND str_contains(_FASTRESC, 'GRADE 4')))
+        then: 4
+      - when: (_PARAMCD = 'CHILLS' AND (_AVALC_UP = 'NO INTERFERENCE WITH ACTIVITY' OR (_FASTRESC IS NOT NULL AND str_contains(_FASTRESC, 'GRADE 1'))))
+        then: 1
+      - when: (_PARAMCD = 'CHILLS' AND (_AVALC_UP = 'SOME INTERFERENCE WITH ACTIVITY NOT REQUIRING MEDICAL ATTENTION' OR (_FASTRESC IS NOT NULL AND str_contains(_FASTRESC, 'GRADE 2'))))
+        then: 2
+      - when: (_PARAMCD = 'CHILLS' AND (_AVALC_UP = 'PREVENTS DAILY ACTIVITY AND REQUIRES MEDICAL ATTENTION' OR (_FASTRESC IS NOT NULL AND str_contains(_FASTRESC, 'GRADE 3'))))
+        then: 3
+      - when: (_PARAMCD = 'CHILLS' AND (_FASTRESC IS NOT NULL AND str_contains(_FASTRESC, 'GRADE 4')))
+        then: 4
+      - otherwise: null
+    _ATOXGR:
+      case:
+      - when: (_ATOXGRN = 1)
+        then: '''Grade 1'''
+      - when: (_ATOXGRN = 2)
+        then: '''Grade 2'''
+      - when: (_ATOXGRN = 3)
+        then: '''Grade 3'''
+      - when: (_ATOXGRN = 4)
+        then: '''Grade 4'''
+      - otherwise: "''"
+    _ANL01FL:
+      case:
+      - when: (_PARAMCD IN ('PAIN', 'ERYTHDIA', 'SWELLDIA', 'LYMPH'))
+        then: '''Y'''
+      - otherwise: "''"
+    _FAEVAL_NUM:
+      case:
+      - when: (_FAEVAL = 'STUDY SUBJECT')
+        then: 1
+      - when: ((_FAEVAL IS NULL OR _FAEVAL IN ('')))
+        then: 2
+      - when: (_FAEVAL = 'INVESTIGATOR')
+        then: 3
+      - otherwise: null
+    _AGFL:
+      case:
+      - when: (_ATOXGRN IS NOT NULL)
+        then: 1
+      - otherwise: null
+    _K_FAAE_FA: K_FAAE_FA._HIT
+    _K_FAAE_VS: K_FAAE_VS._HIT
+    _K_VS_VS: null
+    _K_VS_FAAE: null
+    _WIT_FAAE: K_WIT_FAAE._HIT
+    _WIT_TEMP: K_WIT_TEMP._HIT
+    _WIT_MEDTAK: K_WIT_MEDTAK._HIT
+    _WIT_MEDTAKP: K_WIT_MEDTAKP._HIT
+    _WIT_MEDTAKT: K_WIT_MEDTAKT._HIT
+  filter: ((_K_FAAE_FA IS NOT NULL OR _K_FAAE_VS IS NOT NULL) AND NOT((_FAOBJ IN ('Erythema', 'Swelling') AND _FATEST = 'Occurrence Indicator') OR (_FASTAT IS NOT NULL AND _FASTAT = 'NOT DONE') OR (_FACAT IS NULL OR _FACAT <> 'REACTOGENICITY') OR _FASTRESC IN ('NONE', '') OR (_FASTRESC IS NOT NULL AND str_contains(_FASTRESC, 'GRADE 0')) OR _FASTRESC IS NULL) AND ((_PARAMCD IN ('ERYTHDIA', 'SWELLDIA') AND (_AVAL_NUM IS NULL OR _AVAL_NUM >= 25)) OR (_PARAMCD = 'FEVER' AND (_AVAL_NUM IS NULL OR _AVAL_NUM >= 38)) OR (_PARAMCD NOT IN ('ERYTHDIA', 'SWELLDIA', 'FEVER')) OR _PARAMCD IS NULL) AND NOT(_ATPTREF = 'Vaccination 2' AND _DOSE2FL = 'N') AND (_WIT_FAAE IS NOT NULL OR _WIT_TEMP IS NOT NULL OR _WIT_MEDTAK IS NOT NULL OR _WIT_MEDTAKP IS NOT NULL OR _WIT_MEDTAKT IS NOT NULL) AND _ADSL IS NOT NULL)
+- id: vs_rows
+  dataset: VS
+  derivations:
+    STUDYID: VS.STUDYID
+    USUBJID: VS.USUBJID
+    _DOMAIN: '''VS'''
+    _DTC: VS.VSDTC
+    _FADY: null
+    _VSDY: VS.VSDY
+    _FATPTREF: null
+    _VSTPTREF: VS.VSTPTREF
+    _FATPT: null
+    _VSTPT: VS.VSTPT
+    _FAOBJ: null
+    _FATEST: null
+    _FATESTCD: null
+    _FAORRES: null
+    _FASTRESC: null
+    _FASTRESN: null
+    _FASTAT: null
+    _FASCAT: null
+    _FACAT: null
+    _FAEVAL: "''"
+    _FATEST_UP:
+      str_case:
+        source: _FATEST
+        to: upper
+    _FAORRES_UP:
+      str_case:
+        source: _FAORRES
+        to: upper
+    _FASEQ: null
+    _VSTESTCD: VS.VSTESTCD
+    _VSCAT: VS.VSCAT
+    _VSSCAT: VS.VSSCAT
+    _VSSTRESC: VS.VSSTRESC
+    _VSORRESU: VS.VSORRESU
+    _VSSTAT: VS.VSSTAT
+    _VSTPTNUM: VS.VSTPTNUM
+    _VSSEQ: VS.VSSEQ
+    _STRESN_NUM:
+      value: VS.VSSTRESN
+      unconvertible: null
+    _ORRES_NUM:
+      value: VS.VSORRES
+      unconvertible: null
+    _MAAEFL: null
+    _MEDTAK: SUPP_P_VS.MEDTAK
+    _MEDTAKP: SUPP_P_VS.MEDTAKP
+    _MEDTAKT: SUPP_P_VS.MEDTAKT
+    _PCD_E: null
+    _PARAMCD:
+      case:
+      - when: (_VSTESTCD IN ('TEMP', 'VSALL') OR _FAOBJ IN ('Pyrexia', 'Fever'))
+        then: '''FEVER'''
+      - when: (_FAOBJ = 'Underarm Gland Swelling or Tenderness' AND _FATESTCD = 'SEV')
+        then: '''LYMPH'''
+      - when: (_FAOBJ = 'Pain')
+        then: '''PAIN'''
+      - when: (_FAOBJ = 'Nausea/Vomiting' AND _FATESTCD = 'SEV')
+        then: '''NAUSEA'''
+      - when: (_FAOBJ = 'Erythema' AND (_FATEST_UP IS NOT NULL AND str_contains(_FATEST_UP, 'OCCURRENCE')) AND _FAORRES_UP IN ('N', 'NO'))
+        then: '''ERYTHDIA'''
+      - when: (_FAOBJ = 'Swelling' AND (_FATEST_UP IS NOT NULL AND str_contains(_FATEST_UP, 'OCCURRENCE')) AND _FAORRES_UP IN ('N', 'NO'))
+        then: '''SWELLDIA'''
+      - when: (_FAOBJ = 'Erythema' AND (_FATEST_UP IS NOT NULL AND str_contains(_FATEST_UP, 'INTENSITY')))
+        then: '''ERYTHDIA'''
+      - when: (_FAOBJ = 'Swelling' AND (_FATEST_UP IS NOT NULL AND str_contains(_FATEST_UP, 'INTENSITY')))
+        then: '''SWELLDIA'''
+      - when: (_FAOBJ = 'Erythema' AND _FATEST = 'Longest Diameter')
+        then: '''ERYTHDIA'''
+      - when: (_FAOBJ = 'Swelling' AND _FATEST = 'Longest Diameter')
+        then: '''SWELLDIA'''
+      - when: (_FAOBJ = 'Headache')
+        then: '''HEADACHE'''
+      - when: (_FAOBJ = 'Fatigue')
+        then: '''FATIGUE'''
+      - when: (_FAOBJ = 'Myalgia')
+        then: '''MYALGIA'''
+      - when: (_FAOBJ = 'Arthralgia')
+        then: '''ARTHRALG'''
+      - when: (_FAOBJ = 'Chills')
+        then: '''CHILLS'''
+      - when: (_FAOBJ = 'Receive Medical Attention?')
+        then: '''MEDATTEN'''
+      - when: ((_VSTESTCD IS NOT NULL AND str_contains(_VSTESTCD, '^MEDTA')))
+        then: _VSTESTCD
+      - otherwise: null
+    _PARAM:
+      case:
+      - when: (_PARAMCD = 'LYMPH')
+        then: '''Underarm Gland Swelling or Tenderness'''
+      - when: (_PARAMCD = 'PAIN')
+        then: '''Pain'''
+      - when: (_PARAMCD = 'ERYTHDIA')
+        then: '''Erythema Longest Diameter (mm)'''
+      - when: (_PARAMCD = 'SWELLDIA')
+        then: '''Swelling Longest Diameter (mm)'''
+      - when: (_PARAMCD = 'HEADACHE')
+        then: '''Headache'''
+      - when: (_PARAMCD = 'FATIGUE')
+        then: '''Fatigue'''
+      - when: (_PARAMCD = 'MYALGIA')
+        then: '''Myalgia'''
+      - when: (_PARAMCD = 'ARTHRALG')
+        then: '''Arthralgia'''
+      - when: (_PARAMCD = 'NAUSEA')
+        then: '''Nausea/Vomiting'''
+      - when: (_PARAMCD = 'CHILLS')
+        then: '''Chills'''
+      - when: (_PARAMCD = 'MEDATTEN')
+        then: '''Receive Medical Attention?'''
+      - when: (_PARAMCD = 'FEVER')
+        then: '''Fever (C)'''
+      - when: (_PARAMCD = 'MEDTAKP')
+        then: '''Prevent Pain or Fever from Occurring'''
+      - when: (_PARAMCD = 'MEDTAKT')
+        then: '''Treat Pain or Fever already Occurred'''
+      - when: (_PARAMCD = 'MEDTAK')
+        then: '''Medication Taken Today for Pain or Fever'''
+      - otherwise: _FAOBJ
+    _PTREF:
+      case:
+      - when: (_DOMAIN = 'FA')
+        then: _FATPTREF
+      - otherwise: _VSTPTREF
+    _PTREF_NB:
+      str_replace:
+        source: _PTREF
+        pattern: ' '
+        replacement: ''
+    _ATPTREF:
+      case:
+      - when: (_PTREF_NB = 'DOSE1')
+        then: '''Vaccination 1'''
+      - when: (_PTREF_NB = 'DOSE2')
+        then: '''Vaccination 2'''
+      - otherwise: null
+    _ATPT:
+      case:
+      - when: (_DOMAIN = 'FA' AND _FATPT = 'DAY 1' AND _FAEVAL = 'INVESTIGATOR')
+        then: '''DAY 1, AFTER VACCINATION (AT HOME)'''
+      - when: (_DOMAIN = 'VS')
+        then: _VSTPT
+      - otherwise: _FATPT
+    _ATPTGR1_TOK:
+      str_extract:
+        source: _ATPT
+        pattern: '^([^,]*)'
+        group: 1
+        no_match: ''
+    _ATPTGR1:
+      case:
+      - when: (_ATPTGR1_TOK = 'DAY 1')
+        then: '''DAY 1'''
+      - otherwise: _ATPT
+    _PARCAT1:
+      case:
+      - when: (_DOMAIN = 'FA' AND _FASCAT = 'ADMINISTRATION SITE')
+        then: '''LOCAL'''
+      - when: (_DOMAIN = 'FA')
+        then: _FASCAT
+      - otherwise: _VSSCAT
+    _PARCAT1N:
+      case:
+      - when: (_PARCAT1 = 'LOCAL')
+        then: 1
+      - when: (_PARCAT1 = 'SYSTEMIC')
+        then: 2
+      - otherwise: null
+    _AVAL_NUM:
+      case:
+      - when: (_VSORRESU = 'F')
+        then: (_ORRES_NUM - 32) * 0.5555555555555556
+      - otherwise: _STRESN_NUM
+    _AVALC: _VSSTRESC
+    _AVALC_UP:
+      str_case:
+        source: _AVALC
+        to: upper
+    _ATOXGRN:
+      case:
+      - when: (_PARAMCD IN ('ERYTHDIA', 'SWELLDIA') AND ((_AVAL_NUM >= 25 AND _AVAL_NUM <= 50) OR (_FASTRESC IS NOT NULL AND str_contains(_FASTRESC, 'GRADE 1'))))
+        then: 1
+      - when: (_PARAMCD IN ('ERYTHDIA', 'SWELLDIA') AND ((_AVAL_NUM > 50 AND _AVAL_NUM <= 100) OR (_FASTRESC IS NOT NULL AND str_contains(_FASTRESC, 'GRADE 2'))))
+        then: 2
+      - when: (_PARAMCD IN ('ERYTHDIA', 'SWELLDIA') AND (_AVAL_NUM > 100 OR (_FASTRESC IS NOT NULL AND str_contains(_FASTRESC, 'GRADE 3'))))
+        then: 3
+      - when: (_PARAMCD IN ('ERYTHDIA', 'SWELLDIA') AND (_FASTRESC IS NOT NULL AND str_contains(_FASTRESC, 'GRADE 4')))
+        then: 4
+      - when: (_PARAMCD = 'FEVER' AND ((_AVAL_NUM >= 38 AND _AVAL_NUM <= 38.4) OR (_FASTRESC IS NOT NULL AND str_contains(_FASTRESC, 'GRADE 1'))))
+        then: 1
+      - when: (_PARAMCD = 'FEVER' AND ((_AVAL_NUM > 38.4 AND _AVAL_NUM <= 38.9) OR (_FASTRESC IS NOT NULL AND str_contains(_FASTRESC, 'GRADE 2'))))
+        then: 2
+      - when: (_PARAMCD = 'FEVER' AND ((_AVAL_NUM > 38.9 AND _AVAL_NUM <= 40) OR (_FASTRESC IS NOT NULL AND str_contains(_FASTRESC, 'GRADE 3'))))
+        then: 3
+      - when: (_PARAMCD = 'FEVER' AND (_AVAL_NUM > 40 OR (_FASTRESC IS NOT NULL AND str_contains(_FASTRESC, 'GRADE 4'))))
+        then: 4
+      - when: (_PARAMCD IN ('PAIN', 'LYMPH', 'HEADACHE') AND (_AVALC_UP = 'DOES NOT INTERFERE WITH ACTIVITY' OR _AVALC_UP = 'NO INTERFERENCE WITH ACTIVITY' OR (_FASTRESC IS NOT NULL AND str_contains(_FASTRESC, 'GRADE 1'))))
+        then: 1
+      - when: (_PARAMCD IN ('PAIN', 'LYMPH', 'HEADACHE') AND ((_AVALC_UP IS NOT NULL AND str_contains(_AVALC_UP, 'REPEATED')) OR (_FASTRESC IS NOT NULL AND str_contains(_FASTRESC, 'GRADE 2'))))
+        then: 2
+      - when: (_PARAMCD IN ('PAIN', 'LYMPH', 'HEADACHE') AND (_AVALC_UP = 'ANY USE OF PRESCRIPTION RELIEVER OR PREVENTS DAILY ACTIVITY' OR _AVALC_UP = 'ANY USE OF PRESCRIPTION PAIN RELIEVER OR PREVENTS DAILY ACTIVITY' OR (_FASTRESC IS NOT NULL AND str_contains(_FASTRESC, 'GRADE 3'))))
+        then: 3
+      - when: (_PARAMCD IN ('PAIN', 'LYMPH', 'HEADACHE') AND (_FASTRESC IS NOT NULL AND str_contains(_FASTRESC, 'GRADE 4')))
+        then: 4
+      - when: (_PARAMCD IN ('FATIGUE', 'MYALGIA', 'ARTHRALG') AND (_AVALC_UP = 'NO INTERFERENCE WITH ACTIVITY' OR (_FASTRESC IS NOT NULL AND str_contains(_FASTRESC, 'GRADE 1'))))
+        then: 1
+      - when: (_PARAMCD IN ('FATIGUE', 'MYALGIA', 'ARTHRALG') AND (_AVALC_UP = 'SOME INTERFERENCE WITH ACTIVITY' OR (_FASTRESC IS NOT NULL AND str_contains(_FASTRESC, 'GRADE 2'))))
+        then: 2
+      - when: (_PARAMCD IN ('FATIGUE', 'MYALGIA', 'ARTHRALG') AND (_AVALC_UP = 'SIGNIFICANT; PREVENTS DAILY ACTIVITY' OR (_FASTRESC IS NOT NULL AND str_contains(_FASTRESC, 'GRADE 3'))))
+        then: 3
+      - when: (_PARAMCD IN ('FATIGUE', 'MYALGIA', 'ARTHRALG') AND (_FASTRESC IS NOT NULL AND str_contains(_FASTRESC, 'GRADE 4')))
+        then: 4
+      - when: (_PARAMCD = 'NAUSEA' AND (_AVALC_UP = 'NO INTERFERENCE WITH ACTIVITY OR 1-2 EPISODES/24 HOURS' OR (_FASTRESC IS NOT NULL AND str_contains(_FASTRESC, 'GRADE 1'))))
+        then: 1
+      - when: (_PARAMCD = 'NAUSEA' AND (_AVALC_UP = 'SOME INTERFERENCE WITH ACTIVITY OR >2 EPISODES/24 HOURS' OR (_FASTRESC IS NOT NULL AND str_contains(_FASTRESC, 'GRADE 2'))))
+        then: 2
+      - when: (_PARAMCD = 'NAUSEA' AND (_AVALC_UP = 'PREVENTS DAILY ACTIVITY, REQUIRES OUTPATIENT IV HYDRATION' OR (_FASTRESC IS NOT NULL AND str_contains(_FASTRESC, 'GRADE 3'))))
+        then: 3
+      - when: (_PARAMCD = 'NAUSEA' AND (_FASTRESC IS NOT NULL AND str_contains(_FASTRESC, 'GRADE 4')))
+        then: 4
+      - when: (_PARAMCD = 'CHILLS' AND (_AVALC_UP = 'NO INTERFERENCE WITH ACTIVITY' OR (_FASTRESC IS NOT NULL AND str_contains(_FASTRESC, 'GRADE 1'))))
+        then: 1
+      - when: (_PARAMCD = 'CHILLS' AND (_AVALC_UP = 'SOME INTERFERENCE WITH ACTIVITY NOT REQUIRING MEDICAL ATTENTION' OR (_FASTRESC IS NOT NULL AND str_contains(_FASTRESC, 'GRADE 2'))))
+        then: 2
+      - when: (_PARAMCD = 'CHILLS' AND (_AVALC_UP = 'PREVENTS DAILY ACTIVITY AND REQUIRES MEDICAL ATTENTION' OR (_FASTRESC IS NOT NULL AND str_contains(_FASTRESC, 'GRADE 3'))))
+        then: 3
+      - when: (_PARAMCD = 'CHILLS' AND (_FASTRESC IS NOT NULL AND str_contains(_FASTRESC, 'GRADE 4')))
+        then: 4
+      - otherwise: null
+    _ATOXGR:
+      case:
+      - when: (_ATOXGRN = 1)
+        then: '''Grade 1'''
+      - when: (_ATOXGRN = 2)
+        then: '''Grade 2'''
+      - when: (_ATOXGRN = 3)
+        then: '''Grade 3'''
+      - when: (_ATOXGRN = 4)
+        then: '''Grade 4'''
+      - otherwise: "''"
+    _ANL01FL:
+      case:
+      - when: (_PARAMCD IN ('PAIN', 'ERYTHDIA', 'SWELLDIA', 'LYMPH'))
+        then: '''Y'''
+      - otherwise: "''"
+    _FAEVAL_NUM:
+      case:
+      - when: (_FAEVAL = 'STUDY SUBJECT')
+        then: 1
+      - when: ((_FAEVAL IS NULL OR _FAEVAL IN ('')))
+        then: 2
+      - when: (_FAEVAL = 'INVESTIGATOR')
+        then: 3
+      - otherwise: null
+    _AGFL:
+      case:
+      - when: (_ATOXGRN IS NOT NULL)
+        then: 1
+      - otherwise: null
+    _K_FAAE_FA: null
+    _K_FAAE_VS: null
+    _K_VS_VS: K_VS_VS._HIT
+    _K_VS_FAAE: K_VS_FAAE._HIT
+    _WIT_FAAE: K_WIT_FAAE._HIT
+    _WIT_TEMP: K_WIT_TEMP._HIT
+    _WIT_MEDTAK: K_WIT_MEDTAK._HIT
+    _WIT_MEDTAKP: K_WIT_MEDTAKP._HIT
+    _WIT_MEDTAKT: K_WIT_MEDTAKT._HIT
+  filter: (_VSTESTCD = 'TEMP' AND (_K_VS_VS IS NOT NULL OR _K_VS_FAAE IS NOT NULL) AND (_VSCAT = 'REACTOGENICITY' AND (_VSSTAT IS NULL OR _VSSTAT <> 'NOT DONE')) AND (_AVAL_NUM IS NULL OR _AVAL_NUM >= 38) AND NOT(_ATPTREF = 'Vaccination 2' AND _DOSE2FL = 'N') AND (_WIT_FAAE IS NOT NULL OR _WIT_TEMP IS NOT NULL OR _WIT_MEDTAK IS NOT NULL OR _WIT_MEDTAKP IS NOT NULL OR _WIT_MEDTAKT IS NOT NULL) AND _ADSL IS NOT NULL)
+- id: face_rows
+  dataset: FACE
+  derivations:
+    STUDYID: FACE.STUDYID
+    USUBJID: FACE.USUBJID
+    _DOMAIN: '''FA'''
+    _DTC: FACE.FADTC
+    _FADY: FACE.FADY
+    _VSDY: null
+    _FATPTREF: FACE.FATPTREF
+    _VSTPTREF: null
+    _FATPT: FACE.FATPT
+    _VSTPT: null
+    _FAOBJ: FACE.FAOBJ
+    _FATEST: FACE.FATEST
+    _FATESTCD: FACE.FATESTCD
+    _FAORRES: FACE.FAORRES
+    _FASTRESC: FACE.FASTRESC
+    _FASTRESN: FACE.FASTRESN
+    _FASTAT: FACE.FASTAT
+    _FASCAT: FACE.FASCAT
+    _FACAT: FACE.FACAT
+    _FAEVAL: FACE.FAEVAL
+    _FATEST_UP:
+      str_case:
+        source: _FATEST
+        to: upper
+    _FAORRES_UP:
+      str_case:
+        source: _FAORRES
+        to: upper
+    _FASEQ: FACE.FASEQ
+    _VSTESTCD: null
+    _VSCAT: null
+    _VSSCAT: null
+    _VSSTRESC: null
+    _VSORRESU: null
+    _VSSTAT: null
+    _VSTPTNUM: null
+    _VSSEQ: null
+    _STRESN_NUM: null
+    _ORRES_NUM: null
+    _MAAEFL: SUPP_P_FACE.MAAEFL
+    _MEDTAK: null
+    _MEDTAKP: null
+    _MEDTAKT: null
+    _PCD_E:
+      case:
+      - when: (_FAOBJ = 'Underarm Gland Swelling or Tenderness')
+        then: '''LYMPH'''
+      - when: (_FAOBJ = 'Pain')
+        then: '''PAIN'''
+      - when: (_FAOBJ = 'Erythema')
+        then: '''ERYTHDIA'''
+      - when: (_FAOBJ = 'Swelling')
+        then: '''SWELLDIA'''
+      - when: (_FAOBJ = 'Headache')
+        then: '''HEADACHE'''
+      - when: (_FAOBJ = 'Fatigue')
+        then: '''FATIGUE'''
+      - when: (_FAOBJ = 'Myalgia')
+        then: '''MYALGIA'''
+      - when: (_FAOBJ = 'Arthralgia')
+        then: '''ARTHRALG'''
+      - when: (_FAOBJ = 'Nausea/Vomiting')
+        then: '''NAUSEA'''
+      - when: (_FAOBJ = 'Chills')
+        then: '''CHILLS'''
+      - when: (_FAOBJ = 'Receive Medical Attention?')
+        then: '''MEDATTEN'''
+      - when: (_FAOBJ IN ('Pyrexia', 'Fever'))
+        then: '''FEVER'''
+      - otherwise: null
+    _PARAMCD:
+      case:
+      - when: (_VSTESTCD IN ('TEMP', 'VSALL') OR _FAOBJ IN ('Pyrexia', 'Fever'))
+        then: '''FEVER'''
+      - when: (_FAOBJ = 'Underarm Gland Swelling or Tenderness' AND _FATESTCD = 'SEV')
+        then: '''LYMPH'''
+      - when: (_FAOBJ = 'Pain')
+        then: '''PAIN'''
+      - when: (_FAOBJ = 'Nausea/Vomiting' AND _FATESTCD = 'SEV')
+        then: '''NAUSEA'''
+      - when: (_FAOBJ = 'Erythema' AND (_FATEST_UP IS NOT NULL AND str_contains(_FATEST_UP, 'OCCURRENCE')) AND _FAORRES_UP IN ('N', 'NO'))
+        then: '''ERYTHDIA'''
+      - when: (_FAOBJ = 'Swelling' AND (_FATEST_UP IS NOT NULL AND str_contains(_FATEST_UP, 'OCCURRENCE')) AND _FAORRES_UP IN ('N', 'NO'))
+        then: '''SWELLDIA'''
+      - when: (_FAOBJ = 'Erythema' AND (_FATEST_UP IS NOT NULL AND str_contains(_FATEST_UP, 'INTENSITY')))
+        then: '''ERYTHDIA'''
+      - when: (_FAOBJ = 'Swelling' AND (_FATEST_UP IS NOT NULL AND str_contains(_FATEST_UP, 'INTENSITY')))
+        then: '''SWELLDIA'''
+      - when: (_FAOBJ = 'Erythema' AND _FATEST = 'Longest Diameter')
+        then: '''ERYTHDIA'''
+      - when: (_FAOBJ = 'Swelling' AND _FATEST = 'Longest Diameter')
+        then: '''SWELLDIA'''
+      - when: (_FAOBJ = 'Headache')
+        then: '''HEADACHE'''
+      - when: (_FAOBJ = 'Fatigue')
+        then: '''FATIGUE'''
+      - when: (_FAOBJ = 'Myalgia')
+        then: '''MYALGIA'''
+      - when: (_FAOBJ = 'Arthralgia')
+        then: '''ARTHRALG'''
+      - when: (_FAOBJ = 'Chills')
+        then: '''CHILLS'''
+      - when: (_FAOBJ = 'Receive Medical Attention?')
+        then: '''MEDATTEN'''
+      - when: ((_VSTESTCD IS NOT NULL AND str_contains(_VSTESTCD, '^MEDTA')))
+        then: _VSTESTCD
+      - otherwise: null
+    _PARAM:
+      case:
+      - when: (_PARAMCD = 'LYMPH')
+        then: '''Underarm Gland Swelling or Tenderness'''
+      - when: (_PARAMCD = 'PAIN')
+        then: '''Pain'''
+      - when: (_PARAMCD = 'ERYTHDIA')
+        then: '''Erythema Longest Diameter (mm)'''
+      - when: (_PARAMCD = 'SWELLDIA')
+        then: '''Swelling Longest Diameter (mm)'''
+      - when: (_PARAMCD = 'HEADACHE')
+        then: '''Headache'''
+      - when: (_PARAMCD = 'FATIGUE')
+        then: '''Fatigue'''
+      - when: (_PARAMCD = 'MYALGIA')
+        then: '''Myalgia'''
+      - when: (_PARAMCD = 'ARTHRALG')
+        then: '''Arthralgia'''
+      - when: (_PARAMCD = 'NAUSEA')
+        then: '''Nausea/Vomiting'''
+      - when: (_PARAMCD = 'CHILLS')
+        then: '''Chills'''
+      - when: (_PARAMCD = 'MEDATTEN')
+        then: '''Receive Medical Attention?'''
+      - when: (_PARAMCD = 'FEVER')
+        then: '''Fever (C)'''
+      - when: (_PARAMCD = 'MEDTAKP')
+        then: '''Prevent Pain or Fever from Occurring'''
+      - when: (_PARAMCD = 'MEDTAKT')
+        then: '''Treat Pain or Fever already Occurred'''
+      - when: (_PARAMCD = 'MEDTAK')
+        then: '''Medication Taken Today for Pain or Fever'''
+      - otherwise: _FAOBJ
+    _PTREF:
+      case:
+      - when: (_DOMAIN = 'FA')
+        then: _FATPTREF
+      - otherwise: _VSTPTREF
+    _PTREF_NB:
+      str_replace:
+        source: _PTREF
+        pattern: ' '
+        replacement: ''
+    _ATPTREF:
+      case:
+      - when: (_PTREF_NB = 'DOSE1')
+        then: '''Vaccination 1'''
+      - when: (_PTREF_NB = 'DOSE2')
+        then: '''Vaccination 2'''
+      - otherwise: null
+    _ATPT:
+      case:
+      - when: (_DOMAIN = 'FA' AND _FATPT = 'DAY 1' AND _FAEVAL = 'INVESTIGATOR')
+        then: '''DAY 1, AFTER VACCINATION (AT HOME)'''
+      - when: (_DOMAIN = 'VS')
+        then: _VSTPT
+      - otherwise: _FATPT
+    _ATPTGR1_TOK:
+      str_extract:
+        source: _ATPT
+        pattern: '^([^,]*)'
+        group: 1
+        no_match: ''
+    _ATPTGR1:
+      case:
+      - when: (_ATPTGR1_TOK = 'DAY 1')
+        then: '''DAY 1'''
+      - otherwise: _ATPT
+    _PARCAT1:
+      case:
+      - when: (_DOMAIN = 'FA' AND _FASCAT = 'ADMINISTRATION SITE')
+        then: '''LOCAL'''
+      - when: (_DOMAIN = 'FA')
+        then: _FASCAT
+      - otherwise: _VSSCAT
+    _PARCAT1N:
+      case:
+      - when: (_PARCAT1 = 'LOCAL')
+        then: 1
+      - when: (_PARCAT1 = 'SYSTEMIC')
+        then: 2
+      - otherwise: null
+    _AVAL_NUM: _FASTRESN
+    _AVALC: _FASTRESC
+    _AVALC_UP:
+      str_case:
+        source: _AVALC
+        to: upper
+    _ATOXGRN:
+      case:
+      - when: (_PARAMCD IN ('ERYTHDIA', 'SWELLDIA') AND ((_AVAL_NUM >= 25 AND _AVAL_NUM <= 50) OR (_FASTRESC IS NOT NULL AND str_contains(_FASTRESC, 'GRADE 1'))))
+        then: 1
+      - when: (_PARAMCD IN ('ERYTHDIA', 'SWELLDIA') AND ((_AVAL_NUM > 50 AND _AVAL_NUM <= 100) OR (_FASTRESC IS NOT NULL AND str_contains(_FASTRESC, 'GRADE 2'))))
+        then: 2
+      - when: (_PARAMCD IN ('ERYTHDIA', 'SWELLDIA') AND (_AVAL_NUM > 100 OR (_FASTRESC IS NOT NULL AND str_contains(_FASTRESC, 'GRADE 3'))))
+        then: 3
+      - when: (_PARAMCD IN ('ERYTHDIA', 'SWELLDIA') AND (_FASTRESC IS NOT NULL AND str_contains(_FASTRESC, 'GRADE 4')))
+        then: 4
+      - when: (_PARAMCD = 'FEVER' AND ((_AVAL_NUM >= 38 AND _AVAL_NUM <= 38.4) OR (_FASTRESC IS NOT NULL AND str_contains(_FASTRESC, 'GRADE 1'))))
+        then: 1
+      - when: (_PARAMCD = 'FEVER' AND ((_AVAL_NUM > 38.4 AND _AVAL_NUM <= 38.9) OR (_FASTRESC IS NOT NULL AND str_contains(_FASTRESC, 'GRADE 2'))))
+        then: 2
+      - when: (_PARAMCD = 'FEVER' AND ((_AVAL_NUM > 38.9 AND _AVAL_NUM <= 40) OR (_FASTRESC IS NOT NULL AND str_contains(_FASTRESC, 'GRADE 3'))))
+        then: 3
+      - when: (_PARAMCD = 'FEVER' AND (_AVAL_NUM > 40 OR (_FASTRESC IS NOT NULL AND str_contains(_FASTRESC, 'GRADE 4'))))
+        then: 4
+      - when: (_PARAMCD IN ('PAIN', 'LYMPH', 'HEADACHE') AND (_AVALC_UP = 'DOES NOT INTERFERE WITH ACTIVITY' OR _AVALC_UP = 'NO INTERFERENCE WITH ACTIVITY' OR (_FASTRESC IS NOT NULL AND str_contains(_FASTRESC, 'GRADE 1'))))
+        then: 1
+      - when: (_PARAMCD IN ('PAIN', 'LYMPH', 'HEADACHE') AND ((_AVALC_UP IS NOT NULL AND str_contains(_AVALC_UP, 'REPEATED')) OR (_FASTRESC IS NOT NULL AND str_contains(_FASTRESC, 'GRADE 2'))))
+        then: 2
+      - when: (_PARAMCD IN ('PAIN', 'LYMPH', 'HEADACHE') AND (_AVALC_UP = 'ANY USE OF PRESCRIPTION RELIEVER OR PREVENTS DAILY ACTIVITY' OR _AVALC_UP = 'ANY USE OF PRESCRIPTION PAIN RELIEVER OR PREVENTS DAILY ACTIVITY' OR (_FASTRESC IS NOT NULL AND str_contains(_FASTRESC, 'GRADE 3'))))
+        then: 3
+      - when: (_PARAMCD IN ('PAIN', 'LYMPH', 'HEADACHE') AND (_FASTRESC IS NOT NULL AND str_contains(_FASTRESC, 'GRADE 4')))
+        then: 4
+      - when: (_PARAMCD IN ('FATIGUE', 'MYALGIA', 'ARTHRALG') AND (_AVALC_UP = 'NO INTERFERENCE WITH ACTIVITY' OR (_FASTRESC IS NOT NULL AND str_contains(_FASTRESC, 'GRADE 1'))))
+        then: 1
+      - when: (_PARAMCD IN ('FATIGUE', 'MYALGIA', 'ARTHRALG') AND (_AVALC_UP = 'SOME INTERFERENCE WITH ACTIVITY' OR (_FASTRESC IS NOT NULL AND str_contains(_FASTRESC, 'GRADE 2'))))
+        then: 2
+      - when: (_PARAMCD IN ('FATIGUE', 'MYALGIA', 'ARTHRALG') AND (_AVALC_UP = 'SIGNIFICANT; PREVENTS DAILY ACTIVITY' OR (_FASTRESC IS NOT NULL AND str_contains(_FASTRESC, 'GRADE 3'))))
+        then: 3
+      - when: (_PARAMCD IN ('FATIGUE', 'MYALGIA', 'ARTHRALG') AND (_FASTRESC IS NOT NULL AND str_contains(_FASTRESC, 'GRADE 4')))
+        then: 4
+      - when: (_PARAMCD = 'NAUSEA' AND (_AVALC_UP = 'NO INTERFERENCE WITH ACTIVITY OR 1-2 EPISODES/24 HOURS' OR (_FASTRESC IS NOT NULL AND str_contains(_FASTRESC, 'GRADE 1'))))
+        then: 1
+      - when: (_PARAMCD = 'NAUSEA' AND (_AVALC_UP = 'SOME INTERFERENCE WITH ACTIVITY OR >2 EPISODES/24 HOURS' OR (_FASTRESC IS NOT NULL AND str_contains(_FASTRESC, 'GRADE 2'))))
+        then: 2
+      - when: (_PARAMCD = 'NAUSEA' AND (_AVALC_UP = 'PREVENTS DAILY ACTIVITY, REQUIRES OUTPATIENT IV HYDRATION' OR (_FASTRESC IS NOT NULL AND str_contains(_FASTRESC, 'GRADE 3'))))
+        then: 3
+      - when: (_PARAMCD = 'NAUSEA' AND (_FASTRESC IS NOT NULL AND str_contains(_FASTRESC, 'GRADE 4')))
+        then: 4
+      - when: (_PARAMCD = 'CHILLS' AND (_AVALC_UP = 'NO INTERFERENCE WITH ACTIVITY' OR (_FASTRESC IS NOT NULL AND str_contains(_FASTRESC, 'GRADE 1'))))
+        then: 1
+      - when: (_PARAMCD = 'CHILLS' AND (_AVALC_UP = 'SOME INTERFERENCE WITH ACTIVITY NOT REQUIRING MEDICAL ATTENTION' OR (_FASTRESC IS NOT NULL AND str_contains(_FASTRESC, 'GRADE 2'))))
+        then: 2
+      - when: (_PARAMCD = 'CHILLS' AND (_AVALC_UP = 'PREVENTS DAILY ACTIVITY AND REQUIRES MEDICAL ATTENTION' OR (_FASTRESC IS NOT NULL AND str_contains(_FASTRESC, 'GRADE 3'))))
+        then: 3
+      - when: (_PARAMCD = 'CHILLS' AND (_FASTRESC IS NOT NULL AND str_contains(_FASTRESC, 'GRADE 4')))
+        then: 4
+      - otherwise: null
+    _ATOXGR:
+      case:
+      - when: (_ATOXGRN = 1)
+        then: '''Grade 1'''
+      - when: (_ATOXGRN = 2)
+        then: '''Grade 2'''
+      - when: (_ATOXGRN = 3)
+        then: '''Grade 3'''
+      - when: (_ATOXGRN = 4)
+        then: '''Grade 4'''
+      - otherwise: "''"
+    _ANL01FL:
+      case:
+      - when: (_PARAMCD IN ('PAIN', 'ERYTHDIA', 'SWELLDIA', 'LYMPH'))
+        then: '''Y'''
+      - otherwise: "''"
+    _FAEVAL_NUM:
+      case:
+      - when: (_FAEVAL = 'STUDY SUBJECT')
+        then: 1
+      - when: ((_FAEVAL IS NULL OR _FAEVAL IN ('')))
+        then: 2
+      - when: (_FAEVAL = 'INVESTIGATOR')
+        then: 3
+      - otherwise: null
+    _AGFL:
+      case:
+      - when: (_ATOXGRN IS NOT NULL)
+        then: 1
+      - otherwise: null
+    _K_FAAE_FA: K_FAAE_FA._HIT
+    _K_FAAE_VS: K_FAAE_VS._HIT
+    _K_VS_VS: null
+    _K_VS_FAAE: null
+    _WIT_FAAE: K_WIT_FAAE._HIT
+    _WIT_TEMP: K_WIT_TEMP._HIT
+    _WIT_MEDTAK: K_WIT_MEDTAK._HIT
+    _WIT_MEDTAKP: K_WIT_MEDTAKP._HIT
+    _WIT_MEDTAKT: K_WIT_MEDTAKT._HIT
+  filter: ((_K_FAAE_FA IS NOT NULL OR _K_FAAE_VS IS NOT NULL) AND NOT((_FAOBJ IN ('Erythema', 'Swelling') AND _FATEST = 'Occurrence Indicator') OR (_FASTAT IS NOT NULL AND _FASTAT = 'NOT DONE') OR (_FACAT IS NULL OR _FACAT <> 'REACTOGENICITY') OR _FASTRESC IN ('NONE', '') OR (_FASTRESC IS NOT NULL AND str_contains(_FASTRESC, 'GRADE 0')) OR _FASTRESC IS NULL) AND ((_PARAMCD IN ('ERYTHDIA', 'SWELLDIA') AND (_AVAL_NUM IS NULL OR _AVAL_NUM >= 25)) OR (_PARAMCD = 'FEVER' AND (_AVAL_NUM IS NULL OR _AVAL_NUM >= 38)) OR (_PARAMCD NOT IN ('ERYTHDIA', 'SWELLDIA', 'FEVER')) OR _PARAMCD IS NULL) AND NOT(_ATPTREF = 'Vaccination 2' AND _DOSE2FL = 'N') AND (_WIT_FAAE IS NOT NULL OR _WIT_TEMP IS NOT NULL OR _WIT_MEDTAK IS NOT NULL OR _WIT_MEDTAKP IS NOT NULL OR _WIT_MEDTAKT IS NOT NULL) AND _ADSL IS NOT NULL)
+- id: vs_medtak_rows
+  dataset: VS
+  derivations:
+    STUDYID: VS.STUDYID
+    USUBJID: VS.USUBJID
+    _DOMAIN: '''VS'''
+    _DTC: VS.VSDTC
+    _FADY: null
+    _VSDY: VS.VSDY
+    _FATPTREF: null
+    _VSTPTREF: VS.VSTPTREF
+    _FATPT: null
+    _VSTPT: VS.VSTPT
+    _FAOBJ: null
+    _FATEST: null
+    _FATESTCD: null
+    _FAORRES: null
+    _FASTRESC: null
+    _FASTRESN: null
+    _FASTAT: null
+    _FASCAT: null
+    _FACAT: null
+    _FAEVAL: "''"
+    _FATEST_UP:
+      str_case:
+        source: _FATEST
+        to: upper
+    _FAORRES_UP:
+      str_case:
+        source: _FAORRES
+        to: upper
+    _FASEQ: null
+    _VSTESTCD: '''MEDTAK'''
+    _VSCAT: VS.VSCAT
+    _VSSCAT: VS.VSSCAT
+    _VSSTRESC: VS.VSSTRESC
+    _VSORRESU: VS.VSORRESU
+    _VSSTAT: VS.VSSTAT
+    _VSTPTNUM: VS.VSTPTNUM
+    _VSSEQ: VS.VSSEQ
+    _STRESN_NUM:
+      value: VS.VSSTRESN
+      unconvertible: null
+    _ORRES_NUM:
+      value: VS.VSORRES
+      unconvertible: null
+    _MAAEFL: null
+    _MEDTAK: SUPP_P_VS.MEDTAK
+    _MEDTAKP: SUPP_P_VS.MEDTAKP
+    _MEDTAKT: SUPP_P_VS.MEDTAKT
+    _PCD_E: null
+    _PARAMCD: '''MEDTAK'''
+    _PARAM:
+      case:
+      - when: (_PARAMCD = 'LYMPH')
+        then: '''Underarm Gland Swelling or Tenderness'''
+      - when: (_PARAMCD = 'PAIN')
+        then: '''Pain'''
+      - when: (_PARAMCD = 'ERYTHDIA')
+        then: '''Erythema Longest Diameter (mm)'''
+      - when: (_PARAMCD = 'SWELLDIA')
+        then: '''Swelling Longest Diameter (mm)'''
+      - when: (_PARAMCD = 'HEADACHE')
+        then: '''Headache'''
+      - when: (_PARAMCD = 'FATIGUE')
+        then: '''Fatigue'''
+      - when: (_PARAMCD = 'MYALGIA')
+        then: '''Myalgia'''
+      - when: (_PARAMCD = 'ARTHRALG')
+        then: '''Arthralgia'''
+      - when: (_PARAMCD = 'NAUSEA')
+        then: '''Nausea/Vomiting'''
+      - when: (_PARAMCD = 'CHILLS')
+        then: '''Chills'''
+      - when: (_PARAMCD = 'MEDATTEN')
+        then: '''Receive Medical Attention?'''
+      - when: (_PARAMCD = 'FEVER')
+        then: '''Fever (C)'''
+      - when: (_PARAMCD = 'MEDTAKP')
+        then: '''Prevent Pain or Fever from Occurring'''
+      - when: (_PARAMCD = 'MEDTAKT')
+        then: '''Treat Pain or Fever already Occurred'''
+      - when: (_PARAMCD = 'MEDTAK')
+        then: '''Medication Taken Today for Pain or Fever'''
+      - otherwise: _FAOBJ
+    _PTREF:
+      case:
+      - when: (_DOMAIN = 'FA')
+        then: _FATPTREF
+      - otherwise: _VSTPTREF
+    _PTREF_NB:
+      str_replace:
+        source: _PTREF
+        pattern: ' '
+        replacement: ''
+    _ATPTREF:
+      case:
+      - when: (_PTREF_NB = 'DOSE1')
+        then: '''Vaccination 1'''
+      - when: (_PTREF_NB = 'DOSE2')
+        then: '''Vaccination 2'''
+      - otherwise: null
+    _ATPT:
+      case:
+      - when: (_DOMAIN = 'FA' AND _FATPT = 'DAY 1' AND _FAEVAL = 'INVESTIGATOR')
+        then: '''DAY 1, AFTER VACCINATION (AT HOME)'''
+      - when: (_DOMAIN = 'VS')
+        then: _VSTPT
+      - otherwise: _FATPT
+    _ATPTGR1_TOK:
+      str_extract:
+        source: _ATPT
+        pattern: '^([^,]*)'
+        group: 1
+        no_match: ''
+    _ATPTGR1:
+      case:
+      - when: (_ATPTGR1_TOK = 'DAY 1')
+        then: '''DAY 1'''
+      - otherwise: _ATPT
+    _PARCAT1:
+      case:
+      - when: (_DOMAIN = 'FA' AND _FASCAT = 'ADMINISTRATION SITE')
+        then: '''LOCAL'''
+      - when: (_DOMAIN = 'FA')
+        then: _FASCAT
+      - otherwise: _VSSCAT
+    _PARCAT1N:
+      case:
+      - when: (_PARCAT1 = 'LOCAL')
+        then: 1
+      - when: (_PARCAT1 = 'SYSTEMIC')
+        then: 2
+      - otherwise: null
+    _AVAL_NUM: null
+    _AVALC: '''Y'''
+    _AVALC_UP:
+      str_case:
+        source: _AVALC
+        to: upper
+    _ATOXGRN:
+      case:
+      - when: (_PARAMCD IN ('ERYTHDIA', 'SWELLDIA') AND ((_AVAL_NUM >= 25 AND _AVAL_NUM <= 50) OR (_FASTRESC IS NOT NULL AND str_contains(_FASTRESC, 'GRADE 1'))))
+        then: 1
+      - when: (_PARAMCD IN ('ERYTHDIA', 'SWELLDIA') AND ((_AVAL_NUM > 50 AND _AVAL_NUM <= 100) OR (_FASTRESC IS NOT NULL AND str_contains(_FASTRESC, 'GRADE 2'))))
+        then: 2
+      - when: (_PARAMCD IN ('ERYTHDIA', 'SWELLDIA') AND (_AVAL_NUM > 100 OR (_FASTRESC IS NOT NULL AND str_contains(_FASTRESC, 'GRADE 3'))))
+        then: 3
+      - when: (_PARAMCD IN ('ERYTHDIA', 'SWELLDIA') AND (_FASTRESC IS NOT NULL AND str_contains(_FASTRESC, 'GRADE 4')))
+        then: 4
+      - when: (_PARAMCD = 'FEVER' AND ((_AVAL_NUM >= 38 AND _AVAL_NUM <= 38.4) OR (_FASTRESC IS NOT NULL AND str_contains(_FASTRESC, 'GRADE 1'))))
+        then: 1
+      - when: (_PARAMCD = 'FEVER' AND ((_AVAL_NUM > 38.4 AND _AVAL_NUM <= 38.9) OR (_FASTRESC IS NOT NULL AND str_contains(_FASTRESC, 'GRADE 2'))))
+        then: 2
+      - when: (_PARAMCD = 'FEVER' AND ((_AVAL_NUM > 38.9 AND _AVAL_NUM <= 40) OR (_FASTRESC IS NOT NULL AND str_contains(_FASTRESC, 'GRADE 3'))))
+        then: 3
+      - when: (_PARAMCD = 'FEVER' AND (_AVAL_NUM > 40 OR (_FASTRESC IS NOT NULL AND str_contains(_FASTRESC, 'GRADE 4'))))
+        then: 4
+      - when: (_PARAMCD IN ('PAIN', 'LYMPH', 'HEADACHE') AND (_AVALC_UP = 'DOES NOT INTERFERE WITH ACTIVITY' OR _AVALC_UP = 'NO INTERFERENCE WITH ACTIVITY' OR (_FASTRESC IS NOT NULL AND str_contains(_FASTRESC, 'GRADE 1'))))
+        then: 1
+      - when: (_PARAMCD IN ('PAIN', 'LYMPH', 'HEADACHE') AND ((_AVALC_UP IS NOT NULL AND str_contains(_AVALC_UP, 'REPEATED')) OR (_FASTRESC IS NOT NULL AND str_contains(_FASTRESC, 'GRADE 2'))))
+        then: 2
+      - when: (_PARAMCD IN ('PAIN', 'LYMPH', 'HEADACHE') AND (_AVALC_UP = 'ANY USE OF PRESCRIPTION RELIEVER OR PREVENTS DAILY ACTIVITY' OR _AVALC_UP = 'ANY USE OF PRESCRIPTION PAIN RELIEVER OR PREVENTS DAILY ACTIVITY' OR (_FASTRESC IS NOT NULL AND str_contains(_FASTRESC, 'GRADE 3'))))
+        then: 3
+      - when: (_PARAMCD IN ('PAIN', 'LYMPH', 'HEADACHE') AND (_FASTRESC IS NOT NULL AND str_contains(_FASTRESC, 'GRADE 4')))
+        then: 4
+      - when: (_PARAMCD IN ('FATIGUE', 'MYALGIA', 'ARTHRALG') AND (_AVALC_UP = 'NO INTERFERENCE WITH ACTIVITY' OR (_FASTRESC IS NOT NULL AND str_contains(_FASTRESC, 'GRADE 1'))))
+        then: 1
+      - when: (_PARAMCD IN ('FATIGUE', 'MYALGIA', 'ARTHRALG') AND (_AVALC_UP = 'SOME INTERFERENCE WITH ACTIVITY' OR (_FASTRESC IS NOT NULL AND str_contains(_FASTRESC, 'GRADE 2'))))
+        then: 2
+      - when: (_PARAMCD IN ('FATIGUE', 'MYALGIA', 'ARTHRALG') AND (_AVALC_UP = 'SIGNIFICANT; PREVENTS DAILY ACTIVITY' OR (_FASTRESC IS NOT NULL AND str_contains(_FASTRESC, 'GRADE 3'))))
+        then: 3
+      - when: (_PARAMCD IN ('FATIGUE', 'MYALGIA', 'ARTHRALG') AND (_FASTRESC IS NOT NULL AND str_contains(_FASTRESC, 'GRADE 4')))
+        then: 4
+      - when: (_PARAMCD = 'NAUSEA' AND (_AVALC_UP = 'NO INTERFERENCE WITH ACTIVITY OR 1-2 EPISODES/24 HOURS' OR (_FASTRESC IS NOT NULL AND str_contains(_FASTRESC, 'GRADE 1'))))
+        then: 1
+      - when: (_PARAMCD = 'NAUSEA' AND (_AVALC_UP = 'SOME INTERFERENCE WITH ACTIVITY OR >2 EPISODES/24 HOURS' OR (_FASTRESC IS NOT NULL AND str_contains(_FASTRESC, 'GRADE 2'))))
+        then: 2
+      - when: (_PARAMCD = 'NAUSEA' AND (_AVALC_UP = 'PREVENTS DAILY ACTIVITY, REQUIRES OUTPATIENT IV HYDRATION' OR (_FASTRESC IS NOT NULL AND str_contains(_FASTRESC, 'GRADE 3'))))
+        then: 3
+      - when: (_PARAMCD = 'NAUSEA' AND (_FASTRESC IS NOT NULL AND str_contains(_FASTRESC, 'GRADE 4')))
+        then: 4
+      - when: (_PARAMCD = 'CHILLS' AND (_AVALC_UP = 'NO INTERFERENCE WITH ACTIVITY' OR (_FASTRESC IS NOT NULL AND str_contains(_FASTRESC, 'GRADE 1'))))
+        then: 1
+      - when: (_PARAMCD = 'CHILLS' AND (_AVALC_UP = 'SOME INTERFERENCE WITH ACTIVITY NOT REQUIRING MEDICAL ATTENTION' OR (_FASTRESC IS NOT NULL AND str_contains(_FASTRESC, 'GRADE 2'))))
+        then: 2
+      - when: (_PARAMCD = 'CHILLS' AND (_AVALC_UP = 'PREVENTS DAILY ACTIVITY AND REQUIRES MEDICAL ATTENTION' OR (_FASTRESC IS NOT NULL AND str_contains(_FASTRESC, 'GRADE 3'))))
+        then: 3
+      - when: (_PARAMCD = 'CHILLS' AND (_FASTRESC IS NOT NULL AND str_contains(_FASTRESC, 'GRADE 4')))
+        then: 4
+      - otherwise: null
+    _ATOXGR:
+      case:
+      - when: (_ATOXGRN = 1)
+        then: '''Grade 1'''
+      - when: (_ATOXGRN = 2)
+        then: '''Grade 2'''
+      - when: (_ATOXGRN = 3)
+        then: '''Grade 3'''
+      - when: (_ATOXGRN = 4)
+        then: '''Grade 4'''
+      - otherwise: "''"
+    _ANL01FL:
+      case:
+      - when: (_PARAMCD IN ('PAIN', 'ERYTHDIA', 'SWELLDIA', 'LYMPH'))
+        then: '''Y'''
+      - otherwise: "''"
+    _FAEVAL_NUM:
+      case:
+      - when: (_FAEVAL = 'STUDY SUBJECT')
+        then: 1
+      - when: ((_FAEVAL IS NULL OR _FAEVAL IN ('')))
+        then: 2
+      - when: (_FAEVAL = 'INVESTIGATOR')
+        then: 3
+      - otherwise: null
+    _AGFL:
+      case:
+      - when: (_ATOXGRN IS NOT NULL)
+        then: 1
+      - otherwise: null
+    _K_FAAE_FA: null
+    _K_FAAE_VS: null
+    _K_VS_VS: null
+    _K_VS_FAAE: null
+    _WIT_FAAE: K_WIT_FAAE._HIT
+    _WIT_TEMP: K_WIT_TEMP._HIT
+    _WIT_MEDTAK: K_WIT_MEDTAK._HIT
+    _WIT_MEDTAKP: K_WIT_MEDTAKP._HIT
+    _WIT_MEDTAKT: K_WIT_MEDTAKT._HIT
+  filter: (_MEDTAK IS NOT NULL AND str_contains(_MEDTAK, '^Y') AND NOT(_ATPTREF = 'Vaccination 2' AND _DOSE2FL = 'N') AND (_WIT_FAAE IS NOT NULL OR _WIT_TEMP IS NOT NULL OR _WIT_MEDTAK IS NOT NULL OR _WIT_MEDTAKP IS NOT NULL OR _WIT_MEDTAKT IS NOT NULL) AND _ADSL IS NOT NULL)
+- id: vs_medtakp_rows
+  dataset: VS
+  derivations:
+    STUDYID: VS.STUDYID
+    USUBJID: VS.USUBJID
+    _DOMAIN: '''VS'''
+    _DTC: VS.VSDTC
+    _FADY: null
+    _VSDY: VS.VSDY
+    _FATPTREF: null
+    _VSTPTREF: VS.VSTPTREF
+    _FATPT: null
+    _VSTPT: VS.VSTPT
+    _FAOBJ: null
+    _FATEST: null
+    _FATESTCD: null
+    _FAORRES: null
+    _FASTRESC: null
+    _FASTRESN: null
+    _FASTAT: null
+    _FASCAT: null
+    _FACAT: null
+    _FAEVAL: "''"
+    _FATEST_UP:
+      str_case:
+        source: _FATEST
+        to: upper
+    _FAORRES_UP:
+      str_case:
+        source: _FAORRES
+        to: upper
+    _FASEQ: null
+    _VSTESTCD: '''MEDTAKP'''
+    _VSCAT: VS.VSCAT
+    _VSSCAT: VS.VSSCAT
+    _VSSTRESC: VS.VSSTRESC
+    _VSORRESU: VS.VSORRESU
+    _VSSTAT: VS.VSSTAT
+    _VSTPTNUM: VS.VSTPTNUM
+    _VSSEQ: VS.VSSEQ
+    _STRESN_NUM:
+      value: VS.VSSTRESN
+      unconvertible: null
+    _ORRES_NUM:
+      value: VS.VSORRES
+      unconvertible: null
+    _MAAEFL: null
+    _MEDTAK: SUPP_P_VS.MEDTAK
+    _MEDTAKP: SUPP_P_VS.MEDTAKP
+    _MEDTAKT: SUPP_P_VS.MEDTAKT
+    _PCD_E: null
+    _PARAMCD: '''MEDTAKP'''
+    _PARAM:
+      case:
+      - when: (_PARAMCD = 'LYMPH')
+        then: '''Underarm Gland Swelling or Tenderness'''
+      - when: (_PARAMCD = 'PAIN')
+        then: '''Pain'''
+      - when: (_PARAMCD = 'ERYTHDIA')
+        then: '''Erythema Longest Diameter (mm)'''
+      - when: (_PARAMCD = 'SWELLDIA')
+        then: '''Swelling Longest Diameter (mm)'''
+      - when: (_PARAMCD = 'HEADACHE')
+        then: '''Headache'''
+      - when: (_PARAMCD = 'FATIGUE')
+        then: '''Fatigue'''
+      - when: (_PARAMCD = 'MYALGIA')
+        then: '''Myalgia'''
+      - when: (_PARAMCD = 'ARTHRALG')
+        then: '''Arthralgia'''
+      - when: (_PARAMCD = 'NAUSEA')
+        then: '''Nausea/Vomiting'''
+      - when: (_PARAMCD = 'CHILLS')
+        then: '''Chills'''
+      - when: (_PARAMCD = 'MEDATTEN')
+        then: '''Receive Medical Attention?'''
+      - when: (_PARAMCD = 'FEVER')
+        then: '''Fever (C)'''
+      - when: (_PARAMCD = 'MEDTAKP')
+        then: '''Prevent Pain or Fever from Occurring'''
+      - when: (_PARAMCD = 'MEDTAKT')
+        then: '''Treat Pain or Fever already Occurred'''
+      - when: (_PARAMCD = 'MEDTAK')
+        then: '''Medication Taken Today for Pain or Fever'''
+      - otherwise: _FAOBJ
+    _PTREF:
+      case:
+      - when: (_DOMAIN = 'FA')
+        then: _FATPTREF
+      - otherwise: _VSTPTREF
+    _PTREF_NB:
+      str_replace:
+        source: _PTREF
+        pattern: ' '
+        replacement: ''
+    _ATPTREF:
+      case:
+      - when: (_PTREF_NB = 'DOSE1')
+        then: '''Vaccination 1'''
+      - when: (_PTREF_NB = 'DOSE2')
+        then: '''Vaccination 2'''
+      - otherwise: null
+    _ATPT:
+      case:
+      - when: (_DOMAIN = 'FA' AND _FATPT = 'DAY 1' AND _FAEVAL = 'INVESTIGATOR')
+        then: '''DAY 1, AFTER VACCINATION (AT HOME)'''
+      - when: (_DOMAIN = 'VS')
+        then: _VSTPT
+      - otherwise: _FATPT
+    _ATPTGR1_TOK:
+      str_extract:
+        source: _ATPT
+        pattern: '^([^,]*)'
+        group: 1
+        no_match: ''
+    _ATPTGR1:
+      case:
+      - when: (_ATPTGR1_TOK = 'DAY 1')
+        then: '''DAY 1'''
+      - otherwise: _ATPT
+    _PARCAT1:
+      case:
+      - when: (_DOMAIN = 'FA' AND _FASCAT = 'ADMINISTRATION SITE')
+        then: '''LOCAL'''
+      - when: (_DOMAIN = 'FA')
+        then: _FASCAT
+      - otherwise: _VSSCAT
+    _PARCAT1N:
+      case:
+      - when: (_PARCAT1 = 'LOCAL')
+        then: 1
+      - when: (_PARCAT1 = 'SYSTEMIC')
+        then: 2
+      - otherwise: null
+    _AVAL_NUM: null
+    _AVALC: '''Y'''
+    _AVALC_UP:
+      str_case:
+        source: _AVALC
+        to: upper
+    _ATOXGRN:
+      case:
+      - when: (_PARAMCD IN ('ERYTHDIA', 'SWELLDIA') AND ((_AVAL_NUM >= 25 AND _AVAL_NUM <= 50) OR (_FASTRESC IS NOT NULL AND str_contains(_FASTRESC, 'GRADE 1'))))
+        then: 1
+      - when: (_PARAMCD IN ('ERYTHDIA', 'SWELLDIA') AND ((_AVAL_NUM > 50 AND _AVAL_NUM <= 100) OR (_FASTRESC IS NOT NULL AND str_contains(_FASTRESC, 'GRADE 2'))))
+        then: 2
+      - when: (_PARAMCD IN ('ERYTHDIA', 'SWELLDIA') AND (_AVAL_NUM > 100 OR (_FASTRESC IS NOT NULL AND str_contains(_FASTRESC, 'GRADE 3'))))
+        then: 3
+      - when: (_PARAMCD IN ('ERYTHDIA', 'SWELLDIA') AND (_FASTRESC IS NOT NULL AND str_contains(_FASTRESC, 'GRADE 4')))
+        then: 4
+      - when: (_PARAMCD = 'FEVER' AND ((_AVAL_NUM >= 38 AND _AVAL_NUM <= 38.4) OR (_FASTRESC IS NOT NULL AND str_contains(_FASTRESC, 'GRADE 1'))))
+        then: 1
+      - when: (_PARAMCD = 'FEVER' AND ((_AVAL_NUM > 38.4 AND _AVAL_NUM <= 38.9) OR (_FASTRESC IS NOT NULL AND str_contains(_FASTRESC, 'GRADE 2'))))
+        then: 2
+      - when: (_PARAMCD = 'FEVER' AND ((_AVAL_NUM > 38.9 AND _AVAL_NUM <= 40) OR (_FASTRESC IS NOT NULL AND str_contains(_FASTRESC, 'GRADE 3'))))
+        then: 3
+      - when: (_PARAMCD = 'FEVER' AND (_AVAL_NUM > 40 OR (_FASTRESC IS NOT NULL AND str_contains(_FASTRESC, 'GRADE 4'))))
+        then: 4
+      - when: (_PARAMCD IN ('PAIN', 'LYMPH', 'HEADACHE') AND (_AVALC_UP = 'DOES NOT INTERFERE WITH ACTIVITY' OR _AVALC_UP = 'NO INTERFERENCE WITH ACTIVITY' OR (_FASTRESC IS NOT NULL AND str_contains(_FASTRESC, 'GRADE 1'))))
+        then: 1
+      - when: (_PARAMCD IN ('PAIN', 'LYMPH', 'HEADACHE') AND ((_AVALC_UP IS NOT NULL AND str_contains(_AVALC_UP, 'REPEATED')) OR (_FASTRESC IS NOT NULL AND str_contains(_FASTRESC, 'GRADE 2'))))
+        then: 2
+      - when: (_PARAMCD IN ('PAIN', 'LYMPH', 'HEADACHE') AND (_AVALC_UP = 'ANY USE OF PRESCRIPTION RELIEVER OR PREVENTS DAILY ACTIVITY' OR _AVALC_UP = 'ANY USE OF PRESCRIPTION PAIN RELIEVER OR PREVENTS DAILY ACTIVITY' OR (_FASTRESC IS NOT NULL AND str_contains(_FASTRESC, 'GRADE 3'))))
+        then: 3
+      - when: (_PARAMCD IN ('PAIN', 'LYMPH', 'HEADACHE') AND (_FASTRESC IS NOT NULL AND str_contains(_FASTRESC, 'GRADE 4')))
+        then: 4
+      - when: (_PARAMCD IN ('FATIGUE', 'MYALGIA', 'ARTHRALG') AND (_AVALC_UP = 'NO INTERFERENCE WITH ACTIVITY' OR (_FASTRESC IS NOT NULL AND str_contains(_FASTRESC, 'GRADE 1'))))
+        then: 1
+      - when: (_PARAMCD IN ('FATIGUE', 'MYALGIA', 'ARTHRALG') AND (_AVALC_UP = 'SOME INTERFERENCE WITH ACTIVITY' OR (_FASTRESC IS NOT NULL AND str_contains(_FASTRESC, 'GRADE 2'))))
+        then: 2
+      - when: (_PARAMCD IN ('FATIGUE', 'MYALGIA', 'ARTHRALG') AND (_AVALC_UP = 'SIGNIFICANT; PREVENTS DAILY ACTIVITY' OR (_FASTRESC IS NOT NULL AND str_contains(_FASTRESC, 'GRADE 3'))))
+        then: 3
+      - when: (_PARAMCD IN ('FATIGUE', 'MYALGIA', 'ARTHRALG') AND (_FASTRESC IS NOT NULL AND str_contains(_FASTRESC, 'GRADE 4')))
+        then: 4
+      - when: (_PARAMCD = 'NAUSEA' AND (_AVALC_UP = 'NO INTERFERENCE WITH ACTIVITY OR 1-2 EPISODES/24 HOURS' OR (_FASTRESC IS NOT NULL AND str_contains(_FASTRESC, 'GRADE 1'))))
+        then: 1
+      - when: (_PARAMCD = 'NAUSEA' AND (_AVALC_UP = 'SOME INTERFERENCE WITH ACTIVITY OR >2 EPISODES/24 HOURS' OR (_FASTRESC IS NOT NULL AND str_contains(_FASTRESC, 'GRADE 2'))))
+        then: 2
+      - when: (_PARAMCD = 'NAUSEA' AND (_AVALC_UP = 'PREVENTS DAILY ACTIVITY, REQUIRES OUTPATIENT IV HYDRATION' OR (_FASTRESC IS NOT NULL AND str_contains(_FASTRESC, 'GRADE 3'))))
+        then: 3
+      - when: (_PARAMCD = 'NAUSEA' AND (_FASTRESC IS NOT NULL AND str_contains(_FASTRESC, 'GRADE 4')))
+        then: 4
+      - when: (_PARAMCD = 'CHILLS' AND (_AVALC_UP = 'NO INTERFERENCE WITH ACTIVITY' OR (_FASTRESC IS NOT NULL AND str_contains(_FASTRESC, 'GRADE 1'))))
+        then: 1
+      - when: (_PARAMCD = 'CHILLS' AND (_AVALC_UP = 'SOME INTERFERENCE WITH ACTIVITY NOT REQUIRING MEDICAL ATTENTION' OR (_FASTRESC IS NOT NULL AND str_contains(_FASTRESC, 'GRADE 2'))))
+        then: 2
+      - when: (_PARAMCD = 'CHILLS' AND (_AVALC_UP = 'PREVENTS DAILY ACTIVITY AND REQUIRES MEDICAL ATTENTION' OR (_FASTRESC IS NOT NULL AND str_contains(_FASTRESC, 'GRADE 3'))))
+        then: 3
+      - when: (_PARAMCD = 'CHILLS' AND (_FASTRESC IS NOT NULL AND str_contains(_FASTRESC, 'GRADE 4')))
+        then: 4
+      - otherwise: null
+    _ATOXGR:
+      case:
+      - when: (_ATOXGRN = 1)
+        then: '''Grade 1'''
+      - when: (_ATOXGRN = 2)
+        then: '''Grade 2'''
+      - when: (_ATOXGRN = 3)
+        then: '''Grade 3'''
+      - when: (_ATOXGRN = 4)
+        then: '''Grade 4'''
+      - otherwise: "''"
+    _ANL01FL:
+      case:
+      - when: (_PARAMCD IN ('PAIN', 'ERYTHDIA', 'SWELLDIA', 'LYMPH'))
+        then: '''Y'''
+      - otherwise: "''"
+    _FAEVAL_NUM:
+      case:
+      - when: (_FAEVAL = 'STUDY SUBJECT')
+        then: 1
+      - when: ((_FAEVAL IS NULL OR _FAEVAL IN ('')))
+        then: 2
+      - when: (_FAEVAL = 'INVESTIGATOR')
+        then: 3
+      - otherwise: null
+    _AGFL:
+      case:
+      - when: (_ATOXGRN IS NOT NULL)
+        then: 1
+      - otherwise: null
+    _K_FAAE_FA: null
+    _K_FAAE_VS: null
+    _K_VS_VS: null
+    _K_VS_FAAE: null
+    _WIT_FAAE: K_WIT_FAAE._HIT
+    _WIT_TEMP: K_WIT_TEMP._HIT
+    _WIT_MEDTAK: K_WIT_MEDTAK._HIT
+    _WIT_MEDTAKP: K_WIT_MEDTAKP._HIT
+    _WIT_MEDTAKT: K_WIT_MEDTAKT._HIT
+  filter: (_MEDTAKP IS NOT NULL AND str_contains(_MEDTAKP, '^Y') AND NOT(_ATPTREF = 'Vaccination 2' AND _DOSE2FL = 'N') AND (_WIT_FAAE IS NOT NULL OR _WIT_TEMP IS NOT NULL OR _WIT_MEDTAK IS NOT NULL OR _WIT_MEDTAKP IS NOT NULL OR _WIT_MEDTAKT IS NOT NULL) AND _ADSL IS NOT NULL)
+- id: vs_medtakt_rows
+  dataset: VS
+  derivations:
+    STUDYID: VS.STUDYID
+    USUBJID: VS.USUBJID
+    _DOMAIN: '''VS'''
+    _DTC: VS.VSDTC
+    _FADY: null
+    _VSDY: VS.VSDY
+    _FATPTREF: null
+    _VSTPTREF: VS.VSTPTREF
+    _FATPT: null
+    _VSTPT: VS.VSTPT
+    _FAOBJ: null
+    _FATEST: null
+    _FATESTCD: null
+    _FAORRES: null
+    _FASTRESC: null
+    _FASTRESN: null
+    _FASTAT: null
+    _FASCAT: null
+    _FACAT: null
+    _FAEVAL: "''"
+    _FATEST_UP:
+      str_case:
+        source: _FATEST
+        to: upper
+    _FAORRES_UP:
+      str_case:
+        source: _FAORRES
+        to: upper
+    _FASEQ: null
+    _VSTESTCD: '''MEDTAKT'''
+    _VSCAT: VS.VSCAT
+    _VSSCAT: VS.VSSCAT
+    _VSSTRESC: VS.VSSTRESC
+    _VSORRESU: VS.VSORRESU
+    _VSSTAT: VS.VSSTAT
+    _VSTPTNUM: VS.VSTPTNUM
+    _VSSEQ: VS.VSSEQ
+    _STRESN_NUM:
+      value: VS.VSSTRESN
+      unconvertible: null
+    _ORRES_NUM:
+      value: VS.VSORRES
+      unconvertible: null
+    _MAAEFL: null
+    _MEDTAK: SUPP_P_VS.MEDTAK
+    _MEDTAKP: SUPP_P_VS.MEDTAKP
+    _MEDTAKT: SUPP_P_VS.MEDTAKT
+    _PCD_E: null
+    _PARAMCD: '''MEDTAKT'''
+    _PARAM:
+      case:
+      - when: (_PARAMCD = 'LYMPH')
+        then: '''Underarm Gland Swelling or Tenderness'''
+      - when: (_PARAMCD = 'PAIN')
+        then: '''Pain'''
+      - when: (_PARAMCD = 'ERYTHDIA')
+        then: '''Erythema Longest Diameter (mm)'''
+      - when: (_PARAMCD = 'SWELLDIA')
+        then: '''Swelling Longest Diameter (mm)'''
+      - when: (_PARAMCD = 'HEADACHE')
+        then: '''Headache'''
+      - when: (_PARAMCD = 'FATIGUE')
+        then: '''Fatigue'''
+      - when: (_PARAMCD = 'MYALGIA')
+        then: '''Myalgia'''
+      - when: (_PARAMCD = 'ARTHRALG')
+        then: '''Arthralgia'''
+      - when: (_PARAMCD = 'NAUSEA')
+        then: '''Nausea/Vomiting'''
+      - when: (_PARAMCD = 'CHILLS')
+        then: '''Chills'''
+      - when: (_PARAMCD = 'MEDATTEN')
+        then: '''Receive Medical Attention?'''
+      - when: (_PARAMCD = 'FEVER')
+        then: '''Fever (C)'''
+      - when: (_PARAMCD = 'MEDTAKP')
+        then: '''Prevent Pain or Fever from Occurring'''
+      - when: (_PARAMCD = 'MEDTAKT')
+        then: '''Treat Pain or Fever already Occurred'''
+      - when: (_PARAMCD = 'MEDTAK')
+        then: '''Medication Taken Today for Pain or Fever'''
+      - otherwise: _FAOBJ
+    _PTREF:
+      case:
+      - when: (_DOMAIN = 'FA')
+        then: _FATPTREF
+      - otherwise: _VSTPTREF
+    _PTREF_NB:
+      str_replace:
+        source: _PTREF
+        pattern: ' '
+        replacement: ''
+    _ATPTREF:
+      case:
+      - when: (_PTREF_NB = 'DOSE1')
+        then: '''Vaccination 1'''
+      - when: (_PTREF_NB = 'DOSE2')
+        then: '''Vaccination 2'''
+      - otherwise: null
+    _ATPT:
+      case:
+      - when: (_DOMAIN = 'FA' AND _FATPT = 'DAY 1' AND _FAEVAL = 'INVESTIGATOR')
+        then: '''DAY 1, AFTER VACCINATION (AT HOME)'''
+      - when: (_DOMAIN = 'VS')
+        then: _VSTPT
+      - otherwise: _FATPT
+    _ATPTGR1_TOK:
+      str_extract:
+        source: _ATPT
+        pattern: '^([^,]*)'
+        group: 1
+        no_match: ''
+    _ATPTGR1:
+      case:
+      - when: (_ATPTGR1_TOK = 'DAY 1')
+        then: '''DAY 1'''
+      - otherwise: _ATPT
+    _PARCAT1:
+      case:
+      - when: (_DOMAIN = 'FA' AND _FASCAT = 'ADMINISTRATION SITE')
+        then: '''LOCAL'''
+      - when: (_DOMAIN = 'FA')
+        then: _FASCAT
+      - otherwise: _VSSCAT
+    _PARCAT1N:
+      case:
+      - when: (_PARCAT1 = 'LOCAL')
+        then: 1
+      - when: (_PARCAT1 = 'SYSTEMIC')
+        then: 2
+      - otherwise: null
+    _AVAL_NUM: null
+    _AVALC: '''Y'''
+    _AVALC_UP:
+      str_case:
+        source: _AVALC
+        to: upper
+    _ATOXGRN:
+      case:
+      - when: (_PARAMCD IN ('ERYTHDIA', 'SWELLDIA') AND ((_AVAL_NUM >= 25 AND _AVAL_NUM <= 50) OR (_FASTRESC IS NOT NULL AND str_contains(_FASTRESC, 'GRADE 1'))))
+        then: 1
+      - when: (_PARAMCD IN ('ERYTHDIA', 'SWELLDIA') AND ((_AVAL_NUM > 50 AND _AVAL_NUM <= 100) OR (_FASTRESC IS NOT NULL AND str_contains(_FASTRESC, 'GRADE 2'))))
+        then: 2
+      - when: (_PARAMCD IN ('ERYTHDIA', 'SWELLDIA') AND (_AVAL_NUM > 100 OR (_FASTRESC IS NOT NULL AND str_contains(_FASTRESC, 'GRADE 3'))))
+        then: 3
+      - when: (_PARAMCD IN ('ERYTHDIA', 'SWELLDIA') AND (_FASTRESC IS NOT NULL AND str_contains(_FASTRESC, 'GRADE 4')))
+        then: 4
+      - when: (_PARAMCD = 'FEVER' AND ((_AVAL_NUM >= 38 AND _AVAL_NUM <= 38.4) OR (_FASTRESC IS NOT NULL AND str_contains(_FASTRESC, 'GRADE 1'))))
+        then: 1
+      - when: (_PARAMCD = 'FEVER' AND ((_AVAL_NUM > 38.4 AND _AVAL_NUM <= 38.9) OR (_FASTRESC IS NOT NULL AND str_contains(_FASTRESC, 'GRADE 2'))))
+        then: 2
+      - when: (_PARAMCD = 'FEVER' AND ((_AVAL_NUM > 38.9 AND _AVAL_NUM <= 40) OR (_FASTRESC IS NOT NULL AND str_contains(_FASTRESC, 'GRADE 3'))))
+        then: 3
+      - when: (_PARAMCD = 'FEVER' AND (_AVAL_NUM > 40 OR (_FASTRESC IS NOT NULL AND str_contains(_FASTRESC, 'GRADE 4'))))
+        then: 4
+      - when: (_PARAMCD IN ('PAIN', 'LYMPH', 'HEADACHE') AND (_AVALC_UP = 'DOES NOT INTERFERE WITH ACTIVITY' OR _AVALC_UP = 'NO INTERFERENCE WITH ACTIVITY' OR (_FASTRESC IS NOT NULL AND str_contains(_FASTRESC, 'GRADE 1'))))
+        then: 1
+      - when: (_PARAMCD IN ('PAIN', 'LYMPH', 'HEADACHE') AND ((_AVALC_UP IS NOT NULL AND str_contains(_AVALC_UP, 'REPEATED')) OR (_FASTRESC IS NOT NULL AND str_contains(_FASTRESC, 'GRADE 2'))))
+        then: 2
+      - when: (_PARAMCD IN ('PAIN', 'LYMPH', 'HEADACHE') AND (_AVALC_UP = 'ANY USE OF PRESCRIPTION RELIEVER OR PREVENTS DAILY ACTIVITY' OR _AVALC_UP = 'ANY USE OF PRESCRIPTION PAIN RELIEVER OR PREVENTS DAILY ACTIVITY' OR (_FASTRESC IS NOT NULL AND str_contains(_FASTRESC, 'GRADE 3'))))
+        then: 3
+      - when: (_PARAMCD IN ('PAIN', 'LYMPH', 'HEADACHE') AND (_FASTRESC IS NOT NULL AND str_contains(_FASTRESC, 'GRADE 4')))
+        then: 4
+      - when: (_PARAMCD IN ('FATIGUE', 'MYALGIA', 'ARTHRALG') AND (_AVALC_UP = 'NO INTERFERENCE WITH ACTIVITY' OR (_FASTRESC IS NOT NULL AND str_contains(_FASTRESC, 'GRADE 1'))))
+        then: 1
+      - when: (_PARAMCD IN ('FATIGUE', 'MYALGIA', 'ARTHRALG') AND (_AVALC_UP = 'SOME INTERFERENCE WITH ACTIVITY' OR (_FASTRESC IS NOT NULL AND str_contains(_FASTRESC, 'GRADE 2'))))
+        then: 2
+      - when: (_PARAMCD IN ('FATIGUE', 'MYALGIA', 'ARTHRALG') AND (_AVALC_UP = 'SIGNIFICANT; PREVENTS DAILY ACTIVITY' OR (_FASTRESC IS NOT NULL AND str_contains(_FASTRESC, 'GRADE 3'))))
+        then: 3
+      - when: (_PARAMCD IN ('FATIGUE', 'MYALGIA', 'ARTHRALG') AND (_FASTRESC IS NOT NULL AND str_contains(_FASTRESC, 'GRADE 4')))
+        then: 4
+      - when: (_PARAMCD = 'NAUSEA' AND (_AVALC_UP = 'NO INTERFERENCE WITH ACTIVITY OR 1-2 EPISODES/24 HOURS' OR (_FASTRESC IS NOT NULL AND str_contains(_FASTRESC, 'GRADE 1'))))
+        then: 1
+      - when: (_PARAMCD = 'NAUSEA' AND (_AVALC_UP = 'SOME INTERFERENCE WITH ACTIVITY OR >2 EPISODES/24 HOURS' OR (_FASTRESC IS NOT NULL AND str_contains(_FASTRESC, 'GRADE 2'))))
+        then: 2
+      - when: (_PARAMCD = 'NAUSEA' AND (_AVALC_UP = 'PREVENTS DAILY ACTIVITY, REQUIRES OUTPATIENT IV HYDRATION' OR (_FASTRESC IS NOT NULL AND str_contains(_FASTRESC, 'GRADE 3'))))
+        then: 3
+      - when: (_PARAMCD = 'NAUSEA' AND (_FASTRESC IS NOT NULL AND str_contains(_FASTRESC, 'GRADE 4')))
+        then: 4
+      - when: (_PARAMCD = 'CHILLS' AND (_AVALC_UP = 'NO INTERFERENCE WITH ACTIVITY' OR (_FASTRESC IS NOT NULL AND str_contains(_FASTRESC, 'GRADE 1'))))
+        then: 1
+      - when: (_PARAMCD = 'CHILLS' AND (_AVALC_UP = 'SOME INTERFERENCE WITH ACTIVITY NOT REQUIRING MEDICAL ATTENTION' OR (_FASTRESC IS NOT NULL AND str_contains(_FASTRESC, 'GRADE 2'))))
+        then: 2
+      - when: (_PARAMCD = 'CHILLS' AND (_AVALC_UP = 'PREVENTS DAILY ACTIVITY AND REQUIRES MEDICAL ATTENTION' OR (_FASTRESC IS NOT NULL AND str_contains(_FASTRESC, 'GRADE 3'))))
+        then: 3
+      - when: (_PARAMCD = 'CHILLS' AND (_FASTRESC IS NOT NULL AND str_contains(_FASTRESC, 'GRADE 4')))
+        then: 4
+      - otherwise: null
+    _ATOXGR:
+      case:
+      - when: (_ATOXGRN = 1)
+        then: '''Grade 1'''
+      - when: (_ATOXGRN = 2)
+        then: '''Grade 2'''
+      - when: (_ATOXGRN = 3)
+        then: '''Grade 3'''
+      - when: (_ATOXGRN = 4)
+        then: '''Grade 4'''
+      - otherwise: "''"
+    _ANL01FL:
+      case:
+      - when: (_PARAMCD IN ('PAIN', 'ERYTHDIA', 'SWELLDIA', 'LYMPH'))
+        then: '''Y'''
+      - otherwise: "''"
+    _FAEVAL_NUM:
+      case:
+      - when: (_FAEVAL = 'STUDY SUBJECT')
+        then: 1
+      - when: ((_FAEVAL IS NULL OR _FAEVAL IN ('')))
+        then: 2
+      - when: (_FAEVAL = 'INVESTIGATOR')
+        then: 3
+      - otherwise: null
+    _AGFL:
+      case:
+      - when: (_ATOXGRN IS NOT NULL)
+        then: 1
+      - otherwise: null
+    _K_FAAE_FA: null
+    _K_FAAE_VS: null
+    _K_VS_VS: null
+    _K_VS_FAAE: null
+    _WIT_FAAE: K_WIT_FAAE._HIT
+    _WIT_TEMP: K_WIT_TEMP._HIT
+    _WIT_MEDTAK: K_WIT_MEDTAK._HIT
+    _WIT_MEDTAKP: K_WIT_MEDTAKP._HIT
+    _WIT_MEDTAKT: K_WIT_MEDTAKT._HIT
+  filter: (_MEDTAKT IS NOT NULL AND str_contains(_MEDTAKT, '^Y') AND NOT(_ATPTREF = 'Vaccination 2' AND _DOSE2FL = 'N') AND (_WIT_FAAE IS NOT NULL OR _WIT_TEMP IS NOT NULL OR _WIT_MEDTAK IS NOT NULL OR _WIT_MEDTAKP IS NOT NULL OR _WIT_MEDTAKT IS NOT NULL) AND _ADSL IS NOT NULL)
+intermediates:
+- id: SUPP_P_FACE
+  dataset: SUPPFACE
+  key:
+    STUDYID: STUDYID
+    USUBJID: USUBJID
+    IDVARVAL:
+      str_decimal:
+        source: _FASEQ
+        decimals: 0
+  filter: SUPPFACE.QNAM IN ('MAAEFL') AND SUPPFACE.IDVAR = 'FASEQ'
+  pivot:
+    name: QNAM
+    value: QVAL
+    fields:
+    - MAAEFL
+- id: SUPP_P_FAAE
+  dataset: SUPPFAAE
+  key:
+    STUDYID: STUDYID
+    USUBJID: USUBJID
+    IDVARVAL:
+      str_decimal:
+        source: _FASEQ
+        decimals: 0
+  filter: SUPPFAAE.QNAM IN ('MAAEFL') AND SUPPFAAE.IDVAR = 'FASEQ'
+  pivot:
+    name: QNAM
+    value: QVAL
+    fields:
+    - MAAEFL
+- id: SUPP_P_VS
+  dataset: SUPPVS
+  key:
+    STUDYID: STUDYID
+    USUBJID: USUBJID
+    IDVARVAL:
+      str_decimal:
+        source: _VSSEQ
+        decimals: 0
+  filter: SUPPVS.QNAM IN ('MEDTAK', 'MEDTAKP', 'MEDTAKT') AND SUPPVS.IDVAR = 'VSSEQ'
+  pivot:
+    name: QNAM
+    value: QVAL
+    fields:
+    - MEDTAK
+    - MEDTAKP
+    - MEDTAKT
+- id: K_FAAE_FA
+  dataset: FAAE
+  key:
+    USUBJID: USUBJID
+    _PCD_E: _PCD_E
+    FATPTREF: _FATPTREF
+  filter: NOT((FAAE.FAOBJ IN ('Erythema', 'Swelling') AND FAAE.FATEST = 'Occurrence Indicator' AND FAAE.FAORRES = 'Y') OR (FAAE.FASTAT IS NOT NULL AND FAAE.FASTAT = 'NOT DONE')) AND FAAE.FATPTREF IS NOT NULL AND FAAE.FATPTREF NOT IN ('') AND FAAE.FASTRESC IS NOT NULL AND FAAE.FASTRESC NOT IN ('NONE', '') AND (FAAE.FASTRESC IS NOT NULL AND NOT str_contains(FAAE.FASTRESC, 'GRADE 0'))
+  derivations:
+    _FAOBJ: FAAE.FAOBJ
+    _PCD_E:
+      case:
+      - when: (_FAOBJ = 'Underarm Gland Swelling or Tenderness')
+        then: '''LYMPH'''
+      - when: (_FAOBJ = 'Pain')
+        then: '''PAIN'''
+      - when: (_FAOBJ = 'Erythema')
+        then: '''ERYTHDIA'''
+      - when: (_FAOBJ = 'Swelling')
+        then: '''SWELLDIA'''
+      - when: (_FAOBJ = 'Headache')
+        then: '''HEADACHE'''
+      - when: (_FAOBJ = 'Fatigue')
+        then: '''FATIGUE'''
+      - when: (_FAOBJ = 'Myalgia')
+        then: '''MYALGIA'''
+      - when: (_FAOBJ = 'Arthralgia')
+        then: '''ARTHRALG'''
+      - when: (_FAOBJ = 'Nausea/Vomiting')
+        then: '''NAUSEA'''
+      - when: (_FAOBJ = 'Chills')
+        then: '''CHILLS'''
+      - when: (_FAOBJ = 'Receive Medical Attention?')
+        then: '''MEDATTEN'''
+      - when: (_FAOBJ IN ('Pyrexia', 'Fever'))
+        then: '''FEVER'''
+      - otherwise: null
+    _HIT: 1
+  order_by:
+  - FAAE.FASEQ
+  keep: first
+- id: K_FAAE_VS
+  dataset: VS
+  key:
+    USUBJID: USUBJID
+    _PCD: _PCD_E
+    _FATPTREF: _FATPTREF
+  filter: VS.VSTPTNUM > 7 AND VS.VSCAT = 'REACTOGENICITY' AND (VS.VSSTAT IS NULL OR VS.VSSTAT <> 'NOT DONE') AND VS.VSTPTREF IS NOT NULL AND VS.VSTPTREF NOT IN ('') AND VS.VSTESTCD = 'TEMP'
+  derivations:
+    _PCD: '''FEVER'''
+    _FATPTREF: VS.VSTPTREF
+    _HIT: 1
+  order_by:
+  - VS.VSSEQ
+  keep: first
+- id: K_VS_VS
+  dataset: VS
+  key:
+    USUBJID: USUBJID
+    VSTESTCD: _VSTESTCD
+    VSTPTREF: _VSTPTREF
+  filter: VS.VSTPTNUM > 7 AND VS.VSCAT = 'REACTOGENICITY' AND (VS.VSSTAT IS NULL OR VS.VSSTAT <> 'NOT DONE') AND VS.VSTPTREF IS NOT NULL AND VS.VSTPTREF NOT IN ('')
+  derivations:
+    _HIT: 1
+  order_by:
+  - VS.VSSEQ
+  keep: first
+- id: K_VS_FAAE
+  dataset: FAAE
+  key:
+    USUBJID: USUBJID
+    _VSTESTCD: _VSTESTCD
+    _VSTPTREF: _VSTPTREF
+  filter: NOT((FAAE.FAOBJ IN ('Erythema', 'Swelling') AND FAAE.FATEST = 'Occurrence Indicator' AND FAAE.FAORRES = 'Y') OR (FAAE.FASTAT IS NOT NULL AND FAAE.FASTAT = 'NOT DONE')) AND FAAE.FATPTREF IS NOT NULL AND FAAE.FATPTREF NOT IN ('') AND FAAE.FASTRESC IS NOT NULL AND FAAE.FASTRESC NOT IN ('NONE', '') AND (FAAE.FASTRESC IS NOT NULL AND NOT str_contains(FAAE.FASTRESC, 'GRADE 0')) AND FAAE._PCD_E = 'FEVER'
+  derivations:
+    _FAOBJ: FAAE.FAOBJ
+    _PCD_E:
+      case:
+      - when: (_FAOBJ = 'Underarm Gland Swelling or Tenderness')
+        then: '''LYMPH'''
+      - when: (_FAOBJ = 'Pain')
+        then: '''PAIN'''
+      - when: (_FAOBJ = 'Erythema')
+        then: '''ERYTHDIA'''
+      - when: (_FAOBJ = 'Swelling')
+        then: '''SWELLDIA'''
+      - when: (_FAOBJ = 'Headache')
+        then: '''HEADACHE'''
+      - when: (_FAOBJ = 'Fatigue')
+        then: '''FATIGUE'''
+      - when: (_FAOBJ = 'Myalgia')
+        then: '''MYALGIA'''
+      - when: (_FAOBJ = 'Arthralgia')
+        then: '''ARTHRALG'''
+      - when: (_FAOBJ = 'Nausea/Vomiting')
+        then: '''NAUSEA'''
+      - when: (_FAOBJ = 'Chills')
+        then: '''CHILLS'''
+      - when: (_FAOBJ = 'Receive Medical Attention?')
+        then: '''MEDATTEN'''
+      - when: (_FAOBJ IN ('Pyrexia', 'Fever'))
+        then: '''FEVER'''
+      - otherwise: null
+    _VSTESTCD: '''TEMP'''
+    _VSTPTREF: FAAE.FATPTREF
+    _HIT: 1
+  order_by:
+  - FAAE.FASEQ
+  keep: first
+- id: K_WIT_FAAE
+  dataset: FAAE
+  key:
+    USUBJID: USUBJID
+    _PCD: _PARAMCD
+    _ATPTREF: _ATPTREF
+  filter: NOT((FAAE.FAOBJ IN ('Erythema', 'Swelling') AND FAAE.FATEST = 'Occurrence Indicator' AND FAAE.FAORRES = 'Y') OR (FAAE.FASTAT IS NOT NULL AND FAAE.FASTAT = 'NOT DONE')) AND FAAE.FATPTREF IS NOT NULL AND FAAE.FATPTREF NOT IN ('') AND FAAE.FASTRESC IS NOT NULL AND FAAE.FASTRESC NOT IN ('NONE', '') AND (FAAE.FASTRESC IS NOT NULL AND NOT str_contains(FAAE.FASTRESC, 'GRADE 0')) AND NOT((FAAE.FAOBJ IN ('Erythema', 'Swelling') AND FAAE.FATEST = 'Occurrence Indicator') OR (FAAE.FASTAT IS NOT NULL AND FAAE.FASTAT = 'NOT DONE') OR (FAAE.FACAT IS NULL OR FAAE.FACAT <> 'REACTOGENICITY') OR FAAE.FASTRESC IN ('NONE', '') OR (FAAE.FASTRESC IS NOT NULL AND str_contains(FAAE.FASTRESC, 'GRADE 0')) OR FAAE.FASTRESC IS NULL) AND ((FAAE._PCD IN ('ERYTHDIA', 'SWELLDIA') AND (FAAE.FASTRESN IS NULL OR FAAE.FASTRESN >= 25)) OR (FAAE._PCD = 'FEVER' AND (FAAE.FASTRESN IS NULL OR FAAE.FASTRESN >= 38)) OR (FAAE._PCD NOT IN ('ERYTHDIA', 'SWELLDIA', 'FEVER')) OR FAAE._PCD IS NULL) AND FAAE._ATPTN > 7
+  derivations:
+    _FAOBJ: FAAE.FAOBJ
+    _FATEST: FAAE.FATEST
+    _FATESTCD: FAAE.FATESTCD
+    _FAORRES: FAAE.FAORRES
+    _FASTRESC: FAAE.FASTRESC
+    _FASTRESN: FAAE.FASTRESN
+    _FATEST_UP:
+      str_case:
+        source: _FATEST
+        to: upper
+    _FAORRES_UP:
+      str_case:
+        source: _FAORRES
+        to: upper
+    _VSTESTCD: null
+    _AVAL_NUM: _FASTRESN
+    _AVALC: _FASTRESC
+    _AVALC_UP:
+      str_case:
+        source: _AVALC
+        to: upper
+    _PCD:
+      case:
+      - when: (_VSTESTCD IN ('TEMP', 'VSALL') OR _FAOBJ IN ('Pyrexia', 'Fever'))
+        then: '''FEVER'''
+      - when: (_FAOBJ = 'Underarm Gland Swelling or Tenderness' AND _FATESTCD = 'SEV')
+        then: '''LYMPH'''
+      - when: (_FAOBJ = 'Pain')
+        then: '''PAIN'''
+      - when: (_FAOBJ = 'Nausea/Vomiting' AND _FATESTCD = 'SEV')
+        then: '''NAUSEA'''
+      - when: (_FAOBJ = 'Erythema' AND (_FATEST_UP IS NOT NULL AND str_contains(_FATEST_UP, 'OCCURRENCE')) AND _FAORRES_UP IN ('N', 'NO'))
+        then: '''ERYTHDIA'''
+      - when: (_FAOBJ = 'Swelling' AND (_FATEST_UP IS NOT NULL AND str_contains(_FATEST_UP, 'OCCURRENCE')) AND _FAORRES_UP IN ('N', 'NO'))
+        then: '''SWELLDIA'''
+      - when: (_FAOBJ = 'Erythema' AND (_FATEST_UP IS NOT NULL AND str_contains(_FATEST_UP, 'INTENSITY')))
+        then: '''ERYTHDIA'''
+      - when: (_FAOBJ = 'Swelling' AND (_FATEST_UP IS NOT NULL AND str_contains(_FATEST_UP, 'INTENSITY')))
+        then: '''SWELLDIA'''
+      - when: (_FAOBJ = 'Erythema' AND _FATEST = 'Longest Diameter')
+        then: '''ERYTHDIA'''
+      - when: (_FAOBJ = 'Swelling' AND _FATEST = 'Longest Diameter')
+        then: '''SWELLDIA'''
+      - when: (_FAOBJ = 'Headache')
+        then: '''HEADACHE'''
+      - when: (_FAOBJ = 'Fatigue')
+        then: '''FATIGUE'''
+      - when: (_FAOBJ = 'Myalgia')
+        then: '''MYALGIA'''
+      - when: (_FAOBJ = 'Arthralgia')
+        then: '''ARTHRALG'''
+      - when: (_FAOBJ = 'Chills')
+        then: '''CHILLS'''
+      - when: (_FAOBJ = 'Receive Medical Attention?')
+        then: '''MEDATTEN'''
+      - when: ((_VSTESTCD IS NOT NULL AND str_contains(_VSTESTCD, '^MEDTA')))
+        then: _VSTESTCD
+      - otherwise: null
+    _FATPTREF: FAAE.FATPTREF
+    _VSTPTREF: null
+    _DOMAIN: '''FA'''
+    _PTREF:
+      case:
+      - when: (_DOMAIN = 'FA')
+        then: _FATPTREF
+      - otherwise: _VSTPTREF
+    _PTREF_NB:
+      str_replace:
+        source: _PTREF
+        pattern: ' '
+        replacement: ''
+    _ATPTREF:
+      case:
+      - when: (_PTREF_NB = 'DOSE1')
+        then: '''Vaccination 1'''
+      - when: (_PTREF_NB = 'DOSE2')
+        then: '''Vaccination 2'''
+      - otherwise: null
+    _FATPT: FAAE.FATPT
+    _FAEVAL: FAAE.FAEVAL
+    _VSTPT: null
+    _ATPT:
+      case:
+      - when: (_DOMAIN = 'FA' AND _FATPT = 'DAY 1' AND _FAEVAL = 'INVESTIGATOR')
+        then: '''DAY 1, AFTER VACCINATION (AT HOME)'''
+      - when: (_DOMAIN = 'VS')
+        then: _VSTPT
+      - otherwise: _FATPT
+    _ATPTN:
+      type: int
+      derivation:
+        str_extract:
+          source: _ATPT
+          pattern: 'DAY ([0-9]+)'
+          group: 1
+          no_match: ''
+      unconvertible: null
+    _HIT: 1
+  order_by:
+  - FAAE.FASEQ
+  keep: first
+- id: K_WIT_TEMP
+  dataset: VS
+  key:
+    USUBJID: USUBJID
+    _PCD: _PARAMCD
+    _ATPTREF: _ATPTREF
+  filter: VS.VSTESTCD = 'TEMP' AND VS.VSTPTNUM > 7 AND VS.VSCAT = 'REACTOGENICITY' AND (VS.VSSTAT IS NULL OR VS.VSSTAT <> 'NOT DONE') AND VS.VSTPTREF IS NOT NULL AND VS.VSTPTREF NOT IN ('') AND VS.VSTPTNUM > 7 AND VS._ATPTN > 7 AND (VS._STRESN_NUM IS NULL OR VS._STRESN_NUM >= 38)
+  derivations:
+    _VSTESTCD: VS.VSTESTCD
+    _VSTPTREF: VS.VSTPTREF
+    _VSTPT: VS.VSTPT
+    _STRESN_NUM:
+      type: float
+      derivation: VS.VSSTRESN
+      unconvertible: null
+    _PCD: '''FEVER'''
+    _FATPTREF: null
+    _DOMAIN: '''VS'''
+    _PTREF:
+      case:
+      - when: (_DOMAIN = 'FA')
+        then: _FATPTREF
+      - otherwise: _VSTPTREF
+    _PTREF_NB:
+      str_replace:
+        source: _PTREF
+        pattern: ' '
+        replacement: ''
+    _ATPTREF:
+      case:
+      - when: (_PTREF_NB = 'DOSE1')
+        then: '''Vaccination 1'''
+      - when: (_PTREF_NB = 'DOSE2')
+        then: '''Vaccination 2'''
+      - otherwise: null
+    _FATPT: null
+    _FAEVAL: "''"
+    _ATPT:
+      case:
+      - when: (_DOMAIN = 'FA' AND _FATPT = 'DAY 1' AND _FAEVAL = 'INVESTIGATOR')
+        then: '''DAY 1, AFTER VACCINATION (AT HOME)'''
+      - when: (_DOMAIN = 'VS')
+        then: _VSTPT
+      - otherwise: _FATPT
+    _ATPTN:
+      type: int
+      derivation:
+        str_extract:
+          source: _ATPT
+          pattern: 'DAY ([0-9]+)'
+          group: 1
+          no_match: ''
+      unconvertible: null
+    _HIT: 1
+  order_by:
+  - VS.VSSEQ
+  keep: first
+- id: K_WIT_MEDTAK
+  dataset: VS
+  key:
+    USUBJID: USUBJID
+    _PCD: _PARAMCD
+    _ATPTREF: _ATPTREF
+  filter: VS._MEDTAK = 'Y' AND VS._ATPTREF IS NOT NULL AND VS._ATPTN > 7
+  derivations:
+    _VSSEQ: VS.VSSEQ
+    _MEDTAK: SUPP_P_VS.MEDTAK
+    _VSTPTREF: VS.VSTPTREF
+    _VSTPT: VS.VSTPT
+    _PCD: '''MEDTAK'''
+    _FATPTREF: null
+    _DOMAIN: '''VS'''
+    _PTREF:
+      case:
+      - when: (_DOMAIN = 'FA')
+        then: _FATPTREF
+      - otherwise: _VSTPTREF
+    _PTREF_NB:
+      str_replace:
+        source: _PTREF
+        pattern: ' '
+        replacement: ''
+    _ATPTREF:
+      case:
+      - when: (_PTREF_NB = 'DOSE1')
+        then: '''Vaccination 1'''
+      - when: (_PTREF_NB = 'DOSE2')
+        then: '''Vaccination 2'''
+      - otherwise: null
+    _FATPT: null
+    _FAEVAL: "''"
+    _ATPT:
+      case:
+      - when: (_DOMAIN = 'FA' AND _FATPT = 'DAY 1' AND _FAEVAL = 'INVESTIGATOR')
+        then: '''DAY 1, AFTER VACCINATION (AT HOME)'''
+      - when: (_DOMAIN = 'VS')
+        then: _VSTPT
+      - otherwise: _FATPT
+    _ATPTN:
+      type: int
+      derivation:
+        str_extract:
+          source: _ATPT
+          pattern: 'DAY ([0-9]+)'
+          group: 1
+          no_match: ''
+      unconvertible: null
+    _HIT: 1
+  order_by:
+  - VS.VSSEQ
+  keep: first
+- id: K_WIT_MEDTAKP
+  dataset: VS
+  key:
+    USUBJID: USUBJID
+    _PCD: _PARAMCD
+    _ATPTREF: _ATPTREF
+  filter: VS._MEDTAKP = 'Y' AND VS._ATPTREF IS NOT NULL AND VS._ATPTN > 7
+  derivations:
+    _VSSEQ: VS.VSSEQ
+    _MEDTAKP: SUPP_P_VS.MEDTAKP
+    _VSTPTREF: VS.VSTPTREF
+    _VSTPT: VS.VSTPT
+    _PCD: '''MEDTAKP'''
+    _FATPTREF: null
+    _DOMAIN: '''VS'''
+    _PTREF:
+      case:
+      - when: (_DOMAIN = 'FA')
+        then: _FATPTREF
+      - otherwise: _VSTPTREF
+    _PTREF_NB:
+      str_replace:
+        source: _PTREF
+        pattern: ' '
+        replacement: ''
+    _ATPTREF:
+      case:
+      - when: (_PTREF_NB = 'DOSE1')
+        then: '''Vaccination 1'''
+      - when: (_PTREF_NB = 'DOSE2')
+        then: '''Vaccination 2'''
+      - otherwise: null
+    _FATPT: null
+    _FAEVAL: "''"
+    _ATPT:
+      case:
+      - when: (_DOMAIN = 'FA' AND _FATPT = 'DAY 1' AND _FAEVAL = 'INVESTIGATOR')
+        then: '''DAY 1, AFTER VACCINATION (AT HOME)'''
+      - when: (_DOMAIN = 'VS')
+        then: _VSTPT
+      - otherwise: _FATPT
+    _ATPTN:
+      type: int
+      derivation:
+        str_extract:
+          source: _ATPT
+          pattern: 'DAY ([0-9]+)'
+          group: 1
+          no_match: ''
+      unconvertible: null
+    _HIT: 1
+  order_by:
+  - VS.VSSEQ
+  keep: first
+- id: K_WIT_MEDTAKT
+  dataset: VS
+  key:
+    USUBJID: USUBJID
+    _PCD: _PARAMCD
+    _ATPTREF: _ATPTREF
+  filter: VS._MEDTAKT = 'Y' AND VS._ATPTREF IS NOT NULL AND VS._ATPTN > 7
+  derivations:
+    _VSSEQ: VS.VSSEQ
+    _MEDTAKT: SUPP_P_VS.MEDTAKT
+    _VSTPTREF: VS.VSTPTREF
+    _VSTPT: VS.VSTPT
+    _PCD: '''MEDTAKT'''
+    _FATPTREF: null
+    _DOMAIN: '''VS'''
+    _PTREF:
+      case:
+      - when: (_DOMAIN = 'FA')
+        then: _FATPTREF
+      - otherwise: _VSTPTREF
+    _PTREF_NB:
+      str_replace:
+        source: _PTREF
+        pattern: ' '
+        replacement: ''
+    _ATPTREF:
+      case:
+      - when: (_PTREF_NB = 'DOSE1')
+        then: '''Vaccination 1'''
+      - when: (_PTREF_NB = 'DOSE2')
+        then: '''Vaccination 2'''
+      - otherwise: null
+    _FATPT: null
+    _FAEVAL: "''"
+    _ATPT:
+      case:
+      - when: (_DOMAIN = 'FA' AND _FATPT = 'DAY 1' AND _FAEVAL = 'INVESTIGATOR')
+        then: '''DAY 1, AFTER VACCINATION (AT HOME)'''
+      - when: (_DOMAIN = 'VS')
+        then: _VSTPT
+      - otherwise: _FATPT
+    _ATPTN:
+      type: int
+      derivation:
+        str_extract:
+          source: _ATPT
+          pattern: 'DAY ([0-9]+)'
+          group: 1
+          no_match: ''
+      unconvertible: null
+    _HIT: 1
+  order_by:
+  - VS.VSSEQ
+  keep: first
+windows:
+  ANL04_ORD:
+    group_by: [USUBJID, PARAMCD, ANL01FL, ATPTREF]
+    order_by:
+    - variable: _ATPTA
+      direction: desc
+    - ATPTGR1N
+    - ADT
+    - _ORI_ADTM
+  ANL05_ORD:
+    group_by: [USUBJID, PARAM, ATPTREF, ATPT]
+    order_by:
+    - _AGFL
+    - ATOXGRN
+    - variable: ADT
+      direction: desc
+    - variable: _FAEVAL_NUM
+      direction: desc
+    - variable: SRCSEQ
+      direction: desc
+  ANL03_GRP:
+    group_by: [USUBJID, PARAMCD, ATPTREF]
+    order_by:
+    - variable: _ANL03FL
+      direction: desc
+    - ATPTN
+  ANL03_GLOBAL:
+    order_by:
+    - USUBJID
+    - PARAMCD
+    - ATPTREF
+    - variable: _ANL03FL
+      direction: desc
+    - ATPTN
+  ASEQ_W:
+    group_by: [USUBJID]
+    order_by:
+    - PARCAT1
+    - PARAMCD
+    - ATPTREF
+    - ADT
+    - _ORI_ADTM
+    - SRCSEQ
+columns:
+- name: _ADSL
+  type: str
+  derivation: ADSL.USUBJID
+- name: _DOSE2FL
+  type: str
+  derivation: ADSL.DOSE2FL
+- name: STUDYID
+  submission:
+    origins:
+    - type: Derived
+    method: "Withheld from publication: the received define states this text."
+- name: USUBJID
+  submission:
+    origins:
+    - type: Derived
+    method: "Withheld from publication: the received define states this text."
+- name: _DOMAIN
+  type: str
+- name: _DTC
+  type: str
+- name: _FADY
+  type: float
+- name: _VSDY
+  type: float
+- name: _FATPTREF
+  type: str
+- name: _VSTPTREF
+  type: str
+- name: _FATPT
+  type: str
+- name: _VSTPT
+  type: str
+- name: _FAOBJ
+  type: str
+- name: _FATEST
+  type: str
+- name: _FATESTCD
+  type: str
+- name: _FAORRES
+  type: str
+- name: _FASTRESC
+  type: str
+- name: _FASTRESN
+  type: float
+- name: _FASTAT
+  type: str
+- name: _FAEVAL
+  type: str
+- name: _FASCAT
+  type: str
+- name: _FACAT
+  type: str
+- name: _FATEST_UP
+  type: str
+- name: _FAORRES_UP
+  type: str
+- name: _FASEQ
+  type: float
+- name: _VSTESTCD
+  type: str
+- name: _VSCAT
+  type: str
+- name: _VSSCAT
+  type: str
+- name: _VSSTRESC
+  type: str
+- name: _VSORRESU
+  type: str
+- name: _VSSTAT
+  type: str
+- name: _VSTPTNUM
+  type: float
+- name: _VSSEQ
+  type: float
+- name: _STRESN_NUM
+  type: float
+- name: _ORRES_NUM
+  type: float
+- name: _MAAEFL
+  type: str
+- name: _MEDTAK
+  type: str
+- name: _MEDTAKP
+  type: str
+- name: _MEDTAKT
+  type: str
+- name: _PCD_E
+  type: str
+- name: _PARAMCD
+  type: str
+- name: _PARAM
+  type: str
+- name: _PTREF
+  type: str
+- name: _PTREF_NB
+  type: str
+- name: _ATPTREF
+  type: str
+- name: _ATPT
+  type: str
+- name: _ATPTGR1_TOK
+  type: str
+- name: _ATPTGR1
+  type: str
+- name: _PARCAT1
+  type: str
+- name: _PARCAT1N
+  type: float
+- name: _AVAL_NUM
+  type: float
+- name: _AVALC
+  type: str
+- name: _AVALC_UP
+  type: str
+- name: _ATOXGRN
+  type: float
+- name: _ATOXGR
+  type: str
+- name: _ANL01FL
+  type: str
+- name: _FAEVAL_NUM
+  type: float
+- name: _AGFL
+  type: float
+- name: _K_FAAE_FA
+  type: float
+- name: _K_FAAE_VS
+  type: float
+- name: _K_VS_VS
+  type: float
+- name: _K_VS_FAAE
+  type: float
+- name: _WIT_FAAE
+  type: float
+- name: _WIT_TEMP
+  type: float
+- name: _WIT_MEDTAK
+  type: float
+- name: _WIT_MEDTAKP
+  type: float
+- name: _WIT_MEDTAKT
+  type: float
+- name: _ORI_ADTM_RAW
+  type: datetime
+  derivation:
+    impute:
+      type: datetime
+      source: _DTC
+      time: first
+- name: _ORI_ADTM
+  type: datetime
+  derivation:
+    case:
+    - when: (_DTC IS NOT NULL AND NOT str_contains(_DTC, 'T'))
+      then: null
+    - otherwise: _ORI_ADTM_RAW
+- name: _ATPTN_TXT
+  type: str
+  derivation:
+    str_extract:
+      source: _ATPT
+      pattern: 'DAY ([0-9]+)'
+      group: 1
+      no_match: ''
+- name: _ATPTN_F
+  type: float
+  derivation:
+    case:
+    - when: (_ATPT IS NOT NULL AND _ATPT NOT IN (''))
+      then: _ATPTN_TXT
+    - otherwise: null
+- name: _ATPTGR1N_TXT
+  type: str
+  derivation:
+    str_extract:
+      source: _ATPTGR1
+      pattern: 'DAY ([0-9]+)'
+      group: 1
+      no_match: ''
+- name: _ATPTGR1N
+  type: int
+  derivation:
+    case:
+    - when: (_ATPTGR1 IS NOT NULL AND _ATPTGR1 NOT IN (''))
+      then: _ATPTGR1N_TXT
+    - otherwise: null
+- name: _ATPTA
+  type: int
+  derivation:
+    case:
+    - when: (ATPTGR1N IS NOT NULL)
+      then: 1
+    - otherwise: null
+- name: _ANL04_RN
+  type: int
+  derivation:
+    row_number:
+      window: ANL04_ORD
+- name: _ANL04_CAND
+  type: int
+  derivation:
+    case:
+    - when: (_ANL04_RN = 1 AND ATPTGR1N >= 8 AND _ATPTA = 1 AND ANL01FL = 'Y')
+      then: 1
+    - otherwise: 0
+- name: _ANL04_MAX
+  type: int
+  derivation:
+    aggregate:
+      group_by: [USUBJID, PARAMCD, ANL01FL, ATPTREF]
+      expr: MAX(_ANL04_CAND)
+- name: _ANL05_RN
+  type: int
+  derivation:
+    row_number:
+      window: ANL05_ORD
+- name: _ANL05_CNT
+  type: int
+  derivation:
+    aggregate:
+      group_by: [USUBJID, PARAM, ATPTREF, ATPT]
+      expr: COUNT(_ANL05_RN)
+- name: _ATPTN7
+  type: int
+  derivation:
+    case:
+    - when: (ATPTN = 7)
+      then: 1
+    - otherwise: 0
+- name: _ATPTN8
+  type: int
+  derivation:
+    case:
+    - when: (ATPTN = 8)
+      then: 1
+    - otherwise: 0
+- name: _HAS7
+  type: int
+  derivation:
+    aggregate:
+      group_by: [USUBJID, PARAMCD, ATPTREF]
+      expr: MAX(_ATPTN7)
+- name: _HAS8
+  type: int
+  derivation:
+    aggregate:
+      group_by: [USUBJID, PARAMCD, ATPTREF]
+      expr: MAX(_ATPTN8)
+- name: _ANL02_NUM
+  type: int
+  derivation:
+    case:
+    - when: (_PARAMCD IN ('ERYTHDIA', 'LYMPH', 'PAIN', 'SWELLDIA') AND _HAS7 = 1 AND _HAS8 = 1)
+      then: 1
+    - otherwise: 0
+- name: _ANL02_MAX
+  type: int
+  derivation:
+    aggregate:
+      group_by: [USUBJID, PARAMCD, ATPTREF]
+      expr: MAX(_ANL02_NUM)
+- name: _ANL03FL
+  type: str
+  derivation:
+    case:
+    - when: (_PARAMCD IN ('ERYTHDIA', 'LYMPH', 'PAIN', 'SWELLDIA') AND NOT(_HAS7 = 1 AND _HAS8 = 1) AND ATPTN <= 7)
+      then: '''Y'''
+    - otherwise: "''"
+- name: _ANL03_RN
+  type: int
+  derivation:
+    row_number:
+      window: ANL03_GRP
+- name: _ANL03_SRC
+  type: str
+  derivation:
+    case:
+    - when: (_ANL03_RN = 1 AND ATPTN > 0 AND ATPTN <= 7)
+      then: _ANL03FL
+    - otherwise: null
+- name: _ANL03_LOCF
+  type: str
+  derivation:
+    locf:
+      source: _ANL03_SRC
+      window: ANL03_GLOBAL
+- name: _ANL06_MIN
+  type: int
+  derivation:
+    aggregate:
+      filter: ATOXGRN > 0
+      group_by: [USUBJID, PARAMCD, ATPTREF]
+      expr: MIN(ATPTGR1N)
+- name: _ANL06_MAX
+  type: int
+  derivation:
+    aggregate:
+      filter: ATOXGRN > 0
+      group_by: [USUBJID, PARAMCD, ATPTREF]
+      expr: MAX(ATPTGR1N)
+- name: SUBJID
+  derivation: ADSL.SUBJID
+  submission:
+    origins:
+    - type: Predecessor
+      description: ADSL.SUBJID
+- name: SITEID
+  derivation: ADSL.SITEID
+  submission:
+    origins:
+    - type: Predecessor
+      description: ADSL.SITEID
+- name: COUNTRY
+  derivation: ADSL.COUNTRY
+  submission:
+    origins:
+    - type: Predecessor
+      description: ADSL.COUNTRY
+- name: AGE
+  derivation: ADSL.AGE
+  submission:
+    origins:
+    - type: Predecessor
+      description: ADSL.AGE
+- name: AGEU
+  derivation: ADSL.AGEU
+  submission:
+    origins:
+    - type: Predecessor
+      description: ADSL.AGEU
+- name: STRATAR
+  derivation: ADSL.STRATAR
+  submission:
+    origins:
+    - type: Predecessor
+      description: ADSL.STRATAR
+- name: STRATARN
+  derivation: ADSL.STRATARN
+  submission:
+    origins:
+    - type: Predecessor
+      description: ADSL.STRATARN
+- name: AGEGR1
+  derivation: ADSL.AGEGR1
+  submission:
+    origins:
+    - type: Predecessor
+      description: ADSL.AGEGR1
+- name: AGEGR1N
+  derivation: ADSL.AGEGR1N
+  submission:
+    origins:
+    - type: Predecessor
+      description: ADSL.AGEGR1N
+- name: AGEGR2
+  derivation: ADSL.AGEGR2
+  submission:
+    origins:
+    - type: Predecessor
+      description: ADSL.AGEGR2
+- name: AGEGR2N
+  derivation: ADSL.AGEGR2N
+  submission:
+    origins:
+    - type: Predecessor
+      description: ADSL.AGEGR2N
+- name: AGEGR3
+  derivation: ADSL.AGEGR3
+  submission:
+    origins:
+    - type: Predecessor
+      description: ADSL.AGEGR3
+- name: AGEGR3N
+  derivation: ADSL.AGEGR3N
+  submission:
+    origins:
+    - type: Predecessor
+      description: ADSL.AGEGR3N
+- name: AGEGR4
+  derivation: ADSL.AGEGR4
+  submission:
+    mandatory: false
+    origins:
+    - type: Predecessor
+      description: ADSL.AGEGR4
+- name: AGEGR4N
+  derivation: ADSL.AGEGR4N
+  submission:
+    mandatory: false
+    origins:
+    - type: Predecessor
+      description: ADSL.AGEGR4N
+- name: SEX
+  derivation: ADSL.SEX
+  submission:
+    origins:
+    - type: Predecessor
+      description: ADSL.SEX
+- name: RACE
+  derivation: ADSL.RACE
+  submission:
+    origins:
+    - type: Predecessor
+      description: ADSL.RACE
+- name: RACESPY
+  derivation: ADSL.RACESPY
+  submission:
+    origins:
+    - type: Predecessor
+      description: ADSL.RACESPY
+- name: ETHNIC
+  derivation: ADSL.ETHNIC
+  submission:
+    origins:
+    - type: Predecessor
+      description: ADSL.ETHNIC
+- name: RANDFL
+  derivation: ADSL.RANDFL
+  submission:
+    origins:
+    - type: Predecessor
+      description: ADSL.RANDFL
+- name: FASFL
+  derivation: ADSL.FASFL
+  submission:
+    origins:
+    - type: Predecessor
+      description: ADSL.FASFL
+- name: SAFFL
+  derivation: ADSL.SAFFL
+  submission:
+    origins:
+    - type: Predecessor
+      description: ADSL.SAFFL
+- name: SAR1FL
+  derivation: ADSL.SAR1FL
+  submission:
+    origins:
+    - type: Predecessor
+      description: ADSL.SAR1FL
+- name: SAR2FL
+  derivation: ADSL.SAR2FL
+  submission:
+    origins:
+    - type: Predecessor
+      description: ADSL.SAR2FL
+- name: SARAFL
+  derivation: ADSL.SARAFL
+  submission:
+    origins:
+    - type: Predecessor
+      description: ADSL.SARAFL
+- name: MITTFL
+  derivation: ADSL.MITTFL
+  submission:
+    origins:
+    - type: Predecessor
+      description: ADSL.MITTFL
+- name: PPROTFL
+  derivation: ADSL.PPROTFL
+  submission:
+    origins:
+    - type: Predecessor
+      description: ADSL.PPROTFL
+- name: RANDIGFL
+  derivation: ADSL.RANDIGFL
+  submission:
+    origins:
+    - type: Predecessor
+      description: ADSL.RANDIGFL
+- name: PPSIFL
+  derivation: ADSL.PPSIFL
+  submission:
+    origins:
+    - type: Predecessor
+      description: ADSL.PPSIFL
+- name: CCIASFL
+  derivation: ADSL.CCIASFL
+  submission:
+    origins:
+    - type: Predecessor
+      description: ADSL.CCIASFL
+- name: DOSE1FL
+  derivation: ADSL.DOSE1FL
+  submission:
+    origins:
+    - type: Predecessor
+      description: ADSL.DOSE1FL
+- name: DOSE2FL
+  derivation: ADSL.DOSE2FL
+  submission:
+    origins:
+    - type: Predecessor
+      description: ADSL.DOSE2FL
+- name: OLDOS1FL
+  derivation: ADSL.OLDOS1FL
+  submission:
+    origins:
+    - type: Predecessor
+      description: ADSL.OLDOS1FL
+- name: OLDOS2FL
+  derivation: ADSL.OLDOS2FL
+  submission:
+    origins:
+    - type: Predecessor
+      description: ADSL.OLDOS2FL
+- name: RTPCRBL
+  derivation: ADSL.RTPCRBL
+  submission:
+    origins:
+    - type: Predecessor
+      description: ADSL.RTPCRBL
+- name: ELECSBL
+  derivation: ADSL.ELECSBL
+  submission:
+    origins:
+    - type: Predecessor
+      description: ADSL.ELECSBL
+- name: SCOV2BL
+  derivation: ADSL.SCOV2BL
+  submission:
+    origins:
+    - type: Predecessor
+      description: ADSL.SCOV2BL
+- name: TRT01P
+  derivation: ADSL.TRT01P
+  submission:
+    origins:
+    - type: Predecessor
+      description: ADSL.TRT01P
+- name: TRT01PN
+  derivation: ADSL.TRT01PN
+  submission:
+    origins:
+    - type: Predecessor
+      description: ADSL.TRT01PN
+- name: TRT01A
+  derivation: ADSL.TRT01A
+  submission:
+    origins:
+    - type: Predecessor
+      description: ADSL.TRT01A
+- name: TRT01AN
+  derivation: ADSL.TRT01AN
+  submission:
+    origins:
+    - type: Predecessor
+      description: ADSL.TRT01AN
+- name: TRT02P
+  derivation: ADSL.TRT02P
+  submission:
+    origins:
+    - type: Predecessor
+      description: ADSL.TRT02P
+- name: TRT02PN
+  derivation: ADSL.TRT02PN
+  submission:
+    origins:
+    - type: Predecessor
+      description: ADSL.TRT02PN
+- name: TRT02A
+  derivation: ADSL.TRT02A
+  submission:
+    origins:
+    - type: Predecessor
+      description: ADSL.TRT02A
+- name: TRT02AN
+  derivation: ADSL.TRT02AN
+  submission:
+    origins:
+    - type: Predecessor
+      description: ADSL.TRT02AN
+- name: TRTSEQP
+  derivation: ADSL.TRTSEQP
+  submission:
+    origins:
+    - type: Predecessor
+      description: ADSL.TRTSEQP
+- name: TRTSEQPN
+  derivation: ADSL.TRTSEQPN
+  submission:
+    origins:
+    - type: Predecessor
+      description: ADSL.TRTSEQPN
+- name: TRTSEQA
+  derivation: ADSL.TRTSEQA
+  submission:
+    origins:
+    - type: Predecessor
+      description: ADSL.TRTSEQA
+- name: TRTSEQAN
+  derivation: ADSL.TRTSEQAN
+  submission:
+    origins:
+    - type: Predecessor
+      description: ADSL.TRTSEQAN
+- name: TRTSDT
+  derivation: ADSL.TRTSDT
+  submission:
+    origins:
+    - type: Predecessor
+      description: ADSL.TRTSDT
+- name: TRTEDT
+  derivation: ADSL.TRTEDT
+  submission:
+    origins:
+    - type: Predecessor
+      description: ADSL.TRTEDT
+- name: TR01SDT
+  derivation: ADSL.TR01SDT
+  submission:
+    origins:
+    - type: Predecessor
+      description: ADSL.TR01SDT
+- name: TR01SDTM
+  derivation: ADSL.TR01SDTM
+  submission:
+    origins:
+    - type: Predecessor
+      description: ADSL.TR01SDTM
+- name: TR01EDT
+  derivation: ADSL.TR01EDT
+  submission:
+    origins:
+    - type: Predecessor
+      description: ADSL.TR01EDT
+- name: TR01EDTM
+  derivation: ADSL.TR01EDTM
+  submission:
+    origins:
+    - type: Predecessor
+      description: ADSL.TR01EDTM
+- name: DOSE2DT
+  derivation: ADSL.DOSE2DT
+  submission:
+    origins:
+    - type: Predecessor
+      description: ADSL.DOSE2DT
+- name: DOS2DTM
+  derivation: ADSL.DOS2DTM
+  submission:
+    origins:
+    - type: Predecessor
+      description: ADSL.DOS2DTM
+- name: TR02SDT
+  derivation: ADSL.TR02SDT
+  submission:
+    origins:
+    - type: Predecessor
+      description: ADSL.TR02SDT
+- name: TR02SDTM
+  derivation: ADSL.TR02SDTM
+  submission:
+    origins:
+    - type: Predecessor
+      description: ADSL.TR02SDTM
+- name: TR02EDT
+  derivation: ADSL.TR02EDT
+  submission:
+    origins:
+    - type: Predecessor
+      description: ADSL.TR02EDT
+- name: TR02EDTM
+  derivation: ADSL.TR02EDTM
+  submission:
+    origins:
+    - type: Predecessor
+      description: ADSL.TR02EDTM
+- name: OLDOS2DT
+  derivation: ADSL.OLDOS2DT
+  submission:
+    origins:
+    - type: Predecessor
+      description: ADSL.OLDOS2DT
+- name: OLDO2DTM
+  derivation: ADSL.OLDO2DTM
+  submission:
+    origins:
+    - type: Predecessor
+      description: ADSL.OLDO2DTM
+- name: EUAVACDT
+  derivation: ADSL.EUAVACDT
+  submission:
+    mandatory: false
+    origins:
+    - type: Predecessor
+      description: ADSL.EUAVACDT
+- name: EFFCODT
+  derivation: ADSL.EFFCODT
+  submission:
+    origins:
+    - type: Predecessor
+      description: ADSL.EFFCODT
+- name: AP01SDT
+  derivation: ADSL.AP01SDT
+  submission:
+    origins:
+    - type: Predecessor
+      description: ADSL.AP01SDT
+- name: AP01EDT
+  derivation: ADSL.AP01EDT
+  submission:
+    mandatory: false
+    origins:
+    - type: Predecessor
+      description: ADSL.AP01EDT
+- name: AP02SDT
+  derivation: ADSL.AP02SDT
+  submission:
+    origins:
+    - type: Predecessor
+      description: ADSL.AP02SDT
+- name: AP02EDT
+  derivation: ADSL.AP02EDT
+  submission:
+    origins:
+    - type: Predecessor
+      description: ADSL.AP02EDT
+- name: AP01SSDT
+  derivation: ADSL.AP01SSDT
+  submission:
+    origins:
+    - type: Predecessor
+      description: ADSL.AP01SSDT
+- name: AP01SEDT
+  derivation: ADSL.AP01SEDT
+  submission:
+    mandatory: false
+    origins:
+    - type: Predecessor
+      description: ADSL.AP01SEDT
+- name: AP02SSDT
+  derivation: ADSL.AP02SSDT
+  submission:
+    origins:
+    - type: Predecessor
+      description: ADSL.AP02SSDT
+- name: AP02SEDT
+  derivation: ADSL.AP02SEDT
+  submission:
+    origins:
+    - type: Predecessor
+      description: ADSL.AP02SEDT
+- name: RSKF1
+  derivation: ADSL.RSKF1
+  submission:
+    origins:
+    - type: Predecessor
+      description: ADSL.RSKF1
+- name: RSKF2
+  derivation: ADSL.RSKF2
+  submission:
+    origins:
+    - type: Predecessor
+      description: ADSL.RSKF2
+- name: RSKF3
+  derivation: ADSL.RSKF3
+  submission:
+    origins:
+    - type: Predecessor
+      description: ADSL.RSKF3
+- name: RSKF4
+  derivation: ADSL.RSKF4
+  submission:
+    origins:
+    - type: Predecessor
+      description: ADSL.RSKF4
+- name: RSKF5
+  derivation: ADSL.RSKF5
+  submission:
+    origins:
+    - type: Predecessor
+      description: ADSL.RSKF5
+- name: RSKF6
+  derivation: ADSL.RSKF6
+  submission:
+    origins:
+    - type: Predecessor
+      description: ADSL.RSKF6
+- name: STRATAV
+  derivation: ADSL.STRATAV
+  submission:
+    origins:
+    - type: Predecessor
+      description: ADSL.STRATAV
+- name: STRATAVN
+  derivation: ADSL.STRATAVN
+  submission:
+    origins:
+    - type: Predecessor
+      description: ADSL.STRATAVN
+- name: STUDDUR3
+  derivation: ADSL.STUDDUR3
+  submission:
+    origins:
+    - type: Predecessor
+      description: ADSL.STUDDUR3
+- name: MINORITY
+  derivation: ADSL.MINORITY
+  submission:
+    origins:
+    - type: Predecessor
+      description: ADSL.MINORITY
+- name: RACEGR1
+  derivation: ADSL.RACEGR1
+  submission:
+    mandatory: false
+    origins:
+    - type: Predecessor
+      description: ADSL.RACEGR1
+- name: RACEGR1N
+  derivation: ADSL.RACEGR1N
+  submission:
+    mandatory: false
+    origins:
+    - type: Predecessor
+      description: ADSL.RACEGR1N
+- name: RISKGR1
+  derivation: ADSL.RISKGR1
+  submission:
+    origins:
+    - type: Predecessor
+      description: ADSL.RISKGR1
+- name: RISKGR1N
+  derivation: ADSL.RISKGR1N
+  submission:
+    origins:
+    - type: Predecessor
+      description: ADSL.RISKGR1N
+- name: RETHGR1
+  derivation: ADSL.RETHGR1
+  submission:
+    origins:
+    - type: Predecessor
+      description: ADSL.RETHGR1
+- name: RETHGR1N
+  derivation: ADSL.RETHGR1N
+  submission:
+    origins:
+    - type: Predecessor
+      description: ADSL.RETHGR1N
+- name: COVIDAFL
+  derivation: ADSL.COVIDAFL
+  submission:
+    origins:
+    - type: Predecessor
+      description: ADSL.COVIDAFL
+- name: CVDSVAFL
+  derivation: ADSL.CVDSVAFL
+  submission:
+    origins:
+    - type: Predecessor
+      description: ADSL.CVDSVAFL
+- name: ASEQ
+  type: int
+  label: 'Analysis Sequence Number'
+  derivation:
+    row_number:
+      window: ASEQ_W
+  submission:
+    core: Req
+    mandatory: true
+    length: 8
+    origins:
+    - type: Assigned
+    method: "Withheld from publication: the received define states this text."
+- name: ADT
+  type: date
+  label: 'Analysis Date'
+  derivation:
+    to_date:
+      source: _DTC
+  submission:
+    core: Perm
+    mandatory: false
+    origins:
+    - type: Derived
+    method: "Withheld from publication: the received define states this text."
+- name: ADTM
+  type: datetime
+  label: 'Analysis Datetime'
+  derivation: _ORI_ADTM
+  submission:
+    core: Perm
+    mandatory: false
+    origins:
+    - type: Derived
+    method: "Withheld from publication: the received define states this text."
+- name: ADY
+  type: int
+  label: 'Analysis Relative Day'
+  derivation:
+    case:
+    - when: (_DOMAIN = 'VS')
+      then: _VSDY
+    - otherwise: _FADY
+  submission:
+    core: Perm
+    mandatory: false
+    length: 8
+    origins:
+    - type: Derived
+    method: "Withheld from publication: the received define states this text."
+- name: ATPTREF
+  type: str
+  label: 'Analysis Timepoint Reference'
+  derivation: _ATPTREF
+  submission:
+    core: Perm
+    mandatory: false
+    length: 50
+    origins:
+    - type: Derived
+    method: "Withheld from publication: the received define states this text."
+- name: ATPT
+  type: str
+  label: 'Analysis Timepoint'
+  derivation: _ATPT
+  submission:
+    core: Perm
+    mandatory: false
+    length: 100
+    origins:
+    - type: Derived
+    method: "Withheld from publication: the received define states this text."
+- name: ATPTN
+  type: float
+  label: 'Analysis Timepoint (N)'
+  derivation:
+    case:
+    - when: (_ATPT = 'DAY 1, 30 MINUTES AFTER VACCINATION (AT STUDY CLINIC)')
+      then: 1.1
+    - when: (_ATPT = 'DAY 1, AFTER VACCINATION (AT HOME)')
+      then: 1.2
+    - otherwise: _ATPTN_F
+  submission:
+    core: Perm
+    mandatory: false
+    length: 8
+    significant_digits: 15
+    origins:
+    - type: Assigned
+    method: "Withheld from publication: the received define states this text."
+- name: PARCAT1
+  type: str
+  label: 'Parameter Category 1'
+  derivation: _PARCAT1
+  submission:
+    core: Perm
+    mandatory: true
+    length: 50
+    origins:
+    - type: Derived
+    method: "Withheld from publication: the received define states this text."
+- name: PARCAT1N
+  type: int
+  label: 'Parameter Category 1 (N)'
+  derivation: _PARCAT1N
+  submission:
+    core: Perm
+    mandatory: true
+    length: 8
+    origins:
+    - type: Assigned
+    method: "Withheld from publication: the received define states this text."
+- name: PARAMCD
+  type: str
+  label: 'Parameter Code'
+  derivation: _PARAMCD
+  submission:
+    core: Perm
+    mandatory: true
+    length: 8
+    origins:
+    - type: Assigned
+    method: "Withheld from publication: the received define states this text."
+- name: PARAM
+  type: str
+  label: 'Parameter'
+  derivation: _PARAM
+  submission:
+    core: Perm
+    mandatory: true
+    length: 200
+    origins:
+    - type: Derived
+    method: "Withheld from publication: the received define states this text."
+- name: AVAL
+  type: float
+  label: 'Analysis Value'
+  derivation: _AVAL_NUM
+  submission:
+    # SUB-29 (yamaa #4820): numeric widths here fit the derived values. The received
+    # define's Pinnacle 21 widths stay in the reproduced define layer (define/).
+    core: Perm
+    mandatory: false
+    length: 17
+    significant_digits: 15
+    origins:
+    - type: Derived
+    method: "Withheld from publication: the received define states this text."
+- name: AVALC
+  type: str
+  label: 'Analysis Value (C)'
+  derivation: _AVALC
+  submission:
+    core: Perm
+    mandatory: false
+    length: 100
+    origins:
+    - type: Derived
+    method: "Withheld from publication: the received define states this text."
+- name: ATOXGR
+  type: str
+  label: 'Analysis Toxicity Grade'
+  derivation: _ATOXGR
+  submission:
+    core: Perm
+    mandatory: false
+    length: 20
+    origins:
+    - type: Derived
+    method: "Withheld from publication: the received define states this text."
+- name: ATOXGRN
+  type: int
+  label: 'Analysis Toxicity Grade (N)'
+  derivation: _ATOXGRN
+  submission:
+    core: Perm
+    mandatory: false
+    length: 8
+    origins:
+    - type: Assigned
+    method: "Withheld from publication: the received define states this text."
+- name: SRCDOM
+  type: str
+  label: 'Source Data'
+  derivation: _DOMAIN
+  submission:
+    core: Perm
+    mandatory: true
+    length: 20
+    origins:
+    - type: Derived
+    method: "Withheld from publication: the received define states this text."
+- name: SRCSEQ
+  type: int
+  label: 'Source Sequence Number'
+  derivation:
+    case:
+    - when: (_DOMAIN = 'VS')
+      then: _VSSEQ
+    - otherwise: _FASEQ
+  submission:
+    core: Perm
+    mandatory: true
+    length: 8
+    origins:
+    - type: Derived
+    method: "Withheld from publication: the received define states this text."
+- name: SRCVAR
+  type: str
+  label: 'Source Variable'
+  derivation:
+    case:
+    - when: (_PARAMCD = 'MEDTAKP')
+      then: "'SUPPVS.QVAL where QNAM=''MEDTAKP'''"
+    - when: (_PARAMCD = 'MEDTAKT')
+      then: "'SUPPVS.QVAL where QNAM=''MEDTAKT'''"
+    - when: (_PARAMCD = 'MEDTAK')
+      then: "'SUPPVS.QVAL where QNAM=''MEDTAK'''"
+    - when: (_DOMAIN = 'VS')
+      then: '''VSSTRESN'''
+    - otherwise: '''FASTRESC'''
+  submission:
+    core: Perm
+    mandatory: true
+    length: 50
+    origins:
+    - type: Derived
+    method: "Withheld from publication: the received define states this text."
+- name: ATPTGR1
+  type: str
+  label: 'Poolded Analysis Timepoint'
+  derivation: _ATPTGR1
+  submission:
+    core: Perm
+    mandatory: false
+    length: 50
+    origins:
+    - type: Derived
+    method: "Withheld from publication: the received define states this text."
+- name: ATPTGR1N
+  type: int
+  label: 'Poolded Analysis Timepoint (N)'
+  derivation: _ATPTGR1N
+  submission:
+    core: Perm
+    mandatory: false
+    length: 8
+    origins:
+    - type: Assigned
+    method: "Withheld from publication: the received define states this text."
+- name: FAEVAL
+  type: str
+  label: 'Evaluator'
+  derivation:
+    case:
+    - when: (_FAEVAL IS NULL OR _FAEVAL IN (''))
+      then: "''"
+    - otherwise: _FAEVAL
+  submission:
+    core: Perm
+    mandatory: true
+    length: 40
+    origins:
+    - type: Derived
+    method: "Withheld from publication: the received define states this text."
+- name: MAAEFL
+  type: str
+  label: 'Medically-attended AE Flag'
+  derivation:
+    case:
+    - when: (_MAAEFL IS NULL)
+      then: "''"
+    - otherwise: _MAAEFL
+  submission:
+    core: Perm
+    mandatory: true
+    length: 1
+    origins:
+    - type: Derived
+    method: "Withheld from publication: the received define states this text."
+- name: ANL01FL
+  type: str
+  label: 'Analysis Flag 01'
+  derivation: _ANL01FL
+  submission:
+    core: Perm
+    mandatory: false
+    length: 1
+    origins:
+    - type: Derived
+    method: "Withheld from publication: the received define states this text."
+- name: ANL02FL
+  type: str
+  label: 'Analysis Flag 02'
+  derivation:
+    case:
+    - when: (_ANL02_MAX = 1)
+      then: '''Y'''
+    - otherwise: "''"
+  submission:
+    core: Perm
+    mandatory: false
+    length: 1
+    origins:
+    - type: Derived
+    method: "Withheld from publication: the received define states this text."
+- name: ANL03FL
+  type: str
+  label: 'Analysis Flag 03'
+  derivation:
+    case:
+    - when: (_ANL03_LOCF IS NULL)
+      then: "''"
+    - otherwise: _ANL03_LOCF
+  submission:
+    core: Perm
+    mandatory: false
+    length: 1
+    origins:
+    - type: Derived
+    method: "Withheld from publication: the received define states this text."
+- name: ANL04FL
+  type: str
+  label: 'Analysis Flag 04'
+  derivation:
+    case:
+    - when: (_ANL04_MAX = 1)
+      then: '''Y'''
+    - otherwise: "''"
+  submission:
+    core: Perm
+    mandatory: false
+    length: 1
+    origins:
+    - type: Derived
+    method: "Withheld from publication: the received define states this text."
+- name: ANL05FL
+  type: str
+  label: 'Analysis Flag 05'
+  derivation:
+    case:
+    - when: (_ANL05_RN = _ANL05_CNT AND _AGFL = 1)
+      then: '''Y'''
+    - otherwise: "''"
+  submission:
+    core: Perm
+    mandatory: false
+    length: 1
+    origins:
+    - type: Derived
+    method: "Withheld from publication: the received define states this text."
+- name: ANL06FL
+  type: str
+  label: 'Analysis Flag 06'
+  derivation:
+    case:
+    - when: (_ANL06_MIN < 8 AND _ANL06_MAX >= 8)
+      then: '''Y'''
+    - otherwise: "''"
+  submission:
+    core: Perm
+    mandatory: false
+    length: 1
+    origins:
+    - type: Derived
+    method: "Withheld from publication: the received define states this text."
+- name: ACTARM
+  derivation: null
+- name: ARM
+  derivation: null
+- name: BMIBL
+  derivation: null
+- name: CBNRS
+  derivation: null
+- name: CHILDBP
+  derivation: null
+- name: COMPLFL
+  derivation: null
+- name: CUTOFFDT
+  derivation: null
+- name: DCSREAS
+  derivation: null
+- name: DCSREASP
+  derivation: null
+- name: DCT01RS
+  derivation: null
+- name: DCT01RSP
+  derivation: null
+- name: DCT02RS
+  derivation: null
+- name: DCT02RSP
+  derivation: null
+- name: DSDTHSP
+  derivation: null
+- name: DTHAUTOP
+  derivation: null
+- name: DTHCAUS
+  derivation: null
+- name: DTHDT
+  derivation: null
+- name: EOSDT
+  derivation: null
+- name: EOSDY
+  derivation: null
+- name: EOSSTT
+  derivation: null
+- name: EOT01DT
+  derivation: null
+- name: EOT01DY
+  derivation: null
+- name: EOT01STT
+  derivation: null
+- name: EOT02DT
+  derivation: null
+- name: EOT02DY
+  derivation: null
+- name: EOT02STT
+  derivation: null
+- name: EXTDT
+  derivation: null
+- name: FASEREAS
+  derivation: null
+- name: HEIGHTBL
+  derivation: null
+- name: IRTVISDT
+  derivation: null
+- name: MITTERS
+  derivation: null
+- name: PDVDT
+  derivation: null
+- name: PPEREAS
+  derivation: null
+- name: PPSIEREA
+  derivation: null
+- name: PREVSCR
+  derivation: null
+- name: PROTVER
+  derivation: null
+- name: RANDDT
+  derivation: null
+- name: RANDNUM
+  derivation: null
+- name: RFICDT
+  derivation: null
+- name: SAFEREAS
+  derivation: null
+- name: SAR1ERS
+  derivation: null
+- name: SAR2ERS
+  derivation: null
+- name: STUDDUR1
+  derivation: null
+- name: STUDDUR2
+  derivation: null
+- name: STUDDUR4
+  derivation: null
+- name: STUDDUR5
+  derivation: null
+- name: STUDDUR6
+  derivation: null
+- name: TTDTH1
+  derivation: null
+- name: TTDTH2
+  derivation: null
+- name: UBLDDT
+  derivation: null
+- name: UICDT
+  derivation: null
+- name: WEIGHTBL
+  derivation: null
+output:
+  path: <adam-dir>/adarp7d-yamaa.parquet
+  order_by:
+  - USUBJID
+  - ASEQ
+  columns:
+  - STUDYID
+  - USUBJID
+  - SUBJID
+  - SITEID
+  - COUNTRY
+  - AGE
+  - AGEU
+  - STRATAR
+  - STRATARN
+  - AGEGR1
+  - AGEGR1N
+  - AGEGR2
+  - AGEGR2N
+  - AGEGR3
+  - AGEGR3N
+  - AGEGR4
+  - AGEGR4N
+  - SEX
+  - RACE
+  - RACESPY
+  - ETHNIC
+  - RANDFL
+  - FASFL
+  - SAFFL
+  - SAR1FL
+  - SAR2FL
+  - SARAFL
+  - MITTFL
+  - PPROTFL
+  - RANDIGFL
+  - PPSIFL
+  - CCIASFL
+  - DOSE1FL
+  - DOSE2FL
+  - OLDOS1FL
+  - OLDOS2FL
+  - RTPCRBL
+  - ELECSBL
+  - SCOV2BL
+  - TRT01P
+  - TRT01PN
+  - TRT01A
+  - TRT01AN
+  - TRT02P
+  - TRT02PN
+  - TRT02A
+  - TRT02AN
+  - TRTSEQP
+  - TRTSEQPN
+  - TRTSEQA
+  - TRTSEQAN
+  - TRTSDT
+  - TRTEDT
+  - TR01SDT
+  - TR01SDTM
+  - TR01EDT
+  - TR01EDTM
+  - DOSE2DT
+  - DOS2DTM
+  - TR02SDT
+  - TR02SDTM
+  - TR02EDT
+  - TR02EDTM
+  - OLDOS2DT
+  - OLDO2DTM
+  - EUAVACDT
+  - EFFCODT
+  - AP01SDT
+  - AP01EDT
+  - AP02SDT
+  - AP02EDT
+  - AP01SSDT
+  - AP01SEDT
+  - AP02SSDT
+  - AP02SEDT
+  - RSKF1
+  - RSKF2
+  - RSKF3
+  - RSKF4
+  - RSKF5
+  - RSKF6
+  - STRATAV
+  - STRATAVN
+  - STUDDUR3
+  - MINORITY
+  - RACEGR1
+  - RACEGR1N
+  - RISKGR1
+  - RISKGR1N
+  - RETHGR1
+  - RETHGR1N
+  - COVIDAFL
+  - CVDSVAFL
+  - ASEQ
+  - ADT
+  - ADTM
+  - ADY
+  - ATPTREF
+  - ATPT
+  - ATPTN
+  - PARCAT1
+  - PARCAT1N
+  - PARAMCD
+  - PARAM
+  - AVAL
+  - AVALC
+  - ATOXGR
+  - ATOXGRN
+  - SRCDOM
+  - SRCSEQ
+  - SRCVAR
+  - ATPTGR1
+  - ATPTGR1N
+  - FAEVAL
+  - MAAEFL
+  - ANL01FL
+  - ANL02FL
+  - ANL03FL
+  - ANL04FL
+  - ANL05FL
+  - ANL06FL

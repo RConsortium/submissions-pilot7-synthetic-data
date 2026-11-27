@@ -1,0 +1,58 @@
+# C4591001 S6 ADXB helper: the ADC19EF records adxb.sas reads (COVID-19
+# onsets C19ONST, SEVCONST, CDCSONST and the RTCOV2NS / SARSCOV2 swabs),
+# with the columns it reads, so ADXB's intermediates work on a few thousand
+# records instead of the whole ADC19EF.
+yamaa: '1.0'
+type: spec
+model: ADaM
+domain: ADC19EFX
+keys: [USUBJID, _SEQ]
+input:
+  SRC: <adam-dir>/adc19ef.parquet
+rows:
+- id: records
+  dataset: SRC
+  filter: SRC.PARAMCD IN ('C19ONST', 'SEVCONST', 'CDCSONST', 'RTCOV2NS', 'SARSCOV2')
+  derivations:
+    USUBJID: SRC.USUBJID
+    PARAMCD: SRC.PARAMCD
+    FILOCRFL: SRC.FILOCRFL
+    AVALC: SRC.AVALC
+    ILD27FL: SRC.ILD27FL
+    DVSTDT: SRC.DVSTDT
+    ADT: SRC.ADT
+    PDRMUPFL: SRC.PDRMUPFL
+    CDRMUPFL: SRC.CDRMUPFL
+    EVALEFFL: SRC.EVALEFFL
+    AAI1EFFL: SRC.AAI1EFFL
+    VAX101DT: SRC.VAX101DT
+    AVISIT: SRC.AVISIT
+    VISIT: SRC.VISIT
+    PDP27FL: SRC.PDP27FL
+columns:
+- {name: USUBJID, type: str, label: USUBJID}
+- {name: PARAMCD, type: str, label: PARAMCD}
+- {name: FILOCRFL, type: str, label: FILOCRFL}
+- {name: AVALC, type: str, label: AVALC}
+- {name: ILD27FL, type: str, label: ILD27FL}
+- {name: DVSTDT, type: date, label: DVSTDT}
+- {name: ADT, type: date, label: ADT}
+- {name: PDRMUPFL, type: str, label: PDRMUPFL}
+- {name: CDRMUPFL, type: str, label: CDRMUPFL}
+- {name: EVALEFFL, type: str, label: EVALEFFL}
+- {name: AAI1EFFL, type: str, label: AAI1EFFL}
+- {name: VAX101DT, type: date, label: VAX101DT}
+- {name: AVISIT, type: str, label: AVISIT}
+- {name: VISIT, type: str, label: VISIT}
+- {name: PDP27FL, type: str, label: PDP27FL}
+- name: _SEQ
+  type: int
+  label: Row within subject
+  derivation:
+    row_number:
+      window:
+        group_by: [USUBJID]
+        order_by: [PARAMCD, ADT, VISIT, AVISIT]
+output:
+  path: <work-dir>/adc19ef_xb.parquet
+  columns: [USUBJID, PARAMCD, FILOCRFL, AVALC, ILD27FL, DVSTDT, ADT, PDRMUPFL, CDRMUPFL, EVALEFFL, AAI1EFFL, VAX101DT, AVISIT, VISIT, PDP27FL, _SEQ]

@@ -1,0 +1,1480 @@
+# ADTTEA for Moderna mRNA-1273-P301, cut S5 (First Interim Analysis
+# IA1b, extract 25 Nov 2020, efficacy cutoff 2020-11-21). Parent:
+# ../../../spec/yamaa/base/adam-base-ia.yaml (which chains to ../../../spec/yamaa/base/adam-base.yaml;
+# 86 shared + 6 IA-only ADSL columns). Derivations implement the S5
+# A50ADTT program (Bates 5657942-5657946, 233 lines; byte-identical
+# to the S80 program): one row per FAS subject per PARAMCD (16
+# PARAMCDs), from the submitted ADEFF (first event per subject per
+# PARAMCD) and the verified ADSL. Where the SAS code and the define.xml
+# method text disagree, the code is followed (see README.md). SAP note
+# (closed 2026-11-24, no-impact): the file labelled "SAP v3"
+# (19745_S68_M5_sap-v3.pdf) is the P201 SAP v3.0 (27 Oct 2020), not a
+# P301 SAP version; the only P301 SAP in the set is v1.0 (10 Sep 2020).
+# The case definitions below are the program's own, so the spec follows
+# the program, not a SAP version.
+# IA-vs-S3 differences (see the generator header): no MB/IS
+# prior-infection censoring, no aperiod-2 rows, no inwin/cutoff gate
+# (unobservable on S5 ADTTEA data; observably confirmed on S5 ADTTE
+# via the SAP PARAMCDs), no ADT clamp, censor list without AP01EDT
+# (the S5 ADSL has no AP01EDT column), TTCVD1B censor adds CVD53DT.
+# CVD53DT is 2020-10-26 in S5 (196 candidates; the fallback never
+# fires). The S5 define carries CL.ADTTEA.PARAMCD listing exactly the
+# 16 PARAMCDs. The S5 target adds RTPCRBL (the whole 64 -> 65 column
+# difference); no CDCCD/LGROUP/LINEAGES, no XQ-derived column. The
+# S5 ADEFF has one DEATHCVD row but the ADTTEA program calls %dev_tte
+# for no death PARAMCD, so there are no TTDTHCV rows. KEYS: unlike
+# ADEFF, ADTTEA HAS a usable key: (STUDYID, USUBJID, PARAMCD) is
+# unique and non-missing on the submitted target, and there is no
+# ASEQ column. Honest gaps: none expected. The S80 spec verified
+# EXACT MATCH strict via a single full verify.py run, and this S5
+# spec is the same derivation re-pointed at the S5 inputs; if the
+# full verify.py run OOMs in this 6 GB cell (485,616 rows),
+# verification falls back to pruned dependency-closure groups with
+# a single full-spec re-run in a roomier cell still owed (see
+# adttea/verify_report_s5.json, original work tree).
+yamaa: '1.0'
+type: spec
+model: ADaM
+parent: ../../../spec/yamaa/base/adam-base-ia.yaml
+domain: ADTTEA
+keys:
+- STUDYID
+- USUBJID
+- PARAMCD
+input:
+  ADEFF:
+    path: <adam-dir>/adeff.parquet
+    key:
+    - STUDYID
+    - USUBJID
+  ADSL:
+    path: <adam-dir>/adsl.parquet
+    key:
+    - STUDYID
+    - USUBJID
+submission:
+  label: Time to Event per AC Analysis Dataset
+  class: BASIC DATA STRUCTURE
+  structure: One record per subject per parameter
+  repeating: true
+rows:
+- id: ttcvd1_rows
+  dataset: ADSL
+  derivations:
+    STUDYID: ADSL.STUDYID
+    USUBJID: ADSL.USUBJID
+    PARAMCD: '''TTCVD1'''
+    _EVENT_DT: EV_COVIDA._ADT
+    _EVENT_EPOCH:
+      to_epoch_day:
+        source: _EVENT_DT
+    _COVID_DT: null
+    _CVD53DT: DATE '2020-10-26'
+    _DOSE2_EPOCH:
+      to_epoch_day:
+        source: ADSL.DOSE2DT
+    _TR01_EPOCH:
+      to_epoch_day:
+        source: ADSL.TR01SDT
+    _RAND_EPOCH:
+      to_epoch_day:
+        source: ADSL.RANDDT
+    _CENSDT:
+      least: {sources: [ADSL.DTHDT, ADSL.EOSDT, ADSL.CUTOFFDT, ADSL.EFFCODT]}
+    _ADT_RAW:
+      case:
+      - when: _EVENT_DT IS NOT NULL AND _DOSE2_EPOCH IS NOT NULL AND _DOSE2_EPOCH + 14 <= _EVENT_EPOCH
+        then: _EVENT_DT
+      - when: _EVENT_DT IS NOT NULL AND (_DOSE2_EPOCH IS NULL OR _DOSE2_EPOCH + 14 > _EVENT_EPOCH)
+        then: _EVENT_DT
+      - otherwise: _CENSDT
+    _CNSR_RAW:
+      case:
+      - when: _EVENT_DT IS NOT NULL AND _DOSE2_EPOCH IS NOT NULL AND _DOSE2_EPOCH + 14 <= _EVENT_EPOCH
+        then: 0
+      - when: _EVENT_DT IS NOT NULL AND (_DOSE2_EPOCH IS NULL OR _DOSE2_EPOCH + 14 > _EVENT_EPOCH)
+        then: 1
+      - otherwise: 1
+    _EVNTDESC_RAW:
+      case:
+      - when: _EVENT_DT IS NOT NULL AND _DOSE2_EPOCH IS NOT NULL AND _DOSE2_EPOCH + 14 <= _EVENT_EPOCH
+        then: '''COVID-19'''
+      - when: _EVENT_DT IS NOT NULL AND (_DOSE2_EPOCH IS NULL OR _DOSE2_EPOCH + 14 > _EVENT_EPOCH)
+        then: '''Early COVID-19'''
+      - otherwise: '''No COVID-19'''
+  filter: ADSL.FASFL = 'Y'
+- id: ttcvd2_rows
+  dataset: ADSL
+  derivations:
+    STUDYID: ADSL.STUDYID
+    USUBJID: ADSL.USUBJID
+    PARAMCD: '''TTCVD2'''
+    _EVENT_DT: EV_COVIDA._ADT
+    _EVENT_EPOCH:
+      to_epoch_day:
+        source: _EVENT_DT
+    _COVID_DT: null
+    _CVD53DT: DATE '2020-10-26'
+    _DOSE2_EPOCH:
+      to_epoch_day:
+        source: ADSL.DOSE2DT
+    _TR01_EPOCH:
+      to_epoch_day:
+        source: ADSL.TR01SDT
+    _RAND_EPOCH:
+      to_epoch_day:
+        source: ADSL.RANDDT
+    _CENSDT:
+      least: {sources: [ADSL.DTHDT, ADSL.EOSDT, ADSL.CUTOFFDT, ADSL.EFFCODT]}
+    _ADT_RAW:
+      case:
+      - when: _EVENT_DT IS NOT NULL AND _DOSE2_EPOCH IS NOT NULL AND _DOSE2_EPOCH <= _EVENT_EPOCH
+        then: _EVENT_DT
+      - when: _EVENT_DT IS NOT NULL AND (_DOSE2_EPOCH IS NULL OR _DOSE2_EPOCH > _EVENT_EPOCH)
+        then: _EVENT_DT
+      - otherwise: _CENSDT
+    _CNSR_RAW:
+      case:
+      - when: _EVENT_DT IS NOT NULL AND _DOSE2_EPOCH IS NOT NULL AND _DOSE2_EPOCH <= _EVENT_EPOCH
+        then: 0
+      - when: _EVENT_DT IS NOT NULL AND (_DOSE2_EPOCH IS NULL OR _DOSE2_EPOCH > _EVENT_EPOCH)
+        then: 1
+      - otherwise: 1
+    _EVNTDESC_RAW:
+      case:
+      - when: _EVENT_DT IS NOT NULL AND _DOSE2_EPOCH IS NOT NULL AND _DOSE2_EPOCH <= _EVENT_EPOCH
+        then: '''COVID-19'''
+      - when: _EVENT_DT IS NOT NULL AND (_DOSE2_EPOCH IS NULL OR _DOSE2_EPOCH > _EVENT_EPOCH)
+        then: '''Early COVID-19'''
+      - otherwise: '''No COVID-19'''
+  filter: ADSL.FASFL = 'Y'
+- id: ttcvd3_rows
+  dataset: ADSL
+  derivations:
+    STUDYID: ADSL.STUDYID
+    USUBJID: ADSL.USUBJID
+    PARAMCD: '''TTCVD3'''
+    _EVENT_DT: EV_COVIDA._ADT
+    _EVENT_EPOCH:
+      to_epoch_day:
+        source: _EVENT_DT
+    _COVID_DT: null
+    _CVD53DT: DATE '2020-10-26'
+    _DOSE2_EPOCH:
+      to_epoch_day:
+        source: ADSL.DOSE2DT
+    _TR01_EPOCH:
+      to_epoch_day:
+        source: ADSL.TR01SDT
+    _RAND_EPOCH:
+      to_epoch_day:
+        source: ADSL.RANDDT
+    _CENSDT:
+      least: {sources: [ADSL.DTHDT, ADSL.EOSDT, ADSL.CUTOFFDT, ADSL.EFFCODT]}
+    _ADT_RAW:
+      case:
+      - when: _EVENT_DT IS NOT NULL AND _TR01_EPOCH IS NOT NULL AND _TR01_EPOCH + 14 <= _EVENT_EPOCH
+        then: _EVENT_DT
+      - when: _EVENT_DT IS NOT NULL AND _TR01_EPOCH IS NOT NULL AND _TR01_EPOCH + 14 > _EVENT_EPOCH
+        then: _EVENT_DT
+      - otherwise: _CENSDT
+    _CNSR_RAW:
+      case:
+      - when: _EVENT_DT IS NOT NULL AND _TR01_EPOCH IS NOT NULL AND _TR01_EPOCH + 14 <= _EVENT_EPOCH
+        then: 0
+      - when: _EVENT_DT IS NOT NULL AND _TR01_EPOCH IS NOT NULL AND _TR01_EPOCH + 14 > _EVENT_EPOCH
+        then: 1
+      - otherwise: 1
+    _EVNTDESC_RAW:
+      case:
+      - when: _EVENT_DT IS NOT NULL AND _TR01_EPOCH IS NOT NULL AND _TR01_EPOCH + 14 <= _EVENT_EPOCH
+        then: '''COVID-19'''
+      - when: _EVENT_DT IS NOT NULL AND _TR01_EPOCH IS NOT NULL AND _TR01_EPOCH + 14 > _EVENT_EPOCH
+        then: '''Early COVID-19'''
+      - otherwise: '''No COVID-19'''
+  filter: ADSL.FASFL = 'Y'
+- id: ttcvd4_rows
+  dataset: ADSL
+  derivations:
+    STUDYID: ADSL.STUDYID
+    USUBJID: ADSL.USUBJID
+    PARAMCD: '''TTCVD4'''
+    _EVENT_DT: EV_COVIDA._ADT
+    _EVENT_EPOCH:
+      to_epoch_day:
+        source: _EVENT_DT
+    _COVID_DT: null
+    _CVD53DT: DATE '2020-10-26'
+    _DOSE2_EPOCH:
+      to_epoch_day:
+        source: ADSL.DOSE2DT
+    _TR01_EPOCH:
+      to_epoch_day:
+        source: ADSL.TR01SDT
+    _RAND_EPOCH:
+      to_epoch_day:
+        source: ADSL.RANDDT
+    _CENSDT:
+      least: {sources: [ADSL.DTHDT, ADSL.EOSDT, ADSL.CUTOFFDT, ADSL.EFFCODT]}
+    _ADT_RAW:
+      case:
+      - when: _EVENT_DT IS NOT NULL AND _TR01_EPOCH IS NOT NULL AND _TR01_EPOCH <= _EVENT_EPOCH
+        then: _EVENT_DT
+      - when: _EVENT_DT IS NOT NULL AND _TR01_EPOCH IS NOT NULL AND _TR01_EPOCH > _EVENT_EPOCH
+        then: _EVENT_DT
+      - otherwise: _CENSDT
+    _CNSR_RAW:
+      case:
+      - when: _EVENT_DT IS NOT NULL AND _TR01_EPOCH IS NOT NULL AND _TR01_EPOCH <= _EVENT_EPOCH
+        then: 0
+      - when: _EVENT_DT IS NOT NULL AND _TR01_EPOCH IS NOT NULL AND _TR01_EPOCH > _EVENT_EPOCH
+        then: 1
+      - otherwise: 1
+    _EVNTDESC_RAW:
+      case:
+      - when: _EVENT_DT IS NOT NULL AND _TR01_EPOCH IS NOT NULL AND _TR01_EPOCH <= _EVENT_EPOCH
+        then: '''COVID-19'''
+      - when: _EVENT_DT IS NOT NULL AND _TR01_EPOCH IS NOT NULL AND _TR01_EPOCH > _EVENT_EPOCH
+        then: '''Early COVID-19'''
+      - otherwise: '''No COVID-19'''
+  filter: ADSL.FASFL = 'Y'
+- id: ttcvd5_rows
+  dataset: ADSL
+  derivations:
+    STUDYID: ADSL.STUDYID
+    USUBJID: ADSL.USUBJID
+    PARAMCD: '''TTCVD5'''
+    _EVENT_DT: EV_COVIDA._ADT
+    _EVENT_EPOCH:
+      to_epoch_day:
+        source: _EVENT_DT
+    _COVID_DT: null
+    _CVD53DT: DATE '2020-10-26'
+    _DOSE2_EPOCH:
+      to_epoch_day:
+        source: ADSL.DOSE2DT
+    _TR01_EPOCH:
+      to_epoch_day:
+        source: ADSL.TR01SDT
+    _RAND_EPOCH:
+      to_epoch_day:
+        source: ADSL.RANDDT
+    _CENSDT:
+      least: {sources: [ADSL.DTHDT, ADSL.EOSDT, ADSL.CUTOFFDT, ADSL.EFFCODT]}
+    _ADT_RAW:
+      case:
+      - when: _EVENT_DT IS NOT NULL AND _RAND_EPOCH IS NOT NULL AND _RAND_EPOCH <= _EVENT_EPOCH
+        then: _EVENT_DT
+      - otherwise: _CENSDT
+    _CNSR_RAW:
+      case:
+      - when: _EVENT_DT IS NOT NULL AND _RAND_EPOCH IS NOT NULL AND _RAND_EPOCH <= _EVENT_EPOCH
+        then: 0
+      - otherwise: 1
+    _EVNTDESC_RAW:
+      case:
+      - when: _EVENT_DT IS NOT NULL AND _RAND_EPOCH IS NOT NULL AND _RAND_EPOCH <= _EVENT_EPOCH
+        then: '''COVID-19'''
+      - otherwise: '''No COVID-19'''
+  filter: ADSL.FASFL = 'Y'
+- id: ttcvdse1_rows
+  dataset: ADSL
+  derivations:
+    STUDYID: ADSL.STUDYID
+    USUBJID: ADSL.USUBJID
+    PARAMCD: '''TTCVDSE1'''
+    _EVENT_DT: EV_COVIDSVA._ADT
+    _EVENT_EPOCH:
+      to_epoch_day:
+        source: _EVENT_DT
+    _COVID_DT: null
+    _CVD53DT: DATE '2020-10-26'
+    _DOSE2_EPOCH:
+      to_epoch_day:
+        source: ADSL.DOSE2DT
+    _TR01_EPOCH:
+      to_epoch_day:
+        source: ADSL.TR01SDT
+    _RAND_EPOCH:
+      to_epoch_day:
+        source: ADSL.RANDDT
+    _CENSDT:
+      least: {sources: [ADSL.DTHDT, ADSL.EOSDT, ADSL.CUTOFFDT, ADSL.EFFCODT]}
+    _ADT_RAW:
+      case:
+      - when: _EVENT_DT IS NOT NULL AND _DOSE2_EPOCH IS NOT NULL AND _DOSE2_EPOCH + 14 <= _EVENT_EPOCH
+        then: _EVENT_DT
+      - when: _EVENT_DT IS NOT NULL AND (_DOSE2_EPOCH IS NULL OR _DOSE2_EPOCH + 14 > _EVENT_EPOCH)
+        then: _EVENT_DT
+      - otherwise: _CENSDT
+    _CNSR_RAW:
+      case:
+      - when: _EVENT_DT IS NOT NULL AND _DOSE2_EPOCH IS NOT NULL AND _DOSE2_EPOCH + 14 <= _EVENT_EPOCH
+        then: 0
+      - when: _EVENT_DT IS NOT NULL AND (_DOSE2_EPOCH IS NULL OR _DOSE2_EPOCH + 14 > _EVENT_EPOCH)
+        then: 1
+      - otherwise: 1
+    _EVNTDESC_RAW:
+      case:
+      - when: _EVENT_DT IS NOT NULL AND _DOSE2_EPOCH IS NOT NULL AND _DOSE2_EPOCH + 14 <= _EVENT_EPOCH
+        then: '''Severe COVID-19'''
+      - when: _EVENT_DT IS NOT NULL AND (_DOSE2_EPOCH IS NULL OR _DOSE2_EPOCH + 14 > _EVENT_EPOCH)
+        then: '''Early Severe COVID-19'''
+      - otherwise: '''No Severe COVID-19'''
+  filter: ADSL.FASFL = 'Y'
+- id: ttcvdse2_rows
+  dataset: ADSL
+  derivations:
+    STUDYID: ADSL.STUDYID
+    USUBJID: ADSL.USUBJID
+    PARAMCD: '''TTCVDSE2'''
+    _EVENT_DT: EV_COVIDSVA._ADT
+    _EVENT_EPOCH:
+      to_epoch_day:
+        source: _EVENT_DT
+    _COVID_DT: null
+    _CVD53DT: DATE '2020-10-26'
+    _DOSE2_EPOCH:
+      to_epoch_day:
+        source: ADSL.DOSE2DT
+    _TR01_EPOCH:
+      to_epoch_day:
+        source: ADSL.TR01SDT
+    _RAND_EPOCH:
+      to_epoch_day:
+        source: ADSL.RANDDT
+    _CENSDT:
+      least: {sources: [ADSL.DTHDT, ADSL.EOSDT, ADSL.CUTOFFDT, ADSL.EFFCODT]}
+    _ADT_RAW:
+      case:
+      - when: _EVENT_DT IS NOT NULL AND _DOSE2_EPOCH IS NOT NULL AND _DOSE2_EPOCH <= _EVENT_EPOCH
+        then: _EVENT_DT
+      - when: _EVENT_DT IS NOT NULL AND (_DOSE2_EPOCH IS NULL OR _DOSE2_EPOCH > _EVENT_EPOCH)
+        then: _EVENT_DT
+      - otherwise: _CENSDT
+    _CNSR_RAW:
+      case:
+      - when: _EVENT_DT IS NOT NULL AND _DOSE2_EPOCH IS NOT NULL AND _DOSE2_EPOCH <= _EVENT_EPOCH
+        then: 0
+      - when: _EVENT_DT IS NOT NULL AND (_DOSE2_EPOCH IS NULL OR _DOSE2_EPOCH > _EVENT_EPOCH)
+        then: 1
+      - otherwise: 1
+    _EVNTDESC_RAW:
+      case:
+      - when: _EVENT_DT IS NOT NULL AND _DOSE2_EPOCH IS NOT NULL AND _DOSE2_EPOCH <= _EVENT_EPOCH
+        then: '''Severe COVID-19'''
+      - when: _EVENT_DT IS NOT NULL AND (_DOSE2_EPOCH IS NULL OR _DOSE2_EPOCH > _EVENT_EPOCH)
+        then: '''Early Severe COVID-19'''
+      - otherwise: '''No Severe COVID-19'''
+  filter: ADSL.FASFL = 'Y'
+- id: ttcvdse3_rows
+  dataset: ADSL
+  derivations:
+    STUDYID: ADSL.STUDYID
+    USUBJID: ADSL.USUBJID
+    PARAMCD: '''TTCVDSE3'''
+    _EVENT_DT: EV_COVIDSVA._ADT
+    _EVENT_EPOCH:
+      to_epoch_day:
+        source: _EVENT_DT
+    _COVID_DT: null
+    _CVD53DT: DATE '2020-10-26'
+    _DOSE2_EPOCH:
+      to_epoch_day:
+        source: ADSL.DOSE2DT
+    _TR01_EPOCH:
+      to_epoch_day:
+        source: ADSL.TR01SDT
+    _RAND_EPOCH:
+      to_epoch_day:
+        source: ADSL.RANDDT
+    _CENSDT:
+      least: {sources: [ADSL.DTHDT, ADSL.EOSDT, ADSL.CUTOFFDT, ADSL.EFFCODT]}
+    _ADT_RAW:
+      case:
+      - when: _EVENT_DT IS NOT NULL AND _TR01_EPOCH IS NOT NULL AND _TR01_EPOCH + 14 <= _EVENT_EPOCH
+        then: _EVENT_DT
+      - when: _EVENT_DT IS NOT NULL AND _TR01_EPOCH IS NOT NULL AND _TR01_EPOCH + 14 > _EVENT_EPOCH
+        then: _EVENT_DT
+      - otherwise: _CENSDT
+    _CNSR_RAW:
+      case:
+      - when: _EVENT_DT IS NOT NULL AND _TR01_EPOCH IS NOT NULL AND _TR01_EPOCH + 14 <= _EVENT_EPOCH
+        then: 0
+      - when: _EVENT_DT IS NOT NULL AND _TR01_EPOCH IS NOT NULL AND _TR01_EPOCH + 14 > _EVENT_EPOCH
+        then: 1
+      - otherwise: 1
+    _EVNTDESC_RAW:
+      case:
+      - when: _EVENT_DT IS NOT NULL AND _TR01_EPOCH IS NOT NULL AND _TR01_EPOCH + 14 <= _EVENT_EPOCH
+        then: '''Severe COVID-19'''
+      - when: _EVENT_DT IS NOT NULL AND _TR01_EPOCH IS NOT NULL AND _TR01_EPOCH + 14 > _EVENT_EPOCH
+        then: '''Early Severe COVID-19'''
+      - otherwise: '''No Severe COVID-19'''
+  filter: ADSL.FASFL = 'Y'
+- id: ttcvdse4_rows
+  dataset: ADSL
+  derivations:
+    STUDYID: ADSL.STUDYID
+    USUBJID: ADSL.USUBJID
+    PARAMCD: '''TTCVDSE4'''
+    _EVENT_DT: EV_COVIDSVA._ADT
+    _EVENT_EPOCH:
+      to_epoch_day:
+        source: _EVENT_DT
+    _COVID_DT: null
+    _CVD53DT: DATE '2020-10-26'
+    _DOSE2_EPOCH:
+      to_epoch_day:
+        source: ADSL.DOSE2DT
+    _TR01_EPOCH:
+      to_epoch_day:
+        source: ADSL.TR01SDT
+    _RAND_EPOCH:
+      to_epoch_day:
+        source: ADSL.RANDDT
+    _CENSDT:
+      least: {sources: [ADSL.DTHDT, ADSL.EOSDT, ADSL.CUTOFFDT, ADSL.EFFCODT]}
+    _ADT_RAW:
+      case:
+      - when: _EVENT_DT IS NOT NULL AND _TR01_EPOCH IS NOT NULL AND _TR01_EPOCH <= _EVENT_EPOCH
+        then: _EVENT_DT
+      - when: _EVENT_DT IS NOT NULL AND _TR01_EPOCH IS NOT NULL AND _TR01_EPOCH > _EVENT_EPOCH
+        then: _EVENT_DT
+      - otherwise: _CENSDT
+    _CNSR_RAW:
+      case:
+      - when: _EVENT_DT IS NOT NULL AND _TR01_EPOCH IS NOT NULL AND _TR01_EPOCH <= _EVENT_EPOCH
+        then: 0
+      - when: _EVENT_DT IS NOT NULL AND _TR01_EPOCH IS NOT NULL AND _TR01_EPOCH > _EVENT_EPOCH
+        then: 1
+      - otherwise: 1
+    _EVNTDESC_RAW:
+      case:
+      - when: _EVENT_DT IS NOT NULL AND _TR01_EPOCH IS NOT NULL AND _TR01_EPOCH <= _EVENT_EPOCH
+        then: '''Severe COVID-19'''
+      - when: _EVENT_DT IS NOT NULL AND _TR01_EPOCH IS NOT NULL AND _TR01_EPOCH > _EVENT_EPOCH
+        then: '''Early Severe COVID-19'''
+      - otherwise: '''No Severe COVID-19'''
+  filter: ADSL.FASFL = 'Y'
+- id: ttcvdse5_rows
+  dataset: ADSL
+  derivations:
+    STUDYID: ADSL.STUDYID
+    USUBJID: ADSL.USUBJID
+    PARAMCD: '''TTCVDSE5'''
+    _EVENT_DT: EV_COVIDSVA._ADT
+    _EVENT_EPOCH:
+      to_epoch_day:
+        source: _EVENT_DT
+    _COVID_DT: null
+    _CVD53DT: DATE '2020-10-26'
+    _DOSE2_EPOCH:
+      to_epoch_day:
+        source: ADSL.DOSE2DT
+    _TR01_EPOCH:
+      to_epoch_day:
+        source: ADSL.TR01SDT
+    _RAND_EPOCH:
+      to_epoch_day:
+        source: ADSL.RANDDT
+    _CENSDT:
+      least: {sources: [ADSL.DTHDT, ADSL.EOSDT, ADSL.CUTOFFDT, ADSL.EFFCODT]}
+    _ADT_RAW:
+      case:
+      - when: _EVENT_DT IS NOT NULL AND _RAND_EPOCH IS NOT NULL AND _RAND_EPOCH <= _EVENT_EPOCH
+        then: _EVENT_DT
+      - otherwise: _CENSDT
+    _CNSR_RAW:
+      case:
+      - when: _EVENT_DT IS NOT NULL AND _RAND_EPOCH IS NOT NULL AND _RAND_EPOCH <= _EVENT_EPOCH
+        then: 0
+      - otherwise: 1
+    _EVNTDESC_RAW:
+      case:
+      - when: _EVENT_DT IS NOT NULL AND _RAND_EPOCH IS NOT NULL AND _RAND_EPOCH <= _EVENT_EPOCH
+        then: '''Severe COVID-19'''
+      - otherwise: '''No Severe COVID-19'''
+  filter: ADSL.FASFL = 'Y'
+- id: ttasymp1_rows
+  dataset: ADSL
+  derivations:
+    STUDYID: ADSL.STUDYID
+    USUBJID: ADSL.USUBJID
+    PARAMCD: '''TTASYMP1'''
+    _EVENT_DT: EV_ASYMPINA._ADT
+    _EVENT_EPOCH:
+      to_epoch_day:
+        source: _EVENT_DT
+    _COVID_DT: COVID._ADT
+    _CVD53DT: DATE '2020-10-26'
+    _DOSE2_EPOCH:
+      to_epoch_day:
+        source: ADSL.DOSE2DT
+    _TR01_EPOCH:
+      to_epoch_day:
+        source: ADSL.TR01SDT
+    _RAND_EPOCH:
+      to_epoch_day:
+        source: ADSL.RANDDT
+    _CENSDT:
+      least: {sources: [ADSL.DTHDT, ADSL.EOSDT, ADSL.CUTOFFDT, ADSL.EFFCODT]}
+    _ADT_RAW:
+      case:
+      - when: _EVENT_DT IS NOT NULL AND _DOSE2_EPOCH IS NOT NULL AND _DOSE2_EPOCH + 14 <= _EVENT_EPOCH
+        then: _EVENT_DT
+      - when: _EVENT_DT IS NOT NULL AND (_DOSE2_EPOCH IS NULL OR _DOSE2_EPOCH + 14 > _EVENT_EPOCH)
+        then: _EVENT_DT
+      - when: _COVID_DT IS NOT NULL
+        then: _COVID_DT
+      - otherwise: _CENSDT
+    _CNSR_RAW:
+      case:
+      - when: _EVENT_DT IS NOT NULL AND _DOSE2_EPOCH IS NOT NULL AND _DOSE2_EPOCH + 14 <= _EVENT_EPOCH
+        then: 0
+      - when: _EVENT_DT IS NOT NULL AND (_DOSE2_EPOCH IS NULL OR _DOSE2_EPOCH + 14 > _EVENT_EPOCH)
+        then: 1
+      - when: _COVID_DT IS NOT NULL
+        then: 1
+      - otherwise: 1
+    _EVNTDESC_RAW:
+      case:
+      - when: _EVENT_DT IS NOT NULL AND _DOSE2_EPOCH IS NOT NULL AND _DOSE2_EPOCH + 14 <= _EVENT_EPOCH
+        then: '''Asymptomatic SARS-CoV-2 Infection'''
+      - when: _EVENT_DT IS NOT NULL AND (_DOSE2_EPOCH IS NULL OR _DOSE2_EPOCH + 14 > _EVENT_EPOCH)
+        then: '''Early Asymptomatic SARS-CoV-2 Infection'''
+      - when: _COVID_DT IS NOT NULL
+        then: '''Symptomatic SARS-CoV-2 Infection'''
+      - otherwise: '''No Asymptomatic SARS-CoV-2 Infection'''
+  filter: ADSL.FASFL = 'Y'
+- id: ttasymp2_rows
+  dataset: ADSL
+  derivations:
+    STUDYID: ADSL.STUDYID
+    USUBJID: ADSL.USUBJID
+    PARAMCD: '''TTASYMP2'''
+    _EVENT_DT: EV_ASYMPINA._ADT
+    _EVENT_EPOCH:
+      to_epoch_day:
+        source: _EVENT_DT
+    _COVID_DT: COVID._ADT
+    _CVD53DT: DATE '2020-10-26'
+    _DOSE2_EPOCH:
+      to_epoch_day:
+        source: ADSL.DOSE2DT
+    _TR01_EPOCH:
+      to_epoch_day:
+        source: ADSL.TR01SDT
+    _RAND_EPOCH:
+      to_epoch_day:
+        source: ADSL.RANDDT
+    _CENSDT:
+      least: {sources: [ADSL.DTHDT, ADSL.EOSDT, ADSL.CUTOFFDT, ADSL.EFFCODT]}
+    _ADT_RAW:
+      case:
+      - when: _EVENT_DT IS NOT NULL AND _DOSE2_EPOCH IS NOT NULL AND _DOSE2_EPOCH <= _EVENT_EPOCH
+        then: _EVENT_DT
+      - when: _EVENT_DT IS NOT NULL AND (_DOSE2_EPOCH IS NULL OR _DOSE2_EPOCH > _EVENT_EPOCH)
+        then: _EVENT_DT
+      - when: _COVID_DT IS NOT NULL
+        then: _COVID_DT
+      - otherwise: _CENSDT
+    _CNSR_RAW:
+      case:
+      - when: _EVENT_DT IS NOT NULL AND _DOSE2_EPOCH IS NOT NULL AND _DOSE2_EPOCH <= _EVENT_EPOCH
+        then: 0
+      - when: _EVENT_DT IS NOT NULL AND (_DOSE2_EPOCH IS NULL OR _DOSE2_EPOCH > _EVENT_EPOCH)
+        then: 1
+      - when: _COVID_DT IS NOT NULL
+        then: 1
+      - otherwise: 1
+    _EVNTDESC_RAW:
+      case:
+      - when: _EVENT_DT IS NOT NULL AND _DOSE2_EPOCH IS NOT NULL AND _DOSE2_EPOCH <= _EVENT_EPOCH
+        then: '''Asymptomatic SARS-CoV-2 Infection'''
+      - when: _EVENT_DT IS NOT NULL AND (_DOSE2_EPOCH IS NULL OR _DOSE2_EPOCH > _EVENT_EPOCH)
+        then: '''Early Asymptomatic SARS-CoV-2 Infection'''
+      - when: _COVID_DT IS NOT NULL
+        then: '''Symptomatic SARS-CoV-2 Infection'''
+      - otherwise: '''No Asymptomatic SARS-CoV-2 Infection'''
+  filter: ADSL.FASFL = 'Y'
+- id: ttasymp3_rows
+  dataset: ADSL
+  derivations:
+    STUDYID: ADSL.STUDYID
+    USUBJID: ADSL.USUBJID
+    PARAMCD: '''TTASYMP3'''
+    _EVENT_DT: EV_ASYMPINA._ADT
+    _EVENT_EPOCH:
+      to_epoch_day:
+        source: _EVENT_DT
+    _COVID_DT: COVID._ADT
+    _CVD53DT: DATE '2020-10-26'
+    _DOSE2_EPOCH:
+      to_epoch_day:
+        source: ADSL.DOSE2DT
+    _TR01_EPOCH:
+      to_epoch_day:
+        source: ADSL.TR01SDT
+    _RAND_EPOCH:
+      to_epoch_day:
+        source: ADSL.RANDDT
+    _CENSDT:
+      least: {sources: [ADSL.DTHDT, ADSL.EOSDT, ADSL.CUTOFFDT, ADSL.EFFCODT]}
+    _ADT_RAW:
+      case:
+      - when: _EVENT_DT IS NOT NULL AND _TR01_EPOCH IS NOT NULL AND _TR01_EPOCH + 14 <= _EVENT_EPOCH
+        then: _EVENT_DT
+      - when: _EVENT_DT IS NOT NULL AND _TR01_EPOCH IS NOT NULL AND _TR01_EPOCH + 14 > _EVENT_EPOCH
+        then: _EVENT_DT
+      - when: _COVID_DT IS NOT NULL
+        then: _COVID_DT
+      - otherwise: _CENSDT
+    _CNSR_RAW:
+      case:
+      - when: _EVENT_DT IS NOT NULL AND _TR01_EPOCH IS NOT NULL AND _TR01_EPOCH + 14 <= _EVENT_EPOCH
+        then: 0
+      - when: _EVENT_DT IS NOT NULL AND _TR01_EPOCH IS NOT NULL AND _TR01_EPOCH + 14 > _EVENT_EPOCH
+        then: 1
+      - when: _COVID_DT IS NOT NULL
+        then: 1
+      - otherwise: 1
+    _EVNTDESC_RAW:
+      case:
+      - when: _EVENT_DT IS NOT NULL AND _TR01_EPOCH IS NOT NULL AND _TR01_EPOCH + 14 <= _EVENT_EPOCH
+        then: '''Asymptomatic SARS-CoV-2 Infection'''
+      - when: _EVENT_DT IS NOT NULL AND _TR01_EPOCH IS NOT NULL AND _TR01_EPOCH + 14 > _EVENT_EPOCH
+        then: '''Early Asymptomatic SARS-CoV-2 Infection'''
+      - when: _COVID_DT IS NOT NULL
+        then: '''Symptomatic SARS-CoV-2 Infection'''
+      - otherwise: '''No Asymptomatic SARS-CoV-2 Infection'''
+  filter: ADSL.FASFL = 'Y'
+- id: ttasymp4_rows
+  dataset: ADSL
+  derivations:
+    STUDYID: ADSL.STUDYID
+    USUBJID: ADSL.USUBJID
+    PARAMCD: '''TTASYMP4'''
+    _EVENT_DT: EV_ASYMPINA._ADT
+    _EVENT_EPOCH:
+      to_epoch_day:
+        source: _EVENT_DT
+    _COVID_DT: COVID._ADT
+    _CVD53DT: DATE '2020-10-26'
+    _DOSE2_EPOCH:
+      to_epoch_day:
+        source: ADSL.DOSE2DT
+    _TR01_EPOCH:
+      to_epoch_day:
+        source: ADSL.TR01SDT
+    _RAND_EPOCH:
+      to_epoch_day:
+        source: ADSL.RANDDT
+    _CENSDT:
+      least: {sources: [ADSL.DTHDT, ADSL.EOSDT, ADSL.CUTOFFDT, ADSL.EFFCODT]}
+    _ADT_RAW:
+      case:
+      - when: _EVENT_DT IS NOT NULL AND _TR01_EPOCH IS NOT NULL AND _TR01_EPOCH <= _EVENT_EPOCH
+        then: _EVENT_DT
+      - when: _EVENT_DT IS NOT NULL AND _TR01_EPOCH IS NOT NULL AND _TR01_EPOCH > _EVENT_EPOCH
+        then: _EVENT_DT
+      - when: _COVID_DT IS NOT NULL
+        then: _COVID_DT
+      - otherwise: _CENSDT
+    _CNSR_RAW:
+      case:
+      - when: _EVENT_DT IS NOT NULL AND _TR01_EPOCH IS NOT NULL AND _TR01_EPOCH <= _EVENT_EPOCH
+        then: 0
+      - when: _EVENT_DT IS NOT NULL AND _TR01_EPOCH IS NOT NULL AND _TR01_EPOCH > _EVENT_EPOCH
+        then: 1
+      - when: _COVID_DT IS NOT NULL
+        then: 1
+      - otherwise: 1
+    _EVNTDESC_RAW:
+      case:
+      - when: _EVENT_DT IS NOT NULL AND _TR01_EPOCH IS NOT NULL AND _TR01_EPOCH <= _EVENT_EPOCH
+        then: '''Asymptomatic SARS-CoV-2 Infection'''
+      - when: _EVENT_DT IS NOT NULL AND _TR01_EPOCH IS NOT NULL AND _TR01_EPOCH > _EVENT_EPOCH
+        then: '''Early Asymptomatic SARS-CoV-2 Infection'''
+      - when: _COVID_DT IS NOT NULL
+        then: '''Symptomatic SARS-CoV-2 Infection'''
+      - otherwise: '''No Asymptomatic SARS-CoV-2 Infection'''
+  filter: ADSL.FASFL = 'Y'
+- id: ttasymp5_rows
+  dataset: ADSL
+  derivations:
+    STUDYID: ADSL.STUDYID
+    USUBJID: ADSL.USUBJID
+    PARAMCD: '''TTASYMP5'''
+    _EVENT_DT: EV_ASYMPINA._ADT
+    _EVENT_EPOCH:
+      to_epoch_day:
+        source: _EVENT_DT
+    _COVID_DT: COVID._ADT
+    _CVD53DT: DATE '2020-10-26'
+    _DOSE2_EPOCH:
+      to_epoch_day:
+        source: ADSL.DOSE2DT
+    _TR01_EPOCH:
+      to_epoch_day:
+        source: ADSL.TR01SDT
+    _RAND_EPOCH:
+      to_epoch_day:
+        source: ADSL.RANDDT
+    _CENSDT:
+      least: {sources: [ADSL.DTHDT, ADSL.EOSDT, ADSL.CUTOFFDT, ADSL.EFFCODT]}
+    _ADT_RAW:
+      case:
+      - when: _EVENT_DT IS NOT NULL AND _RAND_EPOCH IS NOT NULL AND _RAND_EPOCH <= _EVENT_EPOCH
+        then: _EVENT_DT
+      - when: _COVID_DT IS NOT NULL
+        then: _COVID_DT
+      - otherwise: _CENSDT
+    _CNSR_RAW:
+      case:
+      - when: _EVENT_DT IS NOT NULL AND _RAND_EPOCH IS NOT NULL AND _RAND_EPOCH <= _EVENT_EPOCH
+        then: 0
+      - when: _COVID_DT IS NOT NULL
+        then: 1
+      - otherwise: 1
+    _EVNTDESC_RAW:
+      case:
+      - when: _EVENT_DT IS NOT NULL AND _RAND_EPOCH IS NOT NULL AND _RAND_EPOCH <= _EVENT_EPOCH
+        then: '''Asymptomatic SARS-CoV-2 Infection'''
+      - when: _COVID_DT IS NOT NULL
+        then: '''Symptomatic SARS-CoV-2 Infection'''
+      - otherwise: '''No Asymptomatic SARS-CoV-2 Infection'''
+  filter: ADSL.FASFL = 'Y'
+- id: ttcvd1b_rows
+  dataset: ADSL
+  derivations:
+    STUDYID: ADSL.STUDYID
+    USUBJID: ADSL.USUBJID
+    PARAMCD: '''TTCVD1B'''
+    _EVENT_DT: EV_COVIDA_53._ADT
+    _EVENT_EPOCH:
+      to_epoch_day:
+        source: _EVENT_DT
+    _COVID_DT: null
+    _CVD53DT: DATE '2020-10-26'
+    _DOSE2_EPOCH:
+      to_epoch_day:
+        source: ADSL.DOSE2DT
+    _TR01_EPOCH:
+      to_epoch_day:
+        source: ADSL.TR01SDT
+    _RAND_EPOCH:
+      to_epoch_day:
+        source: ADSL.RANDDT
+    _CENSDT:
+      least: {sources: [ADSL.DTHDT, ADSL.EOSDT, ADSL.CUTOFFDT, ADSL.EFFCODT, _CVD53DT]}
+    _ADT_RAW:
+      case:
+      - when: _EVENT_DT IS NOT NULL AND _DOSE2_EPOCH IS NOT NULL AND _DOSE2_EPOCH + 14 <= _EVENT_EPOCH
+        then: _EVENT_DT
+      - when: _EVENT_DT IS NOT NULL AND (_DOSE2_EPOCH IS NULL OR _DOSE2_EPOCH + 14 > _EVENT_EPOCH)
+        then: _EVENT_DT
+      - otherwise: _CENSDT
+    _CNSR_RAW:
+      case:
+      - when: _EVENT_DT IS NOT NULL AND _DOSE2_EPOCH IS NOT NULL AND _DOSE2_EPOCH + 14 <= _EVENT_EPOCH
+        then: 0
+      - when: _EVENT_DT IS NOT NULL AND (_DOSE2_EPOCH IS NULL OR _DOSE2_EPOCH + 14 > _EVENT_EPOCH)
+        then: 1
+      - otherwise: 1
+    _EVNTDESC_RAW:
+      case:
+      - when: _EVENT_DT IS NOT NULL AND _DOSE2_EPOCH IS NOT NULL AND _DOSE2_EPOCH + 14 <= _EVENT_EPOCH
+        then: '''COVID-19'''
+      - when: _EVENT_DT IS NOT NULL AND (_DOSE2_EPOCH IS NULL OR _DOSE2_EPOCH + 14 > _EVENT_EPOCH)
+        then: '''Early COVID-19'''
+      - otherwise: '''No COVID-19'''
+  filter: ADSL.FASFL = 'Y'
+intermediates:
+- id: EV_COVIDA
+  dataset: ADEFF
+  key:
+  - USUBJID
+  filter: ADEFF.PARAMCD = 'COVIDA' AND ADEFF.PARCAT1 = 'DERIVED PER ADJUDICATION' AND ADEFF.ANL01FL = 'Y' AND ADEFF.ADT IS NOT NULL
+  order_by:
+  - ADEFF.ADT
+  keep: first
+  derivations:
+    _ADT:
+      type: date
+      derivation: ADEFF.ADT
+- id: EV_COVIDSVA
+  dataset: ADEFF
+  key:
+  - USUBJID
+  filter: ADEFF.PARAMCD = 'COVIDSVA' AND ADEFF.PARCAT1 = 'DERIVED PER ADJUDICATION' AND ADEFF.ANL01FL = 'Y' AND ADEFF.ADT IS NOT NULL
+  order_by:
+  - ADEFF.ADT
+  keep: first
+  derivations:
+    _ADT:
+      type: date
+      derivation: ADEFF.ADT
+- id: EV_ASYMPINA
+  dataset: ADEFF
+  key:
+  - USUBJID
+  filter: ADEFF.PARAMCD = 'ASYMPINA' AND ADEFF.PARCAT1 = 'DERIVED PER ADJUDICATION' AND ADEFF.ANL01FL = 'Y' AND ADEFF.ADT IS NOT NULL
+  order_by:
+  - ADEFF.ADT
+  keep: first
+  derivations:
+    _ADT:
+      type: date
+      derivation: ADEFF.ADT
+- id: EV_COVIDA_53
+  dataset: ADEFF
+  key:
+  - USUBJID
+  filter: ADEFF.PARAMCD = 'COVIDA' AND ADEFF.PARCAT1 = 'DERIVED PER ADJUDICATION' AND ADEFF.ANL01FL = 'Y' AND ADEFF.ADT IS NOT NULL AND ADEFF.ADT <= DATE '2020-10-26'
+  order_by:
+  - ADEFF.ADT
+  keep: first
+  derivations:
+    _ADT:
+      type: date
+      derivation: ADEFF.ADT
+- id: COVID
+  dataset: ADEFF
+  key:
+  - USUBJID
+  filter: ADEFF.PARAMCD IN ('COVIDA', 'COVIDSD') AND ADEFF.PARCAT1 = 'DERIVED PER ADJUDICATION' AND ADEFF.ANL01FL = 'Y' AND ADEFF.ADT IS NOT NULL
+  order_by:
+  - ADEFF.ADT
+  keep: first
+  derivations:
+    _ADT:
+      type: date
+      derivation: ADEFF.ADT
+columns:
+- name: _ADSL
+  type: str
+  derivation: ADSL.USUBJID
+- name: STUDYID
+  submission:
+    origins:
+    - type: Derived
+    method: "Withheld from publication: the received define states this text."
+- name: USUBJID
+  submission:
+    origins:
+    - type: Derived
+    method: "Withheld from publication: the received define states this text."
+- name: _EVENT_DT
+  type: date
+- name: _EVENT_EPOCH
+  type: int
+- name: _COVID_DT
+  type: date
+- name: _CVD53DT
+  type: date
+- name: _DOSE2_EPOCH
+  type: int
+- name: _TR01_EPOCH
+  type: int
+- name: _RAND_EPOCH
+  type: int
+- name: _CENSDT
+  type: date
+- name: _ADT_RAW
+  type: date
+- name: _CNSR_RAW
+  type: int
+- name: _EVNTDESC_RAW
+  type: str
+- name: SUBJID
+  derivation: ADSL.SUBJID
+  submission:
+    origins:
+    - type: Predecessor
+      description: ADSL.SUBJID
+- name: SITEID
+  derivation: ADSL.SITEID
+  submission:
+    origins:
+    - type: Predecessor
+      description: ADSL.SITEID
+- name: COUNTRY
+  derivation: ADSL.COUNTRY
+  submission:
+    origins:
+    - type: Predecessor
+      description: ADSL.COUNTRY
+- name: AGE
+  derivation: ADSL.AGE
+  submission:
+    origins:
+    - type: Predecessor
+      description: ADSL.AGE
+- name: AGEU
+  derivation: ADSL.AGEU
+  submission:
+    origins:
+    - type: Predecessor
+      description: ADSL.AGEU
+- name: STRATAR
+  derivation: ADSL.STRATAR
+  submission:
+    origins:
+    - type: Predecessor
+      description: ADSL.STRATAR
+- name: STRATARN
+  derivation: ADSL.STRATARN
+  submission:
+    origins:
+    - type: Predecessor
+      description: ADSL.STRATARN
+- name: AGEGR1
+  derivation: ADSL.AGEGR1
+  submission:
+    origins:
+    - type: Predecessor
+      description: ADSL.AGEGR1
+- name: AGEGR1N
+  derivation: ADSL.AGEGR1N
+  submission:
+    origins:
+    - type: Predecessor
+      description: ADSL.AGEGR1N
+- name: AGEGR2
+  derivation: ADSL.AGEGR2
+  submission:
+    origins:
+    - type: Predecessor
+      description: ADSL.AGEGR2
+- name: AGEGR2N
+  derivation: ADSL.AGEGR2N
+  submission:
+    origins:
+    - type: Predecessor
+      description: ADSL.AGEGR2N
+- name: SEX
+  derivation: ADSL.SEX
+  submission:
+    origins:
+    - type: Predecessor
+      description: ADSL.SEX
+- name: RACE
+  derivation: ADSL.RACE
+  submission:
+    origins:
+    - type: Predecessor
+      description: ADSL.RACE
+- name: RACESPY
+  derivation: ADSL.RACESPY
+  submission:
+    origins:
+    - type: Predecessor
+      description: ADSL.RACESPY
+- name: ETHNIC
+  derivation: ADSL.ETHNIC
+  submission:
+    origins:
+    - type: Predecessor
+      description: ADSL.ETHNIC
+- name: RANDFL
+  derivation: ADSL.RANDFL
+  submission:
+    origins:
+    - type: Predecessor
+      description: ADSL.RANDFL
+- name: FASFL
+  derivation: ADSL.FASFL
+  submission:
+    origins:
+    - type: Predecessor
+      description: ADSL.FASFL
+- name: SAFFL
+  derivation: ADSL.SAFFL
+  submission:
+    origins:
+    - type: Predecessor
+      description: ADSL.SAFFL
+- name: SAR1FL
+  derivation: ADSL.SAR1FL
+  submission:
+    origins:
+    - type: Predecessor
+      description: ADSL.SAR1FL
+- name: SAR2FL
+  derivation: ADSL.SAR2FL
+  submission:
+    origins:
+    - type: Predecessor
+      description: ADSL.SAR2FL
+- name: SARAFL
+  derivation: ADSL.SARAFL
+  submission:
+    origins:
+    - type: Predecessor
+      description: ADSL.SARAFL
+- name: MITTFL
+  derivation: ADSL.MITTFL
+  submission:
+    origins:
+    - type: Predecessor
+      description: ADSL.MITTFL
+- name: PPROTFL
+  derivation: ADSL.PPROTFL
+  submission:
+    origins:
+    - type: Predecessor
+      description: ADSL.PPROTFL
+- name: COMPLFL
+  derivation: ADSL.COMPLFL
+  submission:
+    origins:
+    - type: Predecessor
+      description: ADSL.COMPLFL
+- name: DOSE1FL
+  derivation: ADSL.DOSE1FL
+  submission:
+    origins:
+    - type: Predecessor
+      description: ADSL.DOSE1FL
+- name: DOSE2FL
+  derivation: ADSL.DOSE2FL
+  submission:
+    origins:
+    - type: Predecessor
+      description: ADSL.DOSE2FL
+- name: RTPCRBL
+  derivation: ADSL.RTPCRBL
+  submission:
+    origins:
+    - type: Predecessor
+      description: ADSL.RTPCRBL
+- name: ELECSBL
+  derivation: ADSL.ELECSBL
+  submission:
+    origins:
+    - type: Predecessor
+      description: ADSL.ELECSBL
+- name: SCOV2BL
+  derivation: ADSL.SCOV2BL
+  submission:
+    origins:
+    - type: Predecessor
+      description: ADSL.SCOV2BL
+- name: TRT01P
+  derivation: ADSL.TRT01P
+  submission:
+    origins:
+    - type: Predecessor
+      description: ADSL.TRT01P
+- name: TRT01PN
+  derivation: ADSL.TRT01PN
+  submission:
+    origins:
+    - type: Predecessor
+      description: ADSL.TRT01PN
+- name: TRT01A
+  derivation: ADSL.TRT01A
+  submission:
+    origins:
+    - type: Predecessor
+      description: ADSL.TRT01A
+- name: TRT01AN
+  derivation: ADSL.TRT01AN
+  submission:
+    origins:
+    - type: Predecessor
+      description: ADSL.TRT01AN
+- name: TR01SDT
+  derivation: ADSL.TR01SDT
+  submission:
+    origins:
+    - type: Predecessor
+      description: ADSL.TR01SDT
+- name: TR01SDTM
+  derivation: ADSL.TR01SDTM
+  submission:
+    origins:
+    - type: Predecessor
+      description: ADSL.TR01SDTM
+- name: TR01EDT
+  derivation: ADSL.TR01EDT
+  submission:
+    origins:
+    - type: Predecessor
+      description: ADSL.TR01EDT
+- name: TR01EDTM
+  derivation: ADSL.TR01EDTM
+  submission:
+    origins:
+    - type: Predecessor
+      description: ADSL.TR01EDTM
+- name: DOSE2DT
+  derivation: ADSL.DOSE2DT
+  submission:
+    origins:
+    - type: Predecessor
+      description: ADSL.DOSE2DT
+- name: DOS2DTM
+  derivation: ADSL.DOS2DTM
+  submission:
+    origins:
+    - type: Predecessor
+      description: ADSL.DOS2DTM
+- name: RSKF1
+  derivation: ADSL.RSKF1
+  submission:
+    origins:
+    - type: Predecessor
+      description: ADSL.RSKF1
+- name: RSKF2
+  derivation: ADSL.RSKF2
+  submission:
+    origins:
+    - type: Predecessor
+      description: ADSL.RSKF2
+- name: RSKF3
+  derivation: ADSL.RSKF3
+  submission:
+    origins:
+    - type: Predecessor
+      description: ADSL.RSKF3
+- name: RSKF4
+  derivation: ADSL.RSKF4
+  submission:
+    origins:
+    - type: Predecessor
+      description: ADSL.RSKF4
+- name: RSKF5
+  derivation: ADSL.RSKF5
+  submission:
+    origins:
+    - type: Predecessor
+      description: ADSL.RSKF5
+- name: RSKF6
+  derivation: ADSL.RSKF6
+  submission:
+    origins:
+    - type: Predecessor
+      description: ADSL.RSKF6
+- name: STRATAV
+  derivation: ADSL.STRATAV
+  submission:
+    origins:
+    - type: Predecessor
+      description: ADSL.STRATAV
+- name: STRATAVN
+  derivation: ADSL.STRATAVN
+  submission:
+    origins:
+    - type: Predecessor
+      description: ADSL.STRATAVN
+- name: MINORITY
+  derivation: ADSL.MINORITY
+  submission:
+    origins:
+    - type: Predecessor
+      description: ADSL.MINORITY
+- name: RACEGR1
+  derivation: ADSL.RACEGR1
+  submission:
+    mandatory: false
+    origins:
+    - type: Predecessor
+      description: ADSL.RACEGR1
+- name: RACEGR1N
+  derivation: ADSL.RACEGR1N
+  submission:
+    mandatory: false
+    origins:
+    - type: Predecessor
+      description: ADSL.RACEGR1N
+- name: RISKGR1
+  derivation: ADSL.RISKGR1
+  submission:
+    origins:
+    - type: Predecessor
+      description: ADSL.RISKGR1
+- name: RISKGR1N
+  derivation: ADSL.RISKGR1N
+  submission:
+    origins:
+    - type: Predecessor
+      description: ADSL.RISKGR1N
+- name: RETHGR1
+  derivation: ADSL.RETHGR1
+  submission:
+    origins:
+    - type: Predecessor
+      description: ADSL.RETHGR1
+- name: RETHGR1N
+  derivation: ADSL.RETHGR1N
+  submission:
+    origins:
+    - type: Predecessor
+      description: ADSL.RETHGR1N
+- name: ACTARM
+  derivation: null
+- name: ARM
+  derivation: null
+- name: BMIBL
+  derivation: null
+- name: CBNRS
+  derivation: null
+- name: CHILDBP
+  derivation: null
+- name: CUTOFFDT
+  derivation: null
+- name: DCSREAS
+  derivation: null
+- name: DCSREASP
+  derivation: null
+- name: DCTREAS
+  derivation: null
+- name: DCTREASP
+  derivation: null
+- name: DTHAUTOP
+  derivation: null
+- name: DTHDT
+  derivation: null
+- name: EFFCODT
+  derivation: null
+- name: EOSDT
+  derivation: null
+- name: EOSDY
+  derivation: null
+- name: EOSSTT
+  derivation: null
+- name: EOTDT
+  derivation: null
+- name: EOTDY
+  derivation: null
+- name: EOTSTT
+  derivation: null
+- name: FASEREAS
+  derivation: null
+- name: HEIGHTBL
+  derivation: null
+- name: MITTERS
+  derivation: null
+- name: PPEREAS
+  derivation: null
+- name: PREVSCR
+  derivation: null
+- name: PROTVER
+  derivation: null
+- name: RANDDT
+  derivation: null
+- name: RANDNUM
+  derivation: null
+- name: RFICDT
+  derivation: null
+- name: RFXSTDTC
+  derivation: null
+- name: SAFEREAS
+  derivation: null
+- name: SAR1ERS
+  derivation: null
+- name: SAR2ERS
+  derivation: null
+- name: STUDDUR1
+  derivation: null
+- name: STUDDUR2
+  derivation: null
+- name: STUDDUR3
+  derivation: null
+- name: WEIGHTBL
+  derivation: null
+- name: PARCAT1
+  type: str
+  label: Parameter Category 1
+  derivation:
+    case:
+    - when: PARAMCD IS NOT NULL
+      then: '''DERIVED PER ADJUDICATION'''
+    - otherwise: '''DERIVED PER ADJUDICATION'''
+  submission:
+    core: Req
+    mandatory: true
+    length: 24
+    origins:
+    - type: Derived
+    method: "Withheld from publication: the received define states this text."
+- name: PARAM
+  type: str
+  label: Parameter
+  derivation:
+    mapping:
+      source: PARAMCD
+      dict:
+        TTASYMP1: Time to Asymptomatic SARS-CoV-2 Infection 14 Days after Dose 2 (Days)
+        TTASYMP2: Time to Asymptomatic SARS-CoV-2 Infection after Dose 2 (Days)
+        TTASYMP3: Time to Asymptomatic SARS-CoV-2 Infection 14 Days after Dose 1 (Days)
+        TTASYMP4: Time to Asymptomatic SARS-CoV-2 Infection after Dose 1 (Days)
+        TTASYMP5: Time to Asymptomatic SARS-CoV-2 Infection after Randomization (Days)
+        TTCVD1: Time to COVID-19 14 Days after Dose 2 (Days)
+        TTCVD1B: Time to COVID-19 14 Days after Dose 2 (Days) up to 53rd case
+        TTCVD2: Time to COVID-19 after Dose 2 (Days)
+        TTCVD3: Time to COVID-19 14 Days after Dose 1 (Days)
+        TTCVD4: Time to COVID-19 after Dose 1 (Days)
+        TTCVD5: Time to COVID-19 after Randomization (Days)
+        TTCVDSE1: Time to Severe COVID-19 14 Days after Dose 2 (Days)
+        TTCVDSE2: Time to Severe COVID-19 after Dose 2 (Days)
+        TTCVDSE3: Time to Severe COVID-19 14 Days after Dose 1 (Days)
+        TTCVDSE4: Time to Severe COVID-19 after Dose 1 (Days)
+        TTCVDSE5: Time to Severe COVID-19 after Randomization (Days)
+      unmapped: null
+  submission:
+    core: Req
+    mandatory: true
+    length: 200
+    origins:
+    - type: Derived
+    method: "Withheld from publication: the received define states this text."
+- name: PARAMCD
+  type: str
+  label: Parameter Code
+  submission:
+    core: Req
+    mandatory: true
+    length: 8
+    origins:
+    - type: Assigned
+- name: STARTDT
+  type: date
+  label: Time-to-Event Origin Date for Subject
+  derivation: ADSL.RANDDT
+  submission:
+    core: Req
+    mandatory: true
+    origins:
+    - type: Derived
+    method: "Withheld from publication: the received define states this text."
+- name: CVD53DT
+  type: date
+  label: Date of 53rd COVID-19 Case
+  derivation: DATE '2020-10-26'
+  submission:
+    core: Req
+    mandatory: true
+    origins:
+    - type: Assigned
+- name: ADT
+  type: date
+  label: Analysis Date
+  derivation: _ADT_RAW
+  submission:
+    core: Req
+    mandatory: true
+    origins:
+    - type: Derived
+    method: "Withheld from publication: the received define states this text."
+- name: AVAL
+  type: int
+  label: Analysis Value
+  derivation:
+    study_day:
+      source: ADT
+      reference: STARTDT
+  submission:
+    core: Req
+    mandatory: true
+    length: 8
+    display_format: '3.'
+    origins:
+    - type: Derived
+    method: "Withheld from publication: the received define states this text."
+- name: CNSR
+  type: int
+  label: Censor
+  derivation: _CNSR_RAW
+  submission:
+    core: Req
+    mandatory: true
+    length: 8
+    display_format: '3.'
+    origins:
+    - type: Derived
+    method: "Withheld from publication: the received define states this text."
+- name: EVNTDESC
+  type: str
+  label: Event or Censoring Description
+  derivation: _EVNTDESC_RAW
+  submission:
+    core: Req
+    mandatory: true
+    length: 200
+    origins:
+    - type: Derived
+    method: "Withheld from publication: the received define states this text."
+output:
+  path: <adam-dir>/adttea-yamaa.parquet
+  order_by:
+  - USUBJID
+  - PARAMCD
+  columns:
+  - STUDYID
+  - USUBJID
+  - SUBJID
+  - SITEID
+  - COUNTRY
+  - AGE
+  - AGEU
+  - STRATAR
+  - STRATARN
+  - AGEGR1
+  - AGEGR1N
+  - AGEGR2
+  - AGEGR2N
+  - SEX
+  - RACE
+  - RACESPY
+  - ETHNIC
+  - RANDFL
+  - FASFL
+  - SAFFL
+  - SAR1FL
+  - SAR2FL
+  - SARAFL
+  - MITTFL
+  - PPROTFL
+  - COMPLFL
+  - DOSE1FL
+  - DOSE2FL
+  - RTPCRBL
+  - ELECSBL
+  - SCOV2BL
+  - TRT01P
+  - TRT01PN
+  - TRT01A
+  - TRT01AN
+  - TR01SDT
+  - TR01SDTM
+  - TR01EDT
+  - TR01EDTM
+  - DOSE2DT
+  - DOS2DTM
+  - RSKF1
+  - RSKF2
+  - RSKF3
+  - RSKF4
+  - RSKF5
+  - RSKF6
+  - STRATAV
+  - STRATAVN
+  - MINORITY
+  - RACEGR1
+  - RACEGR1N
+  - RISKGR1
+  - RISKGR1N
+  - RETHGR1
+  - RETHGR1N
+  - PARCAT1
+  - PARAM
+  - PARAMCD
+  - STARTDT
+  - CVD53DT
+  - ADT
+  - AVAL
+  - CNSR
+  - EVNTDESC

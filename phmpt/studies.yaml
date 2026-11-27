@@ -1,0 +1,113 @@
+# The studies this repository reproduces, read by scripts/reproduce.py and
+# the site builders. One entry per study folder at the repository root.
+#
+#   cuts         one entry per <study>/<cut>/ folder with specs (spec/yamaa/);
+#                application and sequence name the eCTD submission the cut's
+#                files come from (the Bates-named PHMPT files carry both).
+#                over names the earlier cut whose specs this cut's specs are
+#                layers over (only what this cut changes is written).
+#                sdtm_from names the cut whose data/ folders supply the
+#                domains and datasets a supplement does not resend.
+#                define: false marks a cut whose release has no define.xml.
+#   standalone   {dataset: reason}: a spec of a cut with `over` that is not a
+#                layer over the earlier cut's spec, and why. A yamaa layer
+#                cannot remove a keyed member (column, intermediate) its
+#                parent declares, so a later spec that drops one of them
+#                inherits only the study's base layer.
+#   data_cuts    folders holding submitted data only, no specs yet.
+#   compare      comparison rules for verification (numeric tolerance, and
+#                whether strings are compared after removing spaces). A
+#                submitted cell redacted to "(b)(6)" is never compared
+#                (scripts/verify_compare.py, REDACTED).
+#   partitions   {cut: {dataset: N}}: USUBJID-hash partitions for datasets
+#                too large for one run in 15 GB (streamed through disk).
+#
+# Every cut's layout: data/sdtm/<domain>.parquet, data/adam/<dataset>.parquet
+# (the submitted reference), spec/yamaa/<dataset>.yaml, and spec/define/
+# (define-adam.xml received, define-adam-yamaa.xml generated, plus the
+# reproduced-mode layers). Spec inputs name <sdtm-dir>, <adam-dir> (the
+# cut's data folders) and <list-dir> (the study's data/lists/).
+
+mrna-1273-p201:
+  title: mRNA-1273-P201
+  sponsor: Moderna
+  product: mRNA-1273 (Spikevax)
+  compare: {numeric_tolerance: 1.0e-10, string_remove_spaces: true}
+  cuts:
+    s3-d57: {application: "125752", sequence: S3, title: "Day 57 analysis (BLA 125752 S3)"}
+    s3-add1:
+      application: "125752"
+      sequence: S3
+      title: "Addendum 1 (BLA 125752 S3)"
+      over: s3-d57
+      standalone:
+        adarp7d: "Rebuilt for the addendum from FACE/SUPPFACE and SUPPVS instead of EX: 33 Day-57 columns and 3 intermediates are gone."
+
+mrna-1273-p301:
+  title: mRNA-1273-P301
+  sponsor: Moderna
+  product: mRNA-1273 (Spikevax)
+  compare: {numeric_tolerance: 1.0e-10, string_remove_spaces: true}
+  cuts:
+    s3: {application: "125752", sequence: S3, title: "BLA interim analysis (BLA 125752 S3)"}
+    s5: {application: "27073", sequence: S5, title: "Interim analysis IA1b (27073 S5)"}
+    s80:
+      application: "19745-83"
+      sequence: S80
+      title: "Interim analysis IA1a (19745-83 S80)"
+      over: s5
+      standalone:
+        adae: "57 S5 columns (RTPCRBL, the _ADURN helpers) and the six HO_ICU intermediates are not in S80."
+        adar1: "ADAR1 keeps the LOCAL rows of this cut's ADAR (helper/adar_all.yaml, a layer over adar.yaml), as in S5."
+        adar2: "ADAR2 keeps the SYSTEMIC rows of this cut's ADAR (helper/adar_all.yaml, a layer over adar.yaml), as in S5."
+        adcm: "36 S5 columns (RTPCRBL, the _AENDT imputation helpers) and the SUPP_P intermediate are not in S80."
+        adeff: "S5 carries RTPCRBL and the MB_D intermediate; S80 has neither."
+        adis: "10 S5 columns (RTPCRBL, the _CRITnFL_RAW helpers) are not in S80."
+        admb: "13 S5 columns (RTPCRBL, the _AVISIT helpers) are not in S80."
+        adrisk: "S5 carries RTPCRBL, three helper columns and the SC_LAST and SUPP_P intermediates; S80 has none of them."
+  data_cuts: [s27]
+  partitions:
+    s3: {adar: 16, adar_all: 16, adar1: 8, adar2: 16, adarsum: 16, adeff: 64, adsl: 8}
+    s5: {adar: 16, adar_all: 16, adar1: 8, adar2: 16, adarp7d: 4, adarsum: 16, adeff: 16, adsl: 8}
+    s80: {adar: 16, adar_all: 16, adar1: 8, adar2: 16, adarp7d: 4, adarsum: 16, adsl: 8}
+
+bnt162-01:
+  title: BNT162-01
+  sponsor: Pfizer/BioNTech
+  product: BNT162b2 (Comirnaty)
+  # Both cuts are sequence S1, of different applications, so the folders keep
+  # the application number.
+  compare: {numeric_tolerance: 0.0, string_remove_spaces: false}
+  cuts:
+    "27034": {application: "27034", sequence: S1, title: "EUA 27034 S1 (Oct 2020)"}
+    "125742": {application: "125742", sequence: S1, title: "BLA 125742 S1 (Mar 2021)", over: "27034"}
+
+c4591001:
+  title: C4591001
+  sponsor: Pfizer/BioNTech
+  product: BNT162b2 (Comirnaty)
+  compare: {numeric_tolerance: 1.0e-10, string_remove_spaces: true}
+  cuts:
+    s1: {application: "125742", sequence: S1, title: "Safety and efficacy (BLA 125742 S1)"}
+    s211-1mth: {application: "125742", sequence: S211, title: "1-month cut (BLA 125742 S211)", over: s1}
+    s135: {application: "27034", sequence: S135, title: "EUA resubmission (EUA 27034 S135)", over: s211-1mth}
+    s211-6mth:
+      application: "125742"
+      sequence: S211
+      title: "6-month cut, ages 12-15 (BLA 125742 S211)"
+      over: s211-1mth
+      standalone:
+        adxb: "The 6-month program reads MB WGSCLINE records instead of XB and drops four of S6's flags with their intermediates (no 1-month ADXB)."
+    s1-supp: {application: "125742", sequence: S1, title: "Supplementary datasets (BLA 125742 S1 Supp)", over: s1, sdtm_from: s1}
+    s6: {application: "125742", sequence: S6, title: "XB datasets (BLA 125742 S6)", over: s211-1mth, sdtm_from: s1}
+    s1-safety-fa-eff: {application: "27034", sequence: S1, title: "EUA safety and final efficacy (EUA 27034 S1)", over: s1}
+    s1-ia: {application: "27034", sequence: S1, title: "EUA interim efficacy analysis (EUA 27034 S1)", over: s1-safety-fa-eff, define: false,
+             standalone: {adc19ef: "adc19ef-ia.sas ends by dropping parameters whose rows the earlier steps read; helper/adc19ef_all.yaml is the layer over the EUA spec, and this spec only applies that final filter"}}
+  data_cuts: [s9-safety-fa-eff]
+  partitions:
+    s1: {adc19ef: 8, adfacevd: 8, admh: 8, adsympt: 8}
+    s1-supp: {adfacevd: 8}
+    s1-safety-fa-eff: {adc19ef: 8, adcevd: 8, adfacevd: 8, admh: 8, adsympt: 8}
+    s1-ia: {adc19ef: 8, adc19ef_all: 8, adsympt: 4}
+    s211-1mth: {adc19ef: 8, adfacevd: 8, admh: 8, adsympt: 8}
+    s135: {adc19ef: 8, adfacevd: 8, admh: 8, adsympt: 8}

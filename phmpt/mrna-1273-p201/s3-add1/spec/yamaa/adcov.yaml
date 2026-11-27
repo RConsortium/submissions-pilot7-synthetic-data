@@ -1,0 +1,206 @@
+# ADCOV for Moderna mRNA-1273-P201, data cut add1 (Addendum 1).
+# Parent: ../../../s3-d57/spec/yamaa/adcov.yaml (which chains to ../../../spec/yamaa/base/adam-base.yaml) (section 3.1 core columns).
+# Derivations implement the add1 A20ADCOV program; where the SAS code and
+# the define.xml method text disagree, the code is followed (see
+# README.md): EXPOSEDT has no AVALC check in the code (the define says
+# AVALC='Y'); the SAS AVISITN/AWRANGE/AWTARGET formats include Day 209/394,
+# which the define comments omit (no d57 row is Day 209/394, so those values
+# are untested by d57 verification; no add1 row is Day 394 either, so those
+# values are untested by add1 verification too); the define's AWTARGET
+# comment says 2 for 'Day 1' but the SAS format says 1 and the submitted
+# data agrees.
+# VISIT length 33 corrects the define's stale 28: the submitted data holds
+# 'Safety Call Day 265 Unscheduled 1' (33 chars).
+# AVISIT is mandatory false (define says Yes, submitted data has '' on
+# 1,511 rows) - ADAE precedent. Same for AVISITN, AWRANGE, AWTARGET,
+# each with 1,511 gaps in the submitted data.
+# The add1 program drops FAOT/ER rows whose VISIT contains 'Safety Call'
+# but not 'Unscheduled' (134 FAOT and 238 ER rows), and SS rows with
+# SSCAT='SAFETY CALL' (12,904 of 25,709 SS rows); on d57 the SS filter was
+# vacuous (no SSCAT column) and there were no Safety Call visits.
+# COMPLFL is not in the add1 output (derivation null, SPEC-4); the 4 Day
+# 209 core columns (PBD209FL, PND209FL, PN2209FL, ELECSBL) come from the
+# add1 ADSL, as on the other add1 specs.
+# FAOT rows are restricted to FACAT='COVID-19 SYMPTOMS' and ER rows to
+# ERCAT='COVID-19 EXPOSURE' (SAS where= clauses); the physical-exam
+# (FACAT='') and FOLLOW UP (FACAT='SAFETY') FAOT rows are excluded.
+# SRCDOM is the 2-letter domain code (FA/ER/SS), not the dataset name.
+# The ANL01FL final having is omitted as trivially true (the NY and OTH
+# row_number selections are disjoint by PARAMCD and each selects at most one
+# row per key, and the having groups are finer, adding VISIT). The OTHSYMPT
+# collapse's stale-holder quirk for a leading 'N' row never fires on d57
+# (all 13 rows are 'Y'); the filtered STR_JOIN is the faithful equivalent.
+# Layer over ../d57/adcov.yaml: the derivations are the parent cut's, and
+# this file holds only what this cut changes (written by
+# scripts/specs/inherit_cut.py; its resolved specification
+# equals the standalone file it replaced).
+yamaa: '1.0'
+type: spec
+parent: ../../../s3-d57/spec/yamaa/adcov.yaml
+clear:
+- columns.COMPLFL.submission
+input:
+  FAOT: <sdtm-dir>/faot.parquet
+  SUPPFAOT: <sdtm-dir>/suppfaot.parquet
+  ER: <sdtm-dir>/er.parquet
+  SUPPER: <sdtm-dir>/supper.parquet
+  SS: <sdtm-dir>/ss.parquet
+  ADSL:
+    path: <adam-dir>/adsl.parquet
+rows:
+- id: faot_rows
+  filter: "FAOT.FACAT = 'COVID-19 SYMPTOMS' AND NOT (str_contains(FAOT.VISIT, 'Safety Call') AND NOT str_contains(FAOT.VISIT, 'Unscheduled')) AND _ADSL IS NOT NULL AND _PARAM <> 'Other Symptoms'"
+- id: er_rows
+  filter: ER.ERCAT = 'COVID-19 EXPOSURE' AND NOT (str_contains(ER.VISIT, 'Safety Call') AND NOT str_contains(ER.VISIT, 'Unscheduled')) AND _ADSL IS NOT NULL
+- id: ss_rows
+  filter: (SS.SSCAT IS NULL OR SS.SSCAT <> 'SAFETY CALL') AND _ADSL IS NOT NULL
+- id: dur_rows
+  derivations:
+    _SEQ:
+      aggregate:
+        filter: ER.ERCAT = 'COVID-19 EXPOSURE' AND ER.ERDUR IS NOT NULL AND ER.ERDUR <> '' AND NOT (str_contains(ER.VISIT, 'Safety Call') AND NOT str_contains(ER.VISIT, 'Unscheduled'))
+        expr: MIN(ER.ERSEQ)
+    _ERDUR:
+      aggregate:
+        filter: ER.ERCAT = 'COVID-19 EXPOSURE' AND ER.ERDUR IS NOT NULL AND ER.ERDUR <> '' AND NOT (str_contains(ER.VISIT, 'Safety Call') AND NOT str_contains(ER.VISIT, 'Unscheduled'))
+intermediates:
+- id: FAOT_OTH
+  filter: FAOT.FACAT = 'COVID-19 SYMPTOMS' AND FAOT.FAOBJ = 'Other Symptoms' AND NOT (str_contains(FAOT.VISIT, 'Safety Call') AND NOT str_contains(FAOT.VISIT, 'Unscheduled'))
+columns:
+- name: COMPLFL
+  derivation:
+- name: PBD209FL
+  type: str
+  label: Per Protocol bAb Day 209 Flag
+  derivation: ADSL.PBD209FL
+  submission:
+    core: Perm
+    mandatory: false
+    length: 1
+    origins:
+    - type: Predecessor
+      description: ADSL.PBD209FL
+- name: PND209FL
+  type: str
+  label: Per Protocol nAb Day 209 Flag
+  derivation: ADSL.PND209FL
+  submission:
+    core: Perm
+    mandatory: false
+    length: 1
+    origins:
+    - type: Predecessor
+      description: ADSL.PND209FL
+- name: PN2209FL
+  type: str
+  label: Per Protocol nAb 2 Day 209 Flag
+  derivation: ADSL.PN2209FL
+  submission:
+    core: Perm
+    mandatory: false
+    length: 1
+    origins:
+    - type: Predecessor
+      description: ADSL.PN2209FL
+- name: ELECSBL
+  type: str
+  label: Baseline Elecsys SARS CoV-2 Assay
+  derivation: ADSL.ELECSBL
+  submission:
+    core: Perm
+    mandatory: false
+    length: 20
+    origins:
+    - type: Predecessor
+      description: ADSL.ELECSBL
+- name: COV19FL
+  submission:
+    length: 1
+- name: SENTLFL
+  submission:
+    length: 1
+- name: VISIT
+  submission:
+    length: 33
+output:
+  path: <adam-dir>/adcov-yamaa.parquet
+  columns:
+  - STUDYID
+  - USUBJID
+  - SUBJID
+  - SITEID
+  - COUNTRY
+  - AGE
+  - AGEU
+  - AGEGR1
+  - AGEGR1N
+  - AGEGR2
+  - AGEGR2N
+  - SEX
+  - RACE
+  - RACESPY
+  - ETHNIC
+  - RANDFL
+  - SAFFL
+  - FASBABFL
+  - FASNABFL
+  - PPBABFL
+  - PPNABFL
+  - PPBD29FL
+  - PPBD57FL
+  - PBD209FL
+  - PPND29FL
+  - PPND57FL
+  - PND209FL
+  - SAR1FL
+  - SAR2FL
+  - SARAFL
+  - FASNA2FL
+  - PPNAB2FL
+  - PN2D29FL
+  - PN2D57FL
+  - PN2209FL
+  - DVBABFL
+  - DVNABFL
+  - DOSE1FL
+  - DOSE2FL
+  - DOSEROFL
+  - COV19BL
+  - ELECSBL
+  - COV19FL
+  - SENTLFL
+  - D29W7DFL
+  - TRT01P
+  - TRT01PN
+  - TRT01A
+  - TRT01AN
+  - TR01SDT
+  - TR01SDTM
+  - TR01EDT
+  - TR01EDTM
+  - TRTSDTM
+  - TRTEDTM
+  - DOSE2DT
+  - DOS2DTM
+  - ADT
+  - ADY
+  - VISIT
+  - VISITNUM
+  - AVISIT
+  - AVISITN
+  - PARCAT1
+  - PARAMCD
+  - PARAM
+  - AVAL
+  - AVALC
+  - T2FSYMP
+  - AWRANGE
+  - AWTARGET
+  - AWTDIFF
+  - ANL01FL
+  - SYMPTDT
+  - EXPOSEDT
+  - OTHSPY
+  - SRCDOM
+  - SRCSEQ
+  - SRCVAR

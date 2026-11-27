@@ -1,0 +1,84 @@
+yamaa: "1.0"
+type: spec
+model: ADaM
+domain: ADXX
+keys: [USUBJID, PARAMCD]
+input: {RAW: raw.csv}
+base: RAW
+output: {path: adxx.csv, columns: [USUBJID, PARAMCD, AVAL, AVALC, SRCVAR]}
+submission:
+  mode: reproduced
+  label: Synthetic analysis dataset
+  class: BASIC DATA STRUCTURE
+  structure: One record per subject per parameter
+  repeating: true
+columns:
+  - name: USUBJID
+    type: str
+    label: Unique Subject Identifier
+    derivation: RAW.USUBJID
+    submission: {data_type: text, length: 8, mandatory: true, key_sequence: 1, origins: [{type: Predecessor, description: RAW.USUBJID}]}
+  - name: PARAMCD
+    type: str
+    label: Parameter Code
+    derivation: RAW.PARAMCD
+    submission: {data_type: text, length: 8, mandatory: true, key_sequence: 2, codelist: PARAMCD, origins: [{type: Predecessor, description: RAW.PARAMCD}]}
+  - name: AVAL
+    type: float
+    label: Analysis Value
+    derivation: RAW.AVAL
+    submission:
+      data_type: float
+      length: 8
+      significant_digits: 1
+      mandatory: false
+      origins: [{type: Predecessor, description: RAW.AVAL}]
+      value_level:
+        # G2, G3: received IT.ADXX.AVAL.ADXX.PARAMCD.EQ.1a2b3c with
+        # Name="AVAL.ADXX.PARAMCD.EQ.1a2b3c", citing WC.ADXX.PARAMCD.EQ.1a2b3c.
+        - id: ADXX.PARAMCD.EQ.1a2b3c
+          where: {PARAMCD: [TEMP]}
+          data_type: float
+          length: 8
+          significant_digits: 1
+          origins: [{type: Predecessor, description: RAW.AVAL}]
+  - name: AVALC
+    type: str
+    label: Analysis Value (C)
+    derivation: RAW.AVALC
+    submission:
+      data_type: text
+      length: 20
+      mandatory: false
+      origins: [{type: Predecessor, description: RAW.AVALC}]
+      value_level:
+        # G3: the received AVALC entry cites the SAME WC.ADXX.PARAMCD.EQ.1a2b3c.
+        - id: ADXX.PARAMCD.EQ.1a2b3c
+          where: {PARAMCD: [TEMP]}
+          data_type: text
+          length: 20
+          origins: [{type: Predecessor, description: RAW.AVALC}]
+        # G4: received <RangeCheck Comparator="NOTIN"><CheckValue>WEIGHT HEIGHT</CheckValue>
+        # (one CheckValue). yamaa refuses NOTIN with one value; NE is the closest form.
+        - id: ADXX.PARAMCD.NOTIN.4d5e6f
+          where: {PARAMCD: {comparator: NE, values: [WEIGHT HEIGHT]}}
+          data_type: text
+          length: 20
+          origins: [{type: Predecessor, description: RAW.AVALC}]
+  - name: SRCVAR
+    type: str
+    label: Source Variable
+    derivation: RAW.SRCVAR
+    submission:
+      data_type: text
+      length: 8
+      mandatory: false
+      origins: [{type: Predecessor, description: RAW.SRCVAR}]
+      value_level:
+        # G7: received <RangeCheck Comparator="EQ"><CheckValue/></RangeCheck>
+        # (an empty value). A where value has at least one character.
+        - id: ADXX.SRCVAR.EQ.da39a3
+          where: {SRCVAR: [AVAL]}
+          data_type: text
+          length: 8
+          origins: [{type: Predecessor, description: RAW.SRCVAR}]

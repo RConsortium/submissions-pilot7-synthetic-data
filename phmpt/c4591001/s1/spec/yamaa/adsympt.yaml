@@ -1,0 +1,1965 @@
+# C4591001 S1 ADSYMPT.
+# Parent: ../../../spec/yamaa/base/adam-base.yaml (section 3.1 core columns).
+# Derivations implement the S1 ADaM define (IG.ADSYMPT, MT.ADSYMPT.*) and
+# adsympt.sas (spec/source/program/adam). ADSL columns are read from the
+# SUBMITTED S1 ADSL, exactly as the SAS merges the sponsor's ADSL. BRTHDT
+# reads ADSL.BRTHDT_2 (the submitted ADSL carries the define's BRTHDT under
+# that name; '(b)(6)' for every subject).
+# AVISITN and AVISIT come from the visit-collapse walk of the program
+# (__visits_sdtm to clsp_covid_vis), built by two helper specs whose output
+# this spec reads as VISMAP: helper/adsympt_visits.yaml (visit records and
+# the walk, a calculated-history group over its own rows) and
+# helper/adsympt_vismap.yaml (the analysis visit of each collapsed record).
+# scripts/reproduce.py runs them first.
+yamaa: '1.0'
+type: spec
+model: ADaM
+parent: ../../../spec/yamaa/base/adam-base.yaml
+domain: ADSYMPT
+keys:
+- USUBJID
+- _SEQ
+input:
+  CE: <sdtm-dir>/ce.parquet
+  CM: <sdtm-dir>/cm.parquet
+  DD: <sdtm-dir>/dd.parquet
+  DS: <sdtm-dir>/ds.parquet
+  FA: <sdtm-dir>/face.parquet
+  HO: <sdtm-dir>/ho.parquet
+  IS: <sdtm-dir>/is.parquet
+  LB: <sdtm-dir>/lb.parquet
+  MB: <sdtm-dir>/mb.parquet
+  PR: <sdtm-dir>/pr.parquet
+  VS: <sdtm-dir>/vs.parquet
+  SUPPHO: <sdtm-dir>/suppho.parquet
+  MH: <sdtm-dir>/mh.parquet
+  ADSL:
+    path: <adam-dir>/adsl.parquet
+    key:
+    - USUBJID
+  VISMAP:
+    path: <work-dir>/adsympt_vismap.parquet
+    schema: helper/adsympt_vismap.yaml
+submission:
+  label: Covid-19 Signs and Symptoms
+  class: BASIC DATA STRUCTURE
+  structure: One record or multiple records per subject per analysis parameter per
+    analysis timepoint
+  repeating: true
+intermediates:
+- id: _FA_N
+  dataset: FA
+  filter: FA.FACAT = 'EFFICACY'
+  columns:
+  - _STUDYID
+  - _DOMAIN
+  - _USUBJID
+  - _FAOBJ_U
+  - _FASTRESC
+  - _FADTC
+  - _VISITNUM
+  - _VISIT
+  - _FATESTCD
+  - _FACAT
+  derivations:
+    _STUDYID:
+      type: str
+      derivation: FA.STUDYID
+    _DOMAIN:
+      type: str
+      derivation: FA.DOMAIN
+    _USUBJID:
+      type: str
+      derivation: FA.USUBJID
+    _FAOBJ_U:
+      type: str
+      derivation:
+        str_case:
+          source: FA.FAOBJ
+          to: upper
+    _FASTRESC:
+      type: str
+      derivation: FA.FASTRESC
+    _FADTC:
+      type: str
+      derivation: FA.FADTC
+    _VISITNUM:
+      type: int
+      derivation:
+        case:
+        - when: FA.FACAT = 'EFFICACY'
+          then: FA.VISITNUM
+    _VISIT:
+      type: str
+      derivation: FA.VISIT
+    _FATESTCD:
+      type: str
+      derivation: FA.FATESTCD
+    _FACAT:
+      type: str
+      derivation: FA.FACAT
+- id: _FA_DATES
+  dataset: FA
+  key:
+    USUBJID: USUBJID
+    VISITNUM: VISITNUM
+    VISIT: VISIT
+  filter: FA.FATESTCD IN ('FSYMDATE', 'LSYMDATE', 'SYMONGO') AND FA.FACAT = 'EFFICACY'
+  pivot:
+    name: FATESTCD
+    value: FAORRES
+    fields:
+    - FSYMDATE
+    - LSYMDATE
+    - SYMONGO
+- id: _MB_N
+  dataset: MB
+  columns:
+  - _STUDYID
+  - _DOMAIN
+  - _USUBJID
+  - _MBTESTCD
+  - _MBTEST_U
+  - _MBMETHOD
+  - _MBMETHOD_U
+  - _MBCAT
+  - _MBLOC
+  - _MBSPEC
+  - _AVALC_RAW
+  - _MBDTC
+  - _VISITNUM
+  - _VISIT
+  derivations:
+    _STUDYID:
+      type: str
+      derivation: MB.STUDYID
+    _DOMAIN:
+      type: str
+      derivation: MB.DOMAIN
+    _USUBJID:
+      type: str
+      derivation: MB.USUBJID
+    _MBTESTCD:
+      type: str
+      derivation: MB.MBTESTCD
+    _MBTEST_U:
+      type: str
+      derivation:
+        str_case:
+          source: MB.MBTEST
+          to: upper
+    _MBMETHOD:
+      type: str
+      derivation: MB.MBMETHOD
+    # adsympt.sas compares upcase(strip(mbmethod)); the 6-month MB writes it in mixed case.
+    _MBMETHOD_U:
+      type: str
+      derivation:
+        str_case:
+          source: MB.MBMETHOD
+          to: upper
+    _MBCAT:
+      type: str
+      derivation: MB.MBCAT
+    _MBLOC:
+      type: str
+      derivation: MB.MBLOC
+    _MBSPEC:
+      type: str
+      derivation: MB.MBSPEC
+    _AVALC_RAW:
+      type: str
+      derivation:
+        case:
+        - when: _MBTEST_U = 'SEVERE ACUTE RESP SYNDROME CORONAVIRUS 2' AND (MB.SPDEVID
+            IS NULL OR MB.SPDEVID NOT IN ('34', '44', '68'))
+          then: "'UNKNOWN'"
+        - otherwise: MB.MBORRES
+    _MBDTC:
+      type: str
+      derivation: MB.MBDTC
+    _VISITNUM:
+      type: int
+      derivation:
+        case:
+        - when: ((_MBTEST_U = 'SEVERE ACUTE RESP SYNDROME CORONAVIRUS 2' AND _MBMETHOD_U
+            = 'IMMUNOCHROMATOGRAPHY') OR (_MBTEST_U IN ('CEPHEID RT-PCR ASSAY FOR
+            SARS-COV-2', 'CEPHEID RT-PCR ASSAY OF SARS-COV-2') AND _MBMETHOD_U = 'REVERSE
+            TRANSCRIPTASE PCR'))
+          then: MB.VISITNUM
+    _VISIT:
+      type: str
+      derivation: MB.VISIT
+- id: _SUPPHO
+  dataset: SUPPHO
+  key:
+    USUBJID: HO.USUBJID
+    _HOSEQ: HO.HOSEQ
+  filter: SUPPHO.QNAM IN ('HCUHSP', 'HCUICU')
+  pivot:
+    name: QNAM
+    value: QVAL
+    fields:
+    - HCUHSP
+    - HCUICU
+  derivations:
+    _HOSEQ:
+      type: int
+      derivation: SUPPHO.IDVARVAL
+- id: _PHASE
+  dataset: ADSL
+  key:
+    USUBJID: USUBJID
+  order_by:
+  - ADSL.USUBJID
+  keep: first
+  derivations:
+    _PHASEN:
+      type: int
+      derivation: ADSL.PHASEN
+- id: _MH_FLAG
+  dataset: MH
+  key:
+    USUBJID: USUBJID
+  filter: MH.MHDECOD IN ('Asymptomatic COVID-19', 'COVID-19', 'COVID-19 pneumonia',
+    'COVID-19 treatment', 'Suspected COVID-19', 'SARS-CoV-2 antibody test positive',
+    'SARS-CoV-2 carrier', 'SARS-CoV-2 sepsis', 'SARS-CoV-2 test positive', 'SARS-CoV-2
+    viraemia', 'Multisystem inflammatory syndrome in children')
+  order_by:
+  - MH.USUBJID
+  keep: first
+  derivations:
+    _MHDECOD:
+      type: str
+      derivation: MH.MHDECOD
+- id: _DD_FIRST
+  dataset: DD
+  key:
+    USUBJID: ADSL.USUBJID
+  filter: DD.DDSTRESC <> ''
+  order_by:
+  - DD.USUBJID
+  keep: first
+  derivations:
+    _DDTESTCD:
+      type: str
+      derivation: DD.DDTESTCD
+- id: _HO_LEFT
+  dataset: HO
+  columns:
+  - _USUBJID
+  - _STUDYID
+  - _HOCAT
+  - _HODTC
+  - _VISITNUM
+  - _VISIT
+  - _HOSEQ
+  - _HCUHSP
+  - _HCUICU
+  derivations:
+    _USUBJID:
+      type: str
+      derivation: HO.USUBJID
+    _STUDYID:
+      type: str
+      derivation: HO.STUDYID
+    _HOCAT:
+      type: str
+      derivation: HO.HOCAT
+    _HODTC:
+      type: str
+      derivation: HO.HODTC
+    _VISITNUM:
+      type: int
+      derivation: HO.VISITNUM
+    _VISIT:
+      type: str
+      derivation: HO.VISIT
+    _HOSEQ:
+      type: int
+      derivation: HO.HOSEQ
+    _HCUHSP:
+      type: str
+      derivation: _SUPPHO.HCUHSP
+    _HCUICU:
+      type: str
+      derivation: _SUPPHO.HCUICU
+- id: _HO_HOSP
+  dataset: HO
+  filter: HO.HOCAT = 'HOSPITALIZATION STATUS' AND HO.HOTERM = 'HOSPITAL'
+  columns:
+  - _USUBJID
+  - _VISITNUM
+  - _VISIT
+  - _HOSTDTC
+  - _HOENDTC
+  derivations:
+    _USUBJID:
+      type: str
+      derivation: HO.USUBJID
+    _VISITNUM:
+      type: int
+      derivation: HO.VISITNUM
+    _VISIT:
+      type: str
+      derivation: HO.VISIT
+    _HOSTDTC:
+      type: str
+      derivation: HO.HOSTDTC
+    _HOENDTC:
+      type: str
+      derivation: HO.HOENDTC
+- id: _HO_PAIRS
+  dataset: _HO_LEFT
+  inner_join: _HO_HOSP
+  key:
+  - _USUBJID
+  - _VISITNUM
+  - _VISIT
+  derivations:
+    USUBJID:
+      type: str
+      derivation: _HO_LEFT._USUBJID
+    STUDYID:
+      type: str
+      derivation: _HO_LEFT._STUDYID
+    HOCAT:
+      type: str
+      derivation: _HO_LEFT._HOCAT
+    HODTC:
+      type: str
+      derivation: _HO_LEFT._HODTC
+    VISITNUM:
+      type: int
+      derivation: _HO_LEFT._VISITNUM
+    VISIT:
+      type: str
+      derivation: _HO_LEFT._VISIT
+    HOSEQ:
+      type: int
+      derivation: _HO_LEFT._HOSEQ
+    HCUHSP:
+      type: str
+      derivation: _HO_LEFT._HCUHSP
+    HCUICU:
+      type: str
+      derivation: _HO_LEFT._HCUICU
+    HOSTDTC:
+      type: str
+      derivation: _HO_HOSP._HOSTDTC
+    HOENDTC:
+      type: str
+      derivation: _HO_HOSP._HOENDTC
+- id: _HO_HOSPITAL
+  dataset: HO
+  key:
+    USUBJID: HO.USUBJID
+    VISITNUM: HO.VISITNUM
+    VISIT: HO.VISIT
+  filter: HO.HOCAT = 'HOSPITALIZATION STATUS' AND HO.HOTERM = 'HOSPITAL'
+  order_by:
+  - HO.USUBJID
+  keep: first
+  derivations:
+    _HOSEQ:
+      type: int
+      derivation: HO.HOSEQ
+# The analysis visit of a collapsed visit record (helper/adsympt_vismap.yaml,
+# built from helper/adsympt_visits.yaml): adsympt3 joins it on the record's
+# domain, subject, visit and dates, a missing date matching a missing one.
+- id: _VISMAP
+  dataset: VISMAP
+  key:
+    USUBJID: USUBJID
+    DOMAIN: _VDOM
+    VISITNUM: VISITNUM
+    VISIT: VISIT
+    ADT: ADT
+    ASK: _ASK
+    AEK: _AEK
+  order_by: [VISMAP.RECSEQ]
+  keep: first
+  derivations:
+    _AVISITN: {type: int, derivation: VISMAP.AVISITN}
+    _AVISIT: {type: str, derivation: VISMAP.AVISIT}
+rows:
+- id: ce
+  dataset: CE
+  filter: CE.CECAT = 'SEVERE COVID-19 ILLNESS' AND CE.CESCAT IN ('SIGNIFICANT ACUTE
+    RENAL DYSFUNCTION', 'SIGNIFICANT ACUTE HEPATIC DYSFUNCTION', 'SIGNIFICANT ACUTE
+    NEUROLOGIC DYSFUNCTION') AND NOT (str_contains(VISIT, '(1_S|2_S|S_R|4_S|6_S|_NS|4_L|6_L|SCR)$')
+    OR VISIT IN ('V3_MONTH1_POSTVAX2_L', 'V5_MONTH12_L')) AND _PHASEN > 1
+  derivations:
+    _VDOM: "'CE'"
+    STUDYID: CE.STUDYID
+    USUBJID: CE.USUBJID
+    PARAMN:
+      case:
+      - when: CE.CESCAT = 'SIGNIFICANT ACUTE RENAL DYSFUNCTION'
+        then: 25
+      - when: CE.CESCAT = 'SIGNIFICANT ACUTE HEPATIC DYSFUNCTION'
+        then: 30
+      - when: CE.CESCAT = 'SIGNIFICANT ACUTE NEUROLOGIC DYSFUNCTION'
+        then: 35
+    PARAMCD:
+      case:
+      - when: CE.CESCAT = 'SIGNIFICANT ACUTE RENAL DYSFUNCTION'
+        then: "'SARDFN'"
+      - when: CE.CESCAT = 'SIGNIFICANT ACUTE HEPATIC DYSFUNCTION'
+        then: "'SAHDFN'"
+      - when: CE.CESCAT = 'SIGNIFICANT ACUTE NEUROLOGIC DYSFUNCTION'
+        then: "'SANDFN'"
+    PARAM: CE.CESCAT
+    PARCAT1: CE.CECAT
+    PARCAT2: null
+    AVAL: null
+    VISITNUM: CE.VISITNUM
+    VISIT: CE.VISIT
+    ADT:
+      to_date:
+        source: CE.CEDTC
+    ASTDT:
+      to_date:
+        source: CE.CESTDTC
+    AENDT:
+      to_date:
+        source: CE.CEENDTC
+    ISSPEC: null
+    ISMETHOD: null
+    MBLOC: null
+    MBSPEC: null
+    MBMETHOD: null
+    PRPRESP: null
+    VSSTRESU: null
+    _AVALC_RAW: "'Y'"
+    _PHASEN: ADSL.PHASEN
+    _FAOBJ_U: null
+    _FATESTCD: null
+    _FACAT: null
+    _ISTESTCD: null
+    _DSDECOD: null
+    _MBTEST_U: null
+    _MBMETHOD: null
+    _PRTRT_U: null
+- id: cm
+  dataset: CM
+  filter: CM.CMCAT = 'GENERAL CONCOMITANT MEDICATIONS' AND CM.CMSCAT = 'VASOPRESSORS
+    AGENTS' AND CM.CMTRT <> '' AND _AVALC_RAW <> '' AND _PHASEN > 1
+  derivations:
+    _VDOM: "'CM'"
+    STUDYID: CM.STUDYID
+    USUBJID: CM.USUBJID
+    PARAMN: 80
+    PARAMCD: "'VSOPRES'"
+    PARAM: CM.CMSCAT
+    PARCAT1: CM.CMCAT
+    PARCAT2: CM.CMSCAT
+    AVAL: null
+    VISITNUM: null
+    VISIT: null
+    ADT: null
+    ASTDT:
+      to_date:
+        source: CM.CMSTDTC
+    AENDT:
+      to_date:
+        source: CM.CMENDTC
+    ISSPEC: null
+    ISMETHOD: null
+    MBLOC: null
+    MBSPEC: null
+    MBMETHOD: null
+    PRPRESP: null
+    VSSTRESU: null
+    _AVALC_RAW:
+      case:
+      - when: CM.CMDECOD <> ''
+        then: CM.CMDECOD
+      - otherwise: CM.CMTRT
+    _PHASEN: ADSL.PHASEN
+    _FAOBJ_U: null
+    _FATESTCD: null
+    _FACAT: null
+    _ISTESTCD: null
+    _DSDECOD: null
+    _MBTEST_U: null
+    _MBMETHOD: null
+    _PRTRT_U: null
+- id: dd_a
+  dataset: DD
+  filter: DD.DDSTRESC <> '' AND _PHASEN > 1
+  derivations:
+    _VDOM: "'DD'"
+    STUDYID: DD.STUDYID
+    USUBJID: DD.USUBJID
+    PARAMN:
+      case:
+      - when: DD.DDTESTCD = 'PRCDTH'
+        then: 95
+      - when: DD.DDTESTCD = 'SECDTH'
+        then: 96
+    PARAMCD:
+      case:
+      - when: DD.DDTESTCD = 'PRCDTH'
+        then: "'PRCDTH'"
+      - when: DD.DDTESTCD = 'SECDTH'
+        then: "'SECDTH'"
+      - otherwise: "''"
+    PARAM: DD.DDTEST
+    PARCAT1: DD.DDCAT
+    PARCAT2: null
+    AVAL: null
+    VISITNUM: null
+    VISIT: null
+    ADT: ADSL.DTHDT
+    ASTDT: null
+    AENDT: null
+    ISSPEC: null
+    ISMETHOD: null
+    MBLOC: null
+    MBSPEC: null
+    MBMETHOD: null
+    PRPRESP: null
+    VSSTRESU: null
+    _AVALC_RAW:
+      str_case:
+        source: DD.DDSTRESC
+        to: upper
+    _PHASEN: ADSL.PHASEN
+    _FAOBJ_U: null
+    _FATESTCD: null
+    _FACAT: null
+    _ISTESTCD: null
+    _DSDECOD: null
+    _MBTEST_U: null
+    _MBMETHOD: null
+    _PRTRT_U: null
+- id: dd_b
+  dataset: ADSL
+  filter: ADSL.DTHDT IS NOT NULL AND _DD_FIRST._DDTESTCD IS NULL AND _PHASEN > 1
+  derivations:
+    _VDOM: "'DD'"
+    STUDYID: ADSL.STUDYID
+    USUBJID: ADSL.USUBJID
+    PARAMN: 95
+    PARAMCD: "'PRCDTH'"
+    PARAM: "'PRIMARY CAUSE OF DEATH'"
+    PARCAT1: "'DEATH DETAILS CODED'"
+    PARCAT2: null
+    AVAL: null
+    VISITNUM: null
+    VISIT: null
+    ADT: ADSL.DTHDT
+    ASTDT: null
+    AENDT: null
+    ISSPEC: null
+    ISMETHOD: null
+    MBLOC: null
+    MBSPEC: null
+    MBMETHOD: null
+    PRPRESP: null
+    VSSTRESU: null
+    _AVALC_RAW: "''"
+    _PHASEN: ADSL.PHASEN
+    _FAOBJ_U: null
+    _FATESTCD: null
+    _FACAT: null
+    _ISTESTCD: null
+    _DSDECOD: null
+    _MBTEST_U: null
+    _MBMETHOD: null
+    _PRTRT_U: null
+- id: ds
+  dataset: DS
+  group_by:
+  - DS.STUDYID
+  - DS.DOMAIN
+  - DS.USUBJID
+  - DS.DSDECOD
+  - DS.DSCAT
+  - DS.DSSTDTC
+  filter: _DSDECOD = 'DEATH' AND _PHASEN > 1
+  derivations:
+    _VDOM: "'DS'"
+    STUDYID: DS.STUDYID
+    USUBJID: DS.USUBJID
+    PARAMN: 99
+    PARAMCD: "'DEATH'"
+    PARAM: "'DEATH'"
+    PARCAT1: DS.DSCAT
+    PARCAT2: null
+    AVAL: null
+    VISITNUM: null
+    VISIT: null
+    ADT: null
+    ASTDT:
+      to_date:
+        source: DS.DSSTDTC
+    AENDT: null
+    ISSPEC: null
+    ISMETHOD: null
+    MBLOC: null
+    MBSPEC: null
+    MBMETHOD: null
+    PRPRESP: null
+    VSSTRESU: null
+    _AVALC_RAW: "'Y'"
+    _PHASEN: ADSL.PHASEN
+    _FAOBJ_U: null
+    _FATESTCD: null
+    _FACAT: null
+    _ISTESTCD: null
+    _DSDECOD: DS.DSDECOD
+    _MBTEST_U: null
+    _MBMETHOD: null
+    _PRTRT_U: null
+- id: fa
+  dataset: _FA_N
+  group_by:
+  - _FA_N._STUDYID
+  - _FA_N._DOMAIN
+  - _FA_N._USUBJID
+  - _FA_N._FAOBJ_U
+  - _FA_N._FASTRESC
+  - _FA_N._FADTC
+  - _FA_N._VISITNUM
+  - _FA_N._VISIT
+  - _FA_N._FATESTCD
+  - _FA_N._FACAT
+  filter: _FATESTCD = 'OCCUR' AND _FACAT = 'EFFICACY' AND PARAMCD <> '' AND NOT (str_contains(VISIT,
+    '(1_S|2_S|S_R|4_S|6_S|_NS|4_L|6_L|SCR)$') OR VISIT IN ('V3_MONTH1_POSTVAX2_L',
+    'V5_MONTH12_L')) AND _PHASEN > 1
+  derivations:
+    _VDOM: "'FA'"
+    STUDYID: _FA_N._STUDYID
+    USUBJID: _FA_N._USUBJID
+    PARAMN:
+      case:
+      - when: _FAOBJ_U = 'CHILLS'
+        then: 1
+      - when: _FAOBJ_U = 'DIARRHEA'
+        then: 2
+      - when: _FAOBJ_U = 'FEVER'
+        then: 3
+      - when: _FAOBJ_U = 'NEW LOSS OF TASTE OR SMELL'
+        then: 4
+      - when: _FAOBJ_U = 'NEW OR INCREASED COUGH'
+        then: 5
+      - when: _FAOBJ_U = 'NEW OR INCREASED MUSCLE PAIN'
+        then: 6
+      - when: _FAOBJ_U = 'NEW OR INCREASED SHORTNESS OF BREATH'
+        then: 7
+      - when: _FAOBJ_U = 'NEW OR INCREASED SORE THROAT'
+        then: 8
+      - when: _FAOBJ_U = 'VOMITING'
+        then: 9
+      - when: _FAOBJ_U = 'LOSS OF TASTE/SMELL'
+        then: 10
+      - when: _FAOBJ_U = 'NEW OR INCREASED NASAL CONGESTION'
+        then: 11
+      - when: _FAOBJ_U = 'NASAL CONGESTION'
+        then: 11
+      - when: _FAOBJ_U = 'NEW OR INCREASED NASAL DISCHARGE'
+        then: 12
+      - when: _FAOBJ_U = 'NEW OR INCREASED SPUTUM PRODUCTION'
+        then: 13
+      - when: _FAOBJ_U = 'NEW OR INCREASED WHEEZING'
+        then: 14
+      - when: _FAOBJ_U = 'WHEEZING'
+        then: 14
+      - when: _FAOBJ_U = 'FATIGUE'
+        then: 15
+      - when: _FAOBJ_U = 'HEADACHE'
+        then: 16
+      - when: _FAOBJ_U = 'NAUSEA'
+        then: 18
+      - when: str_contains(_FAOBJ_U, 'RUNNY NOSE') OR _FAOBJ_U = 'RHINORRHOEA'
+        then: 17
+    PARAMCD:
+      case:
+      - when: _FAOBJ_U = 'CHILLS'
+        then: "'CHILLS'"
+      - when: _FAOBJ_U = 'DIARRHEA'
+        then: "'DIARRHEA'"
+      - when: _FAOBJ_U = 'FEVER'
+        then: "'FEVER'"
+      - when: _FAOBJ_U = 'NEW LOSS OF TASTE OR SMELL'
+        then: "'NLTSTSML'"
+      - when: _FAOBJ_U = 'NEW OR INCREASED COUGH'
+        then: "'NCOUG'"
+      - when: _FAOBJ_U = 'NEW OR INCREASED MUSCLE PAIN'
+        then: "'NMUSPN'"
+      - when: _FAOBJ_U = 'NEW OR INCREASED SHORTNESS OF BREATH'
+        then: "'NSTBRTH'"
+      - when: _FAOBJ_U = 'NEW OR INCREASED SORE THROAT'
+        then: "'NSRTHROT'"
+      - when: _FAOBJ_U = 'VOMITING'
+        then: "'VOMIT'"
+      - when: _FAOBJ_U = 'LOSS OF TASTE/SMELL'
+        then: "'LSTSTSML'"
+      - when: _FAOBJ_U = 'NEW OR INCREASED NASAL CONGESTION'
+        then: "'NNSLCONG'"
+      - when: _FAOBJ_U = 'NASAL CONGESTION'
+        then: "'NNSLCONG'"
+      - when: _FAOBJ_U = 'NEW OR INCREASED NASAL DISCHARGE'
+        then: "'NNSLDSCH'"
+      - when: _FAOBJ_U = 'NEW OR INCREASED SPUTUM PRODUCTION'
+        then: "'SPUTPROD'"
+      - when: _FAOBJ_U = 'NEW OR INCREASED WHEEZING'
+        then: "'WHEEZ'"
+      - when: _FAOBJ_U = 'WHEEZING'
+        then: "'WHEEZ'"
+      - when: _FAOBJ_U = 'FATIGUE'
+        then: "'FATIGUE'"
+      - when: _FAOBJ_U = 'HEADACHE'
+        then: "'HEADACHE'"
+      - when: _FAOBJ_U = 'NAUSEA'
+        then: "'NAUSEA'"
+      - when: str_contains(_FAOBJ_U, 'RUNNY NOSE') OR _FAOBJ_U = 'RHINORRHOEA'
+        then: "'RIHNRA'"
+      - otherwise: "''"
+    PARAM:
+      case:
+      - when: _FAOBJ_U = 'NEW OR INCREASED NASAL CONGESTION'
+        then: "'NEW OR INCREASED NASAL CONGESTION'"
+      - when: _FAOBJ_U = 'NASAL CONGESTION'
+        then: "'NEW OR INCREASED NASAL CONGESTION'"
+      - when: _FAOBJ_U = 'NEW OR INCREASED WHEEZING'
+        then: "'NEW OR INCREASED WHEEZING'"
+      - when: _FAOBJ_U = 'WHEEZING'
+        then: "'NEW OR INCREASED WHEEZING'"
+      - when: str_contains(_FAOBJ_U, 'RUNNY NOSE') OR _FAOBJ_U = 'RHINORRHOEA'
+        then: "'RHINORRHOEA'"
+      - otherwise: _FAOBJ_U
+    PARCAT1: "'SIGNS AND SYMPTOMS OF DISEASE'"
+    PARCAT2: "'RESPIRATORY ILLNESS'"
+    AVAL: null
+    VISITNUM: _FA_N._VISITNUM
+    VISIT: _FA_N._VISIT
+    ADT:
+      to_date:
+        source: _FA_N._FADTC
+    ASTDT:
+      to_date:
+        source: _FA_DATES.FSYMDATE
+    AENDT:
+      to_date:
+        source: _FA_DATES.LSYMDATE
+    ISSPEC: null
+    ISMETHOD: null
+    MBLOC: null
+    MBSPEC: null
+    MBMETHOD: null
+    PRPRESP: null
+    VSSTRESU: null
+    _AVALC_RAW: _FA_N._FASTRESC
+    _PHASEN: _PHASE._PHASEN
+    _FAOBJ_U: _FA_N._FAOBJ_U
+    _FATESTCD: _FA_N._FATESTCD
+    _FACAT: _FA_N._FACAT
+    _ISTESTCD: null
+    _DSDECOD: null
+    _MBTEST_U: null
+    _MBMETHOD: null
+    _PRTRT_U: null
+- id: ho_icu
+  dataset: HO
+  filter: HO.HOTERM = 'ICU' AND NOT (str_contains(VISIT, '(1_S|2_S|S_R|4_S|6_S|_NS|4_L|6_L|SCR)$')
+    OR VISIT IN ('V3_MONTH1_POSTVAX2_L', 'V5_MONTH12_L')) AND _PHASEN > 1
+  derivations:
+    _VDOM: "'HO'"
+    STUDYID: HO.STUDYID
+    USUBJID: HO.USUBJID
+    PARAMN: 91
+    PARAMCD: "'HCUICU'"
+    PARAM: "'SUBJECT IN ICU DUE TO POTENTIAL COVID-19 ILLNESS'"
+    PARCAT1: HO.HOCAT
+    PARCAT2: null
+    AVAL: null
+    VISITNUM: HO.VISITNUM
+    VISIT: HO.VISIT
+    ADT:
+      to_date:
+        source: HO.HODTC
+    ASTDT:
+      to_date:
+        source: HO.HOSTDTC
+    AENDT:
+      to_date:
+        source: HO.HOENDTC
+    ISSPEC: null
+    ISMETHOD: null
+    MBLOC: null
+    MBSPEC: null
+    MBMETHOD: null
+    PRPRESP: null
+    VSSTRESU: null
+    _AVALC_RAW: "'Y'"
+    _PHASEN: ADSL.PHASEN
+    _FAOBJ_U: null
+    _FATESTCD: null
+    _FACAT: null
+    _ISTESTCD: null
+    _DSDECOD: null
+    _MBTEST_U: null
+    _MBMETHOD: null
+    _PRTRT_U: null
+- id: ho_hcuicu_m
+  dataset: _HO_PAIRS
+  filter: _HO_PAIRS.HCUICU = 'Y' AND NOT (str_contains(VISIT, '(1_S|2_S|S_R|4_S|6_S|_NS|4_L|6_L|SCR)$')
+    OR VISIT IN ('V3_MONTH1_POSTVAX2_L', 'V5_MONTH12_L')) AND _PHASEN > 1
+  derivations:
+    _VDOM: "'HO'"
+    STUDYID: _HO_PAIRS.STUDYID
+    USUBJID: _HO_PAIRS.USUBJID
+    PARAMN: 91
+    PARAMCD: "'HCUICU'"
+    PARAM: "'SUBJECT IN ICU DUE TO POTENTIAL COVID-19 ILLNESS'"
+    PARCAT1: _HO_PAIRS.HOCAT
+    PARCAT2: null
+    AVAL: null
+    VISITNUM: _HO_PAIRS.VISITNUM
+    VISIT: _HO_PAIRS.VISIT
+    ADT:
+      to_date:
+        source: _HO_PAIRS.HODTC
+    ASTDT:
+      to_date:
+        source: _HO_PAIRS.HOSTDTC
+    AENDT:
+      to_date:
+        source: _HO_PAIRS.HOENDTC
+    ISSPEC: null
+    ISMETHOD: null
+    MBLOC: null
+    MBSPEC: null
+    MBMETHOD: null
+    PRPRESP: null
+    VSSTRESU: null
+    _AVALC_RAW: _HO_PAIRS.HCUICU
+    _PHASEN: ADSL.PHASEN
+    _FAOBJ_U: null
+    _FATESTCD: null
+    _FACAT: null
+    _ISTESTCD: null
+    _DSDECOD: null
+    _MBTEST_U: null
+    _MBMETHOD: null
+    _PRTRT_U: null
+- id: ho_hcuicu_u
+  dataset: HO
+  filter: _SUPPHO.HCUICU = 'Y' AND _HO_HOSPITAL._HOSEQ IS NULL AND NOT (str_contains(VISIT,
+    '(1_S|2_S|S_R|4_S|6_S|_NS|4_L|6_L|SCR)$') OR VISIT IN ('V3_MONTH1_POSTVAX2_L',
+    'V5_MONTH12_L')) AND _PHASEN > 1
+  derivations:
+    _VDOM: "'HO'"
+    STUDYID: HO.STUDYID
+    USUBJID: HO.USUBJID
+    PARAMN: 91
+    PARAMCD: "'HCUICU'"
+    PARAM: "'SUBJECT IN ICU DUE TO POTENTIAL COVID-19 ILLNESS'"
+    PARCAT1: HO.HOCAT
+    PARCAT2: null
+    AVAL: null
+    VISITNUM: HO.VISITNUM
+    VISIT: HO.VISIT
+    ADT:
+      to_date:
+        source: HO.HODTC
+    ASTDT: null
+    AENDT: null
+    ISSPEC: null
+    ISMETHOD: null
+    MBLOC: null
+    MBSPEC: null
+    MBMETHOD: null
+    PRPRESP: null
+    VSSTRESU: null
+    _AVALC_RAW: _SUPPHO.HCUICU
+    _PHASEN: ADSL.PHASEN
+    _FAOBJ_U: null
+    _FATESTCD: null
+    _FACAT: null
+    _ISTESTCD: null
+    _DSDECOD: null
+    _MBTEST_U: null
+    _MBMETHOD: null
+    _PRTRT_U: null
+- id: ho_hcuhsp_m
+  dataset: _HO_PAIRS
+  filter: _HO_PAIRS.HCUHSP = 'Y' AND NOT (str_contains(VISIT, '(1_S|2_S|S_R|4_S|6_S|_NS|4_L|6_L|SCR)$')
+    OR VISIT IN ('V3_MONTH1_POSTVAX2_L', 'V5_MONTH12_L')) AND _PHASEN > 1
+  derivations:
+    _VDOM: "'HO'"
+    STUDYID: _HO_PAIRS.STUDYID
+    USUBJID: _HO_PAIRS.USUBJID
+    PARAMN: 92
+    PARAMCD: "'HCUHSP'"
+    PARAM: "'HOSPITALIZED DUE TO COVID-19 ILLNESS?'"
+    PARCAT1: _HO_PAIRS.HOCAT
+    PARCAT2: null
+    AVAL: null
+    VISITNUM: _HO_PAIRS.VISITNUM
+    VISIT: _HO_PAIRS.VISIT
+    ADT:
+      to_date:
+        source: _HO_PAIRS.HODTC
+    ASTDT:
+      to_date:
+        source: _HO_PAIRS.HOSTDTC
+    AENDT:
+      to_date:
+        source: _HO_PAIRS.HOENDTC
+    ISSPEC: null
+    ISMETHOD: null
+    MBLOC: null
+    MBSPEC: null
+    MBMETHOD: null
+    PRPRESP: null
+    VSSTRESU: null
+    _AVALC_RAW: _HO_PAIRS.HCUHSP
+    _PHASEN: ADSL.PHASEN
+    _FAOBJ_U: null
+    _FATESTCD: null
+    _FACAT: null
+    _ISTESTCD: null
+    _DSDECOD: null
+    _MBTEST_U: null
+    _MBMETHOD: null
+    _PRTRT_U: null
+- id: ho_hcuhsp_u
+  dataset: HO
+  filter: _SUPPHO.HCUHSP = 'Y' AND _HO_HOSPITAL._HOSEQ IS NULL AND NOT (str_contains(VISIT,
+    '(1_S|2_S|S_R|4_S|6_S|_NS|4_L|6_L|SCR)$') OR VISIT IN ('V3_MONTH1_POSTVAX2_L',
+    'V5_MONTH12_L')) AND _PHASEN > 1
+  derivations:
+    _VDOM: "'HO'"
+    STUDYID: HO.STUDYID
+    USUBJID: HO.USUBJID
+    PARAMN: 92
+    PARAMCD: "'HCUHSP'"
+    PARAM: "'HOSPITALIZED DUE TO COVID-19 ILLNESS?'"
+    PARCAT1: HO.HOCAT
+    PARCAT2: null
+    AVAL: null
+    VISITNUM: HO.VISITNUM
+    VISIT: HO.VISIT
+    ADT:
+      to_date:
+        source: HO.HODTC
+    ASTDT: null
+    AENDT: null
+    ISSPEC: null
+    ISMETHOD: null
+    MBLOC: null
+    MBSPEC: null
+    MBMETHOD: null
+    PRPRESP: null
+    VSSTRESU: null
+    _AVALC_RAW: _SUPPHO.HCUHSP
+    _PHASEN: ADSL.PHASEN
+    _FAOBJ_U: null
+    _FATESTCD: null
+    _FACAT: null
+    _ISTESTCD: null
+    _DSDECOD: null
+    _MBTEST_U: null
+    _MBMETHOD: null
+    _PRTRT_U: null
+- id: is
+  dataset: IS
+  group_by:
+  - IS.STUDYID
+  - IS.DOMAIN
+  - IS.USUBJID
+  - IS.ISTESTCD
+  - IS.ISTEST
+  - IS.ISORRES
+  - IS.ISCAT
+  - IS.ISDTC
+  - IS.ISSPEC
+  - IS.ISMETHOD
+  - IS.VISITNUM
+  - IS.VISIT
+  filter: _ISTESTCD = 'C19NIG' AND _PHASEN > 1
+  derivations:
+    _VDOM: "'IS'"
+    STUDYID: IS.STUDYID
+    USUBJID: IS.USUBJID
+    PARAMN: 90
+    PARAMCD: IS.ISTESTCD
+    PARAM:
+      str_case:
+        source: IS.ISTEST
+        to: upper
+    PARCAT1: IS.ISCAT
+    PARCAT2: null
+    AVAL: null
+    VISITNUM: IS.VISITNUM
+    VISIT: IS.VISIT
+    ADT:
+      to_date:
+        source: IS.ISDTC
+    ASTDT: null
+    AENDT: null
+    ISSPEC: IS.ISSPEC
+    ISMETHOD: IS.ISMETHOD
+    MBLOC: null
+    MBSPEC: null
+    MBMETHOD: null
+    PRPRESP: null
+    VSSTRESU: null
+    _AVALC_RAW:
+      str_case:
+        source: IS.ISORRES
+        to: upper
+    _PHASEN: ADSL.PHASEN
+    _FAOBJ_U: null
+    _FATESTCD: null
+    _FACAT: null
+    _ISTESTCD: IS.ISTESTCD
+    _DSDECOD: null
+    _MBTEST_U: null
+    _MBMETHOD: null
+    _PRTRT_U: null
+- id: lb
+  dataset: LB
+  filter: LB.LBTESTCD = 'PO2FIO2' AND AVAL IS NOT NULL AND NOT (str_contains(VISIT,
+    '(1_S|2_S|S_R|4_S|6_S|_NS|4_L|6_L|SCR)$') OR VISIT IN ('V3_MONTH1_POSTVAX2_L',
+    'V5_MONTH12_L')) AND _PHASEN > 1
+  derivations:
+    _VDOM: "'LB'"
+    STUDYID: LB.STUDYID
+    USUBJID: LB.USUBJID
+    PARAMN: 60
+    PARAMCD: LB.LBTESTCD
+    PARAM:
+      str_case:
+        source: LB.LBTEST
+        to: upper
+    PARCAT1: LB.LBCAT
+    PARCAT2: LB.LBSCAT
+    AVAL:
+      case:
+      - when: LB.LBTESTCD = 'PO2FIO2'
+        then: LB.LBORRES
+    VISITNUM:
+      case:
+      - when: LB.LBTESTCD = 'PO2FIO2'
+        then: LB.VISITNUM
+    VISIT: LB.VISIT
+    ADT:
+      to_date:
+        source: LB.LBDTC
+    ASTDT: null
+    AENDT: null
+    ISSPEC: null
+    ISMETHOD: null
+    MBLOC: null
+    MBSPEC: null
+    MBMETHOD: null
+    PRPRESP: null
+    VSSTRESU: null
+    _AVALC_RAW: null
+    _PHASEN: ADSL.PHASEN
+    _FAOBJ_U: null
+    _FATESTCD: null
+    _FACAT: null
+    _ISTESTCD: null
+    _DSDECOD: null
+    _MBTEST_U: null
+    _MBMETHOD: null
+    _PRTRT_U: null
+- id: mb
+  dataset: _MB_N
+  group_by:
+  - _MB_N._STUDYID
+  - _MB_N._DOMAIN
+  - _MB_N._USUBJID
+  - _MB_N._MBTESTCD
+  - _MB_N._MBTEST_U
+  - _MB_N._MBMETHOD
+  - _MB_N._MBCAT
+  - _MB_N._MBLOC
+  - _MB_N._MBSPEC
+  - _MB_N._AVALC_RAW
+  - _MB_N._MBDTC
+  - _MB_N._VISITNUM
+  - _MB_N._VISIT
+  filter: ((_MBTEST_U = 'SEVERE ACUTE RESP SYNDROME CORONAVIRUS 2' AND _MBMETHOD =
+    'IMMUNOCHROMATOGRAPHY') OR (_MBTEST_U IN ('CEPHEID RT-PCR ASSAY FOR SARS-COV-2',
+    'CEPHEID RT-PCR ASSAY OF SARS-COV-2') AND _MBMETHOD = 'REVERSE TRANSCRIPTASE PCR'))
+    AND NOT (str_contains(VISIT, '(1_S|2_S|S_R|4_S|6_S|_NS|4_L|6_L|SCR)$') OR VISIT
+    IN ('V3_MONTH1_POSTVAX2_L', 'V5_MONTH12_L')) AND _PHASEN > 1
+  derivations:
+    _VDOM: "'MB'"
+    STUDYID: _MB_N._STUDYID
+    USUBJID: _MB_N._USUBJID
+    PARAMN:
+      case:
+      - when: _MB_N._MBTESTCD = 'SARSCOV2'
+        then: 40
+      - when: _MB_N._MBTESTCD = 'RTCOV2NS'
+        then: 41
+    PARAMCD: _MB_N._MBTESTCD
+    PARAM: _MB_N._MBTEST_U
+    PARCAT1: _MB_N._MBCAT
+    PARCAT2: null
+    AVAL: null
+    VISITNUM: _MB_N._VISITNUM
+    VISIT: _MB_N._VISIT
+    ADT:
+      to_date:
+        source: _MB_N._MBDTC
+    ASTDT: null
+    AENDT: null
+    ISSPEC: null
+    ISMETHOD: null
+    MBLOC: _MB_N._MBLOC
+    MBSPEC: _MB_N._MBSPEC
+    MBMETHOD: _MB_N._MBMETHOD
+    PRPRESP: null
+    VSSTRESU: null
+    _AVALC_RAW: _MB_N._AVALC_RAW
+    _PHASEN: _PHASE._PHASEN
+    _FAOBJ_U: null
+    _FATESTCD: null
+    _FACAT: null
+    _ISTESTCD: null
+    _DSDECOD: null
+    _MBTEST_U: _MB_N._MBTEST_U
+    # upper-cased for the filter, as adsympt.sas compares upcase(strip(mbmethod))
+    _MBMETHOD:
+      str_case:
+        source: _MB_N._MBMETHOD
+        to: upper
+    _PRTRT_U: null
+- id: pr
+  dataset: PR
+  filter: PR.PRCAT = 'GENERAL NON-DRUG TREATMENT' AND PR.PRTRT <> '' AND _AVALC_RAW
+    <> '' AND NOT (str_contains(VISIT, '(1_S|2_S|S_R|4_S|6_S|_NS|4_L|6_L|SCR)$') OR
+    VISIT IN ('V3_MONTH1_POSTVAX2_L', 'V5_MONTH12_L')) AND _PHASEN > 1
+  derivations:
+    _VDOM: "'PR'"
+    STUDYID: PR.STUDYID
+    USUBJID: PR.USUBJID
+    PARAMN:
+      case:
+      - when: _PRTRT_U = 'INTUBATION'
+        then: 70
+      - when: _PRTRT_U = 'NON-INVASIVE POSITIVE PRESSURE VENTILATION'
+        then: 71
+      - when: _PRTRT_U = 'CONTINUOUS POSITIVE AIRWAY PRESSURE'
+        then: 72
+      - when: _PRTRT_U = 'CPAP'
+        then: 72
+      - when: _PRTRT_U = 'OXYGEN THERAPY'
+        then: 73
+      - when: _PRTRT_U = 'MECHANICAL VENTILATION'
+        then: 74
+      - when: _PRTRT_U = 'EXTRACORPOREAL MEMBRANE OXYGENATION'
+        then: 75
+      - when: _PRTRT_U = 'HIGH FLOW OXYGEN THERAPY'
+        then: 76
+    PARAMCD:
+      case:
+      - when: _PRTRT_U = 'INTUBATION'
+        then: "'INTBTION'"
+      - when: _PRTRT_U = 'NON-INVASIVE POSITIVE PRESSURE VENTILATION'
+        then: "'NIPPV'"
+      - when: _PRTRT_U = 'CONTINUOUS POSITIVE AIRWAY PRESSURE'
+        then: "'CPAP'"
+      - when: _PRTRT_U = 'CPAP'
+        then: "'CPAP'"
+      - when: _PRTRT_U = 'OXYGEN THERAPY'
+        then: "'OXYTHRP'"
+      - when: _PRTRT_U = 'MECHANICAL VENTILATION'
+        then: "'MCHVENT'"
+      - when: _PRTRT_U = 'EXTRACORPOREAL MEMBRANE OXYGENATION'
+        then: "'ECMO'"
+      - when: _PRTRT_U = 'HIGH FLOW OXYGEN THERAPY'
+        then: "'HFOXTHRP'"
+      - otherwise: "''"
+    PARAM:
+      case:
+      - when: _PRTRT_U = 'CONTINUOUS POSITIVE AIRWAY PRESSURE'
+        then: "'CONTINUOUS POSITIVE AIRWAY PRESSURE'"
+      - when: _PRTRT_U = 'CPAP'
+        then: "'CONTINUOUS POSITIVE AIRWAY PRESSURE'"
+      - otherwise: _PRTRT_U
+    PARCAT1: PR.PRCAT
+    PARCAT2: "'RESPIRATORY FAILURE'"
+    AVAL: null
+    VISITNUM: PR.VISITNUM
+    VISIT: PR.VISIT
+    ADT:
+      to_date:
+        source: PR.PRDTC
+    ASTDT:
+      to_date:
+        source: PR.PRSTDTC
+    AENDT:
+      to_date:
+        source: PR.PRENDTC
+    ISSPEC: null
+    ISMETHOD: null
+    MBLOC: null
+    MBSPEC: null
+    MBMETHOD: null
+    PRPRESP: PR.PRPRESP
+    VSSTRESU: null
+    _AVALC_RAW:
+      case:
+      - when: PR.PRPRESP = 'Y'
+        then: PR.PROCCUR
+      - otherwise: "'Y'"
+    _PHASEN: ADSL.PHASEN
+    _FAOBJ_U: null
+    _FATESTCD: null
+    _FACAT: null
+    _ISTESTCD: null
+    _DSDECOD: null
+    _MBTEST_U: null
+    _MBMETHOD: null
+    _PRTRT_U:
+      str_case:
+        source: PR.PRTRT
+        to: upper
+- id: vs
+  dataset: VS
+  filter: VS.VSCAT = 'GENERAL VITAL SIGNS' AND VS.VSTESTCD IN ('RESP', 'HR', 'OXYSAT',
+    'DIABP', 'SYSBP') AND (AVAL IS NOT NULL OR _AVALC_RAW <> '') AND NOT (str_contains(VISIT,
+    '(1_S|2_S|S_R|4_S|6_S|_NS|4_L|6_L|SCR)$') OR VISIT IN ('V3_MONTH1_POSTVAX2_L',
+    'V5_MONTH12_L')) AND _PHASEN > 1
+  derivations:
+    _VDOM: "'VS'"
+    STUDYID: VS.STUDYID
+    USUBJID: VS.USUBJID
+    PARAMN:
+      case:
+      - when: VS.VSTESTCD = 'RESP'
+        then: 50
+      - when: VS.VSTESTCD = 'HR'
+        then: 51
+      - when: VS.VSTESTCD = 'OXYSAT'
+        then: 52
+      - when: VS.VSTESTCD = 'DIABP'
+        then: 53
+      - when: VS.VSTESTCD = 'SYSBP'
+        then: 54
+    PARAMCD: VS.VSTESTCD
+    PARAM:
+      str_case:
+        source: VS.VSTEST
+        to: upper
+    PARCAT1: VS.VSCAT
+    PARCAT2: null
+    AVAL: VS.VSSTRESN
+    VISITNUM:
+      case:
+      - when: VS.VSCAT = 'GENERAL VITAL SIGNS' AND VS.VSTESTCD IN ('RESP', 'HR', 'OXYSAT',
+          'DIABP', 'SYSBP')
+        then: VS.VISITNUM
+    VISIT: VS.VISIT
+    ADT:
+      to_date:
+        source: VS.VSDTC
+    ASTDT: null
+    AENDT: null
+    ISSPEC: null
+    ISMETHOD: null
+    MBLOC: null
+    MBSPEC: null
+    MBMETHOD: null
+    PRPRESP: null
+    VSSTRESU: VS.VSSTRESU
+    _AVALC_RAW:
+      case:
+      - when: AVAL IS NULL AND VS.VSSTRESC <> ''
+        then: VS.VSSTRESC
+      - otherwise: "''"
+    _PHASEN: ADSL.PHASEN
+    _FAOBJ_U: null
+    _FATESTCD: null
+    _FACAT: null
+    _ISTESTCD: null
+    _DSDECOD: null
+    _MBTEST_U: null
+    _MBMETHOD: null
+    _PRTRT_U: null
+columns:
+- name: _VDOM
+  type: str
+- name: _ASE
+  type: int
+  derivation: {to_epoch_day: {source: ASTDT}}
+- name: _AEE
+  type: int
+  derivation: {to_epoch_day: {source: AENDT}}
+- name: _ASK
+  type: int
+  derivation:
+    case:
+    - when: _ASE IS NULL
+      then: -9999999
+    - otherwise: _ASE
+- name: _AEK
+  type: int
+  derivation:
+    case:
+    - when: _AEE IS NULL
+      then: -9999999
+    - otherwise: _AEE
+- name: _AVALC_RAW
+  type: str
+- name: _PHASEN
+  type: int
+- name: _FAOBJ_U
+  type: str
+- name: _FATESTCD
+  type: str
+- name: _FACAT
+  type: str
+- name: _ISTESTCD
+  type: str
+- name: _DSDECOD
+  type: str
+- name: _MBTEST_U
+  type: str
+- name: _MBMETHOD
+  type: str
+- name: _PRTRT_U
+  type: str
+- name: STUDYID
+  type: str
+  label: ADSL.STUDYID
+  submission:
+    core: Req
+    mandatory: true
+    length: 8
+    origins:
+    - type: Derived
+    method: "Withheld from publication: the received define states this text."
+- name: USUBJID
+  type: str
+  label: ADSL.USUBJID
+  submission:
+    core: Req
+    mandatory: true
+    length: 22
+    origins:
+    - type: Derived
+    method: "Withheld from publication: the received define states this text."
+- name: SITEID
+  type: str
+  derivation: ADSL.SITEID
+  label: ADSL.SITEID
+  submission:
+    core: Req
+    mandatory: true
+    length: 4
+    origins:
+    - type: Predecessor
+      description: ADSL.SITEID
+- name: SUBJID
+  type: str
+  derivation: ADSL.SUBJID
+  label: ADSL.SUBJID
+  submission:
+    core: Req
+    mandatory: true
+    length: 8
+    origins:
+    - type: Predecessor
+      description: ADSL.SUBJID
+- name: BRTHDT
+  type: str
+  derivation: ADSL.BRTHDT_2
+  label: ADSL.BRTHDT
+  submission:
+    core: Req
+    mandatory: true
+    length: 8
+    origins:
+    - type: Predecessor
+      description: ADSL.BRTHDT_2
+- name: AGEGR1N
+  type: int
+  derivation: ADSL.AGEGR1N
+  label: ADSL.AGEGR1N
+  submission:
+    core: Req
+    mandatory: true
+    length: 8
+    origins:
+    - type: Predecessor
+      description: ADSL.AGEGR1N
+- name: AGEGR1
+  type: str
+  derivation: ADSL.AGEGR1
+  label: ADSL.AGEGR1
+  submission:
+    core: Req
+    mandatory: true
+    length: 11
+    origins:
+    - type: Predecessor
+      description: ADSL.AGEGR1
+- name: SEX
+  type: str
+  derivation: ADSL.SEX
+  label: ADSL.SEX
+  submission:
+    core: Req
+    mandatory: true
+    length: 1
+    origins:
+    - type: Predecessor
+      description: ADSL.SEX
+- name: RACE
+  type: str
+  derivation: ADSL.RACE
+  label: ADSL.RACE
+  submission:
+    core: Req
+    mandatory: true
+    length: 41
+    origins:
+    - type: Predecessor
+      description: ADSL.RACE
+- name: ETHNIC
+  type: str
+  derivation: ADSL.ETHNIC
+  label: ADSL.ETHNIC
+  submission:
+    core: Req
+    mandatory: true
+    length: 22
+    origins:
+    - type: Predecessor
+      description: ADSL.ETHNIC
+- name: ARMCD
+  type: str
+  derivation: ADSL.ARMCD
+  label: ADSL.ARMCD
+  submission:
+    core: Req
+    mandatory: true
+    length: 9
+    origins:
+    - type: Predecessor
+      description: ADSL.ARMCD
+- name: ARM
+  type: str
+  derivation: ADSL.ARM
+  label: ADSL.ARM
+  submission:
+    core: Req
+    mandatory: true
+    length: 27
+    origins:
+    - type: Predecessor
+      description: ADSL.ARM
+- name: ACTARMCD
+  type: str
+  derivation: ADSL.ACTARMCD
+  label: ADSL.ACTARMCD
+  submission:
+    core: Req
+    mandatory: true
+    length: 9
+    origins:
+    - type: Predecessor
+      description: ADSL.ACTARMCD
+- name: ACTARM
+  type: str
+  derivation: ADSL.ACTARM
+  label: ADSL.ACTARM
+  submission:
+    core: Req
+    mandatory: true
+    length: 27
+    origins:
+    - type: Predecessor
+      description: ADSL.ACTARM
+- name: PARAMN
+  type: int
+  label: Parameter (N)
+  submission:
+    core: Req
+    mandatory: true
+    length: 8
+    origins:
+    - type: Assigned
+- name: PARAMCD
+  type: str
+  label: Parameter Code
+  submission:
+    core: Req
+    mandatory: true
+    length: 8
+    origins:
+    - type: Assigned
+- name: PARAM
+  type: str
+  label: Parameter
+  submission:
+    core: Req
+    mandatory: true
+    length: 48
+    origins:
+    - type: Derived
+    method: "Withheld from publication: the received define states this text."
+- name: PARCAT1
+  type: str
+  label: Parameter Category 1
+  submission:
+    core: Req
+    mandatory: true
+    length: 33
+    origins:
+    - type: Derived
+    method: "Withheld from publication: the received define states this text."
+- name: PARCAT2
+  type: str
+  label: Parameter Category 2
+  submission:
+    core: Perm
+    mandatory: false
+    length: 19
+    origins:
+    - type: Derived
+    method: "Withheld from publication: the received define states this text."
+- name: AVAL
+  type: float
+  label: Analysis Value
+  submission:
+    core: Perm
+    mandatory: false
+    length: 8
+    significant_digits: 1
+    origins:
+    - type: Derived
+    method: "Withheld from publication: the received define states this text."
+- name: AVALC
+  type: str
+  derivation:
+    case:
+    - when: _AVALC_RAW = '.'
+      then: "''"
+    - when: _AVALC_RAW = 'UNKNOWN'
+      then: "'UNK'"
+    - when: _AVALC_RAW = 'POSITIVE'
+      then: "'POS'"
+    - when: _AVALC_RAW = 'INDETERMINATE'
+      then: "'IND'"
+    - when: _AVALC_RAW = 'NEGATIVE'
+      then: "'NEG'"
+    - otherwise: _AVALC_RAW
+  label: Analysis Value (C)
+  submission:
+    core: Perm
+    mandatory: false
+    length: 37
+    origins:
+    - type: Derived
+    method: "Withheld from publication: the received define states this text."
+- name: VISITNUM
+  type: int
+  label: CE.VISITNUM FACE.VISITNUM HO.VISITNUM IS.VISITNUM MB.VISITNUM MH.VISITNUM
+    PR.VISITNUM VS.VISITNUM
+  submission:
+    core: Perm
+    mandatory: false
+    length: 8
+    origins:
+    - type: Derived
+    method: "Withheld from publication: the received define states this text."
+- name: VISIT
+  type: str
+  label: CE.VISIT FACE.VISIT HO.VISIT IS.VISIT MB.VISIT MH.VISIT PR.VISIT VS.VISIT
+  submission:
+    core: Perm
+    mandatory: false
+    length: 20
+    origins:
+    - type: Derived
+    method: "Withheld from publication: the received define states this text."
+- name: AVISITN
+  type: int
+  derivation:
+    case:
+    - when: _VISMAP._AVISITN IS NOT NULL OR _VISMAP._AVISIT IS NOT NULL
+      then: _VISMAP._AVISITN
+    - otherwise: VISITNUM
+  label: Analysis Visit (N)
+  submission:
+    core: Perm
+    mandatory: false
+    length: 8
+    origins:
+    - type: Derived
+    method: "Withheld from publication: the received define states this text."
+- name: AVISIT
+  type: str
+  derivation:
+    case:
+    - when: _VISMAP._AVISITN IS NOT NULL OR _VISMAP._AVISIT IS NOT NULL
+      then: _VISMAP._AVISIT
+    - otherwise: VISIT
+  label: Analysis Visit
+  submission:
+    core: Perm
+    mandatory: false
+    length: 20
+    origins:
+    - type: Derived
+    method: "Withheld from publication: the received define states this text."
+- name: ADT
+  type: date
+  label: Analysis Date
+  submission:
+    core: Perm
+    mandatory: false
+    origins:
+    - type: Derived
+    method: "Withheld from publication: the received define states this text."
+- name: ADY
+  type: int
+  derivation:
+    study_day:
+      source: ADT
+      reference: ADSL.TRTSDT
+  label: Analysis Relative Day
+  submission:
+    core: Perm
+    mandatory: false
+    length: 8
+    origins:
+    - type: Derived
+    method: "Withheld from publication: the received define states this text."
+- name: ASTDT
+  type: date
+  label: Analysis Start Date
+  submission:
+    core: Perm
+    mandatory: false
+    origins:
+    - type: Derived
+    method: "Withheld from publication: the received define states this text."
+- name: ASTDY
+  type: int
+  derivation:
+    study_day:
+      source: ASTDT
+      reference: ADSL.TRTSDT
+  label: Analysis Start Relative Day
+  submission:
+    core: Perm
+    mandatory: false
+    length: 8
+    origins:
+    - type: Derived
+    method: "Withheld from publication: the received define states this text."
+- name: AENDT
+  type: date
+  label: Analysis End Date
+  submission:
+    core: Perm
+    mandatory: false
+    origins:
+    - type: Derived
+    method: "Withheld from publication: the received define states this text."
+- name: AENDY
+  type: int
+  derivation:
+    study_day:
+      source: AENDT
+      reference: ADSL.TRTSDT
+  label: Analysis End Relative Day
+  submission:
+    core: Perm
+    mandatory: false
+    length: 8
+    origins:
+    - type: Derived
+    method: "Withheld from publication: the received define states this text."
+- name: ISSPEC
+  type: str
+  label: IS.ISSPEC where IS.ISTESTCD = "C19NIG"
+  submission:
+    core: Perm
+    mandatory: false
+    length: 5
+    origins:
+    - type: Derived
+    method: "Withheld from publication: the received define states this text."
+- name: ISMETHOD
+  type: str
+  label: IS.ISMETHOD where IS.ISTESTCD = "C19NIG"
+  submission:
+    core: Perm
+    mandatory: false
+    length: 24
+    origins:
+    - type: Derived
+    method: "Withheld from publication: the received define states this text."
+- name: MBLOC
+  type: str
+  label: MB.MBLOC when PARAMCD in ("SARSCOV2" "RTCOV2NS")
+  submission:
+    core: Perm
+    mandatory: false
+    length: 24
+    origins:
+    - type: Derived
+    method: "Withheld from publication: the received define states this text."
+- name: MBSPEC
+  type: str
+  label: MB.MBSPEC when PARAMCD in ("SARSCOV2" "RTCOV2NS")
+  submission:
+    core: Perm
+    mandatory: false
+    length: 22
+    origins:
+    - type: Derived
+    method: "Withheld from publication: the received define states this text."
+- name: MBMETHOD
+  type: str
+  label: MB.MBMETHOD when PARAMCD in ("SARSCOV2" "RTCOV2NS")
+  submission:
+    core: Perm
+    mandatory: false
+    length: 25
+    origins:
+    - type: Derived
+    method: "Withheld from publication: the received define states this text."
+- name: PRPRESP
+  type: str
+  label: PR.PRPRESP when PARAMCD in ("INTBTION" "NIPPV" "CPAP" "OXYTHRP" "MCHVENT"
+    "ECMO" "HFOXTHRP")
+  submission:
+    core: Perm
+    mandatory: false
+    length: 1
+    origins:
+    - type: Derived
+    method: "Withheld from publication: the received define states this text."
+- name: VSSTRESU
+  type: str
+  label: VS.VSSTRESU when PARAMCD in ("RESP" "HR" "OXYSAT" "DIABP" "SYSBP")
+  submission:
+    core: Perm
+    mandatory: false
+    length: 11
+    origins:
+    - type: Derived
+    method: "Withheld from publication: the received define states this text."
+- name: RANDDT
+  type: date
+  derivation: ADSL.RANDDT
+  label: ADSL.RANDDT
+  submission:
+    core: Perm
+    mandatory: false
+    origins:
+    - type: Predecessor
+      description: ADSL.RANDDT
+- name: TRTSDT
+  type: date
+  derivation: ADSL.TRTSDT
+  label: ADSL.TRTSDT
+  submission:
+    core: Perm
+    mandatory: false
+    origins:
+    - type: Predecessor
+      description: ADSL.TRTSDT
+- name: TRTEDT
+  type: date
+  derivation: ADSL.TRTEDT
+  label: ADSL.TRTEDT
+  submission:
+    core: Perm
+    mandatory: false
+    origins:
+    - type: Predecessor
+      description: ADSL.TRTEDT
+- name: VAX101DT
+  type: date
+  derivation: ADSL.VAX101DT
+  label: ADSL.VAX101DT
+  submission:
+    core: Perm
+    mandatory: false
+    origins:
+    - type: Predecessor
+      description: ADSL.VAX101DT
+- name: VAX102DT
+  type: date
+  derivation: ADSL.VAX102DT
+  label: ADSL.VAX102DT
+  submission:
+    core: Perm
+    mandatory: false
+    origins:
+    - type: Predecessor
+      description: ADSL.VAX102DT
+- name: ENRLFL
+  type: str
+  derivation: ADSL.ENRLFL
+  label: ADSL.ENRLFL
+  submission:
+    core: Req
+    mandatory: true
+    length: 1
+    origins:
+    - type: Predecessor
+      description: ADSL.ENRLFL
+- name: RANDFL
+  type: str
+  derivation: ADSL.RANDFL
+  label: ADSL.RANDFL
+  submission:
+    core: Req
+    mandatory: true
+    length: 1
+    origins:
+    - type: Predecessor
+      description: ADSL.RANDFL
+- name: SAFFL
+  type: str
+  derivation: ADSL.SAFFL
+  label: ADSL.SAFFL
+  submission:
+    core: Req
+    mandatory: true
+    length: 1
+    origins:
+    - type: Predecessor
+      description: ADSL.SAFFL
+- name: EVALEFFL
+  type: str
+  derivation: ADSL.EVALEFFL
+  label: ADSL.EVALEFFL
+  submission:
+    core: Req
+    mandatory: true
+    length: 1
+    origins:
+    - type: Predecessor
+      description: ADSL.EVALEFFL
+- name: AAI1EFFL
+  type: str
+  derivation: ADSL.AAI1EFFL
+  label: ADSL.AAI1EFFL
+  submission:
+    core: Req
+    mandatory: true
+    length: 1
+    origins:
+    - type: Predecessor
+      description: ADSL.AAI1EFFL
+- name: AAI2EFFL
+  type: str
+  derivation: ADSL.AAI2EFFL
+  label: ADSL.AAI2EFFL
+  submission:
+    core: Req
+    mandatory: true
+    length: 1
+    origins:
+    - type: Predecessor
+      description: ADSL.AAI2EFFL
+- name: C19ILHFL
+  type: str
+  derivation:
+    case:
+    - when: _MH_FLAG._MHDECOD IS NOT NULL
+      then: "'Y'"
+    - otherwise: "''"
+  label: Prior Covid-19 Illness History Flag
+  submission:
+    core: Perm
+    mandatory: false
+    length: 1
+    origins:
+    - type: Derived
+    method: "Withheld from publication: the received define states this text."
+- name: _SEQ
+  type: int
+  derivation:
+    row_number:
+      window:
+        group_by:
+        - USUBJID
+        order_by:
+        - AVISITN
+        - PARAMN
+        - ADT
+        - ASTDT
+  label: Row sequence within subject
+  submission:
+    core: Perm
+    mandatory: true
+    length: 8
+    origins:
+    - type: Derived
+    method: "Withheld from publication: the received define states this text."
+output:
+  path: <adam-dir>/adsympt-yamaa.parquet
+  order_by:
+  - USUBJID
+  - _SEQ
+  columns:
+  - STUDYID
+  - USUBJID
+  - SITEID
+  - SUBJID
+  - BRTHDT
+  - AGEGR1N
+  - AGEGR1
+  - SEX
+  - RACE
+  - ETHNIC
+  - ARMCD
+  - ARM
+  - ACTARMCD
+  - ACTARM
+  - PARAMN
+  - PARAMCD
+  - PARAM
+  - PARCAT1
+  - PARCAT2
+  - AVAL
+  - AVALC
+  - VISITNUM
+  - VISIT
+  - AVISITN
+  - AVISIT
+  - ADT
+  - ADY
+  - ASTDT
+  - ASTDY
+  - AENDT
+  - AENDY
+  - ISSPEC
+  - ISMETHOD
+  - MBLOC
+  - MBSPEC
+  - MBMETHOD
+  - PRPRESP
+  - VSSTRESU
+  - RANDDT
+  - TRTSDT
+  - TRTEDT
+  - VAX101DT
+  - VAX102DT
+  - ENRLFL
+  - RANDFL
+  - SAFFL
+  - EVALEFFL
+  - AAI1EFFL
+  - AAI2EFFL
+  - C19ILHFL
+  - _SEQ

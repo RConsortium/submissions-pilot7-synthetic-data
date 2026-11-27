@@ -1,0 +1,940 @@
+# ADC19EF for Pfizer C4591001, EUA 27034 sequence S1 (safety and final
+# efficacy analysis, data snapshot of November 2020).
+# Layer over the 1-month spec (S1's, with the ADSL birth date named BRTHDT
+# as in this cut's ADSL), run on this cut's SDTM
+# (scripts/reproduce.py verify --study c4591001 --cut s1-safety-fa-eff). The
+# output keeps the EUA file's columns, in its order.
+yamaa: '1.0'
+type: spec
+parent: ../../../s211-1mth/spec/yamaa/adc19ef.yaml
+# ADSL comes from helper/adsl_s1x.yaml (the S1-only ADSL columns, missing
+# in this cut).
+input:
+  ADSL:
+    path: <work-dir>/adsl_s1x.parquet
+    schema: helper/adsl_s1x.yaml
+    key:
+    - STUDYID
+    - USUBJID
+  MH: <sdtm-dir>/mh.parquet
+# The EUA adc19ef.sas reads C19ILHFL from its ADSYMPT, a column the
+# submitted EUA ADSYMPT does not carry; it is derived here as the EUA
+# adsympt.sas derives it (a COVID-19 term in MH).
+intermediates:
+- id: _MH_C19
+  dataset: MH
+  key:
+    USUBJID: USUBJID
+  filter: MH.MHDECOD IN ('Asymptomatic COVID-19', 'COVID-19', 'COVID-19 pneumonia',
+    'COVID-19 treatment', 'Suspected COVID-19', 'SARS-CoV-2 antibody test positive',
+    'SARS-CoV-2 carrier', 'SARS-CoV-2 sepsis', 'SARS-CoV-2 test positive', 'SARS-CoV-2
+    viraemia', 'Multisystem inflammatory syndrome in children')
+  order_by:
+  - MH.USUBJID
+  keep: first
+  derivations:
+    _MHDECOD:
+      type: str
+      derivation: MH.MHDECOD
+# Status parameter numbers and labels of the EUA adc19ef.sas.
+- id: _ST
+  derivations:
+    _PARAMN:
+      type: int
+      derivation:
+        case:
+        - when: _ST_IDX = 1
+          then: 141
+        - when: _ST_IDX = 2
+          then: 142
+        - when: _ST_IDX = 3
+          then: 143
+        - when: _ST_IDX = 4
+          then: 144
+        - when: _ST_IDX = 5
+          then: 145
+        - when: _ST_IDX = 6
+          then: 151
+        - when: _ST_IDX = 7
+          then: 152
+        - when: _ST_IDX = 8
+          then: 153
+        - when: _ST_IDX = 9
+          then: 154
+        - when: _ST_IDX = 10
+          then: 155
+        - when: _ST_IDX = 11
+          then: 161
+        - when: _ST_IDX = 12
+          then: 162
+        - when: _ST_IDX = 13
+          then: 163
+        - when: _ST_IDX = 14
+          then: 164
+        - when: _ST_IDX = 15
+          then: 165
+        - when: _ST_IDX = 21
+          then: 171
+        - when: _ST_IDX = 22
+          then: 172
+        - when: _ST_IDX = 23
+          then: 173
+        - when: _ST_IDX = 24
+          then: 174
+        - when: _ST_IDX = 25
+          then: 175
+    _PARAM:
+      type: str
+      derivation:
+        case:
+        - when: _ST_IDX = 1
+          then: "'SUBJECT''S SURVEILLANCE TIME AFTER DOSE 1 FOR PROTOCOL DEFINED SYMPTOMS'"
+        - when: _ST_IDX = 2
+          then: "'SUBJECT''S SURVEILLANCE TIME 7 DAYS AFTER DOSE 1 FOR PROTOCOL DEFINED SYMPTOMS'"
+        - when: _ST_IDX = 3
+          then: "'SUBJECT''S SURVEILLANCE TIME AFTER DOSE 2 FOR PROTOCOL DEFINED SYMPTOMS'"
+        - when: _ST_IDX = 4
+          then: "'SUBJECT''S SURVEILLANCE TIME 7 DAYS AFTER DOSE 2 FOR PROTOCOL DEFINED SYMPTOMS'"
+        - when: _ST_IDX = 5
+          then: "'SUBJECT''S SURVEILLANCE TIME 14 DAYS AFTER DOSE 2 FOR PROTOCOL DEFINED SYMPTOMS'"
+        - when: _ST_IDX = 6
+          then: "'SUBJECT''S SURVEILLANCE TIME AFTER DOSE 1 FOR CDC DEFINED SYMPTOMS'"
+        - when: _ST_IDX = 7
+          then: "'SUBJECT''S SURVEILLANCE TIME 7 DAYS AFTER DOSE 1 FOR CDC DEFINED SYMPTOMS'"
+        - when: _ST_IDX = 8
+          then: "'SUBJECT''S SURVEILLANCE TIME AFTER DOSE 2 FOR CDC DEFINED SYMPTOMS'"
+        - when: _ST_IDX = 9
+          then: "'SUBJECT''S SURVEILLANCE TIME 7 DAYS AFTER DOSE 2 FOR CDC DEFINED SYMPTOMS'"
+        - when: _ST_IDX = 10
+          then: "'SUBJECT''S SURVEILLANCE TIME 14 DAYS AFTER DOSE 2 FOR CDC DEFINED SYMPTOMS'"
+        - when: _ST_IDX = 11
+          then: "'SUBJECT''S SURVEILLANCE TIME AFTER DOSE 1 FOR SEVERE COVID19 SYMPTOMS'"
+        - when: _ST_IDX = 12
+          then: "'SUBJECT''S SURVEILLANCE TIME 7 DAYS AFTER DOSE 1 FOR SEVERE COVID19 SYMPTOMS'"
+        - when: _ST_IDX = 13
+          then: "'SUBJECT''S SURVEILLANCE TIME AFTER DOSE 2 FOR SEVERE COVID19 SYMPTOMS'"
+        - when: _ST_IDX = 14
+          then: "'SUBJECT''S SURVEILLANCE TIME 7 DAYS AFTER DOSE 2 FOR SEVERE COVID19 SYMPTOMS'"
+        - when: _ST_IDX = 15
+          then: "'SUBJECT''S SURVEILLANCE TIME 14 DAYS AFTER DOSE 2 FOR SEVERE COVID19 SYMPTOMS'"
+        - when: _ST_IDX = 21
+          then: "'SUBJECT''S SURVEILLANCE TIME AFTER DOSE 1 FOR PROTOCOL DEFINED SYMPTOMS - ALL AVAILABLE'"
+        - when: _ST_IDX = 22
+          then: "'SUBJECT''S SURVEILLANCE TIME 7 DAYS AFTER DOSE 1 FOR PROTOCOL DEFINED SYMPTOMS - ALL AVAILABLE'"
+        - when: _ST_IDX = 23
+          then: "'SUBJECT''S SURVEILLANCE TIME AFTER DOSE 2 FOR PROTOCOL DEFINED SYMPTOMS - ALL AVAILABLE'"
+        - when: _ST_IDX = 24
+          then: "'SUBJECT''S SURVEILLANCE TIME 7 DAYS AFTER DOSE 2 FOR PROTOCOL DEFINED SYMPTOMS - ALL AVAILABLE'"
+        - when: _ST_IDX = 25
+          then: "'SUBJECT''S SURVEILLANCE TIME 14 DAYS AFTER DOSE 2 FOR PROTOCOL DEFINED SYMPTOMS - ALL AVAILABLE'"
+- id: _S1
+  derivations:
+    _GRPCAT:
+      type: int
+      derivation:
+        case:
+        - when: _GRP_X IN (1, 2)
+          then: 1
+        - when: _GRP_X >= 3 AND _GRP_X <= 20
+          then: 2
+# Subjects with any kept ADSYMPT record (the program's adc19ef_1 set).
+- id: _HAS_KEPT
+  dataset: _S1
+  key:
+    _USUBJID: _USUBJID
+  filter: _S1._KEPT = 1
+  order_by:
+  - _S1._ADT
+  - _S1._RECSEQ
+  keep: first
+  derivations:
+    _HAS:
+      type: int
+      derivation: 1
+- id: _A
+  derivations:
+    _C19ILHFL:
+      type: str
+      derivation:
+        case:
+        - when: _MH_C19._MHDECOD IS NOT NULL
+          then: "'Y'"
+        - otherwise: "''"
+# The EUA program writes 20 of S1's 42 subject status parameters (no
+# STC* CDC-severe, *CDA, *SEA, *PDX or STC*SA ones).
+# The EUA program has one severe category: every symptom group from 3 up
+# (S1 splits off CDC-severe groups 11-20), and status rows for every dosed
+# subject, Phase 1 included.
+rows:
+- id: main_symp
+  derivations:
+    _GRPCAT:
+      case:
+      - when: _S1._GRP_X IN (1, 2)
+        then: 1
+      - when: _S1._GRP_X >= 3 AND _S1._GRP_X <= 20
+        then: 2
+- id: main_symp711
+  derivations:
+    _GRPCAT:
+      case:
+      - when: _S1._GRP_X IN (1, 2)
+        then: 1
+      - when: _S1._GRP_X >= 3 AND _S1._GRP_X <= 20
+        then: 2
+- id: main_nva
+  derivations:
+    _GRPCAT:
+      case:
+      - when: _S1._GRP_X IN (1, 2)
+        then: 1
+      - when: _S1._GRP_X >= 3 AND _S1._GRP_X <= 20
+        then: 2
+# The EUA program writes a NAAT result row for every illness visit,
+# whatever its first symptom group (S1 needs group 1 or 2).
+- id: naatrad
+  filter: _KEPT = 1 AND _IS_FIRST = 1 AND (_FIRST_GRP_SYMP5 IN (1, 2, 3, 4, 5, 6, 7,
+    10, 11) OR _HAS_CNT = 1)
+- id: st
+  filter: _DOSE_DT IS NOT NULL AND _ST._PARAMCD IN ('ST1PD', 'ST17PD', 'ST1CD', 'ST17CD', 'ST1SE', 'ST17SE', 'ST1PDA', 'ST17PDA', 'ST2PD', 'ST27PD', 'ST214PD', 'ST2CD', 'ST27CD', 'ST214CD', 'ST2SE', 'ST27SE', 'ST214SE', 'ST2PDA', 'ST27PDA', 'ST214PDA')
+# The EUA program writes two rows for each subject who died (program
+# lines 1400-1445): severe symptoms present from the death date, and a
+# negative severe onset on it. They take the death-row kind.
+- id: eua_death_sev
+  dataset: _A
+  filter: _A._RECSEQ = 1 AND _A._DTHDT IS NOT NULL
+  derivations:
+    _ROWKIND: '''DEATH'''
+    _USUBJID: _A._USUBJID
+    _AVISITN: null
+    _AVISIT: null
+    _VISITNUM: null
+    _VISIT: null
+    _GRP: null
+    _GRPCAT: null
+    _STAT: null
+    _SRTDT: null
+    _CLSPFLG: null
+    _ASTDT_RAW: null
+    _AENDT_RAW: null
+    _ADT_RAW: null
+    _PARAMN: 107
+    _PARAMCD: '''PRSVCSAD'''
+    _PARAM: '''PRESENCE OF PROTOCOL DEFINED SEVERE COVID-19 SYMPTOMS AFTER DOSE'''
+    _PARCAT1: '''SEVERE COVID-19 SYMPTOMS'''
+    _AVAL_RAW: null
+    _AVALC_RAW: '''Y'''
+    _DTHDT: _A._DTHDT
+    _C19ILHFL: null
+    _UNBLNDDT: _A._UNBLNDDT
+    _VAX101DT: _A._VAX101DT
+    _VAX102DT: _A._VAX102DT
+    _KEPT: _A._KEPT
+    _MAXSTAT: null
+    _MIN_ASTDT_0: null
+    _MIN_ASTDT_1: null
+    _MIN_ASTDT_2: null
+    _MIN_ASTDT_3: null
+    _MIN_ASTDT_4: null
+    _CNT_ASTDT_0: null
+    _CNT_ASTDT_1: null
+    _CNT_ASTDT_2: null
+    _CNT_ASTDT_3: null
+    _CNT_ASTDT_4: null
+    _N_0: null
+    _N_1: null
+    _N_2: null
+    _N_3: null
+    _N_4: null
+    _MAX_AENDT: null
+    _CNT_AENDT: null
+    _N: null
+    _MAX_AENDT_0: null
+    _MAX_AENDT_1: null
+    _MAX_AENDT_2: null
+    _MAX_AENDT_3: null
+    _MAX_AENDT_4: null
+    _CNT_AENDT_0: null
+    _CNT_AENDT_1: null
+    _CNT_AENDT_2: null
+    _CNT_AENDT_3: null
+    _CNT_AENDT_4: null
+    _ST_IDX: null
+    _DOSE_DT: null
+    _OFFSET: null
+    _FAM: null
+    _USE_DV: null
+    _NAAT_UNP: null
+    _NAAT_UNP_DT: null
+    _VUNPRFL: null
+    _SCAN_ORD: null
+    _IS_DEATH: null
+    _IS_FIRST: null
+    _FIRST_GRP_SYMP5: null
+    _HAS_CNT: null
+    _CNT_AVISIT: null
+    _FIRST_AVISIT: null
+    _CNT_FIRST: null
+    _FIRST_SYMP5_AVISIT: null
+    _CNT_UNP: null
+    _CNT_UNP_DT: null
+    _LCL_UNP: null
+    _LCL_UNP_DT: null
+    _C_VLD: null
+    _L_VLD: null
+    _G12_MAXSTAT: null
+    _G12_ASTDT_TERM: null
+    _G12_FIRST_ASTDT: null
+    _G12_AENDT: null
+    _G12_BAD: null
+    _G12_HAS: null
+    _G12_CNT_AENDT: null
+    _DTH_STAT: null
+    _DTH_ASTDT: null
+    _DTH_AVISITN: null
+    _DTH_AENDT: null
+    _CNT_VISITNUM: null
+    _CNT_VISIT: null
+    _CNCRSLFL: null
+    _CNCRSLFL_FINAL: null
+    _STUDYID: _A._STUDYID
+    _SITEID: _A._SITEID
+    _SUBJID: _A._SUBJID
+    _BRTHDT: _A._BRTHDT
+    _AGEGR1N: _A._AGEGR1N
+    _AGEGR1: _A._AGEGR1
+    _SEX: _A._SEX
+    _RACE: _A._RACE
+    _ETHNIC: _A._ETHNIC
+    _ARMCD: _A._ARMCD
+    _ARM: _A._ARM
+    _ACTARMCD: _A._ACTARMCD
+    _ACTARM: _A._ACTARM
+    _RANDDT: _A._RANDDT
+    _TRTSDT: _A._TRTSDT
+    _TRTEDT: _A._TRTEDT
+    _DVSTDT: _A._DVSTDT
+    _EOTDCDT: _A._EOTDCDT
+    _EOSDCDT: _A._EOSDCDT
+    _EOSDCRS: _A._EOSDCRS
+    _EOTDCRS: _A._EOTDCRS
+    _RANDFL: _A._RANDFL
+    _EVALEFFL: _A._EVALEFFL
+    _AAI1EFFL: _A._AAI1EFFL
+    _AAI2EFFL: _A._AAI2EFFL
+    _DTHFL: _A._DTHFL
+    _PHASEN: _A._PHASEN
+    _PHASE: _A._PHASE
+- id: eua_death_onset
+  dataset: _A
+  filter: _A._RECSEQ = 1 AND _A._DTHDT IS NOT NULL
+  derivations:
+    _ROWKIND: '''DEATH'''
+    _USUBJID: _A._USUBJID
+    _AVISITN: null
+    _AVISIT: null
+    _VISITNUM: null
+    _VISIT: null
+    _GRP: null
+    _GRPCAT: null
+    _STAT: null
+    _SRTDT: null
+    _CLSPFLG: null
+    _ASTDT_RAW: null
+    _AENDT_RAW: null
+    _ADT_RAW: _A._DTHDT
+    _PARAMN: 130
+    _PARAMCD: '''SEVCONST'''
+    _PARAM: '''SEVERE COVID-19 ILLNESS ONSET'''
+    _PARCAT1: '''ILLNESS ONSET'''
+    _AVAL_RAW: null
+    _AVALC_RAW: '''NEG'''
+    _DTHDT: _A._DTHDT
+    _C19ILHFL: null
+    _UNBLNDDT: _A._UNBLNDDT
+    _VAX101DT: _A._VAX101DT
+    _VAX102DT: _A._VAX102DT
+    _KEPT: _A._KEPT
+    _MAXSTAT: null
+    _MIN_ASTDT_0: null
+    _MIN_ASTDT_1: null
+    _MIN_ASTDT_2: null
+    _MIN_ASTDT_3: null
+    _MIN_ASTDT_4: null
+    _CNT_ASTDT_0: null
+    _CNT_ASTDT_1: null
+    _CNT_ASTDT_2: null
+    _CNT_ASTDT_3: null
+    _CNT_ASTDT_4: null
+    _N_0: null
+    _N_1: null
+    _N_2: null
+    _N_3: null
+    _N_4: null
+    _MAX_AENDT: null
+    _CNT_AENDT: null
+    _N: null
+    _MAX_AENDT_0: null
+    _MAX_AENDT_1: null
+    _MAX_AENDT_2: null
+    _MAX_AENDT_3: null
+    _MAX_AENDT_4: null
+    _CNT_AENDT_0: null
+    _CNT_AENDT_1: null
+    _CNT_AENDT_2: null
+    _CNT_AENDT_3: null
+    _CNT_AENDT_4: null
+    _ST_IDX: null
+    _DOSE_DT: null
+    _OFFSET: null
+    _FAM: null
+    _USE_DV: null
+    _NAAT_UNP: null
+    _NAAT_UNP_DT: null
+    _VUNPRFL: null
+    _SCAN_ORD: null
+    _IS_DEATH: null
+    _IS_FIRST: null
+    _FIRST_GRP_SYMP5: null
+    _HAS_CNT: null
+    _CNT_AVISIT: null
+    _FIRST_AVISIT: null
+    _CNT_FIRST: null
+    _FIRST_SYMP5_AVISIT: null
+    _CNT_UNP: null
+    _CNT_UNP_DT: null
+    _LCL_UNP: null
+    _LCL_UNP_DT: null
+    _C_VLD: null
+    _L_VLD: null
+    _G12_MAXSTAT: null
+    _G12_ASTDT_TERM: null
+    _G12_FIRST_ASTDT: null
+    _G12_AENDT: null
+    _G12_BAD: null
+    _G12_HAS: null
+    _G12_CNT_AENDT: null
+    _DTH_STAT: null
+    _DTH_ASTDT: null
+    _DTH_AVISITN: null
+    _DTH_AENDT: null
+    _CNT_VISITNUM: null
+    _CNT_VISIT: null
+    _CNCRSLFL: null
+    _CNCRSLFL_FINAL: null
+    _STUDYID: _A._STUDYID
+    _SITEID: _A._SITEID
+    _SUBJID: _A._SUBJID
+    _BRTHDT: _A._BRTHDT
+    _AGEGR1N: _A._AGEGR1N
+    _AGEGR1: _A._AGEGR1
+    _SEX: _A._SEX
+    _RACE: _A._RACE
+    _ETHNIC: _A._ETHNIC
+    _ARMCD: _A._ARMCD
+    _ARM: _A._ARM
+    _ACTARMCD: _A._ACTARMCD
+    _ACTARM: _A._ACTARM
+    _RANDDT: _A._RANDDT
+    _TRTSDT: _A._TRTSDT
+    _TRTEDT: _A._TRTEDT
+    _DVSTDT: _A._DVSTDT
+    _EOTDCDT: _A._EOTDCDT
+    _EOSDCDT: _A._EOSDCDT
+    _EOSDCRS: _A._EOSDCRS
+    _EOTDCRS: _A._EOTDCRS
+    _RANDFL: _A._RANDFL
+    _EVALEFFL: _A._EVALEFFL
+    _AAI1EFFL: _A._AAI1EFFL
+    _AAI2EFFL: _A._AAI2EFFL
+    _DTHFL: _A._DTHFL
+    _PHASEN: _A._PHASEN
+    _PHASE: _A._PHASE
+clear:
+- columns.UNBLNDDT.submission
+- columns.SEVCDCFL.submission
+- columns.PDRMUPFL.submission
+- columns.CDRMUPFL.submission
+columns:
+# The EUA adc19ef.sas censors at its snapshot (&cutoff = 14NOV2020):
+# srvlendt = min(dcodt, withdraw_dt, dthdt) (no unblinding yet).
+- name: DCODT
+  derivation: DATE '2020-11-14'
+- name: _DCODT
+  type: date
+  derivation: DATE '2020-11-14'
+- name: _SRVLENDT
+  derivation:
+    least:
+      sources: [_DCODT, _WITHDRAW_DT, _DTHDT]
+# Vital-sign severe symptoms keep ADSYMPT's category (no grp-3 relabel).
+- name: PARCAT1
+  derivation:
+    case:
+    - when: _ROWKIND = 'NVA'
+      then: _PARCAT1
+    - when: _ROWKIND = 'ONSET'
+      then: "'ILLNESS ONSET'"
+    - when: _ROWKIND = 'NAAT'
+      then: "'CENTRAL/LOCAL NAAT RESULTS'"
+    - when: _GRP = 7
+      then: "'HOSPITALIZATION STATUS'"
+    - when: _GRP = 10
+      then: "'DEATH STATUS'"
+    - when: _GRP = 11
+      then: "'HOSPITALIZATION STATUS'"
+    - when: _GRP = 20.1
+      then: "'SEVERE COVID-19 SYMPTOMS'"
+    - when: _GRP = 20.2
+      then: "'SEVERE COVID-19 SYMPTOMS'"
+    - otherwise: _PARCAT1
+# A subject with no ADSYMPT record at all reaches the program's last
+# merge from ADSL alone (mflg=3), so its baseline flags stay blank.
+- name: VRBLNGFL
+  derivation:
+    case:
+    - when: _HAS_NVA._HAS IS NULL AND _HAS_KEPT._HAS IS NULL
+      then: null
+    - when: _HAS_NVA._HAS IS NULL
+      then: "'N'"
+    - when: _VRBLNGFL_F = 'U'
+      then: null
+    - otherwise: _VRBLNGFL_F
+- name: CRD1NGFL
+  derivation:
+    case:
+    - when: _HAS_NVA._HAS IS NULL AND _HAS_KEPT._HAS IS NULL
+      then: null
+    - when: _HAS_NVA._HAS IS NULL
+      then: "'N'"
+    - when: _CRD1NGFL_F = 'U'
+      then: null
+    - otherwise: _CRD1NGFL_F
+- name: CRD2NGFL
+  derivation:
+    case:
+    - when: _HAS_NVA._HAS IS NULL AND _HAS_KEPT._HAS IS NULL
+      then: null
+    - when: _HAS_NVA._HAS IS NULL
+      then: "'N'"
+    - when: _CRD2NGFL_F = 'U'
+      then: null
+    - otherwise: _CRD2NGFL_F
+# The EUA program labels the severe onset parameter without "PROTOCOL
+# DEFINED", and sets SEVSYMFL for any positive severe group (3 to 20) or
+# a death.
+- name: PARAM
+  derivation:
+    case:
+    - when: _ROWKIND = 'NVA'
+      then: _PARAM
+    - when: _ROWKIND = 'ONSET' AND _GRP = 1
+      then: '''PROTOCOL DEFINED COVID-19 ILLNESS ONSET'''
+    - when: _ROWKIND = 'ONSET' AND _GRP = 2
+      then: '''CDC DEFINED COVID-19 ILLNESS ONSET'''
+    - when: _ROWKIND = 'ONSET' AND _GRP = 20.1
+      then: '''SEVERE COVID-19 ILLNESS ONSET'''
+    - when: _ROWKIND = 'ONSET' AND _GRP = 20.2
+      then: '''CDC DEFINED SEVERE COVID-19 ILLNESS ONSET'''
+    - when: _ROWKIND = 'NAAT'
+      then: '''COVID-19 NAAT RESULT AFTER DOSE'''
+    - when: _GRP = 1
+      then: '''PRESENCE OF PROTOCOL DEFINED SYMPTOMS AFTER DOSE'''
+    - when: _GRP = 2
+      then: '''PRESENCE OF CDC DEFINED SYMPTOMS AFTER DOSE'''
+    - when: _GRP = 3
+      then: '''SEVERE COVID-19 SYMPTOMS - VITAL SIGNS'''
+    - when: _GRP = 4
+      then: '''SEVERE COVID-19 SYMPTOMS - RESPIRATORY FAILURE'''
+    - when: _GRP = 5
+      then: '''SEVERE COVID-19 SYMPTOMS - USE OF VASOPRESSORS'''
+    - when: _GRP = 6
+      then: '''SEVERE COVID-19 SYMPTOMS - SIGNIFICANT ACUTE RENAL, HEPATIC, OR NEUROLOGIC
+        DYSFUNCTION'''
+    - when: _GRP = 7
+      then: '''SUBJECT IN ICU DUE TO POTENTIAL COVID-19 ILLNESS'''
+    - when: _GRP = 10
+      then: '''DEATH OCCURRED DUE TO COVID-19 ILLNESS?'''
+    - when: _GRP = 11
+      then: '''HOSPITALIZED DUE TO COVID-19 ILLNESS?'''
+    - when: _GRP = 20.1
+      then: '''PRESENCE OF PROTOCOL DEFINED SEVERE COVID-19 SYMPTOMS AFTER DOSE'''
+    - when: _GRP = 20.2
+      then: '''PRESENCE OF CDC DEFINED SEVERE COVID-19 SYMPTOMS AFTER DOSE'''
+    - otherwise: _PARAM
+# The EUA program blanks the severe group's end date when any member is
+# not positive or has no end date (symp2, vis_endtfl); S1 exempts a
+# negative member without an end date.
+- name: _EF1
+  derivation:
+    case:
+    - when: _ROWKIND IN ('SYMP', 'SYM711') AND 3 <= _GRP AND _GRP <= 10 AND (_SYMP_AENDT
+        IS NULL OR _STAT <> 4)
+      then: 1
+    - otherwise: _EF0
+- name: ASTDT
+  derivation:
+    case:
+    - when: _ROWKIND = 'DEATH' AND _PARAMCD = 'PRSVCSAD'
+      then: _DTHDT
+    - when: _GRP IN (3, 10)
+      then: null
+    - when: _ROWKIND = 'ONSET'
+      then: null
+    - when: _ROWKIND = 'NAAT'
+      then: null
+    - when: _ROWKIND = 'DEATH'
+      then: null
+    - when: _ROWKIND = 'ST'
+      then: _ST_ASTDT
+    - when: _ROWKIND = 'SEV' AND _GRP = 20.1
+      then: _VIS_ASTDT_FINAL
+    - when: _ROWKIND = 'SEV' AND _GRP = 20.2
+      then: _VIS_ASTDT_CDC_FINAL
+    - when: _ROWKIND = 'SYMP'
+      then: _GRP_STDT
+    - when: _ROWKIND = 'SYM711'
+      then: _ASTDT_RAW
+    - when: _ROWKIND = 'NVA'
+      then: _ASTDT_RAW
+# NMPDOCFL goes on every onset parameter, the death onset row included.
+- name: NMPDOCFL
+  derivation:
+    case:
+    - when: (_ROWKIND = 'ONSET' OR (_ROWKIND = 'DEATH' AND _PARAMCD = 'SEVCONST'))
+        AND (_DVSTDT IS NULL OR ADT < _DVSTDT)
+      then: "'Y'"
+    - otherwise: "''"
+- name: _SEVSYMFL_
+  derivation:
+    case:
+    - when: _ROWKIND IN ('SYMP', 'SYM711', 'SEV', 'ONSET', 'NAAT') AND _GRP >= 3
+        AND _GRP <= 20.1 AND _S4_STAT = 4
+      then: "'Y'"
+    - otherwise: _PREV_SEVSYMFL_
+- name: SEVSYMFL
+  derivation:
+    case:
+    - when: _DTHDT IS NOT NULL
+      then: "'Y'"
+    - when: _AF_SEVSYMFL IS NULL
+      then: "'N'"
+    - otherwise: _AF_SEVSYMFL
+- name: EV14EFFL
+  type: str
+  label: Evaluable Efficacy Popu Flag - 14 days
+  derivation: _ADSL_PLAIN.EV14EFFL
+  submission:
+    core: Perm
+    mandatory: false
+    length: 1
+    origins:
+    - type: Predecessor
+      description: ADSL.EV14EFFL
+# Subjects with no ADSYMPT record still get their status rows; their
+# subject-level columns come from ADSL.
+- name: STUDYID
+  derivation:
+    first_available:
+      sources:
+      - _ADSYMPT_PLAIN.STUDYID
+      - _ADSL_PLAIN.STUDYID
+  submission:
+    origins:
+    - type: Derived
+    method: "Withheld from publication: the received define states this text."
+- name: USUBJID
+  derivation:
+    first_available:
+      sources:
+      - _ADSYMPT_PLAIN.USUBJID
+      - _ADSL_PLAIN.USUBJID
+  submission:
+    origins:
+    - type: Derived
+    method: "Withheld from publication: the received define states this text."
+- name: SITEID
+  derivation:
+    first_available:
+      sources:
+      - _ADSYMPT_PLAIN.SITEID
+      - _ADSL_PLAIN.SITEID
+  submission:
+    origins:
+    - type: Derived
+    method: "Withheld from publication: the received define states this text."
+- name: SUBJID
+  derivation:
+    first_available:
+      sources:
+      - _ADSYMPT_PLAIN.SUBJID
+      - _ADSL_PLAIN.SUBJID
+  submission:
+    origins:
+    - type: Derived
+    method: "Withheld from publication: the received define states this text."
+- name: AGEGR1N
+  derivation:
+    first_available:
+      sources:
+      - _ADSYMPT_PLAIN.AGEGR1N
+      - _ADSL_PLAIN.AGEGR1N
+  submission:
+    origins:
+    - type: Derived
+    method: "Withheld from publication: the received define states this text."
+- name: AGEGR1
+  derivation:
+    first_available:
+      sources:
+      - _ADSYMPT_PLAIN.AGEGR1
+      - _ADSL_PLAIN.AGEGR1
+  submission:
+    origins:
+    - type: Derived
+    method: "Withheld from publication: the received define states this text."
+- name: SEX
+  derivation:
+    first_available:
+      sources:
+      - _ADSYMPT_PLAIN.SEX
+      - _ADSL_PLAIN.SEX
+  submission:
+    origins:
+    - type: Derived
+    method: "Withheld from publication: the received define states this text."
+- name: RACE
+  derivation:
+    first_available:
+      sources:
+      - _ADSYMPT_PLAIN.RACE
+      - _ADSL_PLAIN.RACE
+  submission:
+    origins:
+    - type: Derived
+    method: "Withheld from publication: the received define states this text."
+- name: ETHNIC
+  derivation:
+    first_available:
+      sources:
+      - _ADSYMPT_PLAIN.ETHNIC
+      - _ADSL_PLAIN.ETHNIC
+  submission:
+    origins:
+    - type: Derived
+    method: "Withheld from publication: the received define states this text."
+- name: ARMCD
+  derivation:
+    first_available:
+      sources:
+      - _ADSYMPT_PLAIN.ARMCD
+      - _ADSL_PLAIN.ARMCD
+  submission:
+    origins:
+    - type: Derived
+    method: "Withheld from publication: the received define states this text."
+- name: ARM
+  derivation:
+    first_available:
+      sources:
+      - _ADSYMPT_PLAIN.ARM
+      - _ADSL_PLAIN.ARM
+  submission:
+    origins:
+    - type: Derived
+    method: "Withheld from publication: the received define states this text."
+- name: ACTARMCD
+  derivation:
+    first_available:
+      sources:
+      - _ADSYMPT_PLAIN.ACTARMCD
+      - _ADSL_PLAIN.ACTARMCD
+  submission:
+    origins:
+    - type: Derived
+    method: "Withheld from publication: the received define states this text."
+- name: ACTARM
+  derivation:
+    first_available:
+      sources:
+      - _ADSYMPT_PLAIN.ACTARM
+      - _ADSL_PLAIN.ACTARM
+  submission:
+    origins:
+    - type: Derived
+    method: "Withheld from publication: the received define states this text."
+- name: RANDDT
+  derivation:
+    first_available:
+      sources:
+      - _ADSYMPT_PLAIN.RANDDT
+      - _ADSL_PLAIN.RANDDT
+  submission:
+    origins:
+    - type: Derived
+    method: "Withheld from publication: the received define states this text."
+- name: TRTSDT
+  derivation:
+    first_available:
+      sources:
+      - _ADSYMPT_PLAIN.TRTSDT
+      - _ADSL_PLAIN.TRTSDT
+  submission:
+    origins:
+    - type: Derived
+    method: "Withheld from publication: the received define states this text."
+- name: TRTEDT
+  derivation:
+    first_available:
+      sources:
+      - _ADSYMPT_PLAIN.TRTEDT
+      - _ADSL_PLAIN.TRTEDT
+  submission:
+    origins:
+    - type: Derived
+    method: "Withheld from publication: the received define states this text."
+- name: VAX101DT
+  derivation:
+    first_available:
+      sources:
+      - _ADSYMPT_PLAIN.VAX101DT
+      - _ADSL_PLAIN.VAX101DT
+  submission:
+    origins:
+    - type: Derived
+    method: "Withheld from publication: the received define states this text."
+- name: VAX102DT
+  derivation:
+    first_available:
+      sources:
+      - _ADSYMPT_PLAIN.VAX102DT
+      - _ADSL_PLAIN.VAX102DT
+  submission:
+    origins:
+    - type: Derived
+    method: "Withheld from publication: the received define states this text."
+- name: RANDFL
+  derivation:
+    first_available:
+      sources:
+      - _ADSYMPT_PLAIN.RANDFL
+      - _ADSL_PLAIN.RANDFL
+  submission:
+    origins:
+    - type: Derived
+    method: "Withheld from publication: the received define states this text."
+- name: EVALEFFL
+  derivation:
+    first_available:
+      sources:
+      - _ADSYMPT_PLAIN.EVALEFFL
+      - _ADSL_PLAIN.EVALEFFL
+  submission:
+    origins:
+    - type: Derived
+    method: "Withheld from publication: the received define states this text."
+- name: AAI1EFFL
+  derivation:
+    first_available:
+      sources:
+      - _ADSYMPT_PLAIN.AAI1EFFL
+      - _ADSL_PLAIN.AAI1EFFL
+  submission:
+    origins:
+    - type: Derived
+    method: "Withheld from publication: the received define states this text."
+- name: AAI2EFFL
+  derivation:
+    first_available:
+      sources:
+      - _ADSYMPT_PLAIN.AAI2EFFL
+      - _ADSL_PLAIN.AAI2EFFL
+  submission:
+    origins:
+    - type: Derived
+    method: "Withheld from publication: the received define states this text."
+- name: C19ILHFL
+  derivation:
+    case:
+    - when: _MH_C19._MHDECOD IS NOT NULL
+      then: "'Y'"
+    - otherwise: "''"
+  submission:
+    origins:
+    - type: Derived
+    method: "Withheld from publication: the received define states this text."
+output:
+  columns:
+  - STUDYID
+  - USUBJID
+  - SITEID
+  - SUBJID
+  - BRTHDT
+  - AGEGR1N
+  - AGEGR1
+  - SEX
+  - RACE
+  - ETHNIC
+  - ARMCD
+  - ARM
+  - ACTARMCD
+  - ACTARM
+  - PARAMN
+  - PARAMCD
+  - PARAM
+  - PARCAT1
+  - AVAL
+  - AVALC
+  - VISITNUM
+  - VISIT
+  - AVISITN
+  - AVISIT
+  - ADT
+  - ADY
+  - ASTDT
+  - ASTDY
+  - AENDT
+  - AENDY
+  - DCODT
+  - RANDDT
+  - TRTSDT
+  - TRTEDT
+  - VAX101DT
+  - VAX102DT
+  - DVSTDT
+  - DTHDT
+  - EOTDCDT
+  - EOSDCDT
+  - RANDFL
+  - EVALEFFL
+  - EV14EFFL
+  - AAI1EFFL
+  - AAI2EFFL
+  - DTHFL
+  - C19ILHFL
+  - CNCRSLFL
+  - VRBLNGFL
+  - CRD1NGFL
+  - CRD2NGFL
+  - PDSYMFL
+  - PDSDMFL
+  - CDCSYMFL
+  - SEVSYMFL
+  - ILD1FL
+  - ILD17FL
+  - ILD2FL
+  - ILD27FL
+  - ILD214FL
+  - FILOCRFL
+  - PDRMUFL
+  - CDCRMUFL
+  - PDP1FL
+  - PDP17FL
+  - PDP27FL
+  - PDP214FL
+  - CDP1FL
+  - CDP17FL
+  - CDP27FL
+  - CDP214FL
+  - NMPDOCFL
+  - _SEQ

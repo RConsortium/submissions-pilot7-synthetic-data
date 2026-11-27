@@ -1,0 +1,240 @@
+# ADDS for Pfizer C4591001, EUA 27034 sequence S1 (safety and final
+# efficacy analysis, data snapshot of November 2020).
+# Layer over the S1 (BLA) spec, run on this cut's SDTM
+# (scripts/reproduce.py verify --study c4591001 --cut s1-safety-fa-eff). The
+# output keeps the EUA file's columns, in its order.
+# The EUA adds.sas (03Nov2020) differs from the BLA program: DSPHASEN maps
+# only SCREENING/VACCINATION/FOLLOW-UP, DSDECODN has no
+# WITHDRAWAL BY PARENT/GUARDIAN, M1PD2DT is the SV visit whose name contains
+# MONTH1_POSTVAX2 (no BLDV6DT fallback), DSRANGRP comes from SUPPDS, and the
+# ADSL keep list has VAX103DT/VAX103 instead of the second-period columns.
+# The EUA ADSL carries no VAX10UDT or VAX201DT, so the BLA-only cut-off
+# helpers that read them get the missing value.
+yamaa: '1.0'
+type: spec
+parent: ../../../s1/spec/yamaa/adds.yaml
+clear:
+- columns.DSTERM_3.submission
+- columns.DSTERM_2.submission
+- columns.M6PD2DT.submission
+- columns.M1PX2DT.submission
+- columns.M1P2CUT.submission
+- columns.M1P2EXC.submission
+- columns.TRTSEQP.submission
+- columns.TRTSEQA.submission
+- columns.VAX10UDT.submission
+- columns.VAX201DT.submission
+- columns.VAX202DT.submission
+- columns.VAX20UDT.submission
+- columns.UNBLNDDT.submission
+- columns.VAX10U.submission
+- columns.VAX201.submission
+- columns.VAX202.submission
+- columns.VAX20U.submission
+- columns.TRT02A.submission
+- columns.TRT02AN.submission
+- columns.TRT02P.submission
+- columns.TRT02PN.submission
+- columns.TR02SDT.submission
+- columns.TR02STM.submission
+- columns.TR02SDTM.submission
+- columns.TR02EDT.submission
+- columns.TR02ETM.submission
+- columns.TR02EDTM.submission
+- columns.BLDV7DT.submission
+- columns.AGEGR4.submission
+- columns.AGEGR4N.submission
+- columns.PEDIMMFL.submission
+- columns.MULENRFL.submission
+- columns.PEDREAFL.submission
+- columns.HIVFL.submission
+- columns.DS3KFL.submission
+- columns.EOTXDCDT.submission
+- columns.EOTXDCRS.submission
+- columns.BDCSRDT.submission
+- columns.X1CSRDT.submission
+- columns.STCSRDT.submission
+- columns.AGETR01.submission
+- columns.AGETRU01.submission
+- columns.RAND1FL.submission
+- columns.SAF1FL.submission
+- columns.SAF2FL.submission
+intermediates:
+- id: ADSL_R
+  derivations:
+    _VAX10UDT:
+      type: date
+      derivation: null
+    _VAX201DT:
+      type: date
+      derivation: null
+- id: _SUPPDSR
+  dataset: SUPPDS
+  key:
+    USUBJID: DS.USUBJID
+    _DSSEQ: DS.DSSEQ
+  filter: SUPPDS.QNAM = 'DSRANGRP' AND SUPPDS.IDVAR = 'DSSEQ'
+  derivations:
+    _DSSEQ:
+      type: int
+      derivation: SUPPDS.IDVARVAL
+    _DSRANGRP:
+      type: str
+      derivation: SUPPDS.QVAL
+- id: _SV_M1
+  filter: SV.VISIT LIKE '%MONTH1_POSTVAX2%'
+- id: _DSX
+  derivations:
+    _DSPHASEN:
+      type: int
+      derivation:
+        mapping:
+          source: _DSPHASE
+          dict:
+            SCREENING: 1
+            VACCINATION: 26
+            FOLLOW-UP: 31
+          unmapped: null
+    _DSDECODN:
+      type: int
+      derivation:
+        mapping:
+          source: DS.DSDECOD
+          dict:
+            ADVERSE EVENT: 1
+            COMPLETED: 2
+            DEATH: 3
+            LOST TO FOLLOW-UP: 5
+            OTHER: 7
+            PHYSICIAN DECISION: 8
+            PREGNANCY: 9
+            PROTOCOL DEVIATION: 11
+            SCREEN FAILURE: 13
+            STUDY TERMINATED BY SPONSOR: 14
+            WITHDRAWAL BY SUBJECT: 16
+            MEDICATION ERROR WITHOUT ASSOCIATED ADVERSE EVENT: 17
+            NO LONGER MEETS ELIGIBILITY CRITERIA: 18
+            REFUSED FURTHER STUDY PROCEDURES: 25
+          unmapped: null
+    _M1PD2DT:
+      type: date
+      derivation: _SV_M1._DT
+columns:
+# This snapshot has a disposition record without a complete DSSTDTC and
+# one without a SUPPDS DSPHASE, and two subjects of the EUA ADSL were never
+# vaccinated and have no ACTARM.
+- name: ASTDT
+  submission:
+    mandatory: false
+- name: DSPHASE
+  submission:
+    mandatory: false
+- name: DSPHASEN
+  submission:
+    mandatory: false
+- name: ACTARM
+  submission:
+    mandatory: false
+- name: ACTARMCD
+  submission:
+    mandatory: false
+- name: DSRANGRP
+  type: str
+  label: Randomization Group
+  derivation: _SUPPDSR._DSRANGRP
+  submission:
+    core: Perm
+    mandatory: false
+    length: 200
+    origins:
+    - type: Other
+      description: "Withheld from publication: the received define states this text."
+- name: VAX103DT
+  type: date
+  label: Date of 3rd Vaccination
+  derivation: ADSL.VAX103DT
+  submission:
+    core: Perm
+    mandatory: false
+    origins:
+    - type: Predecessor
+      description: ADSL.VAX103DT
+- name: VAX103
+  type: str
+  label: Vaccination 3
+  derivation: ADSL.VAX103
+  submission:
+    core: Perm
+    mandatory: false
+    length: 40
+    origins:
+    - type: Predecessor
+      description: ADSL.VAX103
+output:
+  columns:
+  - STUDYID
+  - USUBJID
+  - SUBJID
+  - SITEID
+  - ADT
+  - ASTDT
+  - ASTDY
+  - DSPHASE
+  - DSPHASEN
+  - DSCAT
+  - DSDECOD
+  - DSDECODN
+  - DSTERM
+  - DSRANGRP
+  - M1PD2DT
+  - AGE
+  - AGEU
+  - SEX
+  - SEXN
+  - RACE
+  - RACEN
+  - ARACE
+  - ARACEN
+  - RANDFL
+  - SAFFL
+  - ARM
+  - ARMCD
+  - ACTARM
+  - ACTARMCD
+  - TRTSDT
+  - TRTSTM
+  - TRTSDTM
+  - TRTEDT
+  - TRTETM
+  - TRTEDTM
+  - AGEGR1
+  - AGEGR1N
+  - COHORT
+  - COHORTN
+  - DOSALVL
+  - DOSALVLN
+  - DOSPLVL
+  - DOSPLVLN
+  - VAX101DT
+  - VAX102DT
+  - VAX103DT
+  - VAX101
+  - VAX102
+  - VAX103
+  - TRT01A
+  - TRT01AN
+  - TRT01P
+  - TRT01PN
+  - TR01SDT
+  - TR01STM
+  - TR01SDTM
+  - TR01EDT
+  - TR01ETM
+  - TR01EDTM
+  - PHASE
+  - PHASEN
+  - EOSDCDT
+  - EOTDCDT
+  - BLDV6DT
+  - DOMAIN
+  - DSSEQ

@@ -1,0 +1,298 @@
+# ADCEVD for Pfizer C4591001, BLA 125742 S1 supplementary datasets (the
+# "Supp" deliverable of sequence S1). The supplement resends AE, CE, DM, EX,
+# FACE, RELREC and the SUPPAE, SUPPCE, SUPPFACE, SUPPMB and SUPPVS domains;
+# the others are S1's (studies.yaml sdtm_from). Layer over the S1 spec
+# (scripts/reproduce.py verify --study c4591001 --cut s1-supp).
+yamaa: '1.0'
+type: spec
+parent: ../../../s1/spec/yamaa/adcevd.yaml
+# The supplement's SUPPCE adds the QNAMs AEMOD, CEDIFFRS, CESTDTC1,
+# CEENDTC1 and CESEV1; ADCEVD carries them and CEEVAL.
+intermediates:
+- id: _SUPPCE
+  filter: SUPPCE.QNAM IN ('RCENDTC', 'ONGNXVIS', 'AEMOD', 'CEDIFFRS', 'CESTDTC1', 'CEENDTC1', 'CESEV1', 'CEEVAL')
+  pivot:
+    name: QNAM
+    value: QVAL
+    fields: [RCENDTC, ONGNXVIS, AEMOD, CEDIFFRS, CESTDTC1, CEENDTC1, CESEV1, CEEVAL]
+columns:
+# The supplement gives Phase 1 placebo doses the cohort's dose: 0.5 mL, or
+# 10 ug in the 10 ug cohort (S1 keeps EX.EXDOSE, 0).
+- name: EXDOSE
+  derivation:
+    case:
+    - when: _EX_PLAIN.EXTRT = 'Placebo' AND _EX_PLAIN.EXDOSU = 'mL'
+      then: 0.5
+    - when: _EX_PLAIN.EXTRT = 'Placebo' AND _EX_PLAIN.EXDOSU = 'ug'
+      then: 10
+    - otherwise: _EX_PLAIN.EXDOSE
+  submission:
+    origins:
+    - type: Derived
+    method: "Withheld from publication: the received define states this text."
+# Events the investigator reported as an AE but not in the e-diary (SUPPCE
+# CEDIFFRS) take their dates from CE and count as known events.
+- name: _AEREP
+  type: int
+  derivation:
+    case:
+    - when: _SUPPCE.CEDIFFRS IS NOT NULL AND _SUPPCE.CEDIFFRS <> '' AND CE.CEOCCUR = 'Y'
+      then: 1
+    - otherwise: 0
+- name: _CE_ST
+  type: date
+  derivation:
+    to_date:
+      source: CE.CESTDTC
+- name: _CE_EN
+  type: date
+  derivation:
+    to_date:
+      source: CE.CEENDTC
+- name: _CE_DUR
+  type: int
+  derivation:
+    diff:
+      type: date
+      start: _CE_ST
+      end: _CE_EN
+      unit: day
+- name: ASTDT
+  derivation:
+    case:
+    - when: _AEREP = 1
+      then: _CE_ST
+    - otherwise: _ASTDT_V
+  submission:
+    method: "Withheld from publication: the received define states this text."
+- name: AENDT
+  derivation:
+    case:
+    - when: _AEREP = 1
+      then: _CE_EN
+    - when: _ADJ = 1
+      then: ADSL.VAX102DT
+    - otherwise: _AENDT_PRE
+  submission:
+    method: "Withheld from publication: the received define states this text."
+- name: ADURN
+  derivation:
+    case:
+    - when: _AEREP = 1 AND _CE_DUR IS NOT NULL
+      then: _CE_DUR + 1
+    - when: _AEREP = 1
+      then: null
+    - when: _ADJ = 1
+      then: _EP_VAX102DT - _EP_ASTDT + 1
+    - otherwise: _ADURN_PRE
+- name: KNOWVFL
+  derivation:
+    case:
+    - when: _AEREP = 1
+      then: "'Y'"
+    - when: _KNOW_CNT_F > 0 OR (CE.CETERM = 'FEVER' AND _KNOW_CNT_V > 0) OR (CE.CETERM
+        = 'FEVER' AND _KNOW_CNT_VI > 0)
+      then: "'Y'"
+    - otherwise: "'N'"
+- name: EVENTFL
+  derivation:
+    case:
+    - when: _AEREP = 1
+      then: "'Y'"
+    - when: _EV_CNT_F > 0 OR (CE.CETERM = 'FEVER' AND _EV_CNT_V > 0) OR (CE.CETERM
+        = 'FEVER' AND _EV_CNT_VI > 0)
+      then: "'Y'"
+    - otherwise: "'N'"
+- name: AEMOD
+  type: str
+  label: Modified Reported Term
+  derivation: _SUPPCE.AEMOD
+  submission:
+    core: Perm
+    mandatory: false
+    length: 1
+    origins:
+    - type: Derived
+    method: "Withheld from publication: the received define states this text."
+- name: CEDIFFRS
+  type: str
+  label: Reason for Difference
+  derivation: _SUPPCE.CEDIFFRS
+  submission:
+    core: Perm
+    mandatory: false
+    length: 80
+    origins:
+    - type: Derived
+    method: "Withheld from publication: the received define states this text."
+- name: CESTDTC1
+  type: str
+  label: Start Date/Time of Clinical Event 1
+  derivation: _SUPPCE.CESTDTC1
+  submission:
+    core: Perm
+    mandatory: false
+    length: 10
+    origins:
+    - type: Derived
+    method: "Withheld from publication: the received define states this text."
+- name: CEENDTC1
+  type: str
+  label: End Date/Time of Clinical Event 1
+  derivation: _SUPPCE.CEENDTC1
+  submission:
+    core: Perm
+    mandatory: false
+    length: 10
+    origins:
+    - type: Derived
+    method: "Withheld from publication: the received define states this text."
+- name: CESEV1
+  type: str
+  label: Severity/Intensity 1
+  derivation: _SUPPCE.CESEV1
+  submission:
+    core: Perm
+    mandatory: false
+    length: 8
+    origins:
+    - type: Derived
+    method: "Withheld from publication: the received define states this text."
+- name: CEEVAL
+  type: str
+  label: Evaluator
+  derivation: _SUPPCE.CEEVAL
+  submission:
+    core: Perm
+    mandatory: false
+    length: 13
+    origins:
+    - type: Derived
+    method: "Withheld from publication: the received define states this text."
+output:
+  columns:
+  - STUDYID
+  - USUBJID
+  - SUBJID
+  - SITEID
+  - AGE
+  - AGEU
+  - SEX
+  - SEXN
+  - RACE
+  - RACEN
+  - ARACE
+  - ARACEN
+  - SAFFL
+  - ARM
+  - ARMCD
+  - ACTARM
+  - ACTARMCD
+  - TRTSDT
+  - TRTSTM
+  - TRTSDTM
+  - TRTEDT
+  - TRTETM
+  - TRTEDTM
+  - TRT01A
+  - TRT01AN
+  - TRT02A
+  - TRT02AN
+  - TRT01P
+  - TRT01PN
+  - TRT02P
+  - TRT02PN
+  - TR01SDT
+  - TR01STM
+  - TR01SDTM
+  - TR01EDT
+  - TR01ETM
+  - TR01EDTM
+  - TR02SDT
+  - TR02STM
+  - TR02SDTM
+  - TR02EDT
+  - TR02ETM
+  - TR02EDTM
+  - VAX101DT
+  - VAX102DT
+  - COHORT
+  - COHORTN
+  - DOSPLVL
+  - DOSPLVLN
+  - DOSALVL
+  - DOSALVLN
+  - PHASE
+  - PHASEN
+  - AGEGR1
+  - AGEGR1N
+  - AGEGR2
+  - AGEGR2N
+  - AGEGR4
+  - AGEGR4N
+  - VAX101
+  - VAX102
+  - DS30KFL
+  - COVBLST
+  - MULENRFL
+  - HIVFL
+  - PEDREAFL
+  - UNBLNDDT
+  - DS3KFL
+  - REACTOFL
+  - AGETR01
+  - VAX10U
+  - VAX10UDT
+  - RANDFL
+  - RAND1FL
+  - SAF1FL
+  - SAF2FL
+  - TRTA
+  - TRTAN
+  - TRTP
+  - TRTPN
+  - SRCDOM
+  - SRCSEQ
+  - CEGRPID
+  - CELNKGRP
+  - CETERM
+  - CELLT
+  - CEDECOD
+  - CEPTCD
+  - CEBODSYS
+  - CEBDSYCD
+  - CECAT
+  - CESCAT
+  - CEPRESP
+  - CEOCCUR
+  - CESTAT
+  - CEREASND
+  - ASEV
+  - CESEV
+  - CELOC
+  - CELAT
+  - CESTDTC
+  - CEENDTC
+  - CESTDY
+  - CEENDY
+  - CEENRTPT
+  - CEENTPT
+  - CETPT
+  - CETPTREF
+  - EXDOSE
+  - EXTRT
+  - EXDOSU
+  - EXSTDTC
+  - EXENDTC
+  - ASTDT
+  - AENDT
+  - ADURU
+  - ADURN
+  - KNOWVFL
+  - EVENTFL
+  - AEMOD
+  - CEDIFFRS
+  - CESTDTC1
+  - CEENDTC1
+  - CESEV1
+  - CEEVAL

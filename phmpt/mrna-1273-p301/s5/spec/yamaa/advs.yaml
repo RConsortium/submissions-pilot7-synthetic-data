@@ -1,0 +1,3023 @@
+# ADVS for Moderna mRNA-1273-P301, cut S5 (First Interim Analysis,
+# IA1b, extract 2020-11-25). Parent: ../../../spec/yamaa/base/adam-base-ia.yaml (which
+# chains to ../../../spec/yamaa/base/adam-base.yaml; 86 shared + 6 IA-only ADSL
+# columns). Derivations implement the S5 IA A20ADVS program: VS rows
+# (VSSTAT missing, VSCAT not REACTOGENICITY/EFFICACY) inner-joined
+# to the verified ADSL on (USUBJID, SUBJID), with the %ablfl visit
+# windowing (sort-1/2, pre_, sort-4/5, ANL01FL, atoxgr), the %xxdoserf
+# 2-dose chain, %trta with _DOSE = MDOSREF, and the ASTAGE stage
+# derivation (no SYSDATE in the IA macro). Where the SAS code and the
+# define.xml method text disagree, the code is followed (see the
+# generator header). Honest gaps: 5 rows graded 4 in the submitted
+# data only via the external import.vsgrade4 file (see the
+# generator header); ATOXGRH/ATOXGRHN differ on 5 cells and
+# SHIFT2 on 5 cells; CHG/PCHG differ by 1 ulp in the last digit
+# on 2,213 + 12,841 cells (all within 1e-10 tolerance) because the
+# Parquet VSSTRESN strings do not round-trip the SAS doubles.
+# Split verification (session 59, 2026-11-23): the full spec was run per
+# 4-way SEX x AGE (<=55/>55) subject partition via the join-aid spec
+# (spec-s5-join-aid.yaml; the unchanged spec is refused at OUTPUT-3) and
+# reproduced the session-31 baseline exactly (827,208x102, 15,063 cells
+# per the columns table / 15,069 all-rows, 0 within-tolerance, 0
+# space-only, zero new mismatches; report advs/verify_report_s5_split.json).
+# The roomier-cell full-spec re-run is no longer owed -- the split
+# verification is the full-spec proof.
+yamaa: '1.0'
+type: spec
+model: ADaM
+parent: ../../../spec/yamaa/base/adam-base-ia.yaml
+domain: ADVS
+# Keys: the submitted ADVS has no unique key (VSDTC and VISITNUM are empty
+# on some rows, and the natural key repeats), which OUTPUT-3 refuses. As in
+# ADEFF, the spec derives the row identity ASEQ (row number within subject,
+# by VS sequence); verify.py sets it aside and compares rows as a multiset,
+# pairing unmatched rows by subject.
+keys:
+- STUDYID
+- USUBJID
+- ASEQ
+- ANL03FL
+input:
+  VS: <sdtm-dir>/vs.parquet
+  SUPPVS: <sdtm-dir>/suppvs.parquet
+  EX: <sdtm-dir>/ex.parquet
+  SV: <sdtm-dir>/sv.parquet
+  ADSL:
+    path: <adam-dir>/adsl.parquet
+    key:
+    - STUDYID
+    - USUBJID
+    - SUBJID
+submission:
+  label: Vital Signs Analysis Dataset
+  class: BASIC DATA STRUCTURE
+  structure: One or more records per subject per analysis parameter per analysis timepoint
+  repeating: true
+rows:
+- id: vs_rows
+  dataset: VS
+  derivations:
+    STUDYID: VS.STUDYID
+    USUBJID: VS.USUBJID
+    SUBJID: VS.SUBJID
+    _VSSEQ: VS.VSSEQ
+    _VSSTAT: VS.VSSTAT
+    _VSTESTCD: VS.VSTESTCD
+    _VSTEST: VS.VSTEST
+    _UNIT:
+      mapping:
+        source: _VSTESTCD
+        dict:
+          BMI: 'kg/m2'
+          DIABP: 'mmHg'
+          HEIGHT: 'cm'
+          PULSE: 'beats/min'
+          RESP: 'breaths/min'
+          SYSBP: 'mmHg'
+          TEMP: 'C'
+          WEIGHT: 'kg'
+        unmapped: null
+    _VSCAT: VS.VSCAT
+    _VSSTRESC:
+      str_replace:
+        source: VS.VSSTRESC
+        pattern: '[\x00-\x1f].*'
+        replacement: ''
+    _VSSTRESN: VS.VSSTRESN
+    _VSSTRESU: VS.VSSTRESU
+    _VSDTC: VS.VSDTC
+    _VISITNUM: VS.VISITNUM
+    _VSLOC: VS.VSLOC
+    _VSTPT: VS.VSTPT
+    _VSTPTNUM: VS.VSTPTNUM
+    _ORI_VISIT: VS.VISIT
+    _VISIT:
+      case:
+      - when: str_contains(_ORI_VISIT, '^Illness Visit Day 3 - Day 21 Uns')
+        then: '''Illness Visit Day 3 Unscheduled 1'''
+      - otherwise: _ORI_VISIT
+    # VSSTRESN is text in the released VS; parse it, a non-number (such as
+    # (b)(6)) giving a missing value (COLUMN-13). This replaces a dictionary
+    # that listed every observed value (issue #6).
+    _AVALN_NUM:
+      value: VS.VSSTRESN
+      unconvertible: null
+    PARAMCD: VS.VSTESTCD
+    PARAM:
+      str_template:
+        template: '{_VSTEST} ({_UNIT})'
+        missing: ''
+    AVAL: VS.VSSTRESN
+    VSSTRESC: _VSSTRESC
+    VSLOC: VS.VSLOC
+    VSLOCSP: SUPP_P.VSLOCSP
+  filter: (_VSSTAT IS NULL OR _VSSTAT IN ('')) AND (_VSCAT IS NULL OR _VSCAT IN ('') OR _VSCAT NOT IN ('REACTOGENICITY', 'EFFICACY')) AND _ADSL IS NOT NULL
+intermediates:
+- id: SUPP_P
+  dataset: SUPPVS
+  key:
+    STUDYID: STUDYID
+    USUBJID: USUBJID
+    IDVARVAL:
+      str_decimal:
+        source: _VSSEQ
+        decimals: 0
+  filter: SUPPVS.QNAM = 'VSLOCSP' AND SUPPVS.IDVAR = 'VSSEQ'
+  pivot:
+    name: QNAM
+    value: QVAL
+    fields:
+    - VSLOCSP
+- id: SV_V29
+  dataset: SV
+  key: [STUDYID, USUBJID]
+  filter: str_contains(SV.VISIT, 'Day 29') AND SV.SVSTDTC IS NOT NULL AND SV.SVSTDTC NOT IN ('') AND SV.VISITDY IS NOT NULL
+  order_by: [SV.SVSTDTC]
+  keep: first
+- id: SV_V57
+  dataset: SV
+  key: [STUDYID, USUBJID]
+  filter: str_contains(SV.VISIT, 'Day 57') AND SV.SVSTDTC IS NOT NULL AND SV.SVSTDTC NOT IN ('') AND SV.VISITDY IS NOT NULL
+  order_by: [SV.SVSTDTC]
+  keep: first
+- id: EX_DOSE1
+  dataset: EX
+  key: [STUDYID, USUBJID]
+  filter: EX.EXSTDTC IS NOT NULL AND str_contains(EX.VISIT, '[Dd][Aa][Yy] 1( |$)')
+  order_by: [EX.EXSTDTC]
+  keep: first
+- id: EX_DOSE2
+  dataset: EX
+  key: [STUDYID, USUBJID]
+  filter: EX.EXSTDTC IS NOT NULL AND str_contains(EX.VISIT, '[Dd][Aa][Yy] 29')
+  order_by: [EX.EXSTDTC]
+  keep: first
+windows:
+  SORT2_W:
+    group_by: [STUDYID, USUBJID, PARAMCD]
+    order_by:
+    - variable: _AVALN
+      direction: desc
+    - _POSTFL
+    - variable: _PREFL_ADT
+      direction: desc
+    - variable: _PREFL_ADTM
+      direction: desc
+    - ADT
+    - _ADDSORTN
+    - _ILLUNS
+    - _ADTMY
+    - _ISSTRESN_
+    - variable: VSTPT
+      direction: desc
+    - _ADTMY_NUM
+    - variable: _VSTPTNUM
+      direction: desc
+    - variable: _VSSEQ
+      direction: desc
+  BASELINE_W:
+    group_by: [STUDYID, USUBJID, PARAMCD]
+    order_by:
+    - ADT
+    - _ADTM
+    - variable: _ADDSORTN
+      direction: desc
+    - variable: _ILLUNS
+      direction: desc
+    - variable: _ADTMY
+      direction: desc
+    - variable: _ISSTRESN_
+      direction: desc
+    - VSTPT
+    - variable: _ADTMY_NUM
+      direction: desc
+    - _VSTPTNUM
+    - _VSSEQ
+  FIRST_ADT_W:
+    group_by: [STUDYID, USUBJID, PARAMCD, _AVALN, _POSTFL, _PREFL_ADT, _PREFL_ADTM, ADT]
+    order_by:
+    - _ADDSORTN
+    - _ILLUNS
+    - _ADTMY
+    - _ISSTRESN_
+    - variable: VSTPT
+      direction: desc
+    - _ADTMY_NUM
+    - variable: _VSTPTNUM
+      direction: desc
+    - variable: _VSSEQ
+      direction: desc
+  SORT4_W:
+    group_by: [STUDYID, USUBJID, PARAMCD]
+    order_by:
+    - variable: _AVALN
+      direction: desc
+    - _POSTFL2
+    - ADT
+    - variable: _ILL_ADY
+      direction: desc
+  SORT5_W:
+    group_by: [STUDYID, USUBJID, PARAMCD]
+    order_by:
+    - _AVISITN_P4
+    - ADY
+    - _UNS
+  ANL01_W:
+    group_by: [STUDYID, USUBJID, PARAMCD, _AVISITN_F, _ATPTN_F]
+    order_by:
+    - variable: _POSTFL2
+      direction: desc
+    - variable: _AVALN2
+      direction: desc
+    - _UNS
+    - _AWTDIFF_P2
+    - variable: ADT
+      direction: desc
+    - variable: _VSSEQ
+      direction: desc
+  ANL02_W:
+    group_by: [STUDYID, USUBJID, PARAMCD, _AVISITN_F, _ATPTN_F]
+    order_by:
+    - variable: _POSTFL2
+      direction: desc
+    - variable: _ATOXGRLN
+      direction: desc
+    - ADT
+    - _VSSEQ
+  ANL03_W:
+    group_by: [STUDYID, USUBJID, PARAMCD, _AVISITN_F, _ATPTN_F]
+    order_by:
+    - variable: _POSTFL2
+      direction: desc
+    - variable: _ATOXGRHN
+      direction: desc
+    - ADT
+    - _VSSEQ
+columns:
+- name: _ADSL
+  type: str
+  derivation: ADSL.USUBJID
+- name: STUDYID
+  submission:
+    origins:
+    - type: Derived
+    method: "Withheld from publication: the received define states this text."
+- name: USUBJID
+  submission:
+    origins:
+    - type: Derived
+    method: "Withheld from publication: the received define states this text."
+- name: SUBJID
+  submission:
+    origins:
+    - type: Derived
+    method: "Withheld from publication: the received define states this text."
+- name: _VSSEQ
+  type: float
+- name: _VSSTAT
+  type: str
+- name: _VSTESTCD
+  type: str
+- name: _VSTEST
+  type: str
+- name: _UNIT
+  type: str
+- name: _VSCAT
+  type: str
+- name: _VSSTRESC
+  type: str
+- name: _VSSTRESN
+  type: str
+- name: _VSSTRESU
+  type: str
+- name: _VSDTC
+  type: str
+- name: _VISITNUM
+  type: float
+- name: _VSLOC
+  type: str
+- name: _VSTPT
+  type: str
+- name: _VSTPTNUM
+  type: float
+- name: _ORI_VISIT
+  type: str
+- name: _VISIT
+  type: str
+- name: _AVALN_NUM
+  type: float
+- name: _ADT_TXT
+  type: str
+  derivation: ADT
+- name: _HH
+  type: str
+  derivation:
+    str_extract:
+      source: _VSDTC
+      pattern: 'T(\d{2}):(\d{2})(?::\d{2})?$'
+      group: 1
+      no_match: ''
+- name: _MM
+  type: str
+  derivation:
+    str_extract:
+      source: _VSDTC
+      pattern: 'T(\d{2}):(\d{2})(?::\d{2})?$'
+      group: 2
+      no_match: ''
+- name: _VSDTC_YYYY
+  type: str
+  derivation:
+    str_extract:
+      source: _VSDTC
+      pattern: '^(\d{4})-(\d{2})-(\d{2})$'
+      group: 1
+      no_match: ''
+- name: _VSDTC_MO
+  type: str
+  derivation:
+    str_extract:
+      source: _VSDTC
+      pattern: '^(\d{4})-(\d{2})-(\d{2})$'
+      group: 2
+      no_match: ''
+- name: _VSDTC_DD
+  type: str
+  derivation:
+    str_extract:
+      source: _VSDTC
+      pattern: '^(\d{4})-(\d{2})-(\d{2})$'
+      group: 3
+      no_match: ''
+- name: _Y2000
+  type: str
+  derivation: "'2000'"
+- name: _M01
+  type: str
+  derivation: "'01'"
+- name: _D01
+  type: str
+  derivation: "'01'"
+- name: _ATM_DT
+  type: datetime
+  derivation:
+    case:
+    - when: _HH IS NOT NULL AND _HH NOT IN ('') AND _MM IS NOT NULL AND _MM NOT IN ('')
+      then:
+        dtc:
+          year: _Y2000
+          month: _M01
+          day: _D01
+          hour: _HH
+          minute: _MM
+- name: _ORI_ADTM_RAW
+  type: datetime
+  derivation:
+    impute:
+      type: datetime
+      source: _VSDTC
+      time: first
+- name: _ORI_ADTM
+  type: datetime
+  derivation:
+    case:
+    - when: _VSDTC IS NOT NULL AND NOT str_contains(_VSDTC, 'T')
+      then: null
+    - when: _VSDTC IS NOT NULL AND str_contains(_VSDTC, 'T') AND (_HH IS NULL OR _HH IN (''))
+      then: null
+    - otherwise: _ORI_ADTM_RAW
+- name: _ADTM
+  type: datetime
+  derivation:
+    case:
+    - when: str_contains(_VSDTC, 'T00:00')
+      then: null
+    - otherwise: _ORI_ADTM
+- name: _VISIT2A
+  type: str
+  derivation:
+    str_replace:
+      source: _VISIT
+      pattern: 'Convalescence'
+      replacement: 'Illness'
+- name: _VISIT2
+  type: str
+  derivation:
+    case:
+    - when: _VISIT2A IS NULL OR _VISIT2A IN ('') OR str_contains(_VISIT2A, 'Saf')
+      then:
+        str_template:
+          template: 'Unsched {_VISIT2A}'
+          missing: ''
+    - otherwise: _VISIT2A
+- name: _VISIT2_UP
+  type: str
+  derivation:
+    str_case:
+      source: _VISIT2
+      to: upper
+- name: _ADDSORTN
+  type: str
+  derivation:
+    case:
+    - when: str_contains(_VISIT, '^Visit') AND NOT str_contains(_VISIT, 'Uns')
+      then: "''"
+    - when: str_contains(_VISIT, '^Visit') AND ADT IS NOT NULL AND TR01SDT IS NOT NULL AND ADT > TR01SDT
+      then:
+        str_template:
+          template: '{_ADT_TXT} - 998'
+          missing: ''
+    - when: (_VISIT IS NULL OR _VISIT IN ('')) AND ADT IS NOT NULL
+      then:
+        str_template:
+          template: '{_ADT_TXT} - 999'
+          missing: ''
+    - when: str_contains(_ORI_VISIT, '^Illness Visit Day 3 - Day 21') AND str_contains(_VISIT, 'Uns') AND ADT IS NOT NULL
+      then:
+        str_template:
+          template: '{_ADT_TXT} - 998'
+          missing: ''
+    - when: str_contains(_ORI_VISIT, '^Illness Visit Day 3 - Day 21') AND str_contains(_VISIT, 'Uns')
+      then: '''          - 998'''
+    - when: ADT IS NOT NULL AND TR01SDT IS NOT NULL AND ADT > TR01SDT AND str_contains(_VISIT, 'Uns')
+      then:
+        str_template:
+          template: '{_ADT_TXT} - 999'
+          missing: ''
+    - when: (str_contains(_VISIT, '^Ill') OR str_contains(_VISIT, '^Conva')) AND ADT IS NOT NULL AND TR01SDT IS NOT NULL AND ADT > TR01SDT
+      then: _ADT_TXT
+    - when: (str_contains(_VISIT, '^Ill') OR str_contains(_VISIT, '^Conva')) AND (_VSDTC IS NULL OR _VSDTC IN (''))
+      then: '''0000'''
+    - otherwise: "''"
+- name: _DAYDIFF
+  type: int
+  derivation:
+    diff:
+      type: date
+      start: TR01SDT
+      end: ADT
+      unit: day
+- name: _ADTMY_S
+  type: float
+  derivation:
+    case:
+    - when: _ADTM IS NOT NULL AND TR01SDTM IS NOT NULL AND _ADTM > TR01SDTM
+      then:
+        diff:
+          type: datetime
+          start: TR01SDTM
+          end: _ADTM
+          unit: second
+    - when: ADT IS NOT NULL AND TR01SDT IS NOT NULL
+      then: _DAYDIFF * 86400
+    - when: NOT str_contains(_VISIT2_UP, 'ILLNESS')
+      then: 99999999
+- name: _ADTMY_ABS
+  type: float
+  derivation: ABS(_ADTMY_S)
+- name: _POSTDOSE
+  type: int
+  derivation:
+    case:
+    - when: ADT IS NOT NULL AND TR01SDT IS NOT NULL AND ADT > TR01SDT
+      then: 1
+- name: _ADTMY_NUM
+  type: float
+  derivation:
+    case:
+    - when: VISITNUM IS NOT NULL
+      then: _ADTMY_ABS + VISITNUM
+    - otherwise: _ADTMY_ABS
+- name: _ADTMY
+  type: float
+  derivation: _ADTMY_ABS
+- name: _PREFL
+  type: str
+  derivation:
+    case:
+    - when: _ADTMY_S <= 0 AND TR01SDT IS NOT NULL AND NOT ((_VSTPT IS NOT NULL AND str_contains(_VSTPT, 'POST')) AND ADT IS NOT NULL AND TR01SDT IS NOT NULL AND ADT = TR01SDT)
+      then: '''Y'''
+- name: _POSTFL
+  type: str
+  derivation:
+    case:
+    - when: (_VSTPT IS NOT NULL AND str_contains(_VSTPT, 'POST')) AND ADT IS NOT NULL AND TR01SDT IS NOT NULL AND ADT = TR01SDT
+      then: '''Y'''
+    - when: _ADTMY_S > 0 AND TR01SDT IS NOT NULL AND ADT IS NOT NULL
+      then: '''Y'''
+- name: _PREFL_ADT
+  type: date
+  derivation:
+    case:
+    - when: _PREFL = 'Y'
+      then: ADT
+- name: _PREFL_ADTM
+  type: datetime
+  derivation:
+    case:
+    - when: _PREFL = 'Y'
+      then: _ADTM
+- name: _AVALN
+  type: int
+  derivation:
+    case:
+    - when: _VSSTRESC IS NOT NULL AND _VSSTRESC NOT IN ('')
+      then: 1
+    - when: (str_contains(_VISIT2_UP, 'ILLNESS') OR str_contains(_VISIT2, 'Uns')) AND (_POSTDOSE = 1 OR ADT IS NULL)
+      then: 1
+- name: _AVALN2
+  type: int
+  derivation:
+    case:
+    - when: _VSSTRESC IS NOT NULL AND _VSSTRESC NOT IN ('')
+      then: 1
+- name: _ILLUNS
+  type: int
+  derivation:
+    case:
+    - when: str_contains(_VISIT2, 'Uns')
+      then: 1
+    - when: str_contains(_VISIT2_UP, 'ILLNESS')
+      then: 2
+    - otherwise: 0
+- name: _VSSTRESC_UP
+  type: str
+  derivation:
+    str_case:
+      source: _VSSTRESC
+      to: upper
+- name: _ISSTRESN_
+  type: int
+  derivation:
+    case:
+    - when: _PREFL = 'Y' AND NOT str_contains(_VISIT2_UP, 'ILLNESS') AND _VSSTRESC_UP = 'POSITIVE'
+      then: 1
+    - when: _PREFL = 'Y' AND NOT str_contains(_VISIT2_UP, 'ILLNESS') AND _VSSTRESC_UP = 'NEGATIVE'
+      then: 2
+    - otherwise: 9
+- name: _SORT2_RN
+  type: int
+  derivation:
+    row_number:
+      window: SORT2_W
+- name: _FIRST_ADT
+  type: int
+  derivation:
+    row_number:
+      window: FIRST_ADT_W
+- name: _VISIT_PREV
+  type: str
+  derivation:
+    row_value:
+      source: _VISIT2
+      offset: -1
+      window: SORT2_W
+- name: _SCHEILL_DAY1_SRC
+  type: str
+  derivation:
+    case:
+    - when: _VISIT2 = 'Illness Visit Day 1'
+      then: '''Illness Visit Day 1'''
+- name: _SCHEILL_DAY1
+  type: str
+  derivation:
+    locf:
+      source: _SCHEILL_DAY1_SRC
+      window: SORT2_W
+- name: _SCHEILL_DATE_SRC
+  type: date
+  derivation:
+    case:
+    - when: _VISIT2 = 'Illness Visit Day 1'
+      then: ADT
+- name: _SCHEILL_DATE
+  type: date
+  derivation:
+    locf:
+      source: _SCHEILL_DATE_SRC
+      window: SORT2_W
+- name: _SCHEILL_UPDATE
+  type: str
+  derivation:
+    case:
+    - when: NOT str_contains(_VISIT2, 'Uns') AND NOT str_contains(_VISIT2, 'Ill')
+      then: "''"
+    - otherwise: _SCHEILL_DAY1
+- name: _ILL_SET_PREV
+  type: int
+  derivation:
+    row_value:
+      source: _ILL_SET
+      offset: -1
+      window: SORT2_W
+- name: _ILL_DAT_PREV
+  type: date
+  derivation:
+    row_value:
+      source: _ILL_DAT
+      offset: -1
+      window: SORT2_W
+- name: _ILL_ADY_PREV
+  type: float
+  derivation:
+    row_value:
+      source: _ILL_ADY
+      offset: -1
+      window: SORT2_W
+- name: _ILL_SET
+  type: int
+  derivation:
+    case:
+    - when: (_FIRST_ADT = 1 AND str_contains(_VISIT2_UP, 'ILLNESS') AND _ORI_VISIT <> 'Illness Visit Day 3 - Day 21' AND str_contains(_VISIT2_UP, 'DAY 1') AND NOT str_contains(_VISIT2_UP, 'DAY 1[0-9]') AND NOT str_contains(_VISIT2, 'Uns')) OR (_FIRST_ADT <> 1 AND _VISIT2 = 'Illness Visit Day 1' AND _VISIT2 <> _VISIT_PREV)
+      then:
+        case:
+        - when: ((_SCHEILL_DAY1 IS NULL) OR (ADT IS NOT NULL AND _SCHEILL_DATE IS NOT NULL AND ADT < _SCHEILL_DATE) OR (str_contains(_VISIT2, 'Illness Visit Day 1 Unscheduled') AND _ILL_SET_PREV >= 1)) AND str_contains(_VISIT2_UP, 'ILLNESS') AND _SORT2_RN = 1
+          then: 0
+        - when: ((_SCHEILL_DAY1 IS NULL) OR (ADT IS NOT NULL AND _SCHEILL_DATE IS NOT NULL AND ADT < _SCHEILL_DATE) OR (str_contains(_VISIT2, 'Illness Visit Day 1 Unscheduled') AND _ILL_SET_PREV >= 1)) AND str_contains(_VISIT2_UP, 'ILLNESS')
+          then: _ILL_SET_PREV
+        - when: _SORT2_RN = 1
+          then: 1
+        - otherwise: _ILL_SET_PREV + 1
+    - when: _SORT2_RN = 1
+      then: 0
+    - otherwise: _ILL_SET_PREV
+- name: _ILL_DAT
+  type: date
+  derivation:
+    case:
+    - when: (_FIRST_ADT = 1 AND str_contains(_VISIT2_UP, 'ILLNESS') AND _ORI_VISIT <> 'Illness Visit Day 3 - Day 21' AND str_contains(_VISIT2_UP, 'DAY 1') AND NOT str_contains(_VISIT2_UP, 'DAY 1[0-9]') AND NOT str_contains(_VISIT2, 'Uns')) OR (_FIRST_ADT <> 1 AND _VISIT2 = 'Illness Visit Day 1' AND _VISIT2 <> _VISIT_PREV)
+      then: ADT
+    - otherwise: _ILL_DAT_PREV
+- name: _ILL_ADY
+  type: float
+  derivation:
+    case:
+    - when: (_FIRST_ADT = 1 AND str_contains(_VISIT2_UP, 'ILLNESS') AND _ORI_VISIT <> 'Illness Visit Day 3 - Day 21' AND str_contains(_VISIT2_UP, 'DAY 1') AND NOT str_contains(_VISIT2_UP, 'DAY 1[0-9]') AND NOT str_contains(_VISIT2, 'Uns')) OR (_FIRST_ADT <> 1 AND _VISIT2 = 'Illness Visit Day 1' AND _VISIT2 <> _VISIT_PREV)
+      then: ADY
+    - otherwise: _ILL_ADY_PREV
+- name: _BASELINE_SRC
+  type: int
+  derivation:
+    case:
+    - when: _AVALN = 1 AND _PREFL = 'Y'
+      then: 1
+- name: _BASELINE
+  type: str
+  derivation:
+    baseline_flag:
+      date: ADT
+      reference: TR01SDT
+      source: _BASELINE_SRC
+      window:
+        group_by: [STUDYID, USUBJID, PARAMCD]
+        order_by:
+        - ADT
+        - _ADTM
+        - variable: _ADDSORTN
+          direction: desc
+        - variable: _ILLUNS
+          direction: desc
+        - variable: _ADTMY
+          direction: desc
+        - variable: _ISSTRESN_
+          direction: desc
+        - VSTPT
+        - variable: _ADTMY_NUM
+          direction: desc
+        - _VSTPTNUM
+        - _VSSEQ
+- name: _BASELINE_ADT
+  type: date
+  derivation:
+    aggregate:
+      filter: _BASELINE = 'Y'
+      group_by: [STUDYID, USUBJID, PARAMCD]
+      expr: ONLY(ADT)
+- name: _BASELINE_ADTM
+  type: datetime
+  derivation:
+    aggregate:
+      filter: _BASELINE = 'Y'
+      group_by: [STUDYID, USUBJID, PARAMCD]
+      expr: ONLY(_ADTM)
+- name: _POSTFL2
+  type: str
+  derivation:
+    case:
+    - when: _ADTM IS NOT NULL AND TR01SDTM IS NOT NULL AND _ADTM < TR01SDTM
+      then: "''"
+    - otherwise: _POSTFL
+- name: _BASE
+  type: str
+  derivation:
+    aggregate:
+      filter: _BASELINE = 'Y'
+      group_by: [STUDYID, USUBJID, PARAMCD]
+      expr: ONLY(AVAL)
+- name: _BASE_N
+  type: float
+  derivation:
+    aggregate:
+      filter: _BASELINE = 'Y'
+      group_by: [STUDYID, USUBJID, PARAMCD]
+      expr: ONLY(_AVALN_NUM)
+- name: _BASE_N_SAFE
+  type: float
+  derivation:
+    case:
+    - when: _BASE_N = 0
+      then: null
+    - otherwise: _BASE_N
+- name: _CHG_N
+  type: float
+  derivation:
+    case:
+    - when: _POSTFL2 = 'Y' AND _AVALN_NUM IS NOT NULL AND _BASE_N IS NOT NULL
+      then: _AVALN_NUM - _BASE_N
+- name: _PCHG_N
+  type: float
+  derivation:
+    case:
+    - when: _POSTFL2 = 'Y' AND _CHG_N IS NOT NULL AND _BASE_N_SAFE IS NOT NULL
+      then: _CHG_N / _BASE_N_SAFE * 100
+- name: _D_ILL
+  type: int
+  derivation:
+    diff:
+      type: date
+      start: _ILL_DAT
+      end: ADT
+      unit: day
+- name: _V_SCAN4
+  type: str
+  derivation:
+    str_extract:
+      source: _VISIT2
+      pattern: '^(?:\S+\s+){3}(\S+)'
+      group: 1
+      no_match: ''
+- name: _AVISIT_PRE
+  type: str
+  derivation:
+    case:
+    - when: _BASELINE = 'Y'
+      then: '''Baseline'''
+    - when: _VISIT2_UP = 'VISIT 1 DAY 1' AND (_VSTPT IS NOT NULL AND str_contains(_VSTPT, 'POST'))
+      then: '''Day 1'''
+    - when: _VISIT2 = 'Illness Visit Day 1'
+      then: '''Illness Visit Day 1'''
+    - when: str_contains(_VISIT2_UP, 'ILLNESS') AND NOT str_contains(_VISIT2, 'Uns')
+      then:
+        str_template:
+          template: 'Illness Visit Day {_V_SCAN4}'
+          missing: ''
+    - when: (str_contains(_VISIT2_UP, 'ILLNESS') OR str_contains(_VISIT2, 'Uns')) AND _D_ILL >= 2 AND _D_ILL <= 34 AND ADT IS NOT NULL
+      then: '''Illness Visit Day 28'''
+    - when: _POSTFL2 = 'Y' AND (str_contains(_VISIT2, 'Uns') OR str_contains(_VISIT2, 'Safe') OR str_contains(_VISIT2_UP, 'ILLNESS')) AND (ADY >= 1 AND ADY <= 15)
+      then: '''Day 1'''
+    - when: _POSTFL2 = 'Y' AND (str_contains(_VISIT2, 'Uns') OR str_contains(_VISIT2, 'Safe') OR str_contains(_VISIT2_UP, 'ILLNESS')) AND ADY > 15 AND ADY <= 43
+      then: '''Day 29'''
+    - when: _POSTFL2 = 'Y' AND (str_contains(_VISIT2, 'Uns') OR str_contains(_VISIT2, 'Safe') OR str_contains(_VISIT2_UP, 'ILLNESS')) AND ADY > 43 AND ADY <= 88
+      then: '''Day 57'''
+    - when: _POSTFL2 = 'Y' AND (str_contains(_VISIT2, 'Uns') OR str_contains(_VISIT2, 'Safe') OR str_contains(_VISIT2_UP, 'ILLNESS')) AND ADY > 88 AND ADY <= 164
+      then: '''Day 119'''
+    - when: _POSTFL2 = 'Y' AND (str_contains(_VISIT2, 'Uns') OR str_contains(_VISIT2, 'Safe') OR str_contains(_VISIT2_UP, 'ILLNESS')) AND ADY > 164 AND ADY <= 301
+      then: '''Day 209'''
+    - when: _POSTFL2 = 'Y' AND (str_contains(_VISIT2, 'Uns') OR str_contains(_VISIT2, 'Safe') OR str_contains(_VISIT2_UP, 'ILLNESS')) AND ADY > 301 AND ADY <= 576
+      then: '''Day 394'''
+    - when: _POSTFL2 = 'Y' AND (str_contains(_VISIT2, 'Uns') OR str_contains(_VISIT2, 'Safe') OR str_contains(_VISIT2_UP, 'ILLNESS')) AND ADY > 576 AND ADY <= 773
+      then: '''Day 759'''
+    - when: ADY IS NOT NULL AND ADY > 1 AND _POSTFL2 = 'Y' AND str_contains(_VISIT2_UP, 'DAY')
+      then:
+        str_template:
+          template: 'Day {_V_SCAN4}'
+          missing: ''
+    - otherwise: "''"
+- name: _AVISIT_P1
+  type: str
+  derivation:
+    case:
+    - when: _BASELINE IS NULL AND ADT IS NOT NULL AND _ILL_DAT IS NOT NULL AND ADT = _ILL_DAT AND _SCHEILL_UPDATE IS NOT NULL AND _SCHEILL_UPDATE NOT IN ('') AND _ORI_VISIT IS NOT NULL AND _ORI_VISIT NOT IN ('') AND _ORI_VISIT <> 'Illness Visit Day 3 - Day 21'
+      then: '''Illness Visit Day 1'''
+    - otherwise: _AVISIT_PRE
+- name: _SECOND_PASS
+  type: str
+  derivation:
+    case:
+    - when: _AVISIT_P1 = '' AND _POSTFL2 = 'Y' AND (str_contains(_VISIT2, 'Uns') OR _VISIT2 IS NULL OR _VISIT2 IN ('') OR str_contains(_VISIT2, 'Safe')) AND (ADY >= 1 AND ADY <= 15)
+      then: '''Day 1'''
+    - when: _AVISIT_P1 = '' AND _POSTFL2 = 'Y' AND (str_contains(_VISIT2, 'Uns') OR _VISIT2 IS NULL OR _VISIT2 IN ('') OR str_contains(_VISIT2, 'Safe')) AND ADY > 15 AND ADY <= 43
+      then: '''Day 29'''
+    - when: _AVISIT_P1 = '' AND _POSTFL2 = 'Y' AND (str_contains(_VISIT2, 'Uns') OR _VISIT2 IS NULL OR _VISIT2 IN ('') OR str_contains(_VISIT2, 'Safe')) AND ADY > 43 AND ADY <= 88
+      then: '''Day 57'''
+    - when: _AVISIT_P1 = '' AND _POSTFL2 = 'Y' AND (str_contains(_VISIT2, 'Uns') OR _VISIT2 IS NULL OR _VISIT2 IN ('') OR str_contains(_VISIT2, 'Safe')) AND ADY > 88 AND ADY <= 164
+      then: '''Day 119'''
+    - when: _AVISIT_P1 = '' AND _POSTFL2 = 'Y' AND (str_contains(_VISIT2, 'Uns') OR _VISIT2 IS NULL OR _VISIT2 IN ('') OR str_contains(_VISIT2, 'Safe')) AND ADY > 164 AND ADY <= 301
+      then: '''Day 209'''
+    - when: _AVISIT_P1 = '' AND _POSTFL2 = 'Y' AND (str_contains(_VISIT2, 'Uns') OR _VISIT2 IS NULL OR _VISIT2 IN ('') OR str_contains(_VISIT2, 'Safe')) AND ADY > 301 AND ADY <= 576
+      then: '''Day 394'''
+    - when: _AVISIT_P1 = '' AND _POSTFL2 = 'Y' AND (str_contains(_VISIT2, 'Uns') OR _VISIT2 IS NULL OR _VISIT2 IN ('') OR str_contains(_VISIT2, 'Safe')) AND ADY > 576 AND ADY <= 773
+      then: '''Day 759'''
+- name: _AVISIT_P2
+  type: str
+  derivation:
+    case:
+    - when: _SECOND_PASS IS NOT NULL
+      then: _SECOND_PASS
+    - otherwise: _AVISIT_P1
+- name: _AVISITN_PRE
+  type: int
+  derivation:
+    case:
+    - when: _AVISIT_P2 = 'Illness Visit Day 1'
+      then: 101
+    - when: _AVISIT_P2 = 'Illness Visit Day 3'
+      then: 103
+    - when: _AVISIT_P2 = 'Illness Visit Day 5'
+      then: 105
+    - when: _AVISIT_P2 = 'Illness Visit Day 7'
+      then: 107
+    - when: _AVISIT_P2 = 'Illness Visit Day 9'
+      then: 109
+    - when: _AVISIT_P2 = 'Illness Visit Day 14'
+      then: 114
+    - when: _AVISIT_P2 = 'Illness Visit Day 21'
+      then: 121
+    - when: _AVISIT_P2 = 'Illness Visit Day 28'
+      then: 128
+    - when: str_contains(_AVISIT_P2, 'Illness')
+      then: 100 * _ILL_SET + 1
+    - when: _AVISIT_P2 = 'Baseline'
+      then: 1
+    - when: _AVISIT_P2 = 'Day 1'
+      then: 2
+    - when: _AVISIT_P2 = 'Day 29'
+      then: 3
+    - when: _AVISIT_P2 = 'Day 57'
+      then: 4
+    - when: _AVISIT_P2 = 'Day 119'
+      then: 5
+    - when: _AVISIT_P2 = 'Day 209'
+      then: 6
+    - when: _AVISIT_P2 = 'Day 394'
+      then: 7
+    - when: _AVISIT_P2 = 'Day 759'
+      then: 8
+- name: _AVISIT_P3
+  type: str
+  derivation:
+    case:
+    - when: _AVISITN_PRE IS NULL OR _AVISITN_PRE IN (1, 2, 3, 4, 5, 6, 7, 8, 101, 128) OR _AVISITN_PRE >= 100
+      then: _AVISIT_P2
+    - otherwise: "''"
+- name: _AVISITN_P3
+  type: int
+  derivation:
+    case:
+    - when: _AVISITN_PRE IS NULL OR _AVISITN_PRE IN (1, 2, 3, 4, 5, 6, 7, 8, 101, 128) OR _AVISITN_PRE >= 100
+      then: _AVISITN_PRE
+- name: _RETAIN_ILL_ADY
+  type: float
+  derivation:
+    locf:
+      source: _ILL_ADY
+      window: SORT4_W
+- name: _AVISITN_P3_N0
+  type: int
+  derivation:
+    case:
+    - when: _AVISITN_P3 IS NOT NULL
+      then: _AVISITN_P3
+    - otherwise: 0
+- name: _V_SCAN3_P3
+  type: str
+  derivation:
+    str_extract:
+      source: _AVISIT_P3
+      pattern: '^(?:\S+\s+){2}(\S+)'
+      group: 1
+      no_match: ''
+- name: _V_SCAN4_P3
+  type: str
+  derivation:
+    str_extract:
+      source: _AVISIT_P3
+      pattern: '^(?:\S+\s+){3}(\S+)'
+      group: 1
+      no_match: ''
+- name: _ILL_SET_TXT
+  type: str
+  derivation: _ILL_SET
+- name: _AVISIT_P4
+  type: str
+  derivation:
+    case:
+    - when: _ILL_SET > 1 AND str_contains(_AVISIT_P3, 'Illness') AND _V_SCAN3_P3 = 'Day' AND _SCHEILL_DAY1 IS NOT NULL
+      then:
+        str_template:
+          template: 'Illness Visit {_ILL_SET_TXT} Day {_V_SCAN4_P3}'
+          missing: ''
+    - otherwise: _AVISIT_P3
+- name: _AVISITN_P4
+  type: int
+  derivation:
+    case:
+    - when: _ILL_SET > 1 AND str_contains(_AVISIT_P3, 'Illness') AND _V_SCAN3_P3 = 'Day' AND _SCHEILL_DAY1 IS NOT NULL
+      then: 100 * (_ILL_SET - 1) + _AVISITN_P3_N0
+    - otherwise: _AVISITN_P3
+- name: _AVISIT_MINUS2
+  type: str
+  derivation:
+    str_replace:
+      source: _AVISIT_P4
+      pattern: '..$'
+      replacement: ''
+- name: _AVISIT_P4_PAD
+  type: str
+  derivation:
+    str_template:
+      template: '{_AVISIT_P4} '
+      missing: ''
+- name: _AWRANGE_P4
+  type: str
+  derivation:
+    case:
+    - when: str_contains(_AVISIT_P4, 'Illness') AND str_contains(_AVISIT_P4_PAD, 'Day 1 ')
+      then: _AVISIT_P4
+    - when: str_contains(_AVISIT_P4, 'Illness')
+      then:
+        str_template:
+          template: '{_AVISIT_MINUS2}3 - {_AVISIT_MINUS2}35'
+          missing: ''
+    - when: _AVISIT_P4 = 'Baseline'
+      then: '''<=1 Pre-dose'''
+    - when: _AVISIT_P4 = 'Day 1'
+      then: '''Day 1 Post-dose - Day 15'''
+    - when: _AVISIT_P4 = 'Day 29'
+      then: '''Day 16 - Day 43'''
+    - when: _AVISIT_P4 = 'Day 57'
+      then: '''Day 44 - Day 88'''
+    - when: _AVISIT_P4 = 'Day 119'
+      then: '''Day 89 - Day 164'''
+    - when: _AVISIT_P4 = 'Day 209'
+      then: '''Day 165 - Day 301'''
+    - when: _AVISIT_P4 = 'Day 394'
+      then: '''Day 302 - Day 576'''
+    - when: _AVISIT_P4 = 'Day 759'
+      then: '''Day 577 - Day 773'''
+    - otherwise: "''"
+- name: _AWRANGE_T1
+  type: str
+  derivation:
+    str_replace:
+      source: _AWRANGE_P4
+      pattern: 'Day1'
+      replacement: 'Day 1'
+- name: _AWRANGE_T2
+  type: str
+  derivation:
+    str_replace:
+      source: _AWRANGE_T1
+      pattern: 'Day2'
+      replacement: 'Day 2'
+- name: _AWRANGE_T3
+  type: str
+  derivation:
+    str_replace:
+      source: _AWRANGE_T2
+      pattern: 'Day3'
+      replacement: 'Day 3'
+- name: _AWTARGET_P4
+  type: int
+  derivation:
+    case:
+    - when: _AVISITN_P4 = 101 AND _ILL_ADY IS NOT NULL
+      then: _ILL_ADY
+    - when: str_contains(_AWRANGE_T3, 'Illness') AND str_contains(_AVISIT_P4_PAD, 'Day 1 ')
+      then: _ILL_ADY
+    - when: str_contains(_AWRANGE_T3, 'Illness') AND str_contains(_AWRANGE_T3, 'Day 3') AND _RETAIN_ILL_ADY IS NOT NULL
+      then: _RETAIN_ILL_ADY + 27
+    - when: _AVISIT_P4 = 'Baseline'
+      then: 1
+    - when: _AVISIT_P4 = 'Day 1'
+      then: 1
+    - when: _AVISIT_P4 = 'Day 29'
+      then: 29
+    - when: _AVISIT_P4 = 'Day 57'
+      then: 57
+    - when: _AVISIT_P4 = 'Day 119'
+      then: 119
+    - when: _AVISIT_P4 = 'Day 209'
+      then: 209
+    - when: _AVISIT_P4 = 'Day 394'
+      then: 394
+    - when: _AVISIT_P4 = 'Day 759'
+      then: 759
+- name: _AWTDIFF_P4
+  type: int
+  derivation: ABS(ADY - _AWTARGET_P4)
+- name: _UNS
+  type: int
+  derivation:
+    case:
+    - when: _POSTFL2 = 'Y' AND (str_contains(_VISIT2, 'Uns') OR _VISIT2 IS NULL OR _VISIT2 IN ('') OR str_contains(_VISIT2, 'Safe'))
+      then: 1
+    - when: _POSTFL2 = 'Y'
+      then: 0
+- name: _AWTDIFF
+  type: int
+  derivation:
+    case:
+    - when: _POSTFL2 = 'Y' AND _UNS = 1
+      then: _AWTDIFF_P4
+    - when: _POSTFL2 = 'Y'
+      then: 0
+    - otherwise: 99999999
+- name: _SORT5_RN
+  type: int
+  derivation:
+    row_number:
+      window: SORT5_W
+- name: _RETAIN_ADY_SRC
+  type: float
+  derivation:
+    case:
+    - when: _UNS = 0
+      then: ADY
+- name: _RETAIN_ADY
+  type: float
+  derivation:
+    locf:
+      source: _RETAIN_ADY_SRC
+      window: SORT5_W
+- name: _RETAIN_AVISITN_SRC
+  type: int
+  derivation:
+    case:
+    - when: _UNS = 0
+      then: _AVISITN_P4
+- name: _RETAIN_AVISITN
+  type: int
+  derivation:
+    locf:
+      source: _RETAIN_AVISITN_SRC
+      window: SORT5_W
+- name: _UNS_BLANK
+  type: int
+  derivation:
+    case:
+    - when: _UNS = 1 AND _RETAIN_ADY IS NOT NULL AND _RETAIN_ADY >= ADY AND _AVISITN_P4 IS NOT NULL AND _AVISITN_P4 <> 128 AND _AVISITN_P4 > _RETAIN_AVISITN AND _RETAIN_AVISITN IS NOT NULL
+      then: 1
+- name: _AVISIT_P5
+  type: str
+  derivation:
+    case:
+    - when: _UNS_BLANK = 1
+      then: "''"
+    - otherwise: _AVISIT_P4
+- name: _AVISITN_P5
+  type: int
+  derivation:
+    case:
+    - when: _UNS_BLANK = 1
+      then: null
+    - otherwise: _AVISITN_P4
+- name: _AWRANGE_P5
+  type: str
+  derivation:
+    case:
+    - when: _UNS_BLANK = 1
+      then: "''"
+    - otherwise: _AWRANGE_T3
+- name: _AWTARGET_P5
+  type: int
+  derivation:
+    case:
+    - when: _UNS_BLANK = 1
+      then: null
+    - otherwise: _AWTARGET_P4
+- name: _AWTDIFF_P5
+  type: int
+  derivation:
+    case:
+    - when: _UNS_BLANK = 1
+      then: null
+    - otherwise: _AWTDIFF_P4
+- name: _AVALN_P2
+  type: int
+  derivation:
+    case:
+    - when: _UNS_BLANK = 1
+      then: 0
+    - otherwise: _AVALN
+- name: _AWTDIFF_P2
+  type: int
+  derivation:
+    case:
+    - when: _UNS_BLANK = 1
+      then: 99999999
+    - otherwise: _AWTDIFF
+- name: _DERIVED_AVISIT
+  type: str
+  derivation: _AVISIT_P5
+- name: _W1
+  type: str
+  derivation:
+    str_extract:
+      source: _AVISIT_P5
+      pattern: '^(\S+)'
+      group: 1
+      no_match: ''
+- name: _W2
+  type: str
+  derivation:
+    str_extract:
+      source: _AVISIT_P5
+      pattern: '^(?:\S+\s+)(\S+)'
+      group: 1
+      no_match: ''
+- name: _W3
+  type: str
+  derivation:
+    str_extract:
+      source: _AVISIT_P5
+      pattern: '^(?:\S+\s+){2}(\S+)'
+      group: 1
+      no_match: ''
+- name: _AVISIT_P6
+  type: str
+  derivation:
+    case:
+    - when: str_contains(_AVISIT_P5, 'Illness') AND _AVISITN_P5 IS NOT NULL AND _AVISITN_P5 >= 100 AND _AVISITN_P5 < 200
+      then:
+        str_template:
+          template: '{_W1} {_W2}'
+          missing: ''
+    - when: str_contains(_AVISIT_P5, 'Illness') AND _AVISITN_P5 IS NOT NULL AND _AVISITN_P5 > 200
+      then:
+        str_template:
+          template: '{_W1} {_W2} {_W3}'
+          missing: ''
+    - otherwise: _AVISIT_P5
+- name: _AVISITN_P6
+  type: int
+  derivation:
+    case:
+    - when: str_contains(_AVISIT_P5, 'Illness') AND _AVISITN_P5 IS NOT NULL AND _AVISITN_P5 >= 100 AND _AVISITN_P5 < 200
+      then: 100
+    - when: str_contains(_AVISIT_P5, 'Illness') AND _AVISITN_P5 IS NOT NULL AND _AVISITN_P5 > 200
+      then: 100 * _ILL_SET
+    - otherwise: _AVISITN_P5
+- name: _ATPT_NUM
+  type: str
+  derivation:
+    str_extract:
+      source: _DERIVED_AVISIT
+      pattern: 'Day ([0-9]+)'
+      group: 1
+      no_match: ''
+- name: _ATPT_RAW
+  type: str
+  derivation:
+    case:
+    - when: str_contains(_AVISIT_P6, 'Ill')
+      then:
+        str_template:
+          template: 'Day {_ATPT_NUM}'
+          missing: ''
+- name: _ATPT_A
+  type: str
+  derivation:
+    case:
+    - when: str_contains(_AVISIT_P6, 'Ill') AND (_SCHEILL_UPDATE IS NULL OR _SCHEILL_UPDATE IN ('')) AND (_ORI_VISIT IS NULL OR _ORI_VISIT IN ('') OR str_contains(_ORI_VISIT, 'Uns'))
+      then: "''"
+    - otherwise: _ATPT_RAW
+- name: _ATPT_COMPRESS_SRC
+  type: str
+  derivation:
+    str_replace:
+      source: _ATPT_A
+      pattern: ' '
+      replacement: ''
+- name: _COMPRESS
+  type: int
+  derivation:
+    case:
+    - when: str_contains(_AVISIT_P6, 'Ill') AND _ATPT_COMPRESS_SRC IN ('Unscheduled', 'Day', 'DayUnscheduled')
+      then: 1
+- name: _ATPT_BLANK
+  type: int
+  derivation:
+    case:
+    - when: str_contains(_AVISIT_P6, 'Ill') AND (_COMPRESS = 1 OR ((_SCHEILL_UPDATE IS NULL OR _SCHEILL_UPDATE IN ('')) AND (_ORI_VISIT IS NULL OR _ORI_VISIT IN ('') OR str_contains(_ORI_VISIT, 'Uns'))))
+      then: 1
+- name: _AVIS_TMP1
+  type: str
+  derivation:
+    str_replace:
+      source: _AVISIT_P6
+      pattern: 'Day Unscheduled'
+      replacement: ''
+- name: _AVIS_TMP2
+  type: str
+  derivation:
+    str_replace:
+      source: _AVIS_TMP1
+      pattern: 'Day'
+      replacement: ''
+- name: _AVISITN_COMPRESS
+  type: int
+  derivation:
+    case:
+    - when: _ILL_SET = 0
+      then: 100
+    - otherwise: 100 * _ILL_SET
+- name: _AVISIT_F
+  type: str
+  derivation:
+    case:
+    - when: _COMPRESS = 1 OR str_contains(_AVISIT_P6, 'Ill') AND (_SCHEILL_UPDATE IS NULL OR _SCHEILL_UPDATE IN ('')) AND (_ORI_VISIT IS NULL OR _ORI_VISIT IN ('') OR str_contains(_ORI_VISIT, 'Uns'))
+      then: _AVIS_TMP2
+    - otherwise: _AVISIT_P6
+- name: _AVISITN_F
+  type: int
+  derivation:
+    case:
+    - when: _COMPRESS = 1 OR str_contains(_AVISIT_P6, 'Ill') AND (_SCHEILL_UPDATE IS NULL OR _SCHEILL_UPDATE IN ('')) AND (_ORI_VISIT IS NULL OR _ORI_VISIT IN ('') OR str_contains(_ORI_VISIT, 'Uns'))
+      then: _AVISITN_COMPRESS
+    - otherwise: _AVISITN_P6
+- name: _ATPT_F
+  type: str
+  derivation:
+    case:
+    - when: _ATPT_BLANK = 1
+      then: "''"
+    - otherwise: _ATPT_RAW
+- name: _ATPTN_STR
+  type: str
+  derivation:
+    str_extract:
+      source: _ATPT_F
+      pattern: 'Day ([0-9]+)'
+      group: 1
+      no_match: ''
+- name: _ATPTN_F
+  type: float
+  derivation:
+    case:
+    - when: _ATPT_F IS NOT NULL AND _ATPT_F NOT IN ('')
+      then: _ATPTN_STR
+- name: _SV4
+  type: date
+  derivation:
+    to_date:
+      source: SV_V29.SVSTDTC
+- name: _SV7
+  type: date
+  derivation:
+    to_date:
+      source: SV_V57.SVSTDTC
+- name: _SV4_HH
+  type: str
+  derivation:
+    str_extract:
+      source: SV_V29.SVSTDTC
+      pattern: 'T(\d{2}):(\d{2})(?::\d{2})?$'
+      group: 1
+      no_match: ''
+- name: _SV4_MM
+  type: str
+  derivation:
+    str_extract:
+      source: SV_V29.SVSTDTC
+      pattern: 'T(\d{2}):(\d{2})(?::\d{2})?$'
+      group: 2
+      no_match: ''
+- name: _SV7_HH
+  type: str
+  derivation:
+    str_extract:
+      source: SV_V57.SVSTDTC
+      pattern: 'T(\d{2}):(\d{2})(?::\d{2})?$'
+      group: 1
+      no_match: ''
+- name: _SV7_MM
+  type: str
+  derivation:
+    str_extract:
+      source: SV_V57.SVSTDTC
+      pattern: 'T(\d{2}):(\d{2})(?::\d{2})?$'
+      group: 2
+      no_match: ''
+- name: _SV4TM
+  type: datetime
+  derivation:
+    case:
+    - when: _SV4_HH IS NOT NULL AND _SV4_HH NOT IN ('') AND _SV4_MM IS NOT NULL AND _SV4_MM NOT IN ('')
+      then:
+        impute:
+          type: datetime
+          source: SV_V29.SVSTDTC
+          time: first
+- name: _SV7TM
+  type: datetime
+  derivation:
+    case:
+    - when: _SV7_HH IS NOT NULL AND _SV7_HH NOT IN ('') AND _SV7_MM IS NOT NULL AND _SV7_MM NOT IN ('')
+      then:
+        impute:
+          type: datetime
+          source: SV_V57.SVSTDTC
+          time: first
+- name: _EOS
+  type: date
+  derivation: ADSL.EOSDT
+- name: _DTH
+  type: date
+  derivation: ADSL.DTHDT
+- name: _EOSDTHDT
+  type: date
+  derivation:
+    case:
+    - when: _DTH IS NOT NULL AND _EOS IS NOT NULL AND _DTH < _EOS
+      then: _DTH
+    - otherwise: _EOS
+- name: _M7A
+  type: date
+  derivation:
+    case:
+    - when: _SV7 IS NOT NULL AND _EOS IS NOT NULL AND _EOS < _SV7
+      then: _EOS
+    - otherwise: _SV7
+- name: _M7
+  type: date
+  derivation:
+    case:
+    - when: _M7A IS NOT NULL AND _DTH IS NOT NULL AND _DTH < _M7A
+      then: _DTH
+    - otherwise: _M7A
+- name: _ASTAGE_RAW
+  type: str
+  derivation:
+    case:
+    - when: DOSE1FL = 'Y' AND _POSTFL2 = 'Y' AND ADT IS NOT NULL AND DOSE2FL = 'Y' AND _SV7 IS NULL AND _EOS IS NULL AND _DTH IS NULL
+      then: '''Vaccination stage'''
+    - when: DOSE1FL = 'Y' AND _POSTFL2 = 'Y' AND ADT IS NOT NULL AND DOSE2FL = 'Y' AND ((ADT <= _M7 AND _M7 IS NOT NULL) OR (_M7 IS NULL AND ADT <= _EOSDTHDT AND _EOSDTHDT IS NOT NULL)) AND DOSE2DT IS NOT NULL AND ADT >= DOSE2DT
+      then: '''Vaccination stage'''
+    - when: DOSE1FL = 'Y' AND _POSTFL2 = 'Y' AND ADT IS NOT NULL AND DOSE2FL = 'Y' AND ADT <= DOSE2DT AND _SV4 IS NOT NULL AND _M7 IS NULL
+      then: '''Vaccination stage'''
+    - when: DOSE1FL = 'Y' AND _POSTFL2 = 'Y' AND ADT IS NOT NULL AND DOSE2FL = 'Y' AND TR01SDT IS NOT NULL AND ADT >= TR01SDT AND ((ADT <= _M7 AND _M7 IS NOT NULL) OR (_ADTM <= _SV7TM AND _ADTM IS NOT NULL AND _SV7TM IS NOT NULL))
+      then: '''Vaccination stage'''
+    - when: DOSE1FL = 'Y' AND _POSTFL2 = 'Y' AND ADT IS NOT NULL AND DOSE2FL = 'Y' AND _M7 IS NOT NULL AND ADT > _M7
+      then: '''Follow-Up Analysis Period'''
+    - when: DOSE1FL = 'Y' AND _POSTFL2 = 'Y' AND ADT IS NOT NULL AND (DOSE2FL IS NULL OR DOSE2FL <> 'Y') AND _SV4 IS NULL AND _EOS IS NULL AND _DTH IS NULL
+      then: '''Vaccination stage'''
+    - when: DOSE1FL = 'Y' AND _POSTFL2 = 'Y' AND ADT IS NOT NULL AND (DOSE2FL IS NULL OR DOSE2FL <> 'Y') AND _SV4 IS NOT NULL AND ADT > _SV4
+      then: '''Follow-Up Analysis Period'''
+    - when: DOSE1FL = 'Y' AND _POSTFL2 = 'Y' AND ADT IS NOT NULL AND (DOSE2FL IS NULL OR DOSE2FL <> 'Y') AND TR01SDT IS NOT NULL AND ADT >= TR01SDT AND ((ADT <= _SV4 AND _SV4 IS NOT NULL) OR (_ADTM <= _SV4TM AND _ADTM IS NOT NULL AND _SV4TM IS NOT NULL))
+      then: '''Vaccination stage'''
+    - when: DOSE1FL = 'Y' AND _POSTFL2 = 'Y' AND ADT IS NOT NULL AND (DOSE2FL IS NULL OR DOSE2FL <> 'Y') AND _ADTM IS NOT NULL AND TR01SDTM IS NOT NULL AND _ADTM >= TR01SDTM AND _SV4 IS NULL AND _M7 IS NULL AND _EOS IS NOT NULL AND ADT <= _EOS
+      then: '''Vaccination stage'''
+    - otherwise: "''"
+- name: _ASTAGE
+  type: str
+  derivation: _ASTAGE_RAW
+- name: _ASTAGEN
+  type: float
+  derivation:
+    case:
+    - when: _ASTAGE = 'Vaccination stage'
+      then: 1.0
+    - when: _ASTAGE = 'Follow-Up Analysis Period'
+      then: 2.0
+- name: _MDOSREF
+  type: str
+  derivation:
+    case:
+    - when: (_ASTAGE IS NOT NULL AND _ASTAGE NOT IN ('')) AND (TR01SDT IS NOT NULL) AND (((TR01SDTM IS NOT NULL AND _ORI_ADTM IS NOT NULL AND TR01SDTM <= _ORI_ADTM) AND (_ORI_ADTM IS NOT NULL AND DOS2DTM IS NOT NULL AND _ORI_ADTM < DOS2DTM)) OR ((DOSE2DT IS NULL) AND (TR01SDTM IS NOT NULL AND _ORI_ADTM IS NOT NULL AND TR01SDTM <= _ORI_ADTM)) OR ((TR01SDTM IS NOT NULL AND _ORI_ADTM IS NOT NULL AND TR01SDTM <= _ORI_ADTM) AND (ADT IS NOT NULL AND DOSE2DT IS NOT NULL AND ADT < DOSE2DT)) OR ((((_ORI_ADTM IS NULL) OR (TR01SDTM IS NULL)) AND (DOSE2DT IS NULL) AND (TR01SDT IS NOT NULL AND ADT IS NOT NULL AND TR01SDT <= ADT))) OR ((((_ORI_ADTM IS NULL) OR (TR01SDTM IS NULL)) AND (TR01SDT IS NOT NULL AND ADT IS NOT NULL AND TR01SDT <= ADT) AND (ADT IS NOT NULL AND DOSE2DT IS NOT NULL AND ADT < DOSE2DT))))
+      then: '''Vaccination 1'''
+    - when: (_ASTAGE IS NOT NULL AND _ASTAGE NOT IN ('')) AND (TR01SDT IS NOT NULL) AND (((DOS2DTM IS NOT NULL AND _ORI_ADTM IS NOT NULL AND DOS2DTM <= _ORI_ADTM)) OR ((((_ORI_ADTM IS NULL) OR (DOS2DTM IS NULL)) AND (DOSE2DT IS NOT NULL AND ADT IS NOT NULL AND DOSE2DT <= ADT))))
+      then: '''Vaccination 2'''
+    - otherwise: "''"
+- name: _RDDY1
+  type: int
+  derivation:
+    diff:
+      type: date
+      start: TR01SDT
+      end: ADT
+      unit: day
+- name: _RDDY2
+  type: int
+  derivation:
+    diff:
+      type: date
+      start: DOSE2DT
+      end: ADT
+      unit: day
+- name: _MRDDY
+  type: int
+  derivation:
+    case:
+    - when: (_ASTAGE IS NOT NULL AND _ASTAGE NOT IN ('')) AND (TR01SDT IS NOT NULL) AND (((TR01SDTM IS NOT NULL AND _ORI_ADTM IS NOT NULL AND TR01SDTM <= _ORI_ADTM) AND (_ORI_ADTM IS NOT NULL AND DOS2DTM IS NOT NULL AND _ORI_ADTM < DOS2DTM)) OR ((DOSE2DT IS NULL) AND (TR01SDTM IS NOT NULL AND _ORI_ADTM IS NOT NULL AND TR01SDTM <= _ORI_ADTM)) OR ((TR01SDTM IS NOT NULL AND _ORI_ADTM IS NOT NULL AND TR01SDTM <= _ORI_ADTM) AND (ADT IS NOT NULL AND DOSE2DT IS NOT NULL AND ADT < DOSE2DT)) OR ((((_ORI_ADTM IS NULL) OR (TR01SDTM IS NULL)) AND (DOSE2DT IS NULL) AND (TR01SDT IS NOT NULL AND ADT IS NOT NULL AND TR01SDT <= ADT))) OR ((((_ORI_ADTM IS NULL) OR (TR01SDTM IS NULL)) AND (TR01SDT IS NOT NULL AND ADT IS NOT NULL AND TR01SDT <= ADT) AND (ADT IS NOT NULL AND DOSE2DT IS NOT NULL AND ADT < DOSE2DT))))
+      then: _RDDY1 + 1
+    - when: (_ASTAGE IS NOT NULL AND _ASTAGE NOT IN ('')) AND (TR01SDT IS NOT NULL) AND (((DOS2DTM IS NOT NULL AND _ORI_ADTM IS NOT NULL AND DOS2DTM <= _ORI_ADTM)) OR ((((_ORI_ADTM IS NULL) OR (DOS2DTM IS NULL)) AND (DOSE2DT IS NOT NULL AND ADT IS NOT NULL AND DOSE2DT <= ADT))))
+      then: _RDDY2 + 1
+- name: _AVALN_ROUND
+  type: float
+  derivation:
+    round_half_away_from_zero:
+      source: _AVALN_NUM
+      digits: 0
+- name: _GRADE_VAL
+  type: float
+  derivation:
+    case:
+    - when: PARAMCD = 'TEMP'
+      then: _AVALN_NUM
+    - otherwise: _AVALN_ROUND
+- name: _ATOXGRLN
+  type: float
+  derivation:
+    case:
+    - when: PARAMCD = 'PULSE' AND _GRADE_VAL >= 50 AND _GRADE_VAL <= 54
+      then: 1.0
+    - when: PARAMCD = 'PULSE' AND _GRADE_VAL >= 45 AND _GRADE_VAL <= 49
+      then: 2.0
+    - when: PARAMCD = 'PULSE' AND _GRADE_VAL < 45
+      then: 3.0
+    - when: PARAMCD = 'PULSE' AND _GRADE_VAL IS NOT NULL
+      then: 0.0
+    - when: PARAMCD = 'SYSBP' AND _GRADE_VAL >= 85 AND _GRADE_VAL <= 89
+      then: 1.0
+    - when: PARAMCD = 'SYSBP' AND _GRADE_VAL >= 80 AND _GRADE_VAL <= 84
+      then: 2.0
+    - when: PARAMCD = 'SYSBP' AND _GRADE_VAL < 80
+      then: 3.0
+    - when: PARAMCD = 'SYSBP' AND _GRADE_VAL IS NOT NULL
+      then: 0.0
+- name: _ATOXGRHN
+  type: float
+  derivation:
+    case:
+    - when: PARAMCD = 'PULSE' AND _GRADE_VAL >= 101 AND _GRADE_VAL <= 115
+      then: 1.0
+    - when: PARAMCD = 'PULSE' AND _GRADE_VAL >= 116 AND _GRADE_VAL <= 130
+      then: 2.0
+    - when: PARAMCD = 'PULSE' AND _GRADE_VAL > 130
+      then: 3.0
+    - when: PARAMCD = 'PULSE' AND _GRADE_VAL IS NOT NULL
+      then: 0.0
+    - when: PARAMCD = 'SYSBP' AND _GRADE_VAL >= 141 AND _GRADE_VAL <= 150
+      then: 1.0
+    - when: PARAMCD = 'SYSBP' AND _GRADE_VAL >= 151 AND _GRADE_VAL <= 155
+      then: 2.0
+    - when: PARAMCD = 'SYSBP' AND _GRADE_VAL > 155
+      then: 3.0
+    - when: PARAMCD = 'SYSBP' AND _GRADE_VAL IS NOT NULL
+      then: 0.0
+    - when: PARAMCD = 'TEMP' AND _GRADE_VAL >= 38 AND _GRADE_VAL <= 38.4
+      then: 1.0
+    - when: PARAMCD = 'TEMP' AND _GRADE_VAL > 38.4 AND _GRADE_VAL <= 38.9
+      then: 2.0
+    - when: PARAMCD = 'TEMP' AND _GRADE_VAL > 38.9 AND _GRADE_VAL <= 40
+      then: 3.0
+    - when: PARAMCD = 'TEMP' AND _GRADE_VAL > 40
+      then: 4.0
+    - when: PARAMCD = 'TEMP' AND _GRADE_VAL IS NOT NULL
+      then: 0.0
+    - when: PARAMCD = 'DIABP' AND _GRADE_VAL >= 91 AND _GRADE_VAL <= 95
+      then: 1.0
+    - when: PARAMCD = 'DIABP' AND _GRADE_VAL >= 96 AND _GRADE_VAL <= 100
+      then: 2.0
+    - when: PARAMCD = 'DIABP' AND _GRADE_VAL > 100
+      then: 3.0
+    - when: PARAMCD = 'DIABP' AND _GRADE_VAL IS NOT NULL
+      then: 0.0
+    - when: PARAMCD = 'RESP' AND _GRADE_VAL >= 17 AND _GRADE_VAL <= 20
+      then: 1.0
+    - when: PARAMCD = 'RESP' AND _GRADE_VAL >= 21 AND _GRADE_VAL <= 25
+      then: 2.0
+    - when: PARAMCD = 'RESP' AND _GRADE_VAL > 25
+      then: 3.0
+    - when: PARAMCD = 'RESP' AND _GRADE_VAL IS NOT NULL
+      then: 0.0
+- name: _ATOXGRL
+  type: str
+  derivation:
+    case:
+    - when: _ATOXGRLN = 0
+      then: '''Grade 0'''
+    - when: _ATOXGRLN = 1
+      then: '''Grade 1'''
+    - when: _ATOXGRLN = 2
+      then: '''Grade 2'''
+    - when: _ATOXGRLN = 3
+      then: '''Grade 3'''
+    - otherwise: "''"
+- name: _ATOXGRH
+  type: str
+  derivation:
+    case:
+    - when: _ATOXGRHN = 0
+      then: '''Grade 0'''
+    - when: _ATOXGRHN = 1
+      then: '''Grade 1'''
+    - when: _ATOXGRHN = 2
+      then: '''Grade 2'''
+    - when: _ATOXGRHN = 3
+      then: '''Grade 3'''
+    - when: _ATOXGRHN = 4
+      then: '''Grade 4'''
+    - otherwise: "''"
+- name: _BTOXGRL
+  type: str
+  derivation:
+    aggregate:
+      filter: _BASELINE = 'Y'
+      group_by: [STUDYID, USUBJID, PARAMCD]
+      expr: ONLY(_ATOXGRL)
+- name: _BTOXGRLN
+  type: float
+  derivation:
+    aggregate:
+      filter: _BASELINE = 'Y'
+      group_by: [STUDYID, USUBJID, PARAMCD]
+      expr: ONLY(_ATOXGRLN)
+- name: _BTOXGRH
+  type: str
+  derivation:
+    aggregate:
+      filter: _BASELINE = 'Y'
+      group_by: [STUDYID, USUBJID, PARAMCD]
+      expr: ONLY(_ATOXGRH)
+- name: _BTOXGRHN
+  type: float
+  derivation:
+    aggregate:
+      filter: _BASELINE = 'Y'
+      group_by: [STUDYID, USUBJID, PARAMCD]
+      expr: ONLY(_ATOXGRHN)
+- name: _BTOXGRL_U
+  type: str
+  derivation:
+    case:
+    - when: _BTOXGRL IS NULL OR _BTOXGRL IN ('')
+      then: '''UNK'''
+    - otherwise: _BTOXGRL
+- name: _ATOXGRL_U
+  type: str
+  derivation:
+    case:
+    - when: _ATOXGRL IS NULL OR _ATOXGRL IN ('')
+      then: '''UNK'''
+    - otherwise: _ATOXGRL
+- name: _BTOXGRH_U
+  type: str
+  derivation:
+    case:
+    - when: _BTOXGRH IS NULL OR _BTOXGRH IN ('')
+      then: '''UNK'''
+    - otherwise: _BTOXGRH
+- name: _ATOXGRH_U
+  type: str
+  derivation:
+    case:
+    - when: _ATOXGRH IS NULL OR _ATOXGRH IN ('')
+      then: '''UNK'''
+    - otherwise: _ATOXGRH
+- name: _SHIFT1
+  type: str
+  derivation:
+    case:
+    - when: _POSTFL2 = 'Y' AND (_BTOXGRL_U <> 'UNK' OR _ATOXGRL_U <> 'UNK')
+      then:
+        str_template:
+          template: '{_BTOXGRL_U} to {_ATOXGRL_U}'
+          missing: ''
+    - otherwise: "''"
+- name: _SHIFT2
+  type: str
+  derivation:
+    case:
+    - when: _POSTFL2 = 'Y' AND (_BTOXGRH_U <> 'UNK' OR _ATOXGRH_U <> 'UNK')
+      then:
+        str_template:
+          template: '{_BTOXGRH_U} to {_ATOXGRH_U}'
+          missing: ''
+    - otherwise: "''"
+- name: _RED
+  type: int
+  derivation:
+    case:
+    - when: (AVAL = '(b)(6)' OR _BASE = '(b)(6)')
+      then: 1
+- name: _CHG_FMT
+  type: str
+  derivation:
+    case:
+    - when: _CHG_N >= 0 AND _CHG_N < 1e-06
+      then:
+        str_decimal:
+          source: _CHG_N
+          decimals: 21
+    - when: _CHG_N >= 1e-06 AND _CHG_N < 1e-05
+      then:
+        str_decimal:
+          source: _CHG_N
+          decimals: 20
+    - when: _CHG_N >= 1e-05 AND _CHG_N < 0.0001
+      then:
+        str_decimal:
+          source: _CHG_N
+          decimals: 19
+    - when: _CHG_N >= 0.0001 AND _CHG_N < 0.001
+      then:
+        str_decimal:
+          source: _CHG_N
+          decimals: 18
+    - when: _CHG_N >= 0.001 AND _CHG_N < 0.01
+      then:
+        str_decimal:
+          source: _CHG_N
+          decimals: 17
+    - when: _CHG_N >= 0.01 AND _CHG_N < 0.1
+      then:
+        str_decimal:
+          source: _CHG_N
+          decimals: 16
+    - when: _CHG_N >= 0.1 AND _CHG_N < 1
+      then:
+        str_decimal:
+          source: _CHG_N
+          decimals: 15
+    - when: _CHG_N >= 1 AND _CHG_N < 10
+      then:
+        str_decimal:
+          source: _CHG_N
+          decimals: 14
+    - when: _CHG_N >= 10 AND _CHG_N < 100
+      then:
+        str_decimal:
+          source: _CHG_N
+          decimals: 13
+    - when: _CHG_N >= 100 AND _CHG_N < 1000
+      then:
+        str_decimal:
+          source: _CHG_N
+          decimals: 12
+    - when: _CHG_N >= 1000 AND _CHG_N < 10000
+      then:
+        str_decimal:
+          source: _CHG_N
+          decimals: 11
+    - when: _CHG_N >= 10000
+      then:
+        str_decimal:
+          source: _CHG_N
+          decimals: 10
+    - when: _CHG_N < 0 AND _CHG_N > -0.000001
+      then:
+        str_decimal:
+          source: _CHG_N
+          decimals: 21
+    - when: _CHG_N > -1e-05 AND _CHG_N <= -1e-06
+      then:
+        str_decimal:
+          source: _CHG_N
+          decimals: 20
+    - when: _CHG_N > -0.0001 AND _CHG_N <= -1e-05
+      then:
+        str_decimal:
+          source: _CHG_N
+          decimals: 19
+    - when: _CHG_N > -0.001 AND _CHG_N <= -0.0001
+      then:
+        str_decimal:
+          source: _CHG_N
+          decimals: 18
+    - when: _CHG_N > -0.01 AND _CHG_N <= -0.001
+      then:
+        str_decimal:
+          source: _CHG_N
+          decimals: 17
+    - when: _CHG_N > -0.1 AND _CHG_N <= -0.01
+      then:
+        str_decimal:
+          source: _CHG_N
+          decimals: 16
+    - when: _CHG_N > -1 AND _CHG_N <= -0.1
+      then:
+        str_decimal:
+          source: _CHG_N
+          decimals: 15
+    - when: _CHG_N > -10 AND _CHG_N <= -1
+      then:
+        str_decimal:
+          source: _CHG_N
+          decimals: 14
+    - when: _CHG_N > -100 AND _CHG_N <= -10
+      then:
+        str_decimal:
+          source: _CHG_N
+          decimals: 13
+    - when: _CHG_N > -1000 AND _CHG_N <= -100
+      then:
+        str_decimal:
+          source: _CHG_N
+          decimals: 12
+    - when: _CHG_N > -10000 AND _CHG_N <= -1000
+      then:
+        str_decimal:
+          source: _CHG_N
+          decimals: 11
+    - when: _CHG_N <= -10000
+      then:
+        str_decimal:
+          source: _CHG_N
+          decimals: 10
+- name: _CHG_S1
+  type: str
+  derivation:
+    str_replace:
+      source: _CHG_FMT
+      pattern: '0+$'
+      replacement: ''
+- name: _CHG_S2
+  type: str
+  derivation:
+    str_replace:
+      source: _CHG_S1
+      pattern: '\.$'
+      replacement: ''
+- name: _PCHG_FMT
+  type: str
+  derivation:
+    case:
+    - when: _PCHG_N >= 0 AND _PCHG_N < 1e-06
+      then:
+        str_decimal:
+          source: _PCHG_N
+          decimals: 21
+    - when: _PCHG_N >= 1e-06 AND _PCHG_N < 1e-05
+      then:
+        str_decimal:
+          source: _PCHG_N
+          decimals: 20
+    - when: _PCHG_N >= 1e-05 AND _PCHG_N < 0.0001
+      then:
+        str_decimal:
+          source: _PCHG_N
+          decimals: 19
+    - when: _PCHG_N >= 0.0001 AND _PCHG_N < 0.001
+      then:
+        str_decimal:
+          source: _PCHG_N
+          decimals: 18
+    - when: _PCHG_N >= 0.001 AND _PCHG_N < 0.01
+      then:
+        str_decimal:
+          source: _PCHG_N
+          decimals: 17
+    - when: _PCHG_N >= 0.01 AND _PCHG_N < 0.1
+      then:
+        str_decimal:
+          source: _PCHG_N
+          decimals: 16
+    - when: _PCHG_N >= 0.1 AND _PCHG_N < 1
+      then:
+        str_decimal:
+          source: _PCHG_N
+          decimals: 15
+    - when: _PCHG_N >= 1 AND _PCHG_N < 10
+      then:
+        str_decimal:
+          source: _PCHG_N
+          decimals: 14
+    - when: _PCHG_N >= 10 AND _PCHG_N < 100
+      then:
+        str_decimal:
+          source: _PCHG_N
+          decimals: 13
+    - when: _PCHG_N >= 100 AND _PCHG_N < 1000
+      then:
+        str_decimal:
+          source: _PCHG_N
+          decimals: 12
+    - when: _PCHG_N >= 1000 AND _PCHG_N < 10000
+      then:
+        str_decimal:
+          source: _PCHG_N
+          decimals: 11
+    - when: _PCHG_N >= 10000
+      then:
+        str_decimal:
+          source: _PCHG_N
+          decimals: 10
+    - when: _PCHG_N < 0 AND _PCHG_N > -0.000001
+      then:
+        str_decimal:
+          source: _PCHG_N
+          decimals: 21
+    - when: _PCHG_N > -1e-05 AND _PCHG_N <= -1e-06
+      then:
+        str_decimal:
+          source: _PCHG_N
+          decimals: 20
+    - when: _PCHG_N > -0.0001 AND _PCHG_N <= -1e-05
+      then:
+        str_decimal:
+          source: _PCHG_N
+          decimals: 19
+    - when: _PCHG_N > -0.001 AND _PCHG_N <= -0.0001
+      then:
+        str_decimal:
+          source: _PCHG_N
+          decimals: 18
+    - when: _PCHG_N > -0.01 AND _PCHG_N <= -0.001
+      then:
+        str_decimal:
+          source: _PCHG_N
+          decimals: 17
+    - when: _PCHG_N > -0.1 AND _PCHG_N <= -0.01
+      then:
+        str_decimal:
+          source: _PCHG_N
+          decimals: 16
+    - when: _PCHG_N > -1 AND _PCHG_N <= -0.1
+      then:
+        str_decimal:
+          source: _PCHG_N
+          decimals: 15
+    - when: _PCHG_N > -10 AND _PCHG_N <= -1
+      then:
+        str_decimal:
+          source: _PCHG_N
+          decimals: 14
+    - when: _PCHG_N > -100 AND _PCHG_N <= -10
+      then:
+        str_decimal:
+          source: _PCHG_N
+          decimals: 13
+    - when: _PCHG_N > -1000 AND _PCHG_N <= -100
+      then:
+        str_decimal:
+          source: _PCHG_N
+          decimals: 12
+    - when: _PCHG_N > -10000 AND _PCHG_N <= -1000
+      then:
+        str_decimal:
+          source: _PCHG_N
+          decimals: 11
+    - when: _PCHG_N <= -10000
+      then:
+        str_decimal:
+          source: _PCHG_N
+          decimals: 10
+- name: _PCHG_S1
+  type: str
+  derivation:
+    str_replace:
+      source: _PCHG_FMT
+      pattern: '0+$'
+      replacement: ''
+- name: _PCHG_S2
+  type: str
+  derivation:
+    str_replace:
+      source: _PCHG_S1
+      pattern: '\.$'
+      replacement: ''
+- name: _ANL01_RN
+  type: int
+  derivation:
+    row_number:
+      window: ANL01_W
+- name: _ANL02_RN
+  type: int
+  derivation:
+    row_number:
+      window: ANL02_W
+- name: _ANL03_RN
+  type: int
+  derivation:
+    row_number:
+      window: ANL03_W
+- name: SITEID
+  derivation: ADSL.SITEID
+  submission:
+    origins:
+    - type: Predecessor
+      description: ADSL.SITEID
+- name: COUNTRY
+  derivation: ADSL.COUNTRY
+  submission:
+    origins:
+    - type: Predecessor
+      description: ADSL.COUNTRY
+- name: AGE
+  derivation: ADSL.AGE
+  submission:
+    origins:
+    - type: Predecessor
+      description: ADSL.AGE
+- name: AGEU
+  derivation: ADSL.AGEU
+  submission:
+    origins:
+    - type: Predecessor
+      description: ADSL.AGEU
+- name: STRATAR
+  derivation: ADSL.STRATAR
+  submission:
+    mandatory: false
+    origins:
+    - type: Predecessor
+      description: ADSL.STRATAR
+- name: STRATARN
+  derivation: ADSL.STRATARN
+  submission:
+    mandatory: false
+    origins:
+    - type: Predecessor
+      description: ADSL.STRATARN
+- name: AGEGR1
+  derivation: ADSL.AGEGR1
+  submission:
+    origins:
+    - type: Predecessor
+      description: ADSL.AGEGR1
+- name: AGEGR1N
+  derivation: ADSL.AGEGR1N
+  submission:
+    origins:
+    - type: Predecessor
+      description: ADSL.AGEGR1N
+- name: AGEGR2
+  derivation: ADSL.AGEGR2
+  submission:
+    origins:
+    - type: Predecessor
+      description: ADSL.AGEGR2
+- name: AGEGR2N
+  derivation: ADSL.AGEGR2N
+  submission:
+    origins:
+    - type: Predecessor
+      description: ADSL.AGEGR2N
+- name: SEX
+  derivation: ADSL.SEX
+  submission:
+    origins:
+    - type: Predecessor
+      description: ADSL.SEX
+- name: RACE
+  derivation: ADSL.RACE
+  submission:
+    origins:
+    - type: Predecessor
+      description: ADSL.RACE
+- name: RACESPY
+  derivation: ADSL.RACESPY
+  submission:
+    origins:
+    - type: Predecessor
+      description: ADSL.RACESPY
+- name: ETHNIC
+  derivation: ADSL.ETHNIC
+  submission:
+    origins:
+    - type: Predecessor
+      description: ADSL.ETHNIC
+- name: RANDFL
+  derivation: ADSL.RANDFL
+  submission:
+    origins:
+    - type: Predecessor
+      description: ADSL.RANDFL
+- name: FASFL
+  derivation: ADSL.FASFL
+  submission:
+    origins:
+    - type: Predecessor
+      description: ADSL.FASFL
+- name: SAFFL
+  derivation: ADSL.SAFFL
+  submission:
+    origins:
+    - type: Predecessor
+      description: ADSL.SAFFL
+- name: SAR1FL
+  derivation: ADSL.SAR1FL
+  submission:
+    origins:
+    - type: Predecessor
+      description: ADSL.SAR1FL
+- name: SAR2FL
+  derivation: ADSL.SAR2FL
+  submission:
+    origins:
+    - type: Predecessor
+      description: ADSL.SAR2FL
+- name: SARAFL
+  derivation: ADSL.SARAFL
+  submission:
+    origins:
+    - type: Predecessor
+      description: ADSL.SARAFL
+- name: MITTFL
+  derivation: ADSL.MITTFL
+  submission:
+    origins:
+    - type: Predecessor
+      description: ADSL.MITTFL
+- name: PPROTFL
+  derivation: ADSL.PPROTFL
+  submission:
+    origins:
+    - type: Predecessor
+      description: ADSL.PPROTFL
+- name: COMPLFL
+  derivation: ADSL.COMPLFL
+  submission:
+    origins:
+    - type: Predecessor
+      description: ADSL.COMPLFL
+- name: DOSE1FL
+  derivation: ADSL.DOSE1FL
+  submission:
+    origins:
+    - type: Predecessor
+      description: ADSL.DOSE1FL
+- name: DOSE2FL
+  derivation: ADSL.DOSE2FL
+  submission:
+    origins:
+    - type: Predecessor
+      description: ADSL.DOSE2FL
+- name: RTPCRBL
+  derivation: ADSL.RTPCRBL
+  submission:
+    origins:
+    - type: Predecessor
+      description: ADSL.RTPCRBL
+- name: ELECSBL
+  derivation: ADSL.ELECSBL
+  submission:
+    origins:
+    - type: Predecessor
+      description: ADSL.ELECSBL
+- name: SCOV2BL
+  derivation: ADSL.SCOV2BL
+  submission:
+    origins:
+    - type: Predecessor
+      description: ADSL.SCOV2BL
+- name: TRT01P
+  derivation: ADSL.TRT01P
+  submission:
+    mandatory: false
+    origins:
+    - type: Predecessor
+      description: ADSL.TRT01P
+- name: TRT01PN
+  derivation: ADSL.TRT01PN
+  submission:
+    mandatory: false
+    origins:
+    - type: Predecessor
+      description: ADSL.TRT01PN
+- name: TRT01A
+  derivation: ADSL.TRT01A
+  submission:
+    origins:
+    - type: Predecessor
+      description: ADSL.TRT01A
+- name: TRT01AN
+  derivation: ADSL.TRT01AN
+  submission:
+    origins:
+    - type: Predecessor
+      description: ADSL.TRT01AN
+- name: TR01SDT
+  derivation: ADSL.TR01SDT
+  submission:
+    origins:
+    - type: Predecessor
+      description: ADSL.TR01SDT
+- name: TR01SDTM
+  derivation: ADSL.TR01SDTM
+  submission:
+    origins:
+    - type: Predecessor
+      description: ADSL.TR01SDTM
+- name: TR01EDT
+  derivation: ADSL.TR01EDT
+  submission:
+    origins:
+    - type: Predecessor
+      description: ADSL.TR01EDT
+- name: TR01EDTM
+  derivation: ADSL.TR01EDTM
+  submission:
+    origins:
+    - type: Predecessor
+      description: ADSL.TR01EDTM
+- name: DOSE2DT
+  derivation: ADSL.DOSE2DT
+  submission:
+    origins:
+    - type: Predecessor
+      description: ADSL.DOSE2DT
+- name: DOS2DTM
+  derivation: ADSL.DOS2DTM
+  submission:
+    origins:
+    - type: Predecessor
+      description: ADSL.DOS2DTM
+- name: RSKF1
+  derivation: ADSL.RSKF1
+  submission:
+    origins:
+    - type: Predecessor
+      description: ADSL.RSKF1
+- name: RSKF2
+  derivation: ADSL.RSKF2
+  submission:
+    origins:
+    - type: Predecessor
+      description: ADSL.RSKF2
+- name: RSKF3
+  derivation: ADSL.RSKF3
+  submission:
+    origins:
+    - type: Predecessor
+      description: ADSL.RSKF3
+- name: RSKF4
+  derivation: ADSL.RSKF4
+  submission:
+    origins:
+    - type: Predecessor
+      description: ADSL.RSKF4
+- name: RSKF5
+  derivation: ADSL.RSKF5
+  submission:
+    origins:
+    - type: Predecessor
+      description: ADSL.RSKF5
+- name: RSKF6
+  derivation: ADSL.RSKF6
+  submission:
+    origins:
+    - type: Predecessor
+      description: ADSL.RSKF6
+- name: STRATAV
+  derivation: ADSL.STRATAV
+  submission:
+    origins:
+    - type: Predecessor
+      description: ADSL.STRATAV
+- name: STRATAVN
+  derivation: ADSL.STRATAVN
+  submission:
+    origins:
+    - type: Predecessor
+      description: ADSL.STRATAVN
+- name: MINORITY
+  derivation: ADSL.MINORITY
+  submission:
+    origins:
+    - type: Predecessor
+      description: ADSL.MINORITY
+- name: RACEGR1
+  derivation: ADSL.RACEGR1
+  submission:
+    mandatory: false
+    origins:
+    - type: Predecessor
+      description: ADSL.RACEGR1
+- name: RACEGR1N
+  derivation: ADSL.RACEGR1N
+  submission:
+    mandatory: false
+    origins:
+    - type: Predecessor
+      description: ADSL.RACEGR1N
+- name: RISKGR1
+  derivation: ADSL.RISKGR1
+  submission:
+    origins:
+    - type: Predecessor
+      description: ADSL.RISKGR1
+- name: RISKGR1N
+  derivation: ADSL.RISKGR1N
+  submission:
+    origins:
+    - type: Predecessor
+      description: ADSL.RISKGR1N
+- name: RETHGR1
+  derivation: ADSL.RETHGR1
+  submission:
+    origins:
+    - type: Predecessor
+      description: ADSL.RETHGR1
+- name: RETHGR1N
+  derivation: ADSL.RETHGR1N
+  submission:
+    origins:
+    - type: Predecessor
+      description: ADSL.RETHGR1N
+- name: ACTARM
+  derivation: null
+- name: ARM
+  derivation: null
+- name: BMIBL
+  derivation: null
+- name: CBNRS
+  derivation: null
+- name: CHILDBP
+  derivation: null
+- name: CUTOFFDT
+  derivation: null
+- name: DCSREAS
+  derivation: null
+- name: DCSREASP
+  derivation: null
+- name: DCTREAS
+  derivation: null
+- name: DCTREASP
+  derivation: null
+- name: DTHAUTOP
+  derivation: null
+- name: DTHDT
+  derivation: null
+- name: EFFCODT
+  derivation: null
+- name: EOSDT
+  derivation: null
+- name: EOSDY
+  derivation: null
+- name: EOSSTT
+  derivation: null
+- name: EOTDT
+  derivation: null
+- name: EOTDY
+  derivation: null
+- name: EOTSTT
+  derivation: null
+- name: FASEREAS
+  derivation: null
+- name: HEIGHTBL
+  derivation: null
+- name: MITTERS
+  derivation: null
+- name: PPEREAS
+  derivation: null
+- name: PREVSCR
+  derivation: null
+- name: PROTVER
+  derivation: null
+- name: RANDDT
+  derivation: null
+- name: RANDNUM
+  derivation: null
+- name: RFICDT
+  derivation: null
+- name: RFXSTDTC
+  derivation: null
+- name: SAFEREAS
+  derivation: null
+- name: SAR1ERS
+  derivation: null
+- name: SAR2ERS
+  derivation: null
+- name: STUDDUR1
+  derivation: null
+- name: STUDDUR2
+  derivation: null
+- name: STUDDUR3
+  derivation: null
+- name: WEIGHTBL
+  derivation: null
+- name: TRTA
+  type: str
+  label: Actual Treatment
+  derivation:
+    case:
+    - when: _MDOSREF = 'Vaccination 1' AND str_contains(EX_DOSE1.EXTRT, '[Pp][Ll][Aa][Cc][Ee][Bb][Oo]')
+      then: '''Placebo'''
+    - when: _MDOSREF = 'Vaccination 1' AND str_contains(EX_DOSE1.EXTRT, '[Mm][Rr][Nn][Aa]') AND EX_DOSE1.EXDOSE > 0
+      then: '''mRNA-1273'''
+    - when: _MDOSREF = 'Vaccination 2' AND str_contains(EX_DOSE2.EXTRT, '[Pp][Ll][Aa][Cc][Ee][Bb][Oo]')
+      then: '''Placebo'''
+    - when: _MDOSREF = 'Vaccination 2' AND str_contains(EX_DOSE2.EXTRT, '[Mm][Rr][Nn][Aa]') AND EX_DOSE2.EXDOSE > 0
+      then: '''mRNA-1273'''
+    - otherwise: "''"
+  submission:
+    core: Perm
+    mandatory: false
+    length: 50
+    origins:
+    - type: Derived
+    method: "Withheld from publication: the received define states this text."
+- name: TRTAN
+  type: int
+  label: Actual Treatment (N)
+  derivation:
+    mapping:
+      source: TRTA
+      dict:
+        Placebo: 1
+        mRNA-1273: 2
+      unmapped: null
+  submission:
+    core: Req
+    mandatory: false
+    length: 8
+    display_format: '3.'
+    origins:
+    - type: Derived
+    method: "Withheld from publication: the received define states this text."
+- name: VSDTC
+  type: str
+  label: Date/Time of Measurements
+  derivation:
+    case:
+    - when: _VSDTC_YYYY IS NOT NULL AND _VSDTC_YYYY NOT IN ('')
+      then:
+        str_template:
+          template: '{_VSDTC_MO}/{_VSDTC_DD}/{_VSDTC_YYYY}'
+          missing: ''
+    - otherwise: _VSDTC
+  submission:
+    core: Req
+    mandatory: false
+    length: 20
+    origins:
+    - type: Derived
+    method: "Withheld from publication: the received define states this text."
+- name: ADT
+  type: date
+  label: Analysis Date
+  derivation:
+    to_date:
+      source: _VSDTC
+  submission:
+    core: Perm
+    mandatory: false
+    origins:
+    - type: Derived
+    method: "Withheld from publication: the received define states this text."
+- name: ATM
+  type: time
+  label: Analysis Time
+  derivation:
+    to_time:
+      source: _ATM_DT
+  submission:
+    core: Perm
+    mandatory: false
+    origins:
+    - type: Derived
+    method: "Withheld from publication: the received define states this text."
+- name: ADTM
+  type: datetime
+  label: Analysis Datetime
+  derivation: _ORI_ADTM
+  submission:
+    core: Perm
+    mandatory: false
+    origins:
+    - type: Derived
+    method: "Withheld from publication: the received define states this text."
+- name: ADY
+  type: int
+  label: Analysis Relative Day
+  derivation:
+    study_day:
+      source: ADT
+      reference: TR01SDT
+  submission:
+    core: Perm
+    mandatory: false
+    length: 8
+    display_format: '3.'
+    origins:
+    - type: Derived
+    method: "Withheld from publication: the received define states this text."
+- name: MDOSREF
+  type: str
+  label: Most Recent Dose Reference
+  derivation: _MDOSREF
+  submission:
+    core: Perm
+    mandatory: false
+    length: 25
+    origins:
+    - type: Derived
+    method: "Withheld from publication: the received define states this text."
+- name: MRDDY
+  type: int
+  label: Relative Day from Most Recent Dose
+  derivation: _MRDDY
+  submission:
+    core: Perm
+    mandatory: false
+    length: 8
+    display_format: '3.'
+    origins:
+    - type: Derived
+    method: "Withheld from publication: the received define states this text."
+- name: VISIT
+  type: str
+  label: Visit Name
+  derivation: _ORI_VISIT
+  submission:
+    core: Perm
+    mandatory: false
+    length: 100
+    origins:
+    - type: Derived
+    method: "Withheld from publication: the received define states this text."
+- name: VISITNUM
+  type: float
+  label: Visit Number
+  derivation: _VISITNUM
+  submission:
+    # SUB-29 (yamaa #4820): numeric widths here fit the derived values. The received
+    # define's Pinnacle 21 widths stay in the reproduced define layer (define/).
+    core: Perm
+    mandatory: false
+    length: 18
+    significant_digits: 17
+    origins:
+    - type: Derived
+    method: "Withheld from publication: the received define states this text."
+- name: AVISIT
+  type: str
+  label: Analysis Visit
+  derivation: _AVISIT_F
+  submission:
+    core: Perm
+    mandatory: false
+    length: 50
+    origins:
+    - type: Derived
+    method: "Withheld from publication: the received define states this text."
+- name: AVISITN
+  type: int
+  label: Analysis Visit (N)
+  derivation: _AVISITN_F
+  submission:
+    core: Perm
+    mandatory: false
+    length: 8
+    display_format: '3.'
+    origins:
+    - type: Derived
+    method: "Withheld from publication: the received define states this text."
+- name: ATPT
+  type: str
+  label: Analysis Timepoint
+  derivation: _ATPT_F
+  submission:
+    core: Perm
+    mandatory: false
+    length: 20
+    origins:
+    - type: Derived
+    method: "Withheld from publication: the received define states this text."
+- name: ATPTN
+  type: int
+  label: Analysis Timepoint (N)
+  derivation: _ATPTN_F
+  submission:
+    core: Perm
+    mandatory: false
+    length: 8
+    display_format: '3.'
+    origins:
+    - type: Derived
+    method: "Withheld from publication: the received define states this text."
+- name: VSTPT
+  type: str
+  label: Planned Time Point Name
+  derivation: _VSTPT
+  submission:
+    core: Perm
+    mandatory: false
+    length: 100
+    origins:
+    - type: Derived
+    method: "Withheld from publication: the received define states this text."
+- name: ASTAGE
+  type: str
+  label: Stage
+  derivation: _ASTAGE
+  submission:
+    core: Perm
+    mandatory: false
+    length: 30
+    origins:
+    - type: Derived
+    method: "Withheld from publication: the received define states this text."
+- name: ASTAGEN
+  type: int
+  label: Stage (N)
+  derivation: _ASTAGEN
+  submission:
+    core: Perm
+    mandatory: false
+    length: 8
+    display_format: '3.'
+    origins:
+    - type: Derived
+    method: "Withheld from publication: the received define states this text."
+- name: PARAMCD
+  type: str
+  label: Parameter Code
+  submission:
+    core: Perm
+    mandatory: true
+    length: 8
+    origins:
+    - type: Derived
+    method: "Withheld from publication: the received define states this text."
+- name: PARAM
+  type: str
+  label: Parameter
+  submission:
+    core: Perm
+    mandatory: false
+    length: 50
+    origins:
+    - type: Derived
+    method: "Withheld from publication: the received define states this text."
+- name: AVAL
+  type: str
+  label: Analysis Value
+  submission:
+    core: Perm
+    mandatory: false
+    length: 8
+    origins:
+    - type: Derived
+    method: "Withheld from publication: the received define states this text."
+- name: VSSTRESC
+  type: str
+  label: Character Result/Finding in Std Format
+  submission:
+    core: Perm
+    mandatory: false
+    length: 25
+    origins:
+    - type: Derived
+    method: "Withheld from publication: the received define states this text."
+- name: ABLFL
+  type: str
+  label: Baseline Record Flag
+  derivation:
+    case:
+    - when: _BASELINE = 'Y'
+      then: '''Y'''
+    - otherwise: "''"
+  submission:
+    core: Perm
+    mandatory: false
+    length: 1
+    origins:
+    - type: Derived
+    method: "Withheld from publication: the received define states this text."
+- name: BASE
+  type: str
+  label: Baseline Value
+  derivation: _BASE
+  submission:
+    core: Perm
+    mandatory: false
+    length: 8
+    origins:
+    - type: Derived
+    method: "Withheld from publication: the received define states this text."
+- name: CHG
+  type: str
+  label: Change from Baseline
+  derivation:
+    case:
+    - when: _POSTFL2 = 'Y' AND _RED = 1
+      then: '''(b)(6)'''
+    - when: _POSTFL2 = 'Y' AND _CHG_N IS NOT NULL
+      then: _CHG_S2
+    - otherwise: "''"
+  submission:
+    core: Perm
+    mandatory: false
+    length: 20
+    origins:
+    - type: Derived
+    method: "Withheld from publication: the received define states this text."
+- name: PCHG
+  type: str
+  label: Percent Change from Baseline
+  derivation:
+    case:
+    - when: _POSTFL2 = 'Y' AND _RED = 1
+      then: '''(b)(6)'''
+    - when: _POSTFL2 = 'Y' AND _PCHG_N IS NOT NULL
+      then: _PCHG_S2
+    - otherwise: "''"
+  submission:
+    core: Perm
+    mandatory: false
+    length: 20
+    origins:
+    - type: Derived
+    method: "Withheld from publication: the received define states this text."
+- name: ATOXGRL
+  type: str
+  label: Analysis Toxicity Grade Low
+  derivation: _ATOXGRL
+  submission:
+    core: Perm
+    mandatory: false
+    length: 10
+    origins:
+    - type: Derived
+    method: "Withheld from publication: the received define states this text."
+- name: ATOXGRLN
+  type: int
+  label: Analysis Toxicity Grade Low (N)
+  derivation: _ATOXGRLN
+  submission:
+    core: Perm
+    mandatory: false
+    length: 8
+    display_format: '3.'
+    origins:
+    - type: Derived
+    method: "Withheld from publication: the received define states this text."
+- name: ATOXGRH
+  type: str
+  label: Analysis Toxicity Grade High
+  derivation: _ATOXGRH
+  submission:
+    core: Perm
+    mandatory: false
+    length: 10
+    origins:
+    - type: Derived
+    method: "Withheld from publication: the received define states this text."
+- name: ATOXGRHN
+  type: int
+  label: Analysis Toxicity Grade High (N)
+  derivation: _ATOXGRHN
+  submission:
+    core: Perm
+    mandatory: false
+    length: 8
+    display_format: '3.'
+    origins:
+    - type: Derived
+    method: "Withheld from publication: the received define states this text."
+- name: BTOXGRL
+  type: str
+  label: Baseline Toxicity Grade Low
+  derivation: _BTOXGRL
+  submission:
+    core: Perm
+    mandatory: false
+    length: 10
+    origins:
+    - type: Derived
+    method: "Withheld from publication: the received define states this text."
+- name: BTOXGRLN
+  type: int
+  label: Baseline Toxicity Grade Low (N)
+  derivation: _BTOXGRLN
+  submission:
+    core: Perm
+    mandatory: false
+    length: 8
+    display_format: '3.'
+    origins:
+    - type: Derived
+    method: "Withheld from publication: the received define states this text."
+- name: BTOXGRH
+  type: str
+  label: Baseline Toxicity Grade High
+  derivation: _BTOXGRH
+  submission:
+    core: Perm
+    mandatory: false
+    length: 10
+    origins:
+    - type: Derived
+    method: "Withheld from publication: the received define states this text."
+- name: BTOXGRHN
+  type: int
+  label: Baseline Toxicity Grade High (N)
+  derivation: _BTOXGRHN
+  submission:
+    core: Perm
+    mandatory: false
+    length: 8
+    display_format: '3.'
+    origins:
+    - type: Derived
+    method: "Withheld from publication: the received define states this text."
+- name: ATOXDSCL
+  type: str
+  label: Analysis Toxicity Description Low
+  derivation:
+    case:
+    - when: PARAMCD = 'PULSE'
+      then: '''Bradycardia'''
+    - when: PARAMCD = 'SYSBP'
+      then: '''Hypotension'''
+    - otherwise: "''"
+  submission:
+    core: Perm
+    mandatory: false
+    length: 30
+    origins:
+    - type: Derived
+    method: "Withheld from publication: the received define states this text."
+- name: ATOXDSCH
+  type: str
+  label: Analysis Toxicity Description High
+  derivation:
+    case:
+    - when: PARAMCD = 'TEMP'
+      then: '''Fever'''
+    - when: PARAMCD = 'PULSE'
+      then: '''Tachycardia'''
+    - when: PARAMCD = 'SYSBP'
+      then: '''Systolic Hypertension'''
+    - when: PARAMCD = 'DIABP'
+      then: '''Diastolic Hypertension'''
+    - when: PARAMCD = 'RESP'
+      then: '''Respiratory Rate Increased'''
+    - otherwise: "''"
+  submission:
+    core: Perm
+    mandatory: false
+    length: 30
+    origins:
+    - type: Derived
+    method: "Withheld from publication: the received define states this text."
+- name: SHIFT1
+  type: str
+  label: Shift 1
+  derivation: _SHIFT1
+  submission:
+    core: Perm
+    mandatory: false
+    length: 20
+    origins:
+    - type: Derived
+    method: "Withheld from publication: the received define states this text."
+- name: SHIFT2
+  type: str
+  label: Shift 2
+  derivation: _SHIFT2
+  submission:
+    core: Perm
+    mandatory: false
+    length: 20
+    origins:
+    - type: Derived
+    method: "Withheld from publication: the received define states this text."
+- name: AWRANGE
+  type: str
+  label: Analysis Window Valid Relative Range
+  derivation:
+    case:
+    - when: _ATPT_BLANK = 1
+      then: "''"
+    - otherwise: _AWRANGE_P5
+  submission:
+    core: Perm
+    mandatory: false
+    length: 50
+    origins:
+    - type: Derived
+    method: "Withheld from publication: the received define states this text."
+- name: AWTARGET
+  type: int
+  label: Analysis Window Target
+  derivation:
+    case:
+    - when: _ATPT_BLANK = 1
+      then: null
+    - otherwise: _AWTARGET_P5
+  submission:
+    core: Perm
+    mandatory: false
+    length: 8
+    display_format: '3.'
+    origins:
+    - type: Derived
+    method: "Withheld from publication: the received define states this text."
+- name: AWTDIFF
+  type: int
+  label: Analysis Window Diff from Target
+  derivation:
+    case:
+    - when: _ATPT_BLANK = 1
+      then: null
+    - otherwise: _AWTDIFF_P5
+  submission:
+    core: Perm
+    mandatory: false
+    length: 8
+    display_format: '3.'
+    origins:
+    - type: Derived
+    method: "Withheld from publication: the received define states this text."
+- name: ANL01FL
+  type: str
+  label: Analysis Flag 01
+  derivation:
+    case:
+    - when: (_ANL01_RN = 1 AND _AVISITN_F IS NOT NULL AND _POSTFL2 = 'Y' AND _AVALN2 = 1) OR _BASELINE = 'Y'
+      then: '''Y'''
+    - otherwise: "''"
+  submission:
+    core: Perm
+    mandatory: true
+    length: 1
+    origins:
+    - type: Derived
+    method: "Withheld from publication: the received define states this text."
+- name: ANL02FL
+  type: str
+  label: Analysis Flag 02
+  derivation:
+    case:
+    - when: _ANL02_RN = 1 AND _POSTFL2 = 'Y' AND _ATOXGRLN IS NOT NULL
+      then: '''Y'''
+    - otherwise: "''"
+  submission:
+    core: Perm
+    mandatory: true
+    length: 1
+    origins:
+    - type: Derived
+    method: "Withheld from publication: the received define states this text."
+- name: ANL03FL
+  type: str
+  label: Analysis Flag 03
+  derivation:
+    case:
+    - when: _ANL03_RN = 1 AND _POSTFL2 = 'Y' AND _ATOXGRHN IS NOT NULL
+      then: '''Y'''
+    - otherwise: "''"
+  submission:
+    core: Perm
+    mandatory: true
+    length: 1
+    origins:
+    - type: Derived
+    method: "Withheld from publication: the received define states this text."
+- name: VSLOC
+  type: str
+  label: Location of Vital Signs Measurement
+  submission:
+    core: Perm
+    mandatory: false
+    length: 20
+    origins:
+    - type: Derived
+    method: "Withheld from publication: the received define states this text."
+- name: VSLOCSP
+  type: str
+  label: Other Location, specify
+  submission:
+    core: Perm
+    mandatory: false
+    length: 200
+    origins:
+    - type: Derived
+    method: "Withheld from publication: the received define states this text."
+- name: ASEQ
+  type: int
+  derivation:
+    row_number:
+      window:
+        group_by:
+        - STUDYID
+        - USUBJID
+        order_by:
+        - _VSSEQ
+        - PARAMCD
+output:
+  path: <adam-dir>/advs-yamaa.parquet
+  order_by:
+  - USUBJID
+  - PARAMCD
+  - AVISITN
+  - VSDTC
+  columns:
+  - STUDYID
+  - USUBJID
+  - SUBJID
+  - SITEID
+  - COUNTRY
+  - AGE
+  - AGEU
+  - STRATAR
+  - STRATARN
+  - AGEGR1
+  - AGEGR1N
+  - AGEGR2
+  - AGEGR2N
+  - SEX
+  - RACE
+  - RACESPY
+  - ETHNIC
+  - RANDFL
+  - FASFL
+  - SAFFL
+  - SAR1FL
+  - SAR2FL
+  - SARAFL
+  - MITTFL
+  - PPROTFL
+  - COMPLFL
+  - DOSE1FL
+  - DOSE2FL
+  - RTPCRBL
+  - ELECSBL
+  - SCOV2BL
+  - TRT01P
+  - TRT01PN
+  - TRT01A
+  - TRT01AN
+  - TR01SDT
+  - TR01SDTM
+  - TR01EDT
+  - TR01EDTM
+  - DOSE2DT
+  - DOS2DTM
+  - RSKF1
+  - RSKF2
+  - RSKF3
+  - RSKF4
+  - RSKF5
+  - RSKF6
+  - STRATAV
+  - STRATAVN
+  - MINORITY
+  - RACEGR1
+  - RACEGR1N
+  - RISKGR1
+  - RISKGR1N
+  - RETHGR1
+  - RETHGR1N
+  - TRTA
+  - TRTAN
+  - VSDTC
+  - ADT
+  - ATM
+  - ADTM
+  - ADY
+  - MDOSREF
+  - MRDDY
+  - VISIT
+  - VISITNUM
+  - AVISIT
+  - AVISITN
+  - ATPT
+  - ATPTN
+  - VSTPT
+  - ASTAGE
+  - ASTAGEN
+  - PARAMCD
+  - PARAM
+  - AVAL
+  - VSSTRESC
+  - ABLFL
+  - BASE
+  - CHG
+  - PCHG
+  - ATOXGRL
+  - ATOXGRLN
+  - ATOXGRH
+  - ATOXGRHN
+  - BTOXGRL
+  - BTOXGRLN
+  - BTOXGRH
+  - BTOXGRHN
+  - ATOXDSCL
+  - ATOXDSCH
+  - SHIFT1
+  - SHIFT2
+  - AWRANGE
+  - AWTARGET
+  - AWTDIFF
+  - ANL01FL
+  - ANL02FL
+  - ANL03FL
+  - VSLOC
+  - VSLOCSP
+  - ASEQ

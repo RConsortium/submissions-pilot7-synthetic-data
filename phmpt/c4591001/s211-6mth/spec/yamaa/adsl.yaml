@@ -1,0 +1,1536 @@
+# ADSL for Pfizer C4591001, S211 6-month cut (BLA 125742 sequence 45),
+# the 12-15-year-old cohort.
+# Layer over the 1-month spec, run on this cut's SDTM
+# (scripts/reproduce.py verify --study c4591001 --cut s211-6mth). The output
+# keeps the 6-month file's columns, in its order; the program keeps only the
+# subjects of its ADSL (one DM subject has no ADSL record).
+# The 6-month adsl.sas reads no PR: PR is an empty table (helper/no_pr.yaml).
+yamaa: '1.0'
+type: spec
+parent: ../../../s211-1mth/spec/yamaa/adsl.yaml
+input:
+  ADSYMPT: <adam-dir>/adsympt.parquet
+  PR:
+    path: <work-dir>/pr.parquet
+    schema: helper/no_pr.yaml
+# The 6-month program censors at its snapshot, &cutoff2 = 02SEP2021.
+intermediates:
+- id: CUT_I
+  derivations:
+    _CUT:
+      type: date
+      derivation: DATE '2021-09-02'
+# A missed 1-month (V3) or 6-month (V4) blood sample is replaced by a
+# COVID, V101_VAX3 or V201_SURVEIL_CONSENT sample taken within 7 days of the
+# missed visit's SV date, or within the dose window (28-42 days after Dose 2
+# for V3, 175-189 for V4); the closest to the visit date, or else to Dose 2
+# + 30 / + 180 days, wins (the 6-month adsl.sas rep_c / rep_d).
+- id: SV_V3
+  dataset: SV
+  key:
+  - USUBJID
+  filter: SV.VISIT = 'V3_MONTH1_POSTVAX2_L' AND SV.SVSTDTC IS NOT NULL
+  order_by:
+  - SV.SVSTDTC
+  keep: first
+  derivations:
+    _DT:
+      type: date
+      derivation:
+        to_date:
+          source: SV.SVSTDTC
+- id: SV_V4
+  dataset: SV
+  key:
+  - USUBJID
+  filter: SV.VISIT = 'V4_MONTH6_L' AND SV.SVSTDTC IS NOT NULL
+  order_by:
+  - SV.SVSTDTC
+  keep: first
+  derivations:
+    _DT:
+      type: date
+      derivation:
+        to_date:
+          source: SV.SVSTDTC
+- id: CO_V3R
+  dataset: CO
+  key:
+  - USUBJID
+  filter: (str_contains(CO.VISIT, 'COVID') OR CO.VISIT = 'V101_VAX3' OR CO.VISIT = 'V201_SURVEIL_CONSENT')
+    AND CO.RDOMAIN = 'IS' AND CO.COREF = 'Sample Collected' AND CO.COVAL = 'Y'
+  order_by:
+  - variable: CO._IN
+    direction: desc
+  - variable: CO._DIST
+    direction: asc
+    nulls: last
+  keep: first
+  derivations:
+    _CODT:
+      type: date
+      derivation:
+        to_date:
+          source: CO.CODTC
+    _D2DIFF:
+      type: int
+      derivation:
+        diff:
+          type: date
+          start: D_VAX102._DT
+          end: _CODT
+          unit: day
+    _SVDIFF:
+      type: int
+      derivation:
+        diff:
+          type: date
+          start: SV_V3._DT
+          end: _CODT
+          unit: day
+    _IN:
+      type: int
+      derivation:
+        case:
+        - when: (_SVDIFF >= -7 AND _SVDIFF <= 7) OR (_D2DIFF >= 28 AND _D2DIFF <= 42)
+          then: 1
+        - otherwise: 0
+    _DIST:
+      type: int
+      derivation:
+        case:
+        - when: SV_V3._DT IS NOT NULL
+          then: abs(_SVDIFF)
+        - otherwise: abs(_D2DIFF - 30)
+    _VISITNUM:
+      type: float
+      derivation:
+        case:
+        - when: _IN = 1
+          then: CO.VISITNUM
+    _CODTC:
+      type: str
+      derivation:
+        case:
+        - when: _IN = 1
+          then: CO.CODTC
+- id: CO_V4R
+  dataset: CO
+  key:
+  - USUBJID
+  filter: (str_contains(CO.VISIT, 'COVID') OR CO.VISIT = 'V101_VAX3' OR CO.VISIT = 'V201_SURVEIL_CONSENT')
+    AND CO.RDOMAIN = 'IS' AND CO.COREF = 'Sample Collected' AND CO.COVAL = 'Y'
+  order_by:
+  - variable: CO._IN
+    direction: desc
+  - variable: CO._DIST
+    direction: asc
+    nulls: last
+  keep: first
+  derivations:
+    _CODT:
+      type: date
+      derivation:
+        to_date:
+          source: CO.CODTC
+    _D2DIFF:
+      type: int
+      derivation:
+        diff:
+          type: date
+          start: D_VAX102._DT
+          end: _CODT
+          unit: day
+    _SVDIFF:
+      type: int
+      derivation:
+        diff:
+          type: date
+          start: SV_V4._DT
+          end: _CODT
+          unit: day
+    _IN:
+      type: int
+      derivation:
+        case:
+        - when: (_SVDIFF >= -7 AND _SVDIFF <= 7) OR (_D2DIFF >= 175 AND _D2DIFF <= 189)
+          then: 1
+        - otherwise: 0
+    _DIST:
+      type: int
+      derivation:
+        case:
+        - when: SV_V4._DT IS NOT NULL
+          then: abs(_SVDIFF)
+        - otherwise: abs(_D2DIFF - 180)
+    _VISITNUM:
+      type: float
+      derivation:
+        case:
+        - when: _IN = 1
+          then: CO.VISITNUM
+    _CODTC:
+      type: str
+      derivation:
+        case:
+        - when: _IN = 1
+          then: CO.CODTC
+- id: SUBCOV1
+  derivations:
+    _COVVISNUM:
+      type: float
+      derivation: CO_V3R._VISITNUM
+    _COVDTC:
+      type: str
+      derivation: CO_V3R._CODTC
+- id: SUBCOV2
+  derivations:
+    _COVVISNUM:
+      type: float
+      derivation: CO_V4R._VISITNUM
+    _COVDTC:
+      type: str
+      derivation: CO_V4R._CODTC
+# The visit 3 date of EV1MD2FL (the 6-month adsl.sas dt_c19_rt_1): the V3
+# SV date when ADSYMPT has a C19NIG or RTCOV2NS result at V3; else the date
+# of a V201_SURVEIL_CONSENT, V101_VAX3 or convalescent (A1 .. H1) visit with
+# such a result, dated 28-42 days after Dose 2 (day 1 = Dose 2) or within 7
+# days of the V3 date, in that order of precedence.
+- id: A_V3
+  dataset: ADSYMPT
+  key:
+  - USUBJID
+  filter: ADSYMPT.PARAMCD IN ('C19NIG', 'RTCOV2NS') AND ADSYMPT.AVALC IS NOT NULL AND ADSYMPT.AVALC <> ''
+    AND (ADSYMPT.VISIT = 'V3_MONTH1_POSTVAX2_L')
+  order_by:
+  - ADSYMPT.ADT
+  keep: first
+  derivations:
+    _U:
+      type: str
+      derivation: ADSYMPT.USUBJID
+- id: A_V101
+  dataset: ADSYMPT
+  key:
+  - USUBJID
+  filter: ADSYMPT.PARAMCD IN ('C19NIG', 'RTCOV2NS') AND ADSYMPT.AVALC IS NOT NULL AND ADSYMPT.AVALC <> ''
+    AND (ADSYMPT.VISIT = 'V101_VAX3')
+  order_by:
+  - ADSYMPT.ADT
+  keep: first
+  derivations:
+    _U:
+      type: str
+      derivation: ADSYMPT.USUBJID
+- id: A_V201
+  dataset: ADSYMPT
+  key:
+  - USUBJID
+  filter: ADSYMPT.PARAMCD IN ('C19NIG', 'RTCOV2NS') AND ADSYMPT.AVALC IS NOT NULL AND ADSYMPT.AVALC <> ''
+    AND (ADSYMPT.VISIT = 'V201_SURVEIL_CONSENT')
+  order_by:
+  - ADSYMPT.ADT
+  keep: first
+  derivations:
+    _U:
+      type: str
+      derivation: ADSYMPT.USUBJID
+- id: A_CONV
+  dataset: ADSYMPT
+  key:
+  - USUBJID
+  filter: ADSYMPT.PARAMCD IN ('C19NIG', 'RTCOV2NS') AND ADSYMPT.AVALC IS NOT NULL AND ADSYMPT.AVALC <> ''
+    AND (str_contains(ADSYMPT.VISIT, '_A1') OR str_contains(ADSYMPT.VISIT, '_B1') OR str_contains(ADSYMPT.VISIT, '_C1') OR str_contains(ADSYMPT.VISIT, '_D1') OR str_contains(ADSYMPT.VISIT, '_E1') OR str_contains(ADSYMPT.VISIT, '_F1') OR str_contains(ADSYMPT.VISIT, '_G1') OR str_contains(ADSYMPT.VISIT, '_H1'))
+  order_by:
+  - ADSYMPT.ADT
+  keep: first
+  derivations:
+    _U:
+      type: str
+      derivation: ADSYMPT.USUBJID
+- id: SV_V101
+  dataset: SV
+  key:
+  - USUBJID
+  filter: SV.SVSTDTC IS NOT NULL AND (SV.VISIT = 'V101_VAX3')
+  order_by:
+  - variable: SV._OK
+    direction: desc
+  - SV._DT
+  keep: first
+  derivations:
+    _DT:
+      type: date
+      derivation:
+        to_date:
+          source: SV.SVSTDTC
+    _DY:
+      type: int
+      derivation:
+        diff:
+          type: date
+          start: D_VAX102._DT
+          end: _DT
+          unit: day
+    _S3:
+      type: int
+      derivation:
+        diff:
+          type: date
+          start: SV_V3._DT
+          end: _DT
+          unit: day
+    _OK:
+      type: int
+      derivation:
+        case:
+        - when: (_DY >= 27 AND _DY <= 41) OR (_S3 >= -7 AND _S3 <= 7)
+          then: 1
+        - otherwise: 0
+    _CAND:
+      type: date
+      derivation:
+        case:
+        - when: _OK = 1
+          then: _DT
+- id: SV_V201
+  dataset: SV
+  key:
+  - USUBJID
+  filter: SV.SVSTDTC IS NOT NULL AND (SV.VISIT = 'V201_SURVEIL_CONSENT')
+  order_by:
+  - variable: SV._OK
+    direction: desc
+  - SV._DT
+  keep: first
+  derivations:
+    _DT:
+      type: date
+      derivation:
+        to_date:
+          source: SV.SVSTDTC
+    _DY:
+      type: int
+      derivation:
+        diff:
+          type: date
+          start: D_VAX102._DT
+          end: _DT
+          unit: day
+    _S3:
+      type: int
+      derivation:
+        diff:
+          type: date
+          start: SV_V3._DT
+          end: _DT
+          unit: day
+    _OK:
+      type: int
+      derivation:
+        case:
+        - when: (_DY >= 27 AND _DY <= 41) OR (_S3 >= -7 AND _S3 <= 7)
+          then: 1
+        - otherwise: 0
+    _CAND:
+      type: date
+      derivation:
+        case:
+        - when: _OK = 1
+          then: _DT
+- id: SV_CONV
+  dataset: SV
+  key:
+  - USUBJID
+  filter: SV.SVSTDTC IS NOT NULL AND (str_contains(SV.VISIT, '_A1') OR str_contains(SV.VISIT, '_B1') OR str_contains(SV.VISIT, '_C1') OR str_contains(SV.VISIT, '_D1') OR str_contains(SV.VISIT, '_E1') OR str_contains(SV.VISIT, '_F1') OR str_contains(SV.VISIT, '_G1') OR str_contains(SV.VISIT, '_H1'))
+  order_by:
+  - variable: SV._OK
+    direction: desc
+  - SV._DT
+  keep: first
+  derivations:
+    _DT:
+      type: date
+      derivation:
+        to_date:
+          source: SV.SVSTDTC
+    _DY:
+      type: int
+      derivation:
+        diff:
+          type: date
+          start: D_VAX102._DT
+          end: _DT
+          unit: day
+    _S3:
+      type: int
+      derivation:
+        diff:
+          type: date
+          start: SV_V3._DT
+          end: _DT
+          unit: day
+    _OK:
+      type: int
+      derivation:
+        case:
+        - when: (_DY >= 27 AND _DY <= 41) OR (_S3 >= -7 AND _S3 <= 7)
+          then: 1
+        - otherwise: 0
+    _CAND:
+      type: date
+      derivation:
+        case:
+        - when: _OK = 1
+          then: _DT
+- id: V3X_I
+  dataset: DM
+  key:
+  - USUBJID
+  derivations:
+    _V3DT:
+      type: date
+      derivation:
+        case:
+        - when: A_V3._U IS NOT NULL AND SV_V3._DT IS NOT NULL
+          then: SV_V3._DT
+        - when: A_V201._U IS NOT NULL AND SV_V201._CAND IS NOT NULL
+          then: SV_V201._CAND
+        - when: A_V101._U IS NOT NULL AND SV_V101._CAND IS NOT NULL
+          then: SV_V101._CAND
+        - when: A_CONV._U IS NOT NULL AND SV_CONV._CAND IS NOT NULL
+          then: SV_CONV._CAND
+- id: EV1_EXCL
+  derivations:
+    _V3DT:
+      type: date
+      derivation: V3X_I._V3DT
+- id: EV1_POSN
+  derivations:
+    _V3DT:
+      type: date
+      derivation: V3X_I._V3DT
+# Deviation dates by population (the 6-month adsl.sas dvdate_p1 .. p3): the
+# earliest DVSTDTC of a deviation whose CAPE names POP1, POP2 or POP3; and
+# period1_pop3, a POP3 deviation before Dose 3 (or with no Dose 3).
+- id: DV_P1D
+  dataset: DV
+  key:
+  - USUBJID
+  order_by:
+  - variable: DV._PDT
+    direction: asc
+    nulls: last
+  keep: first
+  derivations:
+    _CAPE:
+      type: str
+      derivation: SUPPDV_BYSEQ.CAPE
+    _DVDT:
+      type: date
+      derivation:
+        to_date:
+          source: DV.DVSTDTC
+    _PDT:
+      type: date
+      derivation:
+        case:
+        - when: str_contains(_CAPE, 'POP1') AND DV.DVSTDTC IS NOT NULL AND DV.DVSTDTC <> ''
+          then: _DVDT
+- id: DV_P2D
+  dataset: DV
+  key:
+  - USUBJID
+  order_by:
+  - variable: DV._PDT
+    direction: asc
+    nulls: last
+  keep: first
+  derivations:
+    _CAPE:
+      type: str
+      derivation: SUPPDV_BYSEQ.CAPE
+    _DVDT:
+      type: date
+      derivation:
+        to_date:
+          source: DV.DVSTDTC
+    _PDT:
+      type: date
+      derivation:
+        case:
+        - when: str_contains(_CAPE, 'POP2') AND DV.DVSTDTC IS NOT NULL AND DV.DVSTDTC <> ''
+          then: _DVDT
+- id: DV_P3D
+  dataset: DV
+  key:
+  - USUBJID
+  order_by:
+  - variable: DV._PDT
+    direction: asc
+    nulls: last
+  keep: first
+  derivations:
+    _CAPE:
+      type: str
+      derivation: SUPPDV_BYSEQ.CAPE
+    _DVDT:
+      type: date
+      derivation:
+        to_date:
+          source: DV.DVSTDTC
+    _PDT:
+      type: date
+      derivation:
+        case:
+        - when: str_contains(_CAPE, 'POP3') AND DV.DVSTDTC IS NOT NULL AND DV.DVSTDTC <> ''
+          then: _DVDT
+- id: DV_P3E
+  dataset: DV
+  key:
+  - USUBJID
+  order_by:
+  - variable: DV._E
+    direction: desc
+  keep: first
+  derivations:
+    _CAPE:
+      type: str
+      derivation: SUPPDV_BYSEQ.CAPE
+    _DVDT:
+      type: date
+      derivation:
+        to_date:
+          source: DV.DVSTDTC
+    _E:
+      type: int
+      derivation:
+        case:
+        - when: str_contains(_CAPE, 'POP3') AND DV.DVSTDTC IS NOT NULL AND DV.DVSTDTC <> '' AND (D_VAX201._DT IS
+            NULL OR (_DVDT IS NOT NULL AND _DVDT < D_VAX201._DT))
+          then: 1
+        - otherwise: 0
+# Visit dates of the deviation windows: the 1-month post Dose 2 visit
+# (visit3dt), the V3 / V404 visit (v3p2), the Phase 1 week-1 post Dose 2
+# visit (v5p1) and the week-3 post Dose 1 visit (w3pv1dt).
+- id: SV_M1
+  dataset: SV
+  key:
+  - USUBJID
+  filter: SV.SVSTDTC IS NOT NULL
+  order_by:
+  - variable: SV._OK
+    direction: desc
+  - SV._DT
+  keep: first
+  derivations:
+    _DT:
+      type: date
+      derivation:
+        to_date:
+          source: SV.SVSTDTC
+    _OK:
+      type: int
+      derivation:
+        case:
+        - when: (str_contains(SV.VISIT, '_MONTH1_') AND NOT str_contains(SV.VISIT, 'POSTVAX3') AND NOT str_contains(SV.VISIT, 'POSTVAX4') AND NOT str_contains(SV.VISIT, 'V103_') AND (D_COHORTN._CN IS NULL OR D_COHORTN._CN <> 1.16)) OR (SV.VISIT = 'V7_MONTH1_S_R' AND D_COHORTN._CN = 1.16)
+          then: 1
+        - otherwise: 0
+    _CAND:
+      type: date
+      derivation:
+        case:
+        - when: _OK = 1
+          then: _DT
+- id: SV_V3P2
+  dataset: SV
+  key:
+  - USUBJID
+  filter: SV.SVSTDTC IS NOT NULL AND (SV.VISIT IN ('V3_MONTH1_POSTVAX2_L', 'V404_MONTH1_POSTVAX2'))
+  order_by:
+  - SV._DT
+  keep: first
+  derivations:
+    _DT:
+      type: date
+      derivation:
+        to_date:
+          source: SV.SVSTDTC
+- id: SV_V5P1
+  dataset: SV
+  key:
+  - USUBJID
+  filter: SV.SVSTDTC IS NOT NULL
+  order_by:
+  - variable: SV._OK
+    direction: desc
+  - SV._DT
+  keep: first
+  derivations:
+    _DT:
+      type: date
+      derivation:
+        to_date:
+          source: SV.SVSTDTC
+    _OK:
+      type: int
+      derivation:
+        case:
+        - when: ((SV.VISIT = 'V5_WEEK1_POSTVAX2_S' AND (D_COHORTN._CN IS NULL OR D_COHORTN._CN <> 1.16)) OR (SV.VISIT = 'V5_WEEK1_POSTVAX2_S_R' AND D_COHORTN._CN = 1.16))
+          then: 1
+        - otherwise: 0
+    _CAND:
+      type: date
+      derivation:
+        case:
+        - when: _OK = 1
+          then: _DT
+- id: SV_W3
+  dataset: SV
+  key:
+  - USUBJID
+  filter: SV.SVSTDTC IS NOT NULL
+  order_by:
+  - variable: SV._OK
+    direction: desc
+  - SV._DT
+  keep: first
+  derivations:
+    _DT:
+      type: date
+      derivation:
+        to_date:
+          source: SV.SVSTDTC
+    _OK:
+      type: int
+      derivation:
+        case:
+        - when: ((SV.VISIT = 'V4_WEEK3_VAX2_S' AND (D_COHORTN._CN IS NULL OR D_COHORTN._CN <> 1.16)) OR (SV.VISIT = 'V4_WEEK3_VAX2_S_R' AND D_COHORTN._CN = 1.16))
+          then: 1
+        - otherwise: 0
+    _CAND:
+      type: date
+      derivation:
+        case:
+        - when: _OK = 1
+          then: _DT
+# INCL9FL: a valid, determinate non-N-binding IS result 28-42 days after
+# Dose 2 (6-8 in Phase 1) (the 6-month adsl.sas incl9p_p2).
+- id: INCL9_I
+  dataset: IS
+  key:
+  - USUBJID
+  filter: IS.ISTESTCD <> 'C19NIG' AND IS.ISORRES IS NOT NULL AND IS.ISORRES NOT IN ('', 'IND', 'QNS', 'NOT DONE')
+  order_by:
+  - variable: IS._IN
+    direction: desc
+  keep: first
+  derivations:
+    _ISDT:
+      type: date
+      derivation:
+        to_date:
+          source: IS.ISDTC
+    _D2:
+      type: int
+      derivation:
+        diff:
+          type: date
+          start: D_VAX102._DT
+          end: _ISDT
+          unit: day
+    _IN:
+      type: int
+      derivation:
+        case:
+        - when: _D2 >= 28 AND _D2 <= 42
+          then: 1
+        - otherwise: 0
+- id: INCL9P1_I
+  dataset: IS
+  key:
+  - USUBJID
+  filter: IS.ISTESTCD <> 'C19NIG' AND IS.ISORRES IS NOT NULL AND IS.ISORRES NOT IN ('', 'IND', 'QNS', 'NOT DONE')
+  order_by:
+  - variable: IS._IN
+    direction: desc
+  keep: first
+  derivations:
+    _ISDT:
+      type: date
+      derivation:
+        to_date:
+          source: IS.ISDTC
+    _D2:
+      type: int
+      derivation:
+        diff:
+          type: date
+          start: D_VAX102._DT
+          end: _ISDT
+          unit: day
+    _IN:
+      type: int
+      derivation:
+        case:
+        - when: _D2 >= 6 AND _D2 <= 8
+          then: 1
+        - otherwise: 0
+# N-binding results after Dose 2 (the 6-month adsl.sas incl17p, nbind1st):
+# a C19NIG result other than blank, IND, QNS or NOT DONE, dated after Dose 2
+# and not after the V301_VAX3 visit; the earliest such date.
+- id: SV_V301
+  dataset: SV
+  key:
+  - USUBJID
+  filter: SV.VISIT = 'V301_VAX3' AND SV.SVSTDTC IS NOT NULL
+  order_by:
+  - SV.SVSTDTC
+  keep: first
+  derivations:
+    _DT:
+      type: date
+      derivation:
+        to_date:
+          source: SV.SVSTDTC
+- id: NB_I
+  dataset: IS
+  key:
+  - USUBJID
+  filter: IS.ISTESTCD = 'C19NIG' AND IS.ISORRES IS NOT NULL AND IS.ISORRES NOT IN ('', 'IND', 'QNS', 'NOT DONE')
+  order_by:
+  - variable: IS._OK
+    direction: desc
+  - variable: IS._ISDT
+    direction: asc
+    nulls: last
+  keep: first
+  derivations:
+    _ISDT:
+      type: date
+      derivation:
+        to_date:
+          source: IS.ISDTC
+    _OK:
+      type: int
+      derivation:
+        case:
+        - when: D_VAX102._DT IS NOT NULL AND _ISDT IS NOT NULL AND _ISDT > D_VAX102._DT AND NOT (SV_V301._DT IS
+            NOT NULL AND SV_V301._DT < _ISDT)
+          then: 1
+        - otherwise: 0
+    _CAND:
+      type: date
+      derivation:
+        case:
+        - when: _OK = 1
+          then: _ISDT
+- id: SV_SURV
+  dataset: SV
+  key:
+  - USUBJID
+  filter: SV.VISIT = 'V201_SURVEIL_CONSENT' AND SV.SVSTDTC IS NOT NULL
+  order_by:
+  - SV.SVSTDTC
+  keep: first
+  derivations:
+    _DT:
+      type: date
+      derivation:
+        to_date:
+          source: SV.SVSTDTC
+# COMPLDT: the follow-up phase COMPLETED disposition event.
+- id: DS_COMPL
+  dataset: DS
+  key:
+  - USUBJID
+  filter: DS.DSCAT = 'DISPOSITION EVENT' AND DS.DSDECOD = 'COMPLETED' AND DS.DSSTDTC IS NOT NULL
+  order_by:
+  - variable: DS._OK
+    direction: desc
+  - DS.DSSTDTC
+  keep: first
+  derivations:
+    _DT:
+      type: date
+      derivation:
+        to_date:
+          source: DS.DSSTDTC
+    _OK:
+      type: int
+      derivation:
+        case:
+        - when: SUPPDS_BYSEQ.DSPHASE = 'FOLLOW-UP'
+          then: 1
+        - otherwise: 0
+    _CAND:
+      type: date
+      derivation:
+        case:
+        - when: _OK = 1
+          then: _DT
+# PD1POSDT, the first positive swab after Day 1 (the 6-month adsl.sas
+# pd1pos0): a central RTCOV2NS POS, or a local SARSCOV2 POS (devices 34, 44
+# and 68) at a visit whose central result is missing or POS.
+- id: MB_CVIS
+  dataset: MB
+  key:
+  - USUBJID
+  - VISITNUM
+  - VISIT
+  filter: MB.MBTESTCD = 'RTCOV2NS' AND MB.MBDY > 1
+  order_by:
+  - MB.MBDTC
+  keep: first
+  derivations:
+    _C:
+      type: str
+      derivation: MB.MBSTRESC
+- id: PD1_C
+  dataset: MB
+  key:
+  - USUBJID
+  filter: MB.MBTESTCD = 'RTCOV2NS' AND MB.MBDY > 1 AND MB.MBSTRESC = 'POS' AND MB.MBDTC IS NOT NULL
+  order_by:
+  - MB._DT
+  keep: first
+  derivations:
+    _DT:
+      type: date
+      derivation:
+        to_date:
+          source: MB.MBDTC
+- id: PD1_L
+  dataset: MB
+  key:
+  - USUBJID
+  filter: MB.MBTESTCD = 'SARSCOV2' AND MB.MBDY > 1 AND MB.SPDEVID IN ('34', '44', '68') AND MB.MBSTRESC = 'POS'
+    AND MB.MBDTC IS NOT NULL
+  order_by:
+  - variable: MB._OK
+    direction: desc
+  - MB._DT
+  keep: first
+  derivations:
+    _DT:
+      type: date
+      derivation:
+        to_date:
+          source: MB.MBDTC
+    _OK:
+      type: int
+      derivation:
+        case:
+        - when: MB_CVIS._C IS NULL OR MB_CVIS._C = '' OR MB_CVIS._C = 'POS'
+          then: 1
+        - otherwise: 0
+    _CAND:
+      type: date
+      derivation:
+        case:
+        - when: _OK = 1
+          then: _DT
+clear:
+- columns.CDECASE.submission
+- columns.INCL5FL.submission
+- columns.EXCL5FL.submission
+- columns.EXCRIT5.submission
+- columns.MULENRFL.submission
+- columns.SAF1FL.submission
+- columns.SAF2FL.submission
+- columns.RAND1FL.submission
+columns:
+- name: SURVICDT
+  type: date
+  label: Asymptomatic Surveillance Consented Date
+  derivation: SV_SURV._DT
+  submission:
+    core: Perm
+    mandatory: false
+    origins:
+    - type: Derived
+    method: "Withheld from publication: the received define states this text."
+- name: INCL17FL
+  type: str
+  label: Have N-Binding result PD2
+  derivation:
+    case:
+    - when: NB_I._CAND IS NOT NULL
+      then: "'Y'"
+    - otherwise: "'N'"
+  submission:
+    core: Perm
+    mandatory: false
+    length: 1
+    origins:
+    - type: Derived
+    method: "Withheld from publication: the received define states this text."
+- name: EXCL17FL
+  type: str
+  label: Exclusion Flag 17
+  derivation:
+    case:
+    - when: INCL17FL <> 'Y' AND INCL1FL = 'Y'
+      then: "'Y'"
+    - otherwise: "''"
+  submission:
+    core: Perm
+    mandatory: false
+    length: 1
+    origins:
+    - type: Derived
+    method: "Withheld from publication: the received define states this text."
+- name: EXCRIT17
+  type: str
+  label: Exclusion Criterion 17
+  derivation:
+    case:
+    - when: EXCL17FL = 'Y'
+      then: "'did not have N-binding test result at a post(*ESC*){unicode 2013}Dose 2 visit'"
+    - otherwise: "''"
+  submission:
+    core: Perm
+    mandatory: false
+    length: 77
+    origins:
+    - type: Derived
+    method: "Withheld from publication: the received define states this text."
+- name: _NB1DT
+  type: date
+  derivation: NB_I._CAND
+- name: INCL18FL
+  type: str
+  label: No PD prior to 1st N-Binding test PD2
+  derivation:
+    case:
+    - when: NOT (POP2PDDT IS NOT NULL AND _NB1DT IS NOT NULL AND POP2PDDT < _NB1DT)
+      then: "'Y'"
+    - otherwise: "'N'"
+  submission:
+    core: Perm
+    mandatory: false
+    length: 1
+    origins:
+    - type: Derived
+    method: "Withheld from publication: the received define states this text."
+- name: EXCL18FL
+  type: str
+  label: Exclusion Flag 18
+  derivation:
+    case:
+    - when: INCL18FL <> 'Y' AND _NB1DT IS NOT NULL
+      then: "'Y'"
+    - otherwise: "''"
+  submission:
+    core: Perm
+    mandatory: false
+    length: 1
+    origins:
+    - type: Derived
+    method: "Withheld from publication: the received define states this text."
+- name: EXCRIT18
+  type: str
+  label: Exclusion Criterion 18
+  derivation:
+    case:
+    - when: EXCL18FL = 'Y'
+      then: "'had important protocol deviation(s) as determined by the clinician for Efficacy (prior to the first post(*ESC*){unicode 2013}Dose 2 N-binding antibody test) Population'"
+    - otherwise: "''"
+  submission:
+    core: Perm
+    mandatory: false
+    length: 167
+    origins:
+    - type: Derived
+    method: "Withheld from publication: the received define states this text."
+- name: _NE
+  type: int
+  derivation:
+    case:
+    - when: RSEXSAF IS NOT NULL AND str_contains(RSEXSAF, 'Efficacy')
+      then: 0
+    - otherwise: 1
+- name: _V10U2
+  type: int
+  derivation:
+    diff:
+      type: date
+      start: VAX102DT
+      end: VAX10UDT
+      unit: day
+- name: _UNB2
+  type: int
+  derivation:
+    diff:
+      type: date
+      start: VAX102DT
+      end: UNBLNDDT
+      unit: day
+- name: EVASEFFL
+  type: str
+  label: Evaluable Efficacy Pop Flag - Asympt
+  derivation:
+    case:
+    - when: SAFFL = 'Y' AND _NE = 1 AND INCL1FL = 'Y' AND INCL7FL = 'Y' AND SURVICDT IS NOT NULL AND NOT (VAX10UDT
+        IS NOT NULL AND VAX10UDT <= SURVICDT) AND NOT (POP2PDDT IS NOT NULL AND POP2PDDT <= SURVICDT)
+      then: "'Y'"
+    - otherwise: "'N'"
+  submission:
+    core: Perm
+    mandatory: false
+    length: 1
+    origins:
+    - type: Derived
+    method: "Withheld from publication: the received define states this text."
+- name: EVSCEFFL
+  type: str
+  label: Evaluable Efficacy Pop Flag - Seroconv
+  derivation:
+    case:
+    - when: SAFFL = 'Y' AND _NE = 1 AND INCL1FL = 'Y' AND INCL7FL = 'Y' AND NOT (VAX10UDT IS NOT NULL AND _NB1DT
+        IS NOT NULL AND VAX10UDT <= _NB1DT) AND INCL17FL = 'Y' AND INCL18FL = 'Y'
+      then: "'Y'"
+    - otherwise: "'N'"
+  submission:
+    core: Perm
+    mandatory: false
+    length: 1
+    origins:
+    - type: Derived
+    method: "Withheld from publication: the received define states this text."
+- name: EV14EFFL
+  type: str
+  label: Evaluable Efficacy Popu Flag - 14 days
+  derivation:
+    case:
+    - when: RFICDT IS NOT NULL AND RANDFL = 'Y' AND (ARM IS NULL OR ARM <> 'SCREEN FAILURE') AND INCL2FL = 'Y' AND
+        INCL7FL = 'Y' AND (VAX10UDT IS NULL OR (VAX102DT IS NOT NULL AND VAX10UDT > VAX102DT AND _V10U2 >= 14))
+        AND VAX102DT IS NOT NULL AND (UNBLNDDT IS NULL OR _UNB2 >= 14) AND SAFFL = 'Y' AND INCL1FL = 'Y' AND
+        NOT (DV_POP2._QVAL IS NOT NULL AND (POP2PDDT IS NULL OR _P2D < 14)) AND _NE = 1
+      then: "'Y'"
+    - otherwise: "'N'"
+  submission:
+    core: Perm
+    mandatory: false
+    length: 1
+    origins:
+    - type: Derived
+    method: "Withheld from publication: the received define states this text."
+- name: AAI2ASFL
+  type: str
+  label: Dose 2 all-available Asympt Popu Flag
+  derivation:
+    case:
+    - when: RANDFL = 'Y' AND SAFFL = 'Y' AND VAX101DT IS NOT NULL AND VAX102DT IS NOT NULL AND _NE = 1
+      then: "'Y'"
+    - otherwise: "'N'"
+  submission:
+    core: Perm
+    mandatory: false
+    length: 1
+    origins:
+    - type: Derived
+    method: "Withheld from publication: the received define states this text."
+- name: COMPLDT
+  type: date
+  label: Date of Completion
+  derivation: DS_COMPL._CAND
+  submission:
+    core: Perm
+    mandatory: false
+    origins:
+    - type: Derived
+    method: "Withheld from publication: the received define states this text."
+- name: PD1POSDT
+  type: date
+  label: Post-dose Positive Swab Result Date
+  derivation:
+    least:
+      sources: [PD1_C._DT, PD1_L._CAND]
+  submission:
+    core: Perm
+    mandatory: false
+    origins:
+    - type: Derived
+    method: "Withheld from publication: the received define states this text."
+- name: TRTDELT
+  type: str
+  label: Adjusted Treatment for Rel. Efficacy
+  derivation:
+    case:
+    - when: PHASEN > 1 AND UNBLNDDT IS NOT NULL AND VAX201DT IS NOT NULL AND VAX202DT IS NOT NULL AND VAX201DT
+        >= UNBLNDDT
+      then: "'Placebo'"
+    - when: PHASEN > 1
+      then: "'BNT162b2 Phase 2/3 (30 mcg)'"
+  submission:
+    core: Perm
+    mandatory: false
+    length: 27
+    origins:
+    - type: Derived
+    method: "Withheld from publication: the received define states this text."
+- name: TRTDELTN
+  type: int
+  label: Adjusted Treatment for Rel. Efficacy (N)
+  derivation:
+    mapping:
+      source: TRTDELT
+      dict:
+        Placebo: 9
+        BNT162b2 Phase 2/3 (30 mcg): 8
+      unmapped: null
+  submission:
+    core: Perm
+    mandatory: false
+    length: 8
+    origins:
+    - type: Derived
+    method: "Withheld from publication: the received define states this text."
+- name: POP1PDDT
+  type: date
+  label: First PD date for safety
+  derivation: DV_P1D._PDT
+  submission:
+    core: Perm
+    mandatory: false
+    origins:
+    - type: Derived
+    method: "Withheld from publication: the received define states this text."
+- name: POP2PDDT
+  type: date
+  label: First PD date for efficacy
+  derivation: DV_P2D._PDT
+  submission:
+    core: Perm
+    mandatory: false
+    origins:
+    - type: Derived
+    method: "Withheld from publication: the received define states this text."
+- name: POP3PDDT
+  type: date
+  label: First PD date for immunogenicity
+  derivation: DV_P3D._PDT
+  submission:
+    core: Perm
+    mandatory: false
+    origins:
+    - type: Derived
+    method: "Withheld from publication: the received define states this text."
+# Working columns of INCL6FL and EXCRIT6 (the 6-month adsl.sas), not output.
+- name: _VIS3DT
+  type: date
+  derivation:
+    case:
+    - when: BLDV6DT IS NOT NULL
+      then: BLDV6DT
+    - otherwise: SV_M1._CAND
+- name: _V2P42
+  type: date
+  derivation:
+    shift:
+      type: date
+      source: VAX102DT
+      days: 42
+- name: _V2P8
+  type: date
+  derivation:
+    shift:
+      type: date
+      source: VAX102DT
+      days: 8
+- name: _V3DATE
+  type: date
+  derivation:
+    case:
+    - when: PHASEN <> 1 AND BLDV6DT IS NOT NULL
+      then: BLDV6DT
+    - when: PHASEN <> 1 AND SV_V3P2._DT IS NOT NULL
+      then: SV_V3P2._DT
+    - when: PHASEN <> 1
+      then: _V2P42
+    - when: BLDV4DT IS NOT NULL
+      then: BLDV4DT
+    - when: SV_V5P1._CAND IS NOT NULL
+      then: SV_V5P1._CAND
+    - otherwise: _V2P8
+- name: _P2D
+  type: int
+  derivation:
+    diff:
+      type: date
+      start: VAX102DT
+      end: POP2PDDT
+      unit: day
+- name: _P3D1
+  type: int
+  derivation:
+    diff:
+      type: date
+      start: VAX101DT
+      end: POP3PDDT
+      unit: day
+- name: _T1
+  type: str
+  derivation:
+    case:
+    - when: DV_POP1._QVAL IS NOT NULL
+      then: "'Safety'"
+    - otherwise: "''"
+- name: _T2
+  type: str
+  derivation:
+    case:
+    - when: DV_POP2._QVAL IS NOT NULL AND _P2D IS NOT NULL AND _P2D < 7
+      then: "'Efficacy (within 7 days post Dose 2)'"
+    - when: DV_POP2._QVAL IS NOT NULL AND _P2D IS NOT NULL AND _P2D >= 7 AND _P2D < 14
+      then: "'Efficacy (between 7-14 days post Dose 2)'"
+    - when: DV_POP2._QVAL IS NOT NULL AND _P2D IS NOT NULL AND _P2D >= 14 AND _VIS3DT IS NOT NULL AND POP2PDDT
+        <= _VIS3DT
+      then: "'Efficacy (between 14 days - 1 month post Dose 2)'"
+    - otherwise: "''"
+- name: _T3
+  type: str
+  derivation:
+    case:
+    - when: DV_POP3._QVAL IS NULL
+      then: "''"
+    - when: POP3PDDT IS NOT NULL AND BLDV3DT IS NOT NULL AND POP3PDDT <= BLDV3DT
+      then: "'Immunogenicity (on or before 3 weeks post Dose 1)'"
+    - when: BLDV3DT IS NULL AND POP3PDDT IS NOT NULL AND SV_W3._CAND IS NOT NULL AND POP3PDDT <= SV_W3._CAND
+      then: "'Immunogenicity (on or before 3 weeks post Dose 1)'"
+    - when: BLDV3DT IS NULL AND SV_W3._CAND IS NULL AND VAX101DT IS NOT NULL AND POP3PDDT IS NOT NULL AND _P3D1
+        <= 23
+      then: "'Immunogenicity (on or before 3 weeks post Dose 1)'"
+    - when: VAX101DT IS NULL
+      then: "'Immunogenicity (on or before 3 weeks post Dose 1)'"
+    - when: ((POP3PDDT IS NOT NULL AND _V3DATE IS NOT NULL AND POP3PDDT <= _V3DATE) OR (_V3DATE IS NULL AND
+        DV_P3E._E = 1)) AND PHASEN <> 1
+      then: "'Immunogenicity (on or before 1 month post Dose 2)'"
+    - when: ((POP3PDDT IS NOT NULL AND _V3DATE IS NOT NULL AND POP3PDDT <= _V3DATE) OR (_V3DATE IS NULL AND
+        DV_P3E._E = 1)) AND PHASEN = 1
+      then: "'Immunogenicity (on or before 1 week post Dose 2)'"
+    - otherwise: "''"
+- name: _T12
+  type: str
+  derivation:
+    case:
+    - when: _T1 <> '' AND _T2 <> ''
+      then:
+        str_template: '{_T1}, {_T2}'
+    - when: _T2 <> ''
+      then: _T2
+    - otherwise: _T1
+- name: _T123
+  type: str
+  derivation:
+    case:
+    - when: _T12 <> '' AND _T3 <> ''
+      then:
+        str_template: '{_T12}, {_T3}'
+    - when: _T3 <> ''
+      then: _T3
+    - otherwise: _T12
+- name: INCL6FL
+  derivation:
+    case:
+    - when: DV_POP1._QVAL IS NOT NULL
+      then: "'N'"
+    - when: DV_POP2._QVAL IS NOT NULL AND NOT (_VIS3DT IS NOT NULL AND POP2PDDT IS NOT NULL AND _VIS3DT < POP2PDDT)
+        AND (VAX102DT IS NULL OR (POP2PDDT IS NOT NULL AND POP2PDDT <= VAX102DT) OR POP2PDDT IS NULL OR _P2D
+        < 14 OR (_P2D >= 14 AND _VIS3DT IS NOT NULL AND POP2PDDT <= _VIS3DT))
+      then: "'N'"
+    - when: DV_POP3._QVAL IS NOT NULL AND TRT02P IS NOT NULL AND str_contains(TRT02P, 'Dose')
+      then: "''"
+    - when: DV_POP3._QVAL IS NOT NULL AND (DV_P3E._E IS NULL OR DV_P3E._E = 0)
+      then: "'Y'"
+    - when: DV_POP3._QVAL IS NOT NULL AND _V3DATE IS NOT NULL AND POP3PDDT IS NOT NULL AND _V3DATE < POP3PDDT
+      then: "'Y'"
+    - when: DV_POP3._QVAL IS NOT NULL
+      then: "'N'"
+    - otherwise: "'Y'"
+  submission:
+    method: "Withheld from publication: the received define states this text."
+- name: EV1MD2FL
+  derivation:
+    case:
+    - when: PHASEN >= 2 AND TRT01AN IN (8, 9) AND EV1_VRB._SC = 1 AND EV1_CRD1._SC = 1 AND EV1_CRD2._SC = 1
+        AND V3X_I._V3DT IS NOT NULL AND (EV1_POSN._INWIN IS NULL OR EV1_POSN._INWIN <> 1) AND (EV1_EXCL._INWIN
+        IS NULL OR EV1_EXCL._INWIN <> 1)
+      then: "'Y'"
+    - otherwise: "'N'"
+  submission:
+    method: "Withheld from publication: the received define states this text."
+- name: INCL9FL
+  label: Have valid immuno within timeframe 2
+  derivation:
+    case:
+    - when: PHASEN <> 1 AND INCL9_I._IN = 1 AND VAX102DT IS NOT NULL
+      then: "'Y'"
+    - when: PHASEN = 1 AND INCL9P1_I._IN = 1 AND VAX102DT IS NOT NULL
+      then: "'Y'"
+    - otherwise: "'N'"
+  submission:
+    method: "Withheld from publication: the received define states this text."
+- name: EXCRIT9
+  derivation:
+    case:
+    - when: (((INCL1FL = 'Y' AND INCL2FL = 'Y') AND INCL9FL = 'N' AND VAX102DT IS NOT NULL) AND PHASEN
+        <> 1)
+      then: "'did not have at least 1 valid and determinate immunogenicity result within 28-42 days after Dose 2'"
+    - when: (((INCL1FL = 'Y' AND INCL2FL = 'Y') AND INCL9FL = 'N' AND VAX102DT IS NOT NULL) AND PHASEN
+        = 1)
+      then: "'did not have at least 1 valid and determinate immunogenicity result within 6-8 days after Dose 2'"
+    - otherwise: "''"
+  submission:
+    length: 98
+    method: "Withheld from publication: the received define states this text."
+- name: EXCRIT6
+  derivation:
+    case:
+    - when: INCL6FL = 'N' AND _T123 <> ''
+      then:
+        str_template: 'had important protocol deviation(s) as determined by the clinician for {_T123} Population(s)'
+    - otherwise: "''"
+  submission:
+    length: 172
+    method: "Withheld from publication: the received define states this text."
+- name: FUP2CAT2
+  submission:
+    length: 12
+output:
+  columns:
+  - STUDYID
+  - USUBJID
+  - SUBJID
+  - SITEID
+  - AGE
+  - AGEU
+  - SEX
+  - SEXN
+  - RACE
+  - RACEN
+  - ETHNIC
+  - ETHNICN
+  - RACIALD
+  - RACIALDN
+  - COUNTRY
+  - SAFFL
+  - RANDFL
+  - ENRLFL
+  - DTHFL
+  - ARM
+  - ARMCD
+  - ACTARM
+  - ACTARMCD
+  - TRT01P
+  - TRT01PN
+  - TRT02P
+  - TRT02PN
+  - TRT01A
+  - TRT01AN
+  - TRT02A
+  - TRT02AN
+  - TRTSEQP
+  - TRTSEQA
+  - BRTHDT
+  - BRTHDTF
+  - DTHDTC
+  - DTHDT
+  - DTHDTF
+  - RANDDT
+  - RANDNO
+  - RFSTDT
+  - RFSTTM
+  - RFENDT
+  - RFENTM
+  - RFPENDT
+  - RFICDT
+  - TRTSDT
+  - TRTSTM
+  - TRTEDT
+  - TRTETM
+  - TR01SDT
+  - TR01STM
+  - TR01EDT
+  - TR01ETM
+  - TR02SDT
+  - TR02STM
+  - TR02EDT
+  - TR02ETM
+  - TRTSDTM
+  - TRTEDTM
+  - TR01SDTM
+  - TR01EDTM
+  - TR02SDTM
+  - TR02EDTM
+  - VAX101DT
+  - VAX102DT
+  - VAX201DT
+  - VAX202DT
+  - AGETR01
+  - AGETRU01
+  - AGETR03
+  - AGETRU03
+  - AGEGR1
+  - AGEGR1N
+  - ARACE
+  - ARACEN
+  - RACEGR1
+  - RACEGR1N
+  - EOSDCDT
+  - EOSDCRS
+  - EOTDCDT
+  - EOTDCRS
+  - TRTDELT
+  - TRTDELTN
+  - EVASEFFL
+  - EVSCEFFL
+  - EXCL17FL
+  - INCL18FL
+  - EXCL18FL
+  - EXCRIT18
+  - INCL9FL
+  - INCL17FL
+  - EXCL4FL
+  - EXCL9FL
+  - SURVICDT
+  - VAX202
+  - VAX10UDT
+  - VAX20UDT
+  - VAX10U
+  - VAX20U
+  - VAX101TM
+  - VAX102TM
+  - VAX10UTM
+  - VAX201TM
+  - VAX202TM
+  - VAX20UTM
+  - INVID
+  - INVNAM
+  - DOSALVL
+  - DOSPLVL
+  - DOSPLVLN
+  - DOSALVLN
+  - REACTOFL
+  - COHORT
+  - COHORTN
+  - PHASEN
+  - PHASE
+  - AGEGR2
+  - AGEGR3
+  - AGEGR4
+  - AGEGR4N
+  - AGEGR2N
+  - AGEGR3N
+  - AGETGR3
+  - AGETGR3N
+  - VAX101
+  - VAX102
+  - VAX201
+  - UNBLNDDT
+  - REVXICDT
+  - EOTXDCDT
+  - EOTXDCRS
+  - BMICAT
+  - BMICATN
+  - OBESEFL
+  - COMBODFL
+  - NIGV1FL
+  - NAATNFL
+  - COVBLST
+  - V01DT
+  - V02DT
+  - V02OBDT
+  - V03DT
+  - V04DT
+  - V3C19NIG
+  - DVSTDT
+  - POP1PDDT
+  - POP2PDDT
+  - POP3PDDT
+  - BLDV1FL
+  - BLDV2FL
+  - BLDV3FL
+  - BLDV4FL
+  - BLDV5FL
+  - BLDV6FL
+  - BLDV7FL
+  - BLDV1DT
+  - BLDV2DT
+  - BLDV3ADT
+  - BLDV4ADT
+  - BLDV5ADT
+  - BLDV6ADT
+  - BLDV3DT
+  - BLDV4DT
+  - BLDV5DT
+  - BLDV6DT
+  - BLDV7DT
+  - INCL1FL
+  - INCL2FL
+  - INCL3FL
+  - INCL6FL
+  - INCL7FL
+  - INCL8FL
+  - INCL10FL
+  - EXCL1FL
+  - EXCRIT1
+  - EXCL2FL
+  - EXCRIT2
+  - EXCL3FL
+  - EXCRIT3
+  - EXCRIT4
+  - EXCL6FL
+  - EXCRIT6
+  - RSEXSAF
+  - EXCL7FL
+  - EXCRIT7
+  - EXCL8FL
+  - EXCRIT8
+  - EXCRIT9
+  - EXCL10FL
+  - EXCRIT10
+  - EXCRIT17
+  - AAI01FL
+  - AAI02FL
+  - EVALEFFL
+  - EV14EFFL
+  - AAI1EFFL
+  - AAI2EFFL
+  - AAI2ASFL
+  - EVAL02FL
+  - INCL4FL
+  - EVAL01FL
+  - SCREEN
+  - DS3KFL
+  - DS30KFL
+  - OPBOUFL
+  - JPNFL
+  - PEDREAFL
+  - PEDIMMFL
+  - HIVFL
+  - EV1MD2FL
+  - BDCSRDT
+  - X1CSRDT
+  - STCSRDT
+  - FUP2CUT
+  - FUP2UNB
+  - FPX1CUT
+  - FUNBCUT
+  - FUP1CUT
+  - FUP1UNB
+  - FUP2CAT1
+  - FUP2CA1N
+  - FUP2CAT2
+  - FUP2CA2N
+  - FPX1CAT1
+  - FPX1CA1N
+  - FUP1CAT1
+  - FUP1CA1N
+  - RNACAT
+  - RNACATN
+  - CD4CAT
+  - CD4CATN
+  - COMPLDT
+  - PD1POSDT

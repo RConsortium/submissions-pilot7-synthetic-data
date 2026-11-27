@@ -1,0 +1,330 @@
+# ADCM for Moderna mRNA-1273-P201, data cut add1 (Addendum 1, cutoff 2021-06-11).
+# Parent: ../../../s3-d57/spec/yamaa/adcm.yaml (which chains to ../../../spec/yamaa/base/adam-base.yaml) (section 3.1 core columns).
+# Derivations implement the add1 A20ADCM program (Bates 3818646-3818651);
+# the add1 program differs from the d57 program (which used the P301-style
+# %imp_atdt / %xxdoserf macros): it has inline date imputation, no
+# CUTOFFDT cap, no %xxdoserf, no APERIOD/TR02, and the explicit CMMOI
+# drug list (no cmplx flag, no pain_drugcode file). Where the SAS code
+# and the add1 define.xml method text disagree, the submitted data follows
+# the code (see README.md): ASTDT month-precision starts are always
+# first-of-month (the TR01SDT assignment is dead code, overwritten
+# unconditionally) and the year-precision TR01SDT substitution follows
+# the program's chk logic, not the define's month/year-coincidence note;
+# ONTRTFL/FUPFL use +27 days (code and define agree). CMINDC length 108
+# and CMROUTE length 24 correct stale define lengths (83 and 13) to the
+# observed maxima. COMPLFL is not in the add1 output (derivation null);
+# PBD209FL, PND209FL, PN2209FL and ELECSBL are new core columns from the
+# add1 ADSL.
+# Layer over ../d57/adcm.yaml: the derivations are the parent cut's, and
+# this file holds only what this cut changes (written by
+# scripts/specs/inherit_cut.py; its resolved specification
+# equals the standalone file it replaced).
+yamaa: '1.0'
+type: spec
+parent: ../../../s3-d57/spec/yamaa/adcm.yaml
+clear:
+- columns.COMPLFL.submission
+input:
+  CM: <sdtm-dir>/cm.parquet
+  SUPPCM: <sdtm-dir>/suppcm.parquet
+  ADSL:
+    path: <adam-dir>/adsl.parquet
+intermediates:
+- id: SUPP_P
+  filter: SUPPCM.QNAM IN ('CMUOTHSP', 'CMFOTHSP', 'CMROTHSP', 'CMSOL', 'ATCLEV1T', 'ATCLEV2T', 'ATCLEV3T', 'ATCLEV4T') AND SUPPCM.IDVAR = 'CMSEQ'
+  pivot:
+    fields:
+    - CMUOTHSP
+    - CMFOTHSP
+    - CMROTHSP
+    - CMSOL
+    - ATCLEV1T
+    - ATCLEV2T
+    - ATCLEV3T
+    - ATCLEV4T
+columns:
+- name: COMPLFL
+  derivation:
+- name: AENDT
+  submission:
+    method: "Withheld from publication: the received define states this text."
+- name: AENDTF
+  submission:
+    method: "Withheld from publication: the received define states this text."
+- name: ASTDTF
+  submission:
+    method: "Withheld from publication: the received define states this text."
+- name: _J1
+  type: date
+  derivation:
+    impute:
+      type: date
+      source: CM.CMSTDTC
+      month: 1
+      day: 1
+      invalid:
+- name: _J12
+  type: date
+  derivation:
+    impute:
+      type: date
+      source: CM.CMSTDTC
+      month: 12
+      day: last
+      invalid:
+- name: _E_J1
+  type: date
+  derivation:
+    impute:
+      type: date
+      source: CM.CMENDTC
+      month: 1
+      day: 1
+      invalid:
+- name: _E_J12
+  type: date
+  derivation:
+    impute:
+      type: date
+      source: CM.CMENDTC
+      month: 12
+      day: last
+      invalid:
+- name: _CHK
+  type: date
+  derivation:
+    case:
+    - when: _CMEN_PREC = 'day'
+      then:
+        to_date:
+          source: CM.CMENDTC
+    - when: _CMEN_PREC = 'month'
+      then:
+        impute:
+          type: date
+          source: CM.CMENDTC
+          day: first
+          invalid:
+- name: _ASTDT_IMP
+  derivation:
+    case:
+    - when: _CMST_PREC = 'month'
+      then:
+        impute:
+          type: date
+          source: CM.CMSTDTC
+          day: first
+          invalid:
+    - when: _CMST_PREC = 'year' AND (_J1 <= ADSL.TR01SDT AND ADSL.TR01SDT <= _J12) AND (_CMEN_PREC IS NULL OR (_CHK IS NOT NULL AND _CHK > ADSL.TR01SDT) OR (_CMEN_PREC = 'year' AND _E_J1 <= ADSL.TR01SDT AND ADSL.TR01SDT <= _E_J12))
+      then: ADSL.TR01SDT
+    - when: _CMST_PREC = 'year'
+      then:
+        impute:
+          type: date
+          source: CM.CMSTDTC
+          month: 1
+          day: 1
+          invalid:
+    - otherwise:
+        to_date:
+          source: CM.CMSTDTC
+- name: ASTDT
+  derivation: _ASTDT_IMP
+  submission:
+    method: "Withheld from publication: the received define states this text."
+- name: _TR01EDT27
+  type: date
+  derivation:
+    shift:
+      type: date
+      source: ADSL.TR01EDT
+      days: 27
+- name: PBD209FL
+  type: str
+  label: Per Protocol bAb Day 209 Flag
+  derivation: ADSL.PBD209FL
+  submission:
+    core: Perm
+    mandatory: false
+    length: 1
+    origins:
+    - type: Predecessor
+      description: ADSL.PBD209FL
+- name: PND209FL
+  type: str
+  label: Per Protocol nAb Day 209 Flag
+  derivation: ADSL.PND209FL
+  submission:
+    core: Perm
+    mandatory: false
+    length: 1
+    origins:
+    - type: Predecessor
+      description: ADSL.PND209FL
+- name: PN2209FL
+  type: str
+  label: Per Protocol nAb 2 Day 209 Flag
+  derivation: ADSL.PN2209FL
+  submission:
+    core: Perm
+    mandatory: false
+    length: 1
+    origins:
+    - type: Predecessor
+      description: ADSL.PN2209FL
+- name: ELECSBL
+  type: str
+  label: Baseline Elecsys SARS CoV-2 Assay
+  derivation: ADSL.ELECSBL
+  submission:
+    core: Perm
+    mandatory: false
+    length: 20
+    origins:
+    - type: Predecessor
+      description: ADSL.ELECSBL
+- name: COV19FL
+  submission:
+    length: 1
+- name: SENTLFL
+  submission:
+    length: 1
+- name: CMROUTE
+  submission:
+    length: 24
+- name: CMSOLFL
+  submission:
+    method: "Withheld from publication: the received define states this text."
+- name: ASTDY
+  submission:
+    method: "Withheld from publication: the received define states this text."
+- name: AENDY
+  submission:
+    method: "Withheld from publication: the received define states this text."
+- name: MDOSREF
+  submission:
+    method: "Withheld from publication: the received define states this text."
+- name: MRDSTDY
+  submission:
+    method: "Withheld from publication: the received define states this text."
+- name: CMMOI1FL
+  submission:
+    method: "Withheld from publication: the received define states this text."
+- name: CMMOI2FL
+  submission:
+    method: "Withheld from publication: the received define states this text."
+- name: PREFL
+  submission:
+    method: "Withheld from publication: the received define states this text."
+- name: ONTRTFL
+  derivation:
+    flag: >
+      (ASTDT IS NULL OR
+      (ASTDT IS NOT NULL AND ADSL.TR01EDT IS NOT NULL AND ASTDT <= _TR01EDT27)) AND
+      (AENDT IS NULL OR (ADSL.TR01SDT IS NOT NULL AND AENDT >= ADSL.TR01SDT))
+  submission:
+    method: "Withheld from publication: the received define states this text."
+- name: FUPFL
+  derivation:
+    flag: AENDT IS NULL OR (ADSL.TR01EDT IS NOT NULL AND AENDT > _TR01EDT27)
+  submission:
+    method: "Withheld from publication: the received define states this text."
+- name: ATCLEV2T
+  derivation: SUPP_P.ATCLEV2T
+  submission:
+    method: "Withheld from publication: the received define states this text."
+output:
+  path: <adam-dir>/adcm-yamaa.parquet
+  columns:
+  - STUDYID
+  - USUBJID
+  - SUBJID
+  - SITEID
+  - COUNTRY
+  - AGE
+  - AGEU
+  - AGEGR1
+  - AGEGR1N
+  - AGEGR2
+  - AGEGR2N
+  - SEX
+  - RACE
+  - RACESPY
+  - ETHNIC
+  - RANDFL
+  - SAFFL
+  - FASBABFL
+  - FASNABFL
+  - PPBABFL
+  - PPNABFL
+  - PPBD29FL
+  - PPBD57FL
+  - PBD209FL
+  - PPND29FL
+  - PPND57FL
+  - PND209FL
+  - SAR1FL
+  - SAR2FL
+  - SARAFL
+  - FASNA2FL
+  - PPNAB2FL
+  - PN2D29FL
+  - PN2D57FL
+  - PN2209FL
+  - DVBABFL
+  - DVNABFL
+  - DOSE1FL
+  - DOSE2FL
+  - DOSEROFL
+  - COV19BL
+  - ELECSBL
+  - COV19FL
+  - SENTLFL
+  - D29W7DFL
+  - TRT01P
+  - TRT01PN
+  - TRT01A
+  - TRT01AN
+  - TR01SDT
+  - TR01SDTM
+  - TR01EDT
+  - TR01EDTM
+  - TRTSDTM
+  - TRTEDTM
+  - DOSE2DT
+  - DOS2DTM
+  - CMSEQ
+  - CMCAT
+  - CMTRT
+  - CMDECOD
+  - CMINDC
+  - CMDOSE
+  - CMDOSU
+  - CMUOTHSP
+  - CMDOSFRQ
+  - CMFOTHSP
+  - CMROUTE
+  - CMROTHSP
+  - CMSTDTC
+  - CMENDTC
+  - CMSTDY
+  - CMENDY
+  - CMENRTPT
+  - CMSOLFL
+  - ASTDT
+  - ASTDTF
+  - ASTDY
+  - AENDT
+  - AENDTF
+  - AENDY
+  - MDOSREF
+  - MRDSTDY
+  - CMMOI1FL
+  - CMMOI2FL
+  - PREFL
+  - ONTRTFL
+  - FUPFL
+  - ATCLEV1T
+  - ATCLEV2T
+  - ATCLEV3T
+  - ATCLEV4T

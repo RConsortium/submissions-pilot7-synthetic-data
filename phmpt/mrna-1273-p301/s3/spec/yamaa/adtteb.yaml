@@ -1,0 +1,2158 @@
+# ADTTEB for Moderna mRNA-1273-P301, cut S3 (BLA Interim Analysis,
+# cutoff 2021-03-26). Parent: ../../../spec/yamaa/base/adam-base-s3.yaml (which
+# chains to ../../../spec/yamaa/base/adam-base.yaml; 86 shared + 59 S3-only ADSL
+# columns). There is NO SAS program for ADTTEB anywhere in the
+# set; derivations implement the S3 ADaM define.xml MethodDefs
+# plus the Additional ADaM Variable Definition Doc
+# (spec/source/125752_S3_M5_mrna-1273-p301_A_D_adam-variable-definition.pdf,
+# Bates 3820153-3820156, sections ADTTEB.ADT / ADTTEB.CNSR /
+# ADTTEB.EVNTDESC), cross-checked against the submitted data and
+# the sibling A50ADTTE / A50ADTT programs: one row per FAS subject
+# per PARAMCD (10 PARAMCDs: TASYCRB1-5, TTINFB1-5), from the
+# submitted ADTTE (sibling rows), the submitted ADEFF (first
+# COVIDS/COVIDSDS event), the submitted ADIS (CRIT5FL at the
+# Participant Decision Visit), first positive MB RT-PCR at that
+# visit, and the verified ADSL. SAP note (closed 2026-11-24,
+# no-impact): the file labelled "SAP v3" (19745_S68_M5_sap-v3.pdf)
+# is the P201 SAP v3.0 (27 Oct 2020), not a P301 SAP version; the
+# only P301 SAP in the set is v1.0 (10 Sep 2020). The case
+# definitions below are the vardef doc's own, so the spec follows
+# the vardef doc, not a SAP version. S27 duplicates: none
+# of the inputs (ADTTE, ADEFF, ADIS, MB, ADSL) is among the eight
+# S27 duplicate SDTM files, and no program/define evidence shows
+# an S27 file was read. KEYS: like ADTTE/ADTTEA, ADTTEB HAS a
+# usable key: (STUDYID, USUBJID, PARAMCD) is unique and
+# non-missing on the submitted target, and there is no ASEQ column.
+# MethodDef ambiguities, flagged (see the generator header for the
+# evidence): (A) vardef ADT step 1 names TTASYCR5/TTINF5 while the
+# CNSR/EVNTDESC steps name TTASYCRX/TTINFX (X=1..5) -- implemented
+# sibling-X (the data cannot distinguish the two readings for ADT);
+# (B) vardef ADT step 1 reads (CNSR=0 or CNSR=2) only, but early
+# siblings (CNSR=1, Early desc) also supply ADT -- implemented the
+# CNSR-section condition; (C) prior COVID-19 symptoms is undefined
+# in the vardef -- implemented as first COVIDS/COVIDSDS ADEFF event
+# on/before the PDV date; (D) no else branch is stated for the X=5
+# threshold -- implemented the Early else (never fires). Honest
+# gaps: none. A pandas prototype reproduces the submitted target
+# exactly on all 102 columns (0 mismatches), and the yamaa spec is
+# expected to verify EXACT MATCH the same way. The full verify.py run
+# OOMs in this 6 GB cell (killed ~29 s in, session 16), so the spec was
+# verified via 2 pruned dependency-closure groups (session 16) and then
+# by split-by-subject full-spec verification (session 55): the UNCHANGED
+# spec run via verify.py in 4 SEX x AGE (<=55/>55) partitions, inputs
+# pruned to the spec read set as in session 16 -- EXACT MATCH strict,
+# 303,460x102, 0 mismatches, identical to the pruned-group baseline on
+# all 99 non-key columns; no roomier-cell re-run is owed
+# (see adtteb/verify_report_s3_split.json, original work tree).
+yamaa: '1.0'
+type: spec
+model: ADaM
+parent: ../../../spec/yamaa/base/adam-base-s3.yaml
+domain: ADTTEB
+keys:
+- STUDYID
+- USUBJID
+- PARAMCD
+input:
+  MB: <sdtm-dir>/mb.parquet
+  ADTTE:
+    path: <adam-dir>/adtte.parquet
+    key:
+    - STUDYID
+    - USUBJID
+  ADEFF:
+    path: <adam-dir>/adeff.parquet
+    key:
+    - STUDYID
+    - USUBJID
+  ADIS:
+    path: <adam-dir>/adis.parquet
+    key:
+    - STUDYID
+    - USUBJID
+  ADSL:
+    path: <adam-dir>/adsl.parquet
+    key:
+    - STUDYID
+    - USUBJID
+submission:
+  label: Time to Event up to PDV Analysis Dataset
+  class: BASIC DATA STRUCTURE
+  structure: One record per subject per parameter
+  repeating: true
+rows:
+- id: tasycrb1_rows
+  dataset: ADSL
+  derivations:
+    STUDYID: ADSL.STUDYID
+    USUBJID: ADSL.USUBJID
+    PARAMCD: '''TASYCRB1'''
+    _SIB_ADT: SIB_TTASYCR_1._ADT
+    _SIB_CNSR: SIB_TTASYCR_1._CNSR
+    _SIB_DESC: SIB_TTASYCR_1._DESC
+    _PDV_DT:
+      least: {sources: [PDV_MB._DT, PDV_ADIS._DT]}
+    _PDV_EPOCH:
+      to_epoch_day:
+        source: _PDV_DT
+    _COVID_DT: COVID_1._ADT
+    _COVID_EPOCH:
+      to_epoch_day:
+        source: _COVID_DT
+    _DOSE2_EPOCH:
+      to_epoch_day:
+        source: ADSL.DOSE2DT
+    _TR01_EPOCH:
+      to_epoch_day:
+        source: ADSL.TR01SDT
+    _RAND_EPOCH:
+      to_epoch_day:
+        source: ADSL.RANDDT
+    _DTHDT_EPOCH:
+      to_epoch_day:
+        source: ADSL.DTHDT
+    _EOSDT_EPOCH:
+      to_epoch_day:
+        source: ADSL.EOSDT
+    _EFFCODT_EPOCH:
+      to_epoch_day:
+        source: ADSL.EFFCODT
+    _MIND_EPOCH:
+      least: {sources: [_DTHDT_EPOCH, _EOSDT_EPOCH, _EFFCODT_EPOCH]}
+    _CENS4:
+      least: {sources: [ADSL.DTHDT, ADSL.EOSDT, ADSL.EFFCODT, ADSL.AP02SDT]}
+    _STEP1:
+      case:
+      - when: (_SIB_CNSR = 0 OR (_SIB_CNSR <> 0 AND _SIB_DESC IN ('Early Asymptomatic SARS-CoV-2 Infection', 'COVID-19 or Second Definition of COVID-19')))
+        then: 1
+      - otherwise: 0
+    _INWIN:
+      case:
+      - when: _PDV_DT IS NOT NULL AND _PDV_EPOCH <= _MIND_EPOCH
+        then: 1
+      - otherwise: 0
+    _PRIOR:
+      case:
+      - when: _INWIN = 1 AND _COVID_DT IS NOT NULL AND _COVID_EPOCH <= _PDV_EPOCH
+        then: 1
+      - otherwise: 0
+    _ATPDV:
+      case:
+      - when: _PDV_EPOCH >= _DOSE2_EPOCH + 14
+        then: 1
+      - otherwise: 0
+    _ADT_RAW:
+      case:
+      - when: _STEP1 = 1
+        then: _SIB_ADT
+      - when: _INWIN = 1 AND _PRIOR = 0
+        then: _PDV_DT
+      - when: _INWIN = 1 AND _PRIOR = 1
+        then: _COVID_DT
+      - otherwise: _CENS4
+    _CNSR_RAW:
+      case:
+      - when: _STEP1 = 1
+        then: _SIB_CNSR
+      - when: _INWIN = 1 AND _PRIOR = 0 AND _ATPDV = 1
+        then: 0
+      - when: _INWIN = 1 AND _PRIOR = 0 AND _ATPDV = 0
+        then: 1
+      - when: _INWIN = 1 AND _PRIOR = 1
+        then: 2
+      - otherwise: _SIB_CNSR
+    _EVNTDESC_RAW:
+      case:
+      - when: _STEP1 = 1 AND _SIB_CNSR = 0
+        then: '''Asymptomatic SARS-CoV-2 Infection in Blinded Phase'''
+      - when: _STEP1 = 1
+        then: _SIB_DESC
+      - when: _INWIN = 1 AND _PRIOR = 0 AND _ATPDV = 1
+        then: '''Asymptomatic SARS-CoV-2 Infection at PDV'''
+      - when: _INWIN = 1 AND _PRIOR = 0 AND _ATPDV = 0
+        then: '''Early Asymptomatic SARS-CoV-2 Infection'''
+      - when: _INWIN = 1 AND _PRIOR = 1
+        then: '''COVID-19 or Second Definition of COVID-19'''
+      - otherwise: _SIB_DESC
+  filter: ADSL.FASFL = 'Y'
+- id: tasycrb2_rows
+  dataset: ADSL
+  derivations:
+    STUDYID: ADSL.STUDYID
+    USUBJID: ADSL.USUBJID
+    PARAMCD: '''TASYCRB2'''
+    _SIB_ADT: SIB_TTASYCR_2._ADT
+    _SIB_CNSR: SIB_TTASYCR_2._CNSR
+    _SIB_DESC: SIB_TTASYCR_2._DESC
+    _PDV_DT:
+      least: {sources: [PDV_MB._DT, PDV_ADIS._DT]}
+    _PDV_EPOCH:
+      to_epoch_day:
+        source: _PDV_DT
+    _COVID_DT: COVID_1._ADT
+    _COVID_EPOCH:
+      to_epoch_day:
+        source: _COVID_DT
+    _DOSE2_EPOCH:
+      to_epoch_day:
+        source: ADSL.DOSE2DT
+    _TR01_EPOCH:
+      to_epoch_day:
+        source: ADSL.TR01SDT
+    _RAND_EPOCH:
+      to_epoch_day:
+        source: ADSL.RANDDT
+    _DTHDT_EPOCH:
+      to_epoch_day:
+        source: ADSL.DTHDT
+    _EOSDT_EPOCH:
+      to_epoch_day:
+        source: ADSL.EOSDT
+    _EFFCODT_EPOCH:
+      to_epoch_day:
+        source: ADSL.EFFCODT
+    _MIND_EPOCH:
+      least: {sources: [_DTHDT_EPOCH, _EOSDT_EPOCH, _EFFCODT_EPOCH]}
+    _CENS4:
+      least: {sources: [ADSL.DTHDT, ADSL.EOSDT, ADSL.EFFCODT, ADSL.AP02SDT]}
+    _STEP1:
+      case:
+      - when: (_SIB_CNSR = 0 OR (_SIB_CNSR <> 0 AND _SIB_DESC IN ('Early Asymptomatic SARS-CoV-2 Infection', 'COVID-19 or Second Definition of COVID-19')))
+        then: 1
+      - otherwise: 0
+    _INWIN:
+      case:
+      - when: _PDV_DT IS NOT NULL AND _PDV_EPOCH <= _MIND_EPOCH
+        then: 1
+      - otherwise: 0
+    _PRIOR:
+      case:
+      - when: _INWIN = 1 AND _COVID_DT IS NOT NULL AND _COVID_EPOCH <= _PDV_EPOCH
+        then: 1
+      - otherwise: 0
+    _ATPDV:
+      case:
+      - when: _PDV_EPOCH >= _DOSE2_EPOCH
+        then: 1
+      - otherwise: 0
+    _ADT_RAW:
+      case:
+      - when: _STEP1 = 1
+        then: _SIB_ADT
+      - when: _INWIN = 1 AND _PRIOR = 0
+        then: _PDV_DT
+      - when: _INWIN = 1 AND _PRIOR = 1
+        then: _COVID_DT
+      - otherwise: _CENS4
+    _CNSR_RAW:
+      case:
+      - when: _STEP1 = 1
+        then: _SIB_CNSR
+      - when: _INWIN = 1 AND _PRIOR = 0 AND _ATPDV = 1
+        then: 0
+      - when: _INWIN = 1 AND _PRIOR = 0 AND _ATPDV = 0
+        then: 1
+      - when: _INWIN = 1 AND _PRIOR = 1
+        then: 2
+      - otherwise: _SIB_CNSR
+    _EVNTDESC_RAW:
+      case:
+      - when: _STEP1 = 1 AND _SIB_CNSR = 0
+        then: '''Asymptomatic SARS-CoV-2 Infection in Blinded Phase'''
+      - when: _STEP1 = 1
+        then: _SIB_DESC
+      - when: _INWIN = 1 AND _PRIOR = 0 AND _ATPDV = 1
+        then: '''Asymptomatic SARS-CoV-2 Infection at PDV'''
+      - when: _INWIN = 1 AND _PRIOR = 0 AND _ATPDV = 0
+        then: '''Early Asymptomatic SARS-CoV-2 Infection'''
+      - when: _INWIN = 1 AND _PRIOR = 1
+        then: '''COVID-19 or Second Definition of COVID-19'''
+      - otherwise: _SIB_DESC
+  filter: ADSL.FASFL = 'Y'
+- id: tasycrb3_rows
+  dataset: ADSL
+  derivations:
+    STUDYID: ADSL.STUDYID
+    USUBJID: ADSL.USUBJID
+    PARAMCD: '''TASYCRB3'''
+    _SIB_ADT: SIB_TTASYCR_3._ADT
+    _SIB_CNSR: SIB_TTASYCR_3._CNSR
+    _SIB_DESC: SIB_TTASYCR_3._DESC
+    _PDV_DT:
+      least: {sources: [PDV_MB._DT, PDV_ADIS._DT]}
+    _PDV_EPOCH:
+      to_epoch_day:
+        source: _PDV_DT
+    _COVID_DT: COVID_1._ADT
+    _COVID_EPOCH:
+      to_epoch_day:
+        source: _COVID_DT
+    _DOSE2_EPOCH:
+      to_epoch_day:
+        source: ADSL.DOSE2DT
+    _TR01_EPOCH:
+      to_epoch_day:
+        source: ADSL.TR01SDT
+    _RAND_EPOCH:
+      to_epoch_day:
+        source: ADSL.RANDDT
+    _DTHDT_EPOCH:
+      to_epoch_day:
+        source: ADSL.DTHDT
+    _EOSDT_EPOCH:
+      to_epoch_day:
+        source: ADSL.EOSDT
+    _EFFCODT_EPOCH:
+      to_epoch_day:
+        source: ADSL.EFFCODT
+    _MIND_EPOCH:
+      least: {sources: [_DTHDT_EPOCH, _EOSDT_EPOCH, _EFFCODT_EPOCH]}
+    _CENS4:
+      least: {sources: [ADSL.DTHDT, ADSL.EOSDT, ADSL.EFFCODT, ADSL.AP02SDT]}
+    _STEP1:
+      case:
+      - when: (_SIB_CNSR = 0 OR (_SIB_CNSR <> 0 AND _SIB_DESC IN ('Early Asymptomatic SARS-CoV-2 Infection', 'COVID-19 or Second Definition of COVID-19')))
+        then: 1
+      - otherwise: 0
+    _INWIN:
+      case:
+      - when: _PDV_DT IS NOT NULL AND _PDV_EPOCH <= _MIND_EPOCH
+        then: 1
+      - otherwise: 0
+    _PRIOR:
+      case:
+      - when: _INWIN = 1 AND _COVID_DT IS NOT NULL AND _COVID_EPOCH <= _PDV_EPOCH
+        then: 1
+      - otherwise: 0
+    _ATPDV:
+      case:
+      - when: _PDV_EPOCH >= _TR01_EPOCH + 14
+        then: 1
+      - otherwise: 0
+    _ADT_RAW:
+      case:
+      - when: _STEP1 = 1
+        then: _SIB_ADT
+      - when: _INWIN = 1 AND _PRIOR = 0
+        then: _PDV_DT
+      - when: _INWIN = 1 AND _PRIOR = 1
+        then: _COVID_DT
+      - otherwise: _CENS4
+    _CNSR_RAW:
+      case:
+      - when: _STEP1 = 1
+        then: _SIB_CNSR
+      - when: _INWIN = 1 AND _PRIOR = 0 AND _ATPDV = 1
+        then: 0
+      - when: _INWIN = 1 AND _PRIOR = 0 AND _ATPDV = 0
+        then: 1
+      - when: _INWIN = 1 AND _PRIOR = 1
+        then: 2
+      - otherwise: _SIB_CNSR
+    _EVNTDESC_RAW:
+      case:
+      - when: _STEP1 = 1 AND _SIB_CNSR = 0
+        then: '''Asymptomatic SARS-CoV-2 Infection in Blinded Phase'''
+      - when: _STEP1 = 1
+        then: _SIB_DESC
+      - when: _INWIN = 1 AND _PRIOR = 0 AND _ATPDV = 1
+        then: '''Asymptomatic SARS-CoV-2 Infection at PDV'''
+      - when: _INWIN = 1 AND _PRIOR = 0 AND _ATPDV = 0
+        then: '''Early Asymptomatic SARS-CoV-2 Infection'''
+      - when: _INWIN = 1 AND _PRIOR = 1
+        then: '''COVID-19 or Second Definition of COVID-19'''
+      - otherwise: _SIB_DESC
+  filter: ADSL.FASFL = 'Y'
+- id: tasycrb4_rows
+  dataset: ADSL
+  derivations:
+    STUDYID: ADSL.STUDYID
+    USUBJID: ADSL.USUBJID
+    PARAMCD: '''TASYCRB4'''
+    _SIB_ADT: SIB_TTASYCR_4._ADT
+    _SIB_CNSR: SIB_TTASYCR_4._CNSR
+    _SIB_DESC: SIB_TTASYCR_4._DESC
+    _PDV_DT:
+      least: {sources: [PDV_MB._DT, PDV_ADIS._DT]}
+    _PDV_EPOCH:
+      to_epoch_day:
+        source: _PDV_DT
+    _COVID_DT: COVID_1._ADT
+    _COVID_EPOCH:
+      to_epoch_day:
+        source: _COVID_DT
+    _DOSE2_EPOCH:
+      to_epoch_day:
+        source: ADSL.DOSE2DT
+    _TR01_EPOCH:
+      to_epoch_day:
+        source: ADSL.TR01SDT
+    _RAND_EPOCH:
+      to_epoch_day:
+        source: ADSL.RANDDT
+    _DTHDT_EPOCH:
+      to_epoch_day:
+        source: ADSL.DTHDT
+    _EOSDT_EPOCH:
+      to_epoch_day:
+        source: ADSL.EOSDT
+    _EFFCODT_EPOCH:
+      to_epoch_day:
+        source: ADSL.EFFCODT
+    _MIND_EPOCH:
+      least: {sources: [_DTHDT_EPOCH, _EOSDT_EPOCH, _EFFCODT_EPOCH]}
+    _CENS4:
+      least: {sources: [ADSL.DTHDT, ADSL.EOSDT, ADSL.EFFCODT, ADSL.AP02SDT]}
+    _STEP1:
+      case:
+      - when: (_SIB_CNSR = 0 OR (_SIB_CNSR <> 0 AND _SIB_DESC IN ('Early Asymptomatic SARS-CoV-2 Infection', 'COVID-19 or Second Definition of COVID-19')))
+        then: 1
+      - otherwise: 0
+    _INWIN:
+      case:
+      - when: _PDV_DT IS NOT NULL AND _PDV_EPOCH <= _MIND_EPOCH
+        then: 1
+      - otherwise: 0
+    _PRIOR:
+      case:
+      - when: _INWIN = 1 AND _COVID_DT IS NOT NULL AND _COVID_EPOCH <= _PDV_EPOCH
+        then: 1
+      - otherwise: 0
+    _ATPDV:
+      case:
+      - when: _PDV_EPOCH >= _TR01_EPOCH
+        then: 1
+      - otherwise: 0
+    _ADT_RAW:
+      case:
+      - when: _STEP1 = 1
+        then: _SIB_ADT
+      - when: _INWIN = 1 AND _PRIOR = 0
+        then: _PDV_DT
+      - when: _INWIN = 1 AND _PRIOR = 1
+        then: _COVID_DT
+      - otherwise: _CENS4
+    _CNSR_RAW:
+      case:
+      - when: _STEP1 = 1
+        then: _SIB_CNSR
+      - when: _INWIN = 1 AND _PRIOR = 0 AND _ATPDV = 1
+        then: 0
+      - when: _INWIN = 1 AND _PRIOR = 0 AND _ATPDV = 0
+        then: 1
+      - when: _INWIN = 1 AND _PRIOR = 1
+        then: 2
+      - otherwise: _SIB_CNSR
+    _EVNTDESC_RAW:
+      case:
+      - when: _STEP1 = 1 AND _SIB_CNSR = 0
+        then: '''Asymptomatic SARS-CoV-2 Infection in Blinded Phase'''
+      - when: _STEP1 = 1
+        then: _SIB_DESC
+      - when: _INWIN = 1 AND _PRIOR = 0 AND _ATPDV = 1
+        then: '''Asymptomatic SARS-CoV-2 Infection at PDV'''
+      - when: _INWIN = 1 AND _PRIOR = 0 AND _ATPDV = 0
+        then: '''Early Asymptomatic SARS-CoV-2 Infection'''
+      - when: _INWIN = 1 AND _PRIOR = 1
+        then: '''COVID-19 or Second Definition of COVID-19'''
+      - otherwise: _SIB_DESC
+  filter: ADSL.FASFL = 'Y'
+- id: tasycrb5_rows
+  dataset: ADSL
+  derivations:
+    STUDYID: ADSL.STUDYID
+    USUBJID: ADSL.USUBJID
+    PARAMCD: '''TASYCRB5'''
+    _SIB_ADT: SIB_TTASYCR_5._ADT
+    _SIB_CNSR: SIB_TTASYCR_5._CNSR
+    _SIB_DESC: SIB_TTASYCR_5._DESC
+    _PDV_DT:
+      least: {sources: [PDV_MB._DT, PDV_ADIS._DT]}
+    _PDV_EPOCH:
+      to_epoch_day:
+        source: _PDV_DT
+    _COVID_DT: COVID_1._ADT
+    _COVID_EPOCH:
+      to_epoch_day:
+        source: _COVID_DT
+    _DOSE2_EPOCH:
+      to_epoch_day:
+        source: ADSL.DOSE2DT
+    _TR01_EPOCH:
+      to_epoch_day:
+        source: ADSL.TR01SDT
+    _RAND_EPOCH:
+      to_epoch_day:
+        source: ADSL.RANDDT
+    _DTHDT_EPOCH:
+      to_epoch_day:
+        source: ADSL.DTHDT
+    _EOSDT_EPOCH:
+      to_epoch_day:
+        source: ADSL.EOSDT
+    _EFFCODT_EPOCH:
+      to_epoch_day:
+        source: ADSL.EFFCODT
+    _MIND_EPOCH:
+      least: {sources: [_DTHDT_EPOCH, _EOSDT_EPOCH, _EFFCODT_EPOCH]}
+    _CENS4:
+      least: {sources: [ADSL.DTHDT, ADSL.EOSDT, ADSL.EFFCODT, ADSL.AP02SDT]}
+    _STEP1:
+      case:
+      - when: (_SIB_CNSR = 0 OR (_SIB_CNSR <> 0 AND _SIB_DESC IN ('Early Asymptomatic SARS-CoV-2 Infection', 'COVID-19 or Second Definition of COVID-19')))
+        then: 1
+      - otherwise: 0
+    _INWIN:
+      case:
+      - when: _PDV_DT IS NOT NULL AND _PDV_EPOCH <= _MIND_EPOCH
+        then: 1
+      - otherwise: 0
+    _PRIOR:
+      case:
+      - when: _INWIN = 1 AND _COVID_DT IS NOT NULL AND _COVID_EPOCH <= _PDV_EPOCH
+        then: 1
+      - otherwise: 0
+    _ATPDV:
+      case:
+      - when: _PDV_EPOCH >= _RAND_EPOCH
+        then: 1
+      - otherwise: 0
+    _ADT_RAW:
+      case:
+      - when: _STEP1 = 1
+        then: _SIB_ADT
+      - when: _INWIN = 1 AND _PRIOR = 0
+        then: _PDV_DT
+      - when: _INWIN = 1 AND _PRIOR = 1
+        then: _COVID_DT
+      - otherwise: _CENS4
+    _CNSR_RAW:
+      case:
+      - when: _STEP1 = 1
+        then: _SIB_CNSR
+      - when: _INWIN = 1 AND _PRIOR = 0 AND _ATPDV = 1
+        then: 0
+      - when: _INWIN = 1 AND _PRIOR = 0 AND _ATPDV = 0
+        then: 1
+      - when: _INWIN = 1 AND _PRIOR = 1
+        then: 2
+      - otherwise: _SIB_CNSR
+    _EVNTDESC_RAW:
+      case:
+      - when: _STEP1 = 1 AND _SIB_CNSR = 0
+        then: '''Asymptomatic SARS-CoV-2 Infection in Blinded Phase'''
+      - when: _STEP1 = 1
+        then: _SIB_DESC
+      - when: _INWIN = 1 AND _PRIOR = 0 AND _ATPDV = 1
+        then: '''Asymptomatic SARS-CoV-2 Infection at PDV'''
+      - when: _INWIN = 1 AND _PRIOR = 0 AND _ATPDV = 0
+        then: '''Early Asymptomatic SARS-CoV-2 Infection'''
+      - when: _INWIN = 1 AND _PRIOR = 1
+        then: '''COVID-19 or Second Definition of COVID-19'''
+      - otherwise: _SIB_DESC
+  filter: ADSL.FASFL = 'Y'
+- id: ttinfb1_rows
+  dataset: ADSL
+  derivations:
+    STUDYID: ADSL.STUDYID
+    USUBJID: ADSL.USUBJID
+    PARAMCD: '''TTINFB1'''
+    _SIB_ADT: SIB_TTINF_1._ADT
+    _SIB_CNSR: SIB_TTINF_1._CNSR
+    _SIB_DESC: SIB_TTINF_1._DESC
+    _PDV_DT:
+      least: {sources: [PDV_MB._DT, PDV_ADIS._DT]}
+    _PDV_EPOCH:
+      to_epoch_day:
+        source: _PDV_DT
+    _COVID_DT: null
+    _COVID_EPOCH:
+      to_epoch_day:
+        source: _COVID_DT
+    _DOSE2_EPOCH:
+      to_epoch_day:
+        source: ADSL.DOSE2DT
+    _TR01_EPOCH:
+      to_epoch_day:
+        source: ADSL.TR01SDT
+    _RAND_EPOCH:
+      to_epoch_day:
+        source: ADSL.RANDDT
+    _DTHDT_EPOCH:
+      to_epoch_day:
+        source: ADSL.DTHDT
+    _EOSDT_EPOCH:
+      to_epoch_day:
+        source: ADSL.EOSDT
+    _EFFCODT_EPOCH:
+      to_epoch_day:
+        source: ADSL.EFFCODT
+    _MIND_EPOCH:
+      least: {sources: [_DTHDT_EPOCH, _EOSDT_EPOCH, _EFFCODT_EPOCH]}
+    _CENS4:
+      least: {sources: [ADSL.DTHDT, ADSL.EOSDT, ADSL.EFFCODT, ADSL.AP02SDT]}
+    _STEP1:
+      case:
+      - when: (_SIB_CNSR = 0 OR (_SIB_CNSR = 1 AND _SIB_DESC = 'Early SARS-CoV-2 Infection Regardless of Symptomatology or Severity'))
+        then: 1
+      - otherwise: 0
+    _INWIN:
+      case:
+      - when: _PDV_DT IS NOT NULL AND _PDV_EPOCH <= _MIND_EPOCH
+        then: 1
+      - otherwise: 0
+    _PRIOR:
+      case:
+      - when: _INWIN = 1 AND _COVID_DT IS NOT NULL AND _COVID_EPOCH <= _PDV_EPOCH
+        then: 1
+      - otherwise: 0
+    _ATPDV:
+      case:
+      - when: _PDV_EPOCH >= _DOSE2_EPOCH + 14
+        then: 1
+      - otherwise: 0
+    _ADT_RAW:
+      case:
+      - when: _STEP1 = 1
+        then: _SIB_ADT
+      - when: _INWIN = 1
+        then: _PDV_DT
+      - otherwise: _CENS4
+    _CNSR_RAW:
+      case:
+      - when: _STEP1 = 1
+        then: _SIB_CNSR
+      - when: _INWIN = 1 AND _ATPDV = 1
+        then: 0
+      - when: _INWIN = 1 AND _ATPDV = 0
+        then: 1
+      - otherwise: 1
+    _EVNTDESC_RAW:
+      case:
+      - when: _STEP1 = 1 AND _SIB_CNSR = 0
+        then: '''SARS-CoV-2 Infection Regardless of Symptomatology or Severity in Blinded Phase'''
+      - when: _STEP1 = 1
+        then: _SIB_DESC
+      - when: _INWIN = 1 AND _ATPDV = 1
+        then: '''SARS-CoV-2 Infection Regardless of Symptomatology or Severity at PDV'''
+      - when: _INWIN = 1 AND _ATPDV = 0
+        then: '''Early SARS-CoV-2 Infection Regardless of Symptomatology or Severity'''
+      - otherwise: _SIB_DESC
+  filter: ADSL.FASFL = 'Y'
+- id: ttinfb2_rows
+  dataset: ADSL
+  derivations:
+    STUDYID: ADSL.STUDYID
+    USUBJID: ADSL.USUBJID
+    PARAMCD: '''TTINFB2'''
+    _SIB_ADT: SIB_TTINF_2._ADT
+    _SIB_CNSR: SIB_TTINF_2._CNSR
+    _SIB_DESC: SIB_TTINF_2._DESC
+    _PDV_DT:
+      least: {sources: [PDV_MB._DT, PDV_ADIS._DT]}
+    _PDV_EPOCH:
+      to_epoch_day:
+        source: _PDV_DT
+    _COVID_DT: null
+    _COVID_EPOCH:
+      to_epoch_day:
+        source: _COVID_DT
+    _DOSE2_EPOCH:
+      to_epoch_day:
+        source: ADSL.DOSE2DT
+    _TR01_EPOCH:
+      to_epoch_day:
+        source: ADSL.TR01SDT
+    _RAND_EPOCH:
+      to_epoch_day:
+        source: ADSL.RANDDT
+    _DTHDT_EPOCH:
+      to_epoch_day:
+        source: ADSL.DTHDT
+    _EOSDT_EPOCH:
+      to_epoch_day:
+        source: ADSL.EOSDT
+    _EFFCODT_EPOCH:
+      to_epoch_day:
+        source: ADSL.EFFCODT
+    _MIND_EPOCH:
+      least: {sources: [_DTHDT_EPOCH, _EOSDT_EPOCH, _EFFCODT_EPOCH]}
+    _CENS4:
+      least: {sources: [ADSL.DTHDT, ADSL.EOSDT, ADSL.EFFCODT, ADSL.AP02SDT]}
+    _STEP1:
+      case:
+      - when: (_SIB_CNSR = 0 OR (_SIB_CNSR = 1 AND _SIB_DESC = 'Early SARS-CoV-2 Infection Regardless of Symptomatology or Severity'))
+        then: 1
+      - otherwise: 0
+    _INWIN:
+      case:
+      - when: _PDV_DT IS NOT NULL AND _PDV_EPOCH <= _MIND_EPOCH
+        then: 1
+      - otherwise: 0
+    _PRIOR:
+      case:
+      - when: _INWIN = 1 AND _COVID_DT IS NOT NULL AND _COVID_EPOCH <= _PDV_EPOCH
+        then: 1
+      - otherwise: 0
+    _ATPDV:
+      case:
+      - when: _PDV_EPOCH >= _DOSE2_EPOCH
+        then: 1
+      - otherwise: 0
+    _ADT_RAW:
+      case:
+      - when: _STEP1 = 1
+        then: _SIB_ADT
+      - when: _INWIN = 1
+        then: _PDV_DT
+      - otherwise: _CENS4
+    _CNSR_RAW:
+      case:
+      - when: _STEP1 = 1
+        then: _SIB_CNSR
+      - when: _INWIN = 1 AND _ATPDV = 1
+        then: 0
+      - when: _INWIN = 1 AND _ATPDV = 0
+        then: 1
+      - otherwise: 1
+    _EVNTDESC_RAW:
+      case:
+      - when: _STEP1 = 1 AND _SIB_CNSR = 0
+        then: '''SARS-CoV-2 Infection Regardless of Symptomatology or Severity in Blinded Phase'''
+      - when: _STEP1 = 1
+        then: _SIB_DESC
+      - when: _INWIN = 1 AND _ATPDV = 1
+        then: '''SARS-CoV-2 Infection Regardless of Symptomatology or Severity at PDV'''
+      - when: _INWIN = 1 AND _ATPDV = 0
+        then: '''Early SARS-CoV-2 Infection Regardless of Symptomatology or Severity'''
+      - otherwise: _SIB_DESC
+  filter: ADSL.FASFL = 'Y'
+- id: ttinfb3_rows
+  dataset: ADSL
+  derivations:
+    STUDYID: ADSL.STUDYID
+    USUBJID: ADSL.USUBJID
+    PARAMCD: '''TTINFB3'''
+    _SIB_ADT: SIB_TTINF_3._ADT
+    _SIB_CNSR: SIB_TTINF_3._CNSR
+    _SIB_DESC: SIB_TTINF_3._DESC
+    _PDV_DT:
+      least: {sources: [PDV_MB._DT, PDV_ADIS._DT]}
+    _PDV_EPOCH:
+      to_epoch_day:
+        source: _PDV_DT
+    _COVID_DT: null
+    _COVID_EPOCH:
+      to_epoch_day:
+        source: _COVID_DT
+    _DOSE2_EPOCH:
+      to_epoch_day:
+        source: ADSL.DOSE2DT
+    _TR01_EPOCH:
+      to_epoch_day:
+        source: ADSL.TR01SDT
+    _RAND_EPOCH:
+      to_epoch_day:
+        source: ADSL.RANDDT
+    _DTHDT_EPOCH:
+      to_epoch_day:
+        source: ADSL.DTHDT
+    _EOSDT_EPOCH:
+      to_epoch_day:
+        source: ADSL.EOSDT
+    _EFFCODT_EPOCH:
+      to_epoch_day:
+        source: ADSL.EFFCODT
+    _MIND_EPOCH:
+      least: {sources: [_DTHDT_EPOCH, _EOSDT_EPOCH, _EFFCODT_EPOCH]}
+    _CENS4:
+      least: {sources: [ADSL.DTHDT, ADSL.EOSDT, ADSL.EFFCODT, ADSL.AP02SDT]}
+    _STEP1:
+      case:
+      - when: (_SIB_CNSR = 0 OR (_SIB_CNSR = 1 AND _SIB_DESC = 'Early SARS-CoV-2 Infection Regardless of Symptomatology or Severity'))
+        then: 1
+      - otherwise: 0
+    _INWIN:
+      case:
+      - when: _PDV_DT IS NOT NULL AND _PDV_EPOCH <= _MIND_EPOCH
+        then: 1
+      - otherwise: 0
+    _PRIOR:
+      case:
+      - when: _INWIN = 1 AND _COVID_DT IS NOT NULL AND _COVID_EPOCH <= _PDV_EPOCH
+        then: 1
+      - otherwise: 0
+    _ATPDV:
+      case:
+      - when: _PDV_EPOCH >= _TR01_EPOCH + 14
+        then: 1
+      - otherwise: 0
+    _ADT_RAW:
+      case:
+      - when: _STEP1 = 1
+        then: _SIB_ADT
+      - when: _INWIN = 1
+        then: _PDV_DT
+      - otherwise: _CENS4
+    _CNSR_RAW:
+      case:
+      - when: _STEP1 = 1
+        then: _SIB_CNSR
+      - when: _INWIN = 1 AND _ATPDV = 1
+        then: 0
+      - when: _INWIN = 1 AND _ATPDV = 0
+        then: 1
+      - otherwise: 1
+    _EVNTDESC_RAW:
+      case:
+      - when: _STEP1 = 1 AND _SIB_CNSR = 0
+        then: '''SARS-CoV-2 Infection Regardless of Symptomatology or Severity in Blinded Phase'''
+      - when: _STEP1 = 1
+        then: _SIB_DESC
+      - when: _INWIN = 1 AND _ATPDV = 1
+        then: '''SARS-CoV-2 Infection Regardless of Symptomatology or Severity at PDV'''
+      - when: _INWIN = 1 AND _ATPDV = 0
+        then: '''Early SARS-CoV-2 Infection Regardless of Symptomatology or Severity'''
+      - otherwise: _SIB_DESC
+  filter: ADSL.FASFL = 'Y'
+- id: ttinfb4_rows
+  dataset: ADSL
+  derivations:
+    STUDYID: ADSL.STUDYID
+    USUBJID: ADSL.USUBJID
+    PARAMCD: '''TTINFB4'''
+    _SIB_ADT: SIB_TTINF_4._ADT
+    _SIB_CNSR: SIB_TTINF_4._CNSR
+    _SIB_DESC: SIB_TTINF_4._DESC
+    _PDV_DT:
+      least: {sources: [PDV_MB._DT, PDV_ADIS._DT]}
+    _PDV_EPOCH:
+      to_epoch_day:
+        source: _PDV_DT
+    _COVID_DT: null
+    _COVID_EPOCH:
+      to_epoch_day:
+        source: _COVID_DT
+    _DOSE2_EPOCH:
+      to_epoch_day:
+        source: ADSL.DOSE2DT
+    _TR01_EPOCH:
+      to_epoch_day:
+        source: ADSL.TR01SDT
+    _RAND_EPOCH:
+      to_epoch_day:
+        source: ADSL.RANDDT
+    _DTHDT_EPOCH:
+      to_epoch_day:
+        source: ADSL.DTHDT
+    _EOSDT_EPOCH:
+      to_epoch_day:
+        source: ADSL.EOSDT
+    _EFFCODT_EPOCH:
+      to_epoch_day:
+        source: ADSL.EFFCODT
+    _MIND_EPOCH:
+      least: {sources: [_DTHDT_EPOCH, _EOSDT_EPOCH, _EFFCODT_EPOCH]}
+    _CENS4:
+      least: {sources: [ADSL.DTHDT, ADSL.EOSDT, ADSL.EFFCODT, ADSL.AP02SDT]}
+    _STEP1:
+      case:
+      - when: (_SIB_CNSR = 0 OR (_SIB_CNSR = 1 AND _SIB_DESC = 'Early SARS-CoV-2 Infection Regardless of Symptomatology or Severity'))
+        then: 1
+      - otherwise: 0
+    _INWIN:
+      case:
+      - when: _PDV_DT IS NOT NULL AND _PDV_EPOCH <= _MIND_EPOCH
+        then: 1
+      - otherwise: 0
+    _PRIOR:
+      case:
+      - when: _INWIN = 1 AND _COVID_DT IS NOT NULL AND _COVID_EPOCH <= _PDV_EPOCH
+        then: 1
+      - otherwise: 0
+    _ATPDV:
+      case:
+      - when: _PDV_EPOCH >= _TR01_EPOCH
+        then: 1
+      - otherwise: 0
+    _ADT_RAW:
+      case:
+      - when: _STEP1 = 1
+        then: _SIB_ADT
+      - when: _INWIN = 1
+        then: _PDV_DT
+      - otherwise: _CENS4
+    _CNSR_RAW:
+      case:
+      - when: _STEP1 = 1
+        then: _SIB_CNSR
+      - when: _INWIN = 1 AND _ATPDV = 1
+        then: 0
+      - when: _INWIN = 1 AND _ATPDV = 0
+        then: 1
+      - otherwise: 1
+    _EVNTDESC_RAW:
+      case:
+      - when: _STEP1 = 1 AND _SIB_CNSR = 0
+        then: '''SARS-CoV-2 Infection Regardless of Symptomatology or Severity in Blinded Phase'''
+      - when: _STEP1 = 1
+        then: _SIB_DESC
+      - when: _INWIN = 1 AND _ATPDV = 1
+        then: '''SARS-CoV-2 Infection Regardless of Symptomatology or Severity at PDV'''
+      - when: _INWIN = 1 AND _ATPDV = 0
+        then: '''Early SARS-CoV-2 Infection Regardless of Symptomatology or Severity'''
+      - otherwise: _SIB_DESC
+  filter: ADSL.FASFL = 'Y'
+- id: ttinfb5_rows
+  dataset: ADSL
+  derivations:
+    STUDYID: ADSL.STUDYID
+    USUBJID: ADSL.USUBJID
+    PARAMCD: '''TTINFB5'''
+    _SIB_ADT: SIB_TTINF_5._ADT
+    _SIB_CNSR: SIB_TTINF_5._CNSR
+    _SIB_DESC: SIB_TTINF_5._DESC
+    _PDV_DT:
+      least: {sources: [PDV_MB._DT, PDV_ADIS._DT]}
+    _PDV_EPOCH:
+      to_epoch_day:
+        source: _PDV_DT
+    _COVID_DT: null
+    _COVID_EPOCH:
+      to_epoch_day:
+        source: _COVID_DT
+    _DOSE2_EPOCH:
+      to_epoch_day:
+        source: ADSL.DOSE2DT
+    _TR01_EPOCH:
+      to_epoch_day:
+        source: ADSL.TR01SDT
+    _RAND_EPOCH:
+      to_epoch_day:
+        source: ADSL.RANDDT
+    _DTHDT_EPOCH:
+      to_epoch_day:
+        source: ADSL.DTHDT
+    _EOSDT_EPOCH:
+      to_epoch_day:
+        source: ADSL.EOSDT
+    _EFFCODT_EPOCH:
+      to_epoch_day:
+        source: ADSL.EFFCODT
+    _MIND_EPOCH:
+      least: {sources: [_DTHDT_EPOCH, _EOSDT_EPOCH, _EFFCODT_EPOCH]}
+    _CENS4:
+      least: {sources: [ADSL.DTHDT, ADSL.EOSDT, ADSL.EFFCODT, ADSL.AP02SDT]}
+    _STEP1:
+      case:
+      - when: (_SIB_CNSR = 0 OR (_SIB_CNSR = 1 AND _SIB_DESC = 'Early SARS-CoV-2 Infection Regardless of Symptomatology or Severity'))
+        then: 1
+      - otherwise: 0
+    _INWIN:
+      case:
+      - when: _PDV_DT IS NOT NULL AND _PDV_EPOCH <= _MIND_EPOCH
+        then: 1
+      - otherwise: 0
+    _PRIOR:
+      case:
+      - when: _INWIN = 1 AND _COVID_DT IS NOT NULL AND _COVID_EPOCH <= _PDV_EPOCH
+        then: 1
+      - otherwise: 0
+    _ATPDV:
+      case:
+      - when: _PDV_EPOCH >= _RAND_EPOCH
+        then: 1
+      - otherwise: 0
+    _ADT_RAW:
+      case:
+      - when: _STEP1 = 1
+        then: _SIB_ADT
+      - when: _INWIN = 1
+        then: _PDV_DT
+      - otherwise: _CENS4
+    _CNSR_RAW:
+      case:
+      - when: _STEP1 = 1
+        then: _SIB_CNSR
+      - when: _INWIN = 1 AND _ATPDV = 1
+        then: 0
+      - when: _INWIN = 1 AND _ATPDV = 0
+        then: 1
+      - otherwise: 1
+    _EVNTDESC_RAW:
+      case:
+      - when: _STEP1 = 1 AND _SIB_CNSR = 0
+        then: '''SARS-CoV-2 Infection Regardless of Symptomatology or Severity in Blinded Phase'''
+      - when: _STEP1 = 1
+        then: _SIB_DESC
+      - when: _INWIN = 1 AND _ATPDV = 1
+        then: '''SARS-CoV-2 Infection Regardless of Symptomatology or Severity at PDV'''
+      - when: _INWIN = 1 AND _ATPDV = 0
+        then: '''Early SARS-CoV-2 Infection Regardless of Symptomatology or Severity'''
+      - otherwise: _SIB_DESC
+  filter: ADSL.FASFL = 'Y'
+intermediates:
+- id: SIB_TTASYCR_1
+  dataset: ADTTE
+  key:
+  - USUBJID
+  filter: ADTTE.PARAMCD = 'TTASYCR1'
+  order_by:
+  - ADTTE.ADT
+  keep: first
+  derivations:
+    _ADT:
+      type: date
+      derivation: ADTTE.ADT
+    _CNSR:
+      type: int
+      derivation: ADTTE.CNSR
+    _DESC:
+      type: str
+      derivation: ADTTE.EVNTDESC
+- id: SIB_TTASYCR_2
+  dataset: ADTTE
+  key:
+  - USUBJID
+  filter: ADTTE.PARAMCD = 'TTASYCR2'
+  order_by:
+  - ADTTE.ADT
+  keep: first
+  derivations:
+    _ADT:
+      type: date
+      derivation: ADTTE.ADT
+    _CNSR:
+      type: int
+      derivation: ADTTE.CNSR
+    _DESC:
+      type: str
+      derivation: ADTTE.EVNTDESC
+- id: SIB_TTASYCR_3
+  dataset: ADTTE
+  key:
+  - USUBJID
+  filter: ADTTE.PARAMCD = 'TTASYCR3'
+  order_by:
+  - ADTTE.ADT
+  keep: first
+  derivations:
+    _ADT:
+      type: date
+      derivation: ADTTE.ADT
+    _CNSR:
+      type: int
+      derivation: ADTTE.CNSR
+    _DESC:
+      type: str
+      derivation: ADTTE.EVNTDESC
+- id: SIB_TTASYCR_4
+  dataset: ADTTE
+  key:
+  - USUBJID
+  filter: ADTTE.PARAMCD = 'TTASYCR4'
+  order_by:
+  - ADTTE.ADT
+  keep: first
+  derivations:
+    _ADT:
+      type: date
+      derivation: ADTTE.ADT
+    _CNSR:
+      type: int
+      derivation: ADTTE.CNSR
+    _DESC:
+      type: str
+      derivation: ADTTE.EVNTDESC
+- id: SIB_TTASYCR_5
+  dataset: ADTTE
+  key:
+  - USUBJID
+  filter: ADTTE.PARAMCD = 'TTASYCR5'
+  order_by:
+  - ADTTE.ADT
+  keep: first
+  derivations:
+    _ADT:
+      type: date
+      derivation: ADTTE.ADT
+    _CNSR:
+      type: int
+      derivation: ADTTE.CNSR
+    _DESC:
+      type: str
+      derivation: ADTTE.EVNTDESC
+- id: SIB_TTINF_1
+  dataset: ADTTE
+  key:
+  - USUBJID
+  filter: ADTTE.PARAMCD = 'TTINF1'
+  order_by:
+  - ADTTE.ADT
+  keep: first
+  derivations:
+    _ADT:
+      type: date
+      derivation: ADTTE.ADT
+    _CNSR:
+      type: int
+      derivation: ADTTE.CNSR
+    _DESC:
+      type: str
+      derivation: ADTTE.EVNTDESC
+- id: SIB_TTINF_2
+  dataset: ADTTE
+  key:
+  - USUBJID
+  filter: ADTTE.PARAMCD = 'TTINF2'
+  order_by:
+  - ADTTE.ADT
+  keep: first
+  derivations:
+    _ADT:
+      type: date
+      derivation: ADTTE.ADT
+    _CNSR:
+      type: int
+      derivation: ADTTE.CNSR
+    _DESC:
+      type: str
+      derivation: ADTTE.EVNTDESC
+- id: SIB_TTINF_3
+  dataset: ADTTE
+  key:
+  - USUBJID
+  filter: ADTTE.PARAMCD = 'TTINF3'
+  order_by:
+  - ADTTE.ADT
+  keep: first
+  derivations:
+    _ADT:
+      type: date
+      derivation: ADTTE.ADT
+    _CNSR:
+      type: int
+      derivation: ADTTE.CNSR
+    _DESC:
+      type: str
+      derivation: ADTTE.EVNTDESC
+- id: SIB_TTINF_4
+  dataset: ADTTE
+  key:
+  - USUBJID
+  filter: ADTTE.PARAMCD = 'TTINF4'
+  order_by:
+  - ADTTE.ADT
+  keep: first
+  derivations:
+    _ADT:
+      type: date
+      derivation: ADTTE.ADT
+    _CNSR:
+      type: int
+      derivation: ADTTE.CNSR
+    _DESC:
+      type: str
+      derivation: ADTTE.EVNTDESC
+- id: SIB_TTINF_5
+  dataset: ADTTE
+  key:
+  - USUBJID
+  filter: ADTTE.PARAMCD = 'TTINF5'
+  order_by:
+  - ADTTE.ADT
+  keep: first
+  derivations:
+    _ADT:
+      type: date
+      derivation: ADTTE.ADT
+    _CNSR:
+      type: int
+      derivation: ADTTE.CNSR
+    _DESC:
+      type: str
+      derivation: ADTTE.EVNTDESC
+- id: COVID_1
+  dataset: ADEFF
+  key:
+  - USUBJID
+  filter: ADEFF.PARAMCD IN ('COVIDS', 'COVIDSDS') AND ADEFF.ANL01FL = 'Y' AND ADEFF.ADT IS NOT NULL
+  order_by:
+  - ADEFF.ADT
+  keep: first
+  derivations:
+    _ADT:
+      type: date
+      derivation: ADEFF.ADT
+- id: PDV_MB
+  dataset: MB
+  key:
+  - USUBJID
+  filter: MB.MBTESTCD = 'SARSCOV2' AND MB.MBSTRESC IN ('Detected', 'Positive') AND MB.VISIT IN ('Participant Decision Visit / OL-D1') AND MB.MBDTC IS NOT NULL AND MB.MBDTC NOT IN ('')
+  order_by:
+  - MB.MBDTC
+  keep: first
+  derivations:
+    _DT:
+      type: date
+      derivation:
+        to_date:
+          source: MB.MBDTC
+- id: PDV_ADIS
+  dataset: ADIS
+  key:
+  - USUBJID
+  filter: ADIS.CRIT5FL = 'Y' AND ADIS.VISIT IN ('Participant Decision Visit / OL-D1') AND ADIS.ADT IS NOT NULL
+  order_by:
+  - ADIS.ADT
+  keep: first
+  derivations:
+    _DT:
+      type: date
+      derivation: ADIS.ADT
+columns:
+- name: _ADSL
+  type: str
+  derivation: ADSL.USUBJID
+- name: STUDYID
+  submission:
+    origins:
+    - type: Derived
+    method: "Withheld from publication: the received define states this text."
+- name: USUBJID
+  submission:
+    origins:
+    - type: Derived
+    method: "Withheld from publication: the received define states this text."
+- name: _SIB_ADT
+  type: date
+- name: _SIB_CNSR
+  type: int
+- name: _SIB_DESC
+  type: str
+- name: _PDV_DT
+  type: date
+- name: _PDV_EPOCH
+  type: int
+- name: _COVID_DT
+  type: date
+- name: _COVID_EPOCH
+  type: int
+- name: _DOSE2_EPOCH
+  type: int
+- name: _TR01_EPOCH
+  type: int
+- name: _RAND_EPOCH
+  type: int
+- name: _DTHDT_EPOCH
+  type: int
+- name: _EOSDT_EPOCH
+  type: int
+- name: _EFFCODT_EPOCH
+  type: int
+- name: _MIND_EPOCH
+  type: int
+- name: _CENS4
+  type: date
+- name: _STEP1
+  type: int
+- name: _INWIN
+  type: int
+- name: _PRIOR
+  type: int
+- name: _ATPDV
+  type: int
+- name: _ADT_RAW
+  type: date
+- name: _CNSR_RAW
+  type: int
+- name: _EVNTDESC_RAW
+  type: str
+- name: SUBJID
+  derivation: ADSL.SUBJID
+  submission:
+    origins:
+    - type: Predecessor
+      description: ADSL.SUBJID
+- name: SITEID
+  derivation: ADSL.SITEID
+  submission:
+    origins:
+    - type: Predecessor
+      description: ADSL.SITEID
+- name: COUNTRY
+  derivation: ADSL.COUNTRY
+  submission:
+    origins:
+    - type: Predecessor
+      description: ADSL.COUNTRY
+- name: AGE
+  derivation: ADSL.AGE
+  submission:
+    origins:
+    - type: Predecessor
+      description: ADSL.AGE
+- name: AGEU
+  derivation: ADSL.AGEU
+  submission:
+    origins:
+    - type: Predecessor
+      description: ADSL.AGEU
+- name: STRATAR
+  derivation: ADSL.STRATAR
+  submission:
+    origins:
+    - type: Predecessor
+      description: ADSL.STRATAR
+- name: STRATARN
+  derivation: ADSL.STRATARN
+  submission:
+    origins:
+    - type: Predecessor
+      description: ADSL.STRATARN
+- name: AGEGR1
+  derivation: ADSL.AGEGR1
+  submission:
+    origins:
+    - type: Predecessor
+      description: ADSL.AGEGR1
+- name: AGEGR1N
+  derivation: ADSL.AGEGR1N
+  submission:
+    origins:
+    - type: Predecessor
+      description: ADSL.AGEGR1N
+- name: AGEGR2
+  derivation: ADSL.AGEGR2
+  submission:
+    origins:
+    - type: Predecessor
+      description: ADSL.AGEGR2
+- name: AGEGR2N
+  derivation: ADSL.AGEGR2N
+  submission:
+    origins:
+    - type: Predecessor
+      description: ADSL.AGEGR2N
+- name: AGEGR3
+  derivation: ADSL.AGEGR3
+  submission:
+    origins:
+    - type: Predecessor
+      description: ADSL.AGEGR3
+- name: AGEGR3N
+  derivation: ADSL.AGEGR3N
+  submission:
+    origins:
+    - type: Predecessor
+      description: ADSL.AGEGR3N
+- name: AGEGR4
+  derivation: ADSL.AGEGR4
+  submission:
+    mandatory: false
+    origins:
+    - type: Predecessor
+      description: ADSL.AGEGR4
+- name: AGEGR4N
+  derivation: ADSL.AGEGR4N
+  submission:
+    mandatory: false
+    origins:
+    - type: Predecessor
+      description: ADSL.AGEGR4N
+- name: SEX
+  derivation: ADSL.SEX
+  submission:
+    origins:
+    - type: Predecessor
+      description: ADSL.SEX
+- name: RACE
+  derivation: ADSL.RACE
+  submission:
+    origins:
+    - type: Predecessor
+      description: ADSL.RACE
+- name: RACESPY
+  derivation: ADSL.RACESPY
+  submission:
+    origins:
+    - type: Predecessor
+      description: ADSL.RACESPY
+- name: ETHNIC
+  derivation: ADSL.ETHNIC
+  submission:
+    origins:
+    - type: Predecessor
+      description: ADSL.ETHNIC
+- name: RANDFL
+  derivation: ADSL.RANDFL
+  submission:
+    origins:
+    - type: Predecessor
+      description: ADSL.RANDFL
+- name: FASFL
+  derivation: ADSL.FASFL
+  submission:
+    origins:
+    - type: Predecessor
+      description: ADSL.FASFL
+- name: SAFFL
+  derivation: ADSL.SAFFL
+  submission:
+    origins:
+    - type: Predecessor
+      description: ADSL.SAFFL
+- name: SAR1FL
+  derivation: ADSL.SAR1FL
+  submission:
+    origins:
+    - type: Predecessor
+      description: ADSL.SAR1FL
+- name: SAR2FL
+  derivation: ADSL.SAR2FL
+  submission:
+    origins:
+    - type: Predecessor
+      description: ADSL.SAR2FL
+- name: SARAFL
+  derivation: ADSL.SARAFL
+  submission:
+    origins:
+    - type: Predecessor
+      description: ADSL.SARAFL
+- name: MITTFL
+  derivation: ADSL.MITTFL
+  submission:
+    origins:
+    - type: Predecessor
+      description: ADSL.MITTFL
+- name: PPROTFL
+  derivation: ADSL.PPROTFL
+  submission:
+    origins:
+    - type: Predecessor
+      description: ADSL.PPROTFL
+- name: RANDIGFL
+  derivation: ADSL.RANDIGFL
+  submission:
+    origins:
+    - type: Predecessor
+      description: ADSL.RANDIGFL
+- name: PPSIFL
+  derivation: ADSL.PPSIFL
+  submission:
+    origins:
+    - type: Predecessor
+      description: ADSL.PPSIFL
+- name: CCIASFL
+  derivation: ADSL.CCIASFL
+  submission:
+    origins:
+    - type: Predecessor
+      description: ADSL.CCIASFL
+- name: DOSE1FL
+  derivation: ADSL.DOSE1FL
+  submission:
+    origins:
+    - type: Predecessor
+      description: ADSL.DOSE1FL
+- name: DOSE2FL
+  derivation: ADSL.DOSE2FL
+  submission:
+    origins:
+    - type: Predecessor
+      description: ADSL.DOSE2FL
+- name: OLDOS1FL
+  derivation: ADSL.OLDOS1FL
+  submission:
+    origins:
+    - type: Predecessor
+      description: ADSL.OLDOS1FL
+- name: OLDOS2FL
+  derivation: ADSL.OLDOS2FL
+  submission:
+    origins:
+    - type: Predecessor
+      description: ADSL.OLDOS2FL
+- name: RTPCRBL
+  derivation: ADSL.RTPCRBL
+  submission:
+    origins:
+    - type: Predecessor
+      description: ADSL.RTPCRBL
+- name: ELECSBL
+  derivation: ADSL.ELECSBL
+  submission:
+    origins:
+    - type: Predecessor
+      description: ADSL.ELECSBL
+- name: SCOV2BL
+  derivation: ADSL.SCOV2BL
+  submission:
+    origins:
+    - type: Predecessor
+      description: ADSL.SCOV2BL
+- name: TRT01P
+  derivation: ADSL.TRT01P
+  submission:
+    origins:
+    - type: Predecessor
+      description: ADSL.TRT01P
+- name: TRT01PN
+  derivation: ADSL.TRT01PN
+  submission:
+    origins:
+    - type: Predecessor
+      description: ADSL.TRT01PN
+- name: TRT01A
+  derivation: ADSL.TRT01A
+  submission:
+    origins:
+    - type: Predecessor
+      description: ADSL.TRT01A
+- name: TRT01AN
+  derivation: ADSL.TRT01AN
+  submission:
+    origins:
+    - type: Predecessor
+      description: ADSL.TRT01AN
+- name: TRT02P
+  derivation: ADSL.TRT02P
+  submission:
+    origins:
+    - type: Predecessor
+      description: ADSL.TRT02P
+- name: TRT02PN
+  derivation: ADSL.TRT02PN
+  submission:
+    origins:
+    - type: Predecessor
+      description: ADSL.TRT02PN
+- name: TRT02A
+  derivation: ADSL.TRT02A
+  submission:
+    origins:
+    - type: Predecessor
+      description: ADSL.TRT02A
+- name: TRT02AN
+  derivation: ADSL.TRT02AN
+  submission:
+    origins:
+    - type: Predecessor
+      description: ADSL.TRT02AN
+- name: TRTSEQP
+  derivation: ADSL.TRTSEQP
+  submission:
+    origins:
+    - type: Predecessor
+      description: ADSL.TRTSEQP
+- name: TRTSEQPN
+  derivation: ADSL.TRTSEQPN
+  submission:
+    origins:
+    - type: Predecessor
+      description: ADSL.TRTSEQPN
+- name: TRTSEQA
+  derivation: ADSL.TRTSEQA
+  submission:
+    origins:
+    - type: Predecessor
+      description: ADSL.TRTSEQA
+- name: TRTSEQAN
+  derivation: ADSL.TRTSEQAN
+  submission:
+    origins:
+    - type: Predecessor
+      description: ADSL.TRTSEQAN
+- name: TRTSDT
+  derivation: ADSL.TRTSDT
+  submission:
+    origins:
+    - type: Predecessor
+      description: ADSL.TRTSDT
+- name: TRTEDT
+  derivation: ADSL.TRTEDT
+  submission:
+    origins:
+    - type: Predecessor
+      description: ADSL.TRTEDT
+- name: TR01SDT
+  derivation: ADSL.TR01SDT
+  submission:
+    origins:
+    - type: Predecessor
+      description: ADSL.TR01SDT
+- name: TR01SDTM
+  derivation: ADSL.TR01SDTM
+  submission:
+    origins:
+    - type: Predecessor
+      description: ADSL.TR01SDTM
+- name: TR01EDT
+  derivation: ADSL.TR01EDT
+  submission:
+    origins:
+    - type: Predecessor
+      description: ADSL.TR01EDT
+- name: TR01EDTM
+  derivation: ADSL.TR01EDTM
+  submission:
+    origins:
+    - type: Predecessor
+      description: ADSL.TR01EDTM
+- name: DOSE2DT
+  derivation: ADSL.DOSE2DT
+  submission:
+    origins:
+    - type: Predecessor
+      description: ADSL.DOSE2DT
+- name: DOS2DTM
+  derivation: ADSL.DOS2DTM
+  submission:
+    origins:
+    - type: Predecessor
+      description: ADSL.DOS2DTM
+- name: TR02SDT
+  derivation: ADSL.TR02SDT
+  submission:
+    origins:
+    - type: Predecessor
+      description: ADSL.TR02SDT
+- name: TR02SDTM
+  derivation: ADSL.TR02SDTM
+  submission:
+    origins:
+    - type: Predecessor
+      description: ADSL.TR02SDTM
+- name: TR02EDT
+  derivation: ADSL.TR02EDT
+  submission:
+    origins:
+    - type: Predecessor
+      description: ADSL.TR02EDT
+- name: TR02EDTM
+  derivation: ADSL.TR02EDTM
+  submission:
+    origins:
+    - type: Predecessor
+      description: ADSL.TR02EDTM
+- name: OLDOS2DT
+  derivation: ADSL.OLDOS2DT
+  submission:
+    origins:
+    - type: Predecessor
+      description: ADSL.OLDOS2DT
+- name: OLDO2DTM
+  derivation: ADSL.OLDO2DTM
+  submission:
+    origins:
+    - type: Predecessor
+      description: ADSL.OLDO2DTM
+- name: EUAVACDT
+  derivation: ADSL.EUAVACDT
+  submission:
+    mandatory: false
+    origins:
+    - type: Predecessor
+      description: ADSL.EUAVACDT
+- name: EFFCODT
+  derivation: ADSL.EFFCODT
+  submission:
+    origins:
+    - type: Predecessor
+      description: ADSL.EFFCODT
+- name: AP01SDT
+  derivation: ADSL.AP01SDT
+  submission:
+    origins:
+    - type: Predecessor
+      description: ADSL.AP01SDT
+- name: AP01EDT
+  derivation: ADSL.AP01EDT
+  submission:
+    mandatory: false
+    origins:
+    - type: Predecessor
+      description: ADSL.AP01EDT
+- name: AP02SDT
+  derivation: ADSL.AP02SDT
+  submission:
+    origins:
+    - type: Predecessor
+      description: ADSL.AP02SDT
+- name: AP02EDT
+  derivation: ADSL.AP02EDT
+  submission:
+    origins:
+    - type: Predecessor
+      description: ADSL.AP02EDT
+- name: AP01SSDT
+  derivation: ADSL.AP01SSDT
+  submission:
+    origins:
+    - type: Predecessor
+      description: ADSL.AP01SSDT
+- name: AP01SEDT
+  derivation: ADSL.AP01SEDT
+  submission:
+    mandatory: false
+    origins:
+    - type: Predecessor
+      description: ADSL.AP01SEDT
+- name: AP02SSDT
+  derivation: ADSL.AP02SSDT
+  submission:
+    origins:
+    - type: Predecessor
+      description: ADSL.AP02SSDT
+- name: AP02SEDT
+  derivation: ADSL.AP02SEDT
+  submission:
+    origins:
+    - type: Predecessor
+      description: ADSL.AP02SEDT
+- name: RSKF1
+  derivation: ADSL.RSKF1
+  submission:
+    origins:
+    - type: Predecessor
+      description: ADSL.RSKF1
+- name: RSKF2
+  derivation: ADSL.RSKF2
+  submission:
+    origins:
+    - type: Predecessor
+      description: ADSL.RSKF2
+- name: RSKF3
+  derivation: ADSL.RSKF3
+  submission:
+    origins:
+    - type: Predecessor
+      description: ADSL.RSKF3
+- name: RSKF4
+  derivation: ADSL.RSKF4
+  submission:
+    origins:
+    - type: Predecessor
+      description: ADSL.RSKF4
+- name: RSKF5
+  derivation: ADSL.RSKF5
+  submission:
+    origins:
+    - type: Predecessor
+      description: ADSL.RSKF5
+- name: RSKF6
+  derivation: ADSL.RSKF6
+  submission:
+    origins:
+    - type: Predecessor
+      description: ADSL.RSKF6
+- name: STRATAV
+  derivation: ADSL.STRATAV
+  submission:
+    origins:
+    - type: Predecessor
+      description: ADSL.STRATAV
+- name: STRATAVN
+  derivation: ADSL.STRATAVN
+  submission:
+    origins:
+    - type: Predecessor
+      description: ADSL.STRATAVN
+- name: STUDDUR3
+  derivation: ADSL.STUDDUR3
+  submission:
+    origins:
+    - type: Predecessor
+      description: ADSL.STUDDUR3
+- name: MINORITY
+  derivation: ADSL.MINORITY
+  submission:
+    origins:
+    - type: Predecessor
+      description: ADSL.MINORITY
+- name: RACEGR1
+  derivation: ADSL.RACEGR1
+  submission:
+    mandatory: false
+    origins:
+    - type: Predecessor
+      description: ADSL.RACEGR1
+- name: RACEGR1N
+  derivation: ADSL.RACEGR1N
+  submission:
+    mandatory: false
+    origins:
+    - type: Predecessor
+      description: ADSL.RACEGR1N
+- name: RISKGR1
+  derivation: ADSL.RISKGR1
+  submission:
+    origins:
+    - type: Predecessor
+      description: ADSL.RISKGR1
+- name: RISKGR1N
+  derivation: ADSL.RISKGR1N
+  submission:
+    origins:
+    - type: Predecessor
+      description: ADSL.RISKGR1N
+- name: RETHGR1
+  derivation: ADSL.RETHGR1
+  submission:
+    origins:
+    - type: Predecessor
+      description: ADSL.RETHGR1
+- name: RETHGR1N
+  derivation: ADSL.RETHGR1N
+  submission:
+    origins:
+    - type: Predecessor
+      description: ADSL.RETHGR1N
+- name: COVIDAFL
+  derivation: ADSL.COVIDAFL
+  submission:
+    origins:
+    - type: Predecessor
+      description: ADSL.COVIDAFL
+- name: CVDSVAFL
+  derivation: ADSL.CVDSVAFL
+  submission:
+    origins:
+    - type: Predecessor
+      description: ADSL.CVDSVAFL
+- name: ACTARM
+  derivation: null
+- name: ARM
+  derivation: null
+- name: BMIBL
+  derivation: null
+- name: CBNRS
+  derivation: null
+- name: CHILDBP
+  derivation: null
+- name: COMPLFL
+  derivation: null
+- name: CUTOFFDT
+  derivation: null
+- name: DCSREAS
+  derivation: null
+- name: DCSREASP
+  derivation: null
+- name: DCT01RS
+  derivation: null
+- name: DCT01RSP
+  derivation: null
+- name: DCT02RS
+  derivation: null
+- name: DCT02RSP
+  derivation: null
+- name: DSDTHSP
+  derivation: null
+- name: DTHAUTOP
+  derivation: null
+- name: DTHCAUS
+  derivation: null
+- name: DTHDT
+  derivation: null
+- name: EOSDT
+  derivation: null
+- name: EOSDY
+  derivation: null
+- name: EOSSTT
+  derivation: null
+- name: EOT01DT
+  derivation: null
+- name: EOT01DY
+  derivation: null
+- name: EOT01STT
+  derivation: null
+- name: EOT02DT
+  derivation: null
+- name: EOT02DY
+  derivation: null
+- name: EOT02STT
+  derivation: null
+- name: EXTDT
+  derivation: null
+- name: FASEREAS
+  derivation: null
+- name: HEIGHTBL
+  derivation: null
+- name: IRTVISDT
+  derivation: null
+- name: MITTERS
+  derivation: null
+- name: PDVDT
+  derivation: null
+- name: PPEREAS
+  derivation: null
+- name: PPSIEREA
+  derivation: null
+- name: PREVSCR
+  derivation: null
+- name: PROTVER
+  derivation: null
+- name: RANDDT
+  derivation: null
+- name: RANDNUM
+  derivation: null
+- name: RFICDT
+  derivation: null
+- name: SAFEREAS
+  derivation: null
+- name: SAR1ERS
+  derivation: null
+- name: SAR2ERS
+  derivation: null
+- name: STUDDUR1
+  derivation: null
+- name: STUDDUR2
+  derivation: null
+- name: STUDDUR4
+  derivation: null
+- name: STUDDUR5
+  derivation: null
+- name: STUDDUR6
+  derivation: null
+- name: TTDTH1
+  derivation: null
+- name: TTDTH2
+  derivation: null
+- name: UBLDDT
+  derivation: null
+- name: UICDT
+  derivation: null
+- name: WEIGHTBL
+  derivation: null
+- name: PARCAT1
+  type: str
+  label: Parameter Category 1
+  derivation:
+    case:
+    - when: PARAMCD IS NOT NULL
+      then: '''DERIVED PER SAP'''
+    - otherwise: '''DERIVED PER SAP'''
+  submission:
+    core: Req
+    mandatory: true
+    length: 15
+    origins:
+    - type: Derived
+    method: "Withheld from publication: the received define states this text."
+- name: PARAM
+  type: str
+  label: Parameter
+  derivation:
+    mapping:
+      source: PARAMCD
+      dict:
+        TASYCRB1: Time to Asymptomatic SARS-CoV-2 Infection (Competing Risk) 14 Days after Dose 2 Including PDV (Days)
+        TASYCRB2: Time to Asymptomatic SARS-CoV-2 Infection (Competing Risk) after Dose 2 Including PDV (Days)
+        TASYCRB3: Time to Asymptomatic SARS-CoV-2 Infection (Competing Risk) 14 Days after Dose 1 Including PDV (Days)
+        TASYCRB4: Time to Asymptomatic SARS-CoV-2 Infection (Competing Risk) after Dose 1 Including PDV (Days)
+        TASYCRB5: Time to Asymptomatic SARS-CoV-2 Infection (Competing Risk) after Randomization Including PDV (Days)
+        TTINFB1: Time to SARS-CoV-2 Infection Regardless of Symptomatology or Severity 14 Days after Dose 2 Including PDV (Days)
+        TTINFB2: Time to SARS-CoV-2 Infection Regardless of Symptomatology or Severity after Dose 2 Including PDV (Days)
+        TTINFB3: Time to SARS-CoV-2 Infection Regardless of Symptomatology or Severity 14 Days after Dose 1 Including PDV (Days)
+        TTINFB4: Time to SARS-CoV-2 Infection Regardless of Symptomatology or Severity after Dose 1 Including PDV (Days)
+        TTINFB5: Time to SARS-CoV-2 Infection Regardless of Symptomatology or Severity after Randomization Including PDV (Days)
+      unmapped: null
+  submission:
+    core: Req
+    mandatory: true
+    length: 200
+    origins:
+    - type: Derived
+    method: "Withheld from publication: the received define states this text."
+- name: PARAMCD
+  type: str
+  label: Parameter Code
+  submission:
+    core: Req
+    mandatory: true
+    length: 8
+    origins:
+    - type: Assigned
+- name: STARTDT
+  type: date
+  label: Time-to-Event Origin Date for Subject
+  derivation: ADSL.RANDDT
+  submission:
+    core: Req
+    mandatory: true
+    origins:
+    - type: Derived
+    method: "Withheld from publication: the received define states this text."
+- name: ADT
+  type: date
+  label: Analysis Date
+  derivation: _ADT_RAW
+  submission:
+    core: Req
+    mandatory: true
+    origins:
+    - type: Derived
+    method: "Withheld from publication: the received define states this text."
+- name: APERIOD
+  type: int
+  label: Period
+  derivation:
+    case:
+    - when: ADSL.AP02SDT IS NOT NULL AND ADSL.AP02SDT <= ADT
+      then: 2
+    - otherwise: 1
+  submission:
+    core: Req
+    mandatory: true
+    length: 8
+    display_format: '3.'
+    origins:
+    - type: Derived
+    method: "Withheld from publication: the received define states this text."
+- name: AVAL
+  type: int
+  label: Analysis Value
+  derivation:
+    study_day:
+      source: ADT
+      reference: STARTDT
+  submission:
+    core: Req
+    mandatory: true
+    length: 8
+    display_format: '3.'
+    origins:
+    - type: Derived
+    method: "Withheld from publication: the received define states this text."
+- name: CNSR
+  type: int
+  label: Censor
+  derivation: _CNSR_RAW
+  submission:
+    core: Req
+    mandatory: true
+    length: 8
+    display_format: '3.'
+    origins:
+    - type: Derived
+    method: "Withheld from publication: the received define states this text."
+- name: EVNTDESC
+  type: str
+  label: Event or Censoring Description
+  derivation: _EVNTDESC_RAW
+  submission:
+    core: Req
+    mandatory: true
+    length: 200
+    origins:
+    - type: Derived
+    method: "Withheld from publication: the received define states this text."
+output:
+  path: <adam-dir>/adtteb-yamaa.parquet
+  order_by:
+  - USUBJID
+  - PARAMCD
+  columns:
+  - STUDYID
+  - USUBJID
+  - SUBJID
+  - SITEID
+  - COUNTRY
+  - AGE
+  - AGEU
+  - STRATAR
+  - STRATARN
+  - AGEGR1
+  - AGEGR1N
+  - AGEGR2
+  - AGEGR2N
+  - AGEGR3
+  - AGEGR3N
+  - AGEGR4
+  - AGEGR4N
+  - SEX
+  - RACE
+  - RACESPY
+  - ETHNIC
+  - RANDFL
+  - FASFL
+  - SAFFL
+  - SAR1FL
+  - SAR2FL
+  - SARAFL
+  - MITTFL
+  - PPROTFL
+  - RANDIGFL
+  - PPSIFL
+  - CCIASFL
+  - DOSE1FL
+  - DOSE2FL
+  - OLDOS1FL
+  - OLDOS2FL
+  - RTPCRBL
+  - ELECSBL
+  - SCOV2BL
+  - TRT01P
+  - TRT01PN
+  - TRT01A
+  - TRT01AN
+  - TRT02P
+  - TRT02PN
+  - TRT02A
+  - TRT02AN
+  - TRTSEQP
+  - TRTSEQPN
+  - TRTSEQA
+  - TRTSEQAN
+  - TRTSDT
+  - TRTEDT
+  - TR01SDT
+  - TR01SDTM
+  - TR01EDT
+  - TR01EDTM
+  - DOSE2DT
+  - DOS2DTM
+  - TR02SDT
+  - TR02SDTM
+  - TR02EDT
+  - TR02EDTM
+  - OLDOS2DT
+  - OLDO2DTM
+  - EUAVACDT
+  - EFFCODT
+  - AP01SDT
+  - AP01EDT
+  - AP02SDT
+  - AP02EDT
+  - AP01SSDT
+  - AP01SEDT
+  - AP02SSDT
+  - AP02SEDT
+  - RSKF1
+  - RSKF2
+  - RSKF3
+  - RSKF4
+  - RSKF5
+  - RSKF6
+  - STRATAV
+  - STRATAVN
+  - STUDDUR3
+  - MINORITY
+  - RACEGR1
+  - RACEGR1N
+  - RISKGR1
+  - RISKGR1N
+  - RETHGR1
+  - RETHGR1N
+  - COVIDAFL
+  - CVDSVAFL
+  - PARCAT1
+  - PARAM
+  - PARAMCD
+  - STARTDT
+  - ADT
+  - APERIOD
+  - AVAL
+  - CNSR
+  - EVNTDESC

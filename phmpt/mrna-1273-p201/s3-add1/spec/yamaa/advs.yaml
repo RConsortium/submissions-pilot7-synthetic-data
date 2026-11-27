@@ -1,0 +1,200 @@
+# ADVS for Moderna mRNA-1273-P201, data cut add1.
+# Parent: ../../../s3-d57/spec/yamaa/advs.yaml (which chains to ../../../spec/yamaa/base/adam-base.yaml) (section 3.1 core columns).
+# Derivations implement the add1 A20ADVS program (prototype
+# advs_add1_proto.py (original work tree) matches all 102 submitted columns on
+# all 41,928 rows). The add1 program is the same shape as the d57 program,
+# not a rewrite. Where the SAS code and the define.xml method text disagree,
+# the code is followed (see README.md).
+# Inputs: VS + SUPPVS + SV + EX (SDTM) + ADSL (core columns). SUPPVS is
+# pivoted for VSLOCSP by (USUBJID, VSSEQ); it has 91 VSLOCSP rows on add1
+# (none on d57). SV supplies the Visit 7 Day 57 and Visit 4 Day 29 dates for
+# ASTAGE. EX enters only via %trta (dose 1/2 rows).
+# Row accounting: VS 53,263 rows -> filter (VSCAT missing or not
+# 'REACTOGENICITY', VSSTAT missing or not 'NOT DONE') 43,639 -> ADSL merge on
+# USUBJID 42,024 -> %mergeadsl (STUDYID, USUBJID, SUBJID) drops 96 -> 41,928
+# submitted rows (1,711 dropped in total, the same count as d57). Keys are
+# [STUDYID, USUBJID, VSSEQ] (unique). Differences vs d57: 4 new core
+# columns from the add1 ADSL (PBD209FL, PND209FL, PN2209FL, ELECSBL);
+# COMPLFL is not in the add1 output (derivation null, SPEC-4). VISIT length
+# is 33 (observed maximum; the Day 209 / Safety Call unscheduled visits
+# reach 33 chars, ADLB add1 precedent). AVISIT 'Day 209' now fires (3,214
+# rows); the Day 394 branch still never fires. ELECSBL is Mandatory Yes in
+# the add1 define but '' for all 600 ADSL subjects, so it is mandatory false
+# (ADAE precedent, inherited from the ADEX add1 spec).
+# Layer over ../d57/advs.yaml: the derivations are the parent cut's, and
+# this file holds only what this cut changes (written by
+# scripts/specs/inherit_cut.py; its resolved specification
+# equals the standalone file it replaced).
+yamaa: '1.0'
+type: spec
+parent: ../../../s3-d57/spec/yamaa/advs.yaml
+clear:
+- columns.COMPLFL.submission
+input:
+  VS: <sdtm-dir>/vs.parquet
+  SUPPVS: <sdtm-dir>/suppvs.parquet
+  SV: <sdtm-dir>/sv.parquet
+  EX: <sdtm-dir>/ex.parquet
+  ADSL:
+    path: <adam-dir>/adsl.parquet
+columns:
+- name: COMPLFL
+  derivation:
+- name: PBD209FL
+  type: str
+  label: Per Protocol bAb Day 209 Flag
+  derivation: ADSL.PBD209FL
+  submission:
+    core: Perm
+    mandatory: false
+    length: 1
+    origins:
+    - type: Predecessor
+      description: ADSL.PBD209FL
+- name: PND209FL
+  type: str
+  label: Per Protocol nAb Day 209 Flag
+  derivation: ADSL.PND209FL
+  submission:
+    core: Perm
+    mandatory: false
+    length: 1
+    origins:
+    - type: Predecessor
+      description: ADSL.PND209FL
+- name: PN2209FL
+  type: str
+  label: Per Protocol nAb 2 Day 209 Flag
+  derivation: ADSL.PN2209FL
+  submission:
+    core: Perm
+    mandatory: false
+    length: 1
+    origins:
+    - type: Predecessor
+      description: ADSL.PN2209FL
+- name: ELECSBL
+  type: str
+  label: Baseline Elecsys SARS CoV-2 Assay
+  derivation: ADSL.ELECSBL
+  submission:
+    core: Perm
+    mandatory: false
+    length: 20
+    origins:
+    - type: Predecessor
+      description: ADSL.ELECSBL
+- name: COV19FL
+  submission:
+    length: 1
+- name: SENTLFL
+  submission:
+    length: 1
+- name: VISIT
+  submission:
+    length: 33
+output:
+  path: <adam-dir>/advs-yamaa.parquet
+  columns:
+  - STUDYID
+  - USUBJID
+  - SUBJID
+  - SITEID
+  - COUNTRY
+  - AGE
+  - AGEU
+  - AGEGR1
+  - AGEGR1N
+  - AGEGR2
+  - AGEGR2N
+  - SEX
+  - RACE
+  - RACESPY
+  - ETHNIC
+  - RANDFL
+  - SAFFL
+  - FASBABFL
+  - FASNABFL
+  - PPBABFL
+  - PPNABFL
+  - PPBD29FL
+  - PPBD57FL
+  - PBD209FL
+  - PPND29FL
+  - PPND57FL
+  - PND209FL
+  - SAR1FL
+  - SAR2FL
+  - SARAFL
+  - FASNA2FL
+  - PPNAB2FL
+  - PN2D29FL
+  - PN2D57FL
+  - PN2209FL
+  - DVBABFL
+  - DVNABFL
+  - DOSE1FL
+  - DOSE2FL
+  - DOSEROFL
+  - COV19BL
+  - ELECSBL
+  - COV19FL
+  - SENTLFL
+  - D29W7DFL
+  - TRT01P
+  - TRT01PN
+  - TRT01A
+  - TRT01AN
+  - TR01SDT
+  - TR01SDTM
+  - TR01EDT
+  - TR01EDTM
+  - TRTSDTM
+  - TRTEDTM
+  - DOSE2DT
+  - DOS2DTM
+  - TRTA
+  - TRTAN
+  - VSSEQ
+  - VSDTC
+  - ADT
+  - ATM
+  - ADTM
+  - ADY
+  - MDOSREF
+  - MRDDY
+  - VISIT
+  - VISITNUM
+  - AVISIT
+  - AVISITN
+  - VSTPT
+  - ASTAGE
+  - ASTAGEN
+  - PARAMCD
+  - PARAM
+  - AVAL
+  - VSSTRESC
+  - ABLFL
+  - BASE
+  - CHG
+  - PCHG
+  - ATOXGRL
+  - ATOXGRLN
+  - ATOXGRH
+  - ATOXGRHN
+  - BTOXGRL
+  - BTOXGRLN
+  - BTOXGRH
+  - BTOXGRHN
+  - ATOXDSCL
+  - ATOXDSCH
+  - SHIFT1
+  - SHIFT2
+  - AWRANGE
+  - AWTARGET
+  - AWTDIFF
+  - ANL01FL
+  - ANL02FL
+  - ANL03FL
+  - VSLOC
+  - VSLOCSP

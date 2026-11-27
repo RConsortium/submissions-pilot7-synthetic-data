@@ -1,0 +1,1803 @@
+# ADMB for Moderna mRNA-1273-P301, cut S5 (First Interim Analysis IA1b,
+# cutoff 2020-11-25). Parent: ../../../spec/yamaa/base/adam-base-ia.yaml (which chains to
+# ../../../spec/yamaa/base/adam-base.yaml; 86 shared + 6 IA-only ADSL columns).
+# Derivations implement the S5 ADMB program (Bates 5657909-5657912),
+# adapted from the S3 ADMB spec (which verifies EXACT); every S5-vs-S3
+# program difference is implemented, none carried over on assumption (see
+# the generator header). Where the SAS code and the define.xml method text
+# disagree, the code is followed (see README.md).
+# Inputs: MB + SUPPMB (truncated _S_supp file, RDOMAIN='MB') + verified
+# ADSL. SUPPMB is pivoted for LOCALFL/LDTCLIA/LDTTESTO by (USUBJID,
+# MBSEQ). Row accounting: MB 173,257 rows -> MBSTAT='' 108,233 -> inner
+# join to ADSL on (USUBJID, SUBJID) drops 34 -> 108,199 submitted rows.
+# Keys are [STUDYID, USUBJID, MBSEQ] (unique). The S5 define lists 87
+# ADMB columns; the submitted data carry 86 -- MBSTAT is absent, not
+# merely empty, and has no output column in this spec (the internal
+# _MBSTAT row variable only feeds the MBSTAT='' filter).
+# The %ablfl retain machinery is expressed as aggregates over the EP
+# intermediate; the ori-block exclusion is vacuous in S5 (zero
+# middle-disjunct Day-1 rows). The uns_blank step is omitted (the S5
+# program calls %ablfl with uns_blank=N). There is no _BLANK4 block in
+# S5 (no post-%ablfl Uns-chain blanking in the program); _BLANK3 carries
+# the S5 extra disjunct (MBTPT='Unscheduled' with an 'Uns'/missing
+# transformed visit and no scheill date).
+# ANL01FL uses MBSEQ ASCENDING as its tie-break (program text + probe:
+# 9 tie groups, 7 ASC-consistent, 0 DESC-consistent).
+# Validation notes (what check()/run() required, beyond the S3 spec):
+# - A qualified aggregate's key columns resolve against the relation's
+#   dataset (MB), so the key matches MBTESTCD (not EP's derived _PARAMCD);
+#   run() rejects the derived form even though check() passes it.
+# - A qualified aggregate's filter reads the donor record only (LOOKUP-8).
+# - COUNT over a group with no record is missing (FORMULA-24), so _ILL_SET
+#   defaults the missing count to 0 via _ILL_SET_RAW.
+# - The Step C Day-29 branch is an elif with an INNER if on the ADY range:
+#   its then is a nested case, so an outer match with ADY outside [2, 36]
+#   yields '' and blocks the 'Day N' branch 18.
+# - _ADTMY/_ADTMY_NUM are float (VISITNUM carries 11.01-style values).
+# - Empty-string literals use lit('') (a bare '' is an empty expression).
+# - Specific mandatory:false overrides (define-mandatory with gaps in the
+#   submitted data): ADT, ADY, MBDTC, MBTPT, VISIT, VISITNUM.
+yamaa: '1.0'
+type: spec
+model: ADaM
+parent: ../../../spec/yamaa/base/adam-base-ia.yaml
+domain: ADMB
+keys:
+- STUDYID
+- USUBJID
+- MBSEQ
+input:
+  MB: <sdtm-dir>/mb.parquet
+  SUPPMB: <sdtm-dir>/suppmb.parquet
+  ADSL:
+    path: <adam-dir>/adsl.parquet
+    key:
+    - STUDYID
+    - USUBJID
+submission:
+  label: Microbiology Analysis Dataset
+  class: BASIC DATA STRUCTURE
+  structure: One or more records per subject per analysis parameter per analysis timepoint
+  repeating: true
+rows:
+- id: mb_rows
+  dataset: MB
+  derivations:
+    STUDYID: MB.STUDYID
+    USUBJID: MB.USUBJID
+    _MBSEQ: MB.MBSEQ
+    _MBSTAT: MB.MBSTAT
+    _MBTESTCD: MB.MBTESTCD
+    _MBTEST: MB.MBTEST
+    _MBCAT: MB.MBCAT
+    _MBSCAT: MB.MBSCAT
+    _MBSPEC: MB.MBSPEC
+    _MBMETHOD: MB.MBMETHOD
+    _MBSTRESC: MB.MBSTRESC
+    _MBDTC: MB.MBDTC
+    _VISIT: MB.VISIT
+    _VISITNUM: MB.VISITNUM
+    _MBTPT: MB.MBTPT
+    _MBTPTNUM: MB.MBTPTNUM
+    _LOCALFL: SUPP_P.LOCALFL
+    _LDTCLIA: SUPP_P.LDTCLIA
+    _MBNAM: MB.MBNAM
+    _LDTTESTO: SUPP_P.LDTTESTO
+  filter: (_MBSTAT IS NULL OR _MBSTAT IN ('')) AND _MBTESTCD IS NOT NULL AND _MBTESTCD NOT IN ('') AND _ADSL IS NOT NULL
+intermediates:
+- id: SUPP_P
+  dataset: SUPPMB
+  key:
+    STUDYID: STUDYID
+    USUBJID: USUBJID
+    IDVARVAL:
+      str_decimal:
+        source: _MBSEQ
+        decimals: 0
+  filter: SUPPMB.QNAM IN ('LOCALFL', 'LDTCLIA', 'LDTTESTO') AND SUPPMB.IDVAR = 'MBSEQ'
+  pivot:
+    name: QNAM
+    value: QVAL
+    fields:
+    - LOCALFL
+    - LDTCLIA
+    - LDTTESTO
+- id: DAY1_FIRST
+  dataset: MB
+  key:
+    STUDYID: STUDYID
+    USUBJID: USUBJID
+    _PARAMCD: _PARAMCD
+    _ADT: _ADT
+  filter: (MB.MBSTAT IS NULL OR MB.MBSTAT IN ('')) AND (MB.VISIT = 'Illness Visit Day 1' OR (MB.VISIT = 'Illness Visit Day 3 - Day 21' AND MB.MBTPT = 'Day 1') OR MB.VISIT = 'Convalescence Visit Day 1')
+  order_by:
+  - MB.MBSEQ
+  keep: last
+  derivations:
+    _PARAMCD: MB.MBTESTCD
+    _ADT:
+      to_date:
+        source: MB.MBDTC
+    _ORI: MB.VISIT
+- id: EP
+  dataset: MB
+  key:
+    STUDYID: STUDYID
+    USUBJID: USUBJID
+    MBTESTCD: PARAMCD
+  filter: MB.MBSTAT IS NULL OR MB.MBSTAT IN ('')
+  derivations:
+    _MBSEQ: MB.MBSEQ
+    _PARAMCD: MB.MBTESTCD
+    _ADT:
+      to_date:
+        source: MB.MBDTC
+    _LOCALFL: SUPP_P.LOCALFL
+    _VISIT_T:
+      case:
+      - when: MB.VISIT = 'Illness Visit Day 3 - Day 21' AND (MB.MBTPT IS NULL OR MB.MBTPT IN (''))
+        then: '''Illness Visit '''
+      - when: MB.VISIT = 'Illness Visit Day 3 - Day 21'
+        then:
+          str_template: Illness Visit {MB.MBTPT}
+      - when: str_contains(MB.VISIT, '^Illness Visit Day 3 - Day 21') AND (MB.MBTPT IS NULL OR MB.MBTPT IN (''))
+        then: '''Illness Visit  Unscheduled 1'''
+      - when: str_contains(MB.VISIT, '^Illness Visit Day 3 - Day 21')
+        then:
+          str_template: Illness Visit {MB.MBTPT} Unscheduled 1
+      - when: (MB.VISIT IS NULL OR MB.VISIT IN ('')) AND _LOCALFL = 'Y'
+        then: '''Illness Visit Day 999 Unscheduled 1'''
+      - otherwise: MB.VISIT
+    _VISIT_T2:
+      str_replace:
+        source: _VISIT_T
+        pattern: Convalescence
+        replacement: Illness
+    _VISIT_W:
+      case:
+      - when: (_VISIT_T2 IS NULL OR _VISIT_T2 IN ('') OR str_contains(_VISIT_T2, 'Saf') OR str_contains(_VISIT_T2, 'COV'))
+        then:
+          str_template:
+            template: Unsched {_VISIT_T2}
+            missing: 'Unsched '
+      - otherwise: _VISIT_T2
+    _ORI: MB.VISIT
+    _FIRST_ORI: DAY1_FIRST._ORI
+windows:
+  BASE_W:
+    group_by:
+    - STUDYID
+    - USUBJID
+    - PARAMCD
+    order_by:
+    - variable: _AVALN
+      direction: desc
+    - _POSTFL
+    - variable: _PREFL_ADT
+      direction: desc
+    - ADT
+    - _ADDSORTN
+    - _ILLUNS
+    - _ADTMY
+    - _ISSTRESN
+    - variable: _ADTMY_NUM
+      direction: desc
+    - variable: _VISITNUM
+      direction: desc
+    - variable: MBSEQ
+      direction: desc
+  ANL01_W:
+    group_by:
+    - STUDYID
+    - USUBJID
+    - PARAMCD
+    - AVISITN
+    order_by:
+    - variable: _AVALN2
+      direction: desc
+    - _UNS_ANL
+    - variable: _SORT_AVALC
+      direction: desc
+    - ADT
+    - _MBTPTNUM
+    - MBSEQ
+columns:
+- name: _ADSL
+  type: str
+  derivation: ADSL.USUBJID
+- name: STUDYID
+  submission:
+    origins:
+    - type: Predecessor
+      description: MB.STUDYID
+- name: USUBJID
+  submission:
+    origins:
+    - type: Predecessor
+      description: MB.USUBJID
+- name: _MBSEQ
+  type: int
+- name: _MBSTAT
+  type: str
+- name: _MBTESTCD
+  type: str
+- name: _MBTEST
+  type: str
+- name: _MBCAT
+  type: str
+- name: _MBSCAT
+  type: str
+- name: _MBSPEC
+  type: str
+- name: _MBMETHOD
+  type: str
+- name: _MBSTRESC
+  type: str
+- name: _MBDTC
+  type: str
+- name: _VISIT
+  type: str
+- name: _VISITNUM
+  type: float
+- name: _MBTPT
+  type: str
+- name: _MBTPTNUM
+  type: float
+- name: _LOCALFL
+  type: str
+- name: _LDTCLIA
+  type: str
+- name: _MBNAM
+  type: str
+- name: _LDTTESTO
+  type: str
+- name: SUBJID
+  derivation: ADSL.SUBJID
+  submission:
+    origins:
+    - type: Predecessor
+      description: ADSL.SUBJID
+- name: SITEID
+  derivation: ADSL.SITEID
+  submission:
+    origins:
+    - type: Predecessor
+      description: ADSL.SITEID
+- name: COUNTRY
+  derivation: ADSL.COUNTRY
+  submission:
+    origins:
+    - type: Predecessor
+      description: ADSL.COUNTRY
+- name: AGE
+  derivation: ADSL.AGE
+  submission:
+    origins:
+    - type: Predecessor
+      description: ADSL.AGE
+- name: AGEU
+  derivation: ADSL.AGEU
+  submission:
+    origins:
+    - type: Predecessor
+      description: ADSL.AGEU
+- name: STRATAR
+  derivation: ADSL.STRATAR
+  submission:
+    origins:
+    - type: Predecessor
+      description: ADSL.STRATAR
+    mandatory: false
+- name: STRATARN
+  derivation: ADSL.STRATARN
+  submission:
+    origins:
+    - type: Predecessor
+      description: ADSL.STRATARN
+    mandatory: false
+- name: AGEGR1
+  derivation: ADSL.AGEGR1
+  submission:
+    origins:
+    - type: Predecessor
+      description: ADSL.AGEGR1
+- name: AGEGR1N
+  derivation: ADSL.AGEGR1N
+  submission:
+    origins:
+    - type: Predecessor
+      description: ADSL.AGEGR1N
+- name: AGEGR2
+  derivation: ADSL.AGEGR2
+  submission:
+    origins:
+    - type: Predecessor
+      description: ADSL.AGEGR2
+- name: AGEGR2N
+  derivation: ADSL.AGEGR2N
+  submission:
+    origins:
+    - type: Predecessor
+      description: ADSL.AGEGR2N
+- name: SEX
+  derivation: ADSL.SEX
+  submission:
+    origins:
+    - type: Predecessor
+      description: ADSL.SEX
+    mandatory: false
+- name: RACE
+  derivation: ADSL.RACE
+  submission:
+    origins:
+    - type: Predecessor
+      description: ADSL.RACE
+- name: RACESPY
+  derivation: ADSL.RACESPY
+  submission:
+    origins:
+    - type: Predecessor
+      description: ADSL.RACESPY
+- name: ETHNIC
+  derivation: ADSL.ETHNIC
+  submission:
+    origins:
+    - type: Predecessor
+      description: ADSL.ETHNIC
+- name: RANDFL
+  derivation: ADSL.RANDFL
+  submission:
+    origins:
+    - type: Predecessor
+      description: ADSL.RANDFL
+- name: FASFL
+  derivation: ADSL.FASFL
+  submission:
+    origins:
+    - type: Predecessor
+      description: ADSL.FASFL
+- name: SAFFL
+  derivation: ADSL.SAFFL
+  submission:
+    origins:
+    - type: Predecessor
+      description: ADSL.SAFFL
+- name: SAR1FL
+  derivation: ADSL.SAR1FL
+  submission:
+    origins:
+    - type: Predecessor
+      description: ADSL.SAR1FL
+- name: SAR2FL
+  derivation: ADSL.SAR2FL
+  submission:
+    origins:
+    - type: Predecessor
+      description: ADSL.SAR2FL
+- name: SARAFL
+  derivation: ADSL.SARAFL
+  submission:
+    origins:
+    - type: Predecessor
+      description: ADSL.SARAFL
+- name: MITTFL
+  derivation: ADSL.MITTFL
+  submission:
+    origins:
+    - type: Predecessor
+      description: ADSL.MITTFL
+- name: PPROTFL
+  derivation: ADSL.PPROTFL
+  submission:
+    origins:
+    - type: Predecessor
+      description: ADSL.PPROTFL
+- name: COMPLFL
+  derivation: ADSL.COMPLFL
+  submission:
+    origins:
+    - type: Predecessor
+      description: ADSL.COMPLFL
+- name: DOSE1FL
+  derivation: ADSL.DOSE1FL
+  submission:
+    origins:
+    - type: Predecessor
+      description: ADSL.DOSE1FL
+- name: DOSE2FL
+  derivation: ADSL.DOSE2FL
+  submission:
+    origins:
+    - type: Predecessor
+      description: ADSL.DOSE2FL
+- name: RTPCRBL
+  derivation: ADSL.RTPCRBL
+  submission:
+    origins:
+    - type: Predecessor
+      description: ADSL.RTPCRBL
+- name: ELECSBL
+  derivation: ADSL.ELECSBL
+  submission:
+    origins:
+    - type: Predecessor
+      description: ADSL.ELECSBL
+- name: SCOV2BL
+  derivation: ADSL.SCOV2BL
+  submission:
+    origins:
+    - type: Predecessor
+      description: ADSL.SCOV2BL
+- name: TRT01P
+  derivation: ADSL.TRT01P
+  submission:
+    origins:
+    - type: Predecessor
+      description: ADSL.TRT01P
+    mandatory: false
+- name: TRT01PN
+  derivation: ADSL.TRT01PN
+  submission:
+    origins:
+    - type: Predecessor
+      description: ADSL.TRT01PN
+    mandatory: false
+- name: TRT01A
+  derivation: ADSL.TRT01A
+  submission:
+    origins:
+    - type: Predecessor
+      description: ADSL.TRT01A
+- name: TRT01AN
+  derivation: ADSL.TRT01AN
+  submission:
+    origins:
+    - type: Predecessor
+      description: ADSL.TRT01AN
+- name: TR01SDT
+  derivation: ADSL.TR01SDT
+  submission:
+    origins:
+    - type: Predecessor
+      description: ADSL.TR01SDT
+- name: TR01SDTM
+  derivation: ADSL.TR01SDTM
+  submission:
+    origins:
+    - type: Predecessor
+      description: ADSL.TR01SDTM
+- name: TR01EDT
+  derivation: ADSL.TR01EDT
+  submission:
+    origins:
+    - type: Predecessor
+      description: ADSL.TR01EDT
+- name: TR01EDTM
+  derivation: ADSL.TR01EDTM
+  submission:
+    origins:
+    - type: Predecessor
+      description: ADSL.TR01EDTM
+- name: DOSE2DT
+  derivation: ADSL.DOSE2DT
+  submission:
+    origins:
+    - type: Predecessor
+      description: ADSL.DOSE2DT
+- name: DOS2DTM
+  derivation: ADSL.DOS2DTM
+  submission:
+    origins:
+    - type: Predecessor
+      description: ADSL.DOS2DTM
+- name: RSKF1
+  derivation: ADSL.RSKF1
+  submission:
+    origins:
+    - type: Predecessor
+      description: ADSL.RSKF1
+- name: RSKF2
+  derivation: ADSL.RSKF2
+  submission:
+    origins:
+    - type: Predecessor
+      description: ADSL.RSKF2
+- name: RSKF3
+  derivation: ADSL.RSKF3
+  submission:
+    origins:
+    - type: Predecessor
+      description: ADSL.RSKF3
+- name: RSKF4
+  derivation: ADSL.RSKF4
+  submission:
+    origins:
+    - type: Predecessor
+      description: ADSL.RSKF4
+- name: RSKF5
+  derivation: ADSL.RSKF5
+  submission:
+    origins:
+    - type: Predecessor
+      description: ADSL.RSKF5
+- name: RSKF6
+  derivation: ADSL.RSKF6
+  submission:
+    origins:
+    - type: Predecessor
+      description: ADSL.RSKF6
+- name: STRATAV
+  derivation: ADSL.STRATAV
+  submission:
+    origins:
+    - type: Predecessor
+      description: ADSL.STRATAV
+- name: STRATAVN
+  derivation: ADSL.STRATAVN
+  submission:
+    origins:
+    - type: Predecessor
+      description: ADSL.STRATAVN
+- name: MINORITY
+  derivation: ADSL.MINORITY
+  submission:
+    origins:
+    - type: Predecessor
+      description: ADSL.MINORITY
+- name: RACEGR1
+  derivation: ADSL.RACEGR1
+  submission:
+    origins:
+    - type: Predecessor
+      description: ADSL.RACEGR1
+    mandatory: false
+- name: RACEGR1N
+  derivation: ADSL.RACEGR1N
+  submission:
+    origins:
+    - type: Predecessor
+      description: ADSL.RACEGR1N
+    mandatory: false
+- name: RISKGR1
+  derivation: ADSL.RISKGR1
+  submission:
+    origins:
+    - type: Predecessor
+      description: ADSL.RISKGR1
+- name: RISKGR1N
+  derivation: ADSL.RISKGR1N
+  submission:
+    origins:
+    - type: Predecessor
+      description: ADSL.RISKGR1N
+- name: RETHGR1
+  derivation: ADSL.RETHGR1
+  submission:
+    origins:
+    - type: Predecessor
+      description: ADSL.RETHGR1
+- name: RETHGR1N
+  derivation: ADSL.RETHGR1N
+  submission:
+    origins:
+    - type: Predecessor
+      description: ADSL.RETHGR1N
+- name: ACTARM
+  derivation: null
+- name: ARM
+  derivation: null
+- name: BMIBL
+  derivation: null
+- name: CBNRS
+  derivation: null
+- name: CHILDBP
+  derivation: null
+- name: CUTOFFDT
+  derivation: null
+- name: DCSREAS
+  derivation: null
+- name: DCSREASP
+  derivation: null
+- name: DCTREAS
+  derivation: null
+- name: DCTREASP
+  derivation: null
+- name: DTHAUTOP
+  derivation: null
+- name: DTHDT
+  derivation: null
+- name: EFFCODT
+  derivation: null
+- name: EOSDT
+  derivation: null
+- name: EOSDY
+  derivation: null
+- name: EOSSTT
+  derivation: null
+- name: EOTDT
+  derivation: null
+- name: EOTDY
+  derivation: null
+- name: EOTSTT
+  derivation: null
+- name: FASEREAS
+  derivation: null
+- name: HEIGHTBL
+  derivation: null
+- name: MITTERS
+  derivation: null
+- name: PPEREAS
+  derivation: null
+- name: PREVSCR
+  derivation: null
+- name: PROTVER
+  derivation: null
+- name: RANDDT
+  derivation: null
+- name: RANDNUM
+  derivation: null
+- name: RFICDT
+  derivation: null
+- name: RFXSTDTC
+  derivation: null
+- name: SAFEREAS
+  derivation: null
+- name: SAR1ERS
+  derivation: null
+- name: SAR2ERS
+  derivation: null
+- name: STUDDUR1
+  derivation: null
+- name: STUDDUR2
+  derivation: null
+- name: STUDDUR3
+  derivation: null
+- name: WEIGHTBL
+  derivation: null
+- name: MBSEQ
+  type: int
+  label: Sequence Number
+  derivation: MB.MBSEQ
+  submission:
+    core: Req
+    mandatory: true
+    length: 8
+    display_format: '3.'
+    origins:
+    - type: Predecessor
+      description: MB.MBSEQ
+- name: MBDTC
+  type: str
+  label: Date/Time of Specimen Collection
+  derivation: MB.MBDTC
+  submission:
+    core: Req
+    mandatory: false
+    length: 20
+    origins:
+    - type: Predecessor
+      description: MB.MBDTC
+- name: MBMETHOD
+  type: str
+  label: Method of Test or Examination
+  derivation: MB.MBMETHOD
+  submission:
+    core: Req
+    mandatory: true
+    length: 40
+    origins:
+    - type: Predecessor
+      description: MB.MBMETHOD
+- name: MBSCAT
+  type: str
+  label: Subcategory for Microbiology Finding
+  derivation: MB.MBSCAT
+  submission:
+    core: Perm
+    mandatory: false
+    length: 40
+    origins:
+    - type: Predecessor
+      description: MB.MBSCAT
+- name: MBNAM
+  type: str
+  label: Vendor Name
+  derivation: MB.MBNAM
+  submission:
+    core: Perm
+    mandatory: false
+    length: 200
+    origins:
+    - type: Predecessor
+      description: MB.MBNAM
+- name: MBSPEC
+  type: str
+  label: Specimen Type
+  derivation: MB.MBSPEC
+  submission:
+    core: Perm
+    mandatory: false
+    length: 40
+    origins:
+    - type: Predecessor
+      description: MB.MBSPEC
+- name: MBTPT
+  type: str
+  label: Planned Time Point Name
+  derivation: MB.MBTPT
+  submission:
+    core: Req
+    mandatory: false
+    length: 40
+    origins:
+    - type: Predecessor
+      description: MB.MBTPT
+- name: VISIT
+  type: str
+  label: Visit Name
+  derivation: MB.VISIT
+  submission:
+    core: Req
+    mandatory: false
+    length: 100
+    origins:
+    - type: Predecessor
+      description: MB.VISIT
+- name: VISITNUM
+  type: float
+  label: Visit Number
+  derivation: MB.VISITNUM
+  submission:
+    core: Req
+    mandatory: false
+    length: 8
+    significant_digits: 15
+    origins:
+    - type: Predecessor
+      description: MB.VISITNUM
+- name: PARAMCD
+  type: str
+  label: Parameter Code
+  derivation: _MBTESTCD
+  submission:
+    core: Perm
+    mandatory: false
+    length: 8
+    origins:
+    - type: Derived
+    method: "Withheld from publication: the received define states this text."
+- name: PARAM
+  type: str
+  label: Parameter
+  derivation: _MBTEST
+  submission:
+    core: Perm
+    mandatory: false
+    length: 50
+    origins:
+    - type: Derived
+    method: "Withheld from publication: the received define states this text."
+- name: PARCAT1
+  type: str
+  label: Parameter Category 1
+  derivation: _MBCAT
+  submission:
+    core: Perm
+    mandatory: false
+    length: 50
+    origins:
+    - type: Derived
+    method: "Withheld from publication: the received define states this text."
+- name: LOCALFL
+  type: str
+  label: From Covid Diag Test
+  derivation: _LOCALFL
+  submission:
+    core: Perm
+    mandatory: false
+    length: 200
+    origins:
+    - type: Derived
+    method: "Withheld from publication: the received define states this text."
+- name: LDTCLIA
+  type: str
+  label: CLIA Certified
+  derivation: _LDTCLIA
+  submission:
+    core: Perm
+    mandatory: false
+    length: 200
+    origins:
+    - type: Derived
+    method: "Withheld from publication: the received define states this text."
+- name: LDTTESTO
+  type: str
+  label: Diagnostic Test Other, Specify
+  derivation: _LDTTESTO
+  submission:
+    core: Perm
+    mandatory: false
+    length: 200
+    origins:
+    - type: Derived
+    method: "Withheld from publication: the received define states this text."
+- name: _VISIT_T
+  type: str
+  derivation:
+    case:
+    - when: _VISIT = 'Illness Visit Day 3 - Day 21' AND (_MBTPT IS NULL OR _MBTPT IN (''))
+      then: '''Illness Visit '''
+    - when: _VISIT = 'Illness Visit Day 3 - Day 21'
+      then:
+        str_template: Illness Visit {_MBTPT}
+    - when: str_contains(_VISIT, '^Illness Visit Day 3 - Day 21') AND (_MBTPT IS NULL OR _MBTPT IN (''))
+      then: '''Illness Visit  Unscheduled 1'''
+    - when: str_contains(_VISIT, '^Illness Visit Day 3 - Day 21')
+      then:
+        str_template: Illness Visit {_MBTPT} Unscheduled 1
+    - when: (_VISIT IS NULL OR _VISIT IN ('')) AND _LOCALFL = 'Y'
+      then: '''Illness Visit Day 999 Unscheduled 1'''
+    - otherwise: _VISIT
+- name: _VISIT_T2
+  type: str
+  derivation:
+    str_replace:
+      source: _VISIT_T
+      pattern: Convalescence
+      replacement: Illness
+- name: _VISIT_W
+  type: str
+  derivation:
+    case:
+    - when: (_VISIT_T2 IS NULL OR _VISIT_T2 IN ('') OR str_contains(_VISIT_T2, 'Saf') OR str_contains(_VISIT_T2, 'COV'))
+      then:
+        str_template:
+          template: Unsched {_VISIT_T2}
+          missing: 'Unsched '
+    - otherwise: _VISIT_T2
+- name: _VISIT_WU
+  type: str
+  derivation:
+    str_case:
+      source: _VISIT_W
+      to: upper
+- name: _DAY_TXT
+  type: str
+  derivation:
+    str_extract:
+      source: _VISIT_W
+      pattern: Day ([0-9]+)
+      group: 1
+      no_match: ''
+- name: _SCAN4
+  type: str
+  derivation:
+    str_extract:
+      source: _VISIT_W
+      pattern: ^\S+\s+\S+\s+\S+\s+(\S+)
+      group: 1
+      no_match: ''
+- name: _DATE_TXT
+  type: str
+  derivation:
+    case:
+    - when: _MBDTC IS NULL OR _MBDTC IN ('')
+      then: ''''''
+    - otherwise:
+        str_substr:
+          source: _MBDTC
+          start: 1
+          length: 10
+- name: _MBTPTNUM_TXT
+  type: str
+  derivation:
+    str_decimal:
+      source: _MBTPTNUM
+      decimals: 0
+      width: 3
+- name: _ADDSORTN
+  type: str
+  derivation:
+    case:
+    - when: str_contains(_VISIT_T, '^Visit')
+      then: ''''''
+    - when: (_VISIT_T IS NULL OR _VISIT_T IN ('')) AND ADT IS NOT NULL
+      then:
+        str_template: '{_DATE_TXT} - 999'
+    - when: str_contains(_VISIT, '^Illness Visit Day 3 - Day 21') AND str_contains(_VISIT_T, 'Uns') AND _MBTPTNUM IS NOT NULL
+      then:
+        str_template: '{_DATE_TXT} - 998'
+    - when: (str_contains(_VISIT_T, '^Ill') OR str_contains(_VISIT_T, '^Conva')) AND ADT IS NOT NULL AND TR01SDT IS NOT NULL AND ADT > TR01SDT AND _MBTPTNUM IS NOT NULL
+      then:
+        str_template: '{_DATE_TXT} - {_MBTPTNUM_TXT}'
+    - when: (str_contains(_VISIT_T, '^Ill') OR str_contains(_VISIT_T, '^Conva')) AND ADT IS NOT NULL AND TR01SDT IS NOT NULL AND ADT > TR01SDT AND _MBTPTNUM IS NULL AND str_contains(_VISIT_T, 'Uns')
+      then:
+        str_template: '{_DATE_TXT} - 999'
+    - when: (str_contains(_VISIT_T, '^Ill') OR str_contains(_VISIT_T, '^Conva')) AND ADT IS NOT NULL AND TR01SDT IS NOT NULL AND ADT > TR01SDT AND _MBTPTNUM IS NULL
+      then: _DATE_TXT
+    - when: (str_contains(_VISIT_T, '^Ill') OR str_contains(_VISIT_T, '^Conva')) AND (_MBDTC IS NULL OR _MBDTC IN (''))
+      then: '''0000'''
+    - otherwise: ''''''
+- name: _MBSTRESC2
+  type: str
+  derivation:
+    case:
+    - when: str_contains(_MBSTRESC, '^See')
+      then: ''''''
+    - otherwise: _MBSTRESC
+- name: AVALC
+  type: str
+  label: Analysis Value (C)
+  derivation:
+    case:
+    - when: str_contains(_MBSTRESC, '^N')
+      then: '''Negative'''
+    - when: str_contains(_MBSTRESC, '^[DPY]')
+      then: '''Positive'''
+    - otherwise: _MBSTRESC
+  submission:
+    core: Perm
+    mandatory: false
+    length: 50
+    origins:
+    - type: Derived
+    method: "Withheld from publication: the received define states this text."
+- name: _SORT_AVALC
+  type: int
+  derivation:
+    case:
+    - when: AVALC = 'Positive'
+      then: 3
+    - when: AVALC = 'Negative'
+      then: 2
+    - otherwise: 1
+- name: ADT
+  type: date
+  label: Analysis Date
+  derivation:
+    to_date:
+      source: _MBDTC
+  submission:
+    core: Req
+    mandatory: false
+    origins:
+    - type: Derived
+    method: "Withheld from publication: the received define states this text."
+- name: ADTM
+  type: datetime
+  label: Analysis Datetime
+  derivation:
+    case:
+    - when: str_contains(_MBDTC, 'T')
+      then:
+        impute:
+          type: datetime
+          source: _MBDTC
+          time: first
+  submission:
+    core: Perm
+    mandatory: false
+    origins:
+    - type: Derived
+    method: "Withheld from publication: the received define states this text."
+- name: ATM
+  type: time
+  label: Analysis Time
+  derivation:
+    to_time:
+      source: ADTM
+  submission:
+    core: Perm
+    mandatory: false
+    origins:
+    - type: Derived
+    method: "Withheld from publication: the received define states this text."
+- name: ADY
+  type: int
+  label: Analysis Relative Day
+  derivation:
+    study_day:
+      source: ADT
+      reference: TR01SDT
+  submission:
+    core: Req
+    mandatory: false
+    length: 8
+    display_format: '3.'
+    origins:
+    - type: Derived
+    method: "Withheld from publication: the received define states this text."
+- name: _DAYDIFF
+  type: int
+  derivation:
+    diff:
+      type: date
+      start: TR01SDT
+      end: ADT
+      unit: day
+- name: _ADTMY_S
+  type: int
+  derivation:
+    case:
+    - when: ADT IS NOT NULL AND TR01SDT IS NOT NULL
+      then: _DAYDIFF * 86400
+    - when: NOT str_contains(_VISIT_WU, 'ILLNESS')
+      then: 99999999
+- name: _ADTMY
+  type: float
+  derivation:
+    case:
+    - when: ADT IS NOT NULL AND TR01SDT IS NOT NULL AND ADT > TR01SDT AND str_contains(_VISIT_W, 'Uns') AND _VISITNUM IS NULL
+      then: 999
+    - when: ADT IS NOT NULL AND TR01SDT IS NOT NULL AND ADT > TR01SDT
+      then: _VISITNUM
+    - otherwise: ABS(_ADTMY_S)
+- name: _ADTMY_NUM
+  type: float
+  derivation:
+    case:
+    - when: _VISITNUM IS NOT NULL AND _ADTMY_S IS NOT NULL AND ABS(_ADTMY_S) > 0
+      then: ABS(_ADTMY_S) + _VISITNUM
+    - when: _ADTMY_S IS NOT NULL
+      then: ABS(_ADTMY_S)
+- name: _PREFL
+  type: str
+  derivation:
+    case:
+    - when: TR01SDT IS NOT NULL AND _ADTMY_S IS NOT NULL AND _ADTMY_S <= 0
+      then: '''Y'''
+- name: _POSTFL
+  type: str
+  derivation:
+    case:
+    - when: TR01SDT IS NOT NULL AND ADT IS NOT NULL AND _ADTMY_S IS NOT NULL AND _ADTMY_S > 0
+      then: '''Y'''
+- name: _PREFL_ADT
+  type: date
+  derivation:
+    case:
+    - when: _PREFL = 'Y'
+      then: ADT
+- name: _AVALN
+  type: int
+  derivation:
+    case:
+    - when: _MBSTRESC2 IS NOT NULL AND _MBSTRESC2 NOT IN ('')
+      then: 1
+    - when: (str_contains(_VISIT_WU, 'ILLNESS') OR str_contains(_VISIT_W, 'Uns')) AND (ADT IS NULL OR (TR01SDT IS NOT NULL AND ADT > TR01SDT))
+      then: 1
+    - otherwise: 0
+- name: _AVALN2
+  type: int
+  derivation:
+    case:
+    - when: _MBSTRESC2 IS NOT NULL AND _MBSTRESC2 NOT IN ('')
+      then: 1
+    - otherwise: 0
+- name: _ILLUNS
+  type: int
+  derivation:
+    case:
+    - when: str_contains(_VISIT_W, 'Uns')
+      then: 1
+    - when: str_contains(_VISIT_WU, 'ILLNESS') OR str_contains(_VISIT_W, 'OL-D')
+      then: 2
+    - otherwise: 0
+- name: _ISSTRESN
+  type: int
+  derivation:
+    case:
+    - when: _PREFL = 'Y' AND NOT str_contains(_VISIT_WU, 'ILLNESS') AND AVALC = 'Positive'
+      then: 1
+    - when: _PREFL = 'Y' AND NOT str_contains(_VISIT_WU, 'ILLNESS') AND AVALC = 'Negative'
+      then: 2
+    - otherwise: 9
+- name: _UNS
+  type: int
+  derivation:
+    case:
+    - when: _POSTFL = 'Y' AND (str_contains(_VISIT_W, 'Uns') OR _VISIT_W IS NULL OR _VISIT_W IN ('') OR str_contains(_VISIT_W, 'Safe'))
+      then: 1
+    - when: _POSTFL = 'Y'
+      then: 0
+- name: _BASE_RN
+  type: int
+  derivation:
+    row_number:
+      window: BASE_W
+- name: ABLFL
+  type: str
+  label: Baseline Record Flag
+  derivation:
+    case:
+    - when: _BASE_RN = 1 AND _AVALN = 1 AND _PREFL = 'Y' AND TR01SDT IS NOT NULL
+      then: '''Y'''
+  submission:
+    core: Perm
+    mandatory: false
+    length: 1
+    origins:
+    - type: Derived
+    method: "Withheld from publication: the received define states this text."
+- name: BASEC
+  type: str
+  label: Baseline Value (C)
+  derivation:
+    aggregate:
+      filter: ABLFL = 'Y'
+      group_by:
+      - STUDYID
+      - USUBJID
+      - PARAMCD
+      expr: ONLY(AVALC)
+  submission:
+    core: Perm
+    mandatory: false
+    length: 50
+    origins:
+    - type: Derived
+    method: "Withheld from publication: the received define states this text."
+- name: _ILL_DAT
+  type: date
+  derivation:
+    aggregate:
+      key:
+        STUDYID: STUDYID
+        USUBJID: USUBJID
+        MBTESTCD: PARAMCD
+      filter: MB.VISIT = 'Illness Visit Day 1' OR MB.VISIT = 'Convalescence Visit Day 1'
+      derivations:
+        EP_ADT:
+          type: date
+          derivation:
+            to_date:
+              source: MB.MBDTC
+      between:
+        value: ADT
+        lower: EP_ADT
+      expr: MAX(EP_ADT)
+- name: _ILL_SET_RAW
+  type: int
+  derivation:
+    aggregate:
+      key:
+        STUDYID: STUDYID
+        USUBJID: USUBJID
+        MBTESTCD: PARAMCD
+      filter: MB.VISIT = 'Illness Visit Day 1' OR MB.VISIT = 'Convalescence Visit Day 1'
+      derivations:
+        EP_ADT:
+          type: date
+          derivation:
+            to_date:
+              source: MB.MBDTC
+      between:
+        value: _ILL_DAT
+        lower: EP_ADT
+      expr: COUNT(EP_ADT)
+      distinct: true
+- name: _ILL_SET
+  type: int
+  derivation:
+    case:
+    - when: _ILL_SET_RAW IS NULL
+      then: 0
+    - otherwise: _ILL_SET_RAW
+- name: _SCHEILL_DATE
+  type: date
+  derivation:
+    aggregate:
+      key:
+        STUDYID: STUDYID
+        USUBJID: USUBJID
+        MBTESTCD: PARAMCD
+      filter: (MB.VISIT = 'Illness Visit Day 1' OR (MB.VISIT = 'Illness Visit Day 3 - Day 21' AND MB.MBTPT = 'Day 1') OR MB.VISIT = 'Convalescence Visit Day 1')
+      derivations:
+        EP_ADT:
+          type: date
+          derivation:
+            to_date:
+              source: MB.MBDTC
+      between:
+        value: ADT
+        lower: EP_ADT
+      expr: MAX(EP_ADT)
+- name: _ILL_ADY
+  type: int
+  derivation:
+    study_day:
+      source: _ILL_DAT
+      reference: TR01SDT
+- name: _OPEND1_ADY
+  type: int
+  derivation:
+    aggregate:
+      filter: _VISIT_W = 'Participant Decision Visit / OL-D1'
+      group_by:
+      - STUDYID
+      - USUBJID
+      - PARAMCD
+      expr: MAX(ADY)
+- name: _ILL_DIFF
+  type: int
+  derivation:
+    diff:
+      type: date
+      start: _ILL_DAT
+      end: ADT
+      unit: day
+- name: _AVISIT_C
+  type: str
+  derivation:
+    case:
+    - when: ABLFL = 'Y'
+      then: '''Baseline'''
+    - when: ADT IS NOT NULL AND _VISIT_WU = 'VISIT 1 DAY 1'
+      then: '''Day 1'''
+    - when: ADT IS NOT NULL AND _VISIT_W = 'Illness Visit Day 1'
+      then: '''Illness Visit Day 1'''
+    - when: ADT IS NOT NULL AND ADY IS NOT NULL AND ADY > 1 AND str_contains(_VISIT_WU, 'ILLNESS') AND NOT str_contains(_VISIT_W, 'Uns')
+      then:
+        str_template: Illness Visit Day {_DAY_TXT}
+    - when: ADT IS NOT NULL AND ADY IS NOT NULL AND ADY > 1 AND str_contains(_VISIT_WU, 'OL-D1') AND NOT str_contains(_VISIT_W, 'Uns') AND NOT str_contains(_VISIT_W, 'Ill')
+      then: '''Participant Decision Visit / OL-D1'''
+    - when: ADT IS NOT NULL AND ADY IS NOT NULL AND ADY > 1 AND str_contains(_VISIT_WU, 'OL-D29') AND NOT str_contains(_VISIT_W, 'Uns') AND NOT str_contains(_VISIT_W, 'Ill')
+      then: '''Open Label Day 29'''
+    - when: ADT IS NOT NULL AND ADY IS NOT NULL AND ADY > 1 AND str_contains(_VISIT_WU, 'OL-D57') AND NOT str_contains(_VISIT_W, 'Uns') AND NOT str_contains(_VISIT_W, 'Ill')
+      then: '''Open Label Day 57'''
+    - when: ADT IS NOT NULL AND (str_contains(_VISIT_WU, 'ILLNESS') OR (str_contains(_VISIT_W, 'Uns') AND NOT str_contains(_VISIT_W, 'Ill'))) AND _ILL_DIFF IS NOT NULL AND _ILL_DIFF >= 1 AND _ILL_DIFF <= 2
+      then: '''Illness Visit Day 3'''
+    - when: ADT IS NOT NULL AND (str_contains(_VISIT_WU, 'ILLNESS') OR (str_contains(_VISIT_W, 'Uns') AND NOT str_contains(_VISIT_W, 'Ill'))) AND _ILL_DIFF IS NOT NULL AND _ILL_DIFF >= 3 AND _ILL_DIFF <= 4
+      then: '''Illness Visit Day 5'''
+    - when: ADT IS NOT NULL AND (str_contains(_VISIT_WU, 'ILLNESS') OR (str_contains(_VISIT_W, 'Uns') AND NOT str_contains(_VISIT_W, 'Ill'))) AND _ILL_DIFF IS NOT NULL AND _ILL_DIFF >= 5 AND _ILL_DIFF <= 6
+      then: '''Illness Visit Day 7'''
+    - when: ADT IS NOT NULL AND (str_contains(_VISIT_WU, 'ILLNESS') OR (str_contains(_VISIT_W, 'Uns') AND NOT str_contains(_VISIT_W, 'Ill'))) AND _ILL_DIFF IS NOT NULL AND _ILL_DIFF >= 7 AND _ILL_DIFF <= 10
+      then: '''Illness Visit Day 9'''
+    - when: ADT IS NOT NULL AND (str_contains(_VISIT_WU, 'ILLNESS') OR (str_contains(_VISIT_W, 'Uns') AND NOT str_contains(_VISIT_W, 'Ill'))) AND _ILL_DIFF IS NOT NULL AND _ILL_DIFF >= 11 AND _ILL_DIFF <= 16
+      then: '''Illness Visit Day 14'''
+    - when: ADT IS NOT NULL AND (str_contains(_VISIT_WU, 'ILLNESS') OR (str_contains(_VISIT_W, 'Uns') AND NOT str_contains(_VISIT_W, 'Ill'))) AND _ILL_DIFF IS NOT NULL AND _ILL_DIFF >= 17 AND _ILL_DIFF <= 23
+      then: '''Illness Visit Day 21'''
+    - when: ADT IS NOT NULL AND (str_contains(_VISIT_WU, 'ILLNESS') OR (str_contains(_VISIT_W, 'Uns') AND NOT str_contains(_VISIT_W, 'Ill'))) AND _ILL_DIFF IS NOT NULL AND _ILL_DIFF >= 24 AND _ILL_DIFF <= 34
+      then: '''Illness Visit Day 28'''
+    - when: ADT IS NOT NULL AND str_contains(_VISIT_WU, 'ILLNESS') AND str_contains(_VISIT_W, 'Uns') AND _SCHEILL_DATE IS NULL AND str_contains(_MBTPT, 'Day')
+      then:
+        str_template: Illness Visit {_MBTPT}
+    - when: ADT IS NOT NULL AND ADY IS NOT NULL AND ADY > 1 AND _VISIT = 'Illness Visit Day 3 - Day 21' AND _ILL_DAT IS NULL
+      then: '''Illness Visit'''
+    - when: ADT IS NOT NULL AND ADY IS NOT NULL AND ADY > 1 AND str_contains(_VISIT_W, 'Illness')
+      then:
+        str_template: Illness Visit Day {_SCAN4}
+    - when: ADT IS NOT NULL AND _POSTFL = 'Y' AND (str_contains(_VISIT_W, 'Uns') OR str_contains(_VISIT_W, 'Safe') OR str_contains(_VISIT_WU, 'ILLNESS'))
+      then:
+        case:
+        - when: ADY IS NOT NULL AND ADY >= 2 AND ADY <= 36
+          then: '''Day 29'''
+        - otherwise: ''''''
+    - when: ADT IS NOT NULL AND ADY IS NOT NULL AND ADY > 1 AND _POSTFL = 'Y' AND str_contains(_VISIT_WU, 'DAY')
+      then:
+        str_template: Day {_DAY_TXT}
+- name: _AVISIT_C2
+  type: str
+  derivation:
+    case:
+    - when: (ABLFL IS NULL OR ABLFL <> 'Y') AND ADT IS NOT NULL AND _ILL_DAT IS NOT NULL AND ADT = _ILL_DAT AND _SCHEILL_DATE IS NOT NULL AND str_contains(_VISIT_W, 'Uns')
+      then: '''Illness Visit Day 1'''
+    - otherwise: _AVISIT_C
+- name: _AVISIT_D
+  type: str
+  derivation:
+    case:
+    - when: (_AVISIT_C2 IS NULL OR _AVISIT_C2 IN ('')) AND _POSTFL = 'Y' AND (str_contains(_VISIT_W, 'Uns') OR _VISIT_W IS NULL OR _VISIT_W IN ('') OR str_contains(_VISIT_W, 'Safe')) AND ADY IS NOT NULL AND ADY >= 2 AND ADY <= 36
+      then: '''Day 29'''
+    - otherwise: _AVISIT_C2
+- name: _AVISITN_D
+  type: int
+  derivation:
+    case:
+    - when: _AVISIT_D = 'Illness Visit Day 1'
+      then: 101
+    - when: _AVISIT_D = 'Illness Visit Day 3'
+      then: 103
+    - when: _AVISIT_D = 'Illness Visit Day 5'
+      then: 105
+    - when: _AVISIT_D = 'Illness Visit Day 7'
+      then: 107
+    - when: _AVISIT_D = 'Illness Visit Day 9'
+      then: 109
+    - when: _AVISIT_D = 'Illness Visit Day 14'
+      then: 114
+    - when: _AVISIT_D = 'Illness Visit Day 21'
+      then: 121
+    - when: _AVISIT_D = 'Illness Visit Day 28'
+      then: 128
+    - when: str_contains(_AVISIT_D, 'Illness')
+      then: 100 * _ILL_SET + 1
+    - when: _AVISIT_D = 'Baseline'
+      then: 1
+    - when: _AVISIT_D = 'Day 1'
+      then: 2
+    - when: _AVISIT_D = 'Day 29'
+      then: 3
+    - when: _AVISIT_D = 'Day 57'
+      then: 4
+    - when: _AVISIT_D = 'Day 209'
+      then: 6
+    - when: _AVISIT_D = 'Day 394'
+      then: 7
+    - when: _AVISIT_D = 'Day 759'
+      then: 8
+    - when: _AVISIT_D = 'Participant Decision Visit / OL-D1'
+      then: 10
+    - when: _AVISIT_D = 'Open Label Day 29'
+      then: 11
+    - when: _AVISIT_D = 'Open Label Day 57'
+      then: 12
+- name: _AVISIT_D2
+  type: str
+  derivation:
+    case:
+    - when: _AVISITN_D IS NOT NULL AND _AVISITN_D NOT IN (1, 3, 10) AND _AVISITN_D < 100
+      then: null
+    - otherwise: _AVISIT_D
+- name: _AVISITN_D2
+  type: int
+  derivation:
+    case:
+    - when: _AVISITN_D IS NOT NULL AND _AVISITN_D NOT IN (1, 3, 10) AND _AVISITN_D < 100
+      then: null
+    - otherwise: _AVISITN_D
+- name: _ILL_SET_TXT
+  type: str
+  derivation:
+    str_decimal:
+      source: _ILL_SET
+      decimals: 0
+- name: _DAY_NUM_E
+  type: str
+  derivation:
+    str_extract:
+      source: _AVISIT_D2
+      pattern: Day ([0-9]+)
+      group: 1
+      no_match: ''
+- name: _AVISIT_E
+  type: str
+  derivation:
+    case:
+    - when: _ILL_SET > 1 AND str_contains(_AVISIT_D2, 'Illness') AND str_contains(_AVISIT_D2, '^Illness Visit Day ') AND _SCHEILL_DATE IS NOT NULL
+      then:
+        str_template: Illness Visit {_ILL_SET_TXT} Day {_DAY_NUM_E}
+    - otherwise: _AVISIT_D2
+- name: _AVISITN_E
+  type: int
+  derivation:
+    case:
+    - when: _ILL_SET > 1 AND str_contains(_AVISIT_D2, 'Illness') AND str_contains(_AVISIT_D2, '^Illness Visit Day ') AND _SCHEILL_DATE IS NOT NULL
+      then: 100 * (_ILL_SET - 1) + _AVISITN_D2
+    - otherwise: _AVISITN_D2
+- name: _PREFIX
+  type: str
+  derivation:
+    str_extract:
+      source: _AVISIT_E
+      pattern: ^(.*).{2}$
+      group: 1
+      no_match: ''
+- name: _AVISIT_E_SP
+  type: str
+  derivation:
+    str_template:
+      template: '{_AVISIT_E} '
+      missing: ' '
+- name: _AWRANGE_E
+  type: str
+  derivation:
+    case:
+    - when: str_contains(_AVISIT_E, 'Illness') AND str_contains(_AVISIT_E_SP, 'Day 1 ')
+      then: _AVISIT_E
+    - when: str_contains(_AVISIT_E, 'Illness') AND str_contains(_AVISIT_E_SP, 'Day 3 ')
+      then:
+        str_template: '{_PREFIX} 2 - {_PREFIX} 3'
+    - when: str_contains(_AVISIT_E, 'Illness') AND str_contains(_AVISIT_E_SP, 'Day 5 ')
+      then:
+        str_template: '{_PREFIX} 4 - {_PREFIX} 5'
+    - when: str_contains(_AVISIT_E, 'Illness') AND str_contains(_AVISIT_E_SP, 'Day 7 ')
+      then:
+        str_template: '{_PREFIX} 6 - {_PREFIX} 7'
+    - when: str_contains(_AVISIT_E, 'Illness') AND str_contains(_AVISIT_E_SP, 'Day 9 ')
+      then:
+        str_template: '{_PREFIX} 8 - {_PREFIX} 11'
+    - when: str_contains(_AVISIT_E, 'Illness') AND str_contains(_AVISIT_E_SP, 'Day 14 ')
+      then:
+        str_template: '{_PREFIX}12 - {_PREFIX}17'
+    - when: str_contains(_AVISIT_E, 'Illness') AND str_contains(_AVISIT_E_SP, 'Day 21 ')
+      then:
+        str_template: '{_PREFIX}18 - {_PREFIX}24'
+    - when: str_contains(_AVISIT_E, 'Illness') AND str_contains(_AVISIT_E_SP, 'Day 28 ')
+      then:
+        str_template: '{_PREFIX}25 - {_PREFIX}35'
+    - when: _AVISIT_E = 'Baseline'
+      then: '''<=1 Pre-dose'''
+    - when: _AVISIT_E = 'Day 29'
+      then: '''Day 2 - Day 36'''
+    - when: _AVISITN_E = 10
+      then: '''Participant Decision Visit / OL-D1'''
+- name: _AWTARGET_E
+  type: int
+  derivation:
+    case:
+    - when: _AVISITN_E = 101 AND _ILL_ADY IS NOT NULL
+      then: _ILL_ADY
+    - when: str_contains(_AWRANGE_E, 'Illness') AND str_contains(_AVISIT_E_SP, 'Day 1 ') AND _ILL_ADY IS NOT NULL
+      then: _ILL_ADY
+    - when: str_contains(_AWRANGE_E, 'Illness') AND str_contains(_AVISIT_E_SP, 'Day 3 ') AND _ILL_ADY IS NOT NULL
+      then: _ILL_ADY + 2
+    - when: str_contains(_AWRANGE_E, 'Illness') AND str_contains(_AVISIT_E_SP, 'Day 5 ') AND _ILL_ADY IS NOT NULL
+      then: _ILL_ADY + 4
+    - when: str_contains(_AWRANGE_E, 'Illness') AND str_contains(_AVISIT_E_SP, 'Day 7 ') AND _ILL_ADY IS NOT NULL
+      then: _ILL_ADY + 6
+    - when: str_contains(_AWRANGE_E, 'Illness') AND str_contains(_AVISIT_E_SP, 'Day 9 ') AND _ILL_ADY IS NOT NULL
+      then: _ILL_ADY + 8
+    - when: str_contains(_AWRANGE_E, 'Illness') AND str_contains(_AVISIT_E_SP, 'Day 14 ') AND _ILL_ADY IS NOT NULL
+      then: _ILL_ADY + 13
+    - when: str_contains(_AWRANGE_E, 'Illness') AND str_contains(_AVISIT_E_SP, 'Day 21 ') AND _ILL_ADY IS NOT NULL
+      then: _ILL_ADY + 20
+    - when: str_contains(_AWRANGE_E, 'Illness') AND str_contains(_AVISIT_E_SP, 'Day 28 ') AND _ILL_ADY IS NOT NULL
+      then: _ILL_ADY + 27
+    - when: _AVISIT_E = 'Baseline'
+      then: 1
+    - when: _AVISIT_E = 'Day 1'
+      then: 1
+    - when: _AVISIT_E = 'Day 29'
+      then: 29
+    - when: _AVISIT_E = 'Day 57'
+      then: 57
+    - when: _AVISIT_E = 'Day 119'
+      then: 119
+    - when: _AVISIT_E = 'Day 209'
+      then: 209
+    - when: _AVISIT_E = 'Day 394'
+      then: 394
+    - when: _AVISIT_E = 'Day 759'
+      then: 759
+    - when: _AVISITN_E = 10
+      then: _OPEND1_ADY
+    - when: _AVISITN_E = 11 AND _OPEND1_ADY IS NOT NULL
+      then: _OPEND1_ADY + 28
+    - when: _AVISITN_E = 12 AND _OPEND1_ADY IS NOT NULL
+      then: _OPEND1_ADY + 56
+- name: _AWTDIFF_E
+  type: int
+  derivation:
+    case:
+    - when: _AWTARGET_E IS NOT NULL AND ADY IS NOT NULL
+      then: ABS(ADY - _AWTARGET_E)
+- name: _AVISIT_F
+  type: str
+  derivation:
+    case:
+    - when: str_contains(_AVISIT_E, 'Illness') AND _AVISITN_E IS NOT NULL AND _AVISITN_E >= 100 AND _AVISITN_E < 200
+      then: '''Illness Visit'''
+    - when: str_contains(_AVISIT_E, 'Illness') AND _AVISITN_E IS NOT NULL AND _AVISITN_E > 200
+      then:
+        str_template: Illness Visit {_ILL_SET_TXT}
+    - otherwise: _AVISIT_E
+- name: _AVISITN_F
+  type: int
+  derivation:
+    case:
+    - when: str_contains(_AVISIT_E, 'Illness') AND _AVISITN_E IS NOT NULL AND _AVISITN_E >= 100 AND _AVISITN_E < 200
+      then: 100
+    - when: str_contains(_AVISIT_E, 'Illness') AND _AVISITN_E IS NOT NULL AND _AVISITN_E > 200
+      then: 100 * _ILL_SET
+    - otherwise: _AVISITN_E
+- name: _DAY_NUM_H
+  type: str
+  derivation:
+    str_extract:
+      source: _AVISIT_E
+      pattern: Day ([0-9]+)
+      group: 1
+      no_match: ''
+- name: _ATPT_RAW
+  type: str
+  derivation:
+    case:
+    - when: str_contains(_AVISIT_F, 'Ill')
+      then:
+        str_template: Day {_DAY_NUM_H}
+    - otherwise: ''''''
+- name: _ATPT_C
+  type: str
+  derivation:
+    str_replace:
+      source: _ATPT_RAW
+      pattern: ' '
+      replacement: ''
+- name: _BLANK1
+  type: int
+  derivation:
+    case:
+    - when: str_contains(_AVISIT_F, 'Ill') AND _SCHEILL_DATE IS NULL AND (_MBTPT IS NULL OR _MBTPT IN ('')) AND (str_contains(_VISIT, 'Uns') OR _VISIT IS NULL OR _VISIT IN (''))
+      then: 1
+    - otherwise: 0
+- name: _IS999
+  type: int
+  derivation:
+    case:
+    - when: _ATPT_RAW = 'Day 999'
+      then: 1
+    - otherwise: 0
+- name: _BLANK3
+  type: int
+  derivation:
+    case:
+    - when: _BLANK1 = 0 AND _IS999 = 0 AND (_ATPT_C IN ('Unscheduled', 'Day', 'DayUnscheduled') OR (str_contains(_AVISIT_F, 'Illness') AND _MBTPT = 'Unscheduled' AND (str_contains(_VISIT_T, 'Uns') OR _VISIT_T IS NULL OR _VISIT_T IN ('')) AND _SCHEILL_DATE IS NULL))
+      then: 1
+    - otherwise: 0
+- name: _AVISITN_B3
+  type: int
+  derivation:
+    case:
+    - when: _ILL_SET = 0
+      then: 100
+    - otherwise: 100 * _ILL_SET
+- name: ATPT
+  type: str
+  label: Analysis Timepoint
+  derivation:
+    case:
+    - when: _BLANK1 = 1
+      then: ''''''
+    - when: _IS999 = 1
+      then: ''''''
+    - when: _BLANK3 = 1
+      then: ''''''
+    - otherwise: _ATPT_RAW
+  submission:
+    core: Perm
+    mandatory: false
+    length: 20
+    origins:
+    - type: Derived
+    method: "Withheld from publication: the received define states this text."
+- name: _AVISIT_TMP
+  type: str
+  derivation:
+    str_replace:
+      source: _AVISIT_F
+      pattern: Day Unscheduled
+      replacement: ''
+- name: AVISIT
+  type: str
+  label: Analysis Visit
+  derivation:
+    case:
+    - when: _IS999 = 1
+      then: ''''''
+    - when: _BLANK3 = 1
+      then:
+        str_replace:
+          source: _AVISIT_TMP
+          pattern: Day
+          replacement: ''
+    - otherwise: _AVISIT_F
+  submission:
+    core: Perm
+    mandatory: false
+    length: 50
+    origins:
+    - type: Derived
+    method: "Withheld from publication: the received define states this text."
+- name: AVISITN
+  type: int
+  label: Analysis Visit (N)
+  derivation:
+    case:
+    - when: _IS999 = 1
+      then: null
+    - when: _BLANK3 = 1
+      then: _AVISITN_B3
+    - otherwise: _AVISITN_F
+  submission:
+    core: Perm
+    mandatory: false
+    length: 8
+    display_format: '3.'
+    origins:
+    - type: Derived
+    method: "Withheld from publication: the received define states this text."
+- name: AWRANGE
+  type: str
+  label: Analysis Window Valid Relative Range
+  derivation:
+    case:
+    - when: _BLANK1 = 1
+      then: ''''''
+    - when: _IS999 = 1
+      then: ''''''
+    - when: _BLANK3 = 1
+      then: ''''''
+    - otherwise: _AWRANGE_E
+  submission:
+    core: Perm
+    mandatory: false
+    length: 50
+    origins:
+    - type: Derived
+    method: "Withheld from publication: the received define states this text."
+- name: AWTARGET
+  type: int
+  label: Analysis Window Target
+  derivation:
+    case:
+    - when: _BLANK1 = 1
+      then: null
+    - when: _IS999 = 1
+      then: null
+    - when: _BLANK3 = 1
+      then: null
+    - otherwise: _AWTARGET_E
+  submission:
+    core: Perm
+    mandatory: false
+    length: 8
+    display_format: '3.'
+    origins:
+    - type: Derived
+    method: "Withheld from publication: the received define states this text."
+- name: AWTDIFF
+  type: int
+  label: Analysis Window Diff from Target
+  derivation:
+    case:
+    - when: _BLANK1 = 1
+      then: null
+    - when: _IS999 = 1
+      then: null
+    - when: _BLANK3 = 1
+      then: null
+    - otherwise: _AWTDIFF_E
+  submission:
+    core: Perm
+    mandatory: false
+    length: 8
+    display_format: '3.'
+    origins:
+    - type: Derived
+    method: "Withheld from publication: the received define states this text."
+- name: ATPTN
+  type: int
+  label: Analysis Timepoint (N)
+  derivation:
+    str_extract:
+      source: ATPT
+      pattern: Day ([0-9]+)
+      group: 1
+      no_match: null
+  submission:
+    core: Perm
+    mandatory: false
+    length: 8
+    display_format: '3.'
+    origins:
+    - type: Derived
+    method: "Withheld from publication: the received define states this text."
+- name: _UNS_ANL
+  type: int
+  derivation:
+    case:
+    - when: AVISITN IS NOT NULL AND AVISITN >= 100
+      then: 0
+    - otherwise: _UNS
+- name: _ANL01_RN
+  type: int
+  derivation:
+    row_number:
+      window: ANL01_W
+- name: ANL01FL
+  type: str
+  label: Analysis Flag 01
+  derivation:
+    case:
+    - when: (_ANL01_RN = 1 AND _AVALN2 = 1 AND AVISITN IS NOT NULL) OR ABLFL = 'Y'
+      then: '''Y'''
+  submission:
+    core: Perm
+    mandatory: false
+    length: 1
+    origins:
+    - type: Derived
+    method: "Withheld from publication: the received define states this text."
+output:
+  path: <adam-dir>/admb-yamaa.parquet
+  order_by:
+  - USUBJID
+  - MBSEQ
+  columns:
+  - STUDYID
+  - USUBJID
+  - SUBJID
+  - SITEID
+  - COUNTRY
+  - AGE
+  - AGEU
+  - STRATAR
+  - STRATARN
+  - AGEGR1
+  - AGEGR1N
+  - AGEGR2
+  - AGEGR2N
+  - SEX
+  - RACE
+  - RACESPY
+  - ETHNIC
+  - RANDFL
+  - FASFL
+  - SAFFL
+  - SAR1FL
+  - SAR2FL
+  - SARAFL
+  - MITTFL
+  - PPROTFL
+  - COMPLFL
+  - DOSE1FL
+  - DOSE2FL
+  - RTPCRBL
+  - ELECSBL
+  - SCOV2BL
+  - TRT01P
+  - TRT01PN
+  - TRT01A
+  - TRT01AN
+  - TR01SDT
+  - TR01SDTM
+  - TR01EDT
+  - TR01EDTM
+  - DOSE2DT
+  - DOS2DTM
+  - RSKF1
+  - RSKF2
+  - RSKF3
+  - RSKF4
+  - RSKF5
+  - RSKF6
+  - STRATAV
+  - STRATAVN
+  - MINORITY
+  - RACEGR1
+  - RACEGR1N
+  - RISKGR1
+  - RISKGR1N
+  - RETHGR1
+  - RETHGR1N
+  - MBSEQ
+  - MBDTC
+  - MBMETHOD
+  - ADT
+  - ATM
+  - ADTM
+  - ADY
+  - VISIT
+  - VISITNUM
+  - MBTPT
+  - AVISIT
+  - AVISITN
+  - ATPT
+  - ATPTN
+  - PARCAT1
+  - PARAMCD
+  - PARAM
+  - AVALC
+  - BASEC
+  - AWRANGE
+  - AWTARGET
+  - AWTDIFF
+  - ABLFL
+  - ANL01FL
+  - MBSCAT
+  - MBNAM
+  - MBSPEC
+  - LDTTESTO
+  - LDTCLIA
+  - LOCALFL

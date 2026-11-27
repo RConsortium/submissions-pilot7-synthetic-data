@@ -24,6 +24,17 @@ recommendation is a complete contribution.
 
     [Pilot study report](studies/index.md)
 
+-   **PHMPT reproduction**
+
+    ---
+
+    ADaM datasets and Define-XML of four COVID-19 vaccine submissions FDA
+    released on phmpt.org, reproduced with yamaa. Rerun any result from
+    PHMPT and review it.
+
+    [PHMPT reproduction](phmpt/index.md) -
+    [Review a finding](phmpt/review/index.md)
+
 -   **Review guide**
 
     ---

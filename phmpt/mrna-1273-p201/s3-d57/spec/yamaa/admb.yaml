@@ -1,0 +1,1239 @@
+# ADMB for Moderna mRNA-1273-P201, data cut d57 (cutoff 2020-11-05).
+# Parent: ../../../spec/yamaa/base/adam-base.yaml (section 3.1 core columns).
+# Derivations implement the d57 A20ADMB program (prototype
+# spec/yamaa/tools/admb_proto.py matches all 83 submitted columns on all
+# 37,626 rows). Where the SAS code and the define.xml method text disagree,
+# the code is followed (see README.md).
+# Inputs: MB + SUPPMB + EX (SDTM) + ADSL (core columns). SUPPMB is pivoted
+# for LOCALFL/LDTTYPE/LDTSTOTH by (USUBJID, MBSEQ); its other QNAMs
+# (CNVRESC, CNVNRLO, RPTRTYP) are unused. MB has no SUBJID column in this
+# SDTM extract, so ADMB.SUBJID comes from ADSL. Row accounting: MB 37,763
+# rows -> filter (MBSTAT missing, MBTESTCD non-missing) 37,647 -> merge with
+# ADSL on USUBJID drops 21 -> 37,626 submitted rows. Keys are
+# [STUDYID, USUBJID, MBSEQ] (unique).
+yamaa: '1.0'
+type: spec
+model: ADaM
+parent: ../../../spec/yamaa/base/adam-base.yaml
+domain: ADMB
+keys:
+- STUDYID
+- USUBJID
+- MBSEQ
+input:
+  MB: <sdtm-dir>/mb.parquet
+  SUPPMB: <sdtm-dir>/suppmb.parquet
+  EX: <sdtm-dir>/ex.parquet
+  ADSL:
+    path: <adam-dir>/adsl.parquet
+    key:
+    - STUDYID
+    - USUBJID
+submission:
+  label: Microbiology Analysis Dataset
+  class: BASIC DATA STRUCTURE
+  structure: One or more records per subject per analysis parameter per analysis timepoint
+  repeating: true
+rows:
+- id: mb_rows
+  dataset: MB
+  derivations:
+    STUDYID: MB.STUDYID
+    USUBJID: MB.USUBJID
+    _MBSEQ: MB.MBSEQ
+    _MBSTAT: MB.MBSTAT
+    _MBTESTCD: MB.MBTESTCD
+    _MBCAT: MB.MBCAT
+    _MBTEST: MB.MBTEST
+    _MBSCAT: MB.MBSCAT
+    _MBNAM: MB.MBNAM
+    _MBSPEC: MB.MBSPEC
+    _MBMETHOD: MB.MBMETHOD
+    _MBSTRESC: MB.MBSTRESC
+    _MBDTC: MB.MBDTC
+    _VISIT: MB.VISIT
+    _VISITNUM: MB.VISITNUM
+    _LOCALFL: SUPP_P.LOCALFL
+    _LDTTYPE: SUPP_P.LDTTYPE
+    _LDTSTOTH: SUPP_P.LDTSTOTH
+  filter: (_MBSTAT IS NULL OR _MBSTAT IN ('')) AND _MBTESTCD IS NOT NULL AND _MBTESTCD NOT IN ('') AND _ADSL IS NOT NULL
+intermediates:
+- id: SUPP_P
+  dataset: SUPPMB
+  key:
+    STUDYID: STUDYID
+    USUBJID: USUBJID
+    IDVARVAL:
+      str_decimal:
+        source: _MBSEQ
+        decimals: 0
+  filter: SUPPMB.QNAM IN ('LOCALFL', 'LDTTYPE', 'LDTSTOTH') AND SUPPMB.IDVAR = 'MBSEQ'
+  pivot:
+    name: QNAM
+    value: QVAL
+    fields:
+    - LOCALFL
+    - LDTTYPE
+    - LDTSTOTH
+- id: EX_DOSE1
+  dataset: EX
+  key:
+  - STUDYID
+  - USUBJID
+  filter: EX.EXSTDTC IS NOT NULL AND EX.VISITDY = 1
+  order_by:
+  - EX.EXSTDTC
+  keep: first
+- id: EX_DOSE2
+  dataset: EX
+  key:
+  - STUDYID
+  - USUBJID
+  filter: EX.EXSTDTC IS NOT NULL AND EX.VISITDY = 29
+  order_by:
+  - EX.EXSTDTC
+  keep: first
+windows:
+  BASE_W:
+    group_by:
+    - STUDYID
+    - USUBJID
+    - PARAMCD
+    order_by:
+    - variable: _AVALN
+      direction: desc
+    - LOCALFL
+    - _POSTFL
+    - variable: ADY
+      direction: desc
+    - variable: MBSEQ
+      direction: desc
+  ANL01_W:
+    group_by:
+    - STUDYID
+    - USUBJID
+    - PARAMCD
+    - AVISITN
+    order_by:
+    - variable: _POSTFL
+      direction: desc
+    - variable: _AVALN
+      direction: desc
+    - LOCALFL
+    - _UNS
+    - _AWTDIFF
+    - variable: ADY
+      direction: desc
+    - variable: _ADTMY
+      direction: desc
+    - variable: MBSEQ
+      direction: desc
+columns:
+- name: _ADSL
+  type: str
+  derivation: ADSL.USUBJID
+- name: ARM
+  derivation: null
+- name: ACTARM
+  derivation: null
+- name: STUDYID
+  submission:
+    origins:
+    - type: Predecessor
+      description: MB.STUDYID
+- name: USUBJID
+  submission:
+    origins:
+    - type: Predecessor
+      description: MB.USUBJID
+- name: _MBSEQ
+  type: int
+- name: _MBSTAT
+  type: str
+- name: _MBTESTCD
+  type: str
+- name: _MBCAT
+  type: str
+- name: _MBTEST
+  type: str
+- name: _MBSCAT
+  type: str
+- name: _MBNAM
+  type: str
+- name: _MBSPEC
+  type: str
+- name: _MBMETHOD
+  type: str
+- name: _MBSTRESC
+  type: str
+- name: _MBDTC
+  type: str
+- name: _VISIT
+  type: str
+- name: _VISITNUM
+  type: float
+- name: _LOCALFL
+  type: str
+- name: _LDTTYPE
+  type: str
+- name: _LDTSTOTH
+  type: str
+- name: SUBJID
+  derivation: ADSL.SUBJID
+  submission:
+    origins:
+    - type: Predecessor
+      description: ADSL.SUBJID
+- name: SITEID
+  derivation: ADSL.SITEID
+  submission:
+    origins:
+    - type: Predecessor
+      description: ADSL.SITEID
+- name: COUNTRY
+  derivation: ADSL.COUNTRY
+  submission:
+    origins:
+    - type: Predecessor
+      description: ADSL.COUNTRY
+- name: AGE
+  derivation: ADSL.AGE
+  submission:
+    origins:
+    - type: Predecessor
+      description: ADSL.AGE
+- name: AGEU
+  derivation: ADSL.AGEU
+  submission:
+    origins:
+    - type: Predecessor
+      description: ADSL.AGEU
+- name: AGEGR1
+  type: str
+  label: Pooled Age Group 1
+  derivation: ADSL.AGEGR1
+  submission:
+    core: Req
+    mandatory: true
+    length: 30
+    origins:
+    - type: Predecessor
+      description: ADSL.AGEGR1
+- name: AGEGR1N
+  type: int
+  label: Pooled Age Group 1 (N)
+  derivation: ADSL.AGEGR1N
+  submission:
+    core: Req
+    mandatory: true
+    length: 8
+    display_format: '3.'
+    origins:
+    - type: Predecessor
+      description: ADSL.AGEGR1N
+- name: AGEGR2
+  type: str
+  label: Pooled Age Group 2
+  derivation: ADSL.AGEGR2
+  submission:
+    core: Req
+    mandatory: true
+    length: 19
+    origins:
+    - type: Predecessor
+      description: ADSL.AGEGR2
+- name: AGEGR2N
+  type: int
+  label: Pooled Age Group 2 (N)
+  derivation: ADSL.AGEGR2N
+  submission:
+    core: Req
+    mandatory: true
+    length: 8
+    display_format: '3.'
+    origins:
+    - type: Predecessor
+      description: ADSL.AGEGR2N
+- name: SEX
+  derivation: ADSL.SEX
+  submission:
+    origins:
+    - type: Predecessor
+      description: ADSL.SEX
+- name: RACE
+  derivation: ADSL.RACE
+  submission:
+    origins:
+    - type: Predecessor
+      description: ADSL.RACE
+- name: RACESPY
+  type: str
+  label: Race Specify
+  derivation: ADSL.RACESPY
+  submission:
+    core: Perm
+    mandatory: false
+    length: 200
+    origins:
+    - type: Predecessor
+      description: ADSL.RACESPY
+- name: ETHNIC
+  derivation: ADSL.ETHNIC
+  submission:
+    origins:
+    - type: Predecessor
+      description: ADSL.ETHNIC
+- name: RANDFL
+  derivation: ADSL.RANDFL
+  submission:
+    origins:
+    - type: Predecessor
+      description: ADSL.RANDFL
+- name: SAFFL
+  derivation: ADSL.SAFFL
+  submission:
+    origins:
+    - type: Predecessor
+      description: ADSL.SAFFL
+- name: FASBABFL
+  derivation: ADSL.FASBABFL
+  submission:
+    origins:
+    - type: Predecessor
+      description: ADSL.FASBABFL
+- name: FASNABFL
+  derivation: ADSL.FASNABFL
+  submission:
+    origins:
+    - type: Predecessor
+      description: ADSL.FASNABFL
+- name: PPBABFL
+  derivation: ADSL.PPBABFL
+  submission:
+    origins:
+    - type: Predecessor
+      description: ADSL.PPBABFL
+- name: PPNABFL
+  derivation: ADSL.PPNABFL
+  submission:
+    origins:
+    - type: Predecessor
+      description: ADSL.PPNABFL
+- name: PPBD29FL
+  type: str
+  label: Per Protocol bAb Day 29 Flag
+  derivation: ADSL.PPBD29FL
+  submission:
+    core: Req
+    mandatory: true
+    length: 1
+    origins:
+    - type: Predecessor
+      description: ADSL.PPBD29FL
+- name: PPBD57FL
+  type: str
+  label: Per Protocol bAb Day 57 Flag
+  derivation: ADSL.PPBD57FL
+  submission:
+    core: Req
+    mandatory: true
+    length: 1
+    origins:
+    - type: Predecessor
+      description: ADSL.PPBD57FL
+- name: PPND29FL
+  type: str
+  label: Per Protocol nAb Day 29 Flag
+  derivation: ADSL.PPND29FL
+  submission:
+    core: Req
+    mandatory: true
+    length: 1
+    origins:
+    - type: Predecessor
+      description: ADSL.PPND29FL
+- name: PPND57FL
+  type: str
+  label: Per Protocol nAb Day 57 Flag
+  derivation: ADSL.PPND57FL
+  submission:
+    core: Req
+    mandatory: true
+    length: 1
+    origins:
+    - type: Predecessor
+      description: ADSL.PPND57FL
+- name: SAR1FL
+  derivation: ADSL.SAR1FL
+  submission:
+    origins:
+    - type: Predecessor
+      description: ADSL.SAR1FL
+- name: SAR2FL
+  derivation: ADSL.SAR2FL
+  submission:
+    origins:
+    - type: Predecessor
+      description: ADSL.SAR2FL
+- name: SARAFL
+  derivation: ADSL.SARAFL
+  submission:
+    origins:
+    - type: Predecessor
+      description: ADSL.SARAFL
+- name: FASNA2FL
+  derivation: ADSL.FASNA2FL
+  submission:
+    origins:
+    - type: Predecessor
+      description: ADSL.FASNA2FL
+- name: PPNAB2FL
+  derivation: ADSL.PPNAB2FL
+  submission:
+    origins:
+    - type: Predecessor
+      description: ADSL.PPNAB2FL
+- name: PN2D29FL
+  type: str
+  label: Per Protocol nAb 2 Day 29 Flag
+  derivation: ADSL.PN2D29FL
+  submission:
+    core: Req
+    mandatory: true
+    length: 1
+    origins:
+    - type: Predecessor
+      description: ADSL.PN2D29FL
+- name: PN2D57FL
+  type: str
+  label: Per Protocol nAb 2 Day 57 Flag
+  derivation: ADSL.PN2D57FL
+  submission:
+    core: Req
+    mandatory: true
+    length: 1
+    origins:
+    - type: Predecessor
+      description: ADSL.PN2D57FL
+- name: COMPLFL
+  derivation: ADSL.COMPLFL
+  submission:
+    origins:
+    - type: Predecessor
+      description: ADSL.COMPLFL
+- name: DVBABFL
+  type: str
+  label: Deviation Impact bAb Flag
+  derivation: ADSL.DVBABFL
+  submission:
+    core: Req
+    mandatory: true
+    length: 1
+    origins:
+    - type: Predecessor
+      description: ADSL.DVBABFL
+- name: DVNABFL
+  type: str
+  label: Deviation Impact nAb Flag
+  derivation: ADSL.DVNABFL
+  submission:
+    core: Req
+    mandatory: true
+    length: 1
+    origins:
+    - type: Predecessor
+      description: ADSL.DVNABFL
+- name: TRT01P
+  derivation: ADSL.TRT01P
+  submission:
+    origins:
+    - type: Predecessor
+      description: ADSL.TRT01P
+- name: TRT01PN
+  derivation: ADSL.TRT01PN
+  submission:
+    origins:
+    - type: Predecessor
+      description: ADSL.TRT01PN
+- name: TRT01A
+  derivation: ADSL.TRT01A
+  submission:
+    origins:
+    - type: Predecessor
+      description: ADSL.TRT01A
+- name: TRT01AN
+  derivation: ADSL.TRT01AN
+  submission:
+    origins:
+    - type: Predecessor
+      description: ADSL.TRT01AN
+- name: TR01SDT
+  derivation: ADSL.TR01SDT
+  submission:
+    origins:
+    - type: Predecessor
+      description: ADSL.TR01SDT
+- name: TR01SDTM
+  derivation: ADSL.TR01SDTM
+  submission:
+    origins:
+    - type: Predecessor
+      description: ADSL.TR01SDTM
+- name: TR01EDT
+  derivation: ADSL.TR01EDT
+  submission:
+    origins:
+    - type: Predecessor
+      description: ADSL.TR01EDT
+- name: TR01EDTM
+  derivation: ADSL.TR01EDTM
+  submission:
+    origins:
+    - type: Predecessor
+      description: ADSL.TR01EDTM
+- name: TRTSDTM
+  derivation: ADSL.TRTSDTM
+  submission:
+    origins:
+    - type: Predecessor
+      description: ADSL.TRTSDTM
+- name: TRTEDTM
+  derivation: ADSL.TRTEDTM
+  submission:
+    origins:
+    - type: Predecessor
+      description: ADSL.TRTEDTM
+- name: DOSE1FL
+  type: str
+  label: Vaccination 1 Flag
+  derivation: ADSL.DOSE1FL
+  submission:
+    core: Req
+    mandatory: true
+    length: 1
+    origins:
+    - type: Predecessor
+      description: ADSL.DOSE1FL
+- name: DOSE2FL
+  type: str
+  label: Vaccination 2 Flag
+  derivation: ADSL.DOSE2FL
+  submission:
+    core: Req
+    mandatory: true
+    length: 1
+    origins:
+    - type: Predecessor
+      description: ADSL.DOSE2FL
+- name: DOSEROFL
+  type: str
+  label: Dosing Error Flag
+  derivation: ADSL.DOSEROFL
+  submission:
+    core: Req
+    mandatory: true
+    length: 1
+    origins:
+    - type: Predecessor
+      description: ADSL.DOSEROFL
+- name: COV19BL
+  type: str
+  label: Baseline COVID Infection
+  derivation: ADSL.COV19BL
+  submission:
+    core: Perm
+    mandatory: false
+    length: 20
+    origins:
+    - type: Predecessor
+      description: ADSL.COV19BL
+- name: COV19FL
+  type: str
+  label: COVID Infection Flag
+  derivation: ADSL.COV19FL
+  submission:
+    core: Req
+    mandatory: true
+    length: 20
+    origins:
+    - type: Predecessor
+      description: ADSL.COV19FL
+- name: SENTLFL
+  type: str
+  label: Sentinel Participant Flag
+  derivation: ADSL.SENTLFL
+  submission:
+    core: Req
+    mandatory: true
+    length: 3
+    origins:
+    - type: Predecessor
+      description: ADSL.SENTLFL
+- name: D29W7DFL
+  type: str
+  label: Day 29 Out of 7-Day Window Flag
+  derivation: ADSL.D29W7DFL
+  submission:
+    core: Req
+    mandatory: true
+    length: 1
+    origins:
+    - type: Predecessor
+      description: ADSL.D29W7DFL
+- name: DOSE2DT
+  type: date
+  label: Date of Dose 2
+  derivation: ADSL.DOSE2DT
+  submission:
+    core: Perm
+    mandatory: false
+    origins:
+    - type: Predecessor
+      description: ADSL.DOSE2DT
+- name: DOS2DTM
+  type: datetime
+  label: Datetime of Dose 2
+  derivation: ADSL.DOS2DTM
+  submission:
+    core: Perm
+    mandatory: false
+    origins:
+    - type: Predecessor
+      description: ADSL.DOS2DTM
+- name: MBSEQ
+  type: int
+  label: Sequence Number
+  derivation: MB.MBSEQ
+  submission:
+    core: Req
+    mandatory: true
+    length: 8
+    display_format: '3.'
+    origins:
+    - type: Predecessor
+      description: MB.MBSEQ
+- name: MBDTC
+  type: str
+  label: Date/Time of Specimen Collection
+  derivation: MB.MBDTC
+  submission:
+    core: Perm
+    mandatory: false
+    length: 16
+    origins:
+    - type: Predecessor
+      description: MB.MBDTC
+- name: ADT
+  type: date
+  label: Analysis Date
+  derivation:
+    to_date:
+      source: _MBDTC
+  submission:
+    core: Perm
+    mandatory: false
+    origins:
+    - type: Derived
+    method: "Withheld from publication: the received define states this text."
+- name: ADTM
+  type: datetime
+  label: Analysis Datetime
+  derivation:
+    case:
+    - when: str_contains(_MBDTC, 'T')
+      then:
+        impute:
+          type: datetime
+          source: _MBDTC
+          time: first
+  submission:
+    core: Perm
+    mandatory: false
+    origins:
+    - type: Derived
+    method: "Withheld from publication: the received define states this text."
+- name: ATM
+  type: time
+  label: Analysis Time
+  derivation:
+    to_time:
+      source: ADTM
+  submission:
+    core: Perm
+    mandatory: false
+    origins:
+    - type: Derived
+    method: "Withheld from publication: the received define states this text."
+- name: ADY
+  type: int
+  label: Analysis Relative Day
+  derivation:
+    study_day:
+      source: ADT
+      reference: TR01SDT
+  submission:
+    core: Perm
+    mandatory: false
+    length: 8
+    display_format: '3.'
+    origins:
+    - type: Derived
+    method: "Withheld from publication: the received define states this text."
+- name: _DAYDIFF
+  type: int
+  derivation:
+    diff:
+      type: date
+      start: TR01SDT
+      end: ADT
+      unit: day
+- name: _ADTMY_S
+  type: int
+  derivation:
+    case:
+    - when: ADTM IS NOT NULL AND TR01SDTM IS NOT NULL
+      then:
+        diff:
+          type: datetime
+          start: TR01SDTM
+          end: ADTM
+          unit: second
+    - when: ADT IS NOT NULL AND TR01SDT IS NOT NULL
+      then: _DAYDIFF * 86400 - 86340
+    - otherwise: 99999999
+- name: _ADTMY
+  type: int
+  derivation: ABS(_ADTMY_S)
+- name: _PREFL
+  type: str
+  derivation:
+    case:
+    - when: _ADTMY_S <= 0 AND TR01SDT IS NOT NULL
+      then: '''Y'''
+    - when: ADY = 1 AND TR01SDT IS NOT NULL AND TR01SDT = ADT
+      then: '''Y'''
+- name: _POSTFL
+  type: str
+  derivation:
+    case:
+    - when: _ADTMY_S > 0 AND TR01SDT IS NOT NULL AND _PREFL IS NULL
+      then: '''Y'''
+- name: _AVALN
+  type: int
+  derivation:
+    case:
+    - when: _MBSTRESC IS NOT NULL AND _MBSTRESC NOT IN ('')
+      then: 1
+    - otherwise: 0
+- name: _UNS
+  type: int
+  derivation:
+    case:
+    - when: _POSTFL = 'Y' AND (str_contains(_VISIT, 'Uns') OR _VISIT IS NULL OR _VISIT IN ('') OR _VISITNUM IS NULL OR _VISITNUM NOT IN (5, 8))
+      then: 1
+    - otherwise: 0
+- name: _VISIT_DAY
+  type: str
+  derivation:
+    str_extract:
+      source: _VISIT
+      pattern: Day ([0-9]+)
+      group: 1
+      no_match: null
+- name: VISIT
+  type: str
+  label: Visit Name
+  derivation: MB.VISIT
+  submission:
+    core: Perm
+    mandatory: false
+    length: 28
+    origins:
+    - type: Predecessor
+      description: MB.VISIT
+- name: VISITNUM
+  type: float
+  label: Visit Number
+  derivation: MB.VISITNUM
+  submission:
+    core: Perm
+    mandatory: false
+    length: 8
+    significant_digits: 15
+    origins:
+    - type: Predecessor
+      description: MB.VISITNUM
+- name: MBSCAT
+  type: str
+  label: Subcategory for Microbiology Finding
+  derivation: MB.MBSCAT
+  submission:
+    core: Perm
+    mandatory: false
+    length: 19
+    origins:
+    - type: Predecessor
+      description: MB.MBSCAT
+- name: MBNAM
+  type: str
+  label: Vendor Name
+  derivation: MB.MBNAM
+  submission:
+    core: Req
+    mandatory: true
+    length: 38
+    origins:
+    - type: Predecessor
+      description: MB.MBNAM
+- name: MBSPEC
+  type: str
+  label: Specimen Type
+  derivation: MB.MBSPEC
+  submission:
+    core: Req
+    mandatory: true
+    length: 16
+    origins:
+    - type: Predecessor
+      description: MB.MBSPEC
+- name: MBMETHOD
+  type: str
+  label: Method of Test or Examination
+  derivation: MB.MBMETHOD
+  submission:
+    core: Perm
+    mandatory: false
+    length: 6
+    origins:
+    - type: Predecessor
+      description: MB.MBMETHOD
+- name: PARCAT1
+  type: str
+  label: Parameter Category 1
+  derivation: _MBCAT
+  submission:
+    core: Req
+    mandatory: true
+    length: 50
+    origins:
+    - type: Derived
+    method: "Withheld from publication: the received define states this text."
+- name: PARAMCD
+  type: str
+  label: Parameter Code
+  derivation: _MBTESTCD
+  submission:
+    core: Req
+    mandatory: true
+    length: 8
+    origins:
+    - type: Derived
+    method: "Withheld from publication: the received define states this text."
+- name: PARAM
+  type: str
+  label: Parameter
+  derivation: _MBTEST
+  submission:
+    core: Req
+    mandatory: true
+    length: 50
+    origins:
+    - type: Derived
+    method: "Withheld from publication: the received define states this text."
+- name: _AVALC_PROP
+  type: str
+  derivation:
+    str_case:
+      source: _MBSTRESC
+      to: proper
+- name: AVALC
+  type: str
+  label: Analysis Value (C)
+  derivation:
+    case:
+    - when: _MBSTRESC IN ('NOT DETECTED', 'NOTDETECTED')
+      then: '''Not Detected'''
+    - otherwise: _AVALC_PROP
+  submission:
+    core: Perm
+    mandatory: false
+    length: 50
+    origins:
+    - type: Derived
+    method: "Withheld from publication: the received define states this text."
+- name: LOCALFL
+  type: str
+  label: Local Labs Flag
+  derivation: _LOCALFL
+  submission:
+    core: Perm
+    mandatory: false
+    length: 1
+    origins:
+    - type: Derived
+    method: "Withheld from publication: the received define states this text."
+- name: LDTTYPE
+  type: str
+  label: Type of Diagnostic Test
+  derivation: _LDTTYPE
+  submission:
+    core: Perm
+    mandatory: false
+    length: 200
+    origins:
+    - type: Derived
+    method: "Withheld from publication: the received define states this text."
+- name: LDTSTOTH
+  type: str
+  label: Diagnostic Test Other, Specify
+  derivation: _LDTSTOTH
+  submission:
+    core: Perm
+    mandatory: false
+    length: 200
+    origins:
+    - type: Derived
+    method: "Withheld from publication: the received define states this text."
+- name: _BASE_RN
+  type: int
+  derivation:
+    row_number:
+      window: BASE_W
+- name: ABLFL
+  type: str
+  label: Baseline Record Flag
+  derivation:
+    case:
+    - when: _BASE_RN = 1 AND _AVALN = 1 AND _PREFL = 'Y' AND (LOCALFL IS NULL OR LOCALFL <> 'Y')
+      then: '''Y'''
+  submission:
+    core: Perm
+    mandatory: false
+    length: 1
+    origins:
+    - type: Derived
+    method: "Withheld from publication: the received define states this text."
+- name: BASEC
+  type: str
+  label: Baseline Value (C)
+  derivation:
+    aggregate:
+      filter: ABLFL = 'Y'
+      group_by:
+      - STUDYID
+      - USUBJID
+      - PARAMCD
+      expr: ONLY(AVALC)
+  submission:
+    core: Perm
+    mandatory: false
+    length: 50
+    origins:
+    - type: Derived
+    method: "Withheld from publication: the received define states this text."
+- name: AVISIT
+  type: str
+  label: Analysis Visit
+  derivation:
+    case:
+    - when: ABLFL = 'Y'
+      then: '''Baseline'''
+    - when: _UNS = 1 AND ADY IS NOT NULL AND ADY > 2 AND ADY <= 43
+      then: '''Day 29'''
+    - when: _UNS = 1 AND ADY IS NOT NULL AND ADY > 43 AND ADY <= 70
+      then: '''Day 57'''
+    - when: _UNS = 1 AND ADY IS NOT NULL AND ADY > 70
+      then: '''Day 71 or Beyond'''
+    - when: _POSTFL = 'Y' AND _UNS = 0 AND ADY IS NOT NULL AND ADY > 1 AND _VISIT_DAY IS NOT NULL
+      then:
+        str_template: Day {_VISIT_DAY}
+    - when: _POSTFL = 'Y' AND _UNS = 0 AND ADY IS NOT NULL AND ADY > 1
+      then: '''Day '''
+  submission:
+    core: Perm
+    mandatory: false
+    length: 50
+    origins:
+    - type: Derived
+    method: "Withheld from publication: the received define states this text."
+- name: AVISITN
+  type: int
+  label: Analysis Visit (N)
+  derivation:
+    mapping:
+      source: AVISIT
+      dict:
+        Baseline: 1
+        Day 15: 4
+        Day 29: 5
+        Day 43: 7
+        Day 57: 8
+        Day 71 or Beyond: 99
+      unmapped: null
+  submission:
+    core: Perm
+    mandatory: false
+    length: 8
+    display_format: '3.'
+    origins:
+    - type: Derived
+    method: "Withheld from publication: the received define states this text."
+- name: AWRANGE
+  type: str
+  label: Analysis Window Valid Relative Range
+  derivation:
+    mapping:
+      source: AVISIT
+      dict:
+        Baseline: <=1 Pre-dose
+        Day 29: Day 2 - Day 43
+        Day 57: Day 44 - Day 70
+        Day 71 or Beyond: '>= Day 71'
+      unmapped: null
+  submission:
+    core: Perm
+    mandatory: false
+    length: 20
+    origins:
+    - type: Derived
+    method: "Withheld from publication: the received define states this text."
+- name: AWTARGET
+  type: int
+  label: Analysis Window Target
+  derivation:
+    mapping:
+      source: AVISIT
+      dict:
+        Baseline: 1
+        Day 15: 15
+        Day 29: 29
+        Day 57: 57
+        Day 71 or Beyond: 71
+      unmapped: null
+  submission:
+    core: Perm
+    mandatory: false
+    length: 8
+    display_format: '3.'
+    origins:
+    - type: Derived
+    method: "Withheld from publication: the received define states this text."
+- name: AWTDIFF
+  type: int
+  label: Analysis Window Diff from Target
+  derivation:
+    case:
+    - when: AWTARGET IS NOT NULL AND ADY IS NOT NULL
+      then: ABS(ADY - AWTARGET)
+  submission:
+    core: Perm
+    mandatory: false
+    length: 8
+    display_format: '3.'
+    origins:
+    - type: Derived
+    method: "Withheld from publication: the received define states this text."
+- name: _AWTDIFF
+  type: int
+  derivation:
+    case:
+    - when: _POSTFL = 'Y' AND _UNS = 1
+      then: AWTDIFF
+    - when: _POSTFL = 'Y'
+      then: 0
+    - otherwise: 99999999
+- name: _ANL01_RN
+  type: int
+  derivation:
+    row_number:
+      window: ANL01_W
+- name: ANL01FL
+  type: str
+  label: Analysis Flag 01
+  derivation:
+    case:
+    - when: (_ANL01_RN = 1 AND AVISITN IS NOT NULL AND _POSTFL = 'Y' AND _AVALN = 1 AND (LOCALFL IS NULL OR LOCALFL <> 'Y')) OR ABLFL = 'Y'
+      then: '''Y'''
+  submission:
+    core: Perm
+    mandatory: false
+    length: 1
+    origins:
+    - type: Derived
+    method: "Withheld from publication: the received define states this text."
+- name: _DOSE
+  type: str
+  derivation:
+    case:
+    - when: ADTM IS NOT NULL AND DOS2DTM IS NOT NULL AND ADTM >= DOS2DTM
+      then: '''Vaccination 2'''
+    - when: (ADTM IS NULL OR DOS2DTM IS NULL) AND ADT IS NOT NULL AND DOSE2DT IS NOT NULL AND ADT >= DOSE2DT
+      then: '''Vaccination 2'''
+    - when: TR01SDTM IS NOT NULL AND ADTM IS NOT NULL AND DOS2DTM IS NOT NULL AND TR01SDTM <= ADTM AND ADTM < DOS2DTM
+      then: '''Vaccination 1'''
+    - when: TR01SDTM IS NOT NULL AND ADTM IS NOT NULL AND DOS2DTM IS NULL AND TR01SDTM <= ADTM
+      then: '''Vaccination 1'''
+    - when: (TR01SDTM IS NULL OR ADTM IS NULL) AND TR01SDT IS NOT NULL AND ADT IS NOT NULL AND DOSE2DT IS NOT NULL AND TR01SDT <= ADT AND ADT < DOSE2DT
+      then: '''Vaccination 1'''
+    - when: (TR01SDTM IS NULL OR ADTM IS NULL) AND TR01SDT IS NOT NULL AND ADT IS NOT NULL AND DOSE2DT IS NULL AND TR01SDT <= ADT
+      then: '''Vaccination 1'''
+- name: _EX1_TXT_C
+  type: str
+  derivation:
+    str_replace:
+      source: EX_DOSE1.EXDOSTXT
+      pattern: ' '
+      replacement: ''
+- name: _EX2_TXT_C
+  type: str
+  derivation:
+    str_replace:
+      source: EX_DOSE2.EXDOSTXT
+      pattern: ' '
+      replacement: ''
+- name: TRTA
+  type: str
+  label: Actual Treatment
+  derivation:
+    case:
+    - when: _DOSE = 'Vaccination 1' AND EX_DOSE1.EXTRT = 'PLACEBO'
+      then: '''Placebo'''
+    - when: _DOSE = 'Vaccination 1' AND str_contains(EX_DOSE1.EXTRT, 'mRNA-1273') AND EX_DOSE1.EXDOSE IS NOT NULL AND 0 < EX_DOSE1.EXDOSE AND EX_DOSE1.EXDOSE <= 75
+      then: '''mRNA-1273 50 ug'''
+    - when: _DOSE = 'Vaccination 1' AND str_contains(EX_DOSE1.EXTRT, 'mRNA-1273') AND EX_DOSE1.EXDOSE IS NOT NULL AND EX_DOSE1.EXDOSE > 75
+      then: '''mRNA-1273 100 ug'''
+    - when: _DOSE = 'Vaccination 1' AND str_contains(EX_DOSE1.EXTRT, 'mRNA-1273') AND EX_DOSE1.EXDOSTXT IN ('>0-25', '>25-<50', '>50-75')
+      then: '''mRNA-1273 50 ug'''
+    - when: _DOSE = 'Vaccination 1' AND str_contains(EX_DOSE1.EXTRT, 'mRNA-1273') AND _EX1_TXT_C IN ('>75-<100', '>75-100', '>100-125', '>125', '>125orabove')
+      then: '''mRNA-1273 100 ug'''
+    - when: _DOSE = 'Vaccination 2' AND EX_DOSE2.EXTRT = 'PLACEBO'
+      then: '''Placebo'''
+    - when: _DOSE = 'Vaccination 2' AND str_contains(EX_DOSE2.EXTRT, 'mRNA-1273') AND EX_DOSE2.EXDOSE IS NOT NULL AND 0 < EX_DOSE2.EXDOSE AND EX_DOSE2.EXDOSE <= 75
+      then: '''mRNA-1273 50 ug'''
+    - when: _DOSE = 'Vaccination 2' AND str_contains(EX_DOSE2.EXTRT, 'mRNA-1273') AND EX_DOSE2.EXDOSE IS NOT NULL AND EX_DOSE2.EXDOSE > 75
+      then: '''mRNA-1273 100 ug'''
+    - when: _DOSE = 'Vaccination 2' AND str_contains(EX_DOSE2.EXTRT, 'mRNA-1273') AND EX_DOSE2.EXDOSTXT IN ('>0-25', '>25-<50', '>50-75')
+      then: '''mRNA-1273 50 ug'''
+    - when: _DOSE = 'Vaccination 2' AND str_contains(EX_DOSE2.EXTRT, 'mRNA-1273') AND _EX2_TXT_C IN ('>75-<100', '>75-100', '>100-125', '>125', '>125orabove')
+      then: '''mRNA-1273 100 ug'''
+  submission:
+    core: Perm
+    mandatory: false
+    length: 50
+    origins:
+    - type: Derived
+    method: "Withheld from publication: the received define states this text."
+- name: TRTAN
+  type: int
+  label: Actual Treatment (N)
+  derivation:
+    mapping:
+      source: TRTA
+      dict:
+        Placebo: 1
+        mRNA-1273 50 ug: 2
+        mRNA-1273 100 ug: 3
+      unmapped: null
+  submission:
+    core: Perm
+    mandatory: false
+    length: 8
+    display_format: '3.'
+    origins:
+    - type: Derived
+    method: "Withheld from publication: the received define states this text."
+output:
+  path: <adam-dir>/admb-yamaa.parquet
+  order_by:
+  - USUBJID
+  - PARCAT1
+  - PARAMCD
+  - AVISITN
+  - MBDTC
+  - ADT
+  - ADTM
+  - MBSEQ
+  columns:
+  - STUDYID
+  - USUBJID
+  - SUBJID
+  - SITEID
+  - COUNTRY
+  - AGE
+  - AGEU
+  - AGEGR1
+  - AGEGR1N
+  - AGEGR2
+  - AGEGR2N
+  - SEX
+  - RACE
+  - RACESPY
+  - ETHNIC
+  - RANDFL
+  - SAFFL
+  - FASBABFL
+  - FASNABFL
+  - PPBABFL
+  - PPNABFL
+  - PPBD29FL
+  - PPBD57FL
+  - PPND29FL
+  - PPND57FL
+  - SAR1FL
+  - SAR2FL
+  - SARAFL
+  - FASNA2FL
+  - PPNAB2FL
+  - PN2D29FL
+  - PN2D57FL
+  - COMPLFL
+  - DVBABFL
+  - DVNABFL
+  - DOSE1FL
+  - DOSE2FL
+  - DOSEROFL
+  - COV19BL
+  - COV19FL
+  - SENTLFL
+  - D29W7DFL
+  - TRT01P
+  - TRT01PN
+  - TRT01A
+  - TRT01AN
+  - TR01SDT
+  - TR01SDTM
+  - TR01EDT
+  - TR01EDTM
+  - TRTSDTM
+  - TRTEDTM
+  - DOSE2DT
+  - DOS2DTM
+  - TRTA
+  - TRTAN
+  - MBSEQ
+  - MBDTC
+  - ADT
+  - ATM
+  - ADTM
+  - ADY
+  - VISIT
+  - VISITNUM
+  - AVISIT
+  - AVISITN
+  - PARCAT1
+  - PARAMCD
+  - PARAM
+  - AVALC
+  - BASEC
+  - AWRANGE
+  - AWTARGET
+  - AWTDIFF
+  - ABLFL
+  - ANL01FL
+  - MBSCAT
+  - MBNAM
+  - MBSPEC
+  - MBMETHOD
+  - LOCALFL
+  - LDTTYPE
+  - LDTSTOTH

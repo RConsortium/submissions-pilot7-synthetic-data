@@ -1,0 +1,2128 @@
+# ADLB for Moderna mRNA-1273-P201, data cut d57 (cutoff 2020-11-05).
+# Parent: ../../../spec/yamaa/base/adam-base.yaml (section 3.1 core columns).
+# Derivations implement the d57 A20ADLB program (prototype
+# spec/yamaa/tools/adlb_proto.py matches all 109 submitted columns on all
+# 36,791 rows). Where the SAS code and the define.xml method text disagree,
+# the code is followed (see README.md): AWRANGE/AVISITN cover only
+# Baseline/Day 29/Day 57 (define lists Day 1/8/15/36/43 too); PARAM HCG
+# matches lbmethod=:'ELE'/'CHEM' (define method text is vaguer).
+# Inputs: LB + SV + EX (SDTM) + ADSL (core columns). SUPPLB is NOT an input:
+# %revsupp adds only unused QNAMs. The SUBJID join is load-bearing: 979
+# filtered LB rows have a USUBJID in ADSL but a mismatched SUBJID
+# (re-screened subjects) and must drop.
+yamaa: '1.0'
+type: spec
+model: ADaM
+parent: ../../../spec/yamaa/base/adam-base.yaml
+domain: ADLB
+keys:
+- STUDYID
+- USUBJID
+- LBSEQ
+input:
+  LB: <sdtm-dir>/lb.parquet
+  SV: <sdtm-dir>/sv.parquet
+  EX: <sdtm-dir>/ex.parquet
+  ADSL:
+    path: <adam-dir>/adsl.parquet
+    key:
+    - STUDYID
+    - USUBJID
+    - SUBJID
+submission:
+  label: Laboratory Analysis Dataset
+  class: BASIC DATA STRUCTURE
+  structure: One or more records per subject per analysis parameter per analysis timepoint
+  repeating: true
+rows:
+- id: lb_rows
+  dataset: LB
+  derivations:
+    STUDYID: LB.STUDYID
+    USUBJID: LB.USUBJID
+    _SUBJID: LB.SUBJID
+    _LBSEQ: LB.LBSEQ
+    _LBSTAT: LB.LBSTAT
+    _LBTESTCD: LB.LBTESTCD
+    _LBCAT: LB.LBCAT
+    _LBTEST: LB.LBTEST
+    _LBMETHOD: LB.LBMETHOD
+    _LBSTRESU: LB.LBSTRESU
+    _LBSTRESC: LB.LBSTRESC
+    _LBSTRESN: LB.LBSTRESN
+    _LBNRIND: LB.LBNRIND
+    _LBSTNRLO: LB.LBSTNRLO
+    _LBSTNRHI: LB.LBSTNRHI
+    _LBORRES: LB.LBORRES
+    _LBORRESU: LB.LBORRESU
+    _LBORNRLO: LB.LBORNRLO
+    _LBORNRHI: LB.LBORNRHI
+    _LBTOXGR: LB.LBTOXGR
+    _LBDTC: LB.LBDTC
+    _VISIT: LB.VISIT
+    _VISITNUM: LB.VISITNUM
+    _SVSTDTC4: SV4.SVSTDTC
+    _SVSTDTC7: SV7.SVSTDTC
+  filter: (_LBSTAT IS NULL OR _LBSTAT IN ('')) AND _LBTESTCD IS NOT NULL AND _LBTESTCD NOT IN ('') AND _ADSL IS NOT NULL
+intermediates:
+- id: SV4
+  dataset: SV
+  key:
+    STUDYID: STUDYID
+    USUBJID: USUBJID
+    SUBJID: _SUBJID
+  filter: str_contains(SV.VISIT, 'Visit 4') AND SV.SVSTDTC IS NOT NULL AND SV.SVSTDTC NOT IN ('') AND SV.VISITDY IS NOT NULL
+  order_by:
+  - SV.SVSTDTC
+  keep: first
+- id: SV7
+  dataset: SV
+  key:
+    STUDYID: STUDYID
+    USUBJID: USUBJID
+    SUBJID: _SUBJID
+  filter: str_contains(SV.VISIT, 'Visit 7 ') AND SV.SVSTDTC IS NOT NULL AND SV.SVSTDTC NOT IN ('') AND SV.VISITDY IS NOT NULL
+  order_by:
+  - SV.SVSTDTC
+  keep: first
+- id: EX_DOSE1
+  dataset: EX
+  key:
+  - STUDYID
+  - USUBJID
+  filter: EX.EXSTDTC IS NOT NULL AND EX.VISITDY = 1
+  order_by:
+  - EX.EXSTDTC
+  keep: first
+- id: EX_DOSE2
+  dataset: EX
+  key:
+  - STUDYID
+  - USUBJID
+  filter: EX.EXSTDTC IS NOT NULL AND EX.VISITDY = 29
+  order_by:
+  - EX.EXSTDTC
+  keep: first
+windows:
+  ANL01_W:
+    group_by:
+    - STUDYID
+    - USUBJID
+    - PARAMCD
+    - AVISITN
+    order_by:
+    - variable: _POSTFL
+      direction: desc
+    - variable: _AVALN
+      direction: desc
+    - _UNS
+    - _AWTDIFF
+    - variable: _ADTMY
+      direction: desc
+    - variable: LBSEQ
+      direction: desc
+  ANL02_W:
+    group_by:
+    - STUDYID
+    - USUBJID
+    - PARAMCD
+    order_by:
+    - variable: _POSTFL
+      direction: desc
+    - ASTAGEN
+    - variable: ATOXGRLN
+      direction: desc
+    - AVISITN
+    - VISITNUM
+    - ADT
+    - ADTM
+    - _ADTMY
+    - LBSEQ
+  ANL03_W:
+    group_by:
+    - STUDYID
+    - USUBJID
+    - PARAMCD
+    order_by:
+    - variable: _POSTFL
+      direction: desc
+    - ASTAGEN
+    - variable: ATOXGRHN
+      direction: desc
+    - AVISITN
+    - VISITNUM
+    - ADT
+    - ADTM
+    - _ADTMY
+    - LBSEQ
+columns:
+- name: _ADSL
+  type: str
+  derivation: ADSL.USUBJID
+- name: ARM
+  derivation: null
+- name: ACTARM
+  derivation: null
+- name: STUDYID
+  submission:
+    origins:
+    - type: Predecessor
+      description: LB.STUDYID
+- name: USUBJID
+  submission:
+    origins:
+    - type: Predecessor
+      description: LB.USUBJID
+- name: SUBJID
+  derivation: LB.SUBJID
+  submission:
+    origins:
+    - type: Predecessor
+      description: LB.SUBJID
+- name: _SUBJID
+  type: str
+- name: _LBSEQ
+  type: int
+- name: _LBSTAT
+  type: str
+- name: _LBTESTCD
+  type: str
+- name: _LBCAT
+  type: str
+- name: _LBTEST
+  type: str
+- name: _LBMETHOD
+  type: str
+- name: _LBSTRESU
+  type: str
+- name: _LBSTRESC
+  type: str
+- name: _LBSTRESN
+  type: float
+- name: _LBNRIND
+  type: str
+- name: _LBSTNRLO
+  type: float
+- name: _LBSTNRHI
+  type: float
+- name: _LBORRES
+  type: str
+- name: _LBORRESU
+  type: str
+- name: _LBORNRLO
+  type: str
+- name: _LBORNRHI
+  type: str
+- name: _LBTOXGR
+  type: str
+- name: _LBDTC
+  type: str
+- name: _VISIT
+  type: str
+- name: _VISITNUM
+  type: float
+- name: _SVSTDTC4
+  type: str
+- name: _SVSTDTC7
+  type: str
+- name: SITEID
+  derivation: ADSL.SITEID
+  submission:
+    origins:
+    - type: Predecessor
+      description: ADSL.SITEID
+- name: COUNTRY
+  derivation: ADSL.COUNTRY
+  submission:
+    origins:
+    - type: Predecessor
+      description: ADSL.COUNTRY
+- name: AGE
+  derivation: ADSL.AGE
+  submission:
+    origins:
+    - type: Predecessor
+      description: ADSL.AGE
+- name: AGEU
+  derivation: ADSL.AGEU
+  submission:
+    origins:
+    - type: Predecessor
+      description: ADSL.AGEU
+- name: AGEGR1
+  type: str
+  label: Pooled Age Group 1
+  derivation: ADSL.AGEGR1
+  submission:
+    core: Req
+    mandatory: true
+    length: 30
+    origins:
+    - type: Predecessor
+      description: ADSL.AGEGR1
+- name: AGEGR1N
+  type: int
+  label: Pooled Age Group 1 (N)
+  derivation: ADSL.AGEGR1N
+  submission:
+    core: Req
+    mandatory: true
+    length: 8
+    display_format: '3.'
+    origins:
+    - type: Predecessor
+      description: ADSL.AGEGR1N
+- name: AGEGR2
+  type: str
+  label: Pooled Age Group 2
+  derivation: ADSL.AGEGR2
+  submission:
+    core: Req
+    mandatory: true
+    length: 19
+    origins:
+    - type: Predecessor
+      description: ADSL.AGEGR2
+- name: AGEGR2N
+  type: int
+  label: Pooled Age Group 2 (N)
+  derivation: ADSL.AGEGR2N
+  submission:
+    core: Req
+    mandatory: true
+    length: 8
+    display_format: '3.'
+    origins:
+    - type: Predecessor
+      description: ADSL.AGEGR2N
+- name: SEX
+  derivation: ADSL.SEX
+  submission:
+    origins:
+    - type: Predecessor
+      description: ADSL.SEX
+- name: RACE
+  derivation: ADSL.RACE
+  submission:
+    origins:
+    - type: Predecessor
+      description: ADSL.RACE
+- name: RACESPY
+  type: str
+  label: Race Specify
+  derivation: ADSL.RACESPY
+  submission:
+    core: Perm
+    mandatory: false
+    length: 200
+    origins:
+    - type: Predecessor
+      description: ADSL.RACESPY
+- name: ETHNIC
+  derivation: ADSL.ETHNIC
+  submission:
+    origins:
+    - type: Predecessor
+      description: ADSL.ETHNIC
+- name: RANDFL
+  derivation: ADSL.RANDFL
+  submission:
+    origins:
+    - type: Predecessor
+      description: ADSL.RANDFL
+- name: SAFFL
+  derivation: ADSL.SAFFL
+  submission:
+    origins:
+    - type: Predecessor
+      description: ADSL.SAFFL
+- name: FASBABFL
+  derivation: ADSL.FASBABFL
+  submission:
+    origins:
+    - type: Predecessor
+      description: ADSL.FASBABFL
+- name: FASNABFL
+  derivation: ADSL.FASNABFL
+  submission:
+    origins:
+    - type: Predecessor
+      description: ADSL.FASNABFL
+- name: PPBABFL
+  derivation: ADSL.PPBABFL
+  submission:
+    origins:
+    - type: Predecessor
+      description: ADSL.PPBABFL
+- name: PPNABFL
+  derivation: ADSL.PPNABFL
+  submission:
+    origins:
+    - type: Predecessor
+      description: ADSL.PPNABFL
+- name: PPBD29FL
+  type: str
+  label: Per Protocol bAb Day 29 Flag
+  derivation: ADSL.PPBD29FL
+  submission:
+    core: Req
+    mandatory: true
+    length: 1
+    origins:
+    - type: Predecessor
+      description: ADSL.PPBD29FL
+- name: PPBD57FL
+  type: str
+  label: Per Protocol bAb Day 57 Flag
+  derivation: ADSL.PPBD57FL
+  submission:
+    core: Req
+    mandatory: true
+    length: 1
+    origins:
+    - type: Predecessor
+      description: ADSL.PPBD57FL
+- name: PPND29FL
+  type: str
+  label: Per Protocol nAb Day 29 Flag
+  derivation: ADSL.PPND29FL
+  submission:
+    core: Req
+    mandatory: true
+    length: 1
+    origins:
+    - type: Predecessor
+      description: ADSL.PPND29FL
+- name: PPND57FL
+  type: str
+  label: Per Protocol nAb Day 57 Flag
+  derivation: ADSL.PPND57FL
+  submission:
+    core: Req
+    mandatory: true
+    length: 1
+    origins:
+    - type: Predecessor
+      description: ADSL.PPND57FL
+- name: SAR1FL
+  derivation: ADSL.SAR1FL
+  submission:
+    origins:
+    - type: Predecessor
+      description: ADSL.SAR1FL
+- name: SAR2FL
+  derivation: ADSL.SAR2FL
+  submission:
+    origins:
+    - type: Predecessor
+      description: ADSL.SAR2FL
+- name: SARAFL
+  derivation: ADSL.SARAFL
+  submission:
+    origins:
+    - type: Predecessor
+      description: ADSL.SARAFL
+- name: FASNA2FL
+  derivation: ADSL.FASNA2FL
+  submission:
+    origins:
+    - type: Predecessor
+      description: ADSL.FASNA2FL
+- name: PPNAB2FL
+  derivation: ADSL.PPNAB2FL
+  submission:
+    origins:
+    - type: Predecessor
+      description: ADSL.PPNAB2FL
+- name: PN2D29FL
+  type: str
+  label: Per Protocol nAb 2 Day 29 Flag
+  derivation: ADSL.PN2D29FL
+  submission:
+    core: Req
+    mandatory: true
+    length: 1
+    origins:
+    - type: Predecessor
+      description: ADSL.PN2D29FL
+- name: PN2D57FL
+  type: str
+  label: Per Protocol nAb 2 Day 57 Flag
+  derivation: ADSL.PN2D57FL
+  submission:
+    core: Req
+    mandatory: true
+    length: 1
+    origins:
+    - type: Predecessor
+      description: ADSL.PN2D57FL
+- name: COMPLFL
+  derivation: ADSL.COMPLFL
+  submission:
+    origins:
+    - type: Predecessor
+      description: ADSL.COMPLFL
+- name: DVBABFL
+  type: str
+  label: Deviation Impact bAb Flag
+  derivation: ADSL.DVBABFL
+  submission:
+    core: Req
+    mandatory: true
+    length: 1
+    origins:
+    - type: Predecessor
+      description: ADSL.DVBABFL
+- name: DVNABFL
+  type: str
+  label: Deviation Impact nAb Flag
+  derivation: ADSL.DVNABFL
+  submission:
+    core: Req
+    mandatory: true
+    length: 1
+    origins:
+    - type: Predecessor
+      description: ADSL.DVNABFL
+- name: TRT01P
+  derivation: ADSL.TRT01P
+  submission:
+    origins:
+    - type: Predecessor
+      description: ADSL.TRT01P
+- name: TRT01PN
+  derivation: ADSL.TRT01PN
+  submission:
+    origins:
+    - type: Predecessor
+      description: ADSL.TRT01PN
+- name: TRT01A
+  derivation: ADSL.TRT01A
+  submission:
+    origins:
+    - type: Predecessor
+      description: ADSL.TRT01A
+- name: TRT01AN
+  derivation: ADSL.TRT01AN
+  submission:
+    origins:
+    - type: Predecessor
+      description: ADSL.TRT01AN
+- name: TR01SDT
+  derivation: ADSL.TR01SDT
+  submission:
+    origins:
+    - type: Predecessor
+      description: ADSL.TR01SDT
+- name: TR01SDTM
+  derivation: ADSL.TR01SDTM
+  submission:
+    origins:
+    - type: Predecessor
+      description: ADSL.TR01SDTM
+- name: TR01EDT
+  derivation: ADSL.TR01EDT
+  submission:
+    origins:
+    - type: Predecessor
+      description: ADSL.TR01EDT
+- name: TR01EDTM
+  derivation: ADSL.TR01EDTM
+  submission:
+    origins:
+    - type: Predecessor
+      description: ADSL.TR01EDTM
+- name: TRTSDTM
+  derivation: ADSL.TRTSDTM
+  submission:
+    origins:
+    - type: Predecessor
+      description: ADSL.TRTSDTM
+- name: TRTEDTM
+  derivation: ADSL.TRTEDTM
+  submission:
+    origins:
+    - type: Predecessor
+      description: ADSL.TRTEDTM
+- name: DOSE1FL
+  type: str
+  label: Vaccination 1 Flag
+  derivation: ADSL.DOSE1FL
+  submission:
+    core: Req
+    mandatory: true
+    length: 1
+    origins:
+    - type: Predecessor
+      description: ADSL.DOSE1FL
+- name: DOSE2FL
+  type: str
+  label: Vaccination 2 Flag
+  derivation: ADSL.DOSE2FL
+  submission:
+    core: Req
+    mandatory: true
+    length: 1
+    origins:
+    - type: Predecessor
+      description: ADSL.DOSE2FL
+- name: DOSEROFL
+  type: str
+  label: Dosing Error Flag
+  derivation: ADSL.DOSEROFL
+  submission:
+    core: Req
+    mandatory: true
+    length: 1
+    origins:
+    - type: Predecessor
+      description: ADSL.DOSEROFL
+- name: COV19BL
+  type: str
+  label: Baseline COVID Infection
+  derivation: ADSL.COV19BL
+  submission:
+    core: Perm
+    mandatory: false
+    length: 20
+    origins:
+    - type: Predecessor
+      description: ADSL.COV19BL
+- name: COV19FL
+  type: str
+  label: COVID Infection Flag
+  derivation: ADSL.COV19FL
+  submission:
+    core: Req
+    mandatory: true
+    length: 20
+    origins:
+    - type: Predecessor
+      description: ADSL.COV19FL
+- name: SENTLFL
+  type: str
+  label: Sentinel Participant Flag
+  derivation: ADSL.SENTLFL
+  submission:
+    core: Req
+    mandatory: true
+    length: 3
+    origins:
+    - type: Predecessor
+      description: ADSL.SENTLFL
+- name: D29W7DFL
+  type: str
+  label: Day 29 Out of 7-Day Window Flag
+  derivation: ADSL.D29W7DFL
+  submission:
+    core: Req
+    mandatory: true
+    length: 1
+    origins:
+    - type: Predecessor
+      description: ADSL.D29W7DFL
+- name: DOSE2DT
+  type: date
+  label: Date of Dose 2
+  derivation: ADSL.DOSE2DT
+  submission:
+    core: Perm
+    mandatory: false
+    origins:
+    - type: Predecessor
+      description: ADSL.DOSE2DT
+- name: DOS2DTM
+  type: datetime
+  label: Datetime of Dose 2
+  derivation: ADSL.DOS2DTM
+  submission:
+    core: Perm
+    mandatory: false
+    origins:
+    - type: Predecessor
+      description: ADSL.DOS2DTM
+- name: _EOSDT
+  type: date
+  derivation: ADSL.EOSDT
+- name: _DTHDT
+  type: date
+  derivation: ADSL.DTHDT
+- name: LBSEQ
+  type: int
+  label: Sequence Number
+  derivation: LB.LBSEQ
+  submission:
+    core: Req
+    mandatory: true
+    length: 8
+    display_format: '3.'
+    origins:
+    - type: Predecessor
+      description: LB.LBSEQ
+- name: LBDTC
+  type: str
+  label: Date/Time of Specimen Collection
+  derivation: LB.LBDTC
+  submission:
+    core: Req
+    mandatory: true
+    length: 16
+    origins:
+    - type: Predecessor
+      description: LB.LBDTC
+- name: ADT
+  type: date
+  label: Analysis Date
+  derivation:
+    to_date:
+      source: _LBDTC
+  submission:
+    core: Req
+    mandatory: true
+    origins:
+    - type: Derived
+    method: "Withheld from publication: the received define states this text."
+- name: ADTM
+  type: datetime
+  label: Analysis Datetime
+  derivation:
+    case:
+    - when: str_contains(_LBDTC, 'T')
+      then:
+        impute:
+          type: datetime
+          source: _LBDTC
+          time: first
+  submission:
+    core: Perm
+    mandatory: false
+    origins:
+    - type: Derived
+    method: "Withheld from publication: the received define states this text."
+- name: ATM
+  type: time
+  label: Analysis Time
+  derivation:
+    to_time:
+      source: ADTM
+  submission:
+    core: Perm
+    mandatory: false
+    origins:
+    - type: Derived
+    method: "Withheld from publication: the received define states this text."
+- name: ADY
+  type: int
+  label: Analysis Relative Day
+  derivation:
+    study_day:
+      source: ADT
+      reference: TR01SDT
+  submission:
+    core: Req
+    mandatory: true
+    length: 8
+    display_format: '3.'
+    origins:
+    - type: Derived
+    method: "Withheld from publication: the received define states this text."
+- name: _DAYDIFF
+  type: int
+  derivation:
+    diff:
+      type: date
+      start: TR01SDT
+      end: ADT
+      unit: day
+- name: _ADTMY_S
+  type: int
+  derivation:
+    case:
+    - when: ADTM IS NOT NULL AND TR01SDTM IS NOT NULL
+      then:
+        diff:
+          type: datetime
+          start: TR01SDTM
+          end: ADTM
+          unit: second
+    - when: ADT IS NOT NULL AND TR01SDT IS NOT NULL
+      then: _DAYDIFF * 86400 - 86340
+    - otherwise: 99999999
+- name: _ADTMY
+  type: int
+  derivation: ABS(_ADTMY_S)
+- name: _PREFL
+  type: str
+  derivation:
+    case:
+    - when: _ADTMY_S <= 0 AND TR01SDT IS NOT NULL
+      then: '''Y'''
+- name: _POSTFL
+  type: str
+  derivation:
+    case:
+    - when: _ADTMY_S > 0 AND TR01SDT IS NOT NULL
+      then: '''Y'''
+- name: MDOSREF
+  type: str
+  label: Most Recent Dose Reference
+  derivation:
+    case:
+    - when: TR01SDTM IS NOT NULL AND ADTM IS NOT NULL AND DOS2DTM IS NOT NULL AND TR01SDTM <= ADTM AND ADTM <= DOS2DTM
+      then: '''Vaccination 1'''
+    - when: DOSE2DT IS NULL AND TR01SDTM IS NOT NULL AND ADTM IS NOT NULL AND TR01SDTM <= ADTM
+      then: '''Vaccination 1'''
+    - when: (TR01SDTM IS NULL OR ADTM IS NULL) AND TR01SDT IS NOT NULL AND ADT IS NOT NULL AND DOSE2DT IS NOT NULL AND TR01SDT <= ADT AND ADT <= DOSE2DT
+      then: '''Vaccination 1'''
+    - when: (TR01SDTM IS NULL OR ADTM IS NULL) AND DOSE2DT IS NULL AND TR01SDT IS NOT NULL AND ADT IS NOT NULL AND TR01SDT <= ADT
+      then: '''Vaccination 1'''
+    - when: (DOS2DTM IS NOT NULL AND ADTM IS NOT NULL AND DOS2DTM < ADTM) OR (ADTM IS NULL AND DOSE2DT IS NOT NULL AND ADT IS NOT NULL AND DOSE2DT < ADT)
+      then: '''Vaccination 2'''
+  submission:
+    core: Perm
+    mandatory: false
+    length: 25
+    origins:
+    - type: Derived
+    method: "Withheld from publication: the received define states this text."
+- name: MRDDY
+  type: int
+  label: Relative Day from Most Recent Dose
+  derivation:
+    case:
+    - when: MDOSREF = 'Vaccination 1'
+      then: ADY
+    - when: MDOSREF = 'Vaccination 2'
+      then:
+        study_day:
+          source: ADT
+          reference: DOSE2DT
+  submission:
+    core: Perm
+    mandatory: false
+    length: 8
+    display_format: '3.'
+    origins:
+    - type: Derived
+    method: "Withheld from publication: the received define states this text."
+- name: VISIT
+  type: str
+  label: Visit Name
+  derivation: LB.VISIT
+  submission:
+    core: Perm
+    mandatory: false
+    length: 28
+    origins:
+    - type: Predecessor
+      description: LB.VISIT
+- name: VISITNUM
+  type: float
+  label: Visit Number
+  derivation: LB.VISITNUM
+  submission:
+    core: Perm
+    mandatory: false
+    length: 8
+    significant_digits: 15
+    origins:
+    - type: Predecessor
+      description: LB.VISITNUM
+- name: PARCAT1
+  type: str
+  label: Parameter Category 1
+  derivation: _LBCAT
+  submission:
+    core: Req
+    mandatory: true
+    length: 50
+    origins:
+    - type: Derived
+    method: "Withheld from publication: the received define states this text."
+- name: PARAMCD
+  type: str
+  label: Parameter Code
+  derivation:
+    case:
+    - when: _LBCAT = 'CHEMISTRY' AND _LBTESTCD = 'HCG' AND str_contains(_LBMETHOD, '^ELE')
+      then: '''ECLIAHCG'''
+    - when: _LBCAT = 'CHEMISTRY' AND _LBTESTCD = 'HCG' AND str_contains(_LBMETHOD, '^CHEM')
+      then: '''CHEMIHCG'''
+    - when: _LBCAT = 'URINALYSIS'
+      then:
+        str_template: U{_LBTESTCD}
+    - otherwise: _LBTESTCD
+  submission:
+    core: Req
+    mandatory: true
+    length: 8
+    origins:
+    - type: Derived
+    method: "Withheld from publication: the received define states this text."
+- name: PARAM
+  type: str
+  label: Parameter
+  derivation:
+    case:
+    - when: _LBCAT = 'CHEMISTRY' AND _LBTESTCD = 'HCG' AND _LBSTRESU IS NOT NULL AND _LBSTRESU NOT IN ('')
+      then:
+        str_template: '{_LBMETHOD} {_LBTEST} ({_LBSTRESU})'
+    - when: _LBCAT = 'CHEMISTRY' AND _LBTESTCD = 'HCG'
+      then:
+        str_template: '{_LBMETHOD} {_LBTEST}'
+    - when: _LBCAT = 'URINALYSIS' AND _LBSTRESU IS NOT NULL AND _LBSTRESU NOT IN ('')
+      then:
+        str_template: Urinary {_LBTEST} ({_LBSTRESU})
+    - when: _LBCAT = 'URINALYSIS'
+      then:
+        str_template: Urinary {_LBTEST}
+    - when: _LBSTRESU IS NOT NULL AND _LBSTRESU NOT IN ('')
+      then:
+        str_template: '{_LBTEST} ({_LBSTRESU})'
+    - otherwise: _LBTEST
+  submission:
+    core: Req
+    mandatory: true
+    length: 100
+    origins:
+    - type: Derived
+    method: "Withheld from publication: the received define states this text."
+- name: _CENSORED_TXT
+  type: str
+  derivation:
+    case:
+    - when: str_contains(_LBSTRESC, '<') OR str_contains(_LBSTRESC, '>')
+      then:
+        str_substr:
+          source: _LBSTRESC
+          start: 2
+- name: _CENSORED_NUM
+  type: float
+  derivation: _CENSORED_TXT
+- name: AVAL
+  type: float
+  label: Analysis Value
+  derivation:
+    case:
+    - when: str_contains(_LBSTRESC, '<')
+      then: _CENSORED_NUM * 0.5
+    - when: str_contains(_LBSTRESC, '>')
+      then: _CENSORED_NUM
+    - otherwise: _LBSTRESN
+  submission:
+    core: Perm
+    mandatory: false
+    length: 8
+    significant_digits: 15
+    origins:
+    - type: Derived
+    method: "Withheld from publication: the received define states this text."
+- name: DTYPE
+  type: str
+  label: Derivation Type
+  derivation:
+    case:
+    - when: str_contains(_LBSTRESC, '<')
+      then: '''HALFLLOQ'''
+    - when: str_contains(_LBSTRESC, '>')
+      then: '''ULOQ'''
+  submission:
+    core: Perm
+    mandatory: false
+    length: 20
+    origins:
+    - type: Derived
+    method: "Withheld from publication: the received define states this text."
+- name: _AVALN
+  type: int
+  derivation:
+    case:
+    - when: _LBSTRESC IS NOT NULL AND _LBSTRESC NOT IN ('')
+      then: 1
+- name: ABLFL
+  type: str
+  label: Baseline Record Flag
+  derivation:
+    baseline_flag:
+      date: ADT
+      reference: TR01SDT
+      source: _AVALN
+      window:
+        group_by:
+        - STUDYID
+        - USUBJID
+        - PARAMCD
+        order_by:
+        - ADT
+        - ADTM
+        - LBSEQ
+  submission:
+    core: Perm
+    mandatory: false
+    length: 1
+    origins:
+    - type: Derived
+    method: "Withheld from publication: the received define states this text."
+- name: ANRIND
+  type: str
+  label: Analysis Reference Range Indicator
+  derivation: _LBNRIND
+  submission:
+    core: Perm
+    mandatory: false
+    length: 20
+    origins:
+    - type: Derived
+    method: "Withheld from publication: the received define states this text."
+- name: ANRLO
+  type: float
+  label: Analysis Normal Range Lower Limit
+  derivation: _LBSTNRLO
+  submission:
+    core: Perm
+    mandatory: false
+    length: 8
+    significant_digits: 15
+    origins:
+    - type: Derived
+    method: "Withheld from publication: the received define states this text."
+- name: ANRHI
+  type: float
+  label: Analysis Normal Range Upper Limit
+  derivation: _LBSTNRHI
+  submission:
+    core: Perm
+    mandatory: false
+    length: 8
+    significant_digits: 15
+    origins:
+    - type: Derived
+    method: "Withheld from publication: the received define states this text."
+- name: BASE
+  type: float
+  label: Baseline Value
+  derivation:
+    aggregate:
+      filter: ABLFL = 'Y'
+      group_by:
+      - STUDYID
+      - USUBJID
+      - PARAMCD
+      expr: ONLY(AVAL)
+  submission:
+    core: Perm
+    mandatory: false
+    length: 8
+    significant_digits: 15
+    origins:
+    - type: Derived
+    method: "Withheld from publication: the received define states this text."
+- name: BNRIND
+  type: str
+  label: Baseline Reference Range Indicator
+  derivation:
+    aggregate:
+      filter: ABLFL = 'Y'
+      group_by:
+      - STUDYID
+      - USUBJID
+      - PARAMCD
+      expr: ONLY(ANRIND)
+  submission:
+    core: Perm
+    mandatory: false
+    length: 20
+    origins:
+    - type: Derived
+    method: "Withheld from publication: the received define states this text."
+- name: CHG
+  type: float
+  label: Change from Baseline
+  derivation:
+    case:
+    - when: _POSTFL = 'Y' AND AVAL IS NOT NULL AND BASE IS NOT NULL
+      then: AVAL - BASE
+  submission:
+    # SUB-29 (yamaa #4820): numeric widths here fit the derived values. The received
+    # define's Pinnacle 21 widths stay in the reproduced define layer (define/).
+    core: Perm
+    mandatory: false
+    origins:
+    - type: Derived
+    method: "Withheld from publication: the received define states this text."
+    length: 21
+    significant_digits: 19
+- name: PCHG
+  type: float
+  label: Percent Change from Baseline
+  derivation:
+    case:
+    - when: _POSTFL = 'Y' AND AVAL IS NOT NULL AND BASE IS NOT NULL AND BASE <> 0
+      then: CHG / BASE * 100
+  submission:
+    # SUB-29 (yamaa #4820): numeric widths here fit the derived values. The received
+    # define's Pinnacle 21 widths stay in the reproduced define layer (define/).
+    core: Perm
+    mandatory: false
+    length: 19
+    significant_digits: 17
+    origins:
+    - type: Derived
+    method: "Withheld from publication: the received define states this text."
+- name: LBORNRLO
+  type: str
+  label: Reference Range Lower Limit in Orig Unit
+  derivation: LB.LBORNRLO
+  submission:
+    core: Perm
+    mandatory: false
+    length: 4
+    origins:
+    - type: Predecessor
+      description: LB.LBORNRLO
+- name: LBORNRHI
+  type: str
+  label: Reference Range Upper Limit in Orig Unit
+  derivation: LB.LBORNRHI
+  submission:
+    core: Perm
+    mandatory: false
+    length: 5
+    origins:
+    - type: Predecessor
+      description: LB.LBORNRHI
+- name: LBORRES
+  type: str
+  label: Result or Finding in Original Units
+  derivation: LB.LBORRES
+  submission:
+    core: Req
+    mandatory: true
+    length: 13
+    origins:
+    - type: Predecessor
+      description: LB.LBORRES
+- name: LBORRESU
+  type: str
+  label: Original Units
+  derivation: LB.LBORRESU
+  submission:
+    core: Perm
+    mandatory: false
+    length: 9
+    origins:
+    - type: Predecessor
+      description: LB.LBORRESU
+- name: LBTOXGR
+  type: str
+  label: Standard Toxicity Grade
+  derivation: LB.LBTOXGR
+  submission:
+    core: Perm
+    mandatory: false
+    length: 1
+    origins:
+    - type: Predecessor
+      description: LB.LBTOXGR
+- name: LBSTRESC
+  type: str
+  label: Character Result/Finding in Std Format
+  derivation: LB.LBSTRESC
+  submission:
+    core: Req
+    mandatory: true
+    length: 13
+    origins:
+    - type: Predecessor
+      description: LB.LBSTRESC
+- name: _AVAL_X1000
+  type: float
+  derivation: AVAL * 1000
+- name: _AVAL_HGB
+  type: float
+  derivation: AVAL * 0.1
+- name: _CHG_HGB
+  type: float
+  derivation: CHG * 0.1
+- name: _ATOXGRLN_AVAL
+  type: int
+  derivation:
+    case:
+    - when: PARAM = 'Hemoglobin (g/L)' AND SEX = 'F' AND AVAL IS NOT NULL AND 11.0 <= _AVAL_HGB AND _AVAL_HGB <= 12.0
+      then: 1
+    - when: PARAM = 'Hemoglobin (g/L)' AND SEX = 'F' AND AVAL IS NOT NULL AND 9.5 <= _AVAL_HGB AND _AVAL_HGB <= 10.9
+      then: 2
+    - when: PARAM = 'Hemoglobin (g/L)' AND SEX = 'F' AND AVAL IS NOT NULL AND 8.0 <= _AVAL_HGB AND _AVAL_HGB <= 9.4
+      then: 3
+    - when: PARAM = 'Hemoglobin (g/L)' AND SEX = 'F' AND AVAL IS NOT NULL AND _AVAL_HGB < 8
+      then: 4
+    - when: PARAM = 'Hemoglobin (g/L)' AND SEX = 'F' AND AVAL IS NOT NULL AND 8 <= _AVAL_HGB AND _AVAL_HGB <= 12
+      then: null
+    - when: PARAM = 'Hemoglobin (g/L)' AND SEX = 'F' AND AVAL IS NOT NULL
+      then: 0
+    - when: PARAM = 'Hemoglobin (g/L)' AND SEX = 'M' AND AVAL IS NOT NULL AND 12.5 <= _AVAL_HGB AND _AVAL_HGB <= 13.5
+      then: 1
+    - when: PARAM = 'Hemoglobin (g/L)' AND SEX = 'M' AND AVAL IS NOT NULL AND 10.5 <= _AVAL_HGB AND _AVAL_HGB <= 12.4
+      then: 2
+    - when: PARAM = 'Hemoglobin (g/L)' AND SEX = 'M' AND AVAL IS NOT NULL AND 8.5 <= _AVAL_HGB AND _AVAL_HGB <= 10.4
+      then: 3
+    - when: PARAM = 'Hemoglobin (g/L)' AND SEX = 'M' AND AVAL IS NOT NULL AND _AVAL_HGB < 8.5
+      then: 4
+    - when: PARAM = 'Hemoglobin (g/L)' AND SEX = 'M' AND AVAL IS NOT NULL AND 8.5 <= _AVAL_HGB AND _AVAL_HGB <= 13.5
+      then: null
+    - when: PARAM = 'Hemoglobin (g/L)' AND SEX = 'M' AND AVAL IS NOT NULL
+      then: 0
+- name: _ATOXGRLN_S1
+  type: int
+  derivation:
+    case:
+    - when: PARAM = 'Leukocytes (10^9/L)' AND AVAL IS NOT NULL AND 2500 <= _AVAL_X1000 AND _AVAL_X1000 <= 3500
+      then: 1
+    - when: PARAM = 'Leukocytes (10^9/L)' AND AVAL IS NOT NULL AND 1500 <= _AVAL_X1000 AND _AVAL_X1000 <= 2499
+      then: 2
+    - when: PARAM = 'Leukocytes (10^9/L)' AND AVAL IS NOT NULL AND 1000 <= _AVAL_X1000 AND _AVAL_X1000 <= 1499
+      then: 3
+    - when: PARAM = 'Leukocytes (10^9/L)' AND AVAL IS NOT NULL AND _AVAL_X1000 < 1000
+      then: 4
+    - when: PARAM = 'Leukocytes (10^9/L)' AND AVAL IS NOT NULL AND 1000 <= _AVAL_X1000 AND _AVAL_X1000 <= 3500
+      then: null
+    - when: PARAM = 'Leukocytes (10^9/L)' AND AVAL IS NOT NULL
+      then: 0
+    - when: PARAM = 'Lymphocytes (10^9/L)' AND AVAL IS NOT NULL AND 750 <= _AVAL_X1000 AND _AVAL_X1000 <= 1000
+      then: 1
+    - when: PARAM = 'Lymphocytes (10^9/L)' AND AVAL IS NOT NULL AND 500 <= _AVAL_X1000 AND _AVAL_X1000 <= 749
+      then: 2
+    - when: PARAM = 'Lymphocytes (10^9/L)' AND AVAL IS NOT NULL AND 250 <= _AVAL_X1000 AND _AVAL_X1000 <= 499
+      then: 3
+    - when: PARAM = 'Lymphocytes (10^9/L)' AND AVAL IS NOT NULL AND _AVAL_X1000 < 250
+      then: 4
+    - when: PARAM = 'Lymphocytes (10^9/L)' AND AVAL IS NOT NULL AND 250 <= _AVAL_X1000 AND _AVAL_X1000 <= 1000
+      then: null
+    - when: PARAM = 'Lymphocytes (10^9/L)' AND AVAL IS NOT NULL
+      then: 0
+    - when: PARAM = 'Neutrophils (10^9/L)' AND AVAL IS NOT NULL AND 1500 <= _AVAL_X1000 AND _AVAL_X1000 <= 2000
+      then: 1
+    - when: PARAM = 'Neutrophils (10^9/L)' AND AVAL IS NOT NULL AND 1000 <= _AVAL_X1000 AND _AVAL_X1000 <= 1499
+      then: 2
+    - when: PARAM = 'Neutrophils (10^9/L)' AND AVAL IS NOT NULL AND 500 <= _AVAL_X1000 AND _AVAL_X1000 <= 999
+      then: 3
+    - when: PARAM = 'Neutrophils (10^9/L)' AND AVAL IS NOT NULL AND _AVAL_X1000 < 500
+      then: 4
+    - when: PARAM = 'Neutrophils (10^9/L)' AND AVAL IS NOT NULL AND 500 <= _AVAL_X1000 AND _AVAL_X1000 <= 2000
+      then: null
+    - when: PARAM = 'Neutrophils (10^9/L)' AND AVAL IS NOT NULL
+      then: 0
+    - when: PARAM = 'Platelets (10^9/L)' AND AVAL IS NOT NULL AND 125000 <= _AVAL_X1000 AND _AVAL_X1000 <= 140000
+      then: 1
+    - when: PARAM = 'Platelets (10^9/L)' AND AVAL IS NOT NULL AND 100000 <= _AVAL_X1000 AND _AVAL_X1000 <= 124000
+      then: 2
+    - when: PARAM = 'Platelets (10^9/L)' AND AVAL IS NOT NULL AND 25000 <= _AVAL_X1000 AND _AVAL_X1000 <= 99000
+      then: 3
+    - when: PARAM = 'Platelets (10^9/L)' AND AVAL IS NOT NULL AND _AVAL_X1000 < 25000
+      then: 4
+    - when: PARAM = 'Platelets (10^9/L)' AND AVAL IS NOT NULL AND 25000 <= _AVAL_X1000 AND _AVAL_X1000 <= 140000
+      then: null
+    - when: PARAM = 'Platelets (10^9/L)' AND AVAL IS NOT NULL
+      then: 0
+- name: _ATOXGRLN_CHG
+  type: int
+  derivation:
+    case:
+    - when: PARAM = 'Hemoglobin (g/L)' AND CHG IS NOT NULL AND -1.5 <= _CHG_HGB AND _CHG_HGB < 0
+      then: 1
+    - when: PARAM = 'Hemoglobin (g/L)' AND CHG IS NOT NULL AND -2 <= _CHG_HGB AND _CHG_HGB <= -1.6
+      then: 2
+    - when: PARAM = 'Hemoglobin (g/L)' AND CHG IS NOT NULL AND -5 <= _CHG_HGB AND _CHG_HGB <= -2.1
+      then: 3
+    - when: PARAM = 'Hemoglobin (g/L)' AND CHG IS NOT NULL AND _CHG_HGB < -5
+      then: 4
+    - when: PARAM = 'Hemoglobin (g/L)' AND CHG IS NOT NULL AND -5 <= _CHG_HGB AND _CHG_HGB < 0
+      then: null
+    - when: PARAM = 'Hemoglobin (g/L)' AND CHG IS NOT NULL
+      then: 0
+- name: ATOXGRLN
+  type: int
+  label: Analysis Toxicity Grade Low (N)
+  derivation:
+    greatest:
+      sources:
+      - _ATOXGRLN_S1
+      - _ATOXGRLN_AVAL
+      - _ATOXGRLN_CHG
+  submission:
+    core: Perm
+    mandatory: false
+    length: 8
+    display_format: '3.'
+    origins:
+    - type: Derived
+    method: "Withheld from publication: the received define states this text."
+- name: ATOXGRL
+  type: str
+  label: Analysis Toxicity Grade Low
+  derivation:
+    case:
+    - when: ATOXGRLN = 0
+      then: '''Grade 0'''
+    - when: ATOXGRLN = 1
+      then: '''Grade 1'''
+    - when: ATOXGRLN = 2
+      then: '''Grade 2'''
+    - when: ATOXGRLN = 3
+      then: '''Grade 3'''
+    - when: ATOXGRLN = 4
+      then: '''Grade 4'''
+  submission:
+    core: Perm
+    mandatory: false
+    length: 20
+    origins:
+    - type: Derived
+    method: "Withheld from publication: the received define states this text."
+- name: _LBORRESU_L
+  type: str
+  derivation:
+    str_case:
+      source: _LBORRESU
+      to: lower
+- name: _LBORRES_NUM
+  type: float
+  derivation:
+    case:
+    - when: PARAM = 'Urea Nitrogen (mmol/L)' OR PARAM = 'Creatinine (umol/L)'
+      then: _LBORRES
+- name: _ATOXGRHN_S1
+  type: int
+  derivation:
+    case:
+    - when: PARAM = 'Urea Nitrogen (mmol/L)' AND AVAL IS NOT NULL AND ANRHI IS NOT NULL AND _LBORRESU_L = 'mg/dl' AND 23 <= _LBORRES_NUM AND _LBORRES_NUM <= 26
+      then: 1
+    - when: PARAM = 'Urea Nitrogen (mmol/L)' AND AVAL IS NOT NULL AND ANRHI IS NOT NULL AND _LBORRESU_L = 'mg/dl' AND 26 < _LBORRES_NUM AND _LBORRES_NUM <= 31
+      then: 2
+    - when: PARAM = 'Urea Nitrogen (mmol/L)' AND AVAL IS NOT NULL AND ANRHI IS NOT NULL AND _LBORRESU_L = 'mg/dl' AND _LBORRES_NUM > 31
+      then: 3
+    - when: PARAM = 'Urea Nitrogen (mmol/L)' AND AVAL IS NOT NULL AND ANRHI IS NOT NULL
+      then: 0
+    - when: PARAM = 'Creatinine (umol/L)' AND AVAL IS NOT NULL AND ANRHI IS NOT NULL AND _LBORRESU_L = 'mg/dl' AND 1.5 <= _LBORRES_NUM AND _LBORRES_NUM <= 1.7
+      then: 1
+    - when: PARAM = 'Creatinine (umol/L)' AND AVAL IS NOT NULL AND ANRHI IS NOT NULL AND _LBORRESU_L = 'mg/dl' AND 1.7 < _LBORRES_NUM AND _LBORRES_NUM <= 2.0
+      then: 2
+    - when: PARAM = 'Creatinine (umol/L)' AND AVAL IS NOT NULL AND ANRHI IS NOT NULL AND _LBORRESU_L = 'mg/dl' AND 2.0 < _LBORRES_NUM AND _LBORRES_NUM <= 2.5
+      then: 3
+    - when: PARAM = 'Creatinine (umol/L)' AND AVAL IS NOT NULL AND ANRHI IS NOT NULL
+      then: 0
+    - when: PARAM = 'Alkaline Phosphatase (U/L)' AND AVAL IS NOT NULL AND ANRHI IS NOT NULL AND 1.1 * ANRHI <= AVAL AND AVAL <= 2.0 * ANRHI
+      then: 1
+    - when: PARAM = 'Alkaline Phosphatase (U/L)' AND AVAL IS NOT NULL AND ANRHI IS NOT NULL AND 2.0 * ANRHI < AVAL AND AVAL <= 3.0 * ANRHI
+      then: 2
+    - when: PARAM = 'Alkaline Phosphatase (U/L)' AND AVAL IS NOT NULL AND ANRHI IS NOT NULL AND 3.0 * ANRHI < AVAL AND AVAL <= 10 * ANRHI
+      then: 3
+    - when: PARAM = 'Alkaline Phosphatase (U/L)' AND AVAL IS NOT NULL AND ANRHI IS NOT NULL AND AVAL > 10 * ANRHI
+      then: 4
+    - when: PARAM = 'Alkaline Phosphatase (U/L)' AND AVAL IS NOT NULL AND ANRHI IS NOT NULL
+      then: 0
+    - when: PARAM = 'Alanine Aminotransferase (U/L)' AND AVAL IS NOT NULL AND ANRHI IS NOT NULL AND 1.1 * ANRHI <= AVAL AND AVAL <= 2.5 * ANRHI
+      then: 1
+    - when: PARAM = 'Alanine Aminotransferase (U/L)' AND AVAL IS NOT NULL AND ANRHI IS NOT NULL AND 2.5 * ANRHI < AVAL AND AVAL <= 5 * ANRHI
+      then: 2
+    - when: PARAM = 'Alanine Aminotransferase (U/L)' AND AVAL IS NOT NULL AND ANRHI IS NOT NULL AND 5 * ANRHI < AVAL AND AVAL <= 10 * ANRHI
+      then: 3
+    - when: PARAM = 'Aspartate Aminotransferase (U/L)' AND AVAL IS NOT NULL AND ANRHI IS NOT NULL AND 1.1 * ANRHI <= AVAL AND AVAL <= 2.5 * ANRHI
+      then: 1
+    - when: PARAM = 'Aspartate Aminotransferase (U/L)' AND AVAL IS NOT NULL AND ANRHI IS NOT NULL AND 2.5 * ANRHI < AVAL AND AVAL <= 5 * ANRHI
+      then: 2
+    - when: PARAM = 'Aspartate Aminotransferase (U/L)' AND AVAL IS NOT NULL AND ANRHI IS NOT NULL AND 5 * ANRHI < AVAL AND AVAL <= 10 * ANRHI
+      then: 3
+    - when: PARAM IN ('Alanine Aminotransferase (U/L)', 'Aspartate Aminotransferase (U/L)') AND AVAL IS NOT NULL AND ANRHI IS NOT NULL AND AVAL > 10 * ANRHI
+      then: 4
+    - when: PARAM IN ('Alanine Aminotransferase (U/L)', 'Aspartate Aminotransferase (U/L)') AND AVAL IS NOT NULL AND ANRHI IS NOT NULL
+      then: 0
+    - when: PARAM = 'Leukocytes (10^9/L)' AND AVAL IS NOT NULL AND 10800 <= _AVAL_X1000 AND _AVAL_X1000 <= 15000
+      then: 1
+    - when: PARAM = 'Leukocytes (10^9/L)' AND AVAL IS NOT NULL AND 15001 <= _AVAL_X1000 AND _AVAL_X1000 <= 20000
+      then: 2
+    - when: PARAM = 'Leukocytes (10^9/L)' AND AVAL IS NOT NULL AND 20001 <= _AVAL_X1000 AND _AVAL_X1000 <= 25000
+      then: 3
+    - when: PARAM = 'Leukocytes (10^9/L)' AND AVAL IS NOT NULL AND _AVAL_X1000 > 25000
+      then: 4
+    - when: PARAM = 'Leukocytes (10^9/L)' AND AVAL IS NOT NULL AND 10800 <= _AVAL_X1000 AND _AVAL_X1000 <= 25000
+      then: null
+    - when: PARAM = 'Leukocytes (10^9/L)' AND AVAL IS NOT NULL
+      then: 0
+    - when: PARAM = 'Eosinophils (10^9/L)' AND AVAL IS NOT NULL AND 650 <= _AVAL_X1000 AND _AVAL_X1000 <= 1500
+      then: 1
+    - when: PARAM = 'Eosinophils (10^9/L)' AND AVAL IS NOT NULL AND 1501 <= _AVAL_X1000 AND _AVAL_X1000 <= 5000
+      then: 2
+    - when: PARAM = 'Eosinophils (10^9/L)' AND AVAL IS NOT NULL AND _AVAL_X1000 > 5000
+      then: 3
+    - when: PARAM = 'Eosinophils (10^9/L)' AND AVAL IS NOT NULL AND 650 <= _AVAL_X1000 AND _AVAL_X1000 <= 5000
+      then: null
+    - when: PARAM = 'Eosinophils (10^9/L)' AND AVAL IS NOT NULL
+      then: 0
+    - when: PARAM = 'Prothrombin Time (sec)' AND AVAL IS NOT NULL AND ANRHI IS NOT NULL AND 1.0 * ANRHI < AVAL AND AVAL <= 1.10 * ANRHI
+      then: 1
+    - when: PARAM = 'Prothrombin Time (sec)' AND AVAL IS NOT NULL AND ANRHI IS NOT NULL AND 1.10 * ANRHI < AVAL AND AVAL <= 1.20 * ANRHI
+      then: 2
+    - when: PARAM = 'Prothrombin Time (sec)' AND AVAL IS NOT NULL AND ANRHI IS NOT NULL AND 1.20 * ANRHI < AVAL AND AVAL <= 1.25 * ANRHI
+      then: 3
+    - when: PARAM = 'Prothrombin Time (sec)' AND AVAL IS NOT NULL AND ANRHI IS NOT NULL AND AVAL > 1.25 * ANRHI
+      then: 4
+    - when: PARAM = 'Prothrombin Time (sec)' AND AVAL IS NOT NULL AND ANRHI IS NOT NULL
+      then: 0
+    - when: PARAM = 'Activated Partial Thromboplastin Time (sec)' AND AVAL IS NOT NULL AND ANRHI IS NOT NULL AND 1.0 * ANRHI < AVAL AND AVAL <= 1.2 * ANRHI
+      then: 1
+    - when: PARAM = 'Activated Partial Thromboplastin Time (sec)' AND AVAL IS NOT NULL AND ANRHI IS NOT NULL AND 1.2 * ANRHI < AVAL AND AVAL <= 1.4 * ANRHI
+      then: 2
+    - when: PARAM = 'Activated Partial Thromboplastin Time (sec)' AND AVAL IS NOT NULL AND ANRHI IS NOT NULL AND 1.4 * ANRHI < AVAL AND AVAL <= 1.5 * ANRHI
+      then: 3
+    - when: PARAM = 'Activated Partial Thromboplastin Time (sec)' AND AVAL IS NOT NULL AND ANRHI IS NOT NULL AND AVAL > 1.5 * ANRHI
+      then: 4
+    - when: PARAM = 'Activated Partial Thromboplastin Time (sec)' AND AVAL IS NOT NULL AND ANRHI IS NOT NULL
+      then: 0
+- name: _ATOXGRHN_1
+  type: int
+  derivation:
+    case:
+    - when: PARAM = 'Bilirubin (umol/L)' AND AVAL IS NOT NULL AND ANRHI IS NOT NULL AND 1.1 * ANRHI <= AVAL AND AVAL <= 1.25 * ANRHI
+      then: 1
+    - when: PARAM = 'Bilirubin (umol/L)' AND AVAL IS NOT NULL AND ANRHI IS NOT NULL AND 1.25 * ANRHI < AVAL AND AVAL <= 1.5 * ANRHI
+      then: 2
+    - when: PARAM = 'Bilirubin (umol/L)' AND AVAL IS NOT NULL AND ANRHI IS NOT NULL AND 1.5 * ANRHI < AVAL AND AVAL <= 1.75 * ANRHI
+      then: 3
+    - when: PARAM = 'Bilirubin (umol/L)' AND AVAL IS NOT NULL AND ANRHI IS NOT NULL AND AVAL > 1.75 * ANRHI
+      then: 4
+    - when: PARAM = 'Bilirubin (umol/L)' AND AVAL IS NOT NULL AND ANRHI IS NOT NULL
+      then: 0
+- name: _ATOXGRHN_0
+  type: int
+  derivation:
+    case:
+    - when: PARAM = 'Bilirubin (umol/L)' AND AVAL IS NOT NULL AND ANRHI IS NOT NULL AND 1.1 * ANRHI <= AVAL AND AVAL <= 1.5 * ANRHI
+      then: 1
+    - when: PARAM = 'Bilirubin (umol/L)' AND AVAL IS NOT NULL AND ANRHI IS NOT NULL AND 1.5 * ANRHI < AVAL AND AVAL <= 2.0 * ANRHI
+      then: 2
+    - when: PARAM = 'Bilirubin (umol/L)' AND AVAL IS NOT NULL AND ANRHI IS NOT NULL AND 2.0 * ANRHI < AVAL AND AVAL <= 3.0 * ANRHI
+      then: 3
+    - when: PARAM = 'Bilirubin (umol/L)' AND AVAL IS NOT NULL AND ANRHI IS NOT NULL AND AVAL > 3.0 * ANRHI
+      then: 4
+    - when: PARAM = 'Bilirubin (umol/L)' AND AVAL IS NOT NULL AND ANRHI IS NOT NULL
+      then: 0
+- name: _ALT_G
+  type: int
+  derivation:
+    aggregate:
+      filter: PARAMCD = 'ALT'
+      group_by:
+      - STUDYID
+      - USUBJID
+      - LBDTC
+      expr: ONLY(_ATOXGRHN_S1)
+- name: _AST_G
+  type: int
+  derivation:
+    aggregate:
+      filter: PARAMCD = 'AST'
+      group_by:
+      - STUDYID
+      - USUBJID
+      - LBDTC
+      expr: ONLY(_ATOXGRHN_S1)
+- name: ATOXGRHN
+  type: int
+  label: Analysis Toxicity Grade High (N)
+  derivation:
+    case:
+    - when: PARAM = 'Bilirubin (umol/L)' AND ((_ALT_G IS NOT NULL AND _ALT_G > 1) OR (_AST_G IS NOT NULL AND _AST_G > 1))
+      then: _ATOXGRHN_1
+    - when: PARAM = 'Bilirubin (umol/L)' AND _ALT_G = 0 AND _AST_G = 0
+      then: _ATOXGRHN_0
+    - when: PARAM = 'Bilirubin (umol/L)' AND _ATOXGRHN_S1 IS NULL AND AVAL IS NOT NULL
+      then: 0
+    - otherwise: _ATOXGRHN_S1
+  submission:
+    core: Perm
+    mandatory: false
+    length: 8
+    display_format: '3.'
+    origins:
+    - type: Derived
+    method: "Withheld from publication: the received define states this text."
+- name: ATOXGRH
+  type: str
+  label: Analysis Toxicity Grade High
+  derivation:
+    case:
+    - when: ATOXGRHN = 0
+      then: '''Grade 0'''
+    - when: ATOXGRHN = 1
+      then: '''Grade 1'''
+    - when: ATOXGRHN = 2
+      then: '''Grade 2'''
+    - when: ATOXGRHN = 3
+      then: '''Grade 3'''
+    - when: ATOXGRHN = 4
+      then: '''Grade 4'''
+  submission:
+    core: Perm
+    mandatory: false
+    length: 20
+    origins:
+    - type: Derived
+    method: "Withheld from publication: the received define states this text."
+- name: BTOXGRL
+  type: str
+  label: Baseline Toxicity Grade Low
+  derivation:
+    aggregate:
+      filter: ABLFL = 'Y'
+      group_by:
+      - STUDYID
+      - USUBJID
+      - PARAMCD
+      expr: ONLY(ATOXGRL)
+  submission:
+    core: Perm
+    mandatory: false
+    length: 20
+    origins:
+    - type: Derived
+    method: "Withheld from publication: the received define states this text."
+- name: BTOXGRLN
+  type: int
+  label: Baseline Toxicity Grade Low (N)
+  derivation:
+    aggregate:
+      filter: ABLFL = 'Y'
+      group_by:
+      - STUDYID
+      - USUBJID
+      - PARAMCD
+      expr: ONLY(ATOXGRLN)
+  submission:
+    core: Perm
+    mandatory: false
+    length: 8
+    display_format: '3.'
+    origins:
+    - type: Derived
+    method: "Withheld from publication: the received define states this text."
+- name: BTOXGRH
+  type: str
+  label: Baseline Toxicity Grade High
+  derivation:
+    aggregate:
+      filter: ABLFL = 'Y'
+      group_by:
+      - STUDYID
+      - USUBJID
+      - PARAMCD
+      expr: ONLY(ATOXGRH)
+  submission:
+    core: Perm
+    mandatory: false
+    length: 20
+    origins:
+    - type: Derived
+    method: "Withheld from publication: the received define states this text."
+- name: BTOXGRHN
+  type: int
+  label: Baseline Toxicity Grade High (N)
+  derivation:
+    aggregate:
+      filter: ABLFL = 'Y'
+      group_by:
+      - STUDYID
+      - USUBJID
+      - PARAMCD
+      expr: ONLY(ATOXGRHN)
+  submission:
+    core: Perm
+    mandatory: false
+    length: 8
+    display_format: '3.'
+    origins:
+    - type: Derived
+    method: "Withheld from publication: the received define states this text."
+- name: _PARAM_HEAD
+  type: str
+  derivation:
+    str_extract:
+      source: PARAM
+      pattern: ^([^(]*?)\s*\(
+      group: 1
+      no_match: null
+- name: ATOXDSCL
+  type: str
+  label: Analysis Toxicity Description Low
+  derivation:
+    case:
+    - when: ATOXGRLN IS NOT NULL AND PARAMCD <> 'WBC'
+      then:
+        str_template: '{_PARAM_HEAD} Decreased'
+    - when: ATOXGRLN IS NOT NULL AND PARAMCD = 'WBC'
+      then: '''WBC Decreased'''
+  submission:
+    core: Perm
+    mandatory: false
+    length: 50
+    origins:
+    - type: Derived
+    method: "Withheld from publication: the received define states this text."
+- name: ATOXDSCH
+  type: str
+  label: Analysis Toxicity Description High
+  derivation:
+    case:
+    - when: ATOXGRHN IS NOT NULL AND PARAMCD NOT IN ('UREAN', 'WBC')
+      then:
+        str_template: '{_PARAM_HEAD} Increased'
+    - when: ATOXGRHN IS NOT NULL AND PARAMCD = 'UREAN'
+      then: '''Blood Urea Nitrogen Increased'''
+    - when: ATOXGRHN IS NOT NULL AND PARAMCD = 'WBC'
+      then: '''WBC Increased'''
+  submission:
+    core: Perm
+    mandatory: false
+    length: 50
+    origins:
+    - type: Derived
+    method: "Withheld from publication: the received define states this text."
+- name: SHIFT1
+  type: str
+  label: Shift 1
+  derivation:
+    case:
+    - when: _POSTFL = 'Y' AND BTOXGRL IS NOT NULL AND ATOXGRL IS NOT NULL
+      then:
+        str_template: '{BTOXGRL} to {ATOXGRL}'
+    - when: _POSTFL = 'Y' AND BTOXGRL IS NULL AND ATOXGRL IS NOT NULL
+      then:
+        str_template: UNK to {ATOXGRL}
+    - when: _POSTFL = 'Y' AND BTOXGRL IS NOT NULL AND ATOXGRL IS NULL
+      then:
+        str_template: '{BTOXGRL} to UNK'
+  submission:
+    core: Perm
+    mandatory: false
+    length: 50
+    origins:
+    - type: Derived
+    method: "Withheld from publication: the received define states this text."
+- name: SHIFT2
+  type: str
+  label: Shift 2
+  derivation:
+    case:
+    - when: _POSTFL = 'Y' AND BTOXGRH IS NOT NULL AND ATOXGRH IS NOT NULL
+      then:
+        str_template: '{BTOXGRH} to {ATOXGRH}'
+    - when: _POSTFL = 'Y' AND BTOXGRH IS NULL AND ATOXGRH IS NOT NULL
+      then:
+        str_template: UNK to {ATOXGRH}
+    - when: _POSTFL = 'Y' AND BTOXGRH IS NOT NULL AND ATOXGRH IS NULL
+      then:
+        str_template: '{BTOXGRH} to UNK'
+  submission:
+    core: Perm
+    mandatory: false
+    length: 50
+    origins:
+    - type: Derived
+    method: "Withheld from publication: the received define states this text."
+- name: CRIT1FL
+  type: str
+  label: Criterion 1 Evaluation Result Flag
+  derivation:
+    case:
+    - when: PARAMCD = 'ALP' AND AVAL IS NOT NULL AND ANRHI IS NOT NULL AND ANRHI <> 0 AND AVAL / ANRHI < 2
+      then: '''Y'''
+    - when: PARAMCD = 'BILI' AND AVAL IS NOT NULL AND ANRHI IS NOT NULL AND ANRHI <> 0 AND AVAL / ANRHI >= 2
+      then: '''Y'''
+    - when: PARAMCD IN ('ALT', 'AST') AND AVAL IS NOT NULL AND ANRHI IS NOT NULL AND ANRHI <> 0 AND AVAL / ANRHI > 3
+      then: '''Y'''
+  submission:
+    core: Perm
+    mandatory: false
+    length: 1
+    origins:
+    - type: Derived
+    method: "Withheld from publication: the received define states this text."
+- name: CRIT1
+  type: str
+  label: Analysis Criterion 1
+  derivation:
+    case:
+    - when: PARAMCD = 'ALP' AND AVAL IS NOT NULL AND ANRHI IS NOT NULL AND ANRHI <> 0 AND AVAL / ANRHI < 2
+      then: '''ALP <2 x ULN'''
+    - when: PARAMCD = 'BILI' AND AVAL IS NOT NULL AND ANRHI IS NOT NULL AND ANRHI <> 0 AND AVAL / ANRHI >= 2
+      then: '''BILI >=2 x ULN'''
+    - when: PARAMCD = 'ALT' AND AVAL IS NOT NULL AND ANRHI IS NOT NULL AND ANRHI <> 0 AND AVAL / ANRHI > 3
+      then: '''ALT >3 x ULN'''
+    - when: PARAMCD = 'AST' AND AVAL IS NOT NULL AND ANRHI IS NOT NULL AND ANRHI <> 0 AND AVAL / ANRHI > 3
+      then: '''AST >3 x ULN'''
+  submission:
+    core: Perm
+    mandatory: false
+    length: 20
+    origins:
+    - type: Derived
+    method: "Withheld from publication: the received define states this text."
+- name: _VISIT_DAY
+  type: str
+  derivation:
+    str_extract:
+      source: _VISIT
+      pattern: Day ([0-9]+)
+      group: 1
+      no_match: null
+- name: AVISIT
+  type: str
+  label: Analysis Visit
+  derivation:
+    case:
+    - when: ABLFL = 'Y'
+      then: '''Baseline'''
+    - when: _POSTFL = 'Y' AND (str_contains(_VISIT, 'Uns') OR _VISIT IS NULL OR _VISIT IN ('')) AND ADY IS NOT NULL AND ADY > 1 AND ADY <= 43
+      then: '''Day 29'''
+    - when: _POSTFL = 'Y' AND (str_contains(_VISIT, 'Uns') OR _VISIT IS NULL OR _VISIT IN ('')) AND ADY IS NOT NULL AND ADY >= 44
+      then: '''Day 57'''
+    - when: _POSTFL = 'Y' AND ADY IS NOT NULL AND ADY > 1 AND _VISIT_DAY IS NOT NULL
+      then:
+        str_template: Day {_VISIT_DAY}
+    - when: _POSTFL = 'Y' AND ADY IS NOT NULL AND ADY > 1
+      then: '''Day '''
+  submission:
+    core: Perm
+    mandatory: false
+    length: 50
+    origins:
+    - type: Derived
+    method: "Withheld from publication: the received define states this text."
+- name: AVISITN
+  type: int
+  label: Analysis Visit (N)
+  derivation:
+    mapping:
+      source: AVISIT
+      dict:
+        Baseline: 1
+        Day 29: 5
+        Day 57: 8
+      unmapped: null
+  submission:
+    core: Perm
+    mandatory: false
+    length: 8
+    display_format: '3.'
+    origins:
+    - type: Derived
+    method: "Withheld from publication: the received define states this text."
+- name: AWRANGE
+  type: str
+  label: Analysis Window Valid Relative Range
+  derivation:
+    mapping:
+      source: AVISIT
+      dict:
+        Baseline: <=1 Pre-dose
+        Day 29: Day 2 - Day 43
+        Day 57: '>= Day 44'
+      unmapped: null
+  submission:
+    core: Perm
+    mandatory: false
+    length: 20
+    origins:
+    - type: Derived
+    method: "Withheld from publication: the received define states this text."
+- name: AWTARGET
+  type: int
+  label: Analysis Window Target
+  derivation:
+    mapping:
+      source: AVISIT
+      dict:
+        Baseline: 1
+        Day 29: 29
+        Day 57: 57
+      unmapped: null
+  submission:
+    core: Perm
+    mandatory: false
+    length: 8
+    display_format: '3.'
+    origins:
+    - type: Derived
+    method: "Withheld from publication: the received define states this text."
+- name: AWTDIFF
+  type: int
+  label: Analysis Window Diff from Target
+  derivation:
+    case:
+    - when: AWTARGET IS NOT NULL AND ADY IS NOT NULL
+      then: ABS(ADY - AWTARGET)
+  submission:
+    core: Perm
+    mandatory: false
+    length: 8
+    display_format: '3.'
+    origins:
+    - type: Derived
+    method: "Withheld from publication: the received define states this text."
+- name: _SV4D
+  type: date
+  derivation:
+    to_date:
+      source: _SVSTDTC4
+- name: _SV7D
+  type: date
+  derivation:
+    to_date:
+      source: _SVSTDTC7
+- name: _ASTAGE_GATE
+  type: str
+  derivation:
+    case:
+    - when: RANDFL = 'Y' AND ADT IS NOT NULL AND TR01SDTM IS NOT NULL AND ADT >= TR01SDT
+      then: '''Y'''
+- name: _ENDDATE
+  type: date
+  derivation:
+    case:
+    - when: DOSE1FL = 'Y' AND DOSE2FL = 'Y' AND _EOSDT IS NOT NULL AND _SV7D IS NOT NULL AND _DTHDT IS NOT NULL
+      then:
+        least:
+          sources:
+          - _EOSDT
+          - _SV7D
+          - _DTHDT
+    - when: DOSE1FL = 'Y' AND DOSE2FL = 'Y' AND _EOSDT IS NOT NULL AND _SV7D IS NOT NULL AND _DTHDT IS NULL
+      then:
+        least:
+          sources:
+          - _EOSDT
+          - _SV7D
+    - when: DOSE1FL = 'Y' AND DOSE2FL = 'Y' AND _EOSDT IS NOT NULL AND _SV7D IS NULL AND _DTHDT IS NULL
+      then: _EOSDT
+    - when: DOSE1FL = 'Y' AND DOSE2FL = 'Y' AND _EOSDT IS NULL AND _SV7D IS NOT NULL AND _DTHDT IS NULL
+      then: _SV7D
+    - when: DOSE1FL = 'Y' AND (DOSE2FL IS NULL OR DOSE2FL <> 'Y') AND _EOSDT IS NOT NULL AND _SV4D IS NOT NULL AND _DTHDT IS NOT NULL
+      then:
+        least:
+          sources:
+          - _EOSDT
+          - _SV4D
+          - _DTHDT
+    - when: DOSE1FL = 'Y' AND (DOSE2FL IS NULL OR DOSE2FL <> 'Y') AND _EOSDT IS NOT NULL AND _SV4D IS NOT NULL AND _DTHDT IS NULL
+      then:
+        least:
+          sources:
+          - _EOSDT
+          - _SV4D
+    - when: DOSE1FL = 'Y' AND (DOSE2FL IS NULL OR DOSE2FL <> 'Y') AND _EOSDT IS NOT NULL AND _SV4D IS NULL AND _DTHDT IS NULL
+      then: _EOSDT
+    - when: DOSE1FL = 'Y' AND (DOSE2FL IS NULL OR DOSE2FL <> 'Y') AND _EOSDT IS NULL AND _SV4D IS NOT NULL AND _DTHDT IS NULL
+      then: _SV4D
+- name: ASTAGE
+  type: str
+  label: Stage
+  derivation:
+    case:
+    - when: _ASTAGE_GATE = 'Y' AND DOSE1FL = 'Y' AND DOSE2FL = 'Y' AND _ENDDATE IS NULL AND _POSTFL = 'Y'
+      then: '''Vaccination stage'''
+    - when: _ASTAGE_GATE = 'Y' AND DOSE1FL = 'Y' AND DOSE2FL = 'Y' AND _SV7D IS NOT NULL AND ADT > _SV7D
+      then: '''Follow up stage'''
+    - when: _ASTAGE_GATE = 'Y' AND DOSE1FL = 'Y' AND DOSE2FL = 'Y' AND TR01SDT IS NOT NULL AND ADT >= TR01SDT AND _ENDDATE IS NOT NULL AND ADT <= _ENDDATE
+      then: '''Vaccination stage'''
+    - when: _ASTAGE_GATE = 'Y' AND DOSE1FL = 'Y' AND DOSE2FL = 'Y' AND DOSE2DT IS NOT NULL AND ADT >= DOSE2DT AND _ENDDATE IS NULL AND _SVSTDTC4 IS NOT NULL AND _SVSTDTC4 NOT IN ('')
+      then: '''Vaccination stage'''
+    - when: _ASTAGE_GATE = 'Y' AND DOSE1FL = 'Y' AND (DOSE2FL IS NULL OR DOSE2FL <> 'Y') AND _ENDDATE IS NULL AND _POSTFL = 'Y'
+      then: '''Vaccination stage'''
+    - when: _ASTAGE_GATE = 'Y' AND DOSE1FL = 'Y' AND (DOSE2FL IS NULL OR DOSE2FL <> 'Y') AND _SV4D IS NOT NULL AND ADT > _SV4D
+      then: '''Follow up stage'''
+    - when: _ASTAGE_GATE = 'Y' AND DOSE1FL = 'Y' AND (DOSE2FL IS NULL OR DOSE2FL <> 'Y') AND TR01SDT IS NOT NULL AND ADT >= TR01SDT AND _ENDDATE IS NOT NULL AND ADT <= _ENDDATE
+      then: '''Vaccination stage'''
+    - when: _ASTAGE_GATE = 'Y' AND DOSE1FL = 'Y' AND (DOSE2FL IS NULL OR DOSE2FL <> 'Y') AND TR01SDT IS NOT NULL AND ADT >= TR01SDT AND _ENDDATE IS NULL
+      then: '''Vaccination stage'''
+  submission:
+    core: Perm
+    mandatory: false
+    length: 30
+    origins:
+    - type: Derived
+    method: "Withheld from publication: the received define states this text."
+- name: ASTAGEN
+  type: int
+  label: Stage (N)
+  derivation:
+    mapping:
+      source: ASTAGE
+      dict:
+        Vaccination stage: 1
+        Follow up stage: 2
+      unmapped: null
+  submission:
+    core: Perm
+    mandatory: false
+    length: 8
+    display_format: '3.'
+    origins:
+    - type: Derived
+    method: "Withheld from publication: the received define states this text."
+- name: _UNS
+  type: int
+  derivation:
+    case:
+    - when: _POSTFL = 'Y' AND (str_contains(_VISIT, 'Uns') OR _VISIT IS NULL OR _VISIT IN (''))
+      then: 1
+    - when: _POSTFL = 'Y'
+      then: 0
+- name: _AWTDIFF
+  type: int
+  derivation:
+    case:
+    - when: _POSTFL = 'Y' AND _UNS = 1
+      then: AWTDIFF
+    - when: _POSTFL = 'Y'
+      then: 0
+    - otherwise: 99999999
+- name: _ANL01_RN
+  type: int
+  derivation:
+    row_number:
+      window: ANL01_W
+- name: ANL01FL
+  type: str
+  label: Analysis Flag 01
+  derivation:
+    case:
+    - when: (_ANL01_RN = 1 AND AVISITN IS NOT NULL AND _POSTFL = 'Y' AND _AVALN = 1) OR ABLFL = 'Y'
+      then: '''Y'''
+  submission:
+    core: Perm
+    mandatory: false
+    length: 1
+    origins:
+    - type: Derived
+    method: "Withheld from publication: the received define states this text."
+- name: _ANL02_RN
+  type: int
+  derivation:
+    row_number:
+      window: ANL02_W
+- name: ANL02FL
+  type: str
+  label: Analysis Flag 02
+  derivation:
+    case:
+    - when: _ANL02_RN = 1 AND _POSTFL = 'Y' AND ASTAGEN = 1 AND ATOXGRLN IS NOT NULL
+      then: '''Y'''
+  submission:
+    core: Perm
+    mandatory: false
+    length: 1
+    origins:
+    - type: Derived
+    method: "Withheld from publication: the received define states this text."
+- name: _ANL03_RN
+  type: int
+  derivation:
+    row_number:
+      window: ANL03_W
+- name: ANL03FL
+  type: str
+  label: Analysis Flag 03
+  derivation:
+    case:
+    - when: _ANL03_RN = 1 AND _POSTFL = 'Y' AND ASTAGEN = 1 AND ATOXGRHN IS NOT NULL
+      then: '''Y'''
+  submission:
+    core: Perm
+    mandatory: false
+    length: 1
+    origins:
+    - type: Derived
+    method: "Withheld from publication: the received define states this text."
+- name: _EX1_TXT_C
+  type: str
+  derivation:
+    str_replace:
+      source: EX_DOSE1.EXDOSTXT
+      pattern: ' '
+      replacement: ''
+- name: _EX2_TXT_C
+  type: str
+  derivation:
+    str_replace:
+      source: EX_DOSE2.EXDOSTXT
+      pattern: ' '
+      replacement: ''
+- name: TRTA
+  type: str
+  label: Actual Treatment
+  derivation:
+    case:
+    - when: MDOSREF = 'Vaccination 1' AND EX_DOSE1.EXTRT = 'PLACEBO'
+      then: '''Placebo'''
+    - when: MDOSREF = 'Vaccination 1' AND str_contains(EX_DOSE1.EXTRT, 'mRNA-1273') AND EX_DOSE1.EXDOSE IS NOT NULL AND 0 < EX_DOSE1.EXDOSE AND EX_DOSE1.EXDOSE <= 75
+      then: '''mRNA-1273 50 ug'''
+    - when: MDOSREF = 'Vaccination 1' AND str_contains(EX_DOSE1.EXTRT, 'mRNA-1273') AND EX_DOSE1.EXDOSE IS NOT NULL AND EX_DOSE1.EXDOSE > 75
+      then: '''mRNA-1273 100 ug'''
+    - when: MDOSREF = 'Vaccination 1' AND str_contains(EX_DOSE1.EXTRT, 'mRNA-1273') AND EX_DOSE1.EXDOSTXT IN ('50 ug', '50ug', '50 ug (2 doses of 25 ug)')
+      then: '''mRNA-1273 50 ug'''
+    - when: MDOSREF = 'Vaccination 1' AND str_contains(EX_DOSE1.EXTRT, 'mRNA-1273') AND _EX1_TXT_C IN ('100ug', '100ug(2dosesof50ug)')
+      then: '''mRNA-1273 100 ug'''
+    - when: MDOSREF = 'Vaccination 2' AND EX_DOSE2.EXTRT = 'PLACEBO'
+      then: '''Placebo'''
+    - when: MDOSREF = 'Vaccination 2' AND str_contains(EX_DOSE2.EXTRT, 'mRNA-1273') AND EX_DOSE2.EXDOSE IS NOT NULL AND 0 < EX_DOSE2.EXDOSE AND EX_DOSE2.EXDOSE <= 75
+      then: '''mRNA-1273 50 ug'''
+    - when: MDOSREF = 'Vaccination 2' AND str_contains(EX_DOSE2.EXTRT, 'mRNA-1273') AND EX_DOSE2.EXDOSE IS NOT NULL AND EX_DOSE2.EXDOSE > 75
+      then: '''mRNA-1273 100 ug'''
+    - when: MDOSREF = 'Vaccination 2' AND str_contains(EX_DOSE2.EXTRT, 'mRNA-1273') AND EX_DOSE2.EXDOSTXT IN ('50 ug', '50ug', '50 ug (2 doses of 25 ug)')
+      then: '''mRNA-1273 50 ug'''
+    - when: MDOSREF = 'Vaccination 2' AND str_contains(EX_DOSE2.EXTRT, 'mRNA-1273') AND _EX2_TXT_C IN ('100ug', '100ug(2dosesof50ug)')
+      then: '''mRNA-1273 100 ug'''
+  submission:
+    core: Perm
+    mandatory: false
+    length: 50
+    origins:
+    - type: Derived
+    method: "Withheld from publication: the received define states this text."
+- name: TRTAN
+  type: int
+  label: Actual Treatment (N)
+  derivation:
+    mapping:
+      source: TRTA
+      dict:
+        Placebo: 1
+        mRNA-1273 50 ug: 2
+        mRNA-1273 100 ug: 3
+      unmapped: null
+  submission:
+    core: Perm
+    mandatory: false
+    length: 8
+    display_format: '3.'
+    origins:
+    - type: Derived
+    method: "Withheld from publication: the received define states this text."
+output:
+  path: <adam-dir>/adlb-yamaa.parquet
+  order_by:
+  - USUBJID
+  - PARAMCD
+  - AVISITN
+  - ADT
+  - LBSEQ
+  columns:
+  - STUDYID
+  - USUBJID
+  - SUBJID
+  - SITEID
+  - COUNTRY
+  - AGE
+  - AGEU
+  - AGEGR1
+  - AGEGR1N
+  - AGEGR2
+  - AGEGR2N
+  - SEX
+  - RACE
+  - RACESPY
+  - ETHNIC
+  - RANDFL
+  - SAFFL
+  - FASBABFL
+  - FASNABFL
+  - PPBABFL
+  - PPNABFL
+  - PPBD29FL
+  - PPBD57FL
+  - PPND29FL
+  - PPND57FL
+  - SAR1FL
+  - SAR2FL
+  - SARAFL
+  - FASNA2FL
+  - PPNAB2FL
+  - PN2D29FL
+  - PN2D57FL
+  - COMPLFL
+  - DVBABFL
+  - DVNABFL
+  - DOSE1FL
+  - DOSE2FL
+  - DOSEROFL
+  - COV19BL
+  - COV19FL
+  - SENTLFL
+  - D29W7DFL
+  - TRT01P
+  - TRT01PN
+  - TRT01A
+  - TRT01AN
+  - TR01SDT
+  - TR01SDTM
+  - TR01EDT
+  - TR01EDTM
+  - TRTSDTM
+  - TRTEDTM
+  - DOSE2DT
+  - DOS2DTM
+  - TRTA
+  - TRTAN
+  - LBSEQ
+  - LBDTC
+  - ADT
+  - ATM
+  - ADTM
+  - ADY
+  - MDOSREF
+  - MRDDY
+  - VISIT
+  - VISITNUM
+  - AVISIT
+  - AVISITN
+  - ASTAGE
+  - ASTAGEN
+  - PARCAT1
+  - PARAMCD
+  - PARAM
+  - AVAL
+  - BASE
+  - CHG
+  - PCHG
+  - AWRANGE
+  - AWTARGET
+  - AWTDIFF
+  - LBORNRLO
+  - LBORNRHI
+  - LBORRES
+  - LBORRESU
+  - LBTOXGR
+  - LBSTRESC
+  - ATOXGRL
+  - ATOXGRLN
+  - ATOXGRH
+  - ATOXGRHN
+  - BTOXGRL
+  - BTOXGRLN
+  - BTOXGRH
+  - BTOXGRHN
+  - ATOXDSCL
+  - ATOXDSCH
+  - SHIFT1
+  - SHIFT2
+  - ANRIND
+  - BNRIND
+  - ANRLO
+  - ANRHI
+  - CRIT1
+  - CRIT1FL
+  - ABLFL
+  - ANL01FL
+  - ANL02FL
+  - ANL03FL
+  - DTYPE

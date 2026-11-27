@@ -1,0 +1,563 @@
+# ADIS for Moderna mRNA-1273-P201, data cut add1 (Addendum 1, cutoff 2021-06-11).
+# Parent: ../../../s3-d57/spec/yamaa/adis.yaml (which chains to ../../../spec/yamaa/base/adam-base.yaml) (section 3.1 core columns).
+# Derivations implement the add1 A20ADIS program
+# (program/adam/FDA-CBER-2022-1614-3818670-3818673_..._add1_A_P_a2.txt) plus
+# the add1 _adis_vars_ include (Bates 3818723-3818733), which IS in Module 5;
+# spec/yamaa/tools/adis_add1_proto.py replicates the SAS logic line by line
+# and matches all 108 submitted columns on all 33,241 rows. Where the SAS code
+# and the define.xml method text disagree, the code is followed (see README.md):
+# DTYPE is never 'DERIVED' in the submitted data (define MT.ADIS.DTYPE says it
+# is); PARAMTYP is 'DERIVED' for LV65IGGS/LV66IGGN rows too (the define's
+# PARAMTYP method names only 'L10'/'LV58'); ISDTC is an ISO string in the data
+# (define: datetime), typed str.
+# PP COLUMNS: no PP_LIST/PP_LIST2 exists for add1, so the PP columns are derived
+# from the ADSL per-visit flags + AVISIT where that mapping is exact on d57 AND
+# add1 (flags Day 29/57/209 via the visit flags, Baseline via the subject flag,
+# Day 15/blank blank; reasons Day 29/57/209 via the visit *ER columns used
+# directly, Day 15/blank via the dosing rule only). Day 43 rows (all 5 PP
+# columns) and Baseline rows (the two reason columns) are carried VERIFIED-ONLY
+# from the submitted add1 ADIS (input ADIS_VO, keyed on [STUDYID, USUBJID, ISSEQ,
+# PARAMCD]): the PP_LIST visit values at Baseline/Day 43 are not exactly
+# derivable from the ADSL flags. The verify report shows those cells matching
+# trivially because they come from the expected file; that is the documented
+# limitation, not a derivation (owner decision 2026-11-22, docs/decisions.md).
+# DELETE STEP: the A20ADIS delete (AVAL missing AND AVALC blank) removes 8 rows
+# (ISSTRESC='NR' MN50/MNET rows); it is expressed as a base_rows filter exclusion.
+# OL-D8 AVISIT blanking is NOT expressed: 0 VISIT='OL-D8' rows on add1.
+# Layer over ../d57/adis.yaml: the derivations are the parent cut's, and
+# this file holds only what this cut changes (written by
+# scripts/specs/inherit_cut.py; its resolved specification
+# equals the standalone file it replaced).
+yamaa: '1.0'
+type: spec
+parent: ../../../s3-d57/spec/yamaa/adis.yaml
+clear:
+- columns.COMPLFL.submission
+input:
+  IS: <sdtm-dir>/is.parquet
+  SUPPIS: <sdtm-dir>/suppis.parquet
+  EX: <sdtm-dir>/ex.parquet
+  ADSL:
+    path: <adam-dir>/adsl.parquet
+  ADIS_VO:
+    path: <adam-dir>/adis.parquet
+    key:
+    - STUDYID
+    - USUBJID
+    - ISSEQ
+    - PARAMCD
+rows:
+- id: base_rows
+  derivations:
+    _ISMETHOD: IS.ISMETHOD
+    _AVAL_SRC:
+      case:
+      - when: _ISTESTCD IN ('V65IGGS', 'V66IGGN') AND _ISSTRESC = 'BQL'
+        then: _ISLLOQ * 0.5
+      - when: str_contains(_ISSTRESC, '<') OR (_LOD IS NOT NULL AND _ISSTRESN IS NOT NULL AND _ISSTRESN < _LOD) OR (_ISLLOQ IS NOT NULL AND _ISSTRESN IS NOT NULL AND _ISSTRESN < _ISLLOQ)
+        then: _ISLLOQ * 0.5
+      - when: str_contains(_ISSTRESC, '>') OR (_ULOQ IS NOT NULL AND _ISSTRESN IS NOT NULL AND _ISSTRESN > _ULOQ)
+        then: _ULOQ
+      - otherwise: _ISSTRESN
+    DTYPE:
+      case:
+      - when: _ISTESTCD IN ('V65IGGS', 'V66IGGN') AND _ISSTRESC = 'BQL'
+        then: '''HALFLLOQ'''
+      - when: str_contains(_ISSTRESC, '<') OR (_LOD IS NOT NULL AND _ISSTRESN IS NOT NULL AND _ISSTRESN < _LOD) OR (_ISLLOQ IS NOT NULL AND _ISSTRESN IS NOT NULL AND _ISSTRESN < _ISLLOQ)
+        then: '''HALFLLOQ'''
+      - when: str_contains(_ISSTRESC, '>') OR (_ULOQ IS NOT NULL AND _ISSTRESN IS NOT NULL AND _ISSTRESN > _ULOQ)
+        then: '''ULOQ'''
+    PARAM:
+      case:
+      - when: PARAMCD = 'SARSCOV2'
+        then: '''Elecsys Anti-SARS-CoV-2'''
+      - when: _ISCAT = 'Serum SARS-CoV-2 Neutralizing Antibodies' AND _ISNAM IN ('PPD VACCINE', 'VRC') AND _ISMETHOD IS NOT NULL AND _ISMETHOD NOT IN ('')
+        then:
+          str_template: '{_ISTEST} by {_ISMETHOD}'
+      - when: _ISCAT = 'Serum SARS-CoV-2 Neutralizing Antibodies'
+        then: _ISTEST
+      - when: _ISCAT = 'Serum SARS-CoV-2 Binding Antibodies' AND _ISSTRESU IS NOT NULL AND _ISSTRESU NOT IN ('') AND _ISNAM IN ('PPD VACCINE', 'VRC') AND _ISMETHOD IS NOT NULL AND _ISMETHOD NOT IN ('')
+        then:
+          str_template: '{_ISTEST} ({_ISSTRESU}) by {_ISMETHOD}'
+      - when: _ISCAT = 'Serum SARS-CoV-2 Binding Antibodies' AND _ISSTRESU IS NOT NULL AND _ISSTRESU NOT IN ('')
+        then:
+          str_template: '{_ISTEST} ({_ISSTRESU})'
+      - when: _ISNAM IN ('PPD VACCINE', 'VRC') AND _ISMETHOD IS NOT NULL AND _ISMETHOD NOT IN ('')
+        then:
+          str_template: '{_ISTEST} by {_ISMETHOD}'
+      - otherwise: _ISTEST
+  filter: (_ISSTAT IS NULL OR _ISSTAT IN ('')) AND _ISTESTCD IS NOT NULL AND _ADSL IS NOT NULL AND NOT (_AVAL_SRC IS NULL AND (PARAMCD <> 'SARSCOV2' OR _ISSTRESC IS NULL OR _ISSTRESC IN ('')))
+- id: derived_rows
+  derivations:
+    _ISMETHOD: IS.ISMETHOD
+    _AVAL_SRC:
+      case:
+      - when: _ISTESTCD IN ('V65IGGS', 'V66IGGN') AND _ISSTRESC = 'BQL'
+        then: _ISLLOQ * 0.5
+      - when: str_contains(_ISSTRESC, '<') OR (_LOD IS NOT NULL AND _ISSTRESN IS NOT NULL AND _ISSTRESN < _LOD) OR (_ISLLOQ IS NOT NULL AND _ISSTRESN IS NOT NULL AND _ISSTRESN < _ISLLOQ)
+        then: _ISLLOQ * 0.5
+      - when: str_contains(_ISSTRESC, '>') OR (_ULOQ IS NOT NULL AND _ISSTRESN IS NOT NULL AND _ISSTRESN > _ULOQ)
+        then: _ULOQ
+      - otherwise: _ISSTRESN
+    DTYPE:
+      case:
+      - when: _ISTESTCD IN ('V65IGGS', 'V66IGGN') AND _ISSTRESC = 'BQL'
+        then: '''HALFLLOQ'''
+      - when: str_contains(_ISSTRESC, '<') OR (_LOD IS NOT NULL AND _ISSTRESN IS NOT NULL AND _ISSTRESN < _LOD) OR (_ISLLOQ IS NOT NULL AND _ISSTRESN IS NOT NULL AND _ISSTRESN < _ISLLOQ)
+        then: '''HALFLLOQ'''
+      - when: str_contains(_ISSTRESC, '>') OR (_ULOQ IS NOT NULL AND _ISSTRESN IS NOT NULL AND _ISSTRESN > _ULOQ)
+        then: '''ULOQ'''
+    PARAMCD:
+      mapping:
+        dict:
+          V65IGGS: LV65IGGS
+          V66IGGN: LV66IGGN
+    PARAM:
+      mapping:
+        dict:
+          LV65IGGS: 'LOG10(VAC65 Spike IgG Antibody)'
+          LV66IGGN: 'LOG10(VAC66 Nucleocapsid IgG Antibody)'
+  filter: (_ISSTAT IS NULL OR _ISSTAT IN ('')) AND _ISTESTCD IS NOT NULL AND _ADSL IS NOT NULL AND PARAMCD IS NOT NULL AND _AVAL_SRC IS NOT NULL AND (_ISTESTCD <> 'V58IGGEN' OR _AVAL_SRC <> 0) AND (_ISTESTCD <> 'V66IGGN' OR _AVAL_SRC <> 0)
+windows:
+  ANL01_W:
+    order_by:
+    - variable: _POSTFL
+      direction: desc
+    - variable: _AVALN
+      direction: desc
+    - _UNS
+    - _AWTDIFF
+    - variable: _ADTMY
+      direction: desc
+    - variable: ISSEQ
+      direction: desc
+  ANL02_W:
+    order_by:
+    - variable: _POSTFL
+      direction: desc
+    - variable: _AVALN
+      direction: desc
+    - _UNS
+    - _AWTDIFF
+    - variable: _ADTMY
+      direction: desc
+    - variable: ISSEQ
+      direction: desc
+output:
+  path: <adam-dir>/adis-yamaa.parquet
+  columns:
+  - STUDYID
+  - USUBJID
+  - SUBJID
+  - SITEID
+  - COUNTRY
+  - AGE
+  - AGEU
+  - AGEGR1
+  - AGEGR1N
+  - AGEGR2
+  - AGEGR2N
+  - SEX
+  - RACE
+  - RACESPY
+  - ETHNIC
+  - RANDFL
+  - SAFFL
+  - FASBABFL
+  - FASNABFL
+  - PPBABFL
+  - PPNABFL
+  - PPBD29FL
+  - PPBD57FL
+  - PBD209FL
+  - PPND29FL
+  - PPND57FL
+  - PND209FL
+  - SAR1FL
+  - SAR2FL
+  - SARAFL
+  - FASNA2FL
+  - PPNAB2FL
+  - PN2D29FL
+  - PN2D57FL
+  - PN2209FL
+  - DVBABFL
+  - DVNABFL
+  - DOSE1FL
+  - DOSE2FL
+  - DOSEROFL
+  - COV19BL
+  - ELECSBL
+  - COV19FL
+  - SENTLFL
+  - D29W7DFL
+  - TRT01P
+  - TRT01PN
+  - TRT01A
+  - TRT01AN
+  - TR01SDT
+  - TR01SDTM
+  - TR01EDT
+  - TR01EDTM
+  - TRTSDTM
+  - TRTEDTM
+  - DOSE2DT
+  - DOS2DTM
+  - TRTA
+  - TRTAN
+  - ISSEQ
+  - ISDTC
+  - ADT
+  - ATM
+  - ADTM
+  - ADY
+  - VISIT
+  - VISITNUM
+  - AVISIT
+  - AVISITN
+  - PARCAT1
+  - PARAMCD
+  - PARAM
+  - AVAL
+  - AVALC
+  - ISSTRESC
+  - BASE
+  - CHG
+  - R2BASE
+  - AWRANGE
+  - AWTARGET
+  - AWTDIFF
+  - ABLFL
+  - ANL01FL
+  - ANL02FL
+  - CRIT1
+  - CRIT1FL
+  - CRIT2
+  - CRIT2FL
+  - CRIT3
+  - CRIT3FL
+  - CRIT4
+  - CRIT4FL
+  - CRIT5
+  - CRIT5FL
+  - CRIT6
+  - CRIT6FL
+  - PPBABRFL
+  - PPNABRFL
+  - PPBABRER
+  - PPNABRER
+  - PPNA2RFL
+  - ISLLOQ
+  - ULOQ
+  - LOD
+  - ISNAM
+  - ISSPEC
+  - DTYPE
+  - PARAMTYP
+columns:
+- name: _ISMETHOD
+  type: str
+- name: COMPLFL
+  derivation:
+- name: PBD209FL
+  type: str
+  label: 'Per Protocol bAb Day 209 Flag'
+  derivation: ADSL.PBD209FL
+  submission:
+    core: Req
+    mandatory: true
+    length: 1
+    origins:
+    - type: Predecessor
+      description: ADSL.PBD209FL
+- name: PND209FL
+  type: str
+  label: 'Per Protocol nAb Day 209 Flag'
+  derivation: ADSL.PND209FL
+  submission:
+    core: Req
+    mandatory: true
+    length: 1
+    origins:
+    - type: Predecessor
+      description: ADSL.PND209FL
+- name: PN2209FL
+  type: str
+  label: 'Per Protocol nAb 2 Day 209 Flag'
+  derivation: ADSL.PN2209FL
+  submission:
+    core: Req
+    mandatory: true
+    length: 1
+    origins:
+    - type: Predecessor
+      description: ADSL.PN2209FL
+- name: ELECSBL
+  type: str
+  label: 'Baseline Elecsys SARS CoV-2 Assay'
+  derivation: ADSL.ELECSBL
+  submission:
+    core: Perm
+    mandatory: false
+    length: 20
+    origins:
+    - type: Predecessor
+      description: ADSL.ELECSBL
+- name: VISIT
+  submission:
+    length: 33
+- name: ULOQ
+  submission:
+    mandatory: false
+- name: LOD
+  submission:
+    mandatory: false
+- name: PARAM
+  submission:
+    method: "Withheld from publication: the received define states this text."
+- name: ISLLOQ
+  submission:
+    mandatory: false
+- name: DTYPE
+  submission:
+    method: "Withheld from publication: the received define states this text."
+- name: PARAMTYP
+  submission:
+    method: "Withheld from publication: the received define states this text."
+- name: AVAL
+  submission:
+    method: "Withheld from publication: the received define states this text."
+- name: AVALC
+  type: str
+  label: 'Analysis Value (C)'
+  derivation:
+    case:
+    - when: PARAMCD = 'SARSCOV2'
+      then: _ISSTRESC
+  submission:
+    core: Perm
+    mandatory: false
+    length: 10
+    origins:
+    - type: Derived
+    method: "Withheld from publication: the received define states this text."
+- name: _ELECSBL_U
+  type: str
+  derivation:
+    str_case:
+      source: ADSL.ELECSBL
+      to: upper
+- name: _ISSTRESC_U
+  type: str
+  derivation:
+    str_case:
+      source: _ISSTRESC
+      to: upper
+- name: ANL01FL
+  derivation:
+    case:
+    - when: PARAMCD = 'SARSCOV2' AND (ABLFL = 'Y' OR (ADT IS NOT NULL AND ADSL.TR01SDT IS NOT NULL AND AVISITN IS NOT NULL AND _ISSTRESC_U IN ('NEGATIVE', 'POSITIVE') AND ADT > ADSL.TR01SDT))
+      then: '''Y'''
+    - when: AVAL IS NOT NULL AND ((_ANL01_RN = 1 AND AVISITN IS NOT NULL AND _POSTFL = 'Y' AND _AVALN = 1) OR ABLFL = 'Y')
+      then: '''Y'''
+  submission:
+    method: "Withheld from publication: the received define states this text."
+- name: ANL02FL
+  derivation:
+    case:
+    - when: PARAMCD = 'SARSCOV2' AND (ABLFL = 'Y' OR (ADT IS NOT NULL AND ADSL.TR01SDT IS NOT NULL AND AVISITN IS NOT NULL AND _ISSTRESC_U IN ('NEGATIVE', 'POSITIVE') AND ADT > ADSL.TR01SDT))
+      then: '''Y'''
+    - when: AVAL IS NOT NULL AND _SET1 = 1 AND ((_ANL02_RN = 1 AND AVISITN IS NOT NULL AND _POSTFL = 'Y' AND _AVALN = 1) OR ABLFL = 'Y')
+      then: '''Y'''
+- name: _CRIT_OK
+  derivation:
+    case:
+    - when: (DTYPE IS NULL OR DTYPE <> 'DERIVED') AND PARAMCD IN ('MN50', 'MNET')
+      then: '''Y'''
+- name: _CRIT_V65
+  type: str
+  derivation:
+    case:
+    - when: (DTYPE IS NULL OR DTYPE <> 'DERIVED') AND PARAMCD IN ('V65IGGS', 'V66IGGN')
+      then: '''Y'''
+- name: _CRIT_V65S
+  type: str
+  derivation:
+    case:
+    - when: (DTYPE IS NULL OR DTYPE <> 'DERIVED') AND PARAMCD = 'V65IGGS'
+      then: '''Y'''
+- name: _CRIT_LOW
+  type: str
+  derivation:
+    case:
+    - when: BASE IS NOT NULL AND AVAL IS NOT NULL AND ISLLOQ IS NOT NULL AND BASE < ISLLOQ
+      then: '''Y'''
+- name: _CRIT_HI
+  type: str
+  derivation:
+    case:
+    - when: BASE IS NOT NULL AND ISLLOQ IS NOT NULL AND BASE >= ISLLOQ
+      then: '''Y'''
+- name: CRIT1FL
+  derivation:
+    case:
+    - when: _ISDTC IS NOT NULL AND ((_CRIT_OK = 'Y' AND _POSTFL = 'Y' AND R2BASE IS NOT NULL AND R2BASE >= 2) OR (_CRIT_V65 = 'Y' AND _CRIT_LOW = 'Y' AND AVAL >= 2 * ISLLOQ) OR (_CRIT_V65 = 'Y' AND _CRIT_HI = 'Y' AND _POSTFL = 'Y' AND R2BASE IS NOT NULL AND R2BASE >= 2))
+      then: '''Y'''
+  submission:
+    method: "Withheld from publication: the received define states this text."
+- name: CRIT2FL
+  derivation:
+    case:
+    - when: _ISDTC IS NOT NULL AND ((_CRIT_OK = 'Y' AND _POSTFL = 'Y' AND R2BASE IS NOT NULL AND R2BASE >= 3) OR (_CRIT_V65 = 'Y' AND _CRIT_LOW = 'Y' AND AVAL >= 3 * ISLLOQ) OR (_CRIT_V65 = 'Y' AND _CRIT_HI = 'Y' AND _POSTFL = 'Y' AND R2BASE IS NOT NULL AND R2BASE >= 3))
+      then: '''Y'''
+  submission:
+    method: "Withheld from publication: the received define states this text."
+- name: CRIT3FL
+  derivation:
+    case:
+    - when: _ISDTC IS NOT NULL AND ((_CRIT_OK = 'Y' AND _POSTFL = 'Y' AND R2BASE IS NOT NULL AND R2BASE >= 4) OR (_CRIT_V65 = 'Y' AND _CRIT_LOW = 'Y' AND AVAL >= 4 * ISLLOQ) OR (_CRIT_V65 = 'Y' AND _CRIT_HI = 'Y' AND _POSTFL = 'Y' AND R2BASE IS NOT NULL AND R2BASE >= 4))
+      then: '''Y'''
+  submission:
+    method: "Withheld from publication: the received define states this text."
+- name: CRIT4FL
+  derivation:
+    case:
+    - when: _ISDTC IS NOT NULL AND (((_CRIT_OK = 'Y' OR _CRIT_V65S = 'Y') AND _CRIT_LOW = 'Y' AND AVAL >= ISLLOQ) OR ((_CRIT_OK = 'Y' OR _CRIT_V65S = 'Y') AND _CRIT_HI = 'Y' AND _POSTFL = 'Y' AND R2BASE IS NOT NULL AND R2BASE >= 4))
+      then: '''Y'''
+  submission:
+    method: "Withheld from publication: the received define states this text."
+- name: CRIT5FL
+  type: str
+  label: 'Criterion 5 Evaluation Result Flag'
+  derivation:
+    case:
+    - when: _ISDTC IS NOT NULL AND ((_CRIT_V65S = 'Y' AND _CRIT_LOW = 'Y' AND AVAL >= ISLLOQ) OR (_CRIT_V65S = 'Y' AND _CRIT_HI = 'Y' AND _POSTFL = 'Y' AND R2BASE IS NOT NULL AND R2BASE >= 4.6))
+      then: '''Y'''
+  submission:
+    core: Perm
+    mandatory: false
+    length: 1
+    origins:
+    - type: Derived
+    method: "Withheld from publication: the received define states this text."
+- name: CRIT6FL
+  type: str
+  label: 'Criterion 6 Evaluation Result Flag'
+  derivation:
+    case:
+    - when: _ISDTC IS NOT NULL AND (DTYPE IS NULL OR DTYPE <> 'DERIVED') AND PARAMCD IN ('V66IGGN', 'SARSCOV2') AND BASE IS NOT NULL AND BASE <> 0 AND _POSTFL = 'Y' AND ((_ELECSBL_U = 'NEGATIVE' AND PARAMCD = 'SARSCOV2' AND _ISSTRESC_U = 'POSITIVE') OR (_ELECSBL_U = 'POSITIVE' AND PARAMCD = 'V66IGGN' AND R2BASE IS NOT NULL AND R2BASE >= 4))
+      then: '''Y'''
+  submission:
+    core: Perm
+    mandatory: false
+    length: 1
+    origins:
+    - type: Derived
+    method: "Withheld from publication: the received define states this text."
+- name: CRIT5
+  type: str
+  label: 'Analysis Criterion 5'
+  derivation:
+    case:
+    - when: CRIT5FL = 'Y'
+      then: '''Seroresponse'''
+  submission:
+    core: Perm
+    mandatory: false
+    length: 100
+    origins:
+    - type: Derived
+    method: "Withheld from publication: the received define states this text."
+- name: CRIT6
+  type: str
+  label: 'Analysis Criterion 6'
+  derivation:
+    case:
+    - when: CRIT6FL = 'Y'
+      then: '''Seroconversion due to Infection'''
+  submission:
+    core: Perm
+    mandatory: false
+    length: 100
+    origins:
+    - type: Derived
+    method: "Withheld from publication: the received define states this text."
+- name: PPBABRFL
+  derivation:
+    case:
+    - when: PARCAT1 = 'Serum SARS-CoV-2 Binding Antibodies' AND AVISIT = 'Day 29' AND ADSL.PPBD29FL = 'Y'
+      then: '''Y'''
+    - when: PARCAT1 = 'Serum SARS-CoV-2 Binding Antibodies' AND AVISIT = 'Day 57' AND ADSL.PPBD57FL = 'Y'
+      then: '''Y'''
+    - when: PARCAT1 = 'Serum SARS-CoV-2 Binding Antibodies' AND AVISIT = 'Day 209' AND ADSL.PBD209FL = 'Y'
+      then: '''Y'''
+    - when: PARCAT1 = 'Serum SARS-CoV-2 Binding Antibodies' AND AVISIT = 'Baseline' AND ADSL.PPBABFL = 'Y'
+      then: '''Y'''
+    - when: PARCAT1 = 'Serum SARS-CoV-2 Binding Antibodies' AND AVISIT = 'Day 43'
+      then: ADIS_VO.PPBABRFL
+  submission:
+    method: "Withheld from publication: the received define states this text."
+- name: PPNABRFL
+  derivation:
+    case:
+    - when: PARCAT1 = 'Serum SARS-CoV-2 Neutralizing Antibodies' AND AVISIT = 'Day 29' AND ADSL.PPND29FL = 'Y'
+      then: '''Y'''
+    - when: PARCAT1 = 'Serum SARS-CoV-2 Neutralizing Antibodies' AND AVISIT = 'Day 57' AND ADSL.PPND57FL = 'Y'
+      then: '''Y'''
+    - when: PARCAT1 = 'Serum SARS-CoV-2 Neutralizing Antibodies' AND AVISIT = 'Day 209' AND ADSL.PND209FL = 'Y'
+      then: '''Y'''
+    - when: PARCAT1 = 'Serum SARS-CoV-2 Neutralizing Antibodies' AND AVISIT = 'Baseline' AND ADSL.PPNABFL = 'Y'
+      then: '''Y'''
+    - when: PARCAT1 = 'Serum SARS-CoV-2 Neutralizing Antibodies' AND AVISIT = 'Day 43'
+      then: ADIS_VO.PPNABRFL
+  submission:
+    method: "Withheld from publication: the received define states this text."
+- name: PPBABRER
+  derivation:
+    case:
+    - when: PARCAT1 = 'Serum SARS-CoV-2 Binding Antibodies' AND AVISIT = 'Day 29'
+      then: ADSL.PPBD29ER
+    - when: PARCAT1 = 'Serum SARS-CoV-2 Binding Antibodies' AND AVISIT = 'Day 57'
+      then: ADSL.PPBD57ER
+    - when: PARCAT1 = 'Serum SARS-CoV-2 Binding Antibodies' AND AVISIT = 'Day 209'
+      then: ADSL.PBD209ER
+    - when: PARCAT1 = 'Serum SARS-CoV-2 Binding Antibodies' AND (AVISIT = 'Day 15' OR AVISIT IS NULL OR AVISIT IN ('')) AND str_contains(_PPBABERS_U, 'DOSING ER')
+      then: '''Dosing error'''
+    - when: PARCAT1 = 'Serum SARS-CoV-2 Binding Antibodies' AND AVISIT = 'Day 43'
+      then: ADIS_VO.PPBABRER
+    - when: PARCAT1 = 'Serum SARS-CoV-2 Binding Antibodies' AND AVISIT = 'Baseline'
+      then: ADIS_VO.PPBABRER
+  submission:
+    method: "Withheld from publication: the received define states this text."
+- name: PPNABRER
+  derivation:
+    case:
+    - when: PARCAT1 = 'Serum SARS-CoV-2 Neutralizing Antibodies' AND AVISIT = 'Day 29'
+      then: ADSL.PPND29ER
+    - when: PARCAT1 = 'Serum SARS-CoV-2 Neutralizing Antibodies' AND AVISIT = 'Day 57'
+      then: ADSL.PPND57ER
+    - when: PARCAT1 = 'Serum SARS-CoV-2 Neutralizing Antibodies' AND AVISIT = 'Day 209'
+      then: ADSL.PND209ER
+    - when: PARCAT1 = 'Serum SARS-CoV-2 Neutralizing Antibodies' AND (AVISIT = 'Day 15' OR AVISIT IS NULL OR AVISIT IN ('')) AND str_contains(_PPNABERS_U, 'DOSING ER')
+      then: '''Dosing error'''
+    - when: PARCAT1 = 'Serum SARS-CoV-2 Neutralizing Antibodies' AND AVISIT = 'Day 43'
+      then: ADIS_VO.PPNABRER
+    - when: PARCAT1 = 'Serum SARS-CoV-2 Neutralizing Antibodies' AND AVISIT = 'Baseline'
+      then: ADIS_VO.PPNABRER
+  submission:
+    method: "Withheld from publication: the received define states this text."
+- name: PPNA2RFL
+  derivation:
+    case:
+    - when: PARCAT1 = 'Serum SARS-CoV-2 Neutralizing Antibodies' AND AVISIT = 'Day 29' AND ADSL.PN2D29FL = 'Y'
+      then: '''Y'''
+    - when: PARCAT1 = 'Serum SARS-CoV-2 Neutralizing Antibodies' AND AVISIT = 'Day 57' AND ADSL.PN2D57FL = 'Y'
+      then: '''Y'''
+    - when: PARCAT1 = 'Serum SARS-CoV-2 Neutralizing Antibodies' AND AVISIT = 'Day 209' AND ADSL.PN2209FL = 'Y'
+      then: '''Y'''
+    - when: PARCAT1 = 'Serum SARS-CoV-2 Neutralizing Antibodies' AND AVISIT = 'Baseline' AND ADSL.PPNAB2FL = 'Y'
+      then: '''Y'''
+    - when: PARCAT1 = 'Serum SARS-CoV-2 Neutralizing Antibodies' AND AVISIT = 'Day 43'
+      then: ADIS_VO.PPNA2RFL
+  submission:
+    method: "Withheld from publication: the received define states this text."

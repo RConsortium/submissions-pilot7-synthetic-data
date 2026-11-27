@@ -1,0 +1,2210 @@
+# ADARSUM for Moderna mRNA-1273-P301, cut S3 (BLA Interim Analysis,
+# cutoff 2021-03-26). Parent: ../../../spec/yamaa/base/adam-base-s3.yaml (which
+# chains to ../../../spec/yamaa/base/adam-base.yaml; 86 shared + 59 S3-only ADSL
+# columns). Derivations implement the S3 A30ADAR program: 28 grouped
+# row templates over ADAR (11 symptom DURs, ANY/LOC/SYS, 11 symptom
+# W picks, WSAR/WSLAR/WSSAR) plus 2 supplementary templates for the
+# 4 dev2-only keys (1 SWELLDUR key from FAAE, 3 FEVERDUR keys from
+# VS). DUR AVAL is the distinct-timepoint count with ATOXGRN>0 over
+# ADAR (DAY 1-7) plus the dev2 sources (FAAE/VS DAY 8+, ADARP7D with
+# ANL06FL='Y' and ATPTN>=8 for ANY/LOC/SYS); the dev1/dev2 sets are
+# disjoint except FEVERDUR, where the FAAE and VS fever sets share 2
+# timepoints, subtracted exactly via the FAF x VSF pair relation.
+# W rows carry MAX(ATOXGRN) and the STR_JOIN worst AVALC pick; AVAL
+# is null on all W rows and AVALC is '' on WSAR/WSLAR/WSSAR (ARDUR2).
+# ANL01FL/ANL02FL are MIN(ATPTGR1N) aggregates over ADARP7D. The
+# DOSE2FL filter drops 0 rows on S3 data (prototype-verified) and is
+# kept for fidelity. Where the SAS code and the define.xml method
+# text disagree, the code is followed (see the generator header). No
+# honest gaps: the pandas prototype reproduced the submitted data
+# exactly (0 mismatched cells) on all 1,068,202 rows. SAP v1 vs v3
+# CLOSED as no-impact (2026-11-24); no S27-sequence file is read.
+yamaa: '1.0'
+type: spec
+model: ADaM
+parent: ../../../spec/yamaa/base/adam-base-s3.yaml
+domain: ADARSUM
+keys:
+- STUDYID
+- USUBJID
+- ATPTREF
+- PARAMCD
+input:
+  ADAR:
+    path: <adam-dir>/adar.parquet
+    key:
+    - STUDYID
+    - USUBJID
+  ADARP7D:
+    path: <adam-dir>/adarp7d.parquet
+    key:
+    - STUDYID
+    - USUBJID
+  FAAE: <sdtm-dir>/faae.parquet
+  VS: <sdtm-dir>/vs.parquet
+  ADSL:
+    path: <adam-dir>/adsl.parquet
+    key:
+    - STUDYID
+    - USUBJID
+submission:
+  label: Solicited AR Summary Analysis Dataset
+  class: BASIC DATA STRUCTURE
+  structure: One record per subject, per parameter, per analysis timepoint
+  repeating: true
+rows:
+- id: dur_lymph
+  dataset: ADAR
+  group_by: [ADAR.STUDYID, ADAR.USUBJID, ADAR.ATPTREF, ADAR.PARAMCD]
+  derivations:
+    STUDYID: ADAR.STUDYID
+    USUBJID: ADAR.USUBJID
+    ATPTREF: ADAR.ATPTREF
+    PARAMCD: '''LYMPHDUR'''
+    _PCD: ADAR.PARAMCD
+    _D: ADSL.DOSE2FL
+    _ADSL: ADSL.USUBJID
+    _C1:
+      aggregate:
+        filter: ADAR.ATOXGRN > 0
+        expr: COUNT(ADAR.ATPTGR1)
+        distinct: true
+    _MAXGR: null
+    _JOIN: null
+    _ADAR_HIT: null
+    _C2F_R: null
+    _C2V_R: null
+  filter: _PCD = 'LYMPH' AND _C1 IS NOT NULL AND _ADSL IS NOT NULL AND NOT ((_D IS NOT NULL AND _D = 'N') AND ATPTREF = 'Vaccination 2')
+- id: dur_pain
+  dataset: ADAR
+  group_by: [ADAR.STUDYID, ADAR.USUBJID, ADAR.ATPTREF, ADAR.PARAMCD]
+  derivations:
+    STUDYID: ADAR.STUDYID
+    USUBJID: ADAR.USUBJID
+    ATPTREF: ADAR.ATPTREF
+    PARAMCD: '''PAINDUR'''
+    _PCD: ADAR.PARAMCD
+    _D: ADSL.DOSE2FL
+    _ADSL: ADSL.USUBJID
+    _C1:
+      aggregate:
+        filter: ADAR.ATOXGRN > 0
+        expr: COUNT(ADAR.ATPTGR1)
+        distinct: true
+    _MAXGR: null
+    _JOIN: null
+    _ADAR_HIT: null
+    _C2F_R: null
+    _C2V_R: null
+  filter: _PCD = 'PAIN' AND _C1 IS NOT NULL AND _ADSL IS NOT NULL AND NOT ((_D IS NOT NULL AND _D = 'N') AND ATPTREF = 'Vaccination 2')
+- id: dur_erythdia
+  dataset: ADAR
+  group_by: [ADAR.STUDYID, ADAR.USUBJID, ADAR.ATPTREF, ADAR.PARAMCD]
+  derivations:
+    STUDYID: ADAR.STUDYID
+    USUBJID: ADAR.USUBJID
+    ATPTREF: ADAR.ATPTREF
+    PARAMCD: '''ERYTHDUR'''
+    _PCD: ADAR.PARAMCD
+    _D: ADSL.DOSE2FL
+    _ADSL: ADSL.USUBJID
+    _C1:
+      aggregate:
+        filter: ADAR.ATOXGRN > 0
+        expr: COUNT(ADAR.ATPTGR1)
+        distinct: true
+    _MAXGR: null
+    _JOIN: null
+    _ADAR_HIT: null
+    _C2F_R: null
+    _C2V_R: null
+  filter: _PCD = 'ERYTHDIA' AND _C1 IS NOT NULL AND _ADSL IS NOT NULL AND NOT ((_D IS NOT NULL AND _D = 'N') AND ATPTREF = 'Vaccination 2')
+- id: dur_swelldia
+  dataset: ADAR
+  group_by: [ADAR.STUDYID, ADAR.USUBJID, ADAR.ATPTREF, ADAR.PARAMCD]
+  derivations:
+    STUDYID: ADAR.STUDYID
+    USUBJID: ADAR.USUBJID
+    ATPTREF: ADAR.ATPTREF
+    PARAMCD: '''SWELLDUR'''
+    _PCD: ADAR.PARAMCD
+    _D: ADSL.DOSE2FL
+    _ADSL: ADSL.USUBJID
+    _C1:
+      aggregate:
+        filter: ADAR.ATOXGRN > 0
+        expr: COUNT(ADAR.ATPTGR1)
+        distinct: true
+    _MAXGR: null
+    _JOIN: null
+    _ADAR_HIT: null
+    _C2F_R: null
+    _C2V_R: null
+  filter: _PCD = 'SWELLDIA' AND _C1 IS NOT NULL AND _ADSL IS NOT NULL AND NOT ((_D IS NOT NULL AND _D = 'N') AND ATPTREF = 'Vaccination 2')
+- id: dur_headache
+  dataset: ADAR
+  group_by: [ADAR.STUDYID, ADAR.USUBJID, ADAR.ATPTREF, ADAR.PARAMCD]
+  derivations:
+    STUDYID: ADAR.STUDYID
+    USUBJID: ADAR.USUBJID
+    ATPTREF: ADAR.ATPTREF
+    PARAMCD: '''HEADADUR'''
+    _PCD: ADAR.PARAMCD
+    _D: ADSL.DOSE2FL
+    _ADSL: ADSL.USUBJID
+    _C1:
+      aggregate:
+        filter: ADAR.ATOXGRN > 0
+        expr: COUNT(ADAR.ATPTGR1)
+        distinct: true
+    _MAXGR: null
+    _JOIN: null
+    _ADAR_HIT: null
+    _C2F_R: null
+    _C2V_R: null
+  filter: _PCD = 'HEADACHE' AND _C1 IS NOT NULL AND _ADSL IS NOT NULL AND NOT ((_D IS NOT NULL AND _D = 'N') AND ATPTREF = 'Vaccination 2')
+- id: dur_fatigue
+  dataset: ADAR
+  group_by: [ADAR.STUDYID, ADAR.USUBJID, ADAR.ATPTREF, ADAR.PARAMCD]
+  derivations:
+    STUDYID: ADAR.STUDYID
+    USUBJID: ADAR.USUBJID
+    ATPTREF: ADAR.ATPTREF
+    PARAMCD: '''FATIGDUR'''
+    _PCD: ADAR.PARAMCD
+    _D: ADSL.DOSE2FL
+    _ADSL: ADSL.USUBJID
+    _C1:
+      aggregate:
+        filter: ADAR.ATOXGRN > 0
+        expr: COUNT(ADAR.ATPTGR1)
+        distinct: true
+    _MAXGR: null
+    _JOIN: null
+    _ADAR_HIT: null
+    _C2F_R: null
+    _C2V_R: null
+  filter: _PCD = 'FATIGUE' AND _C1 IS NOT NULL AND _ADSL IS NOT NULL AND NOT ((_D IS NOT NULL AND _D = 'N') AND ATPTREF = 'Vaccination 2')
+- id: dur_myalgia
+  dataset: ADAR
+  group_by: [ADAR.STUDYID, ADAR.USUBJID, ADAR.ATPTREF, ADAR.PARAMCD]
+  derivations:
+    STUDYID: ADAR.STUDYID
+    USUBJID: ADAR.USUBJID
+    ATPTREF: ADAR.ATPTREF
+    PARAMCD: '''MYALGDUR'''
+    _PCD: ADAR.PARAMCD
+    _D: ADSL.DOSE2FL
+    _ADSL: ADSL.USUBJID
+    _C1:
+      aggregate:
+        filter: ADAR.ATOXGRN > 0
+        expr: COUNT(ADAR.ATPTGR1)
+        distinct: true
+    _MAXGR: null
+    _JOIN: null
+    _ADAR_HIT: null
+    _C2F_R: null
+    _C2V_R: null
+  filter: _PCD = 'MYALGIA' AND _C1 IS NOT NULL AND _ADSL IS NOT NULL AND NOT ((_D IS NOT NULL AND _D = 'N') AND ATPTREF = 'Vaccination 2')
+- id: dur_arthralg
+  dataset: ADAR
+  group_by: [ADAR.STUDYID, ADAR.USUBJID, ADAR.ATPTREF, ADAR.PARAMCD]
+  derivations:
+    STUDYID: ADAR.STUDYID
+    USUBJID: ADAR.USUBJID
+    ATPTREF: ADAR.ATPTREF
+    PARAMCD: '''ARTHRDUR'''
+    _PCD: ADAR.PARAMCD
+    _D: ADSL.DOSE2FL
+    _ADSL: ADSL.USUBJID
+    _C1:
+      aggregate:
+        filter: ADAR.ATOXGRN > 0
+        expr: COUNT(ADAR.ATPTGR1)
+        distinct: true
+    _MAXGR: null
+    _JOIN: null
+    _ADAR_HIT: null
+    _C2F_R: null
+    _C2V_R: null
+  filter: _PCD = 'ARTHRALG' AND _C1 IS NOT NULL AND _ADSL IS NOT NULL AND NOT ((_D IS NOT NULL AND _D = 'N') AND ATPTREF = 'Vaccination 2')
+- id: dur_nausea
+  dataset: ADAR
+  group_by: [ADAR.STUDYID, ADAR.USUBJID, ADAR.ATPTREF, ADAR.PARAMCD]
+  derivations:
+    STUDYID: ADAR.STUDYID
+    USUBJID: ADAR.USUBJID
+    ATPTREF: ADAR.ATPTREF
+    PARAMCD: '''NAUSEDUR'''
+    _PCD: ADAR.PARAMCD
+    _D: ADSL.DOSE2FL
+    _ADSL: ADSL.USUBJID
+    _C1:
+      aggregate:
+        filter: ADAR.ATOXGRN > 0
+        expr: COUNT(ADAR.ATPTGR1)
+        distinct: true
+    _MAXGR: null
+    _JOIN: null
+    _ADAR_HIT: null
+    _C2F_R: null
+    _C2V_R: null
+  filter: _PCD = 'NAUSEA' AND _C1 IS NOT NULL AND _ADSL IS NOT NULL AND NOT ((_D IS NOT NULL AND _D = 'N') AND ATPTREF = 'Vaccination 2')
+- id: dur_chills
+  dataset: ADAR
+  group_by: [ADAR.STUDYID, ADAR.USUBJID, ADAR.ATPTREF, ADAR.PARAMCD]
+  derivations:
+    STUDYID: ADAR.STUDYID
+    USUBJID: ADAR.USUBJID
+    ATPTREF: ADAR.ATPTREF
+    PARAMCD: '''CHILLDUR'''
+    _PCD: ADAR.PARAMCD
+    _D: ADSL.DOSE2FL
+    _ADSL: ADSL.USUBJID
+    _C1:
+      aggregate:
+        filter: ADAR.ATOXGRN > 0
+        expr: COUNT(ADAR.ATPTGR1)
+        distinct: true
+    _MAXGR: null
+    _JOIN: null
+    _ADAR_HIT: null
+    _C2F_R: null
+    _C2V_R: null
+  filter: _PCD = 'CHILLS' AND _C1 IS NOT NULL AND _ADSL IS NOT NULL AND NOT ((_D IS NOT NULL AND _D = 'N') AND ATPTREF = 'Vaccination 2')
+- id: dur_fever
+  dataset: ADAR
+  group_by: [ADAR.STUDYID, ADAR.USUBJID, ADAR.ATPTREF, ADAR.PARAMCD]
+  derivations:
+    STUDYID: ADAR.STUDYID
+    USUBJID: ADAR.USUBJID
+    ATPTREF: ADAR.ATPTREF
+    PARAMCD: '''FEVERDUR'''
+    _PCD: ADAR.PARAMCD
+    _D: ADSL.DOSE2FL
+    _ADSL: ADSL.USUBJID
+    _C1:
+      aggregate:
+        filter: ADAR.ATOXGRN > 0
+        expr: COUNT(ADAR.ATPTGR1)
+        distinct: true
+    _MAXGR: null
+    _JOIN: null
+    _ADAR_HIT: null
+    _C2F_R: null
+    _C2V_R: null
+  filter: _PCD = 'FEVER' AND _C1 IS NOT NULL AND _ADSL IS NOT NULL AND NOT ((_D IS NOT NULL AND _D = 'N') AND ATPTREF = 'Vaccination 2')
+- id: dur_anydur
+  dataset: ADAR
+  group_by: [ADAR.STUDYID, ADAR.USUBJID, ADAR.ATPTREF]
+  derivations:
+    STUDYID: ADAR.STUDYID
+    USUBJID: ADAR.USUBJID
+    ATPTREF: ADAR.ATPTREF
+    PARAMCD: '''ANYDUR'''
+    _PCD: '''ANYDUR'''
+    _D: ADSL.DOSE2FL
+    _ADSL: ADSL.USUBJID
+    _C1:
+      aggregate:
+        filter: ADAR.ATOXGRN > 0
+        expr: COUNT(ADAR.ATPTGR1)
+        distinct: true
+    _MAXGR: null
+    _JOIN: null
+    _ADAR_HIT: null
+    _C2F_R: null
+    _C2V_R: null
+  filter: _C1 IS NOT NULL AND _ADSL IS NOT NULL AND NOT ((_D IS NOT NULL AND _D = 'N') AND ATPTREF = 'Vaccination 2')
+- id: dur_locdur
+  dataset: ADAR
+  group_by: [ADAR.STUDYID, ADAR.USUBJID, ADAR.ATPTREF]
+  derivations:
+    STUDYID: ADAR.STUDYID
+    USUBJID: ADAR.USUBJID
+    ATPTREF: ADAR.ATPTREF
+    PARAMCD: '''LOCDUR'''
+    _PCD: '''LOCDUR'''
+    _D: ADSL.DOSE2FL
+    _ADSL: ADSL.USUBJID
+    _C1:
+      aggregate:
+        filter: ADAR.ATOXGRN > 0 AND ADAR.PARCAT1 = 'LOCAL'
+        expr: COUNT(ADAR.ATPTGR1)
+        distinct: true
+    _MAXGR: null
+    _JOIN: null
+    _ADAR_HIT: null
+    _C2F_R: null
+    _C2V_R: null
+  filter: _C1 IS NOT NULL AND _ADSL IS NOT NULL AND NOT ((_D IS NOT NULL AND _D = 'N') AND ATPTREF = 'Vaccination 2')
+- id: dur_sysdur
+  dataset: ADAR
+  group_by: [ADAR.STUDYID, ADAR.USUBJID, ADAR.ATPTREF]
+  derivations:
+    STUDYID: ADAR.STUDYID
+    USUBJID: ADAR.USUBJID
+    ATPTREF: ADAR.ATPTREF
+    PARAMCD: '''SYSDUR'''
+    _PCD: '''SYSDUR'''
+    _D: ADSL.DOSE2FL
+    _ADSL: ADSL.USUBJID
+    _C1:
+      aggregate:
+        filter: ADAR.ATOXGRN > 0 AND ADAR.PARCAT1 = 'SYSTEMIC'
+        expr: COUNT(ADAR.ATPTGR1)
+        distinct: true
+    _MAXGR: null
+    _JOIN: null
+    _ADAR_HIT: null
+    _C2F_R: null
+    _C2V_R: null
+  filter: _C1 IS NOT NULL AND _ADSL IS NOT NULL AND NOT ((_D IS NOT NULL AND _D = 'N') AND ATPTREF = 'Vaccination 2')
+- id: w_lymph
+  dataset: ADAR
+  group_by: [ADAR.STUDYID, ADAR.USUBJID, ADAR.ATPTREF, ADAR.PARAMCD]
+  derivations:
+    STUDYID: ADAR.STUDYID
+    USUBJID: ADAR.USUBJID
+    ATPTREF: ADAR.ATPTREF
+    PARAMCD: '''WLYMPH'''
+    _PCD: ADAR.PARAMCD
+    _D: ADSL.DOSE2FL
+    _ADSL: ADSL.USUBJID
+    _C1: null
+    _MAXGR:
+      aggregate:
+        expr: MAX(ADAR.ATOXGRN)
+    _JOIN:
+      aggregate:
+        expr: STR_JOIN(ADAR.AVALC)
+        order_by:
+        - variable: ADAR.ATOXGRN
+          direction: desc
+        - variable: ADAR.AVAL
+          direction: desc
+        - variable: ADAR.AVALC
+          direction: desc
+        separator: '|'
+    _ADAR_HIT: null
+    _C2F_R: null
+    _C2V_R: null
+  filter: _PCD = 'LYMPH' AND _MAXGR IS NOT NULL AND _ADSL IS NOT NULL AND NOT ((_D IS NOT NULL AND _D = 'N') AND ATPTREF = 'Vaccination 2')
+- id: w_pain
+  dataset: ADAR
+  group_by: [ADAR.STUDYID, ADAR.USUBJID, ADAR.ATPTREF, ADAR.PARAMCD]
+  derivations:
+    STUDYID: ADAR.STUDYID
+    USUBJID: ADAR.USUBJID
+    ATPTREF: ADAR.ATPTREF
+    PARAMCD: '''WPAIN'''
+    _PCD: ADAR.PARAMCD
+    _D: ADSL.DOSE2FL
+    _ADSL: ADSL.USUBJID
+    _C1: null
+    _MAXGR:
+      aggregate:
+        expr: MAX(ADAR.ATOXGRN)
+    _JOIN:
+      aggregate:
+        expr: STR_JOIN(ADAR.AVALC)
+        order_by:
+        - variable: ADAR.ATOXGRN
+          direction: desc
+        - variable: ADAR.AVAL
+          direction: desc
+        - variable: ADAR.AVALC
+          direction: desc
+        separator: '|'
+    _ADAR_HIT: null
+    _C2F_R: null
+    _C2V_R: null
+  filter: _PCD = 'PAIN' AND _MAXGR IS NOT NULL AND _ADSL IS NOT NULL AND NOT ((_D IS NOT NULL AND _D = 'N') AND ATPTREF = 'Vaccination 2')
+- id: w_erythdia
+  dataset: ADAR
+  group_by: [ADAR.STUDYID, ADAR.USUBJID, ADAR.ATPTREF, ADAR.PARAMCD]
+  derivations:
+    STUDYID: ADAR.STUDYID
+    USUBJID: ADAR.USUBJID
+    ATPTREF: ADAR.ATPTREF
+    PARAMCD: '''WERYTH'''
+    _PCD: ADAR.PARAMCD
+    _D: ADSL.DOSE2FL
+    _ADSL: ADSL.USUBJID
+    _C1: null
+    _MAXGR:
+      aggregate:
+        expr: MAX(ADAR.ATOXGRN)
+    _JOIN:
+      aggregate:
+        expr: STR_JOIN(ADAR.AVALC)
+        order_by:
+        - variable: ADAR.ATOXGRN
+          direction: desc
+        - variable: ADAR.AVAL
+          direction: desc
+        - variable: ADAR.AVALC
+          direction: desc
+        separator: '|'
+    _ADAR_HIT: null
+    _C2F_R: null
+    _C2V_R: null
+  filter: _PCD = 'ERYTHDIA' AND _MAXGR IS NOT NULL AND _ADSL IS NOT NULL AND NOT ((_D IS NOT NULL AND _D = 'N') AND ATPTREF = 'Vaccination 2')
+- id: w_swelldia
+  dataset: ADAR
+  group_by: [ADAR.STUDYID, ADAR.USUBJID, ADAR.ATPTREF, ADAR.PARAMCD]
+  derivations:
+    STUDYID: ADAR.STUDYID
+    USUBJID: ADAR.USUBJID
+    ATPTREF: ADAR.ATPTREF
+    PARAMCD: '''WSWELL'''
+    _PCD: ADAR.PARAMCD
+    _D: ADSL.DOSE2FL
+    _ADSL: ADSL.USUBJID
+    _C1: null
+    _MAXGR:
+      aggregate:
+        expr: MAX(ADAR.ATOXGRN)
+    _JOIN:
+      aggregate:
+        expr: STR_JOIN(ADAR.AVALC)
+        order_by:
+        - variable: ADAR.ATOXGRN
+          direction: desc
+        - variable: ADAR.AVAL
+          direction: desc
+        - variable: ADAR.AVALC
+          direction: desc
+        separator: '|'
+    _ADAR_HIT: null
+    _C2F_R: null
+    _C2V_R: null
+  filter: _PCD = 'SWELLDIA' AND _MAXGR IS NOT NULL AND _ADSL IS NOT NULL AND NOT ((_D IS NOT NULL AND _D = 'N') AND ATPTREF = 'Vaccination 2')
+- id: w_headache
+  dataset: ADAR
+  group_by: [ADAR.STUDYID, ADAR.USUBJID, ADAR.ATPTREF, ADAR.PARAMCD]
+  derivations:
+    STUDYID: ADAR.STUDYID
+    USUBJID: ADAR.USUBJID
+    ATPTREF: ADAR.ATPTREF
+    PARAMCD: '''WHEAD'''
+    _PCD: ADAR.PARAMCD
+    _D: ADSL.DOSE2FL
+    _ADSL: ADSL.USUBJID
+    _C1: null
+    _MAXGR:
+      aggregate:
+        expr: MAX(ADAR.ATOXGRN)
+    _JOIN:
+      aggregate:
+        expr: STR_JOIN(ADAR.AVALC)
+        order_by:
+        - variable: ADAR.ATOXGRN
+          direction: desc
+        - variable: ADAR.AVAL
+          direction: desc
+        - variable: ADAR.AVALC
+          direction: desc
+        separator: '|'
+    _ADAR_HIT: null
+    _C2F_R: null
+    _C2V_R: null
+  filter: _PCD = 'HEADACHE' AND _MAXGR IS NOT NULL AND _ADSL IS NOT NULL AND NOT ((_D IS NOT NULL AND _D = 'N') AND ATPTREF = 'Vaccination 2')
+- id: w_fatigue
+  dataset: ADAR
+  group_by: [ADAR.STUDYID, ADAR.USUBJID, ADAR.ATPTREF, ADAR.PARAMCD]
+  derivations:
+    STUDYID: ADAR.STUDYID
+    USUBJID: ADAR.USUBJID
+    ATPTREF: ADAR.ATPTREF
+    PARAMCD: '''WFATIGUE'''
+    _PCD: ADAR.PARAMCD
+    _D: ADSL.DOSE2FL
+    _ADSL: ADSL.USUBJID
+    _C1: null
+    _MAXGR:
+      aggregate:
+        expr: MAX(ADAR.ATOXGRN)
+    _JOIN:
+      aggregate:
+        expr: STR_JOIN(ADAR.AVALC)
+        order_by:
+        - variable: ADAR.ATOXGRN
+          direction: desc
+        - variable: ADAR.AVAL
+          direction: desc
+        - variable: ADAR.AVALC
+          direction: desc
+        separator: '|'
+    _ADAR_HIT: null
+    _C2F_R: null
+    _C2V_R: null
+  filter: _PCD = 'FATIGUE' AND _MAXGR IS NOT NULL AND _ADSL IS NOT NULL AND NOT ((_D IS NOT NULL AND _D = 'N') AND ATPTREF = 'Vaccination 2')
+- id: w_myalgia
+  dataset: ADAR
+  group_by: [ADAR.STUDYID, ADAR.USUBJID, ADAR.ATPTREF, ADAR.PARAMCD]
+  derivations:
+    STUDYID: ADAR.STUDYID
+    USUBJID: ADAR.USUBJID
+    ATPTREF: ADAR.ATPTREF
+    PARAMCD: '''WMYALGIA'''
+    _PCD: ADAR.PARAMCD
+    _D: ADSL.DOSE2FL
+    _ADSL: ADSL.USUBJID
+    _C1: null
+    _MAXGR:
+      aggregate:
+        expr: MAX(ADAR.ATOXGRN)
+    _JOIN:
+      aggregate:
+        expr: STR_JOIN(ADAR.AVALC)
+        order_by:
+        - variable: ADAR.ATOXGRN
+          direction: desc
+        - variable: ADAR.AVAL
+          direction: desc
+        - variable: ADAR.AVALC
+          direction: desc
+        separator: '|'
+    _ADAR_HIT: null
+    _C2F_R: null
+    _C2V_R: null
+  filter: _PCD = 'MYALGIA' AND _MAXGR IS NOT NULL AND _ADSL IS NOT NULL AND NOT ((_D IS NOT NULL AND _D = 'N') AND ATPTREF = 'Vaccination 2')
+- id: w_arthralg
+  dataset: ADAR
+  group_by: [ADAR.STUDYID, ADAR.USUBJID, ADAR.ATPTREF, ADAR.PARAMCD]
+  derivations:
+    STUDYID: ADAR.STUDYID
+    USUBJID: ADAR.USUBJID
+    ATPTREF: ADAR.ATPTREF
+    PARAMCD: '''WARTHR'''
+    _PCD: ADAR.PARAMCD
+    _D: ADSL.DOSE2FL
+    _ADSL: ADSL.USUBJID
+    _C1: null
+    _MAXGR:
+      aggregate:
+        expr: MAX(ADAR.ATOXGRN)
+    _JOIN:
+      aggregate:
+        expr: STR_JOIN(ADAR.AVALC)
+        order_by:
+        - variable: ADAR.ATOXGRN
+          direction: desc
+        - variable: ADAR.AVAL
+          direction: desc
+        - variable: ADAR.AVALC
+          direction: desc
+        separator: '|'
+    _ADAR_HIT: null
+    _C2F_R: null
+    _C2V_R: null
+  filter: _PCD = 'ARTHRALG' AND _MAXGR IS NOT NULL AND _ADSL IS NOT NULL AND NOT ((_D IS NOT NULL AND _D = 'N') AND ATPTREF = 'Vaccination 2')
+- id: w_nausea
+  dataset: ADAR
+  group_by: [ADAR.STUDYID, ADAR.USUBJID, ADAR.ATPTREF, ADAR.PARAMCD]
+  derivations:
+    STUDYID: ADAR.STUDYID
+    USUBJID: ADAR.USUBJID
+    ATPTREF: ADAR.ATPTREF
+    PARAMCD: '''WNAUSEA'''
+    _PCD: ADAR.PARAMCD
+    _D: ADSL.DOSE2FL
+    _ADSL: ADSL.USUBJID
+    _C1: null
+    _MAXGR:
+      aggregate:
+        expr: MAX(ADAR.ATOXGRN)
+    _JOIN:
+      aggregate:
+        expr: STR_JOIN(ADAR.AVALC)
+        order_by:
+        - variable: ADAR.ATOXGRN
+          direction: desc
+        - variable: ADAR.AVAL
+          direction: desc
+        - variable: ADAR.AVALC
+          direction: desc
+        separator: '|'
+    _ADAR_HIT: null
+    _C2F_R: null
+    _C2V_R: null
+  filter: _PCD = 'NAUSEA' AND _MAXGR IS NOT NULL AND _ADSL IS NOT NULL AND NOT ((_D IS NOT NULL AND _D = 'N') AND ATPTREF = 'Vaccination 2')
+- id: w_chills
+  dataset: ADAR
+  group_by: [ADAR.STUDYID, ADAR.USUBJID, ADAR.ATPTREF, ADAR.PARAMCD]
+  derivations:
+    STUDYID: ADAR.STUDYID
+    USUBJID: ADAR.USUBJID
+    ATPTREF: ADAR.ATPTREF
+    PARAMCD: '''WCHILLS'''
+    _PCD: ADAR.PARAMCD
+    _D: ADSL.DOSE2FL
+    _ADSL: ADSL.USUBJID
+    _C1: null
+    _MAXGR:
+      aggregate:
+        expr: MAX(ADAR.ATOXGRN)
+    _JOIN:
+      aggregate:
+        expr: STR_JOIN(ADAR.AVALC)
+        order_by:
+        - variable: ADAR.ATOXGRN
+          direction: desc
+        - variable: ADAR.AVAL
+          direction: desc
+        - variable: ADAR.AVALC
+          direction: desc
+        separator: '|'
+    _ADAR_HIT: null
+    _C2F_R: null
+    _C2V_R: null
+  filter: _PCD = 'CHILLS' AND _MAXGR IS NOT NULL AND _ADSL IS NOT NULL AND NOT ((_D IS NOT NULL AND _D = 'N') AND ATPTREF = 'Vaccination 2')
+- id: w_fever
+  dataset: ADAR
+  group_by: [ADAR.STUDYID, ADAR.USUBJID, ADAR.ATPTREF, ADAR.PARAMCD]
+  derivations:
+    STUDYID: ADAR.STUDYID
+    USUBJID: ADAR.USUBJID
+    ATPTREF: ADAR.ATPTREF
+    PARAMCD: '''WFEVER'''
+    _PCD: ADAR.PARAMCD
+    _D: ADSL.DOSE2FL
+    _ADSL: ADSL.USUBJID
+    _C1: null
+    _MAXGR:
+      aggregate:
+        expr: MAX(ADAR.ATOXGRN)
+    _JOIN:
+      aggregate:
+        expr: STR_JOIN(ADAR.AVALC)
+        order_by:
+        - variable: ADAR.ATOXGRN
+          direction: desc
+        - variable: ADAR.AVAL
+          direction: desc
+        - variable: ADAR.AVALC
+          direction: desc
+        separator: '|'
+    _ADAR_HIT: null
+    _C2F_R: null
+    _C2V_R: null
+  filter: _PCD = 'FEVER' AND _MAXGR IS NOT NULL AND _ADSL IS NOT NULL AND NOT ((_D IS NOT NULL AND _D = 'N') AND ATPTREF = 'Vaccination 2')
+- id: w_wsar
+  dataset: ADAR
+  group_by: [ADAR.STUDYID, ADAR.USUBJID, ADAR.ATPTREF]
+  derivations:
+    STUDYID: ADAR.STUDYID
+    USUBJID: ADAR.USUBJID
+    ATPTREF: ADAR.ATPTREF
+    PARAMCD: '''WSAR'''
+    _PCD: '''WSAR'''
+    _D: ADSL.DOSE2FL
+    _ADSL: ADSL.USUBJID
+    _C1: null
+    _MAXGR:
+      aggregate:
+        expr: MAX(ADAR.ATOXGRN)
+    _JOIN:
+      aggregate:
+        expr: STR_JOIN(ADAR.AVALC)
+        order_by:
+        - variable: ADAR.ATOXGRN
+          direction: desc
+        - variable: ADAR.AVAL
+          direction: desc
+        - variable: ADAR.AVALC
+          direction: desc
+        separator: '|'
+    _ADAR_HIT: null
+    _C2F_R: null
+    _C2V_R: null
+  filter: _MAXGR IS NOT NULL AND _ADSL IS NOT NULL AND NOT ((_D IS NOT NULL AND _D = 'N') AND ATPTREF = 'Vaccination 2')
+- id: w_wslar
+  dataset: ADAR
+  group_by: [ADAR.STUDYID, ADAR.USUBJID, ADAR.ATPTREF]
+  derivations:
+    STUDYID: ADAR.STUDYID
+    USUBJID: ADAR.USUBJID
+    ATPTREF: ADAR.ATPTREF
+    PARAMCD: '''WSLAR'''
+    _PCD: '''WSLAR'''
+    _D: ADSL.DOSE2FL
+    _ADSL: ADSL.USUBJID
+    _C1: null
+    _MAXGR:
+      aggregate:
+        filter: ADAR.PARCAT1 = 'LOCAL'
+        expr: MAX(ADAR.ATOXGRN)
+    _JOIN:
+      aggregate:
+        filter: ADAR.PARCAT1 = 'LOCAL'
+        expr: STR_JOIN(ADAR.AVALC)
+        order_by:
+        - variable: ADAR.ATOXGRN
+          direction: desc
+        - variable: ADAR.AVAL
+          direction: desc
+        - variable: ADAR.AVALC
+          direction: desc
+        separator: '|'
+    _ADAR_HIT: null
+    _C2F_R: null
+    _C2V_R: null
+  filter: _MAXGR IS NOT NULL AND _ADSL IS NOT NULL AND NOT ((_D IS NOT NULL AND _D = 'N') AND ATPTREF = 'Vaccination 2')
+- id: w_wssar
+  dataset: ADAR
+  group_by: [ADAR.STUDYID, ADAR.USUBJID, ADAR.ATPTREF]
+  derivations:
+    STUDYID: ADAR.STUDYID
+    USUBJID: ADAR.USUBJID
+    ATPTREF: ADAR.ATPTREF
+    PARAMCD: '''WSSAR'''
+    _PCD: '''WSSAR'''
+    _D: ADSL.DOSE2FL
+    _ADSL: ADSL.USUBJID
+    _C1: null
+    _MAXGR:
+      aggregate:
+        filter: ADAR.PARCAT1 = 'SYSTEMIC'
+        expr: MAX(ADAR.ATOXGRN)
+    _JOIN:
+      aggregate:
+        filter: ADAR.PARCAT1 = 'SYSTEMIC'
+        expr: STR_JOIN(ADAR.AVALC)
+        order_by:
+        - variable: ADAR.ATOXGRN
+          direction: desc
+        - variable: ADAR.AVAL
+          direction: desc
+        - variable: ADAR.AVALC
+          direction: desc
+        separator: '|'
+    _ADAR_HIT: null
+    _C2F_R: null
+    _C2V_R: null
+  filter: _MAXGR IS NOT NULL AND _ADSL IS NOT NULL AND NOT ((_D IS NOT NULL AND _D = 'N') AND ATPTREF = 'Vaccination 2')
+- id: supp_swelldur
+  dataset: FAAE_F
+  group_by: [FAAE_F._STUDY, FAAE_F._USUBJID, FAAE_F._REF]
+  derivations:
+    STUDYID: FAAE_F._STUDY
+    USUBJID: FAAE_F._USUBJID
+    ATPTREF: FAAE_F._REF
+    PARAMCD: '''SWELLDUR'''
+    _PCD: '''SWELLDIA'''
+    _D: null
+    _ADSL: null
+    _ADAR_HIT: ADAR_LK.USUBJID
+    _C1: null
+    _MAXGR: null
+    _JOIN: null
+    _C2F_R:
+      aggregate:
+        filter: FAAE_F._DUR = 'SWELLDUR'
+        expr: COUNT(FAAE_F._TP)
+        distinct: true
+    _C2V_R: null
+  filter: _C2F_R IS NOT NULL AND _ADAR_HIT IS NULL
+- id: supp_feverdur
+  dataset: VSF
+  group_by: [VSF._STUDY, VSF._USUBJID, VSF._REF]
+  derivations:
+    STUDYID: VSF._STUDY
+    USUBJID: VSF._USUBJID
+    ATPTREF: VSF._REF
+    PARAMCD: '''FEVERDUR'''
+    _PCD: '''FEVER'''
+    _D: null
+    _ADSL: null
+    _ADAR_HIT: ADAR_LK.USUBJID
+    _C1: null
+    _MAXGR: null
+    _JOIN: null
+    _C2F_R: null
+    _C2V_R:
+      aggregate:
+        filter: VSF._N >= 38
+        expr: COUNT(VSF._TP)
+        distinct: true
+  filter: _C2V_R IS NOT NULL AND _ADAR_HIT IS NULL
+intermediates:
+- id: FAAE_F
+  dataset: FAAE
+  columns: [_STUDY, _USUBJID, _REF, _TP, _DUR]
+  filter: FAAE.FATPTREF IS NOT NULL AND FAAE.FATPTREF NOT IN ('')
+  derivations:
+    _STUDY:
+      type: str
+      derivation: FAAE.STUDYID
+    _USUBJID:
+      type: str
+      derivation: FAAE.USUBJID
+    _REF:
+      type: str
+      derivation:
+        case:
+        - when: (FAAE.FATPTREF IS NOT NULL AND str_contains(FAAE.FATPTREF, 'DOSE 1'))
+          then: '''Vaccination 1'''
+        - otherwise: '''Vaccination 2'''
+    _TP:
+      type: str
+      derivation: FAAE.FATPT
+    _DUR:
+      type: str
+      derivation:
+        case:
+        - when: FAAE.FAOBJ = 'Underarm Gland Swelling or Tenderness' AND FAAE.FASTRESC IS NOT NULL AND FAAE.FASTRESC NOT IN ('NONE', '')
+          then: '''LYMPHDUR'''
+        - when: FAAE.FAOBJ = 'Pain' AND FAAE.FASTRESC IS NOT NULL AND FAAE.FASTRESC NOT IN ('NONE', '')
+          then: '''PAINDUR'''
+        - when: FAAE.FAOBJ = 'Headache' AND FAAE.FASTRESC IS NOT NULL AND FAAE.FASTRESC NOT IN ('NONE', '')
+          then: '''HEADADUR'''
+        - when: FAAE.FAOBJ = 'Fatigue' AND FAAE.FASTRESC IS NOT NULL AND FAAE.FASTRESC NOT IN ('NONE', '')
+          then: '''FATIGDUR'''
+        - when: FAAE.FAOBJ = 'Myalgia' AND FAAE.FASTRESC IS NOT NULL AND FAAE.FASTRESC NOT IN ('NONE', '')
+          then: '''MYALGDUR'''
+        - when: FAAE.FAOBJ = 'Arthralgia' AND FAAE.FASTRESC IS NOT NULL AND FAAE.FASTRESC NOT IN ('NONE', '')
+          then: '''ARTHRDUR'''
+        - when: FAAE.FAOBJ = 'Nausea/Vomiting' AND FAAE.FASTRESC IS NOT NULL AND FAAE.FASTRESC NOT IN ('NONE', '')
+          then: '''NAUSEDUR'''
+        - when: FAAE.FAOBJ = 'Chills' AND FAAE.FASTRESC IS NOT NULL AND FAAE.FASTRESC NOT IN ('NONE', '')
+          then: '''CHILLDUR'''
+        - when: FAAE.FAOBJ = 'Erythema' AND ((FAAE.FATEST = 'Longest Diameter' AND FAAE.FASTRESN >= 25) OR ((FAAE.FATEST IS NOT NULL AND str_contains(FAAE.FATEST, 'Intensity')) AND (FAAE.FASTRESC IS NOT NULL AND (str_contains(FAAE.FASTRESC, 'GRADE 1') OR str_contains(FAAE.FASTRESC, 'GRADE 2') OR str_contains(FAAE.FASTRESC, 'GRADE 3')))))
+          then: '''ERYTHDUR'''
+        - when: FAAE.FAOBJ = 'Swelling' AND ((FAAE.FATEST = 'Longest Diameter' AND FAAE.FASTRESN >= 25) OR ((FAAE.FATEST IS NOT NULL AND str_contains(FAAE.FATEST, 'Intensity')) AND (FAAE.FASTRESC IS NOT NULL AND (str_contains(FAAE.FASTRESC, 'GRADE 1') OR str_contains(FAAE.FASTRESC, 'GRADE 2') OR str_contains(FAAE.FASTRESC, 'GRADE 3')))))
+          then: '''SWELLDUR'''
+        - when: FAAE.FAOBJ IN ('Fever', 'Pyrexia') AND FAAE.FASTRESC IS NOT NULL AND (str_contains(FAAE.FASTRESC, 'GRADE 1') OR str_contains(FAAE.FASTRESC, 'GRADE 2') OR str_contains(FAAE.FASTRESC, 'GRADE 3') OR str_contains(FAAE.FASTRESC, 'GRADE 4'))
+          then: '''FEVERDUR'''
+        - otherwise: null
+- id: VSF
+  dataset: VS
+  columns: [_STUDY, _USUBJID, _REF, _TP, _N]
+  filter: VS.VSCAT = 'REACTOGENICITY' AND VS.VSTPTNUM > 7 AND VS.VSTESTCD = 'TEMP' AND VS.VSTPTREF IS NOT NULL AND VS.VSTPTREF NOT IN ('')
+  derivations:
+    _STUDY:
+      type: str
+      derivation: VS.STUDYID
+    _USUBJID:
+      type: str
+      derivation: VS.USUBJID
+    _REF:
+      type: str
+      derivation:
+        case:
+        - when: (VS.VSTPTREF IS NOT NULL AND str_contains(VS.VSTPTREF, 'DOSE 1'))
+          then: '''Vaccination 1'''
+        - otherwise: '''Vaccination 2'''
+    _TP:
+      type: str
+      derivation: VS.VSTPT
+    _N:
+      type: float
+      derivation:
+        case:
+        - when: VS.VSTESTCD = 'TEMP'
+          then: VS.VSSTRESN
+        - otherwise: null
+- id: FAF
+  dataset: FAAE
+  columns: [_USUBJID, _REF, _TP]
+  filter: FAAE.FAOBJ IN ('Fever', 'Pyrexia') AND FAAE.FASTRESC IS NOT NULL AND (str_contains(FAAE.FASTRESC, 'GRADE 1') OR str_contains(FAAE.FASTRESC, 'GRADE 2') OR str_contains(FAAE.FASTRESC, 'GRADE 3') OR str_contains(FAAE.FASTRESC, 'GRADE 4')) AND FAAE.FATPTREF IS NOT NULL AND FAAE.FATPTREF NOT IN ('')
+  derivations:
+    _USUBJID:
+      type: str
+      derivation: FAAE.USUBJID
+    _REF:
+      type: str
+      derivation:
+        case:
+        - when: (FAAE.FATPTREF IS NOT NULL AND str_contains(FAAE.FATPTREF, 'DOSE 1'))
+          then: '''Vaccination 1'''
+        - otherwise: '''Vaccination 2'''
+    _TP:
+      type: str
+      derivation: FAAE.FATPT
+- id: OV_PAIR
+  dataset: FAF
+  inner_join: VSF
+  key:
+  - _USUBJID
+  - _REF
+  - _TP
+  filter: VSF._N >= 38
+  derivations:
+    _USUBJID:
+      type: str
+      derivation: FAF._USUBJID
+    _ATPTREF:
+      type: str
+      derivation: FAF._REF
+    _TP:
+      type: str
+      derivation: FAF._TP
+- id: ADAR_LK
+  dataset: ADAR
+  key:
+    USUBJID: USUBJID
+    ATPTREF: ATPTREF
+    PARAMCD: _PCD
+  filter: ADAR.ATOXGRN > 0
+  order_by:
+  - variable: ADAR.ATPTGR1
+  keep: first
+  columns: [USUBJID]
+columns:
+- name: STUDYID
+  submission:
+    origins:
+    - type: Derived
+    method: "Withheld from publication: the received define states this text."
+- name: USUBJID
+  submission:
+    origins:
+    - type: Derived
+    method: "Withheld from publication: the received define states this text."
+- name: _PCD
+  type: str
+- name: _D
+  type: str
+- name: _ADSL
+  type: str
+- name: _C1
+  type: int
+- name: _MAXGR
+  type: float
+- name: _JOIN
+  type: str
+- name: _ADAR_HIT
+  type: str
+- name: _C2F_R
+  type: int
+- name: _C2V_R
+  type: int
+- name: _REF
+  type: str
+  derivation:
+    case:
+    - when: ATPTREF = 'Vaccination 1'
+      then: '''DOSE 1'''
+    - otherwise: '''DOSE 2'''
+- name: _FA_OBJ
+  type: str
+  derivation:
+    case:
+    - when: PARAMCD = 'LYMPHDUR'
+      then: '''Underarm Gland Swelling or Tenderness'''
+    - when: PARAMCD = 'PAINDUR'
+      then: '''Pain'''
+    - when: PARAMCD = 'HEADADUR'
+      then: '''Headache'''
+    - when: PARAMCD = 'FATIGDUR'
+      then: '''Fatigue'''
+    - when: PARAMCD = 'MYALGDUR'
+      then: '''Myalgia'''
+    - when: PARAMCD = 'ARTHRDUR'
+      then: '''Arthralgia'''
+    - when: PARAMCD = 'NAUSEDUR'
+      then: '''Nausea/Vomiting'''
+    - when: PARAMCD = 'CHILLDUR'
+      then: '''Chills'''
+    - when: PARAMCD = 'ERYTHDUR'
+      then: '''Erythema'''
+    - when: PARAMCD = 'SWELLDUR'
+      then: '''Swelling'''
+    - otherwise: "''"
+- name: _C1N
+  type: int
+  derivation:
+    case:
+    - when: _C1 IS NULL
+      then: 0
+    - otherwise: _C1
+- name: _C2F_PLAIN
+  type: int
+  derivation:
+    aggregate:
+      key:
+        USUBJID: USUBJID
+        FATPTREF: _REF
+        FAOBJ: _FA_OBJ
+      filter: FAAE.FASTRESC IS NOT NULL AND FAAE.FASTRESC NOT IN ('NONE', '')
+      expr: COUNT(FAAE.FATPT)
+      distinct: true
+- name: _C2F_PLAIN_N
+  type: int
+  derivation:
+    case:
+    - when: _C2F_PLAIN IS NULL
+      then: 0
+    - otherwise: _C2F_PLAIN
+- name: _C2F_DIAM
+  type: int
+  derivation:
+    aggregate:
+      key:
+        USUBJID: USUBJID
+        FATPTREF: _REF
+        FAOBJ: _FA_OBJ
+      filter: ((FAAE.FATEST = 'Longest Diameter' AND FAAE.FASTRESN >= 25) OR ((FAAE.FATEST IS NOT NULL AND str_contains(FAAE.FATEST, 'Intensity')) AND (FAAE.FASTRESC IS NOT NULL AND (str_contains(FAAE.FASTRESC, 'GRADE 1') OR str_contains(FAAE.FASTRESC, 'GRADE 2') OR str_contains(FAAE.FASTRESC, 'GRADE 3')))))
+      expr: COUNT(FAAE.FATPT)
+      distinct: true
+- name: _C2F_DIAM_N
+  type: int
+  derivation:
+    case:
+    - when: _C2F_DIAM IS NULL
+      then: 0
+    - otherwise: _C2F_DIAM
+- name: _C2F_FEVER
+  type: int
+  derivation:
+    aggregate:
+      key:
+        USUBJID: USUBJID
+        FATPTREF: _REF
+      filter: FAAE.FAOBJ IN ('Fever', 'Pyrexia') AND FAAE.FASTRESC IS NOT NULL AND (str_contains(FAAE.FASTRESC, 'GRADE 1') OR str_contains(FAAE.FASTRESC, 'GRADE 2') OR str_contains(FAAE.FASTRESC, 'GRADE 3') OR str_contains(FAAE.FASTRESC, 'GRADE 4'))
+      expr: COUNT(FAAE.FATPT)
+      distinct: true
+- name: _C2F_FEVER_N
+  type: int
+  derivation:
+    case:
+    - when: _C2F_FEVER IS NULL
+      then: 0
+    - otherwise: _C2F_FEVER
+- name: _C2V
+  type: int
+  derivation:
+    aggregate:
+      key:
+        USUBJID: USUBJID
+        VSTPTREF: _REF
+      derivations:
+        _N:
+          type: float
+          derivation:
+            case:
+            - when: VS.VSTESTCD = 'TEMP'
+              then: VS.VSSTRESN
+            - otherwise: null
+      filter: VS.VSCAT = 'REACTOGENICITY' AND VS.VSTPTNUM > 7 AND VS.VSTESTCD = 'TEMP' AND _N >= 38
+      expr: COUNT(VS.VSTPT)
+      distinct: true
+- name: _C2VN
+  type: int
+  derivation:
+    case:
+    - when: _C2V IS NULL
+      then: 0
+    - otherwise: _C2V
+- name: _OV
+  type: int
+  derivation:
+    aggregate:
+      key:
+        _USUBJID: USUBJID
+        _ATPTREF: ATPTREF
+      expr: COUNT(OV_PAIR._TP)
+      distinct: true
+- name: _OVN
+  type: int
+  derivation:
+    case:
+    - when: _OV IS NULL
+      then: 0
+    - otherwise: _OV
+- name: _C2P7D_ANY
+  type: int
+  derivation:
+    aggregate:
+      key:
+        USUBJID: USUBJID
+        ATPTREF: ATPTREF
+      filter: ADARP7D.ATOXGRN > 0 AND ADARP7D.ANL06FL = 'Y' AND ADARP7D.ATPTN >= 8
+      expr: COUNT(ADARP7D.ATPTGR1)
+      distinct: true
+- name: _C2P7D_ANY_N
+  type: int
+  derivation:
+    case:
+    - when: _C2P7D_ANY IS NULL
+      then: 0
+    - otherwise: _C2P7D_ANY
+- name: _C2P7D_LOC
+  type: int
+  derivation:
+    aggregate:
+      key:
+        USUBJID: USUBJID
+        ATPTREF: ATPTREF
+      filter: ADARP7D.ATOXGRN > 0 AND ADARP7D.ANL06FL = 'Y' AND ADARP7D.ATPTN >= 8 AND ADARP7D.PARCAT1 = 'LOCAL'
+      expr: COUNT(ADARP7D.ATPTGR1)
+      distinct: true
+- name: _C2P7D_LOC_N
+  type: int
+  derivation:
+    case:
+    - when: _C2P7D_LOC IS NULL
+      then: 0
+    - otherwise: _C2P7D_LOC
+- name: _C2P7D_SYS
+  type: int
+  derivation:
+    aggregate:
+      key:
+        USUBJID: USUBJID
+        ATPTREF: ATPTREF
+      filter: ADARP7D.ATOXGRN > 0 AND ADARP7D.ANL06FL = 'Y' AND ADARP7D.ATPTN >= 8 AND ADARP7D.PARCAT1 = 'SYSTEMIC'
+      expr: COUNT(ADARP7D.ATPTGR1)
+      distinct: true
+- name: _C2P7D_SYS_N
+  type: int
+  derivation:
+    case:
+    - when: _C2P7D_SYS IS NULL
+      then: 0
+    - otherwise: _C2P7D_SYS
+- name: _ANL01_MIN
+  type: float
+  derivation:
+    aggregate:
+      key:
+        USUBJID: USUBJID
+        ATPTREF: ATPTREF
+        PARAMCD: _PCD
+      filter: ADARP7D.PARAMCD IN ('PAIN', 'ERYTHDIA', 'SWELLDIA') AND ADARP7D.ATOXGRN > 0
+      expr: MIN(ADARP7D.ATPTGR1N)
+- name: _ANL02_MIN
+  type: float
+  derivation:
+    aggregate:
+      key:
+        USUBJID: USUBJID
+        ATPTREF: ATPTREF
+        PARAMCD: _PCD
+      filter: ADARP7D.ATOXGRN > 0
+      expr: MIN(ADARP7D.ATPTGR1N)
+- name: _WAVALC
+  type: str
+  derivation:
+    case:
+    - when: _JOIN IS NULL
+      then: "''"
+    - otherwise:
+        str_extract:
+          source: _JOIN
+          pattern: '^[^|]*'
+          group: 0
+          no_match: ''
+- name: SUBJID
+  derivation: ADSL.SUBJID
+  submission:
+    origins:
+    - type: Predecessor
+      description: ADSL.SUBJID
+- name: SITEID
+  derivation: ADSL.SITEID
+  submission:
+    origins:
+    - type: Predecessor
+      description: ADSL.SITEID
+- name: COUNTRY
+  derivation: ADSL.COUNTRY
+  submission:
+    origins:
+    - type: Predecessor
+      description: ADSL.COUNTRY
+- name: AGE
+  derivation: ADSL.AGE
+  submission:
+    mandatory: false
+    origins:
+    - type: Predecessor
+      description: ADSL.AGE
+- name: AGEU
+  derivation: ADSL.AGEU
+  submission:
+    mandatory: false
+    origins:
+    - type: Predecessor
+      description: ADSL.AGEU
+- name: STRATAR
+  derivation: ADSL.STRATAR
+  submission:
+    origins:
+    - type: Predecessor
+      description: ADSL.STRATAR
+- name: STRATARN
+  derivation: ADSL.STRATARN
+  submission:
+    origins:
+    - type: Predecessor
+      description: ADSL.STRATARN
+- name: AGEGR1
+  derivation: ADSL.AGEGR1
+  submission:
+    mandatory: false
+    origins:
+    - type: Predecessor
+      description: ADSL.AGEGR1
+- name: AGEGR1N
+  derivation: ADSL.AGEGR1N
+  submission:
+    mandatory: false
+    origins:
+    - type: Predecessor
+      description: ADSL.AGEGR1N
+- name: AGEGR2
+  derivation: ADSL.AGEGR2
+  submission:
+    mandatory: false
+    origins:
+    - type: Predecessor
+      description: ADSL.AGEGR2
+- name: AGEGR2N
+  derivation: ADSL.AGEGR2N
+  submission:
+    mandatory: false
+    origins:
+    - type: Predecessor
+      description: ADSL.AGEGR2N
+- name: AGEGR3
+  derivation: ADSL.AGEGR3
+  submission:
+    mandatory: false
+    origins:
+    - type: Predecessor
+      description: ADSL.AGEGR3
+- name: AGEGR3N
+  derivation: ADSL.AGEGR3N
+  submission:
+    mandatory: false
+    origins:
+    - type: Predecessor
+      description: ADSL.AGEGR3N
+- name: AGEGR4
+  derivation: ADSL.AGEGR4
+  submission:
+    mandatory: false
+    origins:
+    - type: Predecessor
+      description: ADSL.AGEGR4
+- name: AGEGR4N
+  derivation: ADSL.AGEGR4N
+  submission:
+    mandatory: false
+    origins:
+    - type: Predecessor
+      description: ADSL.AGEGR4N
+- name: SEX
+  derivation: ADSL.SEX
+  submission:
+    mandatory: false
+    origins:
+    - type: Predecessor
+      description: ADSL.SEX
+- name: RACE
+  derivation: ADSL.RACE
+  submission:
+    origins:
+    - type: Predecessor
+      description: ADSL.RACE
+- name: RACESPY
+  derivation: ADSL.RACESPY
+  submission:
+    origins:
+    - type: Predecessor
+      description: ADSL.RACESPY
+- name: ETHNIC
+  derivation: ADSL.ETHNIC
+  submission:
+    mandatory: false
+    origins:
+    - type: Predecessor
+      description: ADSL.ETHNIC
+- name: RANDFL
+  derivation: ADSL.RANDFL
+  submission:
+    origins:
+    - type: Predecessor
+      description: ADSL.RANDFL
+- name: FASFL
+  derivation: ADSL.FASFL
+  submission:
+    origins:
+    - type: Predecessor
+      description: ADSL.FASFL
+- name: SAFFL
+  derivation: ADSL.SAFFL
+  submission:
+    origins:
+    - type: Predecessor
+      description: ADSL.SAFFL
+- name: SAR1FL
+  derivation: ADSL.SAR1FL
+  submission:
+    origins:
+    - type: Predecessor
+      description: ADSL.SAR1FL
+- name: SAR2FL
+  derivation: ADSL.SAR2FL
+  submission:
+    origins:
+    - type: Predecessor
+      description: ADSL.SAR2FL
+- name: SARAFL
+  derivation: ADSL.SARAFL
+  submission:
+    origins:
+    - type: Predecessor
+      description: ADSL.SARAFL
+- name: MITTFL
+  derivation: ADSL.MITTFL
+  submission:
+    origins:
+    - type: Predecessor
+      description: ADSL.MITTFL
+- name: PPROTFL
+  derivation: ADSL.PPROTFL
+  submission:
+    origins:
+    - type: Predecessor
+      description: ADSL.PPROTFL
+- name: RANDIGFL
+  derivation: ADSL.RANDIGFL
+  submission:
+    origins:
+    - type: Predecessor
+      description: ADSL.RANDIGFL
+- name: PPSIFL
+  derivation: ADSL.PPSIFL
+  submission:
+    origins:
+    - type: Predecessor
+      description: ADSL.PPSIFL
+- name: CCIASFL
+  derivation: ADSL.CCIASFL
+  submission:
+    origins:
+    - type: Predecessor
+      description: ADSL.CCIASFL
+- name: DOSE1FL
+  derivation: ADSL.DOSE1FL
+  submission:
+    origins:
+    - type: Predecessor
+      description: ADSL.DOSE1FL
+- name: DOSE2FL
+  derivation: ADSL.DOSE2FL
+  submission:
+    origins:
+    - type: Predecessor
+      description: ADSL.DOSE2FL
+- name: OLDOS1FL
+  derivation: ADSL.OLDOS1FL
+  submission:
+    origins:
+    - type: Predecessor
+      description: ADSL.OLDOS1FL
+- name: OLDOS2FL
+  derivation: ADSL.OLDOS2FL
+  submission:
+    origins:
+    - type: Predecessor
+      description: ADSL.OLDOS2FL
+- name: RTPCRBL
+  derivation: ADSL.RTPCRBL
+  submission:
+    origins:
+    - type: Predecessor
+      description: ADSL.RTPCRBL
+- name: ELECSBL
+  derivation: ADSL.ELECSBL
+  submission:
+    origins:
+    - type: Predecessor
+      description: ADSL.ELECSBL
+- name: SCOV2BL
+  derivation: ADSL.SCOV2BL
+  submission:
+    origins:
+    - type: Predecessor
+      description: ADSL.SCOV2BL
+- name: TRT01P
+  derivation: ADSL.TRT01P
+  submission:
+    origins:
+    - type: Predecessor
+      description: ADSL.TRT01P
+- name: TRT01PN
+  derivation: ADSL.TRT01PN
+  submission:
+    origins:
+    - type: Predecessor
+      description: ADSL.TRT01PN
+- name: TRT01A
+  derivation: ADSL.TRT01A
+  submission:
+    origins:
+    - type: Predecessor
+      description: ADSL.TRT01A
+- name: TRT01AN
+  derivation: ADSL.TRT01AN
+  submission:
+    origins:
+    - type: Predecessor
+      description: ADSL.TRT01AN
+- name: TRT02P
+  derivation: ADSL.TRT02P
+  submission:
+    origins:
+    - type: Predecessor
+      description: ADSL.TRT02P
+- name: TRT02PN
+  derivation: ADSL.TRT02PN
+  submission:
+    origins:
+    - type: Predecessor
+      description: ADSL.TRT02PN
+- name: TRT02A
+  derivation: ADSL.TRT02A
+  submission:
+    origins:
+    - type: Predecessor
+      description: ADSL.TRT02A
+- name: TRT02AN
+  derivation: ADSL.TRT02AN
+  submission:
+    origins:
+    - type: Predecessor
+      description: ADSL.TRT02AN
+- name: TRTSEQP
+  derivation: ADSL.TRTSEQP
+  submission:
+    origins:
+    - type: Predecessor
+      description: ADSL.TRTSEQP
+- name: TRTSEQPN
+  derivation: ADSL.TRTSEQPN
+  submission:
+    origins:
+    - type: Predecessor
+      description: ADSL.TRTSEQPN
+- name: TRTSEQA
+  derivation: ADSL.TRTSEQA
+  submission:
+    origins:
+    - type: Predecessor
+      description: ADSL.TRTSEQA
+- name: TRTSEQAN
+  derivation: ADSL.TRTSEQAN
+  submission:
+    origins:
+    - type: Predecessor
+      description: ADSL.TRTSEQAN
+- name: TRTSDT
+  derivation: ADSL.TRTSDT
+  submission:
+    origins:
+    - type: Predecessor
+      description: ADSL.TRTSDT
+- name: TRTEDT
+  derivation: ADSL.TRTEDT
+  submission:
+    origins:
+    - type: Predecessor
+      description: ADSL.TRTEDT
+- name: TR01SDT
+  derivation: ADSL.TR01SDT
+  submission:
+    origins:
+    - type: Predecessor
+      description: ADSL.TR01SDT
+- name: TR01SDTM
+  derivation: ADSL.TR01SDTM
+  submission:
+    origins:
+    - type: Predecessor
+      description: ADSL.TR01SDTM
+- name: TR01EDT
+  derivation: ADSL.TR01EDT
+  submission:
+    origins:
+    - type: Predecessor
+      description: ADSL.TR01EDT
+- name: TR01EDTM
+  derivation: ADSL.TR01EDTM
+  submission:
+    origins:
+    - type: Predecessor
+      description: ADSL.TR01EDTM
+- name: DOSE2DT
+  derivation: ADSL.DOSE2DT
+  submission:
+    origins:
+    - type: Predecessor
+      description: ADSL.DOSE2DT
+- name: DOS2DTM
+  derivation: ADSL.DOS2DTM
+  submission:
+    origins:
+    - type: Predecessor
+      description: ADSL.DOS2DTM
+- name: TR02SDT
+  derivation: ADSL.TR02SDT
+  submission:
+    origins:
+    - type: Predecessor
+      description: ADSL.TR02SDT
+- name: TR02SDTM
+  derivation: ADSL.TR02SDTM
+  submission:
+    origins:
+    - type: Predecessor
+      description: ADSL.TR02SDTM
+- name: TR02EDT
+  derivation: ADSL.TR02EDT
+  submission:
+    origins:
+    - type: Predecessor
+      description: ADSL.TR02EDT
+- name: TR02EDTM
+  derivation: ADSL.TR02EDTM
+  submission:
+    origins:
+    - type: Predecessor
+      description: ADSL.TR02EDTM
+- name: OLDOS2DT
+  derivation: ADSL.OLDOS2DT
+  submission:
+    origins:
+    - type: Predecessor
+      description: ADSL.OLDOS2DT
+- name: OLDO2DTM
+  derivation: ADSL.OLDO2DTM
+  submission:
+    origins:
+    - type: Predecessor
+      description: ADSL.OLDO2DTM
+- name: EUAVACDT
+  derivation: ADSL.EUAVACDT
+  submission:
+    mandatory: false
+    origins:
+    - type: Predecessor
+      description: ADSL.EUAVACDT
+- name: EFFCODT
+  derivation: ADSL.EFFCODT
+  submission:
+    origins:
+    - type: Predecessor
+      description: ADSL.EFFCODT
+- name: AP01SDT
+  derivation: ADSL.AP01SDT
+  submission:
+    origins:
+    - type: Predecessor
+      description: ADSL.AP01SDT
+- name: AP01EDT
+  derivation: ADSL.AP01EDT
+  submission:
+    mandatory: false
+    origins:
+    - type: Predecessor
+      description: ADSL.AP01EDT
+- name: AP02SDT
+  derivation: ADSL.AP02SDT
+  submission:
+    origins:
+    - type: Predecessor
+      description: ADSL.AP02SDT
+- name: AP02EDT
+  derivation: ADSL.AP02EDT
+  submission:
+    origins:
+    - type: Predecessor
+      description: ADSL.AP02EDT
+- name: AP01SSDT
+  derivation: ADSL.AP01SSDT
+  submission:
+    origins:
+    - type: Predecessor
+      description: ADSL.AP01SSDT
+- name: AP01SEDT
+  derivation: ADSL.AP01SEDT
+  submission:
+    mandatory: false
+    origins:
+    - type: Predecessor
+      description: ADSL.AP01SEDT
+- name: AP02SSDT
+  derivation: ADSL.AP02SSDT
+  submission:
+    origins:
+    - type: Predecessor
+      description: ADSL.AP02SSDT
+- name: AP02SEDT
+  derivation: ADSL.AP02SEDT
+  submission:
+    origins:
+    - type: Predecessor
+      description: ADSL.AP02SEDT
+- name: RSKF1
+  derivation: ADSL.RSKF1
+  submission:
+    origins:
+    - type: Predecessor
+      description: ADSL.RSKF1
+- name: RSKF2
+  derivation: ADSL.RSKF2
+  submission:
+    origins:
+    - type: Predecessor
+      description: ADSL.RSKF2
+- name: RSKF3
+  derivation: ADSL.RSKF3
+  submission:
+    origins:
+    - type: Predecessor
+      description: ADSL.RSKF3
+- name: RSKF4
+  derivation: ADSL.RSKF4
+  submission:
+    origins:
+    - type: Predecessor
+      description: ADSL.RSKF4
+- name: RSKF5
+  derivation: ADSL.RSKF5
+  submission:
+    origins:
+    - type: Predecessor
+      description: ADSL.RSKF5
+- name: RSKF6
+  derivation: ADSL.RSKF6
+  submission:
+    origins:
+    - type: Predecessor
+      description: ADSL.RSKF6
+- name: STRATAV
+  derivation: ADSL.STRATAV
+  submission:
+    origins:
+    - type: Predecessor
+      description: ADSL.STRATAV
+- name: STRATAVN
+  derivation: ADSL.STRATAVN
+  submission:
+    origins:
+    - type: Predecessor
+      description: ADSL.STRATAVN
+- name: STUDDUR3
+  derivation: ADSL.STUDDUR3
+  submission:
+    origins:
+    - type: Predecessor
+      description: ADSL.STUDDUR3
+- name: MINORITY
+  derivation: ADSL.MINORITY
+  submission:
+    origins:
+    - type: Predecessor
+      description: ADSL.MINORITY
+- name: RACEGR1
+  derivation: ADSL.RACEGR1
+  submission:
+    mandatory: false
+    origins:
+    - type: Predecessor
+      description: ADSL.RACEGR1
+- name: RACEGR1N
+  derivation: ADSL.RACEGR1N
+  submission:
+    mandatory: false
+    origins:
+    - type: Predecessor
+      description: ADSL.RACEGR1N
+- name: RISKGR1
+  derivation: ADSL.RISKGR1
+  submission:
+    origins:
+    - type: Predecessor
+      description: ADSL.RISKGR1
+- name: RISKGR1N
+  derivation: ADSL.RISKGR1N
+  submission:
+    origins:
+    - type: Predecessor
+      description: ADSL.RISKGR1N
+- name: RETHGR1
+  derivation: ADSL.RETHGR1
+  submission:
+    origins:
+    - type: Predecessor
+      description: ADSL.RETHGR1
+- name: RETHGR1N
+  derivation: ADSL.RETHGR1N
+  submission:
+    origins:
+    - type: Predecessor
+      description: ADSL.RETHGR1N
+- name: COVIDAFL
+  derivation: ADSL.COVIDAFL
+  submission:
+    origins:
+    - type: Predecessor
+      description: ADSL.COVIDAFL
+- name: CVDSVAFL
+  derivation: ADSL.CVDSVAFL
+  submission:
+    origins:
+    - type: Predecessor
+      description: ADSL.CVDSVAFL
+- name: ACTARM
+  derivation: null
+- name: ARM
+  derivation: null
+- name: BMIBL
+  derivation: null
+- name: CBNRS
+  derivation: null
+- name: CHILDBP
+  derivation: null
+- name: COMPLFL
+  derivation: null
+- name: CUTOFFDT
+  derivation: null
+- name: DCSREAS
+  derivation: null
+- name: DCSREASP
+  derivation: null
+- name: DCT01RS
+  derivation: null
+- name: DCT01RSP
+  derivation: null
+- name: DCT02RS
+  derivation: null
+- name: DCT02RSP
+  derivation: null
+- name: DSDTHSP
+  derivation: null
+- name: DTHAUTOP
+  derivation: null
+- name: DTHCAUS
+  derivation: null
+- name: DTHDT
+  derivation: null
+- name: EOSDT
+  derivation: null
+- name: EOSDY
+  derivation: null
+- name: EOSSTT
+  derivation: null
+- name: EOT01DT
+  derivation: null
+- name: EOT01DY
+  derivation: null
+- name: EOT01STT
+  derivation: null
+- name: EOT02DT
+  derivation: null
+- name: EOT02DY
+  derivation: null
+- name: EOT02STT
+  derivation: null
+- name: EXTDT
+  derivation: null
+- name: FASEREAS
+  derivation: null
+- name: HEIGHTBL
+  derivation: null
+- name: IRTVISDT
+  derivation: null
+- name: MITTERS
+  derivation: null
+- name: PDVDT
+  derivation: null
+- name: PPEREAS
+  derivation: null
+- name: PPSIEREA
+  derivation: null
+- name: PREVSCR
+  derivation: null
+- name: PROTVER
+  derivation: null
+- name: RANDDT
+  derivation: null
+- name: RANDNUM
+  derivation: null
+- name: RFICDT
+  derivation: null
+- name: SAFEREAS
+  derivation: null
+- name: SAR1ERS
+  derivation: null
+- name: SAR2ERS
+  derivation: null
+- name: STUDDUR1
+  derivation: null
+- name: STUDDUR2
+  derivation: null
+- name: STUDDUR4
+  derivation: null
+- name: STUDDUR5
+  derivation: null
+- name: STUDDUR6
+  derivation: null
+- name: TTDTH1
+  derivation: null
+- name: TTDTH2
+  derivation: null
+- name: UBLDDT
+  derivation: null
+- name: UICDT
+  derivation: null
+- name: WEIGHTBL
+  derivation: null
+- name: ATPTREF
+  type: str
+  label: 'Analysis Timepoint Reference'
+  submission:
+    core: Req
+    mandatory: true
+    length: 50
+    origins:
+    - type: Derived
+    method: "Withheld from publication: the received define states this text."
+- name: PARCAT1
+  type: str
+  label: 'Parameter Category 1'
+  derivation:
+    case:
+    - when: PARAMCD IN ('LYMPHDUR', 'PAINDUR', 'ERYTHDUR', 'SWELLDUR', 'WLYMPH', 'WPAIN', 'WERYTH', 'WSWELL', 'WSLAR')
+      then: '''LOCAL'''
+    - when: PARAMCD IN ('HEADADUR', 'FATIGDUR', 'MYALGDUR', 'ARTHRDUR', 'NAUSEDUR', 'CHILLDUR', 'FEVERDUR', 'WHEAD', 'WFATIGUE', 'WMYALGIA', 'WARTHR', 'WNAUSEA', 'WCHILLS', 'WFEVER', 'WSSAR')
+      then: '''SYSTEMIC'''
+    - otherwise: "''"
+  submission:
+    core: Req
+    mandatory: false
+    length: 50
+    origins:
+    - type: Derived
+    method: "Withheld from publication: the received define states this text."
+- name: PARCAT1N
+  type: float
+  label: 'Parameter Category 1 (N)'
+  derivation:
+    case:
+    - when: PARCAT1 = 'LOCAL'
+      then: 1
+    - when: PARCAT1 = 'SYSTEMIC'
+      then: 2
+    - otherwise: null
+  submission:
+    core: Req
+    mandatory: false
+    length: 8
+    significant_digits: 15
+    origins:
+    - type: Derived
+    method: "Withheld from publication: the received define states this text."
+- name: PARAMCD
+  type: str
+  label: 'Parameter Code'
+  submission:
+    core: Req
+    mandatory: true
+    length: 8
+    origins:
+    - type: Assigned
+    method: "Withheld from publication: the received define states this text."
+- name: PARAM
+  type: str
+  label: 'Parameter'
+  derivation:
+    case:
+    - when: PARAMCD = 'LYMPHDUR'
+      then: '''Number of Days for Underarm Gland Swelling or Tenderness'''
+    - when: PARAMCD = 'PAINDUR'
+      then: '''Number of Days for Pain'''
+    - when: PARAMCD = 'ERYTHDUR'
+      then: '''Number of Days for Erythema'''
+    - when: PARAMCD = 'SWELLDUR'
+      then: '''Number of Days for Swelling'''
+    - when: PARAMCD = 'HEADADUR'
+      then: '''Number of Days for Headache'''
+    - when: PARAMCD = 'FATIGDUR'
+      then: '''Number of Days for Fatigue'''
+    - when: PARAMCD = 'MYALGDUR'
+      then: '''Number of Days for Myalgia'''
+    - when: PARAMCD = 'ARTHRDUR'
+      then: '''Number of Days for Arthralgia'''
+    - when: PARAMCD = 'NAUSEDUR'
+      then: '''Number of Days for Nausea'''
+    - when: PARAMCD = 'CHILLDUR'
+      then: '''Number of Days for Chills'''
+    - when: PARAMCD = 'FEVERDUR'
+      then: '''Number of Days for Fever'''
+    - when: PARAMCD = 'ANYDUR'
+      then: '''Number of Days for Any Solicited AR'''
+    - when: PARAMCD = 'LOCDUR'
+      then: '''Number of Days for Local Solicited AR'''
+    - when: PARAMCD = 'SYSDUR'
+      then: '''Number of Days for Systemic Solicited AR'''
+    - when: PARAMCD = 'WLYMPH'
+      then: '''Worst Analysis Toxicity Grade for Underarm Gland Swelling or Tenderness between Day 1 and Day 7'''
+    - when: PARAMCD = 'WPAIN'
+      then: '''Worst Analysis Toxicity Grade for Pain between Day 1 and Day 7'''
+    - when: PARAMCD = 'WERYTH'
+      then: '''Worst Analysis Toxicity Grade for Erythema between Day 1 and Day 7'''
+    - when: PARAMCD = 'WSWELL'
+      then: '''Worst Analysis Toxicity Grade for Swelling between Day 1 and Day 7'''
+    - when: PARAMCD = 'WHEAD'
+      then: '''Worst Analysis Toxicity Grade for Headache between Day 1 and Day 7'''
+    - when: PARAMCD = 'WFATIGUE'
+      then: '''Worst Analysis Toxicity Grade for Fatigue between Day 1 and Day 7'''
+    - when: PARAMCD = 'WMYALGIA'
+      then: '''Worst Analysis Toxicity Grade for Myalgia between Day 1 and Day 7'''
+    - when: PARAMCD = 'WARTHR'
+      then: '''Worst Analysis Toxicity Grade for Arthralgia between Day 1 and Day 7'''
+    - when: PARAMCD = 'WNAUSEA'
+      then: '''Worst Analysis Toxicity Grade for Nausea between Day 1 and Day 7'''
+    - when: PARAMCD = 'WCHILLS'
+      then: '''Worst Analysis Toxicity Grade for Chills between Day 1 and Day 7'''
+    - when: PARAMCD = 'WFEVER'
+      then: '''Worst Analysis Toxicity Grade for Fever between Day 1 and Day 7'''
+    - when: PARAMCD = 'WSAR'
+      then: '''Worst Analysis Toxicity Grade for Any Solicited AR between Day 1 and Day 7'''
+    - when: PARAMCD = 'WSLAR'
+      then: '''Worst Analysis Toxicity Grade for Any Solicited Local AR between Day 1 and Day 7'''
+    - when: PARAMCD = 'WSSAR'
+      then: '''Worst Analysis Toxicity Grade for Any Solicited Systemic AR between Day 1 and Day 7'''
+    - otherwise: null
+  submission:
+    core: Req
+    mandatory: true
+    length: 200
+    origins:
+    - type: Derived
+    method: "Withheld from publication: the received define states this text."
+- name: AVAL
+  type: float
+  label: 'Analysis Value'
+  derivation:
+    case:
+    - when: PARAMCD IN ('WLYMPH', 'WPAIN', 'WERYTH', 'WSWELL', 'WHEAD', 'WFATIGUE', 'WMYALGIA', 'WARTHR', 'WNAUSEA', 'WCHILLS', 'WFEVER', 'WSAR', 'WSLAR', 'WSSAR')
+      then: null
+    - when: PARAMCD = 'FEVERDUR'
+      then: _C1N + _C2F_FEVER_N + _C2VN - _OVN
+    - when: PARAMCD = 'ANYDUR'
+      then: _C1N + _C2P7D_ANY_N
+    - when: PARAMCD = 'LOCDUR'
+      then: _C1N + _C2P7D_LOC_N
+    - when: PARAMCD = 'SYSDUR'
+      then: _C1N + _C2P7D_SYS_N
+    - when: PARAMCD IN ('ERYTHDUR', 'SWELLDUR')
+      then: _C1N + _C2F_DIAM_N
+    - otherwise: _C1N + _C2F_PLAIN_N
+  submission:
+    core: Req
+    mandatory: false
+    length: 8
+    significant_digits: 15
+    origins:
+    - type: Derived
+    method: "Withheld from publication: the received define states this text."
+- name: AVALC
+  type: str
+  label: 'Analysis Value (C)'
+  derivation:
+    case:
+    - when: PARAMCD IN ('WLYMPH', 'WPAIN', 'WERYTH', 'WSWELL', 'WHEAD', 'WFATIGUE', 'WMYALGIA', 'WARTHR', 'WNAUSEA', 'WCHILLS', 'WFEVER')
+      then: _WAVALC
+    - otherwise: "''"
+  submission:
+    core: Req
+    mandatory: false
+    length: 100
+    origins:
+    - type: Derived
+    method: "Withheld from publication: the received define states this text."
+- name: ATOXGR
+  type: str
+  label: 'Analysis Toxicity Grade'
+  derivation:
+    case:
+    - when: ATOXGRN = 0
+      then: '''Grade 0'''
+    - when: ATOXGRN = 1
+      then: '''Grade 1'''
+    - when: ATOXGRN = 2
+      then: '''Grade 2'''
+    - when: ATOXGRN = 3
+      then: '''Grade 3'''
+    - when: ATOXGRN = 4
+      then: '''Grade 4'''
+    - otherwise: "''"
+  submission:
+    core: Req
+    mandatory: false
+    length: 20
+    origins:
+    - type: Derived
+    method: "Withheld from publication: the received define states this text."
+- name: ATOXGRN
+  type: float
+  label: 'Analysis Toxicity Grade (N)'
+  derivation: _MAXGR
+  submission:
+    core: Req
+    mandatory: false
+    length: 8
+    significant_digits: 15
+    origins:
+    - type: Derived
+    method: "Withheld from publication: the received define states this text."
+- name: ANL01FL
+  type: str
+  label: 'Analysis Flag 01'
+  derivation:
+    case:
+    - when: PARAMCD IN ('PAINDUR', 'ERYTHDUR', 'SWELLDUR') AND _ANL01_MIN IS NOT NULL AND _ANL01_MIN >= 8
+      then: '''Y'''
+    - otherwise: "''"
+  submission:
+    core: Perm
+    mandatory: false
+    length: 1
+    origins:
+    - type: Derived
+    method: "Withheld from publication: the received define states this text."
+- name: ANL02FL
+  type: str
+  label: 'Analysis Flag 02'
+  derivation:
+    case:
+    - when: PARAMCD IN ('WLYMPH', 'WPAIN', 'WERYTH', 'WSWELL', 'WHEAD', 'WFATIGUE', 'WMYALGIA', 'WARTHR', 'WNAUSEA', 'WCHILLS', 'WFEVER', 'WSAR', 'WSLAR', 'WSSAR', 'ANYDUR', 'LOCDUR', 'SYSDUR')
+      then: '''Y'''
+    - when: _ANL02_MIN IS NULL OR _ANL02_MIN < 8
+      then: '''Y'''
+    - otherwise: "''"
+  submission:
+    core: Perm
+    mandatory: false
+    length: 1
+    origins:
+    - type: Derived
+    method: "Withheld from publication: the received define states this text."
+output:
+  path: <adam-dir>/adarsum-yamaa.parquet
+  order_by:
+  - USUBJID
+  - PARAMCD
+  - ATPTREF
+  columns:
+  - STUDYID
+  - USUBJID
+  - SUBJID
+  - SITEID
+  - COUNTRY
+  - AGE
+  - AGEU
+  - STRATAR
+  - STRATARN
+  - AGEGR1
+  - AGEGR1N
+  - AGEGR2
+  - AGEGR2N
+  - AGEGR3
+  - AGEGR3N
+  - AGEGR4
+  - AGEGR4N
+  - SEX
+  - RACE
+  - RACESPY
+  - ETHNIC
+  - RANDFL
+  - FASFL
+  - SAFFL
+  - SAR1FL
+  - SAR2FL
+  - SARAFL
+  - MITTFL
+  - PPROTFL
+  - RANDIGFL
+  - PPSIFL
+  - CCIASFL
+  - DOSE1FL
+  - DOSE2FL
+  - OLDOS1FL
+  - OLDOS2FL
+  - RTPCRBL
+  - ELECSBL
+  - SCOV2BL
+  - TRT01P
+  - TRT01PN
+  - TRT01A
+  - TRT01AN
+  - TRT02P
+  - TRT02PN
+  - TRT02A
+  - TRT02AN
+  - TRTSEQP
+  - TRTSEQPN
+  - TRTSEQA
+  - TRTSEQAN
+  - TRTSDT
+  - TRTEDT
+  - TR01SDT
+  - TR01SDTM
+  - TR01EDT
+  - TR01EDTM
+  - DOSE2DT
+  - DOS2DTM
+  - TR02SDT
+  - TR02SDTM
+  - TR02EDT
+  - TR02EDTM
+  - OLDOS2DT
+  - OLDO2DTM
+  - EUAVACDT
+  - EFFCODT
+  - AP01SDT
+  - AP01EDT
+  - AP02SDT
+  - AP02EDT
+  - AP01SSDT
+  - AP01SEDT
+  - AP02SSDT
+  - AP02SEDT
+  - RSKF1
+  - RSKF2
+  - RSKF3
+  - RSKF4
+  - RSKF5
+  - RSKF6
+  - STRATAV
+  - STRATAVN
+  - STUDDUR3
+  - MINORITY
+  - RACEGR1
+  - RACEGR1N
+  - RISKGR1
+  - RISKGR1N
+  - RETHGR1
+  - RETHGR1N
+  - COVIDAFL
+  - CVDSVAFL
+  - ATPTREF
+  - PARCAT1
+  - PARCAT1N
+  - PARAMCD
+  - PARAM
+  - AVAL
+  - AVALC
+  - ATOXGR
+  - ATOXGRN
+  - ANL01FL
+  - ANL02FL

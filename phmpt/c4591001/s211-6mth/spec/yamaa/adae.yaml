@@ -1,0 +1,481 @@
+# ADAE for Pfizer C4591001, S211 6-month cut (BLA 125742 sequence 45),
+# the 12-15-year-old cohort.
+# Layer over the 1-month spec, run on this cut's SDTM
+# (scripts/reproduce.py verify --study c4591001 --cut s211-6mth). The output
+# keeps the 6-month file's columns, in its order; the program keeps only the
+# subjects of its ADSL (one DM subject has no ADSL record).
+yamaa: '1.0'
+type: spec
+parent: ../../../s211-1mth/spec/yamaa/adae.yaml
+clear:
+- columns.MULENRFL.submission
+- columns.VAX10UTM.submission
+- columns.RAND1FL.submission
+- columns.SAF1FL.submission
+- columns.SAF2FL.submission
+rows:
+- id: events
+  filter: (AE.AECAT <> 'REACTOGENICITY' AND AE.AETERM IS NOT NULL) AND ADSL.USUBJID IS NOT NULL
+# DATCHGFL / DATACHGC compare each event with the AE the sponsor submitted in
+# the EUA amendment for 12-15-year-olds (Apr-May 2021, the snapshot of
+# 25Mar2021): that is this repository's S135 cut, read here as EUAAE and
+# EUASUPP. An event is matched on USUBJID and AESPID (adae.sas, _ae_bla).
+input:
+  EUAAE: <study-dir>/s135/data/sdtm/ae.parquet
+  EUASUPP: <study-dir>/s135/data/sdtm/suppae.parquet
+intermediates:
+- id: SUPPAE_P
+  filter: SUPPAE.QNAM IN ('DICTVER', 'AESUBJDC', 'AECMGIV', 'AENDGIV', 'AEMERES', 'AERELTXT', 'AEMEFL',
+    'AEAENO', 'LSTCGDTC') AND SUPPAE.IDVAR = 'AESEQ'
+  pivot:
+    name: QNAM
+    value: QVAL
+    fields: [DICTVER, AESUBJDC, AECMGIV, AENDGIV, AEMERES, AERELTXT, AEMEFL, AEAENO, LSTCGDTC]
+- id: _EUA_SUPP
+  dataset: EUASUPP
+  key:
+    USUBJID: EUAAE.USUBJID
+    _SEQ: EUAAE.AESEQ
+  filter: EUASUPP.QNAM IN ('AESUBJDC', 'AECMGIV', 'AENDGIV', 'AERELTXT') AND EUASUPP.IDVAR = 'AESEQ'
+  pivot:
+    name: QNAM
+    value: QVAL
+    fields: [AESUBJDC, AECMGIV, AENDGIV, AERELTXT]
+  derivations:
+    _SEQ: {type: int, derivation: EUASUPP.IDVARVAL}
+- id: _EUA
+  dataset: EUAAE
+  key:
+    USUBJID: AE.USUBJID
+    AESPID: AE.AESPID
+  order_by: [EUAAE.AESEQ]
+  keep: first
+  derivations:
+    _SPID: {type: str, derivation: EUAAE.AESPID}
+    _DECOD: {type: str, derivation: EUAAE.AEDECOD}
+    _ENDTC: {type: str, derivation: EUAAE.AEENDTC}
+    _OUT: {type: str, derivation: EUAAE.AEOUT}
+    _ENRTPT: {type: str, derivation: EUAAE.AEENRTPT}
+    _ACN: {type: str, derivation: EUAAE.AEACN}
+    _CMGIV: {type: str, derivation: _EUA_SUPP.AECMGIV}
+    _SUBJDC: {type: str, derivation: _EUA_SUPP.AESUBJDC}
+    _NDGIV: {type: str, derivation: _EUA_SUPP.AENDGIV}
+    _CONTRT: {type: str, derivation: EUAAE.AECONTRT}
+    _RELTXT: {type: str, derivation: _EUA_SUPP.AERELTXT}
+    _STDTC: {type: str, derivation: EUAAE.AESTDTC}
+    _TERM: {type: str, derivation: EUAAE.AETERM}
+columns:
+- name: AELLT
+  submission:
+    length: 62
+- name: AERELTXT
+  submission:
+    length: 83
+- name: LSTCGDTC
+  type: str
+  label: Last Changed Date/Time
+  derivation: SUPPAE_P.LSTCGDTC
+- name: _N_DECOD
+  type: str
+  derivation:
+    case:
+    - when: AE.AEDECOD IS NULL
+      then: "''"
+    - otherwise: AE.AEDECOD
+- name: _E_DECOD
+  type: str
+  derivation:
+    case:
+    - when: _EUA._DECOD IS NULL
+      then: "''"
+    - otherwise: _EUA._DECOD
+- name: _N_ENDTC
+  type: str
+  derivation:
+    case:
+    - when: AE.AEENDTC IS NULL
+      then: "''"
+    - otherwise: AE.AEENDTC
+- name: _E_ENDTC
+  type: str
+  derivation:
+    case:
+    - when: _EUA._ENDTC IS NULL
+      then: "''"
+    - otherwise: _EUA._ENDTC
+- name: _N_OUT
+  type: str
+  derivation:
+    case:
+    - when: AE.AEOUT IS NULL
+      then: "''"
+    - otherwise: AE.AEOUT
+- name: _E_OUT
+  type: str
+  derivation:
+    case:
+    - when: _EUA._OUT IS NULL
+      then: "''"
+    - otherwise: _EUA._OUT
+- name: _N_ENRTPT
+  type: str
+  derivation:
+    case:
+    - when: AE.AEENRTPT IS NULL
+      then: "''"
+    - otherwise: AE.AEENRTPT
+- name: _E_ENRTPT
+  type: str
+  derivation:
+    case:
+    - when: _EUA._ENRTPT IS NULL
+      then: "''"
+    - otherwise: _EUA._ENRTPT
+- name: _N_ACN
+  type: str
+  derivation:
+    case:
+    - when: AE.AEACN IS NULL
+      then: "''"
+    - otherwise: AE.AEACN
+- name: _E_ACN
+  type: str
+  derivation:
+    case:
+    - when: _EUA._ACN IS NULL
+      then: "''"
+    - otherwise: _EUA._ACN
+- name: _N_CMGIV
+  type: str
+  derivation:
+    case:
+    - when: SUPPAE_P.AECMGIV IS NULL
+      then: "''"
+    - otherwise: SUPPAE_P.AECMGIV
+- name: _E_CMGIV
+  type: str
+  derivation:
+    case:
+    - when: _EUA._CMGIV IS NULL
+      then: "''"
+    - otherwise: _EUA._CMGIV
+- name: _N_SUBJDC
+  type: str
+  derivation:
+    case:
+    - when: SUPPAE_P.AESUBJDC IS NULL
+      then: "''"
+    - otherwise: SUPPAE_P.AESUBJDC
+- name: _E_SUBJDC
+  type: str
+  derivation:
+    case:
+    - when: _EUA._SUBJDC IS NULL
+      then: "''"
+    - otherwise: _EUA._SUBJDC
+- name: _N_NDGIV
+  type: str
+  derivation:
+    case:
+    - when: SUPPAE_P.AENDGIV IS NULL
+      then: "''"
+    - otherwise: SUPPAE_P.AENDGIV
+- name: _E_NDGIV
+  type: str
+  derivation:
+    case:
+    - when: _EUA._NDGIV IS NULL
+      then: "''"
+    - otherwise: _EUA._NDGIV
+- name: _N_CONTRT
+  type: str
+  derivation:
+    case:
+    - when: AE.AECONTRT IS NULL
+      then: "''"
+    - otherwise: AE.AECONTRT
+- name: _E_CONTRT
+  type: str
+  derivation:
+    case:
+    - when: _EUA._CONTRT IS NULL
+      then: "''"
+    - otherwise: _EUA._CONTRT
+- name: _N_RELTXT
+  type: str
+  derivation:
+    case:
+    - when: SUPPAE_P.AERELTXT IS NULL
+      then: "''"
+    - otherwise: SUPPAE_P.AERELTXT
+- name: _E_RELTXT
+  type: str
+  derivation:
+    case:
+    - when: _EUA._RELTXT IS NULL
+      then: "''"
+    - otherwise: _EUA._RELTXT
+- name: _N_STDTC
+  type: str
+  derivation:
+    case:
+    - when: AE.AESTDTC IS NULL
+      then: "''"
+    - otherwise: AE.AESTDTC
+- name: _E_STDTC
+  type: str
+  derivation:
+    case:
+    - when: _EUA._STDTC IS NULL
+      then: "''"
+    - otherwise: _EUA._STDTC
+- name: _N_TERM
+  type: str
+  derivation:
+    case:
+    - when: AE.AETERM IS NULL
+      then: "''"
+    - otherwise: AE.AETERM
+- name: _E_TERM
+  type: str
+  derivation:
+    case:
+    - when: _EUA._TERM IS NULL
+      then: "''"
+    - otherwise: _EUA._TERM
+- name: DATCHGFL
+  type: str
+  label: New AE Reported post EUA snapshot Flag
+  derivation:
+    case:
+    - when: _EUA._SPID IS NULL
+      then: "'Y'"
+- name: _A1
+  type: str
+  derivation:
+    case:
+    - when: DATCHGFL IS NULL AND (_N_DECOD <> _E_DECOD)
+      then: "'AEDECOD'"
+- name: _A2
+  type: str
+  derivation:
+    case:
+    - when: DATCHGFL IS NULL AND (_N_ENDTC <> _E_ENDTC OR _N_OUT <> _E_OUT OR _N_ENRTPT <> _E_ENRTPT) AND _A1 IS NOT NULL
+      then: {str_template: '{_A1}, AE outcome'}
+    - when: DATCHGFL IS NULL AND (_N_ENDTC <> _E_ENDTC OR _N_OUT <> _E_OUT OR _N_ENRTPT <> _E_ENRTPT)
+      then: "'AE outcome'"
+    - otherwise: _A1
+- name: _A3
+  type: str
+  derivation:
+    case:
+    - when: DATCHGFL IS NULL AND (_N_ACN <> _E_ACN OR _N_CMGIV <> _E_CMGIV OR _N_SUBJDC <> _E_SUBJDC OR _N_NDGIV <> _E_NDGIV OR _N_CONTRT <> _E_CONTRT) AND _A2 IS NOT NULL
+      then: {str_template: '{_A2}, Actions to the AE'}
+    - when: DATCHGFL IS NULL AND (_N_ACN <> _E_ACN OR _N_CMGIV <> _E_CMGIV OR _N_SUBJDC <> _E_SUBJDC OR _N_NDGIV <> _E_NDGIV OR _N_CONTRT <> _E_CONTRT)
+      then: "'Actions to the AE'"
+    - otherwise: _A2
+- name: _A4
+  type: str
+  derivation:
+    case:
+    - when: DATCHGFL IS NULL AND (_N_RELTXT <> _E_RELTXT) AND _A3 IS NOT NULL
+      then: {str_template: '{_A3}, AERELTXT'}
+    - when: DATCHGFL IS NULL AND (_N_RELTXT <> _E_RELTXT)
+      then: "'AERELTXT'"
+    - otherwise: _A3
+- name: _A5
+  type: str
+  derivation:
+    case:
+    - when: DATCHGFL IS NULL AND (_N_STDTC <> _E_STDTC) AND _A4 IS NOT NULL
+      then: {str_template: '{_A4}, AE onset date'}
+    - when: DATCHGFL IS NULL AND (_N_STDTC <> _E_STDTC)
+      then: "'AE onset date'"
+    - otherwise: _A4
+- name: _A6
+  type: str
+  derivation:
+    case:
+    - when: DATCHGFL IS NULL AND (_N_TERM <> _E_TERM AND _N_DECOD = _E_DECOD) AND _A5 IS NOT NULL
+      then: {str_template: '{_A5}, Minor AE term'}
+    - when: DATCHGFL IS NULL AND (_N_TERM <> _E_TERM AND _N_DECOD = _E_DECOD)
+      then: "'Minor AE term'"
+    - otherwise: _A5
+- name: DATACHGC
+  type: str
+  label: Data Change Category
+  derivation:
+    case:
+    - when: _A6 IS NOT NULL
+      then: {str_template: '{_A6} changed from EUA to sBLA'}
+output:
+  columns:
+  - SUBJID
+  - SITEID
+  - ARM
+  - ARMCD
+  - ACTARM
+  - ACTARMCD
+  - AGE
+  - AGEU
+  - AGEGR1
+  - AGEGR1N
+  - AGEGR2
+  - AGEGR2N
+  - AGEGR3
+  - AGEGR3N
+  - AGEGR4
+  - AGEGR4N
+  - RACE
+  - RACEN
+  - SEX
+  - SEXN
+  - ETHNIC
+  - ETHNICN
+  - COUNTRY
+  - ARACE
+  - ARACEN
+  - TRTSDT
+  - TRTSTM
+  - TRTSDTM
+  - TRTEDT
+  - TRTETM
+  - TRTEDTM
+  - TRT01A
+  - TRT01AN
+  - TRT01P
+  - TRT01PN
+  - VAX101DT
+  - VAX101TM
+  - VAX102DT
+  - VAX102TM
+  - SAFFL
+  - COHORT
+  - COHORTN
+  - DOSALVL
+  - DOSALVLN
+  - DOSPLVL
+  - DOSPLVLN
+  - VAX101
+  - VAX102
+  - V01DT
+  - V02DT
+  - RANDFL
+  - PHASE
+  - PHASEN
+  - DS30KFL
+  - COVBLST
+  - UNBLNDDT
+  - VAX10U
+  - VAX201
+  - VAX202
+  - VAX10UDT
+  - VAX201DT
+  - VAX202DT
+  - VAX201TM
+  - VAX202TM
+  - V03DT
+  - V04DT
+  - TRT02A
+  - TRT02AN
+  - TRT02P
+  - TRT02PN
+  - HIVFL
+  - DS3KFL
+  - EOTXDCDT
+  - BDCSRDT
+  - X1CSRDT
+  - FUP1UNB
+  - FPX1CUT
+  - FUNBCUT
+  - FUP1CUT
+  - AGETR01
+  - TR01SDTM
+  - TR01EDTM
+  - TR02SDTM
+  - TR02EDTM
+  - VAX20U
+  - VAX20UDT
+  - V02OBDT
+  - RACEGR1
+  - RACEGR1N
+  - STUDYID
+  - USUBJID
+  - AESEQ
+  - AECAT
+  - AESPID
+  - AETERM
+  - AEDECOD
+  - AEBDSYCD
+  - AEBODSYS
+  - AELLT
+  - AELLTCD
+  - AEPTCD
+  - AEHLT
+  - AEHLTCD
+  - AEHLGT
+  - AEHLGTCD
+  - AESOC
+  - AESOCCD
+  - AESTDTC
+  - AESTDY
+  - AEENDTC
+  - AEENDY
+  - AEENRTPT
+  - AEENTPT
+  - AETOXGR
+  - DICTVER
+  - ADESFL
+  - ASTDT
+  - ASTDTF
+  - ASTDY
+  - ASTTM
+  - ASTDTM
+  - AENDT
+  - AENDY
+  - AENTM
+  - AENDTM
+  - ADURN
+  - ADURU
+  - AESER
+  - AESCONG
+  - AESDISAB
+  - AESDTH
+  - AESHOSP
+  - AESLIFE
+  - AESMIE
+  - AEMERES
+  - AEREL
+  - AERELNST
+  - AERELTXT
+  - AEACN
+  - AECMGIV
+  - AENDGIV
+  - AEOUT
+  - AESUBJDC
+  - AEREFID
+  - AERELN
+  - AREL
+  - ARELN
+  - AETOXGRN
+  - ATOXGR
+  - ATOXGRN
+  - AEMEFL
+  - AETPDOS
+  - AEIMMFL
+  - APERIOD
+  - APERIODC
+  - APERSDT
+  - APERSTM
+  - APERSDTM
+  - APEREDT
+  - APERETM
+  - APEREDTM
+  - VPHASE
+  - VPHASEN
+  - INWDFL
+  - PREFL
+  - VAXNO
+  - LSTCGDTC
+  - DATCHGFL
+  - DATACHGC

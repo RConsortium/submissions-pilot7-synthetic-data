@@ -88,6 +88,29 @@ The derived datasets are a review draft, not submission-ready data, and have
 no independent reference or human statistical sign-off. This section records
 the project's reading of the OpenClinica notice; it is not legal advice.
 
+## PHMPT reproduction
+
+`phmpt/` and `docs/phmpt/` publish yamaa specifications, scripts and results
+for four COVID-19 vaccine trials whose submissions FDA released on
+[phmpt.org](https://phmpt.org/). They are exported from a private development
+repository and hold no PHMPT material: no submitted dataset, define, program
+or document, and no participant-level value. The scripts fetch those inputs
+from phmpt.org when run; what they fetch keeps its own rights and is not
+covered by this repository's license. The published specifications keep the
+values a reproduction must hold (variable names, labels, codelist values)
+and replace the received defines' method and origin texts with a
+placeholder.
+
+The code, specifications and generated pages in these folders are original
+work under the root MIT License. `phmpt/NOTICE.md` repeats this in the
+folder, and `.github/scripts/check_phmpt_bundle.py` checks every change to
+them: an allowlist of paths with no data or document files, ASCII text, a
+closed schema for `docs/phmpt/evidence.json`, and no subject identifier
+pattern of the four studies. The export runs the same check with the data at
+hand, adding every subject identifier and a comparison with the sponsors'
+programs and defines. This section records the project's reading; it is not
+legal advice.
+
 ## Other third-party notices
 
 - Define-XML stylesheets under `cdiscpilot01/spec/define/` and

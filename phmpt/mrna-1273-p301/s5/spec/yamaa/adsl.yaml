@@ -1,0 +1,2705 @@
+# ADSL for Moderna mRNA-1273-P301, cut S5 (EUA 27073 S5, interim analysis
+# IA1b, data cutoff 2020-11-25, efficacy cutoff 2020-11-21). Parent:
+# ../../../spec/yamaa/base/adam-base-ia.yaml (86 shared + 6 IA-only ADSL
+# columns). Derivations port the S5 program adsl.sas
+# (spec/source/program/adam/...5657916-5657931_27073_S5_..._A_P_adsl.txt).
+# The S80 program differs in three places only (no fatal-AE fallback for
+# DTHDT, any treatment disposition ends treatment, other cutoffs) besides
+# a log message, so the S80 spec is a layer over this one.
+#
+# One row per DM subject, less the program's delete rule (ARMCD
+# SCRNFAIL/blank with a SCREEN FAILURE disposition, or ENROLYN 'N' in the
+# latest first-of-group disposition record and no randomization).
+# ds_all keeps only the first record of each (DSREFID, DSCAT, DSSCAT) group
+# by (DSSTDTC, DSDECOD, DSTERM); every DS merge reads those records:
+# DS_GF finds the first record of a group, and the disposition lookups are
+# ordered by the same keys.
+#
+# Inputs the release lacks:
+#   * The S5 release carries no FACE (only SUPPFACE), so the FACE records
+#     behind SAR1FL and SAR2FL are read from the S3 release, a later
+#     snapshot of the same study, as the S5 ADAR spec does.
+#   * Macro values: &cutext 25NOV2020 (CUTOFFDT) and &cut_effi 21NOV2020
+#     (EFFCODT, and the upper bound of the protocol deviations counted).
+# HEIGHTBL and BMIBL are text and PROTVER and RANDNUM numbers in the
+# submitted file (the JMP conversion), so they are written that way:
+# HEIGHTBL is the VS VSSTRESN text and BMIBL is written with 15 significant
+# digits, whose last digit differs from the submitted text in about 540
+# values (within the comparison tolerance).
+yamaa: '1.0'
+type: spec
+model: ADaM
+parent: ../../../spec/yamaa/base/adam-base-ia.yaml
+domain: ADSL
+keys:
+- STUDYID
+- USUBJID
+input:
+  DM: <sdtm-dir>/dm.parquet
+  SUPPDM: <sdtm-dir>/suppdm.parquet
+  DS: <sdtm-dir>/ds.parquet
+  SUPPDS: <sdtm-dir>/suppds.parquet
+  EX: <sdtm-dir>/ex.parquet
+  VS: <sdtm-dir>/vs.parquet
+  FACE: <study-dir>/s3/data/sdtm/face.parquet
+  MH: <sdtm-dir>/mh.parquet
+  MB: <sdtm-dir>/mb.parquet
+  SUPPMB: <sdtm-dir>/suppmb.parquet
+  IS: <sdtm-dir>/is.parquet
+  RP: <sdtm-dir>/rp.parquet
+  SUPPRP: <sdtm-dir>/supprp.parquet
+  DD: <sdtm-dir>/dd.parquet
+  AE: <sdtm-dir>/ae.parquet
+  DV: <sdtm-dir>/dv.parquet
+  SUPPDV: <sdtm-dir>/suppdv.parquet
+submission:
+  label: Subject-Level Analysis Dataset
+  class: SUBJECT LEVEL ANALYSIS DATASET
+  structure: One record per subject
+  repeating: false
+rows:
+- id: subjects
+  dataset: DM
+  filter: NOT ((DM.ARMCD IS NULL OR DM.ARMCD = 'SCRNFAIL') AND _SCRN IS NOT NULL) AND NOT (_ENRN = 1 AND RANDNUM
+    IS NULL)
+intermediates:
+- id: SUPPDM_P
+  dataset: SUPPDM
+  key:
+  - STUDYID
+  - USUBJID
+  filter: SUPPDM.QNAM IN ('COHORT', 'RACE1', 'RACE2', 'RACE3', 'RACE4', 'RACE5', 'RACE6', 'RACE7', 'RACE8', 'RACEOTH',
+    'PROTVER', 'PREVSCR')
+  pivot:
+    name: QNAM
+    value: QVAL
+    fields:
+    - COHORT
+    - RACE1
+    - RACE2
+    - RACE3
+    - RACE4
+    - RACE5
+    - RACE6
+    - RACE7
+    - RACE8
+    - RACEOTH
+    - PROTVER
+    - PREVSCR
+- id: SUPPDS_P
+  dataset: SUPPDS
+  key:
+    STUDYID: STUDYID
+    USUBJID: USUBJID
+    IDVARVAL:
+      str_decimal:
+        source: DSSEQ
+        decimals: 0
+  filter: SUPPDS.QNAM = 'ENROLYN' AND SUPPDS.IDVAR = 'DSSEQ'
+  pivot:
+    name: QNAM
+    value: QVAL
+    fields:
+    - ENROLYN
+- id: DS_GF
+  dataset: DS
+  key:
+  - STUDYID
+  - USUBJID
+  - _GK
+  filter: NOT (DS.DSTERM = 'RANDOMIZED' AND DS.DSSPID IS NULL AND DS.DSSTDTC IS NULL AND DS._ENR IS NULL)
+  derivations:
+    _ENR:
+      type: str
+      derivation: SUPPDS_P.ENROLYN
+    _R:
+      type: str
+      derivation:
+        case:
+        - when: DS.DSREFID IS NULL
+          then: '''~'''
+        - otherwise: DS.DSREFID
+    _C:
+      type: str
+      derivation:
+        case:
+        - when: DS.DSCAT IS NULL
+          then: '''~'''
+        - otherwise: DS.DSCAT
+    _S:
+      type: str
+      derivation:
+        case:
+        - when: DS.DSSCAT IS NULL
+          then: '''~'''
+        - otherwise: DS.DSSCAT
+    _GK:
+      type: str
+      derivation:
+        str_template: '{_R}|{_C}|{_S}'
+  order_by:
+  - DS.DSSTDTC
+  - DS.DSDECOD
+  - DS.DSTERM
+  keep: first
+- id: ENROL
+  dataset: DS
+  key:
+  - STUDYID
+  - USUBJID
+  filter: NOT (DS.DSTERM = 'RANDOMIZED' AND DS.DSSPID IS NULL AND DS.DSSTDTC IS NULL AND DS._ENR IS NULL)
+  derivations:
+    _ENR:
+      type: str
+      derivation: SUPPDS_P.ENROLYN
+    _R:
+      type: str
+      derivation:
+        case:
+        - when: DS.DSREFID IS NULL
+          then: '''~'''
+        - otherwise: DS.DSREFID
+    _C:
+      type: str
+      derivation:
+        case:
+        - when: DS.DSCAT IS NULL
+          then: '''~'''
+        - otherwise: DS.DSCAT
+    _S:
+      type: str
+      derivation:
+        case:
+        - when: DS.DSSCAT IS NULL
+          then: '''~'''
+        - otherwise: DS.DSSCAT
+    _GK:
+      type: str
+      derivation:
+        str_template: '{_R}|{_C}|{_S}'
+    _GFSEQ:
+      type: float
+      derivation: DS_GF.DSSEQ
+    _ISF:
+      type: int
+      derivation:
+        case:
+        - when: _GFSEQ = DS.DSSEQ
+          then: 1
+        - otherwise: 0
+    _ENRN:
+      type: int
+      derivation:
+        case:
+        - when: _ENR = 'N'
+          then: 1
+        - otherwise: 0
+  order_by:
+  - DS._ISF
+  - DS.DSSTDTC
+  - DS.DSREFID
+  - DS._ENRN
+  keep: last
+- id: DS_RAND
+  dataset: DS
+  key:
+  - STUDYID
+  - USUBJID
+  filter: NOT (DS.DSTERM = 'RANDOMIZED' AND DS.DSSPID IS NULL AND DS.DSSTDTC IS NULL AND DS._ENR IS NULL) AND DS.DSDECOD
+    = 'RANDOMIZED' AND DS.DSSTDTC IS NOT NULL AND DS.DSREFID IS NOT NULL
+  derivations:
+    _ENR:
+      type: str
+      derivation: SUPPDS_P.ENROLYN
+  order_by:
+  - DS.DSREFID
+  - DS.DSCAT
+  - DS.DSSCAT
+  - DS.DSSTDTC
+  - DS.DSDECOD
+  - DS.DSTERM
+  keep: first
+- id: DS_SCRN
+  dataset: DS
+  key:
+  - STUDYID
+  - USUBJID
+  filter: NOT (DS.DSTERM = 'RANDOMIZED' AND DS.DSSPID IS NULL AND DS.DSSTDTC IS NULL AND DS._ENR IS NULL) AND DS.DSSCAT
+    = 'SCREEN FAILURE'
+  derivations:
+    _ENR:
+      type: str
+      derivation: SUPPDS_P.ENROLYN
+  order_by:
+  - DS.DSREFID
+  - DS.DSCAT
+  - DS.DSSCAT
+  - DS.DSSTDTC
+  - DS.DSDECOD
+  - DS.DSTERM
+  keep: first
+- id: DS_EOS
+  dataset: DS
+  key:
+  - STUDYID
+  - USUBJID
+  filter: NOT (DS.DSTERM = 'RANDOMIZED' AND DS.DSSPID IS NULL AND DS.DSSTDTC IS NULL AND DS._ENR IS NULL) AND DS.DSSCAT
+    = 'END OF STUDY'
+  derivations:
+    _ENR:
+      type: str
+      derivation: SUPPDS_P.ENROLYN
+  order_by:
+  - DS.DSREFID
+  - DS.DSCAT
+  - DS.DSSCAT
+  - DS.DSSTDTC
+  - DS.DSDECOD
+  - DS.DSTERM
+  keep: first
+- id: DS_EOT
+  dataset: DS
+  key:
+  - STUDYID
+  - USUBJID
+  filter: NOT (DS.DSTERM = 'RANDOMIZED' AND DS.DSSPID IS NULL AND DS.DSSTDTC IS NULL AND DS._ENR IS NULL) AND DS.DSSCAT
+    = 'STUDY TREATMENT'
+  derivations:
+    _ENR:
+      type: str
+      derivation: SUPPDS_P.ENROLYN
+  order_by:
+  - DS.DSREFID
+  - DS.DSCAT
+  - DS.DSSCAT
+  - DS.DSSTDTC
+  - DS.DSDECOD
+  - DS.DSTERM
+  keep: first
+- id: EX_LAST
+  dataset: EX
+  key:
+  - STUDYID
+  - USUBJID
+  filter: EX._EXST IS NOT NULL
+  derivations:
+    _EXST:
+      type: str
+      derivation:
+        first_available:
+          sources:
+          - EX.EXSTDTC
+          - EX.EXENDTC
+    _EXMAX:
+      type: str
+      derivation:
+        case:
+        - when: EX.EXSTDTC IS NOT NULL AND (EX.EXENDTC IS NULL OR EX.EXSTDTC > EX.EXENDTC)
+          then: EX.EXSTDTC
+        - otherwise: EX.EXENDTC
+    _TRTN:
+      type: str
+      derivation:
+        case:
+        - when: EX.EXTRT = 'PLACEBO'
+          then: '''Placebo'''
+        - otherwise: EX.EXTRT
+  order_by:
+  - EX._EXST
+  - EX._EXMAX
+  - EX.VISITDY
+  keep: last
+- id: EX_D1
+  dataset: EX
+  key:
+  - STUDYID
+  - USUBJID
+  filter: EX._EXST IS NOT NULL AND EX.VISITDY = 1
+  derivations:
+    _EXST:
+      type: str
+      derivation:
+        first_available:
+          sources:
+          - EX.EXSTDTC
+          - EX.EXENDTC
+    _EXMAX:
+      type: str
+      derivation:
+        case:
+        - when: EX.EXSTDTC IS NOT NULL AND (EX.EXENDTC IS NULL OR EX.EXSTDTC > EX.EXENDTC)
+          then: EX.EXSTDTC
+        - otherwise: EX.EXENDTC
+    _TRTN:
+      type: str
+      derivation:
+        case:
+        - when: EX.EXTRT = 'PLACEBO'
+          then: '''Placebo'''
+        - otherwise: EX.EXTRT
+  order_by:
+  - EX._EXST
+  - EX._EXMAX
+  - EX.VISITDY
+  keep: last
+- id: EX_D2
+  dataset: EX
+  key:
+  - STUDYID
+  - USUBJID
+  filter: EX._EXST IS NOT NULL AND EX.VISITDY = 29
+  derivations:
+    _EXST:
+      type: str
+      derivation:
+        first_available:
+          sources:
+          - EX.EXSTDTC
+          - EX.EXENDTC
+    _EXMAX:
+      type: str
+      derivation:
+        case:
+        - when: EX.EXSTDTC IS NOT NULL AND (EX.EXENDTC IS NULL OR EX.EXSTDTC > EX.EXENDTC)
+          then: EX.EXSTDTC
+        - otherwise: EX.EXENDTC
+    _TRTN:
+      type: str
+      derivation:
+        case:
+        - when: EX.EXTRT = 'PLACEBO'
+          then: '''Placebo'''
+        - otherwise: EX.EXTRT
+  order_by:
+  - EX._EXST
+  - EX._EXMAX
+  - EX.VISITDY
+  keep: last
+- id: VS_SAR1
+  dataset: VS
+  key:
+  - STUDYID
+  - USUBJID
+  filter: VS.VSCAT = 'REACTOGENICITY' AND VS.VSTESTCD = 'TEMP' AND VS.VSORRES IS NOT NULL AND VS.VSDTC IS NOT NULL
+    AND str_contains(VS._TPR, 'DOSE1')
+  derivations:
+    _TPR:
+      type: str
+      derivation:
+        str_replace:
+          source: VS.VSTPTREF
+          pattern: ' '
+          replacement: ''
+  order_by:
+  - VS.VSDTC
+  keep: last
+- id: VS_SAR2
+  dataset: VS
+  key:
+  - STUDYID
+  - USUBJID
+  filter: VS.VSCAT = 'REACTOGENICITY' AND VS.VSTESTCD = 'TEMP' AND VS.VSORRES IS NOT NULL AND VS.VSDTC IS NOT NULL
+    AND str_contains(VS._TPR, 'DOSE2')
+  derivations:
+    _TPR:
+      type: str
+      derivation:
+        str_replace:
+          source: VS.VSTPTREF
+          pattern: ' '
+          replacement: ''
+  order_by:
+  - VS.VSDTC
+  keep: last
+- id: HW_HEIGHT
+  dataset: VS
+  key:
+  - STUDYID
+  - USUBJID
+  filter: VS.VSTESTCD = 'HEIGHT' AND VS.VSSTRESC IS NOT NULL AND VS.VSORRES IS NOT NULL AND VS.VSDTC IS NOT NULL
+    AND NOT (VS.VSDTC = DM.RFXSTDTC AND VS._POST = 1) AND ((VS._HT = 1 AND DM.RFXSTDTC LIKE '%T%' AND VS.VSDTC <=
+    DM.RFXSTDTC) OR ((VS._HT = 0 OR NOT DM.RFXSTDTC LIKE '%T%') AND DM.RFXSTDTC IS NOT NULL AND VS._D10 <= DM.RFXSTDTC
+    AND VS._POST = 0))
+  derivations:
+    _POST:
+      type: int
+      derivation:
+        case:
+        - when: VS.VSTPT IS NOT NULL AND str_contains(VS.VSTPT, 'POST')
+          then: 1
+        - otherwise: 0
+    _HT:
+      type: int
+      derivation:
+        case:
+        - when: VS.VSDTC LIKE '%T%'
+          then: 1
+        - otherwise: 0
+    _D10:
+      type: str
+      derivation:
+        str_substr:
+          source: VS.VSDTC
+          start: 1
+          length: 10
+  order_by:
+  - VS.VSDTC
+  - VS.VISITNUM
+  - variable: VS.VSSEQ
+    direction: desc
+  keep: last
+- id: HW_WEIGHT
+  dataset: VS
+  key:
+  - STUDYID
+  - USUBJID
+  filter: VS.VSTESTCD = 'WEIGHT' AND VS.VSSTRESC IS NOT NULL AND VS.VSORRES IS NOT NULL AND VS.VSDTC IS NOT NULL
+    AND NOT (VS.VSDTC = DM.RFXSTDTC AND VS._POST = 1) AND ((VS._HT = 1 AND DM.RFXSTDTC LIKE '%T%' AND VS.VSDTC <=
+    DM.RFXSTDTC) OR ((VS._HT = 0 OR NOT DM.RFXSTDTC LIKE '%T%') AND DM.RFXSTDTC IS NOT NULL AND VS._D10 <= DM.RFXSTDTC
+    AND VS._POST = 0))
+  derivations:
+    _POST:
+      type: int
+      derivation:
+        case:
+        - when: VS.VSTPT IS NOT NULL AND str_contains(VS.VSTPT, 'POST')
+          then: 1
+        - otherwise: 0
+    _HT:
+      type: int
+      derivation:
+        case:
+        - when: VS.VSDTC LIKE '%T%'
+          then: 1
+        - otherwise: 0
+    _D10:
+      type: str
+      derivation:
+        str_substr:
+          source: VS.VSDTC
+          start: 1
+          length: 10
+  order_by:
+  - VS.VSDTC
+  - VS.VISITNUM
+  - variable: VS.VSSEQ
+    direction: desc
+  keep: last
+- id: FACE_SAR1
+  dataset: FACE
+  key:
+  - STUDYID
+  - USUBJID
+  filter: FACE.FASTAT IS NULL AND FACE.FASTRESC IS NOT NULL AND FACE.FATPTREF = 'DOSE 1'
+  order_by:
+  - FACE.FASEQ
+  keep: last
+- id: FACE_SAR2
+  dataset: FACE
+  key:
+  - STUDYID
+  - USUBJID
+  filter: FACE.FASTAT IS NULL AND FACE.FASTRESC IS NOT NULL AND FACE.FATPTREF = 'DOSE 2'
+  order_by:
+  - FACE.FASEQ
+  keep: last
+- id: MH_RSK1
+  dataset: MH
+  key:
+  - STUDYID
+  - USUBJID
+  filter: MH.MHTERM = 'LUNG DISEASE' AND MH.MHOCCUR = 'Y' AND MH.MHCAT = 'RISK FACTOR FOR COVID-19'
+  order_by:
+  - MH.MHSEQ
+  keep: first
+- id: MH_RSK2
+  dataset: MH
+  key:
+  - STUDYID
+  - USUBJID
+  filter: MH.MHTERM = 'CARDIAC DISEASE' AND MH.MHOCCUR = 'Y' AND MH.MHCAT = 'RISK FACTOR FOR COVID-19'
+  order_by:
+  - MH.MHSEQ
+  keep: first
+- id: MH_RSK3
+  dataset: MH
+  key:
+  - STUDYID
+  - USUBJID
+  filter: MH.MHTERM = 'SEVERE OBESITY' AND MH.MHOCCUR = 'Y' AND MH.MHCAT = 'RISK FACTOR FOR COVID-19'
+  order_by:
+  - MH.MHSEQ
+  keep: first
+- id: MH_RSK4
+  dataset: MH
+  key:
+  - STUDYID
+  - USUBJID
+  filter: MH.MHTERM = 'DIABETES' AND MH.MHOCCUR = 'Y' AND MH.MHCAT = 'RISK FACTOR FOR COVID-19'
+  order_by:
+  - MH.MHSEQ
+  keep: first
+- id: MH_RSK5
+  dataset: MH
+  key:
+  - STUDYID
+  - USUBJID
+  filter: MH.MHTERM = 'LIVER DISEASE' AND MH.MHOCCUR = 'Y' AND MH.MHCAT = 'RISK FACTOR FOR COVID-19'
+  order_by:
+  - MH.MHSEQ
+  keep: first
+- id: MH_RSK6
+  dataset: MH
+  key:
+  - STUDYID
+  - USUBJID
+  filter: MH.MHTERM = 'HIV' AND MH.MHOCCUR = 'Y' AND MH.MHCAT = 'RISK FACTOR FOR COVID-19'
+  order_by:
+  - MH.MHSEQ
+  keep: first
+- id: SUPPMB_L
+  dataset: SUPPMB
+  key:
+    STUDYID: STUDYID
+    USUBJID: USUBJID
+    IDVARVAL:
+      str_decimal:
+        source: MBSEQ
+        decimals: 0
+  filter: SUPPMB.QNAM = 'LOCALFL' AND SUPPMB.IDVAR = 'MBSEQ'
+  pivot:
+    name: QNAM
+    value: QVAL
+    fields:
+    - LOCALFL
+- id: MB_BL
+  dataset: MB
+  key:
+  - STUDYID
+  - USUBJID
+  filter: MB.MBTESTCD = 'SARSCOV2' AND MB.MBSTRESC IS NOT NULL AND NOT str_contains(MB._LST, 'comment') AND MB._LOC
+    IS NULL AND MB.MBDTC IS NOT NULL AND DM.RFXSTDTC IS NOT NULL AND MB._D10 <= DM.RFXSTDTC
+  derivations:
+    _LST:
+      type: str
+      derivation:
+        str_case:
+          source: MB.MBSTRESC
+          to: lower
+    _LOC:
+      type: str
+      derivation: SUPPMB_L.LOCALFL
+    _D10:
+      type: str
+      derivation:
+        str_substr:
+          source: MB.MBDTC
+          start: 1
+          length: 10
+  order_by:
+  - MB.MBDTC
+  - variable: MB.MBSTRESC
+    direction: desc
+  keep: last
+- id: IS_BL
+  dataset: IS
+  key:
+  - STUDYID
+  - USUBJID
+  filter: IS.ISORRES IS NOT NULL AND IS.ISDTC IS NOT NULL AND DM.RFXSTDTC IS NOT NULL AND IS._D10 <= DM.RFXSTDTC
+  derivations:
+    _D10:
+      type: str
+      derivation:
+        str_substr:
+          source: IS.ISDTC
+          start: 1
+          length: 10
+  order_by:
+  - IS.ISDTC
+  - IS.ISSTRESC
+  keep: last
+- id: RP_CHIL
+  dataset: RP
+  key:
+  - STUDYID
+  - USUBJID
+  filter: RP.RPTESTCD = 'CHILDPOT'
+  order_by:
+  - RP.RPSEQ
+  keep: first
+- id: SUPPRP_CB
+  dataset: SUPPRP
+  key:
+    STUDYID: STUDYID
+    USUBJID: USUBJID
+    IDVARVAL:
+      str_decimal:
+        source: RPSEQ
+        decimals: 0
+  filter: SUPPRP.QNAM = 'CBRSN' AND SUPPRP.IDVAR = 'RPSEQ'
+  pivot:
+    name: QNAM
+    value: QVAL
+    fields:
+    - CBRSN
+- id: RP_CB
+  dataset: RP
+  key:
+  - STUDYID
+  - USUBJID
+  filter: RP._CB IS NOT NULL
+  derivations:
+    _CB:
+      type: str
+      derivation: SUPPRP_CB.CBRSN
+    _RSTN:
+      type: int
+      derivation:
+        mapping:
+          source: RP.RPTESTCD
+          dict:
+            CHILDPOT: 0
+            SURSTL: 1
+            PM: 2
+            PARTSTL: 3
+            PREMENAR: 4
+            OTHSYS: 5
+          unmapped: 9
+          missing: 9
+  order_by:
+  - RP._RSTN
+  - RP.RPSEQ
+  keep: first
+- id: DD_DTH
+  dataset: DD
+  key:
+  - STUDYID
+  - USUBJID
+  filter: DD.DDTESTCD = 'DTHCAUS'
+  order_by:
+  - DD.DDSEQ
+  keep: first
+- id: DD_AUT
+  dataset: DD
+  key:
+  - STUDYID
+  - USUBJID
+  filter: DD.DDTESTCD = 'AUTOPERF'
+  order_by:
+  - DD.DDSEQ
+  keep: first
+- id: AE_DTH
+  dataset: AE
+  key:
+  - STUDYID
+  - USUBJID
+  filter: AE.AESDTH = 'Y'
+  order_by:
+  - variable: AE.AEENDTC
+    nulls: first
+  keep: last
+- id: DV_BYSEQ
+  dataset: DV
+  key:
+    STUDYID: STUDYID
+    USUBJID: USUBJID
+    DVSEQ: _SEQ
+  order_by:
+  - DV.DVSEQ
+  keep: first
+- id: DV1
+  dataset: SUPPDV
+  key:
+  - STUDYID
+  - USUBJID
+  filter: SUPPDV.QNAM = 'SEVDES' AND SUPPDV.IDVAR = 'DVSEQ' AND str_contains(SUPPDV._C, '1-') AND SUPPDV._DT IS
+    NOT NULL AND SUPPDV._DT <= ADSL.EFFCODT
+  derivations:
+    _C:
+      type: str
+      derivation:
+        str_replace:
+          source: SUPPDV.QVAL
+          pattern: ' '
+          replacement: ''
+    _SEQ:
+      type: int
+      derivation: SUPPDV.IDVARVAL
+    _DTC:
+      type: str
+      derivation: DV_BYSEQ.DVSTDTC
+    _DT:
+      type: date
+      derivation:
+        case:
+        - when: _DTC LIKE '____-__-__%'
+          then:
+            to_date:
+              source: _DTC
+  order_by:
+  - SUPPDV._SEQ
+  keep: first
+- id: DV2
+  dataset: SUPPDV
+  key:
+  - STUDYID
+  - USUBJID
+  filter: SUPPDV.QNAM = 'SEVDES' AND SUPPDV.IDVAR = 'DVSEQ' AND str_contains(SUPPDV._C, '2-') AND SUPPDV._DT IS
+    NOT NULL AND SUPPDV._DT <= ADSL.EFFCODT
+  derivations:
+    _C:
+      type: str
+      derivation:
+        str_replace:
+          source: SUPPDV.QVAL
+          pattern: ' '
+          replacement: ''
+    _SEQ:
+      type: int
+      derivation: SUPPDV.IDVARVAL
+    _DTC:
+      type: str
+      derivation: DV_BYSEQ.DVSTDTC
+    _DT:
+      type: date
+      derivation:
+        case:
+        - when: _DTC LIKE '____-__-__%'
+          then:
+            to_date:
+              source: _DTC
+  order_by:
+  - SUPPDV._SEQ
+  keep: first
+- id: DV3
+  dataset: SUPPDV
+  key:
+  - STUDYID
+  - USUBJID
+  filter: SUPPDV.QNAM = 'SEVDES' AND SUPPDV.IDVAR = 'DVSEQ' AND str_contains(SUPPDV._C, '3-') AND SUPPDV._DT IS
+    NOT NULL AND SUPPDV._DT <= ADSL.EFFCODT
+  derivations:
+    _C:
+      type: str
+      derivation:
+        str_replace:
+          source: SUPPDV.QVAL
+          pattern: ' '
+          replacement: ''
+    _SEQ:
+      type: int
+      derivation: SUPPDV.IDVARVAL
+    _DTC:
+      type: str
+      derivation: DV_BYSEQ.DVSTDTC
+    _DT:
+      type: date
+      derivation:
+        case:
+        - when: _DTC LIKE '____-__-__%'
+          then:
+            to_date:
+              source: _DTC
+  order_by:
+  - SUPPDV._SEQ
+  keep: first
+- id: DV8
+  dataset: SUPPDV
+  key:
+  - STUDYID
+  - USUBJID
+  filter: SUPPDV.QNAM = 'SEVDES' AND SUPPDV.IDVAR = 'DVSEQ' AND str_contains(SUPPDV._C, '8-') AND SUPPDV._DT IS
+    NOT NULL AND SUPPDV._DT <= ADSL.EFFCODT
+  derivations:
+    _C:
+      type: str
+      derivation:
+        str_replace:
+          source: SUPPDV.QVAL
+          pattern: ' '
+          replacement: ''
+    _SEQ:
+      type: int
+      derivation: SUPPDV.IDVARVAL
+    _DTC:
+      type: str
+      derivation: DV_BYSEQ.DVSTDTC
+    _DT:
+      type: date
+      derivation:
+        case:
+        - when: _DTC LIKE '____-__-__%'
+          then:
+            to_date:
+              source: _DTC
+  order_by:
+  - SUPPDV._SEQ
+  keep: first
+output:
+  path: <adam-dir>/adsl-yamaa.parquet
+  order_by:
+  - USUBJID
+  columns:
+  - STUDYID
+  - USUBJID
+  - SUBJID
+  - SITEID
+  - COUNTRY
+  - AGE
+  - AGEU
+  - STRATAR
+  - STRATARN
+  - AGEGR1
+  - AGEGR1N
+  - AGEGR2
+  - AGEGR2N
+  - SEX
+  - RACE
+  - RACESPY
+  - ETHNIC
+  - PROTVER
+  - CHILDBP
+  - CBNRS
+  - RANDFL
+  - RANDNUM
+  - FASFL
+  - SAFFL
+  - SAR1FL
+  - SAR2FL
+  - SARAFL
+  - MITTFL
+  - PPROTFL
+  - COMPLFL
+  - DOSE1FL
+  - DOSE2FL
+  - RTPCRBL
+  - ELECSBL
+  - SCOV2BL
+  - HEIGHTBL
+  - WEIGHTBL
+  - BMIBL
+  - ARM
+  - ACTARM
+  - TRT01P
+  - TRT01PN
+  - TRT01A
+  - TRT01AN
+  - RFICDT
+  - RANDDT
+  - RFXSTDTC
+  - TR01SDT
+  - TR01SDTM
+  - TR01EDT
+  - TR01EDTM
+  - DOSE2DT
+  - DOS2DTM
+  - EOSSTT
+  - EOSDT
+  - EOSDY
+  - DCSREAS
+  - DCSREASP
+  - EOTSTT
+  - EOTDT
+  - EOTDY
+  - DCTREAS
+  - DCTREASP
+  - DTHDT
+  - DTHAUTOP
+  - CUTOFFDT
+  - EFFCODT
+  - FASEREAS
+  - SAFEREAS
+  - SAR1ERS
+  - SAR2ERS
+  - MITTERS
+  - PPEREAS
+  - PREVSCR
+  - RSKF1
+  - RSKF2
+  - RSKF3
+  - RSKF4
+  - RSKF5
+  - RSKF6
+  - STRATAV
+  - STRATAVN
+  - STUDDUR1
+  - STUDDUR2
+  - STUDDUR3
+  - MINORITY
+  - RACEGR1
+  - RACEGR1N
+  - RISKGR1
+  - RISKGR1N
+  - RETHGR1
+  - RETHGR1N
+columns:
+- name: _COHORT
+  type: str
+  derivation: SUPPDM_P.COHORT
+- name: _RACE1
+  type: str
+  derivation: SUPPDM_P.RACE1
+- name: _RACE2
+  type: str
+  derivation: SUPPDM_P.RACE2
+- name: _RACE3
+  type: str
+  derivation: SUPPDM_P.RACE3
+- name: _RACE4
+  type: str
+  derivation: SUPPDM_P.RACE4
+- name: _RACE5
+  type: str
+  derivation: SUPPDM_P.RACE5
+- name: _RACE6
+  type: str
+  derivation: SUPPDM_P.RACE6
+- name: _RACE7
+  type: str
+  derivation: SUPPDM_P.RACE7
+- name: _RACE8
+  type: str
+  derivation: SUPPDM_P.RACE8
+- name: _RACEOTH
+  type: str
+  derivation: SUPPDM_P.RACEOTH
+- name: _PREVSCR
+  type: str
+  derivation: SUPPDM_P.PREVSCR
+- name: _COHORT_L
+  type: str
+  derivation:
+    str_case:
+      source: _COHORT
+      to: lower
+- name: _ENRN
+  type: int
+  derivation:
+    case:
+    - when: ENROL._ISF = 1 AND ENROL._ENRN = 1
+      then: 1
+    - otherwise: 0
+- name: _SCRN
+  type: float
+  derivation: DS_SCRN.DSSEQ
+- name: _RANDDTC
+  type: str
+  derivation: DS_RAND.DSSTDTC
+- name: _EOS
+  type: float
+  derivation: DS_EOS.DSSEQ
+- name: _EOT
+  type: float
+  derivation: DS_EOT.DSSEQ
+- name: _EOS_MAP
+  type: str
+  derivation:
+    mapping:
+      source: DS_EOS.DSDECOD
+      dict:
+        ADVERSE EVENT: Adverse Event
+        SAE: Serious Adverse Event
+        SERIOUS ADVERSE EVENT: Serious Adverse Event
+        DEATH: Death
+        LOST TO FOLLOW-UP: Lost to Follow-Up
+        PHYSICIAN DECISION: Physician Decision
+        PREGNANCY: Pregnancy
+        PROTOCOL DEVIATION: Protocol Deviation
+        Study Terminated By Sponsor: Study Terminated by Sponsor
+        WITHDRAWAL BY SUBJECT: Withdrawal of Consent by Participant
+        COVID: Due to SARS-CoV-2
+        OTHER: Other
+      unmapped: null
+- name: _EOS_REASON
+  type: str
+  derivation:
+    first_available:
+      sources:
+      - _EOS_MAP
+      - DS_EOS.DSDECOD
+- name: _EOS_TERM0
+  type: str
+  derivation: DS_EOS.DSTERM
+- name: _EOS_TERM
+  type: str
+  derivation:
+    str_replace:
+      source: _EOS_TERM0
+      pattern: '[\r\n\f\u00c2\u00a0]'
+      replacement: ' '
+- name: _EOS_RU
+  type: str
+  derivation:
+    str_case:
+      source: _EOS_REASON
+      to: upper
+- name: _EOS_TU
+  type: str
+  derivation:
+    str_case:
+      source: _EOS_TERM
+      to: upper
+- name: _EOS_SPY
+  type: str
+  derivation:
+    case:
+    - when: (_EOS_RU IS NULL AND _EOS_TU IS NOT NULL OR _EOS_RU IS NOT NULL AND _EOS_TU IS NULL OR _EOS_RU <> _EOS_TU)
+        AND (_EOS_TU IS NULL OR _EOS_TU <> 'COVID') AND (_EOS_RU IS NULL OR _EOS_RU <> 'DEATH')
+      then: _EOS_TERM
+- name: _EOT_MAP
+  type: str
+  derivation:
+    mapping:
+      source: DS_EOT.DSDECOD
+      dict:
+        ADVERSE EVENT: Adverse Event
+        SAE: Serious Adverse Event
+        SERIOUS ADVERSE EVENT: Serious Adverse Event
+        DEATH: Death
+        LOST TO FOLLOW-UP: Lost to Follow-Up
+        PHYSICIAN DECISION: Physician Decision
+        PREGNANCY: Pregnancy
+        PROTOCOL DEVIATION: Protocol Deviation
+        Study Terminated By Sponsor: Study Terminated by Sponsor
+        WITHDRAWAL BY SUBJECT: Withdrawal of Consent by Participant
+        COVID: Due to SARS-CoV-2
+        OTHER: Other
+      unmapped: null
+- name: _EOT_REASON
+  type: str
+  derivation:
+    first_available:
+      sources:
+      - _EOT_MAP
+      - DS_EOT.DSDECOD
+- name: _EOT_TERM0
+  type: str
+  derivation: DS_EOT.DSTERM
+- name: _EOT_TERM
+  type: str
+  derivation:
+    str_replace:
+      source: _EOT_TERM0
+      pattern: '[\r\n\f\u00c2\u00a0]'
+      replacement: ' '
+- name: _EOT_RU
+  type: str
+  derivation:
+    str_case:
+      source: _EOT_REASON
+      to: upper
+- name: _EOT_TU
+  type: str
+  derivation:
+    str_case:
+      source: _EOT_TERM
+      to: upper
+- name: _EOT_SPY
+  type: str
+  derivation:
+    case:
+    - when: (_EOT_RU IS NULL AND _EOT_TU IS NOT NULL OR _EOT_RU IS NOT NULL AND _EOT_TU IS NULL OR _EOT_RU <> _EOT_TU)
+        AND (_EOT_TU IS NULL OR _EOT_TU <> 'COVID') AND (_EOT_RU IS NULL OR _EOT_RU <> 'DEATH')
+      then: _EOT_TERM
+- name: _DOSE2
+  type: str
+  derivation: EX_D2._TRTN
+- name: _DOSE2DTC
+  type: str
+  derivation: EX_D2._EXST
+- name: _EXSTC
+  type: str
+  derivation: EX_LAST._EXST
+- name: _RANDDT_E
+  type: int
+  derivation:
+    to_epoch_day:
+      source: RANDDT
+- name: _TR01SDT_E
+  type: int
+  derivation:
+    to_epoch_day:
+      source: TR01SDT
+- name: _DOSE2DT_E
+  type: int
+  derivation:
+    to_epoch_day:
+      source: DOSE2DT
+- name: _EOSDT_E
+  type: int
+  derivation:
+    to_epoch_day:
+      source: EOSDT
+- name: _CUTOFFDT_E
+  type: int
+  derivation:
+    to_epoch_day:
+      source: CUTOFFDT
+- name: _EFFCODT_E
+  type: int
+  derivation:
+    to_epoch_day:
+      source: EFFCODT
+- name: _EOTDT_E
+  type: int
+  derivation:
+    to_epoch_day:
+      source: EOTDT
+- name: _SEV1
+  type: int
+  derivation:
+    case:
+    - when: DV1._SEQ IS NOT NULL
+      then: 1
+    - otherwise: 0
+- name: _SEV2
+  type: int
+  derivation:
+    case:
+    - when: DV2._SEQ IS NOT NULL
+      then: 1
+    - otherwise: 0
+- name: _SEV3
+  type: int
+  derivation:
+    case:
+    - when: DV3._SEQ IS NOT NULL
+      then: 1
+    - otherwise: 0
+- name: _SEV8
+  type: int
+  derivation:
+    case:
+    - when: DV8._SEQ IS NOT NULL
+      then: 1
+    - otherwise: 0
+- name: _RANDOK
+  type: int
+  derivation:
+    case:
+    - when: _RANDDTC IS NOT NULL AND _SEV1 = 0
+      then: 1
+    - otherwise: 0
+- name: _EOTFL
+  type: str
+  derivation:
+    case:
+    - when: DOSE2DT IS NOT NULL
+      then: '''Y'''
+    - when: _EOT IS NOT NULL AND (_EOT_REASON IS NULL OR _EOT_REASON <> 'COMPLETED')
+      then: '''N'''
+- name: _D2MD1
+  type: int
+  derivation: _DOSE2DT_E - _TR01SDT_E
+- name: _EFFMD1
+  type: int
+  derivation: _EFFCODT_E - _TR01SDT_E
+- name: _RSKN
+  type: int
+  derivation:
+    case:
+    - when: RSKF1 IS NULL AND RSKF2 IS NULL AND RSKF3 IS NULL AND RSKF4 IS NULL AND RSKF5 IS NULL AND RSKF6 IS NULL
+      then: 0
+    - otherwise: 1
+- name: _SCOV2BL_L
+  type: str
+  derivation:
+    str_case:
+      source: SCOV2BL
+      to: lower
+- name: _SAFE1
+  type: str
+  derivation:
+    case:
+    - when: RANDFL = 'Y' AND SAFFL = 'N'
+      then: '''Did not receive any vaccination'''
+- name: _FASE2
+  type: str
+  derivation:
+    case:
+    - when: RANDFL = 'Y' AND (_SEV1 = 1 OR _SEV2 = 1 OR _SEV8 = 1)
+      then: '''Had major protocol deviations'''
+- name: _SAFE2
+  type: str
+  derivation:
+    case:
+    - when: RANDFL = 'Y' AND (_SEV1 = 1 OR _SEV8 = 1)
+      then: '''Had major protocol deviations'''
+- name: _SAR1E3
+  type: str
+  derivation:
+    case:
+    - when: RANDFL = 'Y' AND SAFFL = 'Y' AND SAR1FL = 'N'
+      then: '''Did not contribute any solicited AR data for Vaccination #1'''
+- name: _SAR2E3
+  type: str
+  derivation:
+    case:
+    - when: RANDFL = 'Y' AND SAFFL = 'Y' AND DOSE2FL = 'N'
+      then: '''Did not receive Vaccination #2'''
+- name: _SAR2E4
+  type: str
+  derivation:
+    case:
+    - when: RANDFL = 'Y' AND SAFFL = 'Y' AND DOSE2FL = 'Y' AND SAR2FL = 'N'
+      then: '''Did not contribute any solicited AR data for Vaccination #2'''
+- name: _MITT3
+  type: str
+  derivation:
+    case:
+    - when: RANDFL = 'Y' AND _SCOV2BL_L = 'positive'
+      then: '''PCR and/or serology positive at baseline'''
+- name: _MITT4
+  type: str
+  derivation:
+    case:
+    - when: RANDFL = 'Y' AND SCOV2BL IS NULL
+      then: '''PCR and/or serology missing at baseline'''
+- name: _PPE1
+  type: str
+  derivation:
+    case:
+    - when: PPROTFL = 'N' AND RANDFL = 'Y' AND MITTFL = 'N'
+      then: '''Excluded from mITT population'''
+- name: _PPE2
+  type: str
+  derivation:
+    case:
+    - when: PPROTFL = 'N' AND RANDFL = 'Y' AND DOSE2FL = 'N' AND (_EFFMD1 >= 42 OR (EOTSTT = 'DISCONTINUED' AND
+        _EOTDT_E IS NOT NULL AND _EOTDT_E <= _EFFCODT_E) OR (EOSSTT = 'DISCONTINUED' AND _EOSDT_E IS NOT NULL AND
+        _EOSDT_E <= _EFFCODT_E))
+      then: '''Did not receive Vaccination #2 per schedule'''
+- name: _PPE3
+  type: str
+  derivation:
+    case:
+    - when: PPROTFL = 'N' AND RANDFL = 'Y' AND (_SEV1 = 1 OR _SEV2 = 1 OR _SEV3 = 1 OR _SEV8 = 1)
+      then: '''Had major protocol deviations'''
+- name: _PPE4
+  type: str
+  derivation:
+    case:
+    - when: PPROTFL = 'N' AND ((RANDFL = 'Y' AND (TRT01A IS NOT NULL AND (TRT01P IS NULL OR TRT01A <> TRT01P)))
+        OR (_DOSE2 IS NOT NULL AND (TRT01P IS NULL OR _DOSE2 <> TRT01P)))
+      then: '''Received incorrect vaccination'''
+- name: _PPE5
+  type: str
+  derivation:
+    case:
+    - when: PPROTFL = 'N' AND SAFFL = 'Y' AND DOSE2FL = 'Y' AND ((_D2MD1 IS NOT NULL AND _D2MD1 < 21) OR _D2MD1
+        > 42)
+      then: '''Received Vaccination #2 out of window'''
+- name: _FASE_ACC2
+  type: str
+  derivation:
+    case:
+    - when: _SAFE1 IS NULL
+      then: _FASE2
+    - when: _FASE2 IS NULL
+      then: _SAFE1
+    - otherwise:
+        str_template: '{_SAFE1}, {_FASE2}'
+- name: _SAFE_ACC2
+  type: str
+  derivation:
+    case:
+    - when: _SAFE1 IS NULL
+      then: _SAFE2
+    - when: _SAFE2 IS NULL
+      then: _SAFE1
+    - otherwise:
+        str_template: '{_SAFE1}, {_SAFE2}'
+- name: _SAR1E_ACC2
+  type: str
+  derivation:
+    case:
+    - when: _SAFE1 IS NULL
+      then: _SAFE2
+    - when: _SAFE2 IS NULL
+      then: _SAFE1
+    - otherwise:
+        str_template: '{_SAFE1}, {_SAFE2}'
+- name: _SAR1E_ACC3
+  type: str
+  derivation:
+    case:
+    - when: _SAR1E_ACC2 IS NULL
+      then: _SAR1E3
+    - when: _SAR1E3 IS NULL
+      then: _SAR1E_ACC2
+    - otherwise:
+        str_template: '{_SAR1E_ACC2}, {_SAR1E3}'
+- name: _SAR2E_ACC2
+  type: str
+  derivation:
+    case:
+    - when: _SAFE1 IS NULL
+      then: _SAFE2
+    - when: _SAFE2 IS NULL
+      then: _SAFE1
+    - otherwise:
+        str_template: '{_SAFE1}, {_SAFE2}'
+- name: _SAR2E_ACC3
+  type: str
+  derivation:
+    case:
+    - when: _SAR2E_ACC2 IS NULL
+      then: _SAR2E3
+    - when: _SAR2E3 IS NULL
+      then: _SAR2E_ACC2
+    - otherwise:
+        str_template: '{_SAR2E_ACC2}, {_SAR2E3}'
+- name: _SAR2E_ACC4
+  type: str
+  derivation:
+    case:
+    - when: _SAR2E_ACC3 IS NULL
+      then: _SAR2E4
+    - when: _SAR2E4 IS NULL
+      then: _SAR2E_ACC3
+    - otherwise:
+        str_template: '{_SAR2E_ACC3}, {_SAR2E4}'
+- name: _MITT_ACC2
+  type: str
+  derivation:
+    case:
+    - when: _SAFE1 IS NULL
+      then: _SAFE2
+    - when: _SAFE2 IS NULL
+      then: _SAFE1
+    - otherwise:
+        str_template: '{_SAFE1}, {_SAFE2}'
+- name: _MITT_ACC3
+  type: str
+  derivation:
+    case:
+    - when: _MITT_ACC2 IS NULL
+      then: _MITT3
+    - when: _MITT3 IS NULL
+      then: _MITT_ACC2
+    - otherwise:
+        str_template: '{_MITT_ACC2}, {_MITT3}'
+- name: _MITT_ACC4
+  type: str
+  derivation:
+    case:
+    - when: _MITT_ACC3 IS NULL
+      then: _MITT4
+    - when: _MITT4 IS NULL
+      then: _MITT_ACC3
+    - otherwise:
+        str_template: '{_MITT_ACC3}, {_MITT4}'
+- name: _PPE_ACC2
+  type: str
+  derivation:
+    case:
+    - when: _PPE1 IS NULL
+      then: _PPE2
+    - when: _PPE2 IS NULL
+      then: _PPE1
+    - otherwise:
+        str_template: '{_PPE1}, {_PPE2}'
+- name: _PPE_ACC3
+  type: str
+  derivation:
+    case:
+    - when: _PPE_ACC2 IS NULL
+      then: _PPE3
+    - when: _PPE3 IS NULL
+      then: _PPE_ACC2
+    - otherwise:
+        str_template: '{_PPE_ACC2}, {_PPE3}'
+- name: _PPE_ACC4
+  type: str
+  derivation:
+    case:
+    - when: _PPE_ACC3 IS NULL
+      then: _PPE4
+    - when: _PPE4 IS NULL
+      then: _PPE_ACC3
+    - otherwise:
+        str_template: '{_PPE_ACC3}, {_PPE4}'
+- name: _PPE_ACC5
+  type: str
+  derivation:
+    case:
+    - when: _PPE_ACC4 IS NULL
+      then: _PPE5
+    - when: _PPE5 IS NULL
+      then: _PPE_ACC4
+    - otherwise:
+        str_template: '{_PPE_ACC4}, {_PPE5}'
+- name: _RS1
+  type: str
+  derivation:
+    case:
+    - when: _RACE1 IS NOT NULL
+      then: '''White'''
+- name: _RS2
+  type: str
+  derivation:
+    case:
+    - when: _RACE2 IS NOT NULL
+      then: '''Black or African American'''
+- name: _RS3
+  type: str
+  derivation:
+    case:
+    - when: _RACE3 IS NOT NULL
+      then: '''Asian'''
+- name: _RS4
+  type: str
+  derivation:
+    case:
+    - when: _RACE4 IS NOT NULL
+      then: '''American Indian or Alaska Native'''
+- name: _RS5
+  type: str
+  derivation:
+    case:
+    - when: _RACE5 IS NOT NULL
+      then: '''Native Hawaiian or other Pacific Islander'''
+- name: _RS6
+  type: str
+  derivation:
+    case:
+    - when: _RACE6 IS NOT NULL AND _RACEOTH IS NOT NULL
+      then:
+        str_template: 'Other: {_RACEOTH}'
+    - when: _RACE6 IS NOT NULL
+      then: '''Other'''
+- name: _RS7
+  type: str
+  derivation:
+    case:
+    - when: _RACE7 IS NOT NULL
+      then: '''Unknown'''
+- name: _RS8
+  type: str
+  derivation:
+    case:
+    - when: _RACE8 IS NOT NULL
+      then: '''Not reported'''
+- name: _RSC1
+  type: int
+  derivation:
+    case:
+    - when: _RS1 IS NOT NULL
+      then: 1
+    - otherwise: 0
+- name: _RSC2
+  type: int
+  derivation:
+    case:
+    - when: _RS2 IS NOT NULL
+      then: 1
+    - otherwise: 0
+- name: _RSC3
+  type: int
+  derivation:
+    case:
+    - when: _RS3 IS NOT NULL
+      then: 1
+    - otherwise: 0
+- name: _RSC4
+  type: int
+  derivation:
+    case:
+    - when: _RS4 IS NOT NULL
+      then: 1
+    - otherwise: 0
+- name: _RSC5
+  type: int
+  derivation:
+    case:
+    - when: _RS5 IS NOT NULL
+      then: 1
+    - otherwise: 0
+- name: _RSC6
+  type: int
+  derivation:
+    case:
+    - when: _RS6 IS NOT NULL
+      then: 1
+    - otherwise: 0
+- name: _RSC7
+  type: int
+  derivation:
+    case:
+    - when: _RS7 IS NOT NULL
+      then: 1
+    - otherwise: 0
+- name: _RSC8
+  type: int
+  derivation:
+    case:
+    - when: _RS8 IS NOT NULL
+      then: 1
+    - otherwise: 0
+- name: _RSN
+  type: int
+  derivation: _RSC1 + _RSC2 + _RSC3 + _RSC4 + _RSC5 + _RSC6 + _RSC7 + _RSC8
+- name: _RSP_ACC2
+  type: str
+  derivation:
+    case:
+    - when: _RS1 IS NULL
+      then: _RS2
+    - when: _RS2 IS NULL
+      then: _RS1
+    - otherwise:
+        str_template: '{_RS1}, {_RS2}'
+- name: _RSP_ACC3
+  type: str
+  derivation:
+    case:
+    - when: _RSP_ACC2 IS NULL
+      then: _RS3
+    - when: _RS3 IS NULL
+      then: _RSP_ACC2
+    - otherwise:
+        str_template: '{_RSP_ACC2}, {_RS3}'
+- name: _RSP_ACC4
+  type: str
+  derivation:
+    case:
+    - when: _RSP_ACC3 IS NULL
+      then: _RS4
+    - when: _RS4 IS NULL
+      then: _RSP_ACC3
+    - otherwise:
+        str_template: '{_RSP_ACC3}, {_RS4}'
+- name: _RSP_ACC5
+  type: str
+  derivation:
+    case:
+    - when: _RSP_ACC4 IS NULL
+      then: _RS5
+    - when: _RS5 IS NULL
+      then: _RSP_ACC4
+    - otherwise:
+        str_template: '{_RSP_ACC4}, {_RS5}'
+- name: _RSP_ACC6
+  type: str
+  derivation:
+    case:
+    - when: _RSP_ACC5 IS NULL
+      then: _RS6
+    - when: _RS6 IS NULL
+      then: _RSP_ACC5
+    - otherwise:
+        str_template: '{_RSP_ACC5}, {_RS6}'
+- name: _RSP_ACC7
+  type: str
+  derivation:
+    case:
+    - when: _RSP_ACC6 IS NULL
+      then: _RS7
+    - when: _RS7 IS NULL
+      then: _RSP_ACC6
+    - otherwise:
+        str_template: '{_RSP_ACC6}, {_RS7}'
+- name: _RSP_ACC8
+  type: str
+  derivation:
+    case:
+    - when: _RSP_ACC7 IS NULL
+      then: _RS8
+    - when: _RS8 IS NULL
+      then: _RSP_ACC7
+    - otherwise:
+        str_template: '{_RSP_ACC7}, {_RS8}'
+- name: _HEIGHTBL
+  type: float
+  derivation:
+    case:
+    - when: HW_HEIGHT.VSSTRESU = 'cm' AND NOT HW_HEIGHT.VSSTRESN LIKE '(%'
+      then: HW_HEIGHT.VSSTRESN
+- name: _WEIGHTBL
+  type: float
+  derivation:
+    case:
+    - when: HW_WEIGHT.VSSTRESU = 'kg' AND NOT HW_WEIGHT.VSSTRESN LIKE '(%'
+      then: HW_WEIGHT.VSSTRESN
+- name: _BMIBL
+  type: float
+  derivation:
+    case:
+    - when: _HEIGHTBL IS NOT NULL AND _WEIGHTBL IS NOT NULL
+      then: _WEIGHTBL / ((_HEIGHTBL / 100) * (_HEIGHTBL / 100))
+- name: _BMIBL_TT1
+  type: str
+  derivation:
+    str_decimal:
+      source: _BMIBL
+      decimals: 16
+- name: _BMIBL_TK1
+  type: float
+  derivation:
+    str_substr:
+      source: _BMIBL_TT1
+      start: 1
+      length: 16
+- name: _BMIBL_TC1
+  type: int
+  derivation:
+    str_substr:
+      source: _BMIBL_TT1
+      start: 17
+      length: 2
+- name: _BMIBL_TV1
+  type: float
+  derivation:
+    case:
+    - when: _BMIBL_TC1 >= 50
+      then: _BMIBL_TK1 + 0.00000000000001
+    - otherwise: _BMIBL_TK1
+- name: _BMIBL_T1
+  type: str
+  derivation:
+    str_decimal:
+      source: _BMIBL_TV1
+      decimals: 14
+- name: _BMIBL_TT2
+  type: str
+  derivation:
+    str_decimal:
+      source: _BMIBL
+      decimals: 15
+- name: _BMIBL_TK2
+  type: float
+  derivation:
+    str_substr:
+      source: _BMIBL_TT2
+      start: 1
+      length: 16
+- name: _BMIBL_TC2
+  type: int
+  derivation:
+    str_substr:
+      source: _BMIBL_TT2
+      start: 17
+      length: 2
+- name: _BMIBL_TV2
+  type: float
+  derivation:
+    case:
+    - when: _BMIBL_TC2 >= 50
+      then: _BMIBL_TK2 + 0.0000000000001
+    - otherwise: _BMIBL_TK2
+- name: _BMIBL_T2
+  type: str
+  derivation:
+    str_decimal:
+      source: _BMIBL_TV2
+      decimals: 13
+- name: _BMIBL_TT3
+  type: str
+  derivation:
+    str_decimal:
+      source: _BMIBL
+      decimals: 14
+- name: _BMIBL_TK3
+  type: float
+  derivation:
+    str_substr:
+      source: _BMIBL_TT3
+      start: 1
+      length: 16
+- name: _BMIBL_TC3
+  type: int
+  derivation:
+    str_substr:
+      source: _BMIBL_TT3
+      start: 17
+      length: 2
+- name: _BMIBL_TV3
+  type: float
+  derivation:
+    case:
+    - when: _BMIBL_TC3 >= 50
+      then: _BMIBL_TK3 + 0.000000000001
+    - otherwise: _BMIBL_TK3
+- name: _BMIBL_T3
+  type: str
+  derivation:
+    str_decimal:
+      source: _BMIBL_TV3
+      decimals: 12
+- name: _BMIBL_TR
+  type: str
+  derivation:
+    case:
+    - when: _BMIBL IS NULL
+      then: null
+    - when: _BMIBL < 10
+      then: _BMIBL_T1
+    - when: _BMIBL < 100
+      then: _BMIBL_T2
+    - otherwise: _BMIBL_T3
+- name: _BMIBL_T
+  type: str
+  derivation:
+    str_replace:
+      source: _BMIBL_TR
+      pattern: \.?0+$
+      replacement: ''
+- name: _NEWTR01
+  type: date
+  derivation:
+    case:
+    - when: _EXSTC IS NOT NULL AND _RANDOK = 1 AND _SEV8 = 0
+      then: TR01SDT
+    - when: _RANDOK = 1
+      then: RANDDT
+- name: _NEWTR01_E
+  type: int
+  derivation:
+    to_epoch_day:
+      source: _NEWTR01
+- name: _DTHDTC
+  type: str
+  derivation:
+    first_available:
+      sources:
+      - DD_DTH.DDDTC
+      - DD_AUT.DDDTC
+      - AE_DTH.AEENDTC
+- name: _ETHX0
+  type: int
+  derivation:
+    case:
+    - when: DM.ETHNIC IS NULL OR DM.ETHNIC IN ('NOT REPORTED', 'UNKNOWN')
+      then: 1
+    - otherwise: 0
+- name: _RACEX0
+  type: int
+  derivation:
+    case:
+    - when: DM.RACE IS NULL OR DM.RACE IN ('NOT REPORTED', 'UNKNOWN')
+      then: 1
+    - otherwise: 0
+- name: STUDYID
+  derivation: DM.STUDYID
+  submission:
+    origins:
+    - type: Predecessor
+      description: DM.STUDYID
+- name: USUBJID
+  derivation: DM.USUBJID
+  submission:
+    origins:
+    - type: Predecessor
+      description: DM.USUBJID
+- name: SUBJID
+  derivation: DM.SUBJID
+  submission:
+    origins:
+    - type: Predecessor
+      description: DM.SUBJID
+- name: SITEID
+  derivation: DM.SITEID
+  submission:
+    origins:
+    - type: Predecessor
+      description: DM.SITEID
+- name: COUNTRY
+  derivation: DM.COUNTRY
+  submission:
+    origins:
+    - type: Predecessor
+      description: DM.COUNTRY
+- name: AGE
+  derivation: DM.AGE
+  submission:
+    origins:
+    - type: Predecessor
+      description: DM.AGE
+    mandatory: false
+- name: AGEU
+  derivation: DM.AGEU
+  submission:
+    origins:
+    - type: Predecessor
+      description: DM.AGEU
+    mandatory: false
+- name: STRATAR
+  derivation:
+    case:
+    - when: _COHORT_L = '>=18 and <65 years and not at risk'
+      then: '''>=18 and <65 Years and Not at Risk'''
+    - when: _COHORT_L = '>=18 and <65 years and at risk'
+      then: '''>=18 and <65 Years and at Risk'''
+    - when: _COHORT_L = '>=65 years'
+      then: '''>=65 Years'''
+  submission:
+    origins:
+    - type: Derived
+    method: "Withheld from publication: the received define states this text."
+    mandatory: false
+- name: STRATARN
+  derivation:
+    case:
+    - when: _COHORT_L = '>=18 and <65 years and not at risk'
+      then: 1
+    - when: _COHORT_L = '>=18 and <65 years and at risk'
+      then: 2
+    - when: _COHORT_L = '>=65 years'
+      then: 3
+  submission:
+    origins:
+    - type: Derived
+    method: "Withheld from publication: the received define states this text."
+    mandatory: false
+- name: AGEGR1
+  derivation:
+    case:
+    - when: AGE >= 65
+      then: '''>=65 Years'''
+    - when: AGE IS NOT NULL
+      then: '''>=18 and <65 Years'''
+  submission:
+    origins:
+    - type: Derived
+    method: "Withheld from publication: the received define states this text."
+    mandatory: false
+- name: AGEGR1N
+  derivation:
+    case:
+    - when: AGE >= 65
+      then: 2
+    - when: AGE IS NOT NULL
+      then: 1
+  submission:
+    origins:
+    - type: Derived
+    method: "Withheld from publication: the received define states this text."
+    mandatory: false
+- name: AGEGR2
+  derivation:
+    case:
+    - when: AGE >= 65 AND AGE < 75
+      then: '''>=65 and <75 Years'''
+    - when: AGE < 65
+      then: '''>=18 and <65 Years'''
+    - when: AGE >= 75
+      then: '''>=75 Years'''
+  submission:
+    origins:
+    - type: Derived
+    method: "Withheld from publication: the received define states this text."
+    mandatory: false
+- name: AGEGR2N
+  derivation:
+    case:
+    - when: AGE >= 65 AND AGE < 75
+      then: 2
+    - when: AGE < 65
+      then: 1
+    - when: AGE >= 75
+      then: 3
+  submission:
+    origins:
+    - type: Derived
+    method: "Withheld from publication: the received define states this text."
+    mandatory: false
+- name: SEX
+  derivation: DM.SEX
+  submission:
+    origins:
+    - type: Predecessor
+      description: DM.SEX
+    mandatory: false
+- name: RACE
+  derivation: DM.RACE
+  submission:
+    origins:
+    - type: Predecessor
+      description: DM.RACE
+    mandatory: false
+- name: RACESPY
+  derivation:
+    case:
+    - when: _RSN >= 2 OR DM.RACE = 'MULTIPLE'
+      then: _RSP_ACC8
+    - when: DM.RACE = 'OTHER'
+      then: _RACEOTH
+    - when: _RACEOTH IS NOT NULL
+      then: _RACEOTH
+  submission:
+    origins:
+    - type: Derived
+    method: "Withheld from publication: the received define states this text."
+- name: ETHNIC
+  derivation: DM.ETHNIC
+  submission:
+    origins:
+    - type: Predecessor
+      description: DM.ETHNIC
+    mandatory: false
+- name: PROTVER
+  derivation: SUPPDM_P.PROTVER
+  type: int
+  submission:
+    length: 8
+    origins:
+    - type: Derived
+    method: "Withheld from publication: the received define states this text."
+    mandatory: false
+- name: CHILDBP
+  derivation:
+    str_substr:
+      source: RP_CHIL.RPSTRESC
+      start: 1
+      length: 3
+  submission:
+    origins:
+    - type: Derived
+    method: "Withheld from publication: the received define states this text."
+- name: CBNRS
+  derivation: RP_CB._CB
+  submission:
+    origins:
+    - type: Derived
+    method: "Withheld from publication: the received define states this text."
+- name: RANDFL
+  derivation:
+    case:
+    - when: _RANDOK = 1
+      then: '''Y'''
+    - otherwise: '''N'''
+  submission:
+    origins:
+    - type: Derived
+    method: "Withheld from publication: the received define states this text."
+- name: RANDNUM
+  derivation: DS_RAND.DSREFID
+  type: int
+  submission:
+    length: 8
+    origins:
+    - type: Derived
+    method: "Withheld from publication: the received define states this text."
+    mandatory: false
+- name: FASFL
+  derivation:
+    case:
+    - when: _EXSTC IS NOT NULL AND RANDFL = 'Y' AND _SEV8 = 0 AND _SEV2 = 0
+      then: '''Y'''
+    - otherwise: '''N'''
+  submission:
+    origins:
+    - type: Derived
+    method: "Withheld from publication: the received define states this text."
+- name: SAFFL
+  derivation:
+    case:
+    - when: _EXSTC IS NOT NULL AND RANDFL = 'Y' AND _SEV8 = 0
+      then: '''Y'''
+    - otherwise: '''N'''
+  submission:
+    origins:
+    - type: Derived
+    method: "Withheld from publication: the received define states this text."
+- name: SAR1FL
+  derivation:
+    case:
+    - when: SAFFL = 'Y' AND (FACE_SAR1.FASEQ IS NOT NULL OR VS_SAR1.VSSEQ IS NOT NULL)
+      then: '''Y'''
+    - otherwise: '''N'''
+  submission:
+    origins:
+    - type: Derived
+    method: "Withheld from publication: the received define states this text."
+- name: SAR2FL
+  derivation:
+    case:
+    - when: SAFFL = 'Y' AND DOSE2FL = 'Y' AND (FACE_SAR2.FASEQ IS NOT NULL OR VS_SAR2.VSSEQ IS NOT NULL)
+      then: '''Y'''
+    - otherwise: '''N'''
+  submission:
+    origins:
+    - type: Derived
+    method: "Withheld from publication: the received define states this text."
+- name: SARAFL
+  derivation:
+    case:
+    - when: SAR1FL = 'Y' OR SAR2FL = 'Y'
+      then: '''Y'''
+    - otherwise: '''N'''
+  submission:
+    origins:
+    - type: Derived
+    method: "Withheld from publication: the received define states this text."
+- name: MITTFL
+  derivation:
+    case:
+    - when: FASFL = 'Y' AND _SCOV2BL_L = 'negative'
+      then: '''Y'''
+    - otherwise: '''N'''
+  submission:
+    origins:
+    - type: Derived
+    method: "Withheld from publication: the received define states this text."
+- name: PPROTFL
+  derivation:
+    case:
+    - when: MITTFL = 'Y' AND ((DOSE2FL = 'Y' AND _D2MD1 >= 21 AND _D2MD1 <= 42) OR (DOSE2FL = 'N' AND _EFFMD1 IS
+        NOT NULL AND _EFFMD1 < 42 AND (EOTSTT IS NULL OR EOTSTT <> 'DISCONTINUED' OR _EOTDT_E > _EFFCODT_E) AND
+        (EOSSTT IS NULL OR EOSSTT <> 'DISCONTINUED' OR _EOSDT_E > _EFFCODT_E))) AND _SEV1 = 0 AND _SEV2 = 0 AND
+        _SEV3 = 0 AND _SEV8 = 0 AND NOT (TRT01A IS NOT NULL AND (TRT01P IS NULL OR TRT01A <> TRT01P))
+      then: '''Y'''
+    - otherwise: '''N'''
+  submission:
+    origins:
+    - type: Derived
+    method: "Withheld from publication: the received define states this text."
+- name: COMPLFL
+  derivation:
+    case:
+    - when: _EOS IS NOT NULL AND _EOS_RU = 'COMPLETED'
+      then: '''Y'''
+    - when: _EOS IS NOT NULL
+      then: '''N'''
+  submission:
+    origins:
+    - type: Derived
+    method: "Withheld from publication: the received define states this text."
+- name: DOSE1FL
+  derivation:
+    case:
+    - when: EX_D1._EXST IS NOT NULL
+      then: '''Y'''
+    - otherwise: '''N'''
+  submission:
+    origins:
+    - type: Derived
+    method: "Withheld from publication: the received define states this text."
+- name: DOSE2FL
+  derivation:
+    case:
+    - when: EX_D2._EXST IS NOT NULL
+      then: '''Y'''
+    - otherwise: '''N'''
+  submission:
+    origins:
+    - type: Derived
+    method: "Withheld from publication: the received define states this text."
+- name: RTPCRBL
+  derivation:
+    case:
+    - when: MB_BL.MBSTRESC LIKE 'N%'
+      then: '''Negative'''
+    - when: MB_BL.MBSTRESC LIKE 'D%' OR MB_BL.MBSTRESC LIKE 'P%'
+      then: '''Positive'''
+  submission:
+    origins:
+    - type: Derived
+    method: "Withheld from publication: the received define states this text."
+- name: ELECSBL
+  derivation:
+    case:
+    - when: IS_BL.ISSTRESC LIKE 'N%'
+      then: '''Negative'''
+    - when: IS_BL.ISSTRESC LIKE 'P%'
+      then: '''Positive'''
+  submission:
+    origins:
+    - type: Derived
+    method: "Withheld from publication: the received define states this text."
+- name: SCOV2BL
+  derivation:
+    case:
+    - when: RTPCRBL = 'Positive' OR ELECSBL = 'Positive'
+      then: '''Positive'''
+    - when: RTPCRBL = 'Negative' AND ELECSBL = 'Negative'
+      then: '''Negative'''
+  submission:
+    origins:
+    - type: Derived
+    method: "Withheld from publication: the received define states this text."
+- name: HEIGHTBL
+  derivation:
+    case:
+    - when: HW_HEIGHT.VSSTRESU = 'cm'
+      then: HW_HEIGHT.VSSTRESN
+  type: str
+  submission:
+    length: 16
+    origins:
+    - type: Derived
+    method: "Withheld from publication: the received define states this text."
+- name: WEIGHTBL
+  derivation: _WEIGHTBL
+  submission:
+    significant_digits: 4
+    origins:
+    - type: Derived
+    method: "Withheld from publication: the received define states this text."
+- name: BMIBL
+  derivation: _BMIBL_T
+  type: str
+  submission:
+    length: 16
+    origins:
+    - type: Derived
+    method: "Withheld from publication: the received define states this text."
+- name: ARM
+  derivation: DM.ARM
+  submission:
+    origins:
+    - type: Predecessor
+      description: DM.ARM
+    mandatory: false
+- name: ACTARM
+  derivation: DM.ACTARM
+  submission:
+    origins:
+    - type: Predecessor
+      description: DM.ACTARM
+- name: TRT01P
+  derivation:
+    case:
+    - when: str_contains(DM.ARM, 'Placebo') OR str_contains(DM.ARM, 'RNA')
+      then: DM.ARM
+  submission:
+    origins:
+    - type: Derived
+    method: "Withheld from publication: the received define states this text."
+    mandatory: false
+- name: TRT01PN
+  derivation:
+    mapping:
+      source: TRT01P
+      dict:
+        Placebo: 1
+        mRNA-1273: 2
+      unmapped: null
+  submission:
+    origins:
+    - type: Derived
+    method: "Withheld from publication: the received define states this text."
+    mandatory: false
+- name: TRT01A
+  derivation:
+    case:
+    - when: SAFFL = 'Y' AND (str_contains(DM.ACTARM, 'Placebo') OR str_contains(DM.ACTARM, 'RNA'))
+      then: DM.ACTARM
+  submission:
+    origins:
+    - type: Derived
+    method: "Withheld from publication: the received define states this text."
+- name: TRT01AN
+  derivation:
+    mapping:
+      source: TRT01A
+      dict:
+        Placebo: 1
+        mRNA-1273: 2
+      unmapped: null
+  submission:
+    origins:
+    - type: Derived
+    method: "Withheld from publication: the received define states this text."
+- name: RFICDT
+  derivation:
+    case:
+    - when: DM.RFICDTC LIKE '____-__-__%'
+      then:
+        to_date:
+          source: DM.RFICDTC
+  submission:
+    origins:
+    - type: Derived
+    method: "Withheld from publication: the received define states this text."
+    mandatory: false
+- name: RANDDT
+  derivation:
+    case:
+    - when: _RANDDTC LIKE '____-__-__%'
+      then:
+        to_date:
+          source: _RANDDTC
+  submission:
+    origins:
+    - type: Derived
+    method: "Withheld from publication: the received define states this text."
+    mandatory: false
+- name: RFXSTDTC
+  derivation: DM.RFXSTDTC
+  type: str
+  submission:
+    length: 19
+    origins:
+    - type: Derived
+    method: "Withheld from publication: the received define states this text."
+- name: TR01SDT
+  derivation:
+    case:
+    - when: DM.RFXSTDTC LIKE '____-__-__%'
+      then:
+        to_date:
+          source: DM.RFXSTDTC
+  submission:
+    origins:
+    - type: Derived
+    method: "Withheld from publication: the received define states this text."
+- name: TR01SDTM
+  derivation:
+    case:
+    - when: DM.RFXSTDTC LIKE '____-__-__T__:__%'
+      then:
+        impute:
+          source: DM.RFXSTDTC
+          type: datetime
+          time: first
+  submission:
+    origins:
+    - type: Derived
+    method: "Withheld from publication: the received define states this text."
+- name: TR01EDT
+  derivation:
+    case:
+    - when: DM.RFXENDTC LIKE '____-__-__%'
+      then:
+        to_date:
+          source: DM.RFXENDTC
+  submission:
+    origins:
+    - type: Derived
+    method: "Withheld from publication: the received define states this text."
+- name: TR01EDTM
+  derivation:
+    case:
+    - when: DM.RFXENDTC LIKE '____-__-__T__:__%'
+      then:
+        impute:
+          source: DM.RFXENDTC
+          type: datetime
+          time: first
+  submission:
+    origins:
+    - type: Derived
+    method: "Withheld from publication: the received define states this text."
+- name: DOSE2DT
+  derivation:
+    case:
+    - when: _DOSE2DTC LIKE '____-__-__%'
+      then:
+        to_date:
+          source: _DOSE2DTC
+  submission:
+    origins:
+    - type: Derived
+    method: "Withheld from publication: the received define states this text."
+- name: DOS2DTM
+  derivation:
+    case:
+    - when: _DOSE2DTC LIKE '____-__-__T__:__%'
+      then:
+        impute:
+          source: _DOSE2DTC
+          type: datetime
+          time: first
+  submission:
+    origins:
+    - type: Derived
+    method: "Withheld from publication: the received define states this text."
+- name: EOSSTT
+  derivation:
+    case:
+    - when: RANDFL = 'N'
+      then: null
+    - when: COMPLFL = 'Y'
+      then: '''COMPLETED'''
+    - when: COMPLFL = 'N'
+      then: '''DISCONTINUED'''
+    - otherwise: '''ONGOING'''
+  submission:
+    origins:
+    - type: Derived
+    method: "Withheld from publication: the received define states this text."
+- name: EOSDT
+  derivation:
+    case:
+    - when: _RANDOK = 1
+      then:
+        case:
+        - when: DS_EOS.DSSTDTC LIKE '____-__-__%'
+          then:
+            to_date:
+              source: DS_EOS.DSSTDTC
+  submission:
+    origins:
+    - type: Derived
+    method: "Withheld from publication: the received define states this text."
+- name: EOSDY
+  derivation:
+    case:
+    - when: _EOSDT_E IS NULL OR _NEWTR01_E IS NULL
+      then: null
+    - when: _EOSDT_E >= _NEWTR01_E
+      then: _EOSDT_E - _NEWTR01_E + 1
+    - otherwise: _EOSDT_E - _NEWTR01_E
+  submission:
+    origins:
+    - type: Derived
+    method: "Withheld from publication: the received define states this text."
+- name: DCSREAS
+  derivation:
+    case:
+    - when: COMPLFL = 'N'
+      then: _EOS_REASON
+  submission:
+    origins:
+    - type: Derived
+    method: "Withheld from publication: the received define states this text."
+- name: DCSREASP
+  derivation:
+    case:
+    - when: COMPLFL = 'N'
+      then: _EOS_SPY
+  submission:
+    origins:
+    - type: Derived
+    method: "Withheld from publication: the received define states this text."
+- name: EOTSTT
+  derivation:
+    case:
+    - when: RANDFL = 'N'
+      then: null
+    - when: _EOTFL = 'Y'
+      then: '''COMPLETED'''
+    - when: _EOTFL = 'N'
+      then: '''DISCONTINUED'''
+    - otherwise: '''ONGOING'''
+  submission:
+    origins:
+    - type: Derived
+    method: "Withheld from publication: the received define states this text."
+- name: EOTDT
+  derivation:
+    case:
+    - when: _RANDOK = 0
+      then: null
+    - when: DOSE2DT IS NOT NULL
+      then: DOSE2DT
+    - otherwise:
+        case:
+        - when: DS_EOT.DSSTDTC LIKE '____-__-__%'
+          then:
+            to_date:
+              source: DS_EOT.DSSTDTC
+  submission:
+    origins:
+    - type: Derived
+    method: "Withheld from publication: the received define states this text."
+- name: EOTDY
+  derivation:
+    case:
+    - when: _EOTDT_E IS NULL OR _NEWTR01_E IS NULL
+      then: null
+    - when: _EOTDT_E >= _NEWTR01_E
+      then: _EOTDT_E - _NEWTR01_E + 1
+    - otherwise: _EOTDT_E - _NEWTR01_E
+  submission:
+    origins:
+    - type: Derived
+    method: "Withheld from publication: the received define states this text."
+- name: DCTREAS
+  derivation:
+    case:
+    - when: _EOTFL = 'N'
+      then: _EOT_REASON
+  submission:
+    origins:
+    - type: Derived
+    method: "Withheld from publication: the received define states this text."
+- name: DCTREASP
+  derivation:
+    case:
+    - when: _EOTFL = 'N'
+      then: _EOT_SPY
+  submission:
+    origins:
+    - type: Derived
+    method: "Withheld from publication: the received define states this text."
+- name: DTHDT
+  derivation:
+    case:
+    - when: _DTHDTC LIKE '____-__-__%'
+      then:
+        to_date:
+          source: _DTHDTC
+  submission:
+    origins:
+    - type: Derived
+    method: "Withheld from publication: the received define states this text."
+- name: DTHAUTOP
+  derivation: DD_AUT.DDORRES
+  submission:
+    origins:
+    - type: Derived
+    method: "Withheld from publication: the received define states this text."
+- name: CUTOFFDT
+  derivation: DATE '2020-11-25'
+  submission:
+    origins:
+    - type: Assigned
+    method: "Withheld from publication: the received define states this text."
+- name: EFFCODT
+  derivation: DATE '2020-11-21'
+  submission:
+    origins:
+    - type: Assigned
+    method: "Withheld from publication: the received define states this text."
+- name: FASEREAS
+  derivation: _FASE_ACC2
+  submission:
+    origins:
+    - type: Derived
+    method: "Withheld from publication: the received define states this text."
+- name: SAFEREAS
+  derivation: _SAFE_ACC2
+  submission:
+    origins:
+    - type: Derived
+    method: "Withheld from publication: the received define states this text."
+- name: SAR1ERS
+  derivation: _SAR1E_ACC3
+  submission:
+    origins:
+    - type: Derived
+    method: "Withheld from publication: the received define states this text."
+- name: SAR2ERS
+  derivation: _SAR2E_ACC4
+  submission:
+    origins:
+    - type: Derived
+    method: "Withheld from publication: the received define states this text."
+- name: MITTERS
+  derivation: _MITT_ACC4
+  submission:
+    origins:
+    - type: Derived
+    method: "Withheld from publication: the received define states this text."
+- name: PPEREAS
+  derivation: _PPE_ACC5
+  submission:
+    origins:
+    - type: Derived
+    method: "Withheld from publication: the received define states this text."
+- name: PREVSCR
+  derivation: _PREVSCR
+  submission:
+    origins:
+    - type: Derived
+    method: "Withheld from publication: the received define states this text."
+- name: RSKF1
+  derivation:
+    case:
+    - when: MH_RSK1.MHSEQ IS NOT NULL
+      then: '''Chronic Lung Disease'''
+  submission:
+    origins:
+    - type: Derived
+    method: "Withheld from publication: the received define states this text."
+- name: RSKF2
+  derivation:
+    case:
+    - when: MH_RSK2.MHSEQ IS NOT NULL
+      then: '''Significant Cardiac Disease'''
+  submission:
+    origins:
+    - type: Derived
+    method: "Withheld from publication: the received define states this text."
+- name: RSKF3
+  derivation:
+    case:
+    - when: MH_RSK3.MHSEQ IS NOT NULL
+      then: '''Severe Obesity'''
+  submission:
+    origins:
+    - type: Derived
+    method: "Withheld from publication: the received define states this text."
+- name: RSKF4
+  derivation:
+    case:
+    - when: MH_RSK4.MHSEQ IS NOT NULL
+      then: '''Diabetes'''
+  submission:
+    origins:
+    - type: Derived
+    method: "Withheld from publication: the received define states this text."
+- name: RSKF5
+  derivation:
+    case:
+    - when: MH_RSK5.MHSEQ IS NOT NULL
+      then: '''Liver Disease'''
+  submission:
+    origins:
+    - type: Derived
+    method: "Withheld from publication: the received define states this text."
+- name: RSKF6
+  derivation:
+    case:
+    - when: MH_RSK6.MHSEQ IS NOT NULL
+      then: '''Human Immunodeficiency Virus Infection'''
+  submission:
+    origins:
+    - type: Derived
+    method: "Withheld from publication: the received define states this text."
+- name: STRATAV
+  derivation:
+    case:
+    - when: AGEGR1N = 1 AND _RSKN = 0
+      then: '''>=18 and <65 Years and Not at Risk'''
+    - when: AGEGR1N = 1
+      then: '''>=18 and <65 Years and at Risk'''
+    - when: AGEGR1N = 2
+      then: '''>=65 Years'''
+  submission:
+    origins:
+    - type: Derived
+    method: "Withheld from publication: the received define states this text."
+- name: STRATAVN
+  derivation:
+    case:
+    - when: AGEGR1N = 1 AND _RSKN = 0
+      then: 1
+    - when: AGEGR1N = 1
+      then: 2
+    - when: AGEGR1N = 2
+      then: 3
+  submission:
+    origins:
+    - type: Derived
+    method: "Withheld from publication: the received define states this text."
+- name: STUDDUR1
+  derivation:
+    case:
+    - when: SAFFL <> 'Y'
+      then: null
+    - when: EOSDT IS NOT NULL AND RANDDT IS NOT NULL
+      then: _EOSDT_E - _RANDDT_E + 1
+    - when: EOSDT IS NULL AND EOSSTT = 'ONGOING' AND RANDDT IS NOT NULL
+      then: _CUTOFFDT_E - _RANDDT_E + 1
+  submission:
+    origins:
+    - type: Derived
+    method: "Withheld from publication: the received define states this text."
+- name: STUDDUR2
+  derivation:
+    case:
+    - when: SAFFL <> 'Y'
+      then: null
+    - when: EOSDT IS NOT NULL AND TR01SDT IS NOT NULL
+      then: _EOSDT_E - _TR01SDT_E + 1
+    - when: EOSDT IS NULL AND EOSSTT = 'ONGOING' AND TR01SDT IS NOT NULL
+      then: _CUTOFFDT_E - _TR01SDT_E + 1
+  submission:
+    origins:
+    - type: Derived
+    method: "Withheld from publication: the received define states this text."
+- name: STUDDUR3
+  derivation:
+    case:
+    - when: SAFFL <> 'Y'
+      then: null
+    - when: EOSDT IS NOT NULL AND DOSE2DT IS NOT NULL
+      then: _EOSDT_E - _DOSE2DT_E + 1
+    - when: EOSDT IS NULL AND EOSSTT = 'ONGOING' AND DOSE2DT IS NOT NULL
+      then: _CUTOFFDT_E - _DOSE2DT_E + 1
+    - when: DOSE2FL = 'N'
+      then: 0
+  submission:
+    origins:
+    - type: Derived
+    method: "Withheld from publication: the received define states this text."
+- name: MINORITY
+  derivation:
+    case:
+    - when: NOT (_ETHX0 = 1 AND _RACEX0 = 1)
+      then:
+        case:
+        - when: DM.ETHNIC = 'HISPANIC OR LATINO' OR DM.RACE LIKE 'AMER%' OR DM.RACE LIKE 'BLACK%' OR DM.RACE LIKE
+            'NAT%'
+          then: '''Minority'''
+        - otherwise: '''Non-minority'''
+  submission:
+    origins:
+    - type: Derived
+    method: "Withheld from publication: the received define states this text."
+- name: RACEGR1
+  derivation:
+    case:
+    - when: _RACEX0 = 1
+      then: null
+    - when: DM.RACE <> 'WHITE'
+      then: '''Non-caucasian'''
+    - otherwise: '''Caucasian'''
+  submission:
+    origins:
+    - type: Derived
+    method: "Withheld from publication: the received define states this text."
+    mandatory: false
+- name: RACEGR1N
+  derivation:
+    case:
+    - when: _RACEX0 = 1
+      then: null
+    - when: DM.RACE <> 'WHITE'
+      then: 2
+    - otherwise: 1
+  submission:
+    origins:
+    - type: Derived
+    method: "Withheld from publication: the received define states this text."
+    mandatory: false
+- name: RISKGR1
+  derivation:
+    case:
+    - when: RANDFL = 'Y' AND _RSKN = 0
+      then: '''Not At Risk'''
+    - when: RANDFL = 'Y'
+      then: '''At Risk'''
+  submission:
+    origins:
+    - type: Derived
+    method: "Withheld from publication: the received define states this text."
+- name: RISKGR1N
+  derivation:
+    case:
+    - when: RANDFL = 'Y' AND _RSKN = 0
+      then: 2
+    - when: RANDFL = 'Y'
+      then: 1
+  submission:
+    origins:
+    - type: Derived
+    method: "Withheld from publication: the received define states this text."
+- name: RETHGR1
+  derivation:
+    case:
+    - when: _ETHX0 = 1 AND _RACEX0 = 1
+      then: null
+    - when: DM.RACE = 'WHITE' AND (DM.ETHNIC IS NULL OR DM.ETHNIC <> 'HISPANIC OR LATINO')
+      then: '''White'''
+    - otherwise: '''Communities of Color'''
+  submission:
+    origins:
+    - type: Derived
+    method: "Withheld from publication: the received define states this text."
+- name: RETHGR1N
+  derivation:
+    case:
+    - when: _ETHX0 = 1 AND _RACEX0 = 1
+      then: null
+    - when: DM.RACE = 'WHITE' AND (DM.ETHNIC IS NULL OR DM.ETHNIC <> 'HISPANIC OR LATINO')
+      then: 1
+    - otherwise: 2
+  submission:
+    origins:
+    - type: Derived
+    method: "Withheld from publication: the received define states this text."

@@ -1,0 +1,131 @@
+# ADSYMP for Moderna mRNA-1273-P301, cut S80 (First Interim Analysis
+# IA1a, efficacy cutoff 2020-11-07). Parent: ../../../spec/yamaa/base/adam-base-ia.yaml (which
+# chains to ../../../spec/yamaa/base/adam-base.yaml; 86 shared + 6 IA-only ADSL
+# columns). Derivations implement the S80 A20ADSY program (Bates
+# 5654023-5654027, dsetname=adsymp; byte-identical to the S5 program): VS rows
+# (OXYSAT<=93 / TEMP>=38C), FAEF rows (FACAT EFFICACY), PR rows
+# (PRCAT EFFICACY, PROCCUR present), HO rows (ICU admissions), each
+# inner-joined to the verified ADSL on USUBJID, with ASEQ assigned
+# per subject by the SAS sort (parcat1, paramcd, avisitn, adt, srcseq).
+# Each source block filters on its date <= the efficacy cutoff 2020-11-07
+# (&cut_effi., inferred from the S80 ADSL EFFCODT, uniformly 2020-11-07,
+# and the exact row-count reconciliation; a missing cutoff date passes
+# the filter in SAS, so the clause is (_CUTDT IS NULL OR _CUTDT <=
+# DATE '2020-11-07')). No APERIOD / EUAVACFL in this cut, no tranwrd
+# step (PARAM keeps '<=93%' with no space), no PR renames. Where the SAS
+# code and the define.xml method text disagree, the code is followed
+# (see README.md). SAP note (closed 2026-11-24, no-impact): the file
+# labelled "SAP v3" (19745_S68_M5_sap-v3.pdf) is the P201 SAP v3.0
+# (27 Oct 2020), not a P301 SAP version; the only P301 SAP in the set
+# is v1.0 (10 Sep 2020). This spec follows the IA program's own
+# definitions. Honest gaps: none. The spec verifies EXACT MATCH in a
+# single full verify.py run against unpruned inputs: 0 mismatches, 0
+# within-tolerance cells, 0 space-only cells on all 71 non-key columns
+# (see verify_report_s80.json). No pruned groups were needed at 217,365
+# rows, unlike the S3 ADSYMP spec.
+# Layer over ../s5/adsymp.yaml: the derivations are the parent cut's, and
+# this file holds only what this cut changes (written by
+# scripts/specs/inherit_cut.py; its resolved specification
+# equals the standalone file it replaced).
+yamaa: '1.0'
+type: spec
+parent: ../../../s5/spec/yamaa/adsymp.yaml
+clear:
+- columns.RTPCRBL.submission
+input:
+  VS: <sdtm-dir>/vs.parquet
+  FAEF: <sdtm-dir>/faef.parquet
+  SUPPFAEF: <sdtm-dir>/suppfaef.parquet
+  PR: <sdtm-dir>/pr.parquet
+  HO: <sdtm-dir>/ho.parquet
+  ADSL:
+    path: <adam-dir>/adsl.parquet
+rows:
+- id: vs_rows
+  filter: VS.VSSCAT = 'COVID-19' AND VS.VSTESTCD IN ('OXYSAT', 'TEMP') AND (VS.VSSTAT IS NULL OR VS.VSSTAT <> 'NOT DONE') AND ((VS.VSTESTCD = 'OXYSAT' AND _STRESN IS NOT NULL AND _STRESN <= 93) OR (VS.VSTESTCD = 'TEMP' AND _STRESN IS NOT NULL AND _STRESN >= 38 AND VS.VSSTRESU = 'C')) AND (_CUTDT IS NULL OR _CUTDT <= DATE '2020-11-07') AND _ADSL IS NOT NULL
+- id: faef_rows
+  filter: FAEF.FACAT = 'EFFICACY' AND (FAEF.FASTAT IS NULL OR FAEF.FASTAT <> 'NOT DONE') AND (_CUTDT IS NULL OR _CUTDT <= DATE '2020-11-07') AND _ADSL IS NOT NULL
+- id: pr_rows
+  filter: PR.PRCAT = 'EFFICACY' AND (PR.PRSTAT IS NULL OR PR.PRSTAT <> 'NOT DONE') AND PR.PROCCUR IS NOT NULL AND PR.PROCCUR NOT IN ('') AND (_CUTDT IS NULL OR _CUTDT <= DATE '2020-11-07') AND _ADSL IS NOT NULL
+- id: ho_rows
+  filter: HO.HOCAT = 'EFFICACY' AND HO.HOTERM = 'ADMITTED TO ICU' AND HO.HOOCCUR IS NOT NULL AND HO.HOOCCUR NOT IN ('') AND (_CUTDT IS NULL OR _CUTDT <= DATE '2020-11-07') AND _ADSL IS NOT NULL
+columns:
+- name: RTPCRBL
+  derivation:
+output:
+  path: <adam-dir>/adsymp-yamaa.parquet
+  columns:
+  - STUDYID
+  - USUBJID
+  - SUBJID
+  - SITEID
+  - COUNTRY
+  - AGE
+  - AGEU
+  - STRATAR
+  - STRATARN
+  - AGEGR1
+  - AGEGR1N
+  - AGEGR2
+  - AGEGR2N
+  - SEX
+  - RACE
+  - RACESPY
+  - ETHNIC
+  - RANDFL
+  - FASFL
+  - SAFFL
+  - SAR1FL
+  - SAR2FL
+  - SARAFL
+  - MITTFL
+  - PPROTFL
+  - COMPLFL
+  - DOSE1FL
+  - DOSE2FL
+  - ELECSBL
+  - SCOV2BL
+  - TRT01P
+  - TRT01PN
+  - TRT01A
+  - TRT01AN
+  - TR01SDT
+  - TR01SDTM
+  - TR01EDT
+  - TR01EDTM
+  - DOSE2DT
+  - DOS2DTM
+  - RSKF1
+  - RSKF2
+  - RSKF3
+  - RSKF4
+  - RSKF5
+  - RSKF6
+  - STRATAV
+  - STRATAVN
+  - MINORITY
+  - RACEGR1
+  - RACEGR1N
+  - RISKGR1
+  - RISKGR1N
+  - RETHGR1
+  - RETHGR1N
+  - ASEQ
+  - ADT
+  - ADY
+  - ASTDT
+  - ASTDY
+  - AENDT
+  - AENDY
+  - AVISIT
+  - AVISITN
+  - ATPT
+  - PARCAT1
+  - PARAMCD
+  - PARAM
+  - AVALC
+  - SEV
+  - LNKID
+  - SRCDOM
+  - SRCSEQ
+  - SRCVAR

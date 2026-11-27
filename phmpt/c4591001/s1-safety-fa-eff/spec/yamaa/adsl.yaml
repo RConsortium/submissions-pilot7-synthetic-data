@@ -1,0 +1,1008 @@
+# ADSL for Pfizer C4591001, EUA 27034 sequence S1 (safety and final
+# efficacy analysis, data snapshot of November 2020).
+# Layer over the S1 (BLA) spec, run on this cut's SDTM
+# (scripts/reproduce.py verify --study c4591001 --cut s1-safety-fa-eff). The
+# output keeps the EUA file's columns, in its order.
+yamaa: '1.0'
+type: spec
+parent: ../../../s1/spec/yamaa/adsl.yaml
+# VS comes from the S135 helper: this cut's VSSTRESN is text, as in S135.
+input:
+  VS:
+    path: <work-dir>/vs.parquet
+    schema: ../../../s135/spec/yamaa/helper/sdtm_vs.yaml
+clear:
+- columns.RACIALD.submission
+- columns.RACIALDN.submission
+- columns.TRT02P.submission
+- columns.TRT02PN.submission
+- columns.TRT02A.submission
+- columns.TRT02AN.submission
+- columns.TRTSEQP.submission
+- columns.TRTSEQA.submission
+- columns.BRTHDT_2.submission
+- columns.TR02SDT.submission
+- columns.TR02STM.submission
+- columns.TR02EDT.submission
+- columns.TR02ETM.submission
+- columns.TR02SDTM.submission
+- columns.TR02EDTM.submission
+- columns.VAX201DT.submission
+- columns.VAX202DT.submission
+- columns.AGETR03.submission
+- columns.AGETRU03.submission
+- columns.REACTOFL.submission
+- columns.VAX10UDT.submission
+- columns.VAX20UDT.submission
+- columns.AGEGR4.submission
+- columns.AGEGR4N.submission
+- columns.AGETGR3.submission
+- columns.AGETGR3N.submission
+- columns.VAX201.submission
+- columns.VAX202.submission
+- columns.VAX10U.submission
+- columns.VAX20U.submission
+- columns.VAX201TM.submission
+- columns.VAX202TM.submission
+- columns.VAX10UTM.submission
+- columns.VAX20UTM.submission
+- columns.UNBLNDDT.submission
+- columns.REVXICDT.submission
+- columns.EOTXDCDT.submission
+- columns.EOTXDCRS.submission
+- columns.OBESEFL.submission
+- columns.V02OBDT.submission
+- columns.V03DT.submission
+- columns.V04DT.submission
+- columns.V3C19NIG.submission
+- columns.INCL10FL.submission
+- columns.RSEXSAF.submission
+- columns.EXCL10FL.submission
+- columns.EXCRIT10.submission
+- columns.EVAL01FL.submission
+- columns.EVAL02FL.submission
+- columns.AAI01FL.submission
+- columns.AAI02FL.submission
+- columns.DS3KFL.submission
+- columns.OPBOUFL.submission
+- columns.PEDREAFL.submission
+- columns.PEDIMMFL.submission
+- columns.EV1MD2FL.submission
+- columns.BDCSRDT.submission
+- columns.X1CSRDT.submission
+- columns.STCSRDT.submission
+- columns.FUP2CUT.submission
+- columns.FUP2UNB.submission
+- columns.FPX1CUT.submission
+- columns.FUNBCUT.submission
+- columns.FUP1CUT.submission
+- columns.FUP1UNB.submission
+- columns.FUP2CAT1.submission
+- columns.FUP2CA1N.submission
+- columns.FUP2CAT2.submission
+- columns.FUP2CA2N.submission
+- columns.FPX1CAT1.submission
+- columns.FPX1CA1N.submission
+- columns.FUP1CAT1.submission
+- columns.FUP1CA1N.submission
+- columns.RNACAT.submission
+- columns.RNACATN.submission
+- columns.CD4CAT.submission
+- columns.CD4CATN.submission
+- columns.SAF1FL.submission
+- columns.SAF2FL.submission
+- columns.RAND1FL.submission
+intermediates:
+# The EUA program censors at its snapshot, &cutoff = 14NOV2020.
+- id: CUT_I
+  derivations:
+    _CUT:
+      type: date
+      derivation: DATE '2020-11-14'
+# The EUA program builds its immunogenicity flags from IS results and CO
+# sample dates by visit, without S1's replacement of missed samples by
+# COVID-visit samples: SUBCOV1/2 select nothing here.
+- id: SUBCOV1
+  filter: CO.USUBJID IS NULL
+- id: SUBCOV2
+  filter: CO.USUBJID IS NULL
+# IS_VIS: the visits with a valid IS result (ISORRES not blank or NOT DONE).
+- id: IS_VIS
+  dataset: IS
+  key:
+  - USUBJID
+  filter: IS.ISORRES IS NOT NULL AND IS.ISORRES <> '' AND IS.ISORRES <> 'NOT DONE' AND IS.ISTEST IS NOT NULL
+    AND IS.VISITNUM IN (60750, 60751, 60752, 60753, 60754, 60767, 60755, 60756, 60757, 1165454, 1165455, 1165456)
+  order_by:
+  - IS.ISDTC
+  keep: first
+  pivot:
+    name: _VNS
+    value: _ONE
+    fields: [V60750, V60751, V60752, V60753, V60754, V60767, V60755, V60756, V60757, V1165454, V1165455, V1165456]
+  derivations:
+    _ONE:
+      type: str
+      derivation: "'Y'"
+    _VNS:
+      type: str
+      derivation:
+        case:
+        - when: IS.VISITNUM = 60750
+          then: "'V60750'"
+        - when: IS.VISITNUM = 60751
+          then: "'V60751'"
+        - when: IS.VISITNUM = 60752
+          then: "'V60752'"
+        - when: IS.VISITNUM = 60753
+          then: "'V60753'"
+        - when: IS.VISITNUM = 60754
+          then: "'V60754'"
+        - when: IS.VISITNUM = 60767
+          then: "'V60767'"
+        - when: IS.VISITNUM = 60755
+          then: "'V60755'"
+        - when: IS.VISITNUM = 60756
+          then: "'V60756'"
+        - when: IS.VISITNUM = 60757
+          then: "'V60757'"
+        - when: IS.VISITNUM = 1165454
+          then: "'V1165454'"
+        - when: IS.VISITNUM = 1165455
+          then: "'V1165455'"
+        - when: IS.VISITNUM = 1165456
+          then: "'V1165456'"
+        - otherwise: "'OTHER'"
+# V01DT / V02DT (the EUA adsl.sas): the third vaccination + 35 / + 168
+# days, else the month-1 / month-6 blood sample or visit, else Dose 2 + 35 /
+# + 168, else Dose 1 + 58 / + 191; no unblinding cap.
+- id: D_V01
+  derivations:
+    _B1:
+      type: date
+      derivation:
+        case:
+        - when: D_VAX10U._DT IS NOT NULL
+          then:
+            shift:
+              type: date
+              source: D_VAX10U._DT
+              days: 35
+    _V:
+      type: date
+      derivation: _PRE
+- id: D_V02
+  derivations:
+    _B1:
+      type: date
+      derivation:
+        case:
+        - when: D_VAX10U._DT IS NOT NULL
+          then:
+            shift:
+              type: date
+              source: D_VAX10U._DT
+              days: 168
+    _B4:
+      type: date
+      derivation:
+        case:
+        - when: D_VAX102._DT IS NOT NULL
+          then:
+            shift:
+              type: date
+              source: D_VAX102._DT
+              days: 168
+    _B5:
+      type: date
+      derivation:
+        case:
+        - when: D_VAX101._DT IS NOT NULL
+          then:
+            shift:
+              type: date
+              source: D_VAX101._DT
+              days: 191
+    _V:
+      type: date
+      derivation: _PRE
+# PC1MD2FL (the EUA adsl.sas __rslt1 .. __rslt9), Phase 2 only: a positive
+# N-binding (C19NIG) result at any visit, a positive central NAAT
+# (Cepheid RT-PCR RTCOV2NS) at Visit 1 or 2, or a positive unplanned NAAT
+# (central, or local with device 34, 44 or 68) dated no later than the
+# post-Visit 1 N-binding date, else the 1-month blood sample, else Dose 2 +
+# 28 days.
+- id: PC1_NIG
+  dataset: IS
+  key:
+  - USUBJID
+  filter: IS.ISTESTCD = 'C19NIG'
+  order_by:
+  - variable: IS._POS
+    direction: desc
+  keep: first
+  derivations:
+    _R:
+      type: str
+      derivation:
+        str_case:
+          source: IS.ISSTRESC
+          to: upper
+    _POS:
+      type: int
+      derivation:
+        case:
+        - when: _R IN ('POS', 'POSITIVE')
+          then: 1
+        - otherwise: 0
+- id: PC1_NIGV3
+  dataset: IS
+  key:
+  - USUBJID
+  filter: IS.ISTESTCD = 'C19NIG' AND IS.VISIT <> 'V1_DAY1_VAX1_L' AND IS.ISDTC IS NOT NULL
+  order_by:
+  - IS.ISDTC
+  keep: first
+  derivations:
+    _DT:
+      type: date
+      derivation:
+        to_date:
+          source: IS.ISDTC
+- id: PC1_CO3
+  dataset: CO
+  key:
+  - USUBJID
+  filter: CO.VISIT = 'V3_MONTH1_POSTVAX2_L' AND CO.COVAL = 'Y' AND CO.CODTC IS NOT NULL AND CO.CODTC <> ''
+  order_by:
+  - CO.CODTC
+  keep: first
+  derivations:
+    _REF:
+      type: str
+      derivation:
+        str_case:
+          source: CO.COREF
+          to: upper
+    _DT:
+      type: date
+      derivation:
+        case:
+        - when: _REF = 'SAMPLE COLLECTED'
+          then:
+            to_date:
+              source: CO.CODTC
+- id: PC1_MB
+  dataset: MB
+  key:
+  - USUBJID
+  filter: MB.MBTESTCD IN ('RTCOV2NS', 'SARSCOV2')
+  order_by:
+  - variable: MB._HIT
+    direction: desc
+  keep: first
+  derivations:
+    _T:
+      type: str
+      derivation:
+        str_case:
+          source: MB.MBTEST
+          to: upper
+    _M:
+      type: str
+      derivation:
+        str_case:
+          source: MB.MBMETHOD
+          to: upper
+    _R:
+      type: str
+      derivation:
+        str_case:
+          source: MB.MBSTRESC
+          to: upper
+    _DT:
+      type: date
+      derivation:
+        to_date:
+          source: MB.MBDTC
+    _CENTRAL:
+      type: int
+      derivation:
+        case:
+        - when: _T IN ('CEPHEID RT-PCR ASSAY FOR SARS-COV-2', 'CEPHEID RT-PCR ASSAY OF SARS-COV-2') AND _M = 'REVERSE TRANSCRIPTASE PCR'
+          then: 1
+        - otherwise: 0
+    _LOCAL:
+      type: int
+      derivation:
+        case:
+        - when: _T = 'SEVERE ACUTE RESP SYNDROME CORONAVIRUS 2' AND _M = 'IMMUNOCHROMATOGRAPHY' AND MB.SPDEVID IN ('34', '44', '68')
+          then: 1
+        - otherwise: 0
+    _V2P28:
+      type: date
+      derivation:
+        shift:
+          type: date
+          source: D_VAX102._DT
+          days: 28
+    _LIM:
+      type: date
+      derivation:
+        first_available:
+          sources:
+          - PC1_NIGV3._DT
+          - PC1_CO3._DT
+          - _V2P28
+    _HIT:
+      type: int
+      derivation:
+        case:
+        - when: _R IN ('POS', 'POSITIVE') AND _CENTRAL = 1 AND MB.VISIT IN ('V1_DAY1_VAX1_L', 'V2_VAX2_L')
+          then: 1
+        - when: _R IN ('POS', 'POSITIVE') AND (_CENTRAL = 1 OR _LOCAL = 1) AND MB.VISIT NOT IN ('V1_DAY1_VAX1_L',
+            'V2_VAX2_L') AND _DT IS NOT NULL AND _LIM IS NOT NULL AND _DT <= _LIM
+          then: 1
+        - otherwise: 0
+# In the EUA snapshot no open-label dose exists yet: EX's VACCINATION 3 is a
+# third, unplanned dose (the program's Vaccination 03), so it maps to the
+# unplanned slot (S1: Dose 1 of the open-label period).
+- id: EX_VAX_DTM
+  derivations:
+    _EXTMP:
+      type: int
+      derivation:
+        mapping:
+          source: EX.EXTPTREF
+          dict:
+            VACCINATION 1: 1
+            VACCINATION 3: 3
+            VACCINATION 2: 2
+            VACCINATION 4: 2
+            UNPLANNED VACCINATION: 3
+          unmapped: null
+- id: EX_VAX_TRT
+  derivations:
+    _EXTMP:
+      type: int
+      derivation:
+        mapping:
+          source: EX.EXTPTREF
+          dict:
+            VACCINATION 1: 1
+            VACCINATION 3: 3
+            VACCINATION 2: 2
+            VACCINATION 4: 2
+            UNPLANNED VACCINATION: 3
+          unmapped: null
+- id: EX_VAX_DOSE
+  derivations:
+    _EXTMP:
+      type: int
+      derivation:
+        mapping:
+          source: EX.EXTPTREF
+          dict:
+            VACCINATION 1: 1
+            VACCINATION 3: 3
+            VACCINATION 2: 2
+            VACCINATION 4: 2
+            UNPLANNED VACCINATION: 3
+          unmapped: null
+- id: EX_VAX_DOSU
+  derivations:
+    _EXTMP:
+      type: int
+      derivation:
+        mapping:
+          source: EX.EXTPTREF
+          dict:
+            VACCINATION 1: 1
+            VACCINATION 3: 3
+            VACCINATION 2: 2
+            VACCINATION 4: 2
+            UNPLANNED VACCINATION: 3
+          unmapped: null
+columns:
+- name: PC1MD2FL
+  type: str
+  label: Positive SARS-CoV-2 Prior to 1M PD2
+  derivation:
+    case:
+    - when: PHASEN <> 2
+      then: "''"
+    - when: PC1_NIG._POS = 1 OR PC1_MB._HIT = 1
+      then: "'Y'"
+    - otherwise: "'N'"
+  submission:
+    core: Perm
+    mandatory: false
+    length: 1
+    origins:
+    - type: Derived
+    method: "Withheld from publication: the received define states this text."
+# EXCRIT6 of the EUA adsl.sas: Safety; Efficacy within 7 or 7-14 days of
+# Dose 2 (first deviation date; a missing date counts as within 7 days);
+# Immunogenicity.
+- name: _X6S
+  type: str
+  derivation:
+    case:
+    - when: DV_POP1._QVAL IS NOT NULL
+      then: "'Safety'"
+    - otherwise: "''"
+- name: _X6E
+  type: str
+  derivation:
+    case:
+    - when: DV_POP2._QVAL IS NOT NULL AND (D_CALC._DMINUS IS NULL OR D_CALC._DMINUS < 7)
+      then: "'Efficacy (within 7 days post Dose 2)'"
+    - when: DV_POP2._QVAL IS NOT NULL AND D_CALC._DMINUS < 14
+      then: "'Efficacy (between 7-14 days post Dose 2)'"
+    - otherwise: "''"
+- name: _X6I
+  type: str
+  derivation:
+    case:
+    - when: DV_POP3._QVAL IS NOT NULL
+      then: "'Immunogenicity'"
+    - otherwise: "''"
+- name: _X6SE
+  type: str
+  derivation:
+    case:
+    - when: _X6S <> '' AND _X6E <> ''
+      then:
+        str_template: '{_X6S}, {_X6E}'
+    - when: _X6E <> ''
+      then: _X6E
+    - otherwise: _X6S
+- name: _X6ALL
+  type: str
+  derivation:
+    case:
+    - when: _X6SE <> '' AND _X6I <> ''
+      then:
+        str_template: '{_X6SE}, {_X6I}'
+    - when: _X6I <> ''
+      then: _X6I
+    - otherwise: _X6SE
+- name: EXCRIT6
+  derivation:
+    case:
+    - when: INCL6FL = 'N' AND _X6ALL <> ''
+      then:
+        str_template: 'had important protocol deviation(s) as determined by the clinician for {_X6ALL} Population(s)'
+    - when: INCL6FL = 'N'
+      then: "'had important protocol deviation(s) as determined by the clinician for  Population(s)'"
+    - otherwise: "''"
+  submission:
+    method: "Withheld from publication: the received define states this text."
+# Efficacy populations of the EUA adsl.sas: no unblinding, unplanned-dose
+# or site-exclusion conditions.
+- name: EVALEFFL
+  derivation:
+    case:
+    - when: PHASEN = 1
+      then: "'N'"
+    - when: RFICDT IS NOT NULL AND RANDFL = 'Y' AND (ARM IS NULL OR ARM <> 'SCREEN FAILURE') AND INCL2FL = 'Y'
+        AND INCL7FL = 'Y' AND VAX102DT IS NOT NULL AND SAFFL = 'Y' AND INCL1FL = 'Y' AND NOT (DV_POP2._QVAL IS NOT
+        NULL AND (D_CALC._DMINUS IS NULL OR D_CALC._DMINUS < 7))
+      then: "'Y'"
+    - otherwise: "'N'"
+  submission:
+    method: "Withheld from publication: the received define states this text."
+- name: EV14EFFL
+  type: str
+  label: Evaluable Efficacy Popu Flag - 14 days
+  derivation:
+    case:
+    - when: PHASEN = 1
+      then: "'N'"
+    - when: RFICDT IS NOT NULL AND RANDFL = 'Y' AND (ARM IS NULL OR ARM <> 'SCREEN FAILURE') AND INCL2FL = 'Y'
+        AND INCL7FL = 'Y' AND VAX102DT IS NOT NULL AND SAFFL = 'Y' AND INCL1FL = 'Y' AND NOT (DV_POP2._QVAL IS NOT
+        NULL AND (D_CALC._DMINUS IS NULL OR D_CALC._DMINUS < 14))
+      then: "'Y'"
+    - otherwise: "'N'"
+  submission:
+    core: Perm
+    mandatory: false
+    length: 1
+    origins:
+    - type: Derived
+    method: "Withheld from publication: the received define states this text."
+- name: AAI1EFFL
+  derivation:
+    case:
+    - when: PHASEN = 1
+      then: "'N'"
+    - when: RANDFL = 'Y' AND SAFFL = 'Y' AND (VAX101DT IS NOT NULL OR VAX102DT IS NOT NULL)
+      then: "'Y'"
+    - otherwise: "'N'"
+  submission:
+    method: "Withheld from publication: the received define states this text."
+- name: AAI2EFFL
+  derivation:
+    case:
+    - when: PHASEN = 1
+      then: "'N'"
+    - when: RANDFL = 'Y' AND SAFFL = 'Y' AND VAX101DT IS NOT NULL AND VAX102DT IS NOT NULL
+      then: "'Y'"
+    - otherwise: "'N'"
+  submission:
+    method: "Withheld from publication: the received define states this text."
+# Immunogenicity inclusion and exclusion flags of the EUA adsl.sas, for every
+# phase.
+- name: _VAXD
+  type: int
+  derivation:
+    case:
+    - when: VAX101DT IS NOT NULL OR VAX102DT IS NOT NULL
+      then: 1
+    - otherwise: 0
+- name: INCL3FL
+  derivation:
+    case:
+    - when: _VAXD = 1 AND (((IS_VIS.V60750 IS NOT NULL OR IS_VIS.V60751 IS NOT NULL) AND (COHORTN IS NULL OR COHORTN <> 1.16)) OR ((IS_VIS.V60750
+        IS NOT NULL OR IS_VIS.V60751 IS NOT NULL OR IS_VIS.V60752 IS NOT NULL OR IS_VIS.V60753 IS NOT NULL OR
+        IS_VIS.V60754 IS NOT NULL OR IS_VIS.V1165454 IS NOT NULL) AND COHORTN = 1.16))
+      then: "'Y'"
+    - otherwise: "'N'"
+  submission:
+    method: "Withheld from publication: the received define states this text."
+- name: INCL4FL
+  derivation:
+    case:
+    - when: _VAXD = 1 AND IS_VIS.V60751 IS NOT NULL
+      then: "'Y'"
+    - otherwise: "'N'"
+  submission:
+    method: "Withheld from publication: the received define states this text."
+- name: INCL5FL
+  derivation:
+    case:
+    - when: _VAXD = 1 AND CO_PIV_CDIFF.V60751 >= 19 AND CO_PIV_CDIFF.V60751 <= 23
+      then: "'Y'"
+    - otherwise: "'N'"
+  submission:
+    method: "Withheld from publication: the received define states this text."
+- name: INCL8FL
+  derivation:
+    case:
+    - when: VAX102DT IS NOT NULL AND (((IS_VIS.V60752 IS NOT NULL OR IS_VIS.V60753 IS NOT NULL OR IS_VIS.V60754
+        IS NOT NULL OR IS_VIS.V60767 IS NOT NULL OR IS_VIS.V60755 IS NOT NULL OR IS_VIS.V60756 IS NOT NULL OR
+        IS_VIS.V60757 IS NOT NULL) AND (COHORTN IS NULL OR COHORTN <> 1.16)) OR ((IS_VIS.V1165455 IS NOT NULL OR IS_VIS.V1165456 IS NOT NULL)
+        AND COHORTN = 1.16))
+      then: "'Y'"
+    - otherwise: "'N'"
+  submission:
+    method: "Withheld from publication: the received define states this text."
+- name: INCL9FL
+  derivation:
+    case:
+    - when: PHASEN = 1 AND VAX102DT IS NOT NULL AND ((CO_PIV_CDIFF.V60752 >= 6 AND CO_PIV_CDIFF.V60752 <= 8 AND
+        (COHORTN IS NULL OR COHORTN <> 1.16)) OR (CO_PIV_CDIFF.V1165455 >= 6 AND CO_PIV_CDIFF.V1165455 <= 8 AND COHORTN = 1.16))
+      then: "'Y'"
+    - when: PHASEN <> 1 AND VAX102DT IS NOT NULL AND CO_PIV_CDIFF.V60767 >= 28 AND CO_PIV_CDIFF.V60767 <= 42
+      then: "'Y'"
+    - otherwise: "'N'"
+- name: EXCL3FL
+  derivation:
+    case:
+    - when: INCL3FL = 'N' AND _VAXD = 1
+      then: "'Y'"
+    - otherwise: "''"
+- name: EXCRIT3
+  derivation:
+    case:
+    - when: EXCL3FL = 'Y'
+      then: "'did not have at least 1 valid and determinate immunogenicity result after Dose 1 but before Dose 2'"
+    - otherwise: "''"
+  submission:
+    length: 98
+- name: EXCL8FL
+  derivation:
+    case:
+    - when: INCL8FL = 'N' AND VAX102DT IS NOT NULL
+      then: "'Y'"
+    - otherwise: "''"
+- name: EXCRIT8
+  derivation:
+    case:
+    - when: EXCL8FL = 'Y'
+      then: "'did not have at least 1 valid and determinate immunogenicity result after Dose 2'"
+    - otherwise: "''"
+- name: EXCL4FL
+  derivation:
+    case:
+    - when: INCL1FL = 'Y' AND INCL2FL = 'Y' AND INCL4FL = 'N'
+      then: "'Y'"
+    - otherwise: "''"
+- name: EXCRIT4
+  derivation:
+    case:
+    - when: EXCL4FL = 'Y'
+      then: "'did not have at least 1 valid and determinate immunogenicity result 21 days after Dose 1'"
+    - otherwise: "''"
+  submission:
+    length: 88
+- name: EXCL5FL
+  derivation:
+    case:
+    - when: INCL1FL = 'Y' AND INCL2FL = 'Y' AND INCL5FL = 'N'
+      then: "'Y'"
+    - otherwise: "''"
+- name: EXCRIT5
+  derivation:
+    case:
+    - when: EXCL5FL = 'Y'
+      then: "'did not have blood collection within 19-23 days after Dose 1'"
+    - otherwise: "''"
+  submission:
+    length: 60
+# The EUA program takes TRT01A from ACTARM (after its unplanned-treatment
+# reassignment); DM names the 100/10 mcg Phase 1 group 100 mcg.
+- name: TRT01A
+  derivation:
+    case:
+    - when: ACTARMCD IN ('SCRNFAIL', 'NOTASSGN', 'NOTTRT')
+      then: "''"
+    - otherwise: ACTARM
+  submission:
+    method: "Withheld from publication: the received define states this text."
+- name: TRT01PN
+  derivation:
+    mapping:
+      source: TRT01P
+      dict:
+        BNT162b1 Phase 1 (10 mcg): 1
+        BNT162b1 Phase 1 (20 mcg): 2
+        BNT162b1 Phase 1 (30 mcg): 3
+        BNT162b1 Phase 1 (100 mcg): 4
+        BNT162b2 Phase 1 (10 mcg): 5
+        BNT162b2 Phase 1 (20 mcg): 6
+        BNT162b2 Phase 1 (30 mcg): 7
+        BNT162b2 Phase 2/3 (30 mcg): 8
+        Placebo: 9
+      unmapped: null
+- name: TRT01AN
+  derivation:
+    mapping:
+      source: TRT01A
+      dict:
+        BNT162b1 Phase 1 (10 mcg): 1
+        BNT162b1 Phase 1 (20 mcg): 2
+        BNT162b1 Phase 1 (30 mcg): 3
+        BNT162b1 Phase 1 (100 mcg): 4
+        BNT162b2 Phase 1 (10 mcg): 5
+        BNT162b2 Phase 1 (20 mcg): 6
+        BNT162b2 Phase 1 (30 mcg): 7
+        BNT162b2 Phase 2/3 (30 mcg): 8
+        Placebo: 9
+      unmapped: null
+# The EUA ADSL names the birth-date text BRTHDT and sets CDECASE to TBD.
+- name: BRTHDT
+  type: str
+  label: Date of Birth
+  derivation: DM.BRTHDTC
+- name: CDECASE
+  derivation: "'TBD'"
+  submission:
+    length: 3
+    origins:
+    - type: Assigned
+    method: "Withheld from publication: the received define states this text."
+# The third distinct EX visit is the EUA's Vaccination 03, which the S1
+# program calls the unplanned vaccination (VAX10U*).
+- name: VAX103DT
+  type: date
+  label: Vaccination Date 03
+  derivation: VAX10UDT
+  submission:
+    core: Perm
+    mandatory: false
+    origins:
+    - type: Derived
+    method: "Withheld from publication: the received define states this text."
+- name: VAX103TM
+  type: time
+  label: Vaccination Time 03
+  derivation: VAX10UTM
+  submission:
+    core: Perm
+    mandatory: false
+    origins:
+    - type: Derived
+    method: "Withheld from publication: the received define states this text."
+- name: VAX103
+  type: str
+  label: Vaccination 03
+  derivation: VAX10U
+  submission:
+    core: Perm
+    mandatory: false
+    length: 36
+    origins:
+    - type: Derived
+    method: "Withheld from publication: the received define states this text."
+- name: STEXCFL
+  type: str
+  label: Site/Subject Exclusion Flag for SQE
+  derivation: "''"
+  submission:
+    core: Perm
+    mandatory: false
+    length: 1
+    origins:
+    - type: Assigned
+    method: "Withheld from publication: the received define states this text."
+- name: UNKRDFL
+  type: str
+  label: Unknown Randomization Group Flag
+  derivation:
+    case:
+    - when: (ARM IS NULL OR ARM = '') AND RANDDT IS NOT NULL
+      then: "'Y'"
+    - otherwise: "''"
+  submission:
+    core: Perm
+    mandatory: false
+    length: 1
+    origins:
+    - type: Derived
+    method: "Withheld from publication: the received define states this text."
+- name: _FU_REF
+  type: date
+  derivation:
+    case:
+    - when: VAX103DT IS NOT NULL
+      then: VAX103DT
+    - otherwise: VAX102DT
+- name: _FU_END
+  type: date
+  derivation:
+    case:
+    - when: EOSDCDT IS NOT NULL
+      then: EOSDCDT
+    - otherwise: CUT_I._CUT
+- name: _FU_D
+  type: int
+  derivation:
+    diff:
+      type: date
+      start: _FU_REF
+      end: _FU_END
+      unit: day
+- name: FU2MPD2
+  type: int
+  label: 2M Post Dose 2 Follow-up Time in Days
+  derivation:
+    case:
+    - when: RANDFL = 'Y' AND VAX102DT IS NULL
+      then: 0
+    - when: RANDFL = 'Y'
+      then: _FU_D
+  submission:
+    core: Perm
+    mandatory: false
+    length: 8
+    origins:
+    - type: Derived
+    method: "Withheld from publication: the received define states this text."
+- name: F2MP2CAN
+  type: int
+  label: 2M Post Dose 2 Follow-up Time Cat (N)
+  derivation:
+    case:
+    - when: RANDFL = 'Y' AND FU2MPD2 >= 0 AND FU2MPD2 < 182
+      then: FLOOR(FU2MPD2 / 14) + 1
+  submission:
+    core: Perm
+    mandatory: false
+    length: 8
+    origins:
+    - type: Derived
+    method: "Withheld from publication: the received define states this text."
+- name: F2MP2CAT
+  type: str
+  label: 2M Post Dose 2 Follow-up Time Category
+  derivation:
+    case:
+    - when: F2MP2CAN = 1
+      then: "'0-2 weeks'"
+    - when: F2MP2CAN = 2
+      then: "'2-4 weeks'"
+    - when: F2MP2CAN = 3
+      then: "'4-6 weeks'"
+    - when: F2MP2CAN = 4
+      then: "'6-8 weeks'"
+    - when: F2MP2CAN = 5
+      then: "'8-10 weeks'"
+    - when: F2MP2CAN = 6
+      then: "'10-12 weeks'"
+    - when: F2MP2CAN = 7
+      then: "'12-14 weeks'"
+    - when: F2MP2CAN = 8
+      then: "'14-16 weeks'"
+    - when: F2MP2CAN = 9
+      then: "'16-18 weeks'"
+    - when: F2MP2CAN = 10
+      then: "'18-20 weeks'"
+    - when: F2MP2CAN = 11
+      then: "'20-22 weeks'"
+    - when: F2MP2CAN = 12
+      then: "'22-24 weeks'"
+    - when: F2MP2CAN = 13
+      then: "'24-26 weeks'"
+    - otherwise: "''"
+  submission:
+    core: Perm
+    mandatory: false
+    length: 11
+    origins:
+    - type: Derived
+    method: "Withheld from publication: the received define states this text."
+# Two DM subjects (ARM NOT ASSIGNED) have no ACTARM / ACTARMCD in this cut.
+- name: ACTARM
+  submission:
+    mandatory: false
+- name: ACTARMCD
+  submission:
+    mandatory: false
+output:
+  columns:
+  - STUDYID
+  - USUBJID
+  - SUBJID
+  - SITEID
+  - AGE
+  - AGEU
+  - SEX
+  - SEXN
+  - RACE
+  - RACEN
+  - ETHNIC
+  - ETHNICN
+  - COUNTRY
+  - SAFFL
+  - RANDFL
+  - ENRLFL
+  - DTHFL
+  - ARM
+  - ARMCD
+  - ACTARM
+  - ACTARMCD
+  - TRT01P
+  - TRT01PN
+  - TRT01A
+  - TRT01AN
+  - BRTHDT
+  - BRTHDTF
+  - DTHDTC
+  - DTHDT
+  - DTHDTF
+  - RANDDT
+  - RANDNO
+  - RFSTDT
+  - RFSTTM
+  - RFENDT
+  - RFENTM
+  - RFPENDT
+  - RFICDT
+  - TRTSDT
+  - TRTSTM
+  - TRTEDT
+  - TRTETM
+  - TR01SDT
+  - TR01STM
+  - TR01EDT
+  - TR01ETM
+  - TRTSDTM
+  - TRTEDTM
+  - TR01SDTM
+  - TR01EDTM
+  - VAX101DT
+  - VAX102DT
+  - VAX103DT
+  - AGETR01
+  - AGETRU01
+  - AGEGR1
+  - AGEGR1N
+  - ARACE
+  - ARACEN
+  - RACEGR1
+  - RACEGR1N
+  - EOSDCDT
+  - EOSDCRS
+  - EOTDCDT
+  - EOTDCRS
+  - INVID
+  - INVNAM
+  - DOSALVL
+  - DOSPLVL
+  - DOSPLVLN
+  - DOSALVLN
+  - CDECASE
+  - AGEGR2N
+  - AGEGR2
+  - AGEGR3N
+  - AGEGR3
+  - VAX101TM
+  - VAX102TM
+  - VAX103TM
+  - VAX101
+  - VAX102
+  - VAX103
+  - SCREEN
+  - COHORT
+  - COHORTN
+  - PHASEN
+  - PHASE
+  - JPNFL
+  - V01DT
+  - V02DT
+  - DVSTDT
+  - BLDV1DT
+  - BLDV2DT
+  - BLDV3ADT
+  - BLDV4ADT
+  - BLDV5ADT
+  - BLDV6ADT
+  - BLDV3DT
+  - BLDV4DT
+  - BLDV5DT
+  - BLDV6DT
+  - BLDV7DT
+  - INCL1FL
+  - INCL2FL
+  - INCL3FL
+  - INCL4FL
+  - INCL5FL
+  - INCL6FL
+  - INCL7FL
+  - INCL8FL
+  - INCL9FL
+  - EVALEFFL
+  - EV14EFFL
+  - AAI1EFFL
+  - AAI2EFFL
+  - BLDV1FL
+  - BLDV2FL
+  - BLDV3FL
+  - BLDV4FL
+  - BLDV5FL
+  - BLDV6FL
+  - BLDV7FL
+  - MULENRFL
+  - STEXCFL
+  - UNKRDFL
+  - EXCL3FL
+  - EXCRIT3
+  - EXCL8FL
+  - EXCRIT8
+  - EXCL1FL
+  - EXCRIT1
+  - EXCL2FL
+  - EXCRIT2
+  - EXCL4FL
+  - EXCRIT4
+  - EXCL5FL
+  - EXCRIT5
+  - EXCL7FL
+  - EXCRIT7
+  - EXCL9FL
+  - EXCRIT9
+  - EXCL6FL
+  - EXCRIT6
+  - DS30KFL
+  - NIGV1FL
+  - NAATNFL
+  - COVBLST
+  - BMICAT
+  - BMICATN
+  - FU2MPD2
+  - F2MP2CAT
+  - F2MP2CAN
+  - COMBODFL
+  - PC1MD2FL
+  - HIVFL

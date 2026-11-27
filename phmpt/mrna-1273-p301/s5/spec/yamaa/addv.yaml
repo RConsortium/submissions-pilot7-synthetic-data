@@ -1,0 +1,657 @@
+# ADDV for Moderna mRNA-1273-P301, cut S5 (First Interim
+# Analysis IA1b, cutoff 2020-11-25). Parent: ../../../spec/yamaa/base/adam-base-ia.yaml
+# (which chains to ../../../spec/yamaa/base/adam-base.yaml; 86 shared + 6 IA-only
+# ADSL columns). Derivations implement the S5 IA ADDV program: one
+# row per DV record, inner-joined to the verified ADSL on USUBJID
+# (DV 8,773 -> ADDV 8,735: the 38 dropped rows are exactly the DV
+# rows for the 37 subjects not in ADSL; no REMOVEFL-style filter).
+# SUPPDV is the verified batch-2 file (RDOMAIN='DV' only, IDVAR
+# always DVSEQ, no QEVAL); it is the ONLY S5 SUPP file carrying
+# RDOMAIN='DV' (checked by content over all S5 SUPP files). The
+# spec pivots only DVSIG from SUPPDV (SUPPDV DVSIG matches the
+# target on all 8,735 in-target keys, 0 mismatches). DVTERM1 is
+# BLANK on every submitted row: the program's DESCRIP2 (define:
+# SUPPDV QNAM='DESCRIP2') does not exist in the submitted S5
+# SUPPDV, so %revsupp yields no DESCRIP2 and the SAS array
+# creates it all-missing; the spec emits a blank constant. No
+# S27 file is read. SAP v1 vs v3 CLOSED as no-impact (2026-11-24)
+# -- the S5 program's own definitions are followed.
+# Honest gaps: none known -- DVTERM1 blank is a reproduced
+# property of the submitted data, not a gap (see above). No
+# RACESPY NUL-tail gap (0 rows) and no duration[us] time columns
+# in the target (ADSL datetimes are native timestamp[us]).
+# DVSTDTC is date-only on every row and the target carries no
+# ADT/ADTM columns, so the ADVS date-only traps do not bite.
+# Verification: single full verify.py run 2026-11-23 04:58:49-04:58:52
+# UTC, yamaa 0.8.0 @135082c1f: 8,735x64, EXACT MATCH (strict), 0
+# mismatches, 0 within-tolerance, 0 space-only; 64/64 columns exact.
+# Report: addv/verify_report_s5.json (original work tree).
+yamaa: '1.0'
+type: spec
+model: ADaM
+parent: ../../../spec/yamaa/base/adam-base-ia.yaml
+domain: ADDV
+keys:
+- STUDYID
+- USUBJID
+- DVSEQ
+input:
+  DV: <sdtm-dir>/dv.parquet
+  SUPPDV: <sdtm-dir>/suppdv.parquet
+  ADSL:
+    path: <adam-dir>/adsl.parquet
+    key:
+    - STUDYID
+    - USUBJID
+submission:
+  label: Deviation Analysis Dataset
+  class: OCCURRENCE DATA STRUCTURE
+  structure: One record per subject per deviation
+  repeating: true
+rows:
+- id: devs
+  dataset: DV
+  filter: _ADSL IS NOT NULL
+intermediates:
+- id: SUPP_P
+  dataset: SUPPDV
+  key:
+    STUDYID: STUDYID
+    USUBJID: USUBJID
+    IDVARVAL:
+      str_decimal:
+        source: DVSEQ
+        decimals: 0
+  filter: SUPPDV.QNAM IN ('DVSIG') AND SUPPDV.IDVAR = 'DVSEQ'
+  pivot:
+    name: QNAM
+    value: QVAL
+    fields:
+    - DVSIG
+columns:
+- name: _ADSL
+  type: str
+  derivation: ADSL.USUBJID
+- name: STUDYID
+  derivation: DV.STUDYID
+  submission:
+    origins:
+    - type: Predecessor
+      description: DV.STUDYID
+- name: USUBJID
+  derivation: DV.USUBJID
+  submission:
+    origins:
+    - type: Predecessor
+      description: DV.USUBJID
+- name: SUBJID
+  derivation: ADSL.SUBJID
+  submission:
+    origins:
+    - type: Predecessor
+      description: ADSL.SUBJID
+- name: SITEID
+  derivation: ADSL.SITEID
+  submission:
+    origins:
+    - type: Predecessor
+      description: ADSL.SITEID
+- name: COUNTRY
+  derivation: ADSL.COUNTRY
+  submission:
+    origins:
+    - type: Predecessor
+      description: ADSL.COUNTRY
+- name: AGE
+  derivation: ADSL.AGE
+  submission:
+    mandatory: false
+    origins:
+    - type: Predecessor
+      description: ADSL.AGE
+- name: AGEU
+  derivation: ADSL.AGEU
+  submission:
+    mandatory: false
+    origins:
+    - type: Predecessor
+      description: ADSL.AGEU
+- name: STRATAR
+  derivation: ADSL.STRATAR
+  submission:
+    mandatory: false
+    origins:
+    - type: Predecessor
+      description: ADSL.STRATAR
+- name: STRATARN
+  derivation: ADSL.STRATARN
+  submission:
+    mandatory: false
+    origins:
+    - type: Predecessor
+      description: ADSL.STRATARN
+- name: AGEGR1
+  derivation: ADSL.AGEGR1
+  submission:
+    mandatory: false
+    origins:
+    - type: Predecessor
+      description: ADSL.AGEGR1
+- name: AGEGR1N
+  derivation: ADSL.AGEGR1N
+  submission:
+    mandatory: false
+    origins:
+    - type: Predecessor
+      description: ADSL.AGEGR1N
+- name: AGEGR2
+  derivation: ADSL.AGEGR2
+  submission:
+    mandatory: false
+    origins:
+    - type: Predecessor
+      description: ADSL.AGEGR2
+- name: AGEGR2N
+  derivation: ADSL.AGEGR2N
+  submission:
+    mandatory: false
+    origins:
+    - type: Predecessor
+      description: ADSL.AGEGR2N
+- name: SEX
+  derivation: ADSL.SEX
+  submission:
+    mandatory: false
+    origins:
+    - type: Predecessor
+      description: ADSL.SEX
+- name: RACE
+  derivation: ADSL.RACE
+  submission:
+    mandatory: false
+    origins:
+    - type: Predecessor
+      description: ADSL.RACE
+- name: RACESPY
+  derivation: ADSL.RACESPY
+  submission:
+    origins:
+    - type: Predecessor
+      description: ADSL.RACESPY
+- name: ETHNIC
+  derivation: ADSL.ETHNIC
+  submission:
+    mandatory: false
+    origins:
+    - type: Predecessor
+      description: ADSL.ETHNIC
+- name: RANDFL
+  derivation: ADSL.RANDFL
+  submission:
+    origins:
+    - type: Predecessor
+      description: ADSL.RANDFL
+- name: FASFL
+  derivation: ADSL.FASFL
+  submission:
+    origins:
+    - type: Predecessor
+      description: ADSL.FASFL
+- name: SAFFL
+  derivation: ADSL.SAFFL
+  submission:
+    origins:
+    - type: Predecessor
+      description: ADSL.SAFFL
+- name: SAR1FL
+  derivation: ADSL.SAR1FL
+  submission:
+    origins:
+    - type: Predecessor
+      description: ADSL.SAR1FL
+- name: SAR2FL
+  derivation: ADSL.SAR2FL
+  submission:
+    origins:
+    - type: Predecessor
+      description: ADSL.SAR2FL
+- name: SARAFL
+  derivation: ADSL.SARAFL
+  submission:
+    origins:
+    - type: Predecessor
+      description: ADSL.SARAFL
+- name: MITTFL
+  derivation: ADSL.MITTFL
+  submission:
+    origins:
+    - type: Predecessor
+      description: ADSL.MITTFL
+- name: PPROTFL
+  derivation: ADSL.PPROTFL
+  submission:
+    origins:
+    - type: Predecessor
+      description: ADSL.PPROTFL
+- name: COMPLFL
+  derivation: ADSL.COMPLFL
+  submission:
+    origins:
+    - type: Predecessor
+      description: ADSL.COMPLFL
+- name: DOSE1FL
+  derivation: ADSL.DOSE1FL
+  submission:
+    origins:
+    - type: Predecessor
+      description: ADSL.DOSE1FL
+- name: DOSE2FL
+  derivation: ADSL.DOSE2FL
+  submission:
+    origins:
+    - type: Predecessor
+      description: ADSL.DOSE2FL
+- name: RTPCRBL
+  derivation: ADSL.RTPCRBL
+  submission:
+    origins:
+    - type: Predecessor
+      description: ADSL.RTPCRBL
+- name: ELECSBL
+  derivation: ADSL.ELECSBL
+  submission:
+    origins:
+    - type: Predecessor
+      description: ADSL.ELECSBL
+- name: SCOV2BL
+  derivation: ADSL.SCOV2BL
+  submission:
+    origins:
+    - type: Predecessor
+      description: ADSL.SCOV2BL
+- name: TRT01P
+  derivation: ADSL.TRT01P
+  submission:
+    mandatory: false
+    origins:
+    - type: Predecessor
+      description: ADSL.TRT01P
+- name: TRT01PN
+  derivation: ADSL.TRT01PN
+  submission:
+    mandatory: false
+    origins:
+    - type: Predecessor
+      description: ADSL.TRT01PN
+- name: TRT01A
+  derivation: ADSL.TRT01A
+  submission:
+    origins:
+    - type: Predecessor
+      description: ADSL.TRT01A
+- name: TRT01AN
+  derivation: ADSL.TRT01AN
+  submission:
+    origins:
+    - type: Predecessor
+      description: ADSL.TRT01AN
+- name: TR01SDT
+  derivation: ADSL.TR01SDT
+  submission:
+    origins:
+    - type: Predecessor
+      description: ADSL.TR01SDT
+- name: TR01SDTM
+  derivation: ADSL.TR01SDTM
+  submission:
+    origins:
+    - type: Predecessor
+      description: ADSL.TR01SDTM
+- name: TR01EDT
+  derivation: ADSL.TR01EDT
+  submission:
+    origins:
+    - type: Predecessor
+      description: ADSL.TR01EDT
+- name: TR01EDTM
+  derivation: ADSL.TR01EDTM
+  submission:
+    origins:
+    - type: Predecessor
+      description: ADSL.TR01EDTM
+- name: DOSE2DT
+  derivation: ADSL.DOSE2DT
+  submission:
+    origins:
+    - type: Predecessor
+      description: ADSL.DOSE2DT
+- name: DOS2DTM
+  derivation: ADSL.DOS2DTM
+  submission:
+    origins:
+    - type: Predecessor
+      description: ADSL.DOS2DTM
+- name: RSKF1
+  derivation: ADSL.RSKF1
+  submission:
+    origins:
+    - type: Predecessor
+      description: ADSL.RSKF1
+- name: RSKF2
+  derivation: ADSL.RSKF2
+  submission:
+    origins:
+    - type: Predecessor
+      description: ADSL.RSKF2
+- name: RSKF3
+  derivation: ADSL.RSKF3
+  submission:
+    origins:
+    - type: Predecessor
+      description: ADSL.RSKF3
+- name: RSKF4
+  derivation: ADSL.RSKF4
+  submission:
+    origins:
+    - type: Predecessor
+      description: ADSL.RSKF4
+- name: RSKF5
+  derivation: ADSL.RSKF5
+  submission:
+    origins:
+    - type: Predecessor
+      description: ADSL.RSKF5
+- name: RSKF6
+  derivation: ADSL.RSKF6
+  submission:
+    origins:
+    - type: Predecessor
+      description: ADSL.RSKF6
+- name: STRATAV
+  derivation: ADSL.STRATAV
+  submission:
+    origins:
+    - type: Predecessor
+      description: ADSL.STRATAV
+- name: STRATAVN
+  derivation: ADSL.STRATAVN
+  submission:
+    origins:
+    - type: Predecessor
+      description: ADSL.STRATAVN
+- name: MINORITY
+  derivation: ADSL.MINORITY
+  submission:
+    origins:
+    - type: Predecessor
+      description: ADSL.MINORITY
+- name: RACEGR1
+  derivation: ADSL.RACEGR1
+  submission:
+    mandatory: false
+    origins:
+    - type: Predecessor
+      description: ADSL.RACEGR1
+- name: RACEGR1N
+  derivation: ADSL.RACEGR1N
+  submission:
+    mandatory: false
+    origins:
+    - type: Predecessor
+      description: ADSL.RACEGR1N
+- name: RISKGR1
+  derivation: ADSL.RISKGR1
+  submission:
+    origins:
+    - type: Predecessor
+      description: ADSL.RISKGR1
+- name: RISKGR1N
+  derivation: ADSL.RISKGR1N
+  submission:
+    origins:
+    - type: Predecessor
+      description: ADSL.RISKGR1N
+- name: RETHGR1
+  derivation: ADSL.RETHGR1
+  submission:
+    origins:
+    - type: Predecessor
+      description: ADSL.RETHGR1
+- name: RETHGR1N
+  derivation: ADSL.RETHGR1N
+  submission:
+    origins:
+    - type: Predecessor
+      description: ADSL.RETHGR1N
+- name: ACTARM
+  derivation: null
+- name: ARM
+  derivation: null
+- name: BMIBL
+  derivation: null
+- name: CBNRS
+  derivation: null
+- name: CHILDBP
+  derivation: null
+- name: CUTOFFDT
+  derivation: null
+- name: DCSREAS
+  derivation: null
+- name: DCSREASP
+  derivation: null
+- name: DCTREAS
+  derivation: null
+- name: DCTREASP
+  derivation: null
+- name: DTHAUTOP
+  derivation: null
+- name: DTHDT
+  derivation: null
+- name: EFFCODT
+  derivation: null
+- name: EOSDT
+  derivation: null
+- name: EOSDY
+  derivation: null
+- name: EOSSTT
+  derivation: null
+- name: EOTDT
+  derivation: null
+- name: EOTDY
+  derivation: null
+- name: EOTSTT
+  derivation: null
+- name: FASEREAS
+  derivation: null
+- name: HEIGHTBL
+  derivation: null
+- name: MITTERS
+  derivation: null
+- name: PPEREAS
+  derivation: null
+- name: PREVSCR
+  derivation: null
+- name: PROTVER
+  derivation: null
+- name: RANDDT
+  derivation: null
+- name: RANDNUM
+  derivation: null
+- name: RFICDT
+  derivation: null
+- name: RFXSTDTC
+  derivation: null
+- name: SAFEREAS
+  derivation: null
+- name: SAR1ERS
+  derivation: null
+- name: SAR2ERS
+  derivation: null
+- name: STUDDUR1
+  derivation: null
+- name: STUDDUR2
+  derivation: null
+- name: STUDDUR3
+  derivation: null
+- name: WEIGHTBL
+  derivation: null
+- name: DVCAT
+  type: str
+  label: Category for Protocol Deviation
+  derivation: DV.DVCAT
+  submission:
+    core: Req
+    mandatory: true
+    length: 40
+    origins:
+    - type: Predecessor
+      description: DV.DVCAT
+- name: DVSCAT
+  type: str
+  label: Subcategory for Protocol Deviation
+  derivation: DV.DVSCAT
+  submission:
+    core: Req
+    mandatory: true
+    length: 40
+    origins:
+    - type: Predecessor
+      description: DV.DVSCAT
+- name: DVTERM
+  type: str
+  label: Protocol Deviation Term
+  derivation: DV.DVTERM
+  submission:
+    core: Req
+    mandatory: true
+    length: 200
+    origins:
+    - type: Predecessor
+      description: DV.DVTERM
+- name: DVSEQ
+  type: float
+  label: Sequence Number
+  derivation: DV.DVSEQ
+  submission:
+    core: Req
+    mandatory: true
+    length: 8
+    significant_digits: 15
+    origins:
+    - type: Predecessor
+      description: DV.DVSEQ
+- name: DVSTDTC
+  type: str
+  label: Start Date/Time of Deviation
+  derivation: DV.DVSTDTC
+  submission:
+    core: Perm
+    mandatory: false
+    length: 20
+    origins:
+    - type: Predecessor
+      description: DV.DVSTDTC
+- name: DVSTDY
+  type: float
+  label: Study Day of Start of Deviation
+  derivation: DV.DVSTDY
+  submission:
+    core: Perm
+    mandatory: false
+    length: 8
+    significant_digits: 15
+    origins:
+    - type: Predecessor
+      description: DV.DVSTDY
+- name: DVSIG
+  type: str
+  label: Significant Protocol Deviation
+  derivation: SUPP_P.DVSIG
+  submission:
+    core: Perm
+    mandatory: false
+    length: 20
+    origins:
+    - type: Derived
+    method: "Withheld from publication: the received define states this text."
+- name: DVTERM1
+  type: str
+  label: Protocol Deviation Term
+  derivation: ''''''
+  submission:
+    core: Perm
+    mandatory: false
+    length: 200
+    origins:
+    - type: Assigned
+    method: "Withheld from publication: the received define states this text."
+output:
+  path: <adam-dir>/addv-yamaa.parquet
+  order_by:
+  - USUBJID
+  - DVSEQ
+  columns:
+  - STUDYID
+  - USUBJID
+  - SUBJID
+  - SITEID
+  - COUNTRY
+  - AGE
+  - AGEU
+  - STRATAR
+  - STRATARN
+  - AGEGR1
+  - AGEGR1N
+  - AGEGR2
+  - AGEGR2N
+  - SEX
+  - RACE
+  - RACESPY
+  - ETHNIC
+  - RANDFL
+  - FASFL
+  - SAFFL
+  - SAR1FL
+  - SAR2FL
+  - SARAFL
+  - MITTFL
+  - PPROTFL
+  - COMPLFL
+  - DOSE1FL
+  - DOSE2FL
+  - RTPCRBL
+  - ELECSBL
+  - SCOV2BL
+  - TRT01P
+  - TRT01PN
+  - TRT01A
+  - TRT01AN
+  - TR01SDT
+  - TR01SDTM
+  - TR01EDT
+  - TR01EDTM
+  - DOSE2DT
+  - DOS2DTM
+  - RSKF1
+  - RSKF2
+  - RSKF3
+  - RSKF4
+  - RSKF5
+  - RSKF6
+  - STRATAV
+  - STRATAVN
+  - MINORITY
+  - RACEGR1
+  - RACEGR1N
+  - RISKGR1
+  - RISKGR1N
+  - RETHGR1
+  - RETHGR1N
+  - DVSEQ
+  - DVCAT
+  - DVSCAT
+  - DVSTDTC
+  - DVSTDY
+  - DVTERM
+  - DVTERM1
+  - DVSIG
