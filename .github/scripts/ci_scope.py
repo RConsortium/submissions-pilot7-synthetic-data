@@ -50,6 +50,14 @@ PY_PLAN = 'submission-pilot3/program/adam/python/make_plan.py'
 R_PLAN = 'submission-pilot3/program/adam/R/make_plan.R'
 COMPARE_INPUTS = {'.github/scripts/compare_adam.py',
                   'submission-pilot5/program/adam/adam-compare-keys.json'}
+PHMPT_WORKER = '.github/workflows/phmpt-check.yml'
+PHMPT_EVIDENCE = 'docs/phmpt/evidence.json'
+
+
+def phmpt_changed(changed):
+    """The PHMPT kit (specs, scripts, pins) or the results it is checked against changed."""
+    return bool(changed & {PHMPT_WORKER, PHMPT_EVIDENCE}) or any(
+        path.startswith('phmpt/') and Path(path).suffix != '.md' for path in changed)
 
 
 def select_checks(root, changed):
@@ -103,6 +111,7 @@ def select_checks(root, changed):
         'compare': bool(changed & (COMPARE_INPUTS | {'.github/workflows/ci.yml'}))
                    or any(path.startswith('submission-pilot5/data/adam/') and path.endswith('.parquet') for path in changed),
         'publication': publication,
+        'phmpt': phmpt_changed(changed),
         'website': publication or any(path.startswith('docs/') for path in changed)
                    or bool(changed & {'mkdocs.yml', '.github/scripts/build_study_docs.py',
                                       '.github/scripts/build_index_table.py',

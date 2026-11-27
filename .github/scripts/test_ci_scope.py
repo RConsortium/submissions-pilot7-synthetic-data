@@ -46,7 +46,22 @@ class ScopeTests(unittest.TestCase):
             with self.subTest(path=path):
                 scope = self.scope(path)
                 self.assertEqual(scope['studies'], [])
-                self.assertFalse(any(scope[key] for key in ('website', 'plan_python', 'plan_r', 'compare')))
+                self.assertFalse(any(scope[key] for key in ('website', 'plan_python', 'plan_r', 'compare', 'phmpt')))
+
+    def test_phmpt_kit_and_published_results_select_the_phmpt_check(self):
+        for path in ('phmpt/studies.yaml', 'phmpt/yamaa.lock', 'phmpt/scripts/reproduce.py',
+                     'phmpt/mrna-1273-p201/s3-d57/spec/yamaa/adsl.yaml',
+                     'docs/phmpt/evidence.json', '.github/workflows/phmpt-check.yml'):
+            with self.subTest(path=path):
+                scope = self.scope(path)
+                self.assertTrue(scope['phmpt'])
+                self.assertEqual(scope['studies'], [])
+
+    def test_phmpt_prose_needs_no_phmpt_check(self):
+        for path in ('phmpt/README.md', 'phmpt/NOTICE.md', 'docs/phmpt/index.md',
+                     'docs/phmpt/findings/c4591001.md', 'docs/assets/phmpt/review.js'):
+            with self.subTest(path=path):
+                self.assertFalse(self.scope(path)['phmpt'])
 
     def test_website_only_needs_layout_preview(self):
         scope = self.scope('docs/index.md', 'mkdocs.yml')

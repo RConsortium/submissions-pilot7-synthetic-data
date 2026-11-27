@@ -4,6 +4,7 @@
 | --- | --- | --- |
 | `ci.yml` | One shared check job on every PR; only affected studies get additional validation jobs. | Layout-preview and validation artifacts only. |
 | `study-check.yml` | Reusable per-study yamaa, R, and/or CORE checks. Multiple checks for one study share one runner; CORE reads committed data before derivations run. | Validation artifacts only. |
+| `phmpt-check.yml` | Reruns the PHMPT reproduction that fits on a runner from phmpt.org with the kit in `phmpt/`: every define, and the mRNA-1273-P201 and BNT162-01 datasets. Each result must equal `docs/phmpt/evidence.json`. | None; fetched data and reports stay on the runner. |
 | `adam-compare.yml` | Manual generic ADaM comparison using workflow inputs. | None. |
 | `core-validate.yml` | Full CORE checks on relevant main pushes or manual runs. | Validation artifacts only. |
 | `yamaa-site.yml` | Fresh validation of the full publication catalog, then website build. Runs on main or manually. | GitHub Pages on main in the upstream repository. |
@@ -27,6 +28,7 @@ in that same job.
 | Pilot 3 planning generator or its QS/EX/plan.csv inputs | Relevant Python/R plan reproduction steps in the shared job. Input data changes also select the study job. | 1 or 2 |
 | Generic comparison tool or its keys | Comparator self-check in the shared job. | 1 |
 | Dashboard code, tests, configuration, synthetic source archives, or study source documents | Full catalog validation, strict production build, module and browser tests. | Catalog + 2 |
+| PHMPT kit (`phmpt/`, except Markdown), `docs/phmpt/evidence.json`, or `phmpt-check.yml` | Rerun every define and the P201 and BNT162-01 datasets from PHMPT. | 2 |
 | Shared execution code or the reusable worker | Every affected study; each study still uses one runner. | Depends on scope |
 
 PR site previews use an isolated docs tree with explicit placeholders for study
