@@ -1,5 +1,28 @@
 {% extends "base.html" %}
 
+{% block extrahead %}
+  {{ super() }}
+  <script>
+    /* Study dashboard routes change only the hash. Material's instant
+       navigation takes its first history event after a full load as a page
+       change, refetches the page and replaces the mounted dashboard. This
+       listener is registered before Material's, so it keeps same-page route
+       changes from it until Material has navigated; after that Material
+       compares pathnames and leaves hash changes to the dashboard. */
+    (() => {
+      const loaded = location.pathname;
+      let navigated = false;
+      addEventListener("DOMContentLoaded", () => {
+        if (typeof location$ !== "undefined") location$.subscribe(() => (navigated = true));
+      });
+      addEventListener("popstate", (event) => {
+        if (!navigated && location.pathname === loaded && document.getElementById("study-dashboard"))
+          event.stopImmediatePropagation();
+      });
+    })();
+  </script>
+{% endblock %}
+
 {% block announce %}
   <strong>Draft / dry run - pending human review.</strong>
   These results are preliminary. We invite community review of the
