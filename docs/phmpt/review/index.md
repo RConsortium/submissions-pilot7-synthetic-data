@@ -31,12 +31,19 @@ a discussion; describe the difference and cite the finding instead.
 
 ## Reproduce a result
 
+[Reproduce from PHMPT](../reproduce.md) is the full guide: what you need,
+how to build yamaa at the pinned commit, the commands for every cut, how to
+compare your run with the published results, and the inputs PHMPT released
+only as JMP tables. Each finding below also lists its own commands under
+**Reproduce it**. For example, after the setup, in `phmpt/`:
+
 ```sh
-git clone https://github.com/RConsortium/submissions-pilot7-synthetic-data
-cd submissions-pilot7-synthetic-data/phmpt   # then build yamaa as phmpt/README.md says
 python scripts/reproduce.py fetch  --study bnt162-01 --cut 27034
 python scripts/reproduce.py verify --study bnt162-01 --cut 27034
+python scripts/site/check_verdicts.py --evidence ../docs/phmpt/evidence.json
 ```
+
+Keep what you fetch and the differences you find on your machine.
 
 ## Findings
 

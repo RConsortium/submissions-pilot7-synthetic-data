@@ -1,0 +1,183 @@
+# C4591001 ADSYMPT helper 1 of 2 for the EUA cut: the visit records and the
+# visit-collapse walk of the EUA adsympt.sas (27034 sequence S1, final
+# analysis; program lines 616-930, __visits_sdtm to __visits4).
+#
+# Layer over the S1 helper (../../../../s1/spec/yamaa/helper/adsympt_visits.yaml),
+# whose header states the SAS semantics kept (missing dates sort low,
+# sum(., 3) is SAS day 3, epoch days with MISS = -9999999). The EUA program
+# differs from the S1 one in these steps, each redeclared below:
+#   __ho          ICU records only (no SUPPHO HCUHSP records).
+#   __visits_sdtm_rv1 / rv2a
+#                 a repeat visit (COVID_X1..6, COVID_XR) is one of any domain,
+#                 not of MB only; it is relabelled COVID_X and takes the visit
+#                 number of the subject's non-repeat records of COVID_X, else
+#                 none (no FA illness window or COVID_ visit count).
+#   __visits_all  an unplanned visit needs a start date (visflg).
+#   __visits_unq_vis2
+#                 MLVISFLG is 1 for a subject with more than one unplanned
+#                 visit, 0 for one with one: there is no FA eligibility check.
+#   __visits3     the walk sees every visit of such a subject, of any domain
+#                 (no same-start-date subjects, no clsp_pros_flg restriction).
+# The walk itself (__visits4) is the S1 one. Helper 2 (adsympt_vismap.yaml)
+# needs the walk's running visit on each row and on the row before it (the
+# lag1 of __visits6), carried as RUNVN/RUNV and PRUNVN/PRUNV.
+yamaa: '1.0'
+type: spec
+parent: ../../../../s1/spec/yamaa/helper/adsympt_visits.yaml
+clear:
+- rows.mb.filter
+rows:
+# A repeat visit of any domain (SAS: length(visit) >= 8, characters 1-6
+# 'COVID_' and character 8 one of 1-6 or R).
+- id: ce
+  derivations:
+    RVFLG: {case: [{when: "str_contains(VISIT_O, '^COVID_.[1-6R]')", then: 1}]}
+- id: fa
+  derivations:
+    RVFLG: {case: [{when: "str_contains(VISIT_O, '^COVID_.[1-6R]')", then: 1}]}
+- id: ho_icu
+  derivations:
+    RVFLG: {case: [{when: "str_contains(VISIT_O, '^COVID_.[1-6R]')", then: 1}]}
+- id: ho_hcuhsp_m
+  filter: 1 = 0
+- id: ho_hcuhsp_u
+  filter: 1 = 0
+- id: is
+  derivations:
+    RVFLG: {case: [{when: "str_contains(VISIT_O, '^COVID_.[1-6R]')", then: 1}]}
+- id: lb
+  derivations:
+    RVFLG: {case: [{when: "str_contains(VISIT_O, '^COVID_.[1-6R]')", then: 1}]}
+# MB repeat visits are built by the mb template like any other (its filter
+# is cleared above); the S1 mb_repeat template is not used.
+- id: mb
+  derivations:
+    RVFLG: {case: [{when: "str_contains(VISIT_O, '^COVID_.[1-6R]')", then: 1}]}
+- id: mb_repeat
+  filter: 1 = 0
+- id: pr
+  derivations:
+    RVFLG: {case: [{when: "str_contains(VISIT_O, '^COVID_.[1-6R]')", then: 1}]}
+- id: vs
+  derivations:
+    RVFLG: {case: [{when: "str_contains(VISIT_O, '^COVID_.[1-6R]')", then: 1}]}
+columns:
+# __visits_sdtm_rv1a: the repeat visit's name cut to its first 7 characters.
+- name: _VTE
+  type: str
+  derivation:
+    case:
+    - when: RVFLG = 1
+      then: {str_substr: {source: VISIT_O, start: 1, length: 7}}
+    - otherwise: VISIT_O
+# __visits_sdtm_rv2a: the visit number of the subject's non-repeat records of
+# that visit (one per visit name in these data; SAS would repeat the record
+# for each distinct one).
+- name: _RVNV
+  type: float
+  derivation:
+    case:
+    - when: RVFLG IS NULL
+      then: VISITNUM_O
+- name: _RVN
+  type: float
+  derivation:
+    aggregate: {expr: MAX(_RVNV), group_by: [USUBJID, _VTE]}
+- name: VISITNUM
+  derivation:
+    case:
+    - when: RVFLG IS NULL
+      then: VISITNUM_O
+    - otherwise: _RVN
+- name: VISIT
+  derivation: _VTE
+# __visits_all: an unplanned visit also needs a start date.
+- name: VISFLG
+  derivation:
+    case:
+    - when: VISITNUM IS NOT NULL AND VISIT IS NOT NULL AND ASTDT IS NOT NULL AND VISIT
+        NOT IN ('SCR', 'V1_DAY1_VAX1_S', 'V2_DAY2_POSTVAX1_S', 'V3_WEEK1_POSTVAX1_S', 'V4_WEEK3_VAX2_S',
+        'V5_WEEK1_POSTVAX2_S', 'V6_WEEK2_POSTVAX2_S', 'V7_MONTH1_S', 'V4_WEEK3_VAX2_S_R',
+        'V5_WEEK1_POSTVAX2_S_R', 'V6_WEEK2_POSTVAX2_S_R', 'V7_MONTH1_S_R', 'V8_MONTH6_S',
+        'V9_MONTH12_S', 'V10_MONTH24_S', 'V1_DAY1_VAX1_NS', 'V2_VAX2_NS', 'V3_WEEK2_POSTVAX2_NS',
+        'V4_MONTH1_NS', 'V5_MONTH6_NS', 'V6_MONTH12_NS', 'V7_MONTH24_NS', 'V1_DAY1_VAX1_L',
+        'V2_VAX2_L', 'V3_MONTH1_POSTVAX2_L', 'V4_MONTH6_L', 'V5_MONTH12_L', 'V6_MONTH24_L',
+        'POT_COVID_ILL', 'POT_COVID_CONVA')
+      then: 1
+    - otherwise: 0
+# __visits_unq_vis2: the subject's distinct unplanned visits.
+- name: _UVN
+  type: int
+  derivation:
+    row_number:
+      window:
+        group_by: [USUBJID, VISITNUM, VISIT]
+        order_by: [RECSEQ]
+        filter: VISFLG = 1
+- name: _UV1
+  type: int
+  derivation:
+    case:
+    - when: _UVN = 1
+      then: 1
+    - otherwise: 0
+- name: _NUV
+  type: int
+  derivation:
+    aggregate: {expr: SUM(_UV1), group_by: [USUBJID]}
+- name: MLVISFLG
+  label: Multiple Unplanned Visits Flag
+  derivation:
+    case:
+    - when: VISFLG = 1 AND _NUV > 1
+      then: 1
+    - when: VISFLG = 1
+      then: 0
+# __visits3: every visit of a subject with several unplanned visits drives
+# the walk.
+- name: IN3FL
+  derivation:
+    case:
+    - when: SURVFL = 1 AND MLVISFLG = 1
+      then: 1
+    - otherwise: 0
+- name: PROSFL
+  derivation:
+    case:
+    - when: IN3FL = 1
+      then: 1
+    - otherwise: 0
+# The walk's running visit (visitnum_, visit_) on the row and on the row
+# before it in walk order (__visits6 reads it through lag1).
+- name: RUNVN
+  type: float
+  label: Running Visit Number of the walk
+  derivation:
+    case:
+    - when: PROSFL = 1
+      then: _SVN
+- name: RUNV
+  type: str
+  label: Running Visit of the walk
+  derivation:
+    case:
+    - when: PROSFL = 1
+      then: _SV
+- name: PRUNVN
+  type: float
+  label: Running Visit Number of the previous walk row
+  derivation:
+    case:
+    - when: PROSFL = 1
+      then: _PSVN
+- name: PRUNV
+  type: str
+  label: Running Visit of the previous walk row
+  derivation:
+    case:
+    - when: PROSFL = 1
+      then: _PSV
+output:
+  columns: [DOMAIN, USUBJID, VISITNUM_O, VISIT_O, ADT, ASTDT_O, ASTDT, AENDT, RVFLG,
+    VISITNUM, VISIT, RECSEQ, VISFLG, AK, EK, SURVFL, MLVISFLG, IN3FL, PROSFL, CLSPFL,
+    AVISITN_C, AVISIT_C, RUNVN, RUNV, PRUNVN, PRUNV]

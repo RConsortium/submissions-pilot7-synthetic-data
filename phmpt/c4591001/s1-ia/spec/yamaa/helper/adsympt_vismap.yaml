@@ -1,0 +1,445 @@
+# C4591001 ADSYMPT helper for the EUA interim cut: the illness-visit collapse
+# of adsympt-ia.sas (27034 sequence S1, interim efficacy analysis; program
+# visits1 to visits5).
+#
+# The interim program has its own algorithm, unlike the final EUA and the
+# S1 ones (helper/adsympt_visits.yaml there): it relabels no repeat visit,
+# and it walks the visits of ADSYMPT's own records (adsympt1, every phase):
+#   visits1   each record with a visit other than V1_DAY1_VAX1_L and
+#             V2_VAX2_L and a start date, the vital signs and SARS-CoV-2
+#             swabs (SARSCOV2, RTCOV2NS) taking their date as the start: CE,
+#             FA symptoms (the FAOBJ the program names), HO ICU, MB swabs, PR
+#             and VS before visit number 60747 with a result. CM, DS and IS
+#             records have no visit or no start date there.
+#   visits2a  one record per subject, visit and dates (noduprec);
+#   visits3b  the subjects with more than one visit number (flg = 1);
+#   visits5   the walk over those subjects' records in (start, end
+#             descending, visit number) order. A record starting before the
+#             running window's end + 4 days (sum(endt, 4): SAS day 4 when the
+#             window has no end) joins the window and extends its end;
+#             another one starts a new window under its own visit. A record
+#             joining the window of another visit collapses into it
+#             (clspflg = 1). When it does and the next record is the same
+#             visit starting within it, the running visit is held
+#             (clspflg_, avisitn_): every later record of the subject then
+#             takes it and collapses.
+# SAS semantics kept as in the S1 helper: dates as epoch days with missing as
+# -9999999, which sorts and compares below every date; the walk reads the
+# next record ahead, and on a subject's last record SAS still holds its own
+# values (the point= read is skipped). The walk carries state from record to
+# record, a calculated-history group (WINDOW-12). ADSYMPT reads the records
+# that collapse (CLSPFL = 'Y') by subject, visit and start (the date for vital
+# signs and swabs), as adsympt2 joins visits5.
+yamaa: '1.0'
+type: spec
+model: ADaM
+domain: ADSYMPTV
+keys:
+- USUBJID
+- RECSEQ
+input:
+  CE: <sdtm-dir>/ce.parquet
+  FA: <sdtm-dir>/face.parquet
+  HO: <sdtm-dir>/ho.parquet
+  MB: <sdtm-dir>/mb.parquet
+  PR: <sdtm-dir>/pr.parquet
+  # VS as ADSYMPT reads it (VSSTRESN as a number; see the S135 helper).
+  VS:
+    path: <work-dir>/vs.parquet
+    schema: ../../../../s135/spec/yamaa/helper/sdtm_vs.yaml
+windows:
+  WALK:
+    group_by: [USUBJID, WALKFL]
+    order_by:
+    - AK
+    - {variable: EK, direction: desc}
+    - VISITNUM
+    - RECSEQ
+intermediates:
+- id: _FA_DATES
+  dataset: FA
+  key:
+    USUBJID: FA.USUBJID
+    VISITNUM: FA.VISITNUM
+    VISIT: FA.VISIT
+  filter: FA.FATESTCD IN ('FSYMDATE', 'LSYMDATE', 'SYMONGO') AND FA.FACAT = 'EFFICACY'
+  pivot:
+    name: FATESTCD
+    value: FAORRES
+    fields: [FSYMDATE, LSYMDATE, SYMONGO]
+# The FA symptom records adsympt-ia.sas keeps (paramcd assigned from FAOBJ).
+- id: _FA_V
+  dataset: FA
+  filter: FA.FACAT = 'EFFICACY' AND FA.FATESTCD NOT IN ('FSYMDATE', 'LSYMDATE', 'SYMONGO')
+    AND (FA._OBJ IN ('CHILLS', 'DIARRHEA', 'FEVER', 'NEW LOSS OF TASTE OR SMELL', 'NEW OR INCREASED COUGH',
+    'NEW OR INCREASED MUSCLE PAIN', 'NEW OR INCREASED SHORTNESS OF BREATH', 'NEW OR INCREASED SORE THROAT',
+    'VOMITING', 'LOSS OF TASTE/SMELL', 'NEW OR INCREASED NASAL CONGESTION', 'NASAL CONGESTION',
+    'NEW OR INCREASED NASAL DISCHARGE', 'NEW OR INCREASED SPUTUM PRODUCTION', 'NEW OR INCREASED WHEEZING',
+    'WHEEZING', 'FATIGUE', 'HEADACHE', 'NAUSEA', 'RHINORRHOEA') OR str_contains(FA._OBJ, 'RUNNY NOSE'))
+  columns: [_USUBJID, _VISITNUM, _VISIT, _FSYM, _LSYM]
+  derivations:
+    _OBJ:
+      type: str
+      derivation: {str_case: {source: FA.FAOBJ, to: upper}}
+    _USUBJID: {type: str, derivation: FA.USUBJID}
+    _VISITNUM: {type: float, derivation: FA.VISITNUM}
+    _VISIT: {type: str, derivation: FA.VISIT}
+    _FSYM: {type: str, derivation: _FA_DATES.FSYMDATE}
+    _LSYM: {type: str, derivation: _FA_DATES.LSYMDATE}
+- id: _MB_V
+  dataset: MB
+  filter: ((MB._MBTEST_U = 'SEVERE ACUTE RESP SYNDROME CORONAVIRUS 2' AND MB._MBMETHOD_U =
+    'IMMUNOCHROMATOGRAPHY') OR (MB._MBTEST_U IN ('CEPHEID RT-PCR ASSAY FOR SARS-COV-2', 'CEPHEID RT-PCR ASSAY OF SARS-COV-2')
+    AND MB._MBMETHOD_U = 'REVERSE TRANSCRIPTASE PCR')) AND MB.MBTESTCD IN ('SARSCOV2', 'RTCOV2NS')
+  columns: [_USUBJID, _VISITNUM, _VISIT, _MBDTC]
+  derivations:
+    _USUBJID: {type: str, derivation: MB.USUBJID}
+    _VISITNUM: {type: float, derivation: MB.VISITNUM}
+    _VISIT: {type: str, derivation: MB.VISIT}
+    _MBDTC: {type: str, derivation: MB.MBDTC}
+    _MBTEST_U:
+      type: str
+      derivation: {str_case: {source: MB.MBTEST, to: upper}}
+    _MBMETHOD_U:
+      type: str
+      derivation: {str_case: {source: MB.MBMETHOD, to: upper}}
+rows:
+- id: ce
+  dataset: CE
+  filter: CE.CECAT = 'SEVERE COVID-19 ILLNESS' AND CE.CESCAT IN ('SIGNIFICANT ACUTE
+    RENAL DYSFUNCTION', 'SIGNIFICANT ACUTE HEPATIC DYSFUNCTION', 'SIGNIFICANT ACUTE
+    NEUROLOGIC DYSFUNCTION') AND VISITNUM IS NOT NULL AND VISIT IS NOT NULL AND VISIT NOT IN ('V1_DAY1_VAX1_L',
+    'V2_VAX2_L') AND ASTDT IS NOT NULL
+  derivations:
+    DOMAIN: "'CE'"
+    USUBJID: CE.USUBJID
+    VISITNUM: CE.VISITNUM
+    VISIT: CE.VISIT
+    ASTDT: {to_date: {source: CE.CESTDTC}}
+    AENDT: {to_date: {source: CE.CEENDTC}}
+- id: fa
+  dataset: _FA_V
+  group_by: [_FA_V._USUBJID, _FA_V._VISITNUM, _FA_V._VISIT, _FA_V._FSYM, _FA_V._LSYM]
+  filter: VISITNUM IS NOT NULL AND VISIT IS NOT NULL AND VISIT NOT IN ('V1_DAY1_VAX1_L',
+    'V2_VAX2_L') AND ASTDT IS NOT NULL
+  derivations:
+    DOMAIN: "'FA'"
+    USUBJID: _FA_V._USUBJID
+    VISITNUM: _FA_V._VISITNUM
+    VISIT: _FA_V._VISIT
+    ASTDT: {to_date: {source: _FA_V._FSYM}}
+    AENDT: {to_date: {source: _FA_V._LSYM}}
+- id: ho
+  dataset: HO
+  filter: HO.HOTERM = 'ICU' AND VISITNUM IS NOT NULL AND VISIT IS NOT NULL AND VISIT NOT
+    IN ('V1_DAY1_VAX1_L', 'V2_VAX2_L') AND ASTDT IS NOT NULL
+  derivations:
+    DOMAIN: "'HO'"
+    USUBJID: HO.USUBJID
+    VISITNUM: HO.VISITNUM
+    VISIT: HO.VISIT
+    ASTDT: {to_date: {source: HO.HOSTDTC}}
+    AENDT: {to_date: {source: HO.HOENDTC}}
+- id: mb
+  dataset: _MB_V
+  group_by: [_MB_V._USUBJID, _MB_V._VISITNUM, _MB_V._VISIT, _MB_V._MBDTC]
+  filter: VISITNUM IS NOT NULL AND VISIT IS NOT NULL AND VISIT NOT IN ('V1_DAY1_VAX1_L',
+    'V2_VAX2_L') AND ASTDT IS NOT NULL
+  derivations:
+    DOMAIN: "'MB'"
+    USUBJID: _MB_V._USUBJID
+    VISITNUM: _MB_V._VISITNUM
+    VISIT: _MB_V._VISIT
+    ASTDT: {to_date: {source: _MB_V._MBDTC}}
+    AENDT: null
+- id: pr
+  dataset: PR
+  filter: PR.PRCAT = 'GENERAL NON-DRUG TREATMENT' AND PR.PRTRT IS NOT NULL AND VISITNUM
+    IS NOT NULL AND VISIT IS NOT NULL AND VISIT NOT IN ('V1_DAY1_VAX1_L', 'V2_VAX2_L')
+    AND ASTDT IS NOT NULL
+  derivations:
+    DOMAIN: "'PR'"
+    USUBJID: PR.USUBJID
+    VISITNUM: PR.VISITNUM
+    VISIT: PR.VISIT
+    ASTDT: {to_date: {source: PR.PRSTDTC}}
+    AENDT: {to_date: {source: PR.PRENDTC}}
+- id: vs
+  dataset: VS
+  filter: VS.VSCAT = 'GENERAL VITAL SIGNS' AND VS.VSTESTCD IN ('RESP', 'HR', 'OXYSAT',
+    'DIABP', 'SYSBP') AND VS.VISITNUM < 60747 AND (VS.VSSTRESN IS NOT NULL OR VS.VSSTRESC
+    <> '') AND VISITNUM IS NOT NULL AND VISIT IS NOT NULL AND VISIT NOT IN ('V1_DAY1_VAX1_L',
+    'V2_VAX2_L') AND ASTDT IS NOT NULL
+  derivations:
+    DOMAIN: "'VS'"
+    USUBJID: VS.USUBJID
+    VISITNUM: VS.VISITNUM
+    VISIT: VS.VISIT
+    ASTDT: {to_date: {source: VS.VSDTC}}
+    AENDT: null
+columns:
+- {name: DOMAIN, type: str, label: Domain of the visit record}
+- {name: USUBJID, type: str, label: Unique Subject Identifier}
+- {name: VISITNUM, type: float, label: Visit Number}
+- {name: VISIT, type: str, label: Visit Name}
+- {name: ASTDT, type: date, label: Visit Start Date (the record date for MB and VS)}
+- {name: AENDT, type: date, label: Visit End Date}
+- name: RECSEQ
+  type: int
+  label: Record Sequence in visit order
+  derivation:
+    row_number:
+      window:
+        group_by: [USUBJID]
+        order_by: [VISITNUM, VISIT, ASTDT, {variable: AENDT, nulls: first}, DOMAIN]
+# Epoch days, missing as MISS (-9999999), so comparisons keep SAS order.
+- name: _ASE
+  type: int
+  derivation: {to_epoch_day: {source: ASTDT}}
+- name: _AEE
+  type: int
+  derivation: {to_epoch_day: {source: AENDT}}
+- name: AK
+  type: int
+  label: Visit Start (epoch day)
+  derivation: _ASE
+- name: EK
+  type: int
+  label: Visit End (epoch day, -9999999 if missing)
+  derivation:
+    case:
+    - when: _AEE IS NULL
+      then: -9999999
+    - otherwise: _AEE
+# visits2a: one record per subject, visit and dates.
+- name: _SURVN
+  type: int
+  derivation:
+    row_number:
+      window:
+        group_by: [USUBJID, VISITNUM, VISIT, AK, EK]
+        order_by: [RECSEQ]
+- name: SURVFL
+  type: int
+  label: First record of its visit and dates
+  derivation:
+    case:
+    - when: _SURVN = 1
+      then: 1
+    - otherwise: 0
+# visits2b / visits3b: the subject has more than one visit number.
+- name: _VNN
+  type: int
+  derivation:
+    row_number:
+      window:
+        group_by: [USUBJID, VISITNUM]
+        order_by: [RECSEQ]
+- name: _VN1
+  type: int
+  derivation:
+    case:
+    - when: _VNN = 1
+      then: 1
+    - otherwise: 0
+- name: _NVN
+  type: int
+  derivation:
+    aggregate: {expr: SUM(_VN1), group_by: [USUBJID]}
+- name: WALKFL
+  type: int
+  label: Record driving the walk
+  derivation:
+    case:
+    - when: SURVFL = 1 AND _NVN > 1
+      then: 1
+    - otherwise: 0
+# visits5: the next record read ahead (its own values on the subject's last
+# record), and the previous record (none on the subject's first).
+- name: _PRV
+  type: int
+  derivation: {row_value: {source: RECSEQ, offset: -1, window: WALK}}
+- name: _NXR
+  type: int
+  derivation: {row_value: {source: RECSEQ, offset: 1, window: WALK}}
+- name: _NXVN0
+  type: float
+  derivation: {row_value: {source: VISITNUM, offset: 1, window: WALK}}
+- name: _NXV0
+  type: str
+  derivation: {row_value: {source: VISIT, offset: 1, window: WALK}}
+- name: _NXA0
+  type: int
+  derivation: {row_value: {source: AK, offset: 1, window: WALK}}
+- name: _NXVN
+  type: float
+  derivation:
+    case:
+    - when: _NXR IS NULL
+      then: VISITNUM
+    - otherwise: _NXVN0
+- name: _NXV
+  type: str
+  derivation:
+    case:
+    - when: _NXR IS NULL
+      then: VISIT
+    - otherwise: _NXV0
+- name: _NXA
+  type: int
+  derivation:
+    case:
+    - when: _NXR IS NULL
+      then: AK
+    - otherwise: _NXA0
+# The retained state at the start of the record: the previous record's.
+- name: _PRAN
+  type: float
+  derivation: {row_value: {source: RAN, offset: -1, window: WALK}}
+- name: _PRAV
+  type: str
+  derivation: {row_value: {source: RAV, offset: -1, window: WALK}}
+- name: _PRST
+  type: int
+  derivation: {row_value: {source: RST, offset: -1, window: WALK}}
+- name: _PREN
+  type: int
+  derivation: {row_value: {source: REN, offset: -1, window: WALK}}
+- name: _PRCF
+  type: int
+  derivation: {row_value: {source: RCF, offset: -1, window: WALK}}
+- name: _PSAN
+  type: float
+  derivation: {row_value: {source: RHN, offset: -1, window: WALK}}
+- name: _PSAV
+  type: str
+  derivation: {row_value: {source: RHV, offset: -1, window: WALK}}
+# A new window unless the record starts before the window's end + 4 days.
+- name: _L4
+  type: int
+  derivation:
+    case:
+    - when: _PREN = -9999999
+      then: -3649
+    - otherwise: _PREN + 4
+- name: _NEWW
+  type: int
+  derivation:
+    case:
+    - when: _PRV IS NULL
+      then: 0
+    - when: AK >= _L4
+      then: 1
+    - otherwise: 0
+# stdt and endt, the running window.
+- name: RST
+  type: int
+  derivation:
+    case:
+    - when: _PRV IS NULL OR _NEWW = 1
+      then: AK
+    - otherwise: _PRST
+- name: REN
+  type: int
+  derivation:
+    case:
+    - when: _PRV IS NULL OR _NEWW = 1
+      then: EK
+    - when: EK > _PREN
+      then: EK
+    - otherwise: _PREN
+# clspflg before the hold: 1 when the record joins the window of another visit.
+- name: _CL0
+  type: int
+  derivation:
+    case:
+    - when: _PRV IS NULL OR _NEWW = 1
+      then: 0
+    - when: VISITNUM <> _PRAN OR VISIT <> _PRAV
+      then: 1
+    - otherwise: 2
+# The hold (clspflg_, avisitn_, avisit_): set when a collapsed record is
+# followed by the same visit starting within it, kept to the subject's end.
+- name: _STK
+  type: int
+  derivation:
+    case:
+    - when: _CL0 = 1 AND VISITNUM = _NXVN AND VISIT = _NXV AND ((EK = -9999999 AND AK <= _NXA)
+        OR (EK <> -9999999 AND AK <= _NXA AND _NXA <= EK))
+      then: 1
+    - otherwise: 0
+- name: RCF
+  type: int
+  derivation:
+    case:
+    - when: _PRV IS NULL
+      then: null
+    - when: _STK = 1
+      then: 1
+    - otherwise: _PRCF
+- name: RHN
+  type: float
+  derivation:
+    case:
+    - when: _PRV IS NULL
+      then: null
+    - when: _STK = 1
+      then: _PRAN
+    - otherwise: _PSAN
+- name: RHV
+  type: str
+  derivation:
+    case:
+    - when: _PRV IS NULL
+      then: null
+    - when: _STK = 1
+      then: _PRAV
+    - otherwise: _PSAV
+# avisitn and avisit, the running visit.
+- name: RAN
+  type: float
+  derivation:
+    case:
+    - when: _PRV IS NULL
+      then: VISITNUM
+    - when: RCF = 1
+      then: RHN
+    - when: _NEWW = 1
+      then: VISITNUM
+    - otherwise: _PRAN
+- name: RAV
+  type: str
+  derivation:
+    case:
+    - when: _PRV IS NULL
+      then: VISIT
+    - when: RCF = 1
+      then: RHV
+    - when: _NEWW = 1
+      then: VISIT
+    - otherwise: _PRAV
+- name: CLSPFL
+  type: str
+  label: Collapsed Visit Flag
+  derivation:
+    case:
+    - when: WALKFL = 1 AND (RCF = 1 OR _CL0 = 1)
+      then: "'Y'"
+- name: AVISITN
+  type: float
+  label: Analysis Visit (N)
+  derivation:
+    case:
+    - when: WALKFL = 1
+      then: RAN
+- name: AVISIT
+  type: str
+  label: Analysis Visit
+  derivation:
+    case:
+    - when: WALKFL = 1
+      then: RAV
+output:
+  path: <work-dir>/adsympt_vismap.parquet
+  columns: [DOMAIN, USUBJID, RECSEQ, VISITNUM, VISIT, ASTDT, AENDT, AK, EK, SURVFL, WALKFL,
+    AVISITN, AVISIT, CLSPFL]

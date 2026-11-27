@@ -1,0 +1,245 @@
+# C4591001 ADSYMPT helper 2 of 2 for the EUA cut: the analysis visit of every
+# collapsed record.
+#
+# Transcribes the EUA adsympt.sas (27034 sequence S1, final analysis) from
+# __visits5 to clsp_covid_vis (program lines 933-1043). Helper 1
+# (adsympt_visits.yaml) holds the walk; a record takes the result of the
+# walk row kept for its visit and dates (__visits1), and that row's result
+# is __visits6's:
+#   - its own collapse (CLSPFL = 'Y') when it collapsed;
+#   - else the latest collapse of a walk row with the same visit number that
+#     started on or before it (__visits5, keep last), when the running visit
+#     of the row before it in __visits5 (lag1 of visitnum_ and visit_) is that
+#     collapse's analysis visit. __visits5 holds one row per such collapse
+#     (__visits4_clsp_b, one per visit, start and analysis visit), so with
+#     one collapse the row before is the previous walk row, and with several
+#     it is the same walk row;
+#   - else its own visit.
+# A record keeps that result when its visit is unplanned and dated and its
+# subject has several unplanned visits; a repeat visit keeps its relabelled
+# visit, or 1 when it has none (clsp_covid_vis). The rows are the records
+# whose analysis visit is set this way (CLSPFL = 'Y'), keyed by the record as
+# collected, which is how ADSYMPT reads them (adsympt3).
+yamaa: '1.0'
+type: spec
+model: ADaM
+domain: ADSYMPTM
+keys:
+- USUBJID
+- RECSEQ
+input:
+  REC:
+    path: <work-dir>/adsympt_visits.parquet
+    schema: adsympt_visits.yaml
+intermediates:
+# The walk row __visits1 kept for the record's subject, visit and dates.
+- id: _KEPT
+  dataset: REC
+  key:
+    USUBJID: REC.USUBJID
+    VISITNUM: REC.VISITNUM
+    VISIT: REC.VISIT
+    AK: REC.AK
+    EK: REC.EK
+  filter: REC.SURVFL = 1
+  order_by: [REC.RECSEQ]
+  keep: first
+  derivations:
+    _PROS: {type: int, derivation: REC.PROSFL}
+    _CL: {type: str, derivation: REC.CLSPFL}
+    _VN: {type: float, derivation: REC.AVISITN_C}
+    _V: {type: str, derivation: REC.AVISIT_C}
+    _RN: {type: float, derivation: REC.RUNVN}
+    _R: {type: str, derivation: REC.RUNV}
+    _PRN: {type: float, derivation: REC.PRUNVN}
+    _PR: {type: str, derivation: REC.PRUNV}
+# __visits5: the collapses of the same visit number that started on or
+# before the kept row (which shares the record's visit number and start),
+# in the order of __visits4_clsp_b's key; the first and the last.
+- id: _CFIRST
+  dataset: REC
+  key:
+    USUBJID: REC.USUBJID
+    VISITNUM: REC.VISITNUM
+  between:
+    value: _AK
+    lower: AK
+  filter: REC.PROSFL = 1 AND REC.CLSPFL = 'Y'
+  order_by: [REC.AK, REC.AVISITN_C, REC.AVISIT_C, REC.VISIT]
+  keep: first
+  derivations:
+    _CAK: {type: int, derivation: REC.AK}
+    _VN: {type: float, derivation: REC.AVISITN_C}
+    _V: {type: str, derivation: REC.AVISIT_C}
+    _VT: {type: str, derivation: REC.VISIT}
+- id: _CLAST
+  dataset: REC
+  key:
+    USUBJID: REC.USUBJID
+    VISITNUM: REC.VISITNUM
+  between:
+    value: _AK
+    lower: AK
+  filter: REC.PROSFL = 1 AND REC.CLSPFL = 'Y'
+  order_by: [REC.AK, REC.AVISITN_C, REC.AVISIT_C, REC.VISIT]
+  keep: last
+  derivations:
+    _CAK: {type: int, derivation: REC.AK}
+    _VN: {type: float, derivation: REC.AVISITN_C}
+    _V: {type: str, derivation: REC.AVISIT_C}
+    _VT: {type: str, derivation: REC.VISIT}
+rows:
+- id: records
+  dataset: REC
+  filter: CLSPFL = 'Y' AND (_VISFLG = 1 OR RVFLG = 1)
+  derivations:
+    DOMAIN: REC.DOMAIN
+    USUBJID: REC.USUBJID
+    RECSEQ: REC.RECSEQ
+    VISITNUM: REC.VISITNUM_O
+    VISIT: REC.VISIT_O
+    ADT: REC.ADT
+    ASTDT: REC.ASTDT_O
+    AENDT: REC.AENDT
+    RVFLG: REC.RVFLG
+    _AK: REC.AK
+    _VN: REC.VISITNUM
+    _V: REC.VISIT
+    _VISFLG: REC.VISFLG
+    _ML: REC.MLVISFLG
+    _KPROS: _KEPT._PROS
+    _KCL: _KEPT._CL
+    _KVN: _KEPT._VN
+    _KV: _KEPT._V
+    _LVN: _CLAST._VN
+    _LV: _CLAST._V
+    # One collapse in __visits5 (the first and the last are the same one):
+    # lag1 reads the previous walk row; several: the kept row itself.
+    _ONE:
+      case:
+      - when: _CFIRST._CAK = _CLAST._CAK AND _CFIRST._VN = _CLAST._VN AND _CFIRST._V = _CLAST._V
+          AND _CFIRST._VT = _CLAST._VT
+        then: 1
+      - otherwise: 0
+    _LAGN:
+      case:
+      - when: _ONE = 1
+        then: _KEPT._PRN
+      - otherwise: _KEPT._RN
+    _LAG:
+      case:
+      - when: _ONE = 1
+        then: _KEPT._PR
+      - otherwise: _KEPT._R
+    _ADOPT:
+      case:
+      - when: _KPROS = 1 AND _KCL IS NULL AND _LVN IS NOT NULL AND _LAGN = _LVN AND _LAG
+          = _LV
+        then: 1
+      - otherwise: 0
+    # __visits6: the kept walk row's result (missing when the record's
+    # visit is not one the walk saw).
+    _V6F:
+      case:
+      - when: _KPROS = 1 AND _KCL = 'Y'
+        then: "'Y'"
+      - when: _ADOPT = 1
+        then: "'Y'"
+    _V6N:
+      case:
+      - when: _KPROS = 1 AND _KCL = 'Y'
+        then: _KVN
+      - when: _ADOPT = 1
+        then: _LVN
+      - when: _KPROS = 1
+        then: _VN
+    _V6V:
+      case:
+      - when: _KPROS = 1 AND _KCL = 'Y'
+        then: _KV
+      - when: _ADOPT = 1
+        then: _LV
+      - when: _KPROS = 1
+        then: _V
+    # clsp_covid_vis.
+    _AVN:
+      case:
+      - when: _VISFLG = 1 AND _ML = 1
+        then: _V6N
+      - otherwise: _VN
+    AVISITN:
+      case:
+      - when: RVFLG = 1 AND _AVN IS NULL
+        then: 1
+      - otherwise: _AVN
+    AVISIT:
+      case:
+      - when: _VISFLG = 1 AND _ML = 1
+        then: _V6V
+      - otherwise: _V
+    CLSPFL:
+      case:
+      - when: RVFLG = 1
+        then: "'Y'"
+      - when: _VISFLG = 1 AND _ML = 1
+        then: _V6F
+columns:
+- {name: DOMAIN, type: str, label: Domain of the visit record}
+- {name: USUBJID, type: str, label: Unique Subject Identifier}
+- {name: RECSEQ, type: int, label: Record Sequence in visit order}
+- {name: VISITNUM, type: float, label: Visit Number}
+- {name: VISIT, type: str, label: Visit Name}
+- {name: ADT, type: date, label: Record Date}
+- {name: ASTDT, type: date, label: Record Start Date}
+- {name: AENDT, type: date, label: Record End Date}
+- {name: RVFLG, type: int, label: Repeat Visit Flag}
+- {name: _AK, type: int}
+- {name: _VN, type: float}
+- {name: _V, type: str}
+- {name: _VISFLG, type: int}
+- {name: _ML, type: int}
+- {name: _KPROS, type: int}
+- {name: _KCL, type: str}
+- {name: _KVN, type: float}
+- {name: _KV, type: str}
+- {name: _LVN, type: float}
+- {name: _LV, type: str}
+- {name: _ONE, type: int}
+- {name: _LAGN, type: float}
+- {name: _LAG, type: str}
+- {name: _ADOPT, type: int}
+- {name: _V6F, type: str}
+- {name: _V6N, type: float}
+- {name: _V6V, type: str}
+- {name: _AVN, type: float}
+- {name: AVISITN, type: float, label: Analysis Visit (N)}
+- {name: AVISIT, type: str, label: Analysis Visit}
+- {name: CLSPFL, type: str, label: Collapsed Visit Flag}
+# The record's dates as epoch days, missing as -9999999, so that ADSYMPT can
+# match a record whose start or end date is missing (SAS joins match missing).
+- name: _ASE
+  type: int
+  derivation: {to_epoch_day: {source: ASTDT}}
+- name: _AEE
+  type: int
+  derivation: {to_epoch_day: {source: AENDT}}
+- name: ASK
+  type: int
+  label: Record Start (epoch day, -9999999 if missing)
+  derivation:
+    case:
+    - when: _ASE IS NULL
+      then: -9999999
+    - otherwise: _ASE
+- name: AEK
+  type: int
+  label: Record End (epoch day, -9999999 if missing)
+  derivation:
+    case:
+    - when: _AEE IS NULL
+      then: -9999999
+    - otherwise: _AEE
+output:
+  path: <work-dir>/adsympt_vismap.parquet
+  columns: [DOMAIN, USUBJID, RECSEQ, VISITNUM, VISIT, ADT, ASTDT, AENDT, ASK, AEK, RVFLG,
+    AVISITN, AVISIT, CLSPFL]

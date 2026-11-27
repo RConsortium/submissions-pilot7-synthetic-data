@@ -12,7 +12,9 @@ copied byte for byte.
 
 Forty files exist on PHMPT only as JMP tables (P301 and C4591001); JMP has no
 open reader, so they are listed and skipped: the repository copy is the
-reviewed conversion (data/jmp-sources.md).
+reviewed conversion (data/jmp-sources.md). With jmp=True (`fetch --jmp`) each
+is saved unconverted, as <path>.jmp beside the Parquet path it belongs at, for
+a conversion of your own.
 
 Needs pyreadstat and zipfile-deflate64 (several zips use Deflate64).
 """
@@ -41,13 +43,14 @@ def sources(scope, dataset):
             yield r
 
 
-def fetch(scope, dataset=None, out_data=None, dry_run=False) -> int:
+def fetch(scope, dataset=None, out_data=None, dry_run=False, jmp_files=False) -> int:
     rows = list(sources(scope, dataset))
-    xpt = [r for r in rows if r["format"] in ("xpt", "xml")]
+    xpt = [r for r in rows if r["format"] in ("xpt", "xml") or (jmp_files and r["format"] == "jmp")]
     jmp = [r for r in rows if r["format"] == "jmp"]
     n_xml = sum(r["format"] == "xml" for r in xpt)
-    print(f"{len(xpt) - n_xml} SAS transport files and {n_xml} defines to fetch, "
-          f"{len(jmp)} JMP files kept as reviewed conversions")
+    print(f"{len(xpt) - n_xml - (len(jmp) if jmp_files else 0)} SAS transport files and {n_xml} defines to fetch, "
+          + (f"{len(jmp)} JMP files to save unconverted (<path>.jmp)" if jmp_files else
+             f"{len(jmp)} JMP files not fetched (no open reader; --jmp saves the originals)"))
     if dry_run:
         for r in rows:
             print(f"  {r['path']}  <-  {r['zip'].rsplit('/', 1)[-1]} : {r['member']}  ({r['format']})")
@@ -70,6 +73,12 @@ def fetch(scope, dataset=None, out_data=None, dry_run=False) -> int:
                 print(f"  {r['path']}: {r['member']} is not in {url}"); bad += 1; continue
             dest = Path(out_data) / r["path"] if out_data else ROOT / r["path"]
             dest.parent.mkdir(parents=True, exist_ok=True)
+            if r["format"] == "jmp":  # the original table, for a conversion of your own
+                dest = dest.with_suffix(".jmp")
+                with z.open(member) as src, open(dest, "wb") as dst:
+                    shutil.copyfileobj(src, dst, 1 << 22)
+                print(f"  {dest.relative_to(Path(out_data) if out_data else ROOT)}: {dest.stat().st_size:,} bytes")
+                continue
             if r["format"] == "xml":  # a received define: its bytes, unchanged
                 with z.open(member) as src, open(dest, "wb") as dst:
                     shutil.copyfileobj(src, dst, 1 << 22)

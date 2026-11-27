@@ -40,7 +40,7 @@ GAPS = {
     "G8": "a received identifier yamaa's patterns refuse: a method OID ending in U+00A0, or a MetaDataVersion OID with a comma (elong0527/yamaa#4853)",
 }
 
-GAPS["G9"] = "a received CodeList no column binds is never written (CT-10); elong0527/yamaa#4887"
+GAPS["G9"] = "a received CodeList no column binds is never written (CT-10); elong0527/yamaa#4887, fixed by elong0527/yamaa#4937"
 
 # Elements that belong only to received datasets this repo has no spec for
 # are neither engine gaps nor unexplained: they are coverage still to build.

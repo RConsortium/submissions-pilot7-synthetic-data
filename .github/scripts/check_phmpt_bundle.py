@@ -54,7 +54,7 @@ ALLOWED = [re.compile(p) for p in (
     rf"phmpt/{_S}/spec/yamaa/base/[a-z0-9_-]+\.yaml",
     rf"phmpt/{_S}/{_CUT}/spec/yamaa/(helper/)?[a-z0-9_-]+\.yaml",
     r"docs/phmpt/evidence\.json",
-    r"docs/phmpt/(index|coverage)\.md",
+    r"docs/phmpt/(index|coverage|glossary|reproduce)\.md",
     r"docs/phmpt/findings/[a-z0-9-]+\.md",
     r"docs/phmpt/review/index\.md",
 )]
