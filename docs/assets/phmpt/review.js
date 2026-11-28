@@ -16,8 +16,19 @@ export const AGREEMENTS = {
 };
 export const KINDS = { dataset: "ADaM dataset", define: "Define-XML", "define-defect": "Defect of the submitted define" };
 const REPO = "https://github.com/RConsortium/submissions-pilot7-synthetic-data";
+/** How a finding is confirmed: CI reruns it from PHMPT (`ci` in evidence.json), or a reviewer reruns it locally. */
+export const CI = { ci: "In CI on every pull request", local: "On your machine only" };
 const BLOB = `${REPO}/blob/main/phmpt/`;
 const DRAFTS = "phmpt-review-drafts";
+
+/** One line saying who reruns a finding from PHMPT. */
+export function confirmation(f) {
+  return f.ci
+    ? `<strong>Rerun in CI.</strong> Every pull request that changes the reproduction fetches this from PHMPT, reruns it
+       and requires this result (<a href="${REPO}/blob/main/.github/workflows/phmpt-check.yml">phmpt-check</a>).`
+    : `<strong>Rerun on your machine.</strong> CI does not rerun this study's datasets, which take hours; the commands
+       under <em>Reproduce it</em> do.`;
+}
 
 /** Where a link points: a finding, a column of a dataset finding, or a study or cut prefix to list. */
 export function resolveRoute(findings, hash) {
@@ -54,10 +65,11 @@ export function filterColumns(rows, { status = "", text = "" } = {}) {
 }
 
 /** Findings that pass every filter; text matches id, claim or verdict, case-insensitively. */
-export function filterFindings(findings, { study = "", kind = "", verdict = "", text = "" } = {}) {
+export function filterFindings(findings, { study = "", kind = "", verdict = "", ci = "", text = "" } = {}) {
   const needle = text.trim().toLowerCase();
   return findings.filter((f) =>
     (!study || f.study === study) && (!kind || f.kind === kind) && (!verdict || f.verdict === verdict) &&
+    (!ci || (ci === "ci") === Boolean(f.ci)) &&
     (!needle || [f.id, f.claim, f.verdict].some((s) => s.toLowerCase().includes(needle))));
 }
 
@@ -178,6 +190,7 @@ function render(root, evidence, reviewUrl) {
       <label>Study <select id="phmpt-study">${opt("", "All")}${studies.map(([k, s]) => opt(k, s.title)).join("")}</select></label>
       <label>Kind <select id="phmpt-kind">${opt("", "All")}${Object.entries(KINDS).map(([k, v]) => opt(k, v)).join("")}</select></label>
       <label>Verdict <select id="phmpt-verdict">${opt("", "All")}${verdicts.map((v) => opt(v, v)).join("")}</select></label>
+      <label>Rerun <select id="phmpt-ci">${opt("", "All")}${Object.entries(CI).map(([k, v]) => opt(k, v)).join("")}</select></label>
       <label>Search <input id="phmpt-text" type="search" placeholder="ADSL, define, repeated-order..."></label>
     </div>
     <p id="phmpt-count" aria-live="polite"></p>
@@ -187,7 +200,7 @@ function render(root, evidence, reviewUrl) {
     </div>`;
   const $ = (id) => root.querySelector(`#${id}`);
   const filters = () => ({ study: $("phmpt-study").value, kind: $("phmpt-kind").value,
-                           verdict: $("phmpt-verdict").value, text: $("phmpt-text").value });
+                           verdict: $("phmpt-verdict").value, ci: $("phmpt-ci").value, text: $("phmpt-text").value });
   const list = () => {
     const shown = filterFindings(all, filters());
     $("phmpt-count").textContent = `${shown.length} of ${all.length} findings`;
@@ -208,6 +221,7 @@ function render(root, evidence, reviewUrl) {
         <a href="../${esc(f.page)}">${esc(cut.title)}</a>${f.dataset ? " / " + esc(f.dataset) : ""}</p>
       <h2>${esc(st.title)} ${esc(cut.title)}${f.dataset ? " - " + esc(f.dataset) : ""}</h2>
       <p class="phmpt-claim">${md(f.claim)}</p>
+      <p class="phmpt-ci">${confirmation(f)}</p>
       <h3>Evidence</h3>${evidenceRows(evidence, f, findingRecord(evidence, f))}
       ${f.kind === "dataset" ? '<h3>Columns</h3><div id="phmpt-columns" class="phmpt-columns"><p>Loading the columns...</p></div>' : ""}
       <h3>Reproduce it</h3>
@@ -247,7 +261,7 @@ function render(root, evidence, reviewUrl) {
       });
     }
   };
-  for (const id of ["phmpt-study", "phmpt-kind", "phmpt-verdict", "phmpt-text"]) $(id).addEventListener("input", list);
+  for (const id of ["phmpt-study", "phmpt-kind", "phmpt-verdict", "phmpt-ci", "phmpt-text"]) $(id).addEventListener("input", list);
   const route = () => {
     const r = resolveRoute(all, location.hash);
     if (r.kind === "prefix") {

@@ -144,7 +144,7 @@ Apart from yamaa, each received define was checked against the datasets released
 
     ---
 
-    Each pull request fetches every received define and the mRNA-1273-P201 and BNT162-01 datasets from PHMPT, reruns them, and requires the published result.
+    Each pull request that changes the reproduction fetches every received define and the mRNA-1273-P201 and BNT162-01 datasets from PHMPT, reruns them, and requires the published result: 70 of the 192 findings. The review page marks which.
 
     [`phmpt-check.yml`](https://github.com/RConsortium/submissions-pilot7-synthetic-data/blob/main/.github/workflows/phmpt-check.yml)
 
@@ -196,5 +196,5 @@ Apart from yamaa, each received define was checked against the datasets released
 | `scripts/site/collect_results.py`, `scripts/site/publish.py` | Collect the run reports into `data/reproduction/`, then write `evidence.json` and these pages from them. |
 | `scripts/site/check_verdicts.py` | Compare a fresh run's reports with the recorded verdicts. |
 | Publication gate: `.github/scripts/check_phmpt_bundle.py` | Check every PHMPT file in Pilot 7: an allowlist, ASCII text, the closed evidence schema, the placeholder for every submission method and description in a spec, no subject identifier, and, run with the fetched inputs, no 12-word run copied from them. |
-| GitHub Actions | On each pull request: run the gate, check that the pages match `data/reproduction/`, and rerun every define and the mRNA-1273-P201 and BNT162-01 datasets from PHMPT. |
+| GitHub Actions | On each pull request: run the gate, check that the pages match `data/reproduction/`, and rerun every define and the mRNA-1273-P201 and BNT162-01 datasets from PHMPT (`ci` in `studies.yaml`). |
 | GitHub Discussions | Record review assessments. |

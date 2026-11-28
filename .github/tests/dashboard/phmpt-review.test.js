@@ -2,7 +2,7 @@
 // and the pre-filled discussion. Seam: the module's pure functions; the evidence below is invented.
 import test from "node:test";
 import assert from "node:assert/strict";
-import { AGREEMENTS, columnRows, columnSummary, columnsTable, discussionLink, evidenceRows, filterColumns, filterFindings,
+import { AGREEMENTS, confirmation, columnRows, columnSummary, columnsTable, discussionLink, evidenceRows, filterColumns, filterFindings,
   findingRecord, resolveRoute, reviewBody } from "../../../docs/assets/phmpt/review.js";
 
 const evidence = {
@@ -15,10 +15,10 @@ const evidence = {
     define: { verdict: "MATCH", received: 10, identical: 9, gap_only: 1, no_spec: 0 } } } } },
   findings: [
     { id: "phmpt/s/c1/ADXX", kind: "dataset", study: "s", cut: "c1", dataset: "ADXX", verdict: "exact",
-      claim: "ADXX reproduces the submitted dataset cell for cell.", page: "findings/s/#c1", reproduce: [] },
+      claim: "ADXX reproduces the submitted dataset cell for cell.", page: "findings/s/#c1", ci: false, reproduce: [] },
     { id: "phmpt/s/c1/define/repeated-order", kind: "define-defect", study: "s", cut: "c1", dataset: null,
       verdict: "submitted-define defect", claim: "1 define difference comes from a defect of the submitted define.",
-      page: "findings/s/#c1", reproduce: [] },
+      page: "findings/s/#c1", ci: true, reproduce: [] },
   ],
 };
 const page = "https://example.org/site/phmpt/review/?x=1#old";
@@ -31,6 +31,8 @@ test("each filter narrows the findings, and text matches id, claim or verdict", 
     [{ kind: "define-defect" }, ["phmpt/s/c1/define/repeated-order"], "kind"],
     [{ verdict: "exact" }, ["phmpt/s/c1/ADXX"], "verdict"],
     [{ study: "other" }, [], "study"],
+    [{ ci: "ci" }, ["phmpt/s/c1/define/repeated-order"], "rerun in CI"],
+    [{ ci: "local" }, ["phmpt/s/c1/ADXX"], "rerun locally only"],
     [{ text: " Repeated-ORDER " }, ["phmpt/s/c1/define/repeated-order"], "text in the id, trimmed, any case"],
     [{ text: "CELL FOR CELL" }, ["phmpt/s/c1/ADXX"], "text in the claim"],
   ];
@@ -128,4 +130,9 @@ test("the column table links each column to its spec line and shows its recorded
   assert.match(html, /not derived/);
   assert.match(html, /Absent input: an invented dictionary/);
   assert.match(columnsTable(table, evidence.findings[0], [], {}), /No column matches/);
+});
+
+test("a finding says whether CI reruns it from PHMPT", () => {
+  assert.match(confirmation(evidence.findings[1]), /Rerun in CI\..*phmpt-check/s);
+  assert.match(confirmation(evidence.findings[0]), /Rerun on your machine\./);
 });

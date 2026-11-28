@@ -14,10 +14,10 @@ contribution.
 
 ## How to review
 
-1. **Choose a finding.** Filter by study, kind or verdict, or search for a
-   dataset (`ADSL`) or a defect of the submitted define (`repeated-order`).
-   Findings that are not exact, and define defects, are the most useful to
-   check.
+1. **Choose a finding.** Filter by study, kind, verdict or who reruns it, or
+   search for a dataset (`ADSL`) or a defect of the submitted define
+   (`repeated-order`). Findings that are not exact, and define defects, are
+   the most useful to check.
 2. **Check the evidence.** It gives the counts behind the claim, the reason
    recorded for every difference, the specification, and where the
    submitted file is on PHMPT. A dataset also lists every submitted column
@@ -26,10 +26,12 @@ contribution.
    Exact means the derived data equals the submitted data under the
    comparison rules, not that the specification follows the analysis plan;
    columns carried from the submitted dataset are not derived at all.
-3. **Rerun it if you want rows.** This site publishes no PHMPT file and no
-   participant-level value. The commands under **Reproduce it** fetch the
-   inputs from [phmpt.org](https://phmpt.org/) and print the differences on
-   your machine.
+3. **Rerun it if you want rows.** Each finding says whether CI reruns it
+   from PHMPT on every pull request (every define, and the mRNA-1273-P201
+   and BNT162-01 datasets) or only you can, on your machine. This site
+   publishes no PHMPT file and no participant-level value. The commands
+   under **Reproduce it** fetch the inputs from [phmpt.org](https://phmpt.org/)
+   and print the differences on your machine.
 4. **Submit your assessment.** Choose **Agree**, **Disagree** or **Need
    clarification**, say what you checked, and select **Submit review on
    GitHub**. Check the pre-filled discussion, then select **Start
