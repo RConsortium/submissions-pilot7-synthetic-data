@@ -2,7 +2,8 @@
 // and the pre-filled discussion. Seam: the module's pure functions; the evidence below is invented.
 import test from "node:test";
 import assert from "node:assert/strict";
-import { AGREEMENTS, discussionLink, evidenceRows, filterFindings, findingRecord, reviewBody } from "../../../docs/assets/phmpt/review.js";
+import { AGREEMENTS, columnRows, columnSummary, columnsTable, discussionLink, evidenceRows, filterColumns, filterFindings,
+  findingRecord, resolveRoute, reviewBody } from "../../../docs/assets/phmpt/review.js";
 
 const evidence = {
   schema_version: 1,
@@ -88,4 +89,43 @@ test("a dataset's evidence shows its submitted-file defect and note, and only wh
     note: "The program & the file disagree." });
   assert.match(html, /<th scope="row">Submitted-file defect<\/th><td>The submitted cell holds its value three times\. Invented &lt;reason&gt;\. <code>AENDY<\/code> 1<\/td>/);
   assert.match(html, /<th scope="row">Note<\/th><td>The program &amp; the file disagree\.<\/td>/);
+});
+
+const table = {
+  schema_version: 1, fields: ["name", "status", "cells", "redacted", "layer", "line", "note"],
+  statuses: { differs: "Differs, cause to fix", reproduced: "Reproduced", absent: "Absent input" },
+  datasets: { "phmpt/s/c1/ADXX": { layers: ["s/spec/yamaa/base/adam-base.yaml", "s/c1/spec/yamaa/adxx.yaml"],
+    notes: ["Absent input: an invented dictionary"],
+    columns: [["STUDYID", "reproduced", 0, 0, 0, 12, null], ["AVAL", "differs", 3, 0, 1, 40, null],
+              ["AVALC", "absent", 5, 2, null, null, 0]] } },
+};
+
+test("a link opens a finding, a column of a dataset, or lists a study or cut", () => {
+  const f = evidence.findings;
+  assert.deepEqual(resolveRoute(f, "#phmpt/s/c1/ADXX"), { kind: "finding", finding: f[0] });
+  assert.deepEqual(resolveRoute(f, "#phmpt/s/c1/ADXX/AVAL"), { kind: "column", finding: f[0], column: "AVAL" });
+  assert.deepEqual(resolveRoute(f, "#phmpt/s/c1"), { kind: "prefix", text: "s/c1/" });
+  assert.deepEqual(resolveRoute(f, "#phmpt/s/c1/"), { kind: "prefix", text: "s/c1/" });
+  assert.deepEqual(resolveRoute(f, "#phmpt/s/c1/define/repeated-order/x"), { kind: "none" }, "only a dataset has columns");
+  assert.deepEqual(resolveRoute(f, "#phmpt/s/c"), { kind: "none" }, "a prefix ends at a path segment");
+  assert.deepEqual(resolveRoute(f, ""), { kind: "none" });
+});
+
+test("a dataset's columns read as rows, count by status and filter by status and name", () => {
+  const rows = columnRows(table, "phmpt/s/c1/ADXX");
+  assert.deepEqual(rows[1], { name: "AVAL", status: "differs", cells: 3, redacted: 0, layer: 1, line: 40, note: null });
+  assert.equal(columnRows(table, "phmpt/s/c1/ADYY"), null);
+  assert.deepEqual(columnSummary(table, rows), [["differs", 1], ["reproduced", 1], ["absent", 1]]);
+  assert.deepEqual(filterColumns(rows, { status: "absent" }).map((r) => r.name), ["AVALC"]);
+  assert.deepEqual(filterColumns(rows, { text: " aval " }).map((r) => r.name), ["AVAL", "AVALC"]);
+});
+
+test("the column table links each column to its spec line and shows its recorded reason", () => {
+  const html = columnsTable(table, evidence.findings[0], columnRows(table, "phmpt/s/c1/ADXX"), { status: "" });
+  assert.match(html, /3 of 3 columns/);
+  assert.match(html, /blob\/main\/phmpt\/s\/c1\/spec\/yamaa\/adxx\.yaml#L40">adxx\.yaml:40</);
+  assert.match(html, /href="#phmpt\/s\/c1\/ADXX\/AVALC"/);
+  assert.match(html, /not derived/);
+  assert.match(html, /Absent input: an invented dictionary/);
+  assert.match(columnsTable(table, evidence.findings[0], [], {}), /No column matches/);
 });

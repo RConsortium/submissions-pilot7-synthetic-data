@@ -65,7 +65,7 @@ ALLOWED = [re.compile(p) for p in (
     r"phmpt/scripts/define/repro/[a-z0-9_]+\.yaml",
     rf"phmpt/{_S}/spec/yamaa/base/[a-z0-9_-]+\.yaml",
     rf"phmpt/{_S}/{_CUT}/spec/yamaa/(helper/)?[a-z0-9_-]+\.yaml",
-    r"docs/phmpt/evidence\.json",
+    r"docs/phmpt/(evidence|columns)\.json",
     r"docs/phmpt/(index|results|coverage|glossary)\.md",
     r"docs/phmpt/findings/[a-z0-9-]+\.md",
     r"docs/phmpt/review/index\.md",
@@ -131,8 +131,32 @@ EVIDENCE = {
 SCHEMA_VERSION = 1
 
 
+class Row:
+    """A list of fixed length whose items take these shapes in order (a compact table row)."""
+
+    def __init__(self, *shapes):
+        self.shapes = shapes
+
+
+# columns.json: every submitted column of a dataset finding, by finding id; each row holds COLUMN_FIELDS.
+# `layer` indexes `layers` and `note` indexes `notes`; both are null where the column has none.
+COLUMN_FIELDS = ["name", "status", "cells", "redacted", "layer", "line", "note"]
+COLUMNS = {
+    "schema_version": _INT,
+    "fields": [_STR],
+    "statuses": {"*": _STR},
+    "datasets": {"*": {"layers": [_STR], "notes": [_STR],
+                       "columns": [Row(_STR, _STR, _INT, _INT, (_INT, None), (_INT, None), (_INT, None))]}},
+}
+COLUMNS_VERSION = 1
+
+
 def shape_errors(value, shape, where="evidence.json") -> list[str]:
     """Where `value` leaves `shape`: a missing or unnamed key, or a wrong type."""
+    if isinstance(shape, Row):
+        if not isinstance(value, list) or len(value) != len(shape.shapes):
+            return [f"{where}: expected a list of {len(shape.shapes)}"]
+        return [e for i, (v, s) in enumerate(zip(value, shape.shapes)) for e in shape_errors(v, s, f"{where}[{i}]")]
     if isinstance(shape, tuple):
         for alt in shape:
             if alt is None and value is None or alt is not None and not shape_errors(value, alt, where):
@@ -204,7 +228,7 @@ def shingles(text: str) -> set[tuple]:
     return {tuple(w[i:i + SHINGLE]) for i in range(len(w) - SHINGLE + 1)}
 
 
-PROSE_KEYS = ("reason", "missing", "claim", "note", "description", "method", "comment")
+PROSE_KEYS = ("reason", "missing", "claim", "note", "notes", "description", "method", "comment")
 _KEYED = re.compile(r"^(\s*-?\s*)(" + "|".join(PROSE_KEYS) + r"):\s?(.*)$")
 
 
@@ -316,6 +340,17 @@ def check(root: Path, source: Path | None = None) -> list[str]:
             errors += shape_errors(ev, EVIDENCE)
             if ev.get("schema_version") != SCHEMA_VERSION:
                 errors.append(f"docs/phmpt/evidence.json: schema_version is not {SCHEMA_VERSION}")
+    if "docs/phmpt/columns.json" in texts:
+        try:
+            cols = json.loads(texts["docs/phmpt/columns.json"])
+        except ValueError as e:
+            errors.append(f"docs/phmpt/columns.json: not JSON ({e})")
+        else:
+            errors += shape_errors(cols, COLUMNS, "columns.json")
+            if cols.get("fields") != COLUMN_FIELDS:
+                errors.append(f"docs/phmpt/columns.json: fields are not {COLUMN_FIELDS}")
+            if cols.get("schema_version") != COLUMNS_VERSION:
+                errors.append(f"docs/phmpt/columns.json: schema_version is not {COLUMNS_VERSION}")
     for rel, text in texts.items():
         if SPEC_FILE.fullmatch(rel):
             try:

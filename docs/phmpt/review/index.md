@@ -1,3 +1,8 @@
+---
+hide:
+  - toc
+---
+
 # Review a PHMPT finding
 
 Each finding below is one claim about one cut of a study: an ADaM dataset
@@ -15,10 +20,12 @@ contribution.
    check.
 2. **Check the evidence.** It gives the counts behind the claim, the reason
    recorded for every difference, the specification, and where the
-   submitted file is on PHMPT. Exact means the derived data equals the
-   submitted data under the comparison rules, not that the specification
-   follows the analysis plan; columns carried from the submitted dataset are
-   not derived at all.
+   submitted file is on PHMPT. A dataset also lists every submitted column
+   with its result, the reason recorded for it, and the line of the spec
+   that derives it; filter the columns by result, or link to one column.
+   Exact means the derived data equals the submitted data under the
+   comparison rules, not that the specification follows the analysis plan;
+   columns carried from the submitted dataset are not derived at all.
 3. **Rerun it if you want rows.** This site publishes no PHMPT file and no
    participant-level value. The commands under **Reproduce it** fetch the
    inputs from [phmpt.org](https://phmpt.org/) and print the differences on
