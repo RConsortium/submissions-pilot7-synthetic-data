@@ -199,6 +199,8 @@ def main() -> int:
     ap = argparse.ArgumentParser()
     ap.add_argument("--reports", type=Path, default=ROOT / ".local-run/reports")
     ap.add_argument("--yamaa-commit", default=None, help="default: yamaa.lock")
+    ap.add_argument("--allow-missing", action="store_true",
+                    help="write even if a spec has no report (it is recorded as not run)")
     args = ap.parse_args()
     studies = yaml.safe_load((ROOT / "studies.yaml").read_text())
     diffs = yaml.safe_load((ROOT / "data/differences.yaml").read_text())
@@ -213,7 +215,20 @@ def main() -> int:
             row = define_row(key, cut)
             if row is not None:
                 define[key][cut] = row
-    meta = {"yamaa_commit": args.yamaa_commit or yamaa_commit(), "collected": dt.date.today().isoformat()}
+    # source_commit: the Pilot 7 commit the run started from, kept with the results so that
+    # docs/phmpt/evidence.json (scripts/site/publish.py) names it.
+    head = subprocess.run(["git", "-C", str(ROOT), "rev-parse", "HEAD"], capture_output=True, text=True,
+                          check=True).stdout.strip()[:12]
+    # The results replace data/reproduction/ as a whole, so a spec with no report would be
+    # recorded as not run: collect after a run of every study (sh phmpt/reproduce.sh all).
+    unrun = [f"{k}/{c}/{r['dataset']}" for k, st in adam.items() for c, rows in st["cuts"].items()
+             for r in rows if r.get("note") == "not run"]
+    if unrun and not args.allow_missing:
+        print(f"{len(unrun)} specs have no report in {args.reports} (e.g. {unrun[0]}); nothing written. "
+              "Collect after running every study, or pass --allow-missing.")
+        return 1
+    meta = {"yamaa_commit": args.yamaa_commit or yamaa_commit(), "source_commit": head,
+            "collected": dt.date.today().isoformat()}
     out = ROOT / "data" / "reproduction"
     out.mkdir(parents=True, exist_ok=True)
     (out / "adam.json").write_text(json.dumps({"meta": meta, "studies": adam}, indent=1) + "\n")

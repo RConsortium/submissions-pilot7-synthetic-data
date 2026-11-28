@@ -92,14 +92,14 @@ the project's reading of the OpenClinica notice; it is not legal advice.
 
 `phmpt/` and `docs/phmpt/` publish yamaa specifications, scripts and results
 for four COVID-19 vaccine trials whose submissions FDA released on
-[phmpt.org](https://phmpt.org/). They are exported from a private development
-repository and hold no PHMPT material: no submitted dataset, define, program
-or document, and no participant-level value. The scripts fetch those inputs
-from phmpt.org when run; what they fetch keeps its own rights and is not
-covered by this repository's license. The published specifications keep the
-values a reproduction must hold (variable names, labels, codelist values)
-and replace the received defines' method and origin texts with a
-placeholder.
+[phmpt.org](https://phmpt.org/). They were developed in a private repository
+until 2026-11-27 and in Pilot 7 since, and hold no PHMPT material: no
+submitted dataset, define, program or document, and no participant-level
+value. The scripts fetch those inputs from phmpt.org when run; what they fetch
+keeps its own rights and is not covered by this repository's license. The
+published specifications keep the values a reproduction must hold (variable
+names, labels, codelist values) and replace the received defines' method and
+origin texts with a placeholder.
 
 The code, specifications and generated pages in these folders are original
 work under the root MIT License. `phmpt/NOTICE.md` repeats this in the

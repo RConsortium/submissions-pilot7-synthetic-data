@@ -1,41 +1,50 @@
 #!/usr/bin/env python3
-"""Check a PHMPT publication bundle: the gate every publication passes twice.
+"""Check the PHMPT files of Pilot 7: the gate every pull request passes.
 
-    python scripts/publish/check_bundle.py ROOT [--source REPO]
+    python3 .github/scripts/check_phmpt_bundle.py ROOT [--source KIT]
 
-ROOT is a folder holding the bundle as it lands in Pilot 7: `phmpt/` (the
-specs, the scripts and the citations) and `docs/phmpt/` (the pages and
-`evidence.json`). yamaa_phmpt runs this on its export with `--source` set
-to its own checkout; Pilot 7 runs a vendored copy of this file, unchanged,
-on every pull request, without `--source`.
+ROOT is the repository root, holding `phmpt/` (the specs, the scripts, the
+citations and the results) and `docs/phmpt/` (the pages and `evidence.json`).
+In a git work tree the files checked are the ones git would commit: tracked,
+or new and not ignored, so the inputs the kit fetched into its ignored folders
+are left out. Until 2026-11-27 this gate ran on each export of the private
+development repository; Pilot 7 owns it since (phmpt/DECISIONS.md, "Pilot 7
+is the source"). CI runs it on every pull request without --source; run it
+with `--source phmpt` before a push when the kit holds fetched inputs.
 
-The rules (docs/publication.md, "The publication gate"):
+The rules:
 
 1. every file matches the allowlist below, and no file has a data or
    document suffix;
-2. every file is ASCII text and the bundle stays under MAX_BYTES;
+2. every file is ASCII text and the files stay under MAX_BYTES;
 3. docs/phmpt/evidence.json has exactly the shape of EVIDENCE: no field
    the schema does not name;
 4. no subject identifier appears in any file: the identifier patterns of
    the four studies always, and with --source every USUBJID and SUBJID of
-   every cut's DM;
-5. with --source, no run of SHINGLE words of the bundle's prose also occurs
-   in the sponsor's programs (`<study>/spec/source/program/`) or in the text
-   of a received define (`<cut>/spec/define/define-adam.xml`). Prose is what
-   a person wrote about the data (prose()): page text outside code, the
-   reasons and claims of evidence.json and differences.yaml, the comments of
-   the scripts and specs, and any description, method or comment a spec
-   keeps. The specs' expressions, names, labels and value maps are left out:
-   they state what the submitted data holds, which a reproduction must.
+   every fetched DM;
+5. with --source, no run of SHINGLE words of the prose also occurs in a
+   fetched sponsor program (`<study>/spec/source/program/`) or in the text
+   of a fetched received define (`<cut>/spec/define/define-adam.xml`). Prose
+   is what a person wrote about the data (prose()): page text outside code,
+   the reasons and claims of the JSON files and differences.yaml, the
+   comments of the scripts and specs, and any description, method or comment
+   a spec keeps. The specs' expressions, names, labels and value maps are
+   left out: they state what the submitted data holds, which a reproduction
+   must;
+6. in a spec, every submission `method` and every origin `description`
+   other than a Predecessor's holds PLACEHOLDER: the received define states
+   that text, and `reproduce.py define --transcribe` restates it locally
+   (owner decision O1 of 2026-11-26).
 
-It prints one line per violation and exits 1 if there is any. It needs only
-the standard library, plus pyarrow for --source.
+It prints one line per violation and exits 1 if there is any. It needs the
+standard library and PyYAML, plus pyarrow for --source.
 """
 from __future__ import annotations
 
 import argparse
 import json
 import re
+import subprocess
 import sys
 from pathlib import Path
 
@@ -49,6 +58,8 @@ ALLOWED = [re.compile(p) for p in (
     r"phmpt/reproduce\.sh",
     r"phmpt/\.gitignore",
     r"phmpt/(studies\.yaml|yamaa\.lock|requirements\.txt)",
+    r"phmpt/DECISIONS\.md",
+    r"phmpt/data/reproduction/[a-z0-9_]+\.json",
     r"phmpt/data/(sources\.csv|zips\.txt|differences\.yaml)",
     r"phmpt/scripts/[a-z0-9_/]+\.py",
     r"phmpt/scripts/define/repro/[a-z0-9_]+\.yaml",
@@ -59,11 +70,14 @@ ALLOWED = [re.compile(p) for p in (
     r"docs/phmpt/findings/[a-z0-9-]+\.md",
     r"docs/phmpt/review/index\.md",
 )]
-# Never published, whatever the allowlist says (docs/publication.md, tiers).
+# Never committed, whatever the allowlist says (phmpt/DECISIONS.md, "Pilot 7 is the source").
 DENIED_SUFFIXES = {".parquet", ".xpt", ".jmp", ".sas", ".sas7bdat", ".pdf", ".xsl", ".xml",
                    ".zip", ".csv.gz", ".xlsx", ".xls", ".docx", ".rtf"}
 MAX_BYTES = 20_000_000
 SHINGLE = 12
+PLACEHOLDER = "Withheld from publication: the received define states this text."
+WITHHELD_KEYS = ("method", "description")
+SPEC_FILE = re.compile(r"phmpt/.+/spec/yamaa/.+\.ya?ml")
 
 # Subject identifiers as each study writes them (USUBJID, and SUBJID where
 # it is distinctive). Checked even when the data is not at hand.
@@ -142,12 +156,43 @@ def shape_errors(value, shape, where="evidence.json") -> list[str]:
 
 
 def bundle_files(root: Path) -> list[Path]:
+    """The files under phmpt/ and docs/phmpt/ that git would commit; outside a work tree, all of them."""
+    listed = subprocess.run(["git", "-C", str(root), "ls-files", "-z", "--cached", "--others",
+                             "--exclude-standard", "--", "phmpt", "docs/phmpt"], capture_output=True)
+    if listed.returncode == 0:
+        return sorted(p for p in (root / n for n in listed.stdout.decode().split("\0") if n) if p.is_file())
     out = []
     for top in ("phmpt", "docs/phmpt"):
         base = root / top
         if base.is_dir():
             out += sorted(p for p in base.rglob("*") if p.is_file())
     return out
+
+
+def unwithheld(text: str) -> list[int]:
+    """Lines of a spec whose submission method or origin description is not PLACEHOLDER (rule 6)."""
+    import yaml
+
+    lines: list[int] = []
+
+    def walk(node, inside: bool) -> None:
+        if isinstance(node, yaml.MappingNode):
+            # A Predecessor's description names its source column (DM.AGE), not define text.
+            predecessor = any(k.value == "type" and getattr(v, "value", None) == "Predecessor"
+                              for k, v in node.value)
+            for k, v in node.value:
+                if (inside and k.value in WITHHELD_KEYS and isinstance(v, yaml.ScalarNode)
+                        and not (k.value == "description" and predecessor)):
+                    if v.value != PLACEHOLDER:
+                        lines.append(k.start_mark.line + 1)
+                else:
+                    walk(v, inside or k.value == "submission")
+        elif isinstance(node, yaml.SequenceNode):
+            for v in node.value:
+                walk(v, inside)
+
+    walk(yaml.compose(text), False)
+    return lines
 
 
 def words(text: str) -> list[str]:
@@ -214,8 +259,9 @@ def subject_ids(source: Path) -> set[str]:
 
     ids: set[str] = set()
     for dm in sorted(source.glob("*/*/data/sdtm/dm.parquet")):
-        if dm.stat().st_size < 1024:  # a Git LFS pointer, not the data
-            raise SystemExit(f"{dm} is not pulled: git lfs pull -I '**/sdtm/dm.parquet'")
+        with open(dm, "rb") as fh:
+            if fh.read(4) != b"PAR1":
+                raise SystemExit(f"{dm} is not a Parquet file: fetch it again (scripts/reproduce.py fetch)")
         t = pq.read_table(dm, columns=["USUBJID", "SUBJID"]).to_pydict()
         ids.update(v.strip() for v in t["USUBJID"] if v and v.strip())
         ids.update(v.strip() for v in t["SUBJID"] if v and (len(v.strip()) >= 8 or not v.strip().isdigit()))
@@ -271,6 +317,16 @@ def check(root: Path, source: Path | None = None) -> list[str]:
             if ev.get("schema_version") != SCHEMA_VERSION:
                 errors.append(f"docs/phmpt/evidence.json: schema_version is not {SCHEMA_VERSION}")
     for rel, text in texts.items():
+        if SPEC_FILE.fullmatch(rel):
+            try:
+                lines = unwithheld(text)
+            except Exception as e:  # noqa: BLE001  a spec that is not YAML is the finding
+                errors.append(f"{rel}: not YAML ({str(e).splitlines()[0]})")
+                continue
+            if lines:
+                errors.append(f"{rel}:{lines[0]}: {len(lines)} submission method or description text(s) "
+                              "where the placeholder belongs")
+    for rel, text in texts.items():
         for p in ID_PATTERNS:
             m = p.search(text)
             if m:
@@ -298,14 +354,16 @@ def check(root: Path, source: Path | None = None) -> list[str]:
 
 def main() -> int:
     ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
-    ap.add_argument("root", type=Path, help="folder holding phmpt/ and docs/phmpt/")
-    ap.add_argument("--source", type=Path, help="the yamaa_phmpt checkout, for the data-backed checks")
+    ap.add_argument("root", type=Path, help="the repository root, holding phmpt/ and docs/phmpt/")
+    ap.add_argument("--source", type=Path,
+                    help="a folder laid out like phmpt/ holding fetched inputs (phmpt/ itself after "
+                         "reproduce.py fetch), for the data-backed checks")
     args = ap.parse_args()
     errors = check(args.root.resolve(), args.source.resolve() if args.source else None)
     for e in errors:
         print(f"ERROR: {e}")
     n = len(bundle_files(args.root))
-    print(f"PHMPT bundle check: {n} file(s), {len(errors)} error(s)"
+    print(f"PHMPT check: {n} file(s), {len(errors)} error(s)"
           + ("" if args.source else " (no --source: identifier patterns only, no copied-text check)"))
     return 1 if errors else 0
 

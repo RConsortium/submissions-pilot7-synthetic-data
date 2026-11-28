@@ -1,20 +1,21 @@
 # Owner decisions
 
-The owner's standing decisions that shape what this repository reproduces
-and how results are reported. Each entry gives the date, the scope and the
+The owner's standing decisions that shape what the PHMPT reproduction
+reproduces and how its results are reported. Each entry gives the date, the scope and the
 files that carry it. Specs and scripts point here instead of restating the
 decision.
 
 Two kinds of decision are kept elsewhere, each with its own date:
 
 - Per-dataset decisions that a difference is a missing input are the
-  `decided:` field of each entry in
-  [`data/differences.yaml`](https://github.com/elong0527/yamaa_phmpt/blob/main/data/differences.yaml).
+  `decided:` field of each entry in [`data/differences.yaml`](data/differences.yaml).
 - What a reproduced define may write is decided in yamaa, on the issues that
-  each [defect of the submitted define](glossary.md#define-defect) links.
+  each [defect of the submitted define](../docs/phmpt/glossary.md#define-defect) links.
 
-The earlier working notes (`<study>/spec/review/`) record the full
-session-by-session history behind these entries.
+The entries up to 2026-11-27 were made in the private development
+repository, whose working notes (`<study>/spec/review/`) record the
+session-by-session history behind them. That repository is frozen; the notes
+quote data and programs, so they stay there.
 
 ## Data
 
@@ -25,7 +26,7 @@ the conversions were checked. The checks were done by 2026-11-24. On
 2026-11-25: no XPT version of the P301 S3, S5 or S80 ADSL or the S3 ADSLSF
 is in any Module 5 zip, and an ADSL cannot be built from XPT alone, so the
 checked JMP conversions stay the inputs until XPT versions are published.
-*Files:* `data/jmp-sources.md`, `scripts/cut_jmp_strings.py`.
+*Files:* `data/sources.csv` (`format` jmp), `scripts/cut_jmp_strings.py`.
 
 ## Specs
 
@@ -49,8 +50,8 @@ as a multiset. *Files:* the specs' `keys`, `scripts/verify_compare.py`.
 **Engine limitations go to yamaa** (2026-11-22). *Scope:* every yamaa
 limitation found here. Each one is filed as a yamaa issue with a minimal
 synthetic repro of invented data that does not mention this project, the
-study or the sponsor. *Files:* `<study>/spec/review/repro/`,
-`scripts/define/repro/`.
+study or the sponsor. *Files:* `scripts/define/repro/` (the earlier
+per-study repros stay in the frozen development repository).
 
 ## Verification
 
@@ -128,7 +129,7 @@ reported as defects of the submitted define, the define's counterpart of
 "matches except a defect of the submitted file". Any other difference,
 including one an engine gap used to explain, is unexplained. The Define-XML
 engine gaps page is retired. *Files:* `scripts/define/compare_define.py`
-(`DEFECTS`), `scripts/site/build_pages.py`, `scripts/publish/export.py`.
+(`DEFECTS`), `scripts/site/build_pages.py`, `scripts/site/publish.py`.
 
 **No stand-in for a truncated input** (2026-11-27). *Scope:* P301 S3 ADCM,
 whose CM input was truncated in the release. The 24 columns it cannot derive
@@ -144,17 +145,42 @@ was never received. *Files:* `data/differences.yaml` (`missing_input`).
 **Status is generated, not hand-kept.** *Scope:* every result. Since
 2026-11-24, `data/reproduction/*.json` is generated from the run reports by
 `scripts/reproduce.py site`, and the engine commit is pinned in `yamaa.lock`.
-The hand-kept verdict record (`data/status.json`) was retired in
-elong0527/yamaa_phmpt#12. This entry records how the repository works, not a
+The hand-kept verdict record (`data/status.json`) was retired then. This entry records how the repository works, not a
 dated owner decision. *Files:*
 `data/reproduction/`, `scripts/site/collect_results.py`, `yamaa.lock`.
 
 ## Publication
 
-**Publishing to Pilot 7** (2026-11-26). *Scope:* everything that leaves this
-repository. Results are published to the public Pilot 7 repository and site
-by pull request, under the design in [Publishing to Pilot 7](publication.md),
-with its recommendations taken:
+**Pilot 7 is the source** (2026-11-27; replaces the export route of
+"Publishing to Pilot 7" below). *Scope:* every file of the PHMPT
+reproduction. The private development repository is frozen at its commit
+`cfb2dd6`, whose export is Pilot 7 PR #276. From then on the specs, the
+scripts, the results and the pages are developed here, in public, by pull
+request.
+
+- No PHMPT material is stored, here or in any other repository. Every input
+  is fetched from [phmpt.org](https://phmpt.org/) when it is needed
+  (`reproduce.sh`, `scripts/reproduce.py fetch`) into folders that
+  `.gitignore` excludes.
+- What may be committed: original code, specs and configuration, the
+  citations of every input (`data/sources.csv`, `data/zips.txt`), the
+  recorded reasons and decisions, and aggregate results (counts, verdicts,
+  column names). Never: a PHMPT file or anything copied from one (datasets,
+  received defines and their transcribed layers, generated defines, sponsor
+  programs and documents), run outputs, subject identifiers, or notes that
+  quote data or programs.
+- O1, O2, O5 and O6 of 2026-11-26 stand. O3 and O4 are replaced: each change
+  is a pull request that a maintainer merges, and there is no export.
+- The publication gate checks every PHMPT file on each pull request, and CI
+  reruns part of the reproduction from PHMPT.
+
+*Files:* `phmpt/`, `docs/phmpt/`, `.github/scripts/check_phmpt_bundle.py`,
+`.github/workflows/phmpt-check.yml`.
+
+**Publishing to Pilot 7** (2026-11-26; its export route replaced on
+2026-11-27, above). *Scope:* everything that left the development repository.
+Results were published to Pilot 7 by pull request, with these
+recommendations taken:
 
 - O1: the dataset and helper specs are published, after the publication
   gate. Their submission `method` texts and non-Predecessor origin
@@ -165,10 +191,9 @@ with its recommendations taken:
   from PHMPT are.
 - O3: the owner signs off; a pull request to Pilot 7 is sufficient, with no
   further review.
-- O4: publication PRs are opened by hand from `scripts/publish/export.py`
-  until an automated route is worth its credential.
+- O4: publication PRs are opened by hand from the export script until an
+  automated route is worth its credential.
 - O5: reviews are GitHub Discussions in Pilot 7.
 - O6: the Pilot 7 section is "PHMPT reproduction".
 
-*Files:* `docs/publication.md`, `scripts/publish/`, `data/sources.csv`
-(the received defines' PHMPT members).
+*Files:* `data/sources.csv` (the received defines' PHMPT members).

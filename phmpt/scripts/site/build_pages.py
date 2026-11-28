@@ -1,33 +1,26 @@
 #!/usr/bin/env python3
-"""Write the review site's pages from data/reproduction/*.json.
+"""Write the PHMPT pages of the Pilot 7 site from data/reproduction/*.json.
 
-    python scripts/site/build_pages.py        # then: mkdocs build --strict
+    python scripts/site/build_pages.py [DIR]    # default: ../docs/phmpt
 
-Generated, never edited by hand:
+scripts/site/publish.py runs this and writes docs/phmpt/evidence.json with
+it; run that instead. Generated, never edited by hand (DIR is docs/phmpt/):
 
-    docs/index.md                    home: key findings, results by study and by cut
-    docs/glossary.md                 the terms the pages use
-    docs/findings/index.md           how the reproduction is organised
-    docs/findings/<study>.md         one page per study with specs
-    docs/findings/inputs.md          what the analysis set leaves out: absent and problem inputs
-    docs/findings/define-data.md     the received defines checked against the submitted datasets
-    docs/coverage.md                 what Module 5 holds for all 22 studies
-    docs/review/index.md             how to review a finding
+    index.md                     key findings, results by study and by cut
+    glossary.md                  the terms the pages use
+    findings/index.md            how the reproduction is organised
+    findings/<study>.md          one page per study with specs
+    findings/inputs.md           what the analysis set leaves out: absent and problem inputs
+    findings/define-data.md      the received defines checked against the submitted datasets
+    coverage.md                  what Module 5 holds for all 22 studies
 
-Inputs: data/reproduction/adam.json and define.json
-(scripts/site/collect_results.py), module5.json
-(scripts/site/inventory_module5.py), define_data.json
-(scripts/define/check_define_data.py) and data/differences.yaml, whose
-absent inputs fix the analysis set (input_scope).
-
-    python scripts/site/build_pages.py --public DIR
-
-writes the public profile of the same pages into DIR (the Pilot 7 site's
-docs/phmpt/, through scripts/publish/export.py): index.md, glossary.md,
-coverage.md and findings/*.md, in ASCII, linking to the published bundle in
-Pilot 7 instead of this repository and naming no file that stays private
-(docs/publication.md). How to rerun a study from PHMPT is the bundle's
-phmpt/reproduce.sh (scripts/publish/reproduce.sh), which the pages link to.
+The review page (docs/phmpt/review/) is written by hand. Inputs:
+data/reproduction/adam.json and define.json (scripts/site/collect_results.py),
+module5.json (scripts/site/inventory_module5.py), define_data.json
+(scripts/define/check_define_data.py) and data/differences.yaml, whose absent
+inputs fix the analysis set (input_scope). The pages are ASCII (Pilot 7's
+rule) and name no PHMPT file content. How to rerun a study from PHMPT is
+phmpt/reproduce.sh, which the pages link to.
 
 The pages read the specs' `parent:` and `input:` blocks directly (not through
 yamaa) to name the files each dataset reads: what to fetch for a cut, and
@@ -44,13 +37,11 @@ from pathlib import Path
 import yaml
 
 ROOT = Path(__file__).resolve().parents[2]
-DOCS = ROOT / "docs"
-REPO = "https://github.com/elong0527/yamaa_phmpt"
+SITE_DIR = ROOT.parent / "docs/phmpt"
 YAMAA = "https://github.com/elong0527/yamaa"
-BLOB = f"{REPO}/blob/main"
-TREE = f"{REPO}/tree/main"
-PUBLIC = False  # set by --public: links go to the bundle in Pilot 7 (see public_profile)
 PILOT7 = "https://github.com/RConsortium/submissions-pilot7-synthetic-data"
+BLOB = f"{PILOT7}/blob/main/phmpt"
+TREE = f"{PILOT7}/tree/main/phmpt"
 # The public pages are ASCII (Pilot 7's rule); these are the only non-ASCII
 # characters the builder writes itself. Anything else fails the bundle check.
 ASCII = str.maketrans({"\u00d7": "x", "\u00b7": "-", "\u2013": "-", "\u2014": "-", "\u2026": "..."})
@@ -375,7 +366,7 @@ def adam_notes(r: dict) -> str:
             notes.append("extra: " + ", ".join(f"`{c}`" for c in r["extra_columns"]))
     if r["verdict"] == "not checkable" and r.get("note"):
         notes.append(r["note"])
-    return "<br>".join(notes) or "–"
+    return "<br>".join(notes) or "-"
 
 
 DIFF_GROUPS = {  # heading, glossary anchor, what the group means
@@ -642,10 +633,9 @@ def study_page(key: str, st: dict, define: dict, meta: dict) -> str:
     defect = any(r["verdict"] in (RESULT_DEFECT) for rows in st["cuts"].values() for r in rows)
     L = [f"# {st['title']}", "",
          f"**{st['sponsor']}**, {info['product']}. {' '.join(info.get('about', '').split())}", "",
-         f"Specs: [`{'phmpt/' if PUBLIC else ''}{st['dir']}`]({TREE}/{st['dir']}) - yamaa `{meta['yamaa_commit']}` - "
+         f"Specs: [`phmpt/{st['dir']}`]({TREE}/{st['dir']}) - yamaa `{meta['yamaa_commit']}` - "
          f"results collected {meta['collected']} - terms: [glossary]({g}glossary.md)", ""]
-    if PUBLIC:
-        L += ["Submitted data, programs and defines are not published here. To rerun this study from PHMPT, "
+    L += ["Submitted data, programs and defines are not published here. To rerun this study from PHMPT, "
               f"follow {runner()}: `sh phmpt/reproduce.sh setup`, then `sh phmpt/reproduce.sh {key}`.", ""]
     L += [f"**How datasets are compared.** yamaa's output is matched to the submitted dataset row by row on the "
           f"dataset's keys and compared cell by cell. In this study {rules_text(info['compare'])} "
@@ -698,17 +688,17 @@ def study_page(key: str, st: dict, define: dict, meta: dict) -> str:
                     f"[{st['cut_titles'][c['sdtm_from']]}](#{c['sdtm_from']})")
         L += [f"## {st['cut_titles'][cut]} {{#{cut}}}", "", lead + f" {how[0].upper()}{how[1:]}.", "",
               "### ADaM datasets", "",
-              "| Dataset | Rows × columns | Result | Spec | Notes |", "| --- | --- | --- | --- | --- |"]
+              "| Dataset | Rows x columns | Result | Spec | Notes |", "| --- | --- | --- | --- | --- |"]
         for r in rows:
             if r["verdict"] == "not checkable":
-                L.append(f"| {r['dataset']} | – | Not checked | {spec_cell(r)} | {adam_notes(r)} |")
+                L.append(f"| {r['dataset']} | - | Not checked | {spec_cell(r)} | {adam_notes(r)} |")
                 continue
             result = RESULT.get(r["verdict"]) or (
                 f"{sum(r['mismatched_columns'].values()):,} cells differ"
                 + (f", {r['rows_unpaired']:,} rows unpaired" if r.get("rows_unpaired") else "")
                 if r["mismatched_columns"] else
                 f"{r['rows_unpaired']:,} rows differ" if r.get("multiset") else "Shape differs")
-            L.append(f"| {r['dataset']} | {r['rows']:,} × {r['cols']} | {result} | {spec_cell(r)} | "
+            L.append(f"| {r['dataset']} | {r['rows']:,} x {r['cols']} | {result} | {spec_cell(r)} | "
                      f"{adam_notes(r)} |")
         seen = [v for v in LEGEND if any(r["verdict"] == v for r in rows)]
         L += ["", "Result: " + "; ".join(
@@ -729,9 +719,7 @@ def study_page(key: str, st: dict, define: dict, meta: dict) -> str:
         source = (f"Composed from the cut's specs and its {layer} ({d['wrappers']} files, "
                   f"{d['wrapper_lines']:,} lines), which `scripts/define/transcribe_define.py` writes from the "
                   "received define. The layer holds the received define's text, so it is not published; "
-                  "`reproduce.py define --transcribe` writes it again from PHMPT." if PUBLIC else
-                  f"Composed from [`{d['project']}`]({BLOB}/{d['project']}) and its {layer} "
-                  f"({d['wrappers']} files, {d['wrapper_lines']:,} lines).")
+                  "`reproduce.py define --transcribe` writes it again from PHMPT.")
         L += ["### Define-XML", "",
               f"{source} The composed define is compared element by element with the received "
               f"`{Path(d['received']).name}`. Of the {scoped:,} received elements "
@@ -765,7 +753,7 @@ def study_page(key: str, st: dict, define: dict, meta: dict) -> str:
 def findings_index(adam: dict, define: dict) -> str:
     meta = adam["meta"]
     L = ["# Reproduction findings", "",
-         f"yamaa `{meta['yamaa_commit']}` · collected {meta['collected']} · terms: [glossary](../glossary.md)", "",
+         f"yamaa `{meta['yamaa_commit']}` - collected {meta['collected']} - terms: [glossary](../glossary.md)", "",
          "Two questions, answered separately for every cut that has specs:", "",
          "- **ADaM datasets.** Does the yamaa spec, run on the submitted SDTM, reproduce the submitted "
          "ADaM dataset cell for cell? (`scripts/reproduce.py verify`, with `scripts/verify_compare.py`: rows keyed, "
@@ -850,7 +838,7 @@ def coverage_page(module5: dict, adam: dict) -> str:
         name = f"[{sid}]({TREE}/{worked[sid]})" if sid in worked else sid
         parts = [(f.get("adam", 0), "ADaM"), (f.get("sdtm", 0), "SDTM"), (f.get("define", 0), "defines"),
                  (f.get("program", 0), "programs"), (docs, "documents")]
-        held = " · ".join(f"{n:,} {k}" for n, k in parts if n) or "nothing"
+        held = " - ".join(f"{n:,} {k}" for n, k in parts if n) or "nothing"
         L.append(f"| {name} | {s['sponsor']} | {held} | {status} |")
     L += ["", "Only four studies have analysis data in Module 5. For the other eighteen, PHMPT released "
           "protocols, consent forms and report sections, with no SDTM or ADaM datasets and no "
@@ -867,39 +855,8 @@ def coverage_page(module5: dict, adam: dict) -> str:
     return "\n".join(L)
 
 
-def review_page() -> str:
-    return "\n".join([
-        "# Review guide", "",
-        "Every result on this site is generated by AI agents with yamaa and is a draft until a person "
-        "reviews it. One evidence-backed observation is a complete contribution.", "",
-        "## What to check", "",
-        "1. **A dataset that is not exact.** Open its spec from the study page, the sponsor's SAS program "
-        "in the study's `spec/source/program/`, and the submitted dataset in the cut's `data/adam/`. "
-        "Each difference carries its known reason (`data/differences.yaml`); say whether you agree.",
-        "2. **A dataset that is exact.** Exact means the derived data equals the submitted data, not that "
-        "the spec follows the SAP. Columns *carried from the submitted dataset* are not derived at all.",
-        "3. **A define difference.** Each one is attributed to a defect of the submitted define or to a "
-        "dataset without a spec. If you find one that is neither, that is a finding.", "",
-        "## How to report", "",
-        f"Open an issue in [{REPO.split('github.com/')[1]}]({REPO}/issues) naming the study, cut and "
-        "dataset, what you checked, and what you found. Engine limitations go to "
-        f"[yamaa]({YAMAA}/issues).", "",
-        "## Reproduce a result", "",
-        "```sh",
-        "git lfs pull --include='mrna-1273-p201/s3-d57/data/**'",
-        "python scripts/reproduce.py verify --study mrna-1273-p201 --cut s3-d57 --dataset adae",
-        "python scripts/reproduce.py define --study mrna-1273-p201 --cut s3-d57",
-        "```", "",
-        "The scripts need a python that imports yamaa built from the commit in `yamaa.lock`; see "
-        f"[Reproduce]({BLOB}/README.md#reproduce).", ""])
-
-
 def public_profile(docs_dir: Path) -> None:
-    """Point the builder at the Pilot 7 bundle (phmpt/) and write the public pages to docs_dir."""
-    global PUBLIC, BLOB, TREE
-    PUBLIC = True
-    BLOB = f"{PILOT7}/blob/main/phmpt"
-    TREE = f"{PILOT7}/tree/main/phmpt"
+    """Write every page into docs_dir (docs/phmpt/)."""
     adam = json.loads((ROOT / "data/reproduction/adam.json").read_text())
     define = json.loads((ROOT / "data/reproduction/define.json").read_text())
     module5 = json.loads((ROOT / "data/reproduction/module5.json").read_text())
@@ -1040,9 +997,8 @@ def key_findings(adam: dict, define: dict, module5: dict) -> list[str]:
     if data_cuts:
         work.append(f"{len(data_cuts)} released folders with SDTM but no ADaM datasets and no specs "
                     f"({', '.join(data_cuts)})")
-    if PUBLIC:
-        jmp = sum(1 for r in sources() if r["format"] == "jmp")
-        work.append(f"{jmp} input files PHMPT released only as JMP tables, which the kit cannot fetch "
+    jmp = sum(1 for r in sources() if r["format"] == "jmp")
+    work.append(f"{jmp} input files PHMPT released only as JMP tables, which the kit cannot fetch "
                     f"({runner()} says how to supply a conversion)")
     L.append("- **Still open:** " + "; ".join(work) + ".")
     return L
@@ -1395,26 +1351,22 @@ def define_data_page(adam: dict) -> str:
 
 
 def responsibilities_and_tools(meta: dict) -> list[str]:
-    here = "the private development repository" if PUBLIC else "this repository"
-    gate = ("`scripts/publish/check_bundle.py`, run again by Pilot 7 as `.github/scripts/check_phmpt_bundle.py`"
-            if PUBLIC else f"[`scripts/publish/check_bundle.py`]({BLOB}/scripts/publish/check_bundle.py)")
-    review = "the [review page](review/index.md)" if PUBLIC else "the [review guide](review/index.md)"
     return [
         "## Responsibilities", "",
         "| Role | Responsibility |", "| --- | --- |",
         "| Human review | The project owner sets the scope and the comparison rules, decides how each kind of "
-        "difference is reported (dated owner decisions), reviews and merges changes in " + here + ", and approves "
-        "each publication to Pilot 7 through a pull request. Reviewers check single findings and record their "
-        f"assessment on {review}. |",
+        f"difference is reported ([owner decisions]({BLOB}/DECISIONS.md)), and reviews and merges every change "
+        "in Pilot 7 through a pull request. Reviewers check single findings and record their assessment on the "
+        "[review page](review/index.md). |",
         "| AI drafting | AI agents (Claude) drafted the specifications, the fetch, verify and define scripts, the "
-        f"recorded reason for each difference and these pages, in {here}. Their output is a draft until a person "
-        "reviews it. |",
+        "recorded reason for each difference and these pages: until 2026-11-27 in a private development "
+        "repository, now frozen, and since then in Pilot 7. Their output is a draft until a person reviews it. |",
         f"| Engine execution | yamaa, at the commit pinned in `yamaa.lock` (`{meta['yamaa_commit']}`), executes each "
         "specification on the submitted SDTM and composes each define from the specifications and the "
         "reproduced-mode layer. |",
         "| Automated checks | Scripts compare every output with the submitted dataset or the received define and "
-        "record the result; the publication gate checks every published file; CI repeats the checks on each "
-        "change. |", "",
+        "record the result; the publication gate checks every PHMPT file in Pilot 7; CI reruns part of the "
+        "reproduction from PHMPT on each change. |", "",
         "## Tools", "",
         "| Tool | Purpose |", "| --- | --- |",
         "| [yamaa](https://elong0527.github.io/yamaa/) | Resolve and execute the YAML specifications; compose "
@@ -1428,11 +1380,15 @@ def responsibilities_and_tools(meta: dict) -> list[str]:
         "Transcribe the received define into the reproduced-mode layer, compose the define, and compare it "
         "element by element, attributing each difference to a defect of the submitted define or a dataset "
         "with no spec. |",
+        "| `scripts/site/collect_results.py`, `scripts/site/publish.py` | Collect the run reports into "
+        "`data/reproduction/`, then write `evidence.json` and these pages from them. |",
         "| `scripts/site/check_verdicts.py` | Compare a fresh run's reports with the recorded verdicts. |",
-        f"| Publication gate: {gate} | Check every published file: an allowlist, ASCII text, the closed evidence "
-        "schema, no subject identifier, and no 12-word run copied from a sponsor program or received define. |",
-        "| GitHub Actions | In the development repository: recompose every define, re-verify mRNA-1273-P201 and "
-        "BNT162-01, and run the gate on each change. In Pilot 7: run the gate on each pull request. |",
+        "| Publication gate: `.github/scripts/check_phmpt_bundle.py` | Check every PHMPT file in Pilot 7: an "
+        "allowlist, ASCII text, the closed evidence schema, the placeholder for every submission method and "
+        "description in a spec, no subject identifier, and, run with the fetched inputs, no 12-word run copied "
+        "from them. |",
+        "| GitHub Actions | On each pull request: run the gate, check that the pages match `data/reproduction/`, "
+        "and rerun every define and the mRNA-1273-P201 and BNT162-01 datasets from PHMPT. |",
         "| GitHub Discussions | Record review assessments. |", ""]
 
 
@@ -1459,9 +1415,8 @@ def what_it_shows(adam: dict) -> list[str]:
          "composed defines come from the received defines through the reproduced-mode layer. Define agreement "
          "shows that yamaa can express and write every element of those documents, apart from the named defects "
          "of the submitted define, which yamaa does not copy; it does not show that yamaa authored that text."]
-    if PUBLIC:
-        L.append(f"- **Some inputs are not in an open format.** {jmp} input files are on PHMPT only as JMP tables. "
-                 "The published results used reviewed conversions kept in the development repository; to rerun "
+    L.append(f"- **Some inputs are not in an open format.** {jmp} input files are on PHMPT only as JMP tables. "
+                 "The published results used reviewed conversions kept in the frozen development repository; to rerun "
                  f"a dataset that reads one, you supply your own conversion (steps in {runner()}).")
     L += ["- **A successful run is not a review.** Every result is a draft until a person reviews it.", ""]
     return L
@@ -1477,8 +1432,8 @@ def index_page(adam: dict, define: dict, module5: dict) -> str:
          "sponsor's programs where they were released; yamaa ran each one on the submitted SDTM; and automated "
          "checks compared the output with the submitted dataset cell by cell, and the define composed from the "
          "same specifications with the received define element by element. "
-         + ("No PHMPT file and no participant-level value is published here: the kit fetches the inputs from "
-            f"PHMPT, so anyone can rerun a result with {runner()}. " if PUBLIC else "")
+         + "No PHMPT file and no participant-level value is published here: the kit fetches the inputs from "
+         f"PHMPT, so anyone can rerun a result with {runner()}. "
          + "Every result is a draft pending human review.", "",
          "## Key findings", "",
          f"yamaa `{meta['yamaa_commit']}`, results collected {meta['collected']}. Terms are defined in the "
@@ -1488,18 +1443,13 @@ def index_page(adam: dict, define: dict, module5: dict) -> str:
          "-   **Results by study**", "", "    ---", "",
          "    Each cut's datasets and define, and every difference with its recorded reason.", "",
          "    " + " - ".join(f"[{st['title']}](findings/{PAGES[k]}.md)" for k, st in adam["studies"].items()), ""]
-    if PUBLIC:
-        L += ["-   **Reproduce from PHMPT**", "", "    ---", "",
+    L += ["-   **Reproduce from PHMPT**", "", "    ---", "",
               "    Rerun a study on your machine from phmpt.org with one script. Its header says what "
               "you need and what to run.", "",
               f"    {runner()}", "",
               "-   **Review a finding**", "", "    ---", "",
               "    Check one finding's evidence and submit your assessment on GitHub.", "",
               "    [Review a finding](review/index.md)", ""]
-    else:
-        L += ["-   **Review guide**", "", "    ---", "",
-              "    How to check a finding against the specs, the sponsor's programs and the data, and how "
-              "to report it.", "", "    [Review guide](review/index.md)", ""]
     L += ["-   **Glossary**", "", "    ---", "",
           "    Cut, layer, exact, missing input, carried column, submitted-define defect and the other terms these "
           "pages use.",
@@ -1666,8 +1616,7 @@ def glossary_terms() -> list:
             ("jmp-only", "JMP-only input",
              "A file PHMPT released only as a JMP table, not as a SAS transport file. JMP's format has no open "
              "reader, so the kit cannot fetch it"
-             + (f" ({runner()} says how to supply a conversion)." if PUBLIC else "; this repository holds reviewed conversions "
-                "(`data/jmp-sources.md`).")),
+             + f" ({runner()} says how to supply a conversion)."),
             ("study-lists", "Study-level lists",
              "Spreadsheets the C4591001 programs read (subject lists, term lists, a BMI scale), released as .xlsx. "
              "`scripts/convert_lists.py` copies their cells to `c4591001/data/lists/`."),
@@ -1684,83 +1633,12 @@ def glossary_page() -> str:
     return "\n".join(L)
 
 
-def study_readme(key: str, st: dict) -> str:
-    """<study>/README.md: the study, its cuts and their PHMPT sources (generated)."""
-    import csv
-
-    info = yaml.safe_load((ROOT / "studies.yaml").read_text())[key]
-    rows = [r for r in csv.DictReader(open(ROOT / "data/sources.csv"))
-            if r["study"] == key and r["format"] != "xml"]  # datasets; the received defines are listed too
-    L = [f"# {info['title']}", "",
-         f"{info['sponsor']} · {info['product']}. Generated by `scripts/site/build_pages.py` from "
-         "`studies.yaml` and `data/sources.csv`; results: "
-         f"[findings page](../docs/findings/{PAGES[key]}.md).", "",
-         "## Cuts", "",
-         "| Folder | Submission | Specs | Layers over another cut | Datasets from PHMPT |",
-         "| --- | --- | ---: | ---: | ---: |"]
-    for cut, c in info["cuts"].items():
-        recs = st["cuts"].get(cut, [])
-        n_layer = sum(1 for r in recs if any("/spec/yamaa/" in l and "/base/" not in l and f"/{cut}/" not in l
-                                              for l in r.get("layers", [])[:-1]))
-        n_src = sum(1 for r in rows if r["cut"] == cut)
-        L.append(f"| [`{cut}/`]({cut}/) | {c['title']} | {len(recs)} | {n_layer} | {n_src} |")
-    for cut in info.get("data_cuts", []):
-        n_src = sum(1 for r in rows if r["cut"] == cut)
-        L.append(f"| [`{cut}/`]({cut}/) | data only, no specs yet | – | – | {n_src} |")
-    zips = sorted({r["zip"] for r in rows})
-    jmp = sum(1 for r in rows if r["format"] == "jmp")
-    L += ["", "## Sources", "",
-          f"{len(rows)} dataset files from {len(zips)} PHMPT Full Productions zips"
-          + (f" ({jmp} of them released only as JMP tables; see `data/jmp-sources.md`)" if jmp else "")
-          + ". `data/sources.csv` names the zip and member of each file.", ""]
-    L += [f"- {z.rsplit('/', 1)[-1]}" for z in zips]
-    L += ["", "## Layout", "",
-          "- `<cut>/data/sdtm/`, `<cut>/data/adam/`: the submitted datasets as Parquet (Git LFS).",
-          "- `<cut>/spec/yamaa/<dataset>.yaml`: the yamaa spec of each dataset; a later cut's spec is "
-          "usually a layer (`parent:`) over the earlier cut's, holding only what changes.",
-          "- `<cut>/spec/define/`: the received `define-adam.xml`, the generated `define-adam-yamaa.xml`, "
-          "and the reproduced-mode layers they are composed from.",
-          "- `spec/yamaa/base/`: layers every cut's specs inherit.",
-          "- `spec/source/`: submitted PDFs, the sponsor's programs (`program/`) and other received defines "
-          "(`define/`), under their PHMPT file names.",
-          "- `spec/review/`: the earlier working notes, session logs (`history/`) and synthetic repros of "
-          "yamaa issues; the notes cite the original work tree, which is not in this repository."]
-    if (ROOT / key / "data/lists").is_dir():
-        L.append("- `data/lists/`: study-level list inputs the specs read as `<list-dir>`.")
-    first = next(iter(info["cuts"]))
-    L += ["", "## Reproduce", "", "```sh",
-          f"python scripts/reproduce.py verify --study {key} --cut {first}",
-          f"python scripts/reproduce.py define --study {key} --cut {first}",
-          "```", "", "See the repository README for setup.", ""]
-    return "\n".join(L)
-
-
 def main() -> int:
     ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
-    ap.add_argument("--public", type=Path, help="write the public profile of the pages into this folder")
+    ap.add_argument("dir", nargs="?", type=Path, default=SITE_DIR, help="folder that receives the pages")
     args = ap.parse_args()
-    if args.public:
-        public_profile(args.public)
-        print(f"wrote the public pages to {args.public}")
-        return 0
-    adam = json.loads((ROOT / "data/reproduction/adam.json").read_text())
-    define = json.loads((ROOT / "data/reproduction/define.json").read_text())
-    module5 = json.loads((ROOT / "data/reproduction/module5.json").read_text())
-    (DOCS / "findings").mkdir(parents=True, exist_ok=True)
-    (DOCS / "review").mkdir(parents=True, exist_ok=True)
-    for old in (DOCS / "findings").glob("*.md"):
-        old.unlink()
-    (DOCS / "index.md").write_text(index_page(adam, define, module5))
-    (DOCS / "glossary.md").write_text(glossary_page())
-    (DOCS / "findings" / "index.md").write_text(findings_index(adam, define))
-    (DOCS / "findings" / "inputs.md").write_text(inputs_page(adam))
-    (DOCS / "findings" / "define-data.md").write_text(define_data_page(adam))
-    (DOCS / "coverage.md").write_text(coverage_page(module5, adam))
-    (DOCS / "review" / "index.md").write_text(review_page())
-    for key, st in adam["studies"].items():
-        (DOCS / "findings" / f"{PAGES[key]}.md").write_text(study_page(key, st, define, adam["meta"]))
-        (ROOT / key / "README.md").write_text(study_readme(key, st))
-    print("wrote docs/index.md, glossary.md, coverage.md, review/index.md, findings/*.md and <study>/README.md")
+    public_profile(args.dir)
+    print(f"wrote the PHMPT pages to {args.dir}")
     return 0
 
 

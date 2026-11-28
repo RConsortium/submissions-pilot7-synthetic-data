@@ -53,7 +53,7 @@ test("the discussion carries the finding, the assessment and the evidence revisi
     "## PHMPT review: `phmpt/s/c1/ADXX`", "", "**Assessment:** Disagree", "", "Checked ADXX.", "",
     "**Claim:** ADXX reproduces the submitted dataset cell for cell.",
     "**Verdict reported:** exact",
-    "**Evidence:** yamaa `abc1234`, export `def567890123`, collected 2026-01-01",
+    "**Evidence:** yamaa `abc1234`, results at `def567890123`, collected 2026-01-01",
     "[Open the finding](https://example.org/site/phmpt/review/#phmpt/s/c1/ADXX)", "",
     "_Do not paste rows, subject identifiers or program text from PHMPT files; describe the difference instead._",
   ].join("\n"));

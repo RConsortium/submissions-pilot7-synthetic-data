@@ -31,8 +31,8 @@ the conversion. Redacted values are never counted as codelist or length
 findings.
 
 Writes data/reproduction/define_data.json. Reads the Parquet files under
---data-root (default: this repository; a work tree without Git LFS data can
-point at a checkout that has them).
+--data-root (default: this folder, after `python scripts/reproduce.py fetch`
+of every study; or a folder of the same layout that holds the fetched data).
 """
 from __future__ import annotations
 
@@ -275,10 +275,9 @@ def main() -> int:
                                      "side": "data only"})
                     continue
                 path = args.data_root / rel[ds][0]
-                with open(path, "rb") as fh:
-                    if fh.read(4) != b"PAR1":  # a Git LFS pointer: the data is not pulled
-                        unfetched.append(rel[ds][0])
-                        continue
+                if not path.exists() or path.open("rb").read(4) != b"PAR1":  # not fetched
+                    unfetched.append(rel[ds][0])
+                    continue
                 f, info = check_dataset(ds, path, rel[ds][1], d["groups"][ds], d)
                 findings += f
                 datasets[ds] = info
@@ -286,7 +285,7 @@ def main() -> int:
             result["cuts"][key] = {"define": f"{study}/{cut}/spec/define/define-adam.xml",
                                    "datasets": datasets, "findings": findings}
     if unfetched:  # partial results would undercount: write nothing
-        print(f"{len(unfetched)} datasets are not pulled (git lfs pull, or --data-root), e.g. {unfetched[0]}; "
+        print(f"{len(unfetched)} datasets are not fetched (scripts/reproduce.py fetch, or --data-root), e.g. {unfetched[0]}; "
               "nothing written", file=sys.stderr)
         return 1
     out_path.write_text(json.dumps(result, indent=1) + "\n")
