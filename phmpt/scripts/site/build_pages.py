@@ -1612,10 +1612,11 @@ def tiles(adam: dict, define: dict) -> list[str]:
         (f"{left}", f"dataset{'s' if left != 1 else ''} not fully reproduced", "; ".join(w for w in why if w) or "none"),
         (f"{len(f):,}", "places a sponsor's define and data disagree", f"in {nds} of the {checked} datasets with a define"),
     ]
-    return (['<div class="phmpt-tiles">']
+    # The landing page shows these tiles too (.github/scripts/phmpt_headline.py reads between the markers).
+    return (["<!-- phmpt-headline:begin -->", '<div class="phmpt-tiles">']
             + [f'<div class="phmpt-tile"><p class="phmpt-tile-value">{v}</p><p class="phmpt-tile-label">{esc(lab)}</p>'
                f'<p class="phmpt-tile-note">{esc(note)}</p></div>' for v, lab, note in cards]
-            + ["</div>", ""])
+            + ["</div>", "<!-- phmpt-headline:end -->", ""])
 
 
 def scope_chart(adam: dict) -> list[str]:

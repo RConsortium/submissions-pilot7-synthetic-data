@@ -36,7 +36,10 @@ Keep explanations short, concrete, and easy to follow.
 ## Website changes
 
 - Edit `docs/index.md` for the landing page. Its first section routes
-  reviewers to the Pilot 5 findings, the review guide and the study report.
+  reviewers to the Pilot 5 findings, the review guide, the study report and
+  the PHMPT reproduction. Its PHMPT headline figures are the overview's
+  tiles, copied in at build time by `.github/scripts/phmpt_headline.py`;
+  do not write PHMPT numbers into `docs/index.md`.
 - Edit `docs/review/index.md` for the review guide. Keep its control names
   aligned with the labels in the dashboard.
 - Edit `docs/studies/kn189.md` and `docs/studies/kn564.md` for synthetic studies.

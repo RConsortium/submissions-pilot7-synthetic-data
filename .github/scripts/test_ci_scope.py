@@ -260,7 +260,11 @@ class ScopeTests(unittest.TestCase):
         self.assertNotIn('old numeric snapshot', preview_index)
         self.assertNotIn('<!-- pilot-metrics:begin -->', preview_index)
         self.assertEqual((self.root / 'docs/index.md').read_text(), source_index)
-        self.assertIn('hooks: []', config.read_text())
+        # Only the PHMPT headline hook, which reads committed pages; none that needs validation reports.
+        hooks = next(line for line in config.read_text().splitlines() if line.startswith('hooks:'))
+        self.assertTrue(hooks.endswith('/.github/scripts/phmpt_headline.py"]'), hooks)
+        self.assertNotIn('build_index_table', hooks)
+        self.assertNotIn('dashboard_nav', hooks)
 
 
 if __name__ == '__main__':
