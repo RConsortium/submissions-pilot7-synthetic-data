@@ -1,6 +1,6 @@
 /** PHMPT review page: one finding at a time, its evidence, how to rerun it, and a GitHub discussion for the verdict.
  *
- * Reads ../evidence.json (the bundle the yamaa_phmpt export writes). Shows
+ * Reads ../evidence.json (written by phmpt/scripts/site/publish.py). Shows
  * counts and reasons only; the bundle holds no participant-level data, and a
  * reviewer who wants rows reruns the kit on data fetched from PHMPT. */
 import { LINK_LIMIT, reviewDestination } from "../dashboard/review-submit.js";
@@ -46,7 +46,7 @@ export function reviewBody(evidence, finding, review, pageUrl) {
     "",
     `**Claim:** ${finding.claim}`,
     `**Verdict reported:** ${finding.verdict}`,
-    `**Evidence:** yamaa \`${evidence.meta.yamaa_commit}\`, export \`${evidence.meta.source_commit}\`, collected ${evidence.meta.collected}`,
+    `**Evidence:** yamaa \`${evidence.meta.yamaa_commit}\`, results at \`${evidence.meta.source_commit}\`, collected ${evidence.meta.collected}`,
     `[Open the finding](${url.href})`,
     "",
     "_Do not paste rows, subject identifiers or program text from PHMPT files; describe the difference instead._",

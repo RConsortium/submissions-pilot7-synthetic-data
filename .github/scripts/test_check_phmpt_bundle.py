@@ -1,17 +1,17 @@
-"""The PHMPT publication gate, one rule per case, on invented bundles.
+"""The PHMPT gate, one rule per case, on invented files.
 
-Seam: check_bundle.check() over a folder of files; every identifier, program
-line and value below is invented. The same file runs in Pilot 7 next to the
-vendored gate (.github/scripts/check_phmpt_bundle.py).
+Seam: check_phmpt_bundle.check() over a folder of files; every identifier,
+program line, define text and value below is invented.
 """
 import importlib.util
 import json
+import subprocess
 import tempfile
 import unittest
 from pathlib import Path
 
 HERE = Path(__file__).resolve().parent
-_name = next(n for n in ("check_bundle", "check_phmpt_bundle") if (HERE / f"{n}.py").exists())
+_name = "check_phmpt_bundle"
 _spec = importlib.util.spec_from_file_location(_name, HERE / f"{_name}.py")
 gate = importlib.util.module_from_spec(_spec)
 _spec.loader.exec_module(gate)
@@ -19,6 +19,14 @@ _spec.loader.exec_module(gate)
 EVIDENCE = {"schema_version": 1, "meta": {"yamaa_commit": "abc1234", "source_commit": "def5678", "collected": "2026-01-01"},
             "gaps": {}, "studies": {}, "findings": []}
 SPEC = "phmpt/bnt162-01/27034/spec/yamaa/adxx.yaml"
+WITHHELD = f'"{gate.PLACEHOLDER}"'
+
+
+def column(origin: str, text_key: str, text: str) -> str:
+    """A spec with one column whose submission block holds an origin and a define text."""
+    where = "      " if text_key == "description" else "    "
+    return ("domain: ADXX\ncolumns:\n- name: AVAL\n  derivation: RAW.X\n  submission:\n    origins:\n"
+            f"    - type: {origin}\n{where}{text_key}: {text}\n")
 
 
 def bundle(root: Path, files: dict) -> None:
@@ -50,6 +58,14 @@ class GateRules(unittest.TestCase):
             ("the site pages", {f"docs/phmpt/{p}.md": "# Page\n" for p in
                                 ("index", "coverage", "glossary", "findings/bnt162-01")}, []),
             ("the kit's runner", {"phmpt/reproduce.sh": "#!/bin/sh\n"}, []),
+            ("the decisions and the results", {"phmpt/DECISIONS.md": "# Owner decisions\n",
+                                               "phmpt/data/reproduction/adam.json": "{}\n"}, []),
+            ("a withheld method", {SPEC: column("Derived", "method", WITHHELD)}, []),
+            ("a define method in a spec", {SPEC: column("Derived", "method", "Invented text of a received define")},
+             [f"{SPEC}:8: 1 submission method or description text(s) where the placeholder belongs"]),
+            ("a define description in a spec", {SPEC: column("Assigned", "description", "Invented define text")},
+             [f"{SPEC}:8: 1 submission method or description text(s) where the placeholder belongs"]),
+            ("a Predecessor's source column", {SPEC: column("Predecessor", "description", "RAW.X")}, []),
             ("a retired page", {"docs/phmpt/reproduce.md": "# Page\n"},
              ["docs/phmpt/reproduce.md: not in the publication allowlist"]),
             ("a site page outside the allowlist", {"docs/phmpt/notes.md": "x\n"},
@@ -72,12 +88,24 @@ class GateRules(unittest.TestCase):
             with self.subTest(case=label):
                 self.assertEqual(self.errors(files), expected, label)
 
+    def test_a_work_tree_is_checked_as_git_would_commit_it(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            bundle(root, {"phmpt/.gitignore": "*/*/data/\n",
+                          "phmpt/bnt162-01/27034/data/adam/adxx.parquet": b"PAR1"})
+            subprocess.run(["git", "init", "-q", str(root)], check=True)
+            self.assertEqual(gate.check(root), [], "fetched data in an ignored folder is not checked")
+            subprocess.run(["git", "-C", str(root), "add", "-f", "phmpt/bnt162-01/27034/data/adam/adxx.parquet"],
+                           check=True)
+            self.assertEqual(gate.check(root), ["phmpt/bnt162-01/27034/data/adam/adxx.parquet: "
+                                                "a data or document file; never published"])
+
     def test_source_backed_rules_report_ids_and_copied_text(self):
         try:
             import pyarrow as pa
             import pyarrow.parquet as pq
         except ImportError:
-            self.skipTest("pyarrow is not installed: the --source checks run only in yamaa_phmpt")
+            self.skipTest("pyarrow is not installed: the --source checks need it")
         program = ("if the invented flag is yes and the invented visit is the first then set "
                    "the invented analysis flag to yes for every record")
 

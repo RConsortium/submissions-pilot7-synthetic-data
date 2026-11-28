@@ -2,7 +2,7 @@
 
 | Workflow | Responsibility | Writes |
 | --- | --- | --- |
-| `ci.yml` | One shared check job on every PR; only affected studies get additional validation jobs. | Layout-preview and validation artifacts only. |
+| `ci.yml` | One shared check job on every PR (including the PHMPT gate and the check that `docs/phmpt/` matches `phmpt/data/reproduction/`); only affected studies get additional validation jobs. | Layout-preview and validation artifacts only. |
 | `study-check.yml` | Reusable per-study yamaa, R, and/or CORE checks. Multiple checks for one study share one runner; CORE reads committed data before derivations run. | Validation artifacts only. |
 | `phmpt-check.yml` | Reruns the PHMPT reproduction that fits on a runner from phmpt.org with the kit in `phmpt/`: every define, and the mRNA-1273-P201 and BNT162-01 datasets. Each result must equal `docs/phmpt/evidence.json`. | None; fetched data and reports stay on the runner. |
 | `adam-compare.yml` | Manual generic ADaM comparison using workflow inputs. | None. |

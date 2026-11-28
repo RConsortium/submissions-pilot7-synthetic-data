@@ -371,7 +371,7 @@ def cmd_fetch(args):
 # ---------------------------------------------------------------- site
 def cmd_site(args):
     subprocess.run([sys.executable, str(ROOT / "scripts/site/collect_results.py"), "--reports", args.out], check=True)
-    subprocess.run([sys.executable, str(ROOT / "scripts/site/build_pages.py")], check=True)
+    subprocess.run([sys.executable, str(ROOT / "scripts/site/publish.py")], check=True)
 
 
 def main() -> int:

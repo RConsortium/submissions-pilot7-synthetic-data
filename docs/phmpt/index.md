@@ -144,17 +144,17 @@ The columns mean what they mean in the table by study. A define's elements are i
 - **Not every match is exact.** *Matches except missing input*, *reproduced on a substitute input* and *matches except a defect of the submitted file* are reported apart from exact, with the absent input or the defect named and every differing cell counted.
 - **Carried columns are not derived.** In mRNA-1273-P201 Addendum 1 (BLA 125752 S3), 5 ADIS columns and 26 ADSL columns are copied from the submitted datasets, because the input they are derived from is not in the release. Some specs also read another submitted ADaM dataset as input where the program does; the dataset's notes name it.
 - **The define text was transcribed, not authored.** The labels, methods, comments and origins in the composed defines come from the received defines through the reproduced-mode layer. Define agreement shows that yamaa can express and write every element of those documents, apart from the named defects of the submitted define, which yamaa does not copy; it does not show that yamaa authored that text.
-- **Some inputs are not in an open format.** 40 input files are on PHMPT only as JMP tables. The published results used reviewed conversions kept in the development repository; to rerun a dataset that reads one, you supply your own conversion (steps in [`phmpt/reproduce.sh`](https://github.com/RConsortium/submissions-pilot7-synthetic-data/blob/main/phmpt/reproduce.sh)).
+- **Some inputs are not in an open format.** 40 input files are on PHMPT only as JMP tables. The published results used reviewed conversions kept in the frozen development repository; to rerun a dataset that reads one, you supply your own conversion (steps in [`phmpt/reproduce.sh`](https://github.com/RConsortium/submissions-pilot7-synthetic-data/blob/main/phmpt/reproduce.sh)).
 - **A successful run is not a review.** Every result is a draft until a person reviews it.
 
 ## Responsibilities
 
 | Role | Responsibility |
 | --- | --- |
-| Human review | The project owner sets the scope and the comparison rules, decides how each kind of difference is reported (dated owner decisions), reviews and merges changes in the private development repository, and approves each publication to Pilot 7 through a pull request. Reviewers check single findings and record their assessment on the [review page](review/index.md). |
-| AI drafting | AI agents (Claude) drafted the specifications, the fetch, verify and define scripts, the recorded reason for each difference and these pages, in the private development repository. Their output is a draft until a person reviews it. |
+| Human review | The project owner sets the scope and the comparison rules, decides how each kind of difference is reported ([owner decisions](https://github.com/RConsortium/submissions-pilot7-synthetic-data/blob/main/phmpt/DECISIONS.md)), and reviews and merges every change in Pilot 7 through a pull request. Reviewers check single findings and record their assessment on the [review page](review/index.md). |
+| AI drafting | AI agents (Claude) drafted the specifications, the fetch, verify and define scripts, the recorded reason for each difference and these pages: until 2026-11-27 in a private development repository, now frozen, and since then in Pilot 7. Their output is a draft until a person reviews it. |
 | Engine execution | yamaa, at the commit pinned in `yamaa.lock` (`ac826f0`), executes each specification on the submitted SDTM and composes each define from the specifications and the reproduced-mode layer. |
-| Automated checks | Scripts compare every output with the submitted dataset or the received define and record the result; the publication gate checks every published file; CI repeats the checks on each change. |
+| Automated checks | Scripts compare every output with the submitted dataset or the received define and record the result; the publication gate checks every PHMPT file in Pilot 7; CI reruns part of the reproduction from PHMPT on each change. |
 
 ## Tools
 
@@ -164,7 +164,8 @@ The columns mean what they mean in the table by study. A define's elements are i
 | `scripts/reproduce.py fetch` | Read only the needed members of the PHMPT zips over HTTP range requests and convert SAS transport files to Parquet. |
 | `scripts/reproduce.py verify`, `scripts/verify_compare.py` | Run each spec, in USUBJID partitions where a dataset is large, and compare the output with the submitted dataset under the study's comparison rules. |
 | `scripts/reproduce.py define`: `transcribe_define.py`, `compose_define.py`, `compare_define.py` | Transcribe the received define into the reproduced-mode layer, compose the define, and compare it element by element, attributing each difference to a defect of the submitted define or a dataset with no spec. |
+| `scripts/site/collect_results.py`, `scripts/site/publish.py` | Collect the run reports into `data/reproduction/`, then write `evidence.json` and these pages from them. |
 | `scripts/site/check_verdicts.py` | Compare a fresh run's reports with the recorded verdicts. |
-| Publication gate: `scripts/publish/check_bundle.py`, run again by Pilot 7 as `.github/scripts/check_phmpt_bundle.py` | Check every published file: an allowlist, ASCII text, the closed evidence schema, no subject identifier, and no 12-word run copied from a sponsor program or received define. |
-| GitHub Actions | In the development repository: recompose every define, re-verify mRNA-1273-P201 and BNT162-01, and run the gate on each change. In Pilot 7: run the gate on each pull request. |
+| Publication gate: `.github/scripts/check_phmpt_bundle.py` | Check every PHMPT file in Pilot 7: an allowlist, ASCII text, the closed evidence schema, the placeholder for every submission method and description in a spec, no subject identifier, and, run with the fetched inputs, no 12-word run copied from them. |
+| GitHub Actions | On each pull request: run the gate, check that the pages match `data/reproduction/`, and rerun every define and the mRNA-1273-P201 and BNT162-01 datasets from PHMPT. |
 | GitHub Discussions | Record review assessments. |
