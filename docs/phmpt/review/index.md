@@ -2,15 +2,17 @@
 
 Each finding below is one claim about one cut of a study: an ADaM dataset
 reproduces the submitted one, the define reproduces the received one, or a
-define difference is a named yamaa engine gap. Every claim is a draft
+define difference comes from a named defect of the submitted define, which
+yamaa does not copy. Every claim is a draft
 pending human review; one evidence-backed assessment is a complete
 contribution.
 
 ## How to review
 
 1. **Choose a finding.** Filter by study, kind or verdict, or search for a
-   dataset (`ADSL`) or an engine gap (`G1`). Findings that are not exact,
-   and define gaps, are the most useful to check.
+   dataset (`ADSL`) or a defect of the submitted define (`repeated-order`).
+   Findings that are not exact, and define defects, are the most useful to
+   check.
 2. **Check the evidence.** It gives the counts behind the claim, the reason
    recorded for every difference, the specification, and where the
    submitted file is on PHMPT. Exact means the derived data equals the
