@@ -547,6 +547,109 @@ def input_scope(study: str, cut: str, r: dict) -> dict:
     return s
 
 
+# ---------------------------------------------------------------- every column of a dataset
+COLUMN_STATUS = {  # status -> label, in the order the review page lists them
+    "differs": "Differs, cause to fix",
+    "defect": "Submitted-file defect",
+    "rows": "Rows differ",
+    "not compared": "Not compared",
+    "reproduced": "Reproduced",
+    "absent": "Absent input",
+    "carried": "Carried, not derived",
+    "outside": "Dataset outside the set",
+}
+
+
+@functools.lru_cache(maxsize=None)
+def submitted_columns() -> dict:
+    """{study: {cut: {DATASET: [names]}}}: the submitted files' columns (scripts/site/inventory_columns.py)."""
+    p = ROOT / "data/reproduction/columns.json"
+    return json.loads(p.read_text())["studies"] if p.exists() else {}
+
+
+@functools.lru_cache(maxsize=None)
+def defined_columns(spec: Path) -> dict[str, int]:
+    """{column: line} of the top-level `columns:` list of one spec file, read as text for the line numbers."""
+    out: dict[str, int] = {}
+    inside, indent = False, None
+    for i, line in enumerate(spec.read_text().splitlines(), 1):
+        if line.startswith("columns:"):
+            inside = True
+            continue
+        if inside and line and line[0] not in " #-":
+            break
+        m = re.match(r"^( *)- name: *['\"]?([^'\"\s#]+)", line) if inside else None
+        if m and (indent is None or len(m.group(1)) == indent):
+            indent = len(m.group(1))
+            out[m.group(2)] = i
+    return out
+
+
+def column_rows(key: str, cut: str, r: dict) -> tuple[list[dict], list[str]]:
+    """Every submitted column of one dataset, in the file's order, with its status (COLUMN_STATUS), the cells
+    that differ, the submitted cells FDA redacted, where the spec derives it (an index into `layers` and a
+    line) and the recorded reason (an index into the returned notes). Raises when the names and the results
+    disagree."""
+    names = (submitted_columns().get(key, {}).get(cut, {}) or {}).get(r["dataset"])
+    if names is None:
+        return [], []
+    s = input_scope(key, cut, r)
+    where: dict[str, tuple[int, int]] = {}
+    for i, layer in enumerate(r.get("layers") or []):
+        for c, line in defined_columns(ROOT / layer).items():
+            where[c] = (i, line)
+    notes: list[str] = []
+
+    def note(text: str | None) -> int | None:
+        if not text:
+            return None
+        text = " ".join(text.split())
+        if text not in notes:
+            notes.append(text)
+        return notes.index(text)
+
+    mi = entries("missing_input", key, cut, r["dataset"])
+    sd = entries("submitted_defect", key, cut, r["dataset"])
+
+    def absent(c: str) -> str | None:
+        e = next((e for e in mi if c in (e.get("columns") or []) or c in (e.get("cells") or {})), None)
+        return f"Absent input: {e['missing']}" if e else None
+
+    carried = set(r.get("carried_columns") or [])
+    not_written = set(r.get("missing_columns") or [])
+    rows_off = s["open_rows"] + s["defect_rows"]
+    out = []
+    for c in names:
+        cells = (r.get("mismatched_columns") or {}).get(c, 0)
+        if not s["in"]:
+            e = next((e for e in mi if e.get("substitute")), {})
+            status, why = "outside", f"The release lacks {e.get('missing', 'an input')}; the spec reads " \
+                                     f"{e.get('substitute', 'another release')} instead."
+        elif c in carried:
+            status, why = "carried", absent(c)
+        elif c in s["lack_cols"]:
+            status, why = "absent", absent(c)
+        elif c in s["defect_cols"]:
+            status, why = "defect", next((f"Defect of the submitted file: {e['defect']}" for e in sd), None)
+        elif c in s["open_cols"]:
+            reason = next((x["reason"] for x in r.get("reasons") or [] if c in (x.get("cells") or {})), None)
+            status, why = "differs", reason or "No recorded reason yet."
+        elif c in not_written:
+            raise ValueError(f"{key}/{cut}/{r['dataset']}: {c} is not written and has no absent input")
+        elif not s["compared"]:
+            status, why = "not compared", None
+        elif rows_off:
+            status, why = "rows", (f"{rows_off:,} submitted rows have no derived counterpart, so no column of "
+                                   "this dataset counts as fully reproduced.")
+        else:
+            status, why = "reproduced", None
+        layer, line = where.get(c, (None, None)) if c not in not_written else (None, None)
+        out.append({"name": c, "status": status, "cells": cells,
+                    "redacted": (r.get("redacted_columns") or {}).get(c, 0), "layer": layer, "line": line,
+                    "note": note(why)})
+    return out, notes
+
+
 def scope_totals(items) -> dict:
     """Sum input_scope over (study, cut, row) triples. Within the analysis set (`cols_in`, `cells_in`),
     every column and cell is reproduced (`*_rep`), differs (`cells_diff`) or was not fully compared
@@ -1578,14 +1681,17 @@ def cuts_chart(adam: dict) -> list[str]:
                                                                            for k in order if n[k])
             value = f"<strong>{t['reproduced']}</strong> / {t['in']}" + (f"<br><small>+{t['out']} outside</small>"
                                                                         if t["out"] else "")
+            explore = (f'<a class="phmpt-bar-link" href="review/#phmpt/{key}/{cut}/" '
+                       f'aria-label="Review the findings of {esc(st["title"])} {esc(st["cut_titles"][cut])}">'
+                       f'{bar(parts, label, len(rs) / biggest)}</a>')
             rows.append(chart_row(f'<a href="findings/{PAGES[key]}/#{cut}">{esc(st["cut_titles"][cut])}</a>',
-                                  bar(parts, label, len(rs) / biggest), value))
+                                  explore, value))
         groups += [f'<p class="phmpt-group">{esc(st["title"])} <small>{esc(st["sponsor"])}</small></p>', *rows]
     return figure("ADaM datasets by cut: fully reproduced of those in the analysis set",
                   [legend([STATUS[k] for k in order if k in present]), '<div class="phmpt-rows">', *groups, "</div>"],
-                  "Bar length is the number of datasets in the cut. Each cut links to its datasets and the reason "
-                  'recorded for every difference; the numbers are in the <a href="results/#results-by-cut">table by '
-                  "cut</a>.")
+                  "Bar length is the number of datasets in the cut. A cut's name opens its datasets and the reason "
+                  "recorded for every difference; its bar opens its findings on the review page, down to every "
+                  'column. The numbers are in the <a href="results/#results-by-cut">table by cut</a>.')
 
 
 def define_chart(define: dict) -> list[str]:
@@ -1736,8 +1842,8 @@ def index_page(adam: dict, define: dict, module5: dict) -> str:
          "## Confirm a finding", "",
          '<div class="grid cards" markdown>', "",
          "-   **Drill down**", "", "    ---", "",
-         "    Open one finding: its counts, the reason recorded for every difference, the spec, and the PHMPT file "
-         "it was compared with. Submit your assessment on GitHub.", "",
+         "    Open one finding: its counts, every column with its result and recorded reason, the spec line that "
+         "derives it, and the PHMPT file it was compared with. Submit your assessment on GitHub.", "",
          "    [Review a finding](review/index.md)", "",
          "-   **Rerun in CI**", "", "    ---", "",
          "    Each pull request fetches every received define and the mRNA-1273-P201 and BNT162-01 datasets from "

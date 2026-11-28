@@ -9,7 +9,10 @@ The results come from scripts/site/collect_results.py after a run
 by field through the gate's schema (EVIDENCE in
 .github/scripts/check_phmpt_bundle.py), so a new field of a run report stays
 out until it is added there. It holds counts, verdicts, column names and the
-recorded reasons, never a cell value or a subject identifier. The pages are
+recorded reasons, never a cell value or a subject identifier. columns.json
+lists every submitted column of each dataset with its status, for the review
+page; its names come from data/reproduction/columns.json
+(scripts/site/inventory_columns.py). The pages are
 scripts/site/build_pages.py. docs/phmpt/review/ is written by hand and left
 alone. CI runs --check on every pull request.
 """
@@ -160,14 +163,35 @@ def evidence() -> dict:
     return out
 
 
+def columns() -> dict:
+    """columns.json: every submitted column of every dataset finding, for the review page's drill-down.
+    Compact, one dataset per line; names, statuses, counts, spec lines and recorded reasons only."""
+    adam = json.loads((ROOT / "data/reproduction/adam.json").read_text())
+    out = {"schema_version": gate.COLUMNS_VERSION, "fields": gate.COLUMN_FIELDS,
+           "statuses": dict(pages.COLUMN_STATUS), "datasets": {}}
+    for key, st, cut, r in pages.all_rows(adam):
+        rows, notes = pages.column_rows(key, cut, r)
+        if rows:
+            out["datasets"][f"phmpt/{key}/{cut}/{r['dataset']}"] = {
+                "layers": r.get("layers") or [], "notes": notes,
+                "columns": [[c[f] for f in gate.COLUMN_FIELDS] for c in rows]}
+    return out
+
+
 def write(site: Path) -> dict:
-    """Write evidence.json and the pages into site, replacing what an earlier run wrote there."""
+    """Write evidence.json, columns.json and the pages into site, replacing what an earlier run wrote."""
     site.mkdir(parents=True, exist_ok=True)
     for p in site.rglob("*"):
         if p.is_file() and p.relative_to(site).parts[0] not in HAND_WRITTEN:
             p.unlink()
     ev = evidence()
     (site / "evidence.json").write_text(json.dumps(ev, indent=1, ensure_ascii=True) + "\n")
+    cols = columns()
+    (site / "columns.json").write_text(
+        "{" + f'"schema_version": {cols["schema_version"]},\n"fields": {json.dumps(cols["fields"])},\n'
+        + f'"statuses": {json.dumps(cols["statuses"])},\n'
+        + '"datasets": {\n' + ",\n".join(f"{json.dumps(k)}: {json.dumps(v, separators=(',', ':'))}"
+                                          for k, v in cols["datasets"].items()) + "\n}}\n")
     pages.public_profile(site)
     return ev
 

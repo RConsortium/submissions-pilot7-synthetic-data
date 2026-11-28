@@ -1,8 +1,12 @@
-/** PHMPT review page: one finding at a time, its evidence, how to rerun it, and a GitHub discussion for the verdict.
+/** PHMPT review page: one finding at a time, its evidence, every column of a dataset, how to rerun it, and a
+ * GitHub discussion for the verdict.
  *
- * Reads ../evidence.json (written by phmpt/scripts/site/publish.py). Shows
- * counts and reasons only; the bundle holds no participant-level data, and a
- * reviewer who wants rows reruns the kit on data fetched from PHMPT. */
+ * Reads ../evidence.json and, when a dataset finding opens, ../columns.json (both written by
+ * phmpt/scripts/site/publish.py). Shows names, counts and reasons only; the bundle holds no participant-level
+ * data, and a reviewer who wants rows reruns the kit on data fetched from PHMPT.
+ *
+ * Links: #<finding id> opens a finding; #<finding id>/<COLUMN> opens a dataset at one column; #phmpt/<study>
+ * or #phmpt/<study>/<cut> lists that study's or cut's findings. */
 import { LINK_LIMIT, reviewDestination } from "../dashboard/review-submit.js";
 
 export const AGREEMENTS = {
@@ -14,6 +18,40 @@ export const KINDS = { dataset: "ADaM dataset", define: "Define-XML", "define-de
 const REPO = "https://github.com/RConsortium/submissions-pilot7-synthetic-data";
 const BLOB = `${REPO}/blob/main/phmpt/`;
 const DRAFTS = "phmpt-review-drafts";
+
+/** Where a link points: a finding, a column of a dataset finding, or a study or cut prefix to list. */
+export function resolveRoute(findings, hash) {
+  const id = decodeURIComponent(String(hash || "").replace(/^#/, ""));
+  if (!id) return { kind: "none" };
+  const exact = findings.find((f) => f.id === id);
+  if (exact) return { kind: "finding", finding: exact };
+  const cut = id.lastIndexOf("/");
+  const parent = cut > 0 ? findings.find((f) => f.id === id.slice(0, cut) && f.kind === "dataset") : null;
+  if (parent) return { kind: "column", finding: parent, column: id.slice(cut + 1) };
+  const prefix = id.replace(/\/+$/, "") + "/";
+  if (findings.some((f) => f.id.startsWith(prefix))) return { kind: "prefix", text: prefix.replace(/^phmpt\//, "") };
+  return { kind: "none" };
+}
+
+/** A dataset's column rows as objects ({name, status, cells, redacted, layer, line, note}). */
+export function columnRows(table, id) {
+  const d = table?.datasets?.[id];
+  if (!d) return null;
+  return d.columns.map((row) => Object.fromEntries(table.fields.map((f, i) => [f, row[i]])));
+}
+
+/** {status: count} in the order of the table's statuses, leaving out those with no column. */
+export function columnSummary(table, rows) {
+  const n = {};
+  for (const r of rows) n[r.status] = (n[r.status] || 0) + 1;
+  return Object.keys(table.statuses).filter((s) => n[s]).map((s) => [s, n[s]]);
+}
+
+/** Columns with this status (all when empty) whose name contains the text, case-insensitively. */
+export function filterColumns(rows, { status = "", text = "" } = {}) {
+  const needle = text.trim().toLowerCase();
+  return rows.filter((r) => (!status || r.status === status) && (!needle || r.name.toLowerCase().includes(needle)));
+}
 
 /** Findings that pass every filter; text matches id, claim or verdict, case-insensitively. */
 export function filterFindings(findings, { study = "", kind = "", verdict = "", text = "" } = {}) {
@@ -157,16 +195,21 @@ function render(root, evidence, reviewUrl) {
       `<li><a href="#${esc(f.id)}" data-id="${esc(f.id)}"><code>${esc(f.id.replace(/^phmpt\//, ""))}</code><br>` +
       `<span class="phmpt-verdict">${esc(f.verdict)}</span></a></li>`).join("");
   };
-  const show = (id) => {
-    const f = all.find((x) => x.id === id);
-    if (!f) { $("phmpt-detail").innerHTML = "<p>Select a finding to review it.</p>"; return; }
+  const show = (f, column = "") => {
+    if (!f) {
+      $("phmpt-detail").innerHTML = "<p>Select a finding to review it.</p>";
+      $("phmpt-detail").oninput = null;
+      return;
+    }
     const st = evidence.studies[f.study], cut = st.cuts[f.cut];
     const draft = readDrafts()[f.id] || { agreement: "", comment: "" };
     $("phmpt-detail").innerHTML = `
+      <p class="phmpt-crumbs"><a href="../findings/${esc(f.study)}/">${esc(st.title)}</a> /
+        <a href="../${esc(f.page)}">${esc(cut.title)}</a>${f.dataset ? " / " + esc(f.dataset) : ""}</p>
       <h2>${esc(st.title)} ${esc(cut.title)}${f.dataset ? " - " + esc(f.dataset) : ""}</h2>
       <p class="phmpt-claim">${md(f.claim)}</p>
-      <p><a href="../${esc(f.page)}">Open it on the findings page</a></p>
       <h3>Evidence</h3>${evidenceRows(evidence, f, findingRecord(evidence, f))}
+      ${f.kind === "dataset" ? '<h3>Columns</h3><div id="phmpt-columns" class="phmpt-columns"><p>Loading the columns...</p></div>' : ""}
       <h3>Reproduce it</h3>
       <p>In the <a href="${REPO}/tree/main/phmpt">phmpt/</a> folder, after <code>sh reproduce.sh setup</code> and
       <code>. .local-run/venv/bin/activate</code> (<a href="${BLOB}reproduce.sh">reproduce.sh</a>).
@@ -183,7 +226,8 @@ function render(root, evidence, reviewUrl) {
       <p id="phmpt-status" aria-live="polite"></p>`;
     const current = () => ({ agreement: root.querySelector("input[name=phmpt-agreement]:checked")?.value || "",
                              comment: $("phmpt-comment").value });
-    $("phmpt-detail").addEventListener("input", () => saveDraft(f.id, current()));
+    // One handler on the panel, replaced with each finding, so a draft is saved only under its own finding.
+    $("phmpt-detail").oninput = (e) => { if (!e.target.closest(".phmpt-columns")) saveDraft(f.id, current()); };
     $("phmpt-submit").addEventListener("click", () => {
       try {
         const link = discussionLink(reviewUrl, evidence, f, current(), location.href);
@@ -196,12 +240,86 @@ function render(root, evidence, reviewUrl) {
         $("phmpt-status").textContent = e.message;
       }
     });
+    if (f.kind === "dataset") {
+      loadColumns().then((table) => {
+        const box = $("phmpt-columns");
+        if (box) renderColumns(box, table, f, column);
+      });
+    }
   };
   for (const id of ["phmpt-study", "phmpt-kind", "phmpt-verdict", "phmpt-text"]) $(id).addEventListener("input", list);
-  const route = () => show(decodeURIComponent(location.hash.slice(1)));
+  const route = () => {
+    const r = resolveRoute(all, location.hash);
+    if (r.kind === "prefix") {
+      $("phmpt-text").value = r.text;
+      list();
+      show(null);
+      return;
+    }
+    show(r.finding, r.column);
+  };
   window.addEventListener("hashchange", route);
   list();
   route();
+}
+
+let columnsLoad;
+/** columns.json, fetched once, when the first dataset finding opens; null when it cannot be read. */
+function loadColumns() {
+  columnsLoad ||= fetch(new URL("../columns.json", location.href)).then((r) => (r.ok ? r.json() : null)).catch(() => null);
+  return columnsLoad;
+}
+
+/** Every submitted column of one dataset: a filter by result, a search, and a row per column. */
+export function columnsTable(table, f, rows, { status = "", text = "" } = {}) {
+  const d = table.datasets[f.id];
+  const shown = filterColumns(rows, { status, text });
+  const spec = (r) => (r.layer === null ? "not derived"
+    : `<a href="${BLOB}${esc(d.layers[r.layer])}#L${r.line}">${esc(d.layers[r.layer].split("/").pop())}:${r.line}</a>`);
+  const body = shown.map((r) => `<tr data-status="${esc(r.status)}">
+      <th scope="row"><a href="#${esc(f.id)}/${esc(r.name)}" title="Link to this column"><code>${esc(r.name)}</code></a></th>
+      <td><span class="phmpt-key phmpt-col-${esc(r.status.replace(/ /g, "-"))}"></span> ${esc(table.statuses[r.status] || r.status)}</td>
+      <td>${r.cells ? n(r.cells) : ""}</td><td>${r.redacted ? n(r.redacted) : ""}</td><td>${spec(r)}</td>
+      <td>${r.note === null ? "" : md(d.notes[r.note])}</td></tr>`).join("");
+  return `<p class="phmpt-col-count">${shown.length} of ${rows.length} columns</p>
+    <div class="phmpt-col-table"><table>
+      <thead><tr><th scope="col">Column</th><th scope="col">Result</th><th scope="col" title="Cells that differ">Differ</th>
+      <th scope="col" title="Submitted cells FDA redacted to (b)(6), not compared">Redacted</th><th scope="col">Derived in</th>
+      <th scope="col">Recorded reason</th></tr></thead>
+      <tbody>${body || '<tr><td colspan="6">No column matches.</td></tr>'}</tbody></table></div>`;
+}
+
+function renderColumns(box, table, f, column) {
+  const rows = table && columnRows(table, f.id);
+  if (!rows) {
+    box.innerHTML = "<p>The column list is not available for this dataset.</p>";
+    return;
+  }
+  const state = { status: "", text: column || "" };
+  const summary = columnSummary(table, rows);
+  box.innerHTML = `
+    <p>Every column of the submitted dataset, in its order, with its result. <em>Absent input</em>, <em>carried</em>
+    and <em>dataset outside the set</em> columns are outside the analysis set; <em>rows differ</em> means the column is
+    equal where rows pair but the dataset has rows on one side only. <em>Derived in</em> opens the spec line that
+    derives the column; a column name links to it here.</p>
+    <div class="phmpt-col-filters" role="group" aria-label="Show columns by result">
+      <button type="button" class="phmpt-chip" data-status="" aria-pressed="true">All ${n(rows.length)}</button>
+      ${summary.map(([s, k]) => `<button type="button" class="phmpt-chip" data-status="${esc(s)}" aria-pressed="false">
+        <span class="phmpt-key phmpt-col-${esc(s.replace(/ /g, "-"))}"></span>${esc(table.statuses[s])} ${n(k)}</button>`).join("")}
+      <label>Column <input type="search" class="phmpt-col-search" value="${esc(state.text)}" placeholder="AVAL"></label>
+    </div>
+    <div class="phmpt-col-body"></div>`;
+  const draw = () => {
+    box.querySelector(".phmpt-col-body").innerHTML = columnsTable(table, f, rows, state);
+    for (const b of box.querySelectorAll(".phmpt-chip")) b.setAttribute("aria-pressed", String(b.dataset.status === state.status));
+  };
+  box.querySelector(".phmpt-col-filters").addEventListener("click", (e) => {
+    const b = e.target.closest(".phmpt-chip");
+    if (b) { state.status = b.dataset.status; draw(); }
+  });
+  box.querySelector(".phmpt-col-search").addEventListener("input", (e) => { state.text = e.target.value; draw(); });
+  draw();
+  if (column) box.scrollIntoView({ block: "start" });
 }
 
 if (typeof document$ !== "undefined") document$.subscribe(mount);

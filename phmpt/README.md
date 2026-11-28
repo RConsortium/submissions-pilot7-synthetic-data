@@ -51,7 +51,8 @@ allows; the publication gate checks it on each pull request.
    `python scripts/site/check_verdicts.py --study <study>`. To record new
    results, rerun every study (`sh phmpt/reproduce.sh all`, hours), then
    `python scripts/reproduce.py site`, which writes `data/reproduction/`
-   (`scripts/site/collect_results.py`) and the pages
+   (`scripts/site/collect_results.py`, and the submitted column names from
+   `scripts/site/inventory_columns.py`) and the pages
    (`scripts/site/publish.py`). A difference with a known cause goes in
    `data/differences.yaml` first.
 4. Before pushing, from the repository root:

@@ -18,6 +18,9 @@ _spec.loader.exec_module(gate)
 
 EVIDENCE = {"schema_version": 1, "meta": {"yamaa_commit": "abc1234", "source_commit": "def5678", "collected": "2026-01-01"},
             "gaps": {}, "studies": {}, "findings": []}
+COLUMNS = {"schema_version": 1, "fields": gate.COLUMN_FIELDS, "statuses": {"reproduced": "Reproduced"},
+           "datasets": {"phmpt/bnt162-01/27034/ADXX": {"layers": ["bnt162-01/27034/spec/yamaa/adxx.yaml"], "notes": [],
+                                                       "columns": [["AVAL", "reproduced", 0, 0, 0, 3, None]]}}}
 SPEC = "phmpt/bnt162-01/27034/spec/yamaa/adxx.yaml"
 WITHHELD = f'"{gate.PLACEHOLDER}"'
 
@@ -81,6 +84,14 @@ class GateRules(unittest.TestCase):
             ("an evidence key missing", {"docs/phmpt/evidence.json": json.dumps(evidence_missing)},
              ["evidence.json.findings: missing"]),
             ("no evidence", {"docs/phmpt/evidence.json": None}, ["docs/phmpt/evidence.json: missing"]),
+            ("the column table", {"docs/phmpt/columns.json": json.dumps(COLUMNS)}, []),
+            ("a column row of the wrong length", {"docs/phmpt/columns.json": json.dumps(
+                {**COLUMNS, "datasets": {"d": {"layers": [], "notes": [], "columns": [["AVAL", "reproduced", 0]]}}})},
+             ["columns.json.datasets.d.columns[0]: expected a list of 7"]),
+            ("a column value in a row", {"docs/phmpt/columns.json": json.dumps(
+                {**COLUMNS, "datasets": {"d": {"layers": [], "notes": [], "columns": [["AVAL", "reproduced", "1.5", 0,
+                                                                                        None, None, None]]}}})},
+             ["columns.json.datasets.d.columns[0][2]: expected int"]),
             ("a subject identifier pattern", {SPEC: "domain: ADXX\n# subject BNT162-01-999-99-9999\n"},
              [f"{SPEC}:2: a subject identifier pattern"]),
         ]
