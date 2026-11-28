@@ -7,7 +7,7 @@ import { AGREEMENTS, discussionLink, evidenceRows, filterFindings, findingRecord
 const evidence = {
   schema_version: 1,
   meta: { yamaa_commit: "abc1234", source_commit: "def567890123", collected: "2026-01-01" },
-  gaps: { G1: { title: "Codelist `OrderNumber`", yamaa_issue: 1 } },
+  gaps: { "repeated-order": { title: "Repeated codelist `OrderNumber`", yamaa_issue: 1 } },
   studies: { s: { title: "Study S", sponsor: "X", product: "Y", cuts: { c1: {
     title: "Cut 1", application: "1", sequence: "S1", over: null,
     datasets: [{ dataset: "ADXX", verdict: "exact" }],
@@ -15,8 +15,9 @@ const evidence = {
   findings: [
     { id: "phmpt/s/c1/ADXX", kind: "dataset", study: "s", cut: "c1", dataset: "ADXX", verdict: "exact",
       claim: "ADXX reproduces the submitted dataset cell for cell.", page: "findings/s/#c1", reproduce: [] },
-    { id: "phmpt/s/c1/define/G1", kind: "define-gap", study: "s", cut: "c1", dataset: null, verdict: "engine gap",
-      claim: "1 define difference is engine gap G1.", page: "findings/s/#c1", reproduce: [] },
+    { id: "phmpt/s/c1/define/repeated-order", kind: "define-defect", study: "s", cut: "c1", dataset: null,
+      verdict: "submitted-define defect", claim: "1 define difference comes from a defect of the submitted define.",
+      page: "findings/s/#c1", reproduce: [] },
   ],
 };
 const page = "https://example.org/site/phmpt/review/?x=1#old";
@@ -25,11 +26,11 @@ const destination = "https://github.com/org/repo/discussions/new?category=genera
 
 test("each filter narrows the findings, and text matches id, claim or verdict", () => {
   const cases = [
-    [{}, ["phmpt/s/c1/ADXX", "phmpt/s/c1/define/G1"], "no filter"],
-    [{ kind: "define-gap" }, ["phmpt/s/c1/define/G1"], "kind"],
+    [{}, ["phmpt/s/c1/ADXX", "phmpt/s/c1/define/repeated-order"], "no filter"],
+    [{ kind: "define-defect" }, ["phmpt/s/c1/define/repeated-order"], "kind"],
     [{ verdict: "exact" }, ["phmpt/s/c1/ADXX"], "verdict"],
     [{ study: "other" }, [], "study"],
-    [{ text: " g1 " }, ["phmpt/s/c1/define/G1"], "text in the id, trimmed, any case"],
+    [{ text: " Repeated-ORDER " }, ["phmpt/s/c1/define/repeated-order"], "text in the id, trimmed, any case"],
     [{ text: "CELL FOR CELL" }, ["phmpt/s/c1/ADXX"], "text in the claim"],
   ];
   for (const [filters, ids, label] of cases)
