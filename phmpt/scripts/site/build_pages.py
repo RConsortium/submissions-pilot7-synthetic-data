@@ -6,7 +6,8 @@
 scripts/site/publish.py runs this and writes docs/phmpt/evidence.json with
 it; run that instead. Generated, never edited by hand (DIR is docs/phmpt/):
 
-    index.md                     key findings, results by study and by cut
+    index.md                     the overview: what was done and found, in charts
+    results.md                   key findings, the analysis set, results by study and by cut
     glossary.md                  the terms the pages use
     findings/index.md            how the reproduction is organised
     findings/<study>.md          one page per study with specs
@@ -31,7 +32,9 @@ from __future__ import annotations
 import argparse
 import csv
 import functools
+import html
 import json
+import re
 from pathlib import Path
 
 import yaml
@@ -861,6 +864,7 @@ def public_profile(docs_dir: Path) -> None:
     define = json.loads((ROOT / "data/reproduction/define.json").read_text())
     module5 = json.loads((ROOT / "data/reproduction/module5.json").read_text())
     pages = {"index.md": index_page(adam, define, module5),
+             "results.md": results_page(adam, define, module5),
              "glossary.md": glossary_page(),
              "findings/index.md": findings_index(adam, define),
              "findings/inputs.md": inputs_page(adam),
@@ -1110,7 +1114,7 @@ def inputs_page(adam: dict) -> str:
     t = scope_totals(scope_items(adam))
     g = "../"
     L = ["# Inputs outside the analysis set", "",
-         f"The [analysis set]({g}index.md#analysis-set) holds the part of the release that has every input its values "
+         f"The [analysis set]({g}results.md#analysis-set) holds the part of the release that has every input its values "
          "are derived from. This page lists what it leaves out and why: datasets built from a domain the release "
          "lacks, columns and rows that read an absent input, columns carried from the submitted dataset, and "
          "submitted cells FDA redacted. It then lists the problems of the submitted files themselves, which stay "
@@ -1422,67 +1426,367 @@ def what_it_shows(adam: dict) -> list[str]:
     return L
 
 
+# ---------------------------------------------------------------- the overview: a story told in charts
+# The charts are plain HTML written here: no script and no chart library. A stacked bar is a flex row whose
+# segments grow with their counts, and the heatmap is a table. docs/stylesheets/phmpt.css colors them in both
+# themes (palette checked for color-vision deficiency and contrast on each surface). Every chart prints its
+# numbers beside the marks, has a legend, and has its full table on results.md.
+
+REPO_ACTIONS = f"{PILOT7}/blob/main/.github/workflows/phmpt-check.yml"
+STATUS = {  # dataset_status -> (css class, legend label)
+    "full": ("phmpt-c-full", "Fully reproduced, every input released"),
+    "partial": ("phmpt-c-partial", "Fully reproduced where its input was released"),
+    "defect": ("phmpt-c-defect", "Differs only where the submitted file is defective"),
+    "open": ("phmpt-c-open", "Still differs, cause to fix"),
+    "not compared": ("phmpt-c-nc", "Not fully compared"),
+    "outside": ("phmpt-c-out", "Outside the analysis set"),
+    "not checked": ("phmpt-c-nc", "Not checked"),
+}
+DD_SHORT = {"dataset": "Dataset in one only", "variable": "Variable in one only", "dataset label": "Dataset label",
+            "label": "Variable label", "type": "Data type"}
+HEAT = ((1, 4, 1), (5, 19, 2), (20, 99, 3), (100, None, 4))  # (from, to, step) for the define-vs-data heatmap
+
+
+def esc(text) -> str:
+    return html.escape(str(text), quote=True)
+
+
+def inline(text: str) -> str:
+    """Escaped text whose `code` spans render as code (defect labels are written that way)."""
+    return re.sub(r"`([^`]+)`", r"<code>\1</code>", esc(text))
+
+
+def dataset_status(key: str, cut: str, r: dict) -> str:
+    """input_scope's status, with a reproduced dataset split by whether the release holds every input."""
+    s = input_scope(key, cut, r)
+    if s["status"] == "reproduced":
+        return "partial" if s["lack_cols"] or s["lack_rows"] else "full"
+    return s["status"]
+
+
+def bar(parts: list[tuple[str, float, str]], label: str, width: float = 1.0) -> str:
+    """One stacked bar: parts are (css class, amount, tooltip); width is the bar's share of its track."""
+    total = sum(n for _, n, _ in parts) or 1
+    segs = "".join(f'<span class="phmpt-seg {cls}" style="flex-grow:{n / total:.6f}" title="{esc(tip)}"></span>'
+                   for cls, n, tip in parts if n)
+    return (f'<span class="phmpt-bar" role="img" aria-label="{esc(label)}" style="width:{100 * width:.2f}%">'
+            f"{segs}</span>")
+
+
+def legend(items: list[tuple[str, str]]) -> str:
+    return ('<div class="phmpt-legend" role="list">'
+            + "".join(f'<span role="listitem"><span class="phmpt-key {cls}"></span>{inline(text)}</span>'
+                      for cls, text in items) + "</div>")
+
+
+def chart_row(label: str, bar_html: str, value: str) -> str:
+    return (f'<div class="phmpt-row"><span class="phmpt-row-label">{label}</span>'
+            f'<span class="phmpt-track">{bar_html}</span><span class="phmpt-row-value">{value}</span></div>')
+
+
+def figure(title: str, body: list[str], note: str = "") -> list[str]:
+    """A chart as one raw HTML block (no blank line inside, so Markdown leaves it alone). Plain elements with
+    roles, not figure and ul: the theme's typeset rules would center and restyle those."""
+    return [f'<div class="phmpt-viz" role="figure" aria-label="{esc(title)}">',
+            f'<p class="phmpt-viz-title">{esc(title)}</p>', *body,
+            *([f'<p class="phmpt-viz-note">{note}</p>'] if note else []), "</div>", ""]
+
+
+def tiles(adam: dict, define: dict) -> list[str]:
+    t = scope_totals(scope_items(adam))
+    d = define_totals([rep for key in adam["studies"] for rep in define["studies"][key].values()])
+    f, _, checked = dd_summary(adam)
+    nds = len({(x["cut"], x["dataset"]) for x in f})
+    left = t["in"] - t["reproduced"]
+    why = [f"{t['defect']} at a defect of the submitted file" if t["defect"] else "",
+           f"{t['open']} with a cause to fix" if t["open"] else "",
+           f"{t['not compared']} not fully compared" if t["not compared"] else ""]
+    cards = [
+        (f"{t['reproduced']}<small> / {t['in']}</small>", "ADaM datasets fully reproduced",
+         f"{pct(t['cells_rep'], t['cells_in'])} of the {millions(t['cells_in'])} cells in the analysis set"),
+        (f"{d['reproduced']:,}<small> / {d['scoped']:,}</small>", "Define-XML elements reproduced",
+         f"{d['unexplained']} unexplained; {d['gap_only']} differ only by a defect of the submitted define"),
+        (f"{left}", f"dataset{'s' if left != 1 else ''} not fully reproduced", "; ".join(w for w in why if w) or "none"),
+        (f"{len(f):,}", "places a sponsor's define and data disagree", f"in {nds} of the {checked} datasets with a define"),
+    ]
+    return (['<div class="phmpt-tiles">']
+            + [f'<div class="phmpt-tile"><p class="phmpt-tile-value">{v}</p><p class="phmpt-tile-label">{esc(lab)}</p>'
+               f'<p class="phmpt-tile-note">{esc(note)}</p></div>' for v, lab, note in cards]
+            + ["</div>", ""])
+
+
+def scope_chart(adam: dict) -> list[str]:
+    """The analysis set at three levels: reproduced, in the set but not reproduced, outside the set."""
+    t = scope_totals(scope_items(adam))
+    levels = [("Datasets", t["datasets"], t["in"], t["reproduced"], str),
+              ("Columns", t["cols"], t["cols_in"], t["cols_rep"], lambda n: f"{n:,}"),
+              ("Cells", t["cells"], t["cells_in"], t["cells_rep"], millions)]
+    rows = []
+    for name, total, inn, rep, fmt in levels:
+        parts = [("phmpt-c-full", rep, f"Fully reproduced: {fmt(rep)}"),
+                 ("phmpt-c-open", inn - rep, f"In the analysis set, not fully reproduced: {fmt(inn - rep)}"),
+                 ("phmpt-c-out", total - inn, f"Outside the analysis set: {fmt(total - inn)}")]
+        label = f"{name}: {fmt(rep)} fully reproduced of {fmt(inn)} in the analysis set; {fmt(total)} released"
+        rows.append(chart_row(name, bar(parts, label),
+                              f"<strong>{fmt(rep)}</strong> of {fmt(inn)}<br><small>in the set; {fmt(total)} released"
+                              "</small>"))
+    return figure("The analysis set and what reproduces in it",
+                  [legend([("phmpt-c-full", "Fully reproduced"), ("phmpt-c-open", "In the set, not fully reproduced"),
+                           ("phmpt-c-out", "Outside the analysis set")]), '<div class="phmpt-rows phmpt-rows--short">',
+                   *rows, "</div>"],
+                  'Full table: <a href="results/#analysis-set">analysis set</a>. What is outside, and why: '
+                  '<a href="findings/inputs/">inputs outside the analysis set</a>.')
+
+
+def steps(adam: dict, module5: dict) -> list[str]:
+    with_progs = sum(1 for k in adam["studies"] if module5["studies"][M5[k]]["files"].get("program"))
+    progs = sum(module5["studies"][M5[k]]["files"].get("program", 0) for k in adam["studies"])
+    items = [
+        ("auto", "Script", "Fetch", "Read the released SDTM, ADaM datasets and Define-XML from the PHMPT zips, "
+         "only the members needed."),
+        ("ai", "AI drafting", "Specify", f"Write a yamaa spec for each ADaM dataset, porting the sponsor's SAS where "
+         f"it was released ({progs} program files in {with_progs} of the {len(adam['studies'])} studies)."),
+        ("engine", "Engine execution", "Execute", "yamaa runs each spec on the submitted SDTM and composes the "
+         "define from the same specs."),
+        ("auto", "Automated check", "Compare", "Cell by cell with the submitted dataset; element by element with the "
+         "received define."),
+        ("human", "Human review", "Decide and review", "Each difference gets a recorded reason and a dated owner "
+         "decision; reviewers assess single findings."),
+    ]
+    return (['<div class="phmpt-steps" role="list" aria-label="How each dataset was reproduced">']
+            + [f'<div class="phmpt-step" role="listitem"><span class="phmpt-role phmpt-role-{k}">{esc(role)}</span>'
+               f"<strong>{i}. {esc(name)}</strong><span>{esc(text)}</span></div>"
+               for i, (k, role, name, text) in enumerate(items, 1)]
+            + ["</div>", ""])
+
+
+def cuts_chart(adam: dict) -> list[str]:
+    order = list(STATUS)
+    present = set()
+    groups = []
+    biggest = max(len(rows) for *_, rows in cut_rows(adam))
+    for key, st in adam["studies"].items():
+        rows = []
+        for cut, rs in st["cuts"].items():
+            n = {k: 0 for k in order}
+            for r in rs:
+                n[dataset_status(key, cut, r)] += 1
+            present |= {k for k, v in n.items() if v}
+            t = scope_totals([(key, cut, r) for r in rs])
+            parts = [(STATUS[k][0], n[k], f"{STATUS[k][1]}: {n[k]}") for k in order if n[k]]
+            label = f"{st['title']} {st['cut_titles'][cut]}: " + ", ".join(f"{n[k]} {STATUS[k][1].lower()}"
+                                                                           for k in order if n[k])
+            value = f"<strong>{t['reproduced']}</strong> / {t['in']}" + (f"<br><small>+{t['out']} outside</small>"
+                                                                        if t["out"] else "")
+            rows.append(chart_row(f'<a href="findings/{PAGES[key]}/#{cut}">{esc(st["cut_titles"][cut])}</a>',
+                                  bar(parts, label, len(rs) / biggest), value))
+        groups += [f'<p class="phmpt-group">{esc(st["title"])} <small>{esc(st["sponsor"])}</small></p>', *rows]
+    return figure("ADaM datasets by cut: fully reproduced of those in the analysis set",
+                  [legend([STATUS[k] for k in order if k in present]), '<div class="phmpt-rows">', *groups, "</div>"],
+                  "Bar length is the number of datasets in the cut. Each cut links to its datasets and the reason "
+                  'recorded for every difference; the numbers are in the <a href="results/#results-by-cut">table by '
+                  "cut</a>.")
+
+
+def define_chart(define: dict) -> list[str]:
+    agg: dict = {}
+    for cuts in define["studies"].values():
+        for rep in cuts.values():
+            nospec = rep.get("no_spec_elements", {})
+            for cls, v in rep["classes"].items():
+                a = agg.setdefault(cls, [0, 0])
+                a[0] += v["submitted"] - nospec.get(cls, 0)
+                a[1] += v["match"]
+    biggest = max(a[0] for a in agg.values())
+    rows = []
+    for cls, (n, same) in sorted(agg.items(), key=lambda kv: -kv[1][0]):
+        other = n - same
+        parts = [("phmpt-c-full", same, f"Byte for byte: {same:,}"),
+                 ("phmpt-c-defect", other, f"Differ only by a defect of the submitted define: {other:,}")]
+        rows.append(chart_row(esc(CLASS_LABELS.get(cls, cls)),
+                              bar(parts, f"{CLASS_LABELS.get(cls, cls)}: {same:,} of {n:,} byte for byte, {other:,} "
+                                  "differ only by a defect of the submitted define", n / biggest),
+                              f"<strong>{n:,}</strong>" + (f"<br><small>{other:,} by a defect</small>" if other else "")))
+    return figure("Received Define-XML elements by class, all reproduced",
+                  [legend([("phmpt-c-full", "Reproduced byte for byte"),
+                           ("phmpt-c-defect", "Reproduced except a defect of the submitted define")]),
+                   '<div class="phmpt-rows">', *rows, "</div>"],
+                  "Bar length is the number of received elements of datasets with a spec, over every define.")
+
+
+def define_data_chart(adam: dict) -> list[str]:
+    cuts = [(key, st, cut) for key, st, cut, _ in cut_rows(adam) if f"{key}/{cut}" in define_data()["cuts"]]
+    counts = {(key, cut): {} for key, _, cut in cuts}
+    for key, _, cut in cuts:
+        for x in dd_findings(key, cut):
+            counts[(key, cut)][x["check"]] = counts[(key, cut)].get(x["check"], 0) + 1
+    checks = [c for c in DD_TEXT if any(c in v for v in counts.values())]
+
+    def cell(n: int) -> str:
+        step = next((h for lo, hi, h in HEAT if n >= lo and (hi is None or n <= hi)), 0)
+        return f'<td class="phmpt-heat-{step}">{n:,}</td>' if n else '<td class="phmpt-heat-0">-</td>'
+
+    head = "".join(f'<th scope="col">{esc(DD_SHORT.get(c, DD_TEXT[c][0]))}</th>' for c in checks)
+    body = []
+    for key, st, cut in cuts:
+        c = counts[(key, cut)]
+        body.append(f'<tr><th scope="row"><a href="findings/define-data/#{key}-{cut}">{esc(st["title"])}</a>'
+                    f'<br><small>{esc(st["cut_titles"][cut])}</small></th>'
+                    + "".join(cell(c.get(k, 0)) for k in checks) + f"<td><strong>{sum(c.values()):,}</strong></td></tr>")
+    steps_legend = [(f"phmpt-heat-{h}", f"{lo} or more" if hi is None else f"{lo} to {hi}") for lo, hi, h in HEAT]
+    return figure("Where the sponsor's define and data disagree: findings by deliverable and check",
+                  [legend(steps_legend), '<div class="phmpt-heatmap">', '<table class="phmpt-heat-table">',
+                   f'<thead><tr><th scope="col">Deliverable</th>{head}<th scope="col">All</th></tr></thead>',
+                   "<tbody>", *body, "</tbody>", "</table>", "</div>"],
+                  'Each deliverable links to its findings. Checks with no finding are left out; '
+                  '<a href="findings/define-data/">define vs data</a> lists them all.')
+
+
+def open_items(adam: dict, define: dict) -> list[str]:
+    info = studies_info()
+    rows = all_rows(adam)
+    link = lambda key, st, cut, r: f"[{st['title']} `{cut}` {r['dataset']}](findings/{PAGES[key]}.md#{cut})"
+    status = {s: [x for x in rows if dataset_status(x[0], x[2], x[3]) == s] for s in ("open", "defect", "not compared")}
+    nospec = [f"{st['title']} `{cut}` {ds}" for key, st in adam["studies"].items()
+              for cut, rep in define["studies"][key].items() for ds in rep.get("datasets_without_spec", [])]
+    data_cuts = [f"{info[k]['title']} `{c}`" for k in adam["studies"] for c in info[k].get("data_cuts", [])]
+    jmp = sum(1 for r in sources() if r["format"] == "jmp")
+    out = []
+    if status["open"]:
+        out.append(f"**{len(status['open'])} datasets still differ** with a diagnosed cause to fix: "
+                   + ", ".join(link(*x) for x in status["open"]) + ".")
+    if status["defect"]:
+        out.append(f"**{len(status['defect'])} datasets differ only where the submitted file is defective**; "
+                   "the spec follows the program: " + ", ".join(link(*x) for x in status["defect"]) + ".")
+    if status["not compared"]:
+        out.append(f"**{len(status['not compared'])} datasets are not fully compared**: "
+                   + ", ".join(link(*x) for x in status["not compared"]) + ".")
+    if nospec:
+        out.append(f"**{len(nospec)} received datasets have no spec yet**: {', '.join(nospec)}.")
+    if data_cuts:
+        out.append(f"**{len(data_cuts)} released folders have SDTM but no ADaM datasets**, so nothing to reproduce: "
+                   f"{', '.join(data_cuts)}.")
+    out.append(f"**{jmp} input files are on PHMPT only as JMP tables**, which the kit cannot fetch; {runner()} says "
+               "how to supply a conversion.")
+    return [f"- {x}" for x in out] + [""]
+
+
 def index_page(adam: dict, define: dict, module5: dict) -> str:
     meta = adam["meta"]
+    t = scope_totals(scope_items(adam))
     n_studies = len(module5["studies"])
+    with_data = sum(1 for s in module5["studies"].values() if s["files"].get("adam"))
+    ncuts = sum(1 for _ in cut_rows(adam))
+    done = lambda key, cut, rs: all(dataset_status(key, cut, r) in ("full", "partial", "outside") for r in rs)
+    complete = [cut for key, st, cut, rs in cut_rows(adam) if done(key, cut, rs)]
+    rest = [(key, st, cut) for key, st, cut, rs in cut_rows(adam) if not done(key, cut, rs)]
+    partial = sum(1 for key, st, cut, r in all_rows(adam) if dataset_status(key, cut, r) == "partial")
+    reps = [rep for key in adam["studies"] for rep in define["studies"][key].values()]
+    d = define_totals(reps)
+    f, art, checked = dd_summary(adam)
+    by = {}
+    for x in f:
+        by[x["check"]] = by.get(x["check"], 0) + 1
+    top = max(by, key=by.get) if by else None
+    defects = ", ".join(f"{d['gaps'][g]:,} {defect_label(g)}" for g in DEFECTS if g in d["gaps"])
     L = ["# PHMPT reproduction with yamaa", "",
-         "FDA released the submitted SDTM, ADaM and Define-XML of four COVID-19 vaccine trials on "
-         "[phmpt.org](https://phmpt.org/) (Module 5, Full Productions). AI agents wrote a "
-         "[yamaa](https://elong0527.github.io/yamaa/) specification for each submitted ADaM dataset, porting the "
-         "sponsor's programs where they were released; yamaa ran each one on the submitted SDTM; and automated "
-         "checks compared the output with the submitted dataset cell by cell, and the define composed from the "
-         "same specifications with the received define element by element. "
-         + "No PHMPT file and no participant-level value is published here: the kit fetches the inputs from "
-         f"PHMPT, so anyone can rerun a result with {runner()}. "
-         + "Every result is a draft pending human review.", "",
+         f"FDA released the submitted SDTM, ADaM and Define-XML of {with_data} COVID-19 vaccine trials on "
+         "[phmpt.org](https://phmpt.org/). AI agents wrote a [yamaa](https://elong0527.github.io/yamaa/) "
+         "specification for each submitted ADaM dataset, yamaa ran it on the submitted SDTM, and scripts compared the "
+         "result with what the sponsor submitted. This page tells what was done and what was found; each chart links "
+         "to the evidence behind it. Every result is a draft pending human review.", "",
+         *tiles(adam, define),
+         f"yamaa `{meta['yamaa_commit']}`, results collected {meta['collected']}. Terms: [glossary](glossary.md).", "",
+         "## What was attempted", "",
+         f"Of the {n_studies} studies FDA released on PHMPT, {with_data} include ADaM datasets: {t['datasets']} datasets "
+         f"in {ncuts} deliverables, each given a yamaa spec. Before any comparison, an "
+         "[analysis set](glossary.md#analysis-set) fixes what the release can support: the datasets, columns and "
+         "cells whose every input was released. Within it, "
+         f"**{t['reproduced']} of {t['in']} datasets, {t['cols_rep']:,} of {t['cols_in']:,} columns and "
+         f"{millions(t['cells_rep'])} of {millions(t['cells_in'])} cells are fully reproduced**.", "",
+         *scope_chart(adam),
+         "## How it was done", "",
+         "Each dataset went through the same five steps. AI agents drafted, yamaa executed, scripts compared, and "
+         "people decided how each difference is reported ([responsibilities](#responsibilities)).", "",
+         *steps(adam, module5),
+         "## ADaM datasets: results by cut", "",
+         f"In {len(complete)} of the {ncuts} cuts every dataset in the analysis set is fully reproduced."
+         + (" The datasets that are not are in " + ", ".join(f"[{st['title']} {st['cut_titles'][cut]}]"
+                                                             f"(findings/{PAGES[k]}.md#{cut})" for k, st, cut in rest)
+            + "." if rest else "")
+         + f" {partial} of the {t['in']} reproduce only where their input was released: a licensed dictionary, a "
+         "sponsor file or values FDA redacted are absent, and those columns are outside the analysis set.", "",
+         *cuts_chart(adam),
+         "## Define-XML", "",
+         f"The defines yamaa composes from the same specs reproduce **all {d['scoped']:,} received elements** of the "
+         f"{len(reps)} defines, {d['identical']:,} of them byte for byte. The other {d['gap_only']} differ only by "
+         "[defects of the submitted define](glossary.md#define-defect), which yamaa does not copy "
+         f"(differences: {defects}). **{d['unexplained']} differences are unexplained.** The define text itself was transcribed "
+         "from the received define, not authored ([what this shows](#what-this-shows-and-what-it-does-not)).", "",
+         *define_chart(define),
+         "## Where the sponsor's own define and data disagree", "",
+         f"Apart from yamaa, each received define was checked against the datasets released with it: "
+         f"**{len(f):,} findings in {len({(x['cut'], x['dataset']) for x in f})} of the {checked} datasets**."
+         + (f" {by[top]:,} of them are {DD_LABEL[top]}." if top else "")
+         + f" {len(art):,} more may come from the release itself (FDA redaction, JMP conversion) and are set apart "
+         "([define vs data](findings/define-data.md)).", "",
+         *define_data_chart(adam),
+         "## Still open", "",
+         *open_items(adam, define),
+         "## Confirm a finding", "",
+         '<div class="grid cards" markdown>', "",
+         "-   **Drill down**", "", "    ---", "",
+         "    Open one finding: its counts, the reason recorded for every difference, the spec, and the PHMPT file "
+         "it was compared with. Submit your assessment on GitHub.", "",
+         "    [Review a finding](review/index.md)", "",
+         "-   **Rerun in CI**", "", "    ---", "",
+         "    Each pull request fetches every received define and the mRNA-1273-P201 and BNT162-01 datasets from "
+         "PHMPT, reruns them, and requires the published result.", "",
+         f"    [`phmpt-check.yml`]({REPO_ACTIONS})", "",
+         "-   **Rerun on your machine**", "", "    ---", "",
+         "    Fetch a study from phmpt.org and rerun it with one script. Its header says what you need.", "",
+         f"    {runner()}", "", "</div>", "",
+         "## Go deeper", "",
+         "- [Results tables](results.md): the analysis set, and results by study and by cut.",
+         "- Results by study, with every dataset and every difference: "
+         + ", ".join(f"[{st['title']}](findings/{PAGES[k]}.md)" for k, st in adam["studies"].items()) + ".",
+         "- [Inputs outside the analysis set](findings/inputs.md): every absent or problem input and what it leaves "
+         "out.",
+         "- [Define-XML against the data](findings/define-data.md): every finding, by check and by deliverable.",
+         f"- [Module 5 coverage](coverage.md): all {n_studies} studies and what PHMPT released for each.",
+         "- [Glossary](glossary.md): cut, layer, exact, missing input, carried column, submitted-define defect and "
+         "the other terms.", ""]
+    L += what_it_shows(adam)
+    L += responsibilities_and_tools(meta)
+    return "\n".join(L)
+
+
+def results_page(adam: dict, define: dict, module5: dict) -> str:
+    """results.md: the overview's numbers as tables."""
+    meta = adam["meta"]
+    L = ["# Results tables", "",
+         f"yamaa `{meta['yamaa_commit']}`, results collected {meta['collected']}. The [overview](index.md) shows "
+         "these results as charts; terms are in the [glossary](glossary.md).", "",
          "## Key findings", "",
-         f"yamaa `{meta['yamaa_commit']}`, results collected {meta['collected']}. Terms are defined in the "
-         "[glossary](glossary.md).", "",
          *key_findings(adam, define, module5), "",
-         "## Start here", "", '<div class="grid cards" markdown>', "",
-         "-   **Results by study**", "", "    ---", "",
-         "    Each cut's datasets and define, and every difference with its recorded reason.", "",
-         "    " + " - ".join(f"[{st['title']}](findings/{PAGES[k]}.md)" for k, st in adam["studies"].items()), ""]
-    L += ["-   **Reproduce from PHMPT**", "", "    ---", "",
-              "    Rerun a study on your machine from phmpt.org with one script. Its header says what "
-              "you need and what to run.", "",
-              f"    {runner()}", "",
-              "-   **Review a finding**", "", "    ---", "",
-              "    Check one finding's evidence and submit your assessment on GitHub.", "",
-              "    [Review a finding](review/index.md)", ""]
-    L += ["-   **Glossary**", "", "    ---", "",
-          "    Cut, layer, exact, missing input, carried column, submitted-define defect and the other terms these "
-          "pages use.",
-          "", "    [Glossary](glossary.md)", "",
-          "-   **Inputs outside the analysis set**", "", "    ---", "",
-          "    Every absent or problem input: what it is, and the datasets, columns and rows it leaves out.", "",
-          "    [Inputs](findings/inputs.md)", "",
-          "-   **Define-XML against the data**", "", "    ---", "",
-          "    Where each received define and its submitted datasets disagree, by check and by deliverable.", "",
-          "    [Define vs data](findings/define-data.md)", "",
-          "-   **Module 5 coverage**", "", "    ---", "",
-          f"    All {n_studies} studies: what PHMPT released for each and what is reproduced.", "",
-          "    [Coverage](coverage.md)", "", "</div>", "",
-          *analysis_set_section(adam, module5),
-          "## Results by study", "",
-          '<div class="pilot-metrics" markdown="1" role="region" aria-label="Results by study" tabindex="0">', "",
-          *studies_table(adam, define, module5), "", "</div>", "",
-          "**Datasets**, **columns** and **cells reproduced** are counted within the [analysis set](#analysis-set): "
-          "those equal to the submitted values under the comparison rules, of those in the set. A dataset counts "
-          "when all of its analysis-set cells do. *Without input* counts the columns outside the set. The two "
-          "define columns cover every dataset of a deliverable with a define. **Define-XML elements reproduced** "
-          "counts the received elements of datasets with a spec that yamaa's composed define reproduces, exactly or "
-          "apart from a [defect of the submitted define](glossary.md#define-defect). **Define vs data findings** counts where the "
-          "sponsor's received define and submitted datasets disagree, release artifacts apart.", "",
-          "## Results by cut", "",
-          '<div class="pilot-metrics" markdown="1" role="region" aria-label="Results by cut" tabindex="0">', ""]
+         *analysis_set_section(adam, module5),
+         "## Results by study", "",
+         '<div class="pilot-metrics" markdown="1" role="region" aria-label="Results by study" tabindex="0">', "",
+         *studies_table(adam, define, module5), "", "</div>", "",
+         "**Datasets**, **columns** and **cells reproduced** are counted within the [analysis set](#analysis-set): "
+         "those equal to the submitted values under the comparison rules, of those in the set. A dataset counts "
+         "when all of its analysis-set cells do. *Without input* counts the columns outside the set. The two "
+         "define columns cover every dataset of a deliverable with a define. **Define-XML elements reproduced** "
+         "counts the received elements of datasets with a spec that yamaa's composed define reproduces, exactly or "
+         "apart from a [defect of the submitted define](glossary.md#define-defect). **Define vs data findings** counts "
+         "where the sponsor's received define and submitted datasets disagree, release artifacts apart.", "",
+         "## Results by cut", "",
+         '<div class="pilot-metrics" markdown="1" role="region" aria-label="Results by cut" tabindex="0">', ""]
     L += metrics_table(adam, define, "findings/")
     L += ["", "</div>", "",
           "The columns mean what they mean in the table by study. A define's elements are its OID-bearing parts: "
           "datasets, variables, methods, comments, codelists, value lists, where clauses, documents and result "
           "displays.", ""]
-    L += what_it_shows(adam)
-    L += responsibilities_and_tools(meta)
     return "\n".join(L)
 
 

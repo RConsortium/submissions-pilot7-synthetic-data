@@ -1,142 +1,171 @@
 # PHMPT reproduction with yamaa
 
-FDA released the submitted SDTM, ADaM and Define-XML of four COVID-19 vaccine trials on [phmpt.org](https://phmpt.org/) (Module 5, Full Productions). AI agents wrote a [yamaa](https://elong0527.github.io/yamaa/) specification for each submitted ADaM dataset, porting the sponsor's programs where they were released; yamaa ran each one on the submitted SDTM; and automated checks compared the output with the submitted dataset cell by cell, and the define composed from the same specifications with the received define element by element. No PHMPT file and no participant-level value is published here: the kit fetches the inputs from PHMPT, so anyone can rerun a result with [`phmpt/reproduce.sh`](https://github.com/RConsortium/submissions-pilot7-synthetic-data/blob/main/phmpt/reproduce.sh). Every result is a draft pending human review.
+FDA released the submitted SDTM, ADaM and Define-XML of 4 COVID-19 vaccine trials on [phmpt.org](https://phmpt.org/). AI agents wrote a [yamaa](https://elong0527.github.io/yamaa/) specification for each submitted ADaM dataset, yamaa ran it on the submitted SDTM, and scripts compared the result with what the sponsor submitted. This page tells what was done and what was found; each chart links to the evidence behind it. Every result is a draft pending human review.
 
-## Key findings
+<div class="phmpt-tiles">
+<div class="phmpt-tile"><p class="phmpt-tile-value">154<small> / 158</small></p><p class="phmpt-tile-label">ADaM datasets fully reproduced</p><p class="phmpt-tile-note">99.9% of the 5,472.17M cells in the analysis set</p></div>
+<div class="phmpt-tile"><p class="phmpt-tile-value">25,210<small> / 25,210</small></p><p class="phmpt-tile-label">Define-XML elements reproduced</p><p class="phmpt-tile-note">0 unexplained; 25 differ only by a defect of the submitted define</p></div>
+<div class="phmpt-tile"><p class="phmpt-tile-value">4</p><p class="phmpt-tile-label">datasets not fully reproduced</p><p class="phmpt-tile-note">2 at a defect of the submitted file; 2 with a cause to fix</p></div>
+<div class="phmpt-tile"><p class="phmpt-tile-value">688</p><p class="phmpt-tile-label">places a sponsor&#x27;s define and data disagree</p><p class="phmpt-tile-note">in 129 of the 159 datasets with a define</p></div>
+</div>
 
-yamaa `ac826f0`, results collected 2026-11-27. Terms are defined in the [glossary](glossary.md).
+yamaa `ac826f0`, results collected 2026-11-27. Terms: [glossary](glossary.md).
 
-- **Analysis set: 158 of 166 ADaM datasets, 16,119 of 17,089 columns and 5,472.17M of 7,350.32M cells**, in the 4 of the 22 PHMPT studies that released ADaM datasets. The analysis set is the part of the release that holds every input its values are derived from; it is fixed from the release, before any comparison ([analysis set](#analysis-set)). What it leaves out is listed with the absent input ([inputs outside the analysis set](findings/inputs.md)).
-- **Fully reproduced: 154 of 158 datasets, 15,978 of 16,119 columns and 5,472.13M of 5,472.17M cells**, equal to the submitted values under the comparison rules (numbers within 1e-10, spaces ignored; BNT162-01 is compared strictly). 117 of these datasets hold every input; the other 37 reproduce every value that has one. Of the rest, 36,847 cells differ.
-- **4 datasets in the analysis set are not counted as fully reproduced:** 2 only where the submitted file is defective ([C4591001 `s1-safety-fa-eff` ADMH](findings/c4591001.md#s1-safety-fa-eff), [C4591001 `s1-ia` ADC19EF](findings/c4591001.md#s1-ia)); 2 with a diagnosed cause still to fix ([C4591001 `s1-supp` ADCEVD](findings/c4591001.md#s1-supp), [C4591001 `s1-supp` ADFACEVD](findings/c4591001.md#s1-supp)).
-- **Define-XML: 25,210 of 25,210 received elements reproduced** in the 13 deliverables with a define, 25,185 of them byte for byte; the other 25 differ only by [defects of the submitted define](glossary.md#define-defect), which yamaa does not copy (differences: 152 repeated codelist `OrderNumber`, 14 nonstandard analysis-results metadata, 8 method OID with a non-breaking space). **0 differences are unexplained.**
-- **Define-XML against the data: 688 findings in 129 of the 159 datasets** in the 13 deliverables with a define, where the sponsor's received define and its submitted datasets disagree: 538 mandatory variables with missing values, 81 key sets that repeat, 40 lengths, 15 variables in only one of the two, 8 variables with values outside their codelist, 6 datasets in only one of the two. 228 more, types and labels in files FDA redacted or released as JMP tables, may come from the release and are set apart ([define vs data](findings/define-data.md)).
-- **Still open:** the 2 datasets that still differ with a cause to fix; 2 released folders with SDTM but no ADaM datasets and no specs (mRNA-1273-P301 `s27`, C4591001 `s9-safety-fa-eff`); 40 input files PHMPT released only as JMP tables, which the kit cannot fetch ([`phmpt/reproduce.sh`](https://github.com/RConsortium/submissions-pilot7-synthetic-data/blob/main/phmpt/reproduce.sh) says how to supply a conversion).
+## What was attempted
 
-## Start here
+Of the 22 studies FDA released on PHMPT, 4 include ADaM datasets: 166 datasets in 15 deliverables, each given a yamaa spec. Before any comparison, an [analysis set](glossary.md#analysis-set) fixes what the release can support: the datasets, columns and cells whose every input was released. Within it, **154 of 158 datasets, 15,978 of 16,119 columns and 5,472.13M of 5,472.17M cells are fully reproduced**.
+
+<div class="phmpt-viz" role="figure" aria-label="The analysis set and what reproduces in it">
+<p class="phmpt-viz-title">The analysis set and what reproduces in it</p>
+<div class="phmpt-legend" role="list"><span role="listitem"><span class="phmpt-key phmpt-c-full"></span>Fully reproduced</span><span role="listitem"><span class="phmpt-key phmpt-c-open"></span>In the set, not fully reproduced</span><span role="listitem"><span class="phmpt-key phmpt-c-out"></span>Outside the analysis set</span></div>
+<div class="phmpt-rows phmpt-rows--short">
+<div class="phmpt-row"><span class="phmpt-row-label">Datasets</span><span class="phmpt-track"><span class="phmpt-bar" role="img" aria-label="Datasets: 154 fully reproduced of 158 in the analysis set; 166 released" style="width:100.00%"><span class="phmpt-seg phmpt-c-full" style="flex-grow:0.927711" title="Fully reproduced: 154"></span><span class="phmpt-seg phmpt-c-open" style="flex-grow:0.024096" title="In the analysis set, not fully reproduced: 4"></span><span class="phmpt-seg phmpt-c-out" style="flex-grow:0.048193" title="Outside the analysis set: 8"></span></span></span><span class="phmpt-row-value"><strong>154</strong> of 158<br><small>in the set; 166 released</small></span></div>
+<div class="phmpt-row"><span class="phmpt-row-label">Columns</span><span class="phmpt-track"><span class="phmpt-bar" role="img" aria-label="Columns: 15,978 fully reproduced of 16,119 in the analysis set; 17,089 released" style="width:100.00%"><span class="phmpt-seg phmpt-c-full" style="flex-grow:0.934987" title="Fully reproduced: 15,978"></span><span class="phmpt-seg phmpt-c-open" style="flex-grow:0.008251" title="In the analysis set, not fully reproduced: 141"></span><span class="phmpt-seg phmpt-c-out" style="flex-grow:0.056762" title="Outside the analysis set: 970"></span></span></span><span class="phmpt-row-value"><strong>15,978</strong> of 16,119<br><small>in the set; 17,089 released</small></span></div>
+<div class="phmpt-row"><span class="phmpt-row-label">Cells</span><span class="phmpt-track"><span class="phmpt-bar" role="img" aria-label="Cells: 5,472.13M fully reproduced of 5,472.17M in the analysis set; 7,350.32M released" style="width:100.00%"><span class="phmpt-seg phmpt-c-full" style="flex-grow:0.744476" title="Fully reproduced: 5,472.13M"></span><span class="phmpt-seg phmpt-c-open" style="flex-grow:0.000005" title="In the analysis set, not fully reproduced: 36,847"></span><span class="phmpt-seg phmpt-c-out" style="flex-grow:0.255519" title="Outside the analysis set: 1,878.15M"></span></span></span><span class="phmpt-row-value"><strong>5,472.13M</strong> of 5,472.17M<br><small>in the set; 7,350.32M released</small></span></div>
+</div>
+<p class="phmpt-viz-note">Full table: <a href="results/#analysis-set">analysis set</a>. What is outside, and why: <a href="findings/inputs/">inputs outside the analysis set</a>.</p>
+</div>
+
+## How it was done
+
+Each dataset went through the same five steps. AI agents drafted, yamaa executed, scripts compared, and people decided how each difference is reported ([responsibilities](#responsibilities)).
+
+<div class="phmpt-steps" role="list" aria-label="How each dataset was reproduced">
+<div class="phmpt-step" role="listitem"><span class="phmpt-role phmpt-role-auto">Script</span><strong>1. Fetch</strong><span>Read the released SDTM, ADaM datasets and Define-XML from the PHMPT zips, only the members needed.</span></div>
+<div class="phmpt-step" role="listitem"><span class="phmpt-role phmpt-role-ai">AI drafting</span><strong>2. Specify</strong><span>Write a yamaa spec for each ADaM dataset, porting the sponsor&#x27;s SAS where it was released (186 program files in 3 of the 4 studies).</span></div>
+<div class="phmpt-step" role="listitem"><span class="phmpt-role phmpt-role-engine">Engine execution</span><strong>3. Execute</strong><span>yamaa runs each spec on the submitted SDTM and composes the define from the same specs.</span></div>
+<div class="phmpt-step" role="listitem"><span class="phmpt-role phmpt-role-auto">Automated check</span><strong>4. Compare</strong><span>Cell by cell with the submitted dataset; element by element with the received define.</span></div>
+<div class="phmpt-step" role="listitem"><span class="phmpt-role phmpt-role-human">Human review</span><strong>5. Decide and review</strong><span>Each difference gets a recorded reason and a dated owner decision; reviewers assess single findings.</span></div>
+</div>
+
+## ADaM datasets: results by cut
+
+In 12 of the 15 cuts every dataset in the analysis set is fully reproduced. The datasets that are not are in [C4591001 Supplementary datasets (BLA 125742 S1 Supp)](findings/c4591001.md#s1-supp), [C4591001 EUA safety and final efficacy (EUA 27034 S1)](findings/c4591001.md#s1-safety-fa-eff), [C4591001 EUA interim efficacy analysis (EUA 27034 S1)](findings/c4591001.md#s1-ia). 37 of the 158 reproduce only where their input was released: a licensed dictionary, a sponsor file or values FDA redacted are absent, and those columns are outside the analysis set.
+
+<div class="phmpt-viz" role="figure" aria-label="ADaM datasets by cut: fully reproduced of those in the analysis set">
+<p class="phmpt-viz-title">ADaM datasets by cut: fully reproduced of those in the analysis set</p>
+<div class="phmpt-legend" role="list"><span role="listitem"><span class="phmpt-key phmpt-c-full"></span>Fully reproduced, every input released</span><span role="listitem"><span class="phmpt-key phmpt-c-partial"></span>Fully reproduced where its input was released</span><span role="listitem"><span class="phmpt-key phmpt-c-defect"></span>Differs only where the submitted file is defective</span><span role="listitem"><span class="phmpt-key phmpt-c-open"></span>Still differs, cause to fix</span><span role="listitem"><span class="phmpt-key phmpt-c-out"></span>Outside the analysis set</span></div>
+<div class="phmpt-rows">
+<p class="phmpt-group">mRNA-1273-P201 <small>Moderna</small></p>
+<div class="phmpt-row"><span class="phmpt-row-label"><a href="findings/mrna-1273-p201/#s3-d57">Day 57 analysis (BLA 125752 S3)</a></span><span class="phmpt-track"><span class="phmpt-bar" role="img" aria-label="mRNA-1273-P201 Day 57 analysis (BLA 125752 S3): 15 fully reproduced, every input released" style="width:60.00%"><span class="phmpt-seg phmpt-c-full" style="flex-grow:1.000000" title="Fully reproduced, every input released: 15"></span></span></span><span class="phmpt-row-value"><strong>15</strong> / 15</span></div>
+<div class="phmpt-row"><span class="phmpt-row-label"><a href="findings/mrna-1273-p201/#s3-add1">Addendum 1 (BLA 125752 S3)</a></span><span class="phmpt-track"><span class="phmpt-bar" role="img" aria-label="mRNA-1273-P201 Addendum 1 (BLA 125752 S3): 13 fully reproduced, every input released, 2 fully reproduced where its input was released" style="width:60.00%"><span class="phmpt-seg phmpt-c-full" style="flex-grow:0.866667" title="Fully reproduced, every input released: 13"></span><span class="phmpt-seg phmpt-c-partial" style="flex-grow:0.133333" title="Fully reproduced where its input was released: 2"></span></span></span><span class="phmpt-row-value"><strong>15</strong> / 15</span></div>
+<p class="phmpt-group">mRNA-1273-P301 <small>Moderna</small></p>
+<div class="phmpt-row"><span class="phmpt-row-label"><a href="findings/mrna-1273-p301/#s3">BLA interim analysis (BLA 125752 S3)</a></span><span class="phmpt-track"><span class="phmpt-bar" role="img" aria-label="mRNA-1273-P301 BLA interim analysis (BLA 125752 S3): 21 fully reproduced, every input released, 4 fully reproduced where its input was released" style="width:100.00%"><span class="phmpt-seg phmpt-c-full" style="flex-grow:0.840000" title="Fully reproduced, every input released: 21"></span><span class="phmpt-seg phmpt-c-partial" style="flex-grow:0.160000" title="Fully reproduced where its input was released: 4"></span></span></span><span class="phmpt-row-value"><strong>25</strong> / 25</span></div>
+<div class="phmpt-row"><span class="phmpt-row-label"><a href="findings/mrna-1273-p301/#s5">Interim analysis IA1b (27073 S5)</a></span><span class="phmpt-track"><span class="phmpt-bar" role="img" aria-label="mRNA-1273-P301 Interim analysis IA1b (27073 S5): 11 fully reproduced, every input released, 4 fully reproduced where its input was released, 4 outside the analysis set" style="width:76.00%"><span class="phmpt-seg phmpt-c-full" style="flex-grow:0.578947" title="Fully reproduced, every input released: 11"></span><span class="phmpt-seg phmpt-c-partial" style="flex-grow:0.210526" title="Fully reproduced where its input was released: 4"></span><span class="phmpt-seg phmpt-c-out" style="flex-grow:0.210526" title="Outside the analysis set: 4"></span></span></span><span class="phmpt-row-value"><strong>15</strong> / 15<br><small>+4 outside</small></span></div>
+<div class="phmpt-row"><span class="phmpt-row-label"><a href="findings/mrna-1273-p301/#s80">Interim analysis IA1a (19745-83 S80)</a></span><span class="phmpt-track"><span class="phmpt-bar" role="img" aria-label="mRNA-1273-P301 Interim analysis IA1a (19745-83 S80): 10 fully reproduced, every input released, 4 fully reproduced where its input was released, 4 outside the analysis set" style="width:72.00%"><span class="phmpt-seg phmpt-c-full" style="flex-grow:0.555556" title="Fully reproduced, every input released: 10"></span><span class="phmpt-seg phmpt-c-partial" style="flex-grow:0.222222" title="Fully reproduced where its input was released: 4"></span><span class="phmpt-seg phmpt-c-out" style="flex-grow:0.222222" title="Outside the analysis set: 4"></span></span></span><span class="phmpt-row-value"><strong>14</strong> / 14<br><small>+4 outside</small></span></div>
+<p class="phmpt-group">BNT162-01 <small>Pfizer/BioNTech</small></p>
+<div class="phmpt-row"><span class="phmpt-row-label"><a href="findings/bnt162-01/#27034">EUA 27034 S1 (Oct 2020)</a></span><span class="phmpt-track"><span class="phmpt-bar" role="img" aria-label="BNT162-01 EUA 27034 S1 (Oct 2020): 7 fully reproduced, every input released" style="width:28.00%"><span class="phmpt-seg phmpt-c-full" style="flex-grow:1.000000" title="Fully reproduced, every input released: 7"></span></span></span><span class="phmpt-row-value"><strong>7</strong> / 7</span></div>
+<div class="phmpt-row"><span class="phmpt-row-label"><a href="findings/bnt162-01/#125742">BLA 125742 S1 (Mar 2021)</a></span><span class="phmpt-track"><span class="phmpt-bar" role="img" aria-label="BNT162-01 BLA 125742 S1 (Mar 2021): 7 fully reproduced, every input released" style="width:28.00%"><span class="phmpt-seg phmpt-c-full" style="flex-grow:1.000000" title="Fully reproduced, every input released: 7"></span></span></span><span class="phmpt-row-value"><strong>7</strong> / 7</span></div>
+<p class="phmpt-group">C4591001 <small>Pfizer/BioNTech</small></p>
+<div class="phmpt-row"><span class="phmpt-row-label"><a href="findings/c4591001/#s1">Safety and efficacy (BLA 125742 S1)</a></span><span class="phmpt-track"><span class="phmpt-bar" role="img" aria-label="C4591001 Safety and efficacy (BLA 125742 S1): 8 fully reproduced, every input released, 3 fully reproduced where its input was released" style="width:44.00%"><span class="phmpt-seg phmpt-c-full" style="flex-grow:0.727273" title="Fully reproduced, every input released: 8"></span><span class="phmpt-seg phmpt-c-partial" style="flex-grow:0.272727" title="Fully reproduced where its input was released: 3"></span></span></span><span class="phmpt-row-value"><strong>11</strong> / 11</span></div>
+<div class="phmpt-row"><span class="phmpt-row-label"><a href="findings/c4591001/#s211-1mth">1-month cut (BLA 125742 S211)</a></span><span class="phmpt-track"><span class="phmpt-bar" role="img" aria-label="C4591001 1-month cut (BLA 125742 S211): 8 fully reproduced, every input released, 3 fully reproduced where its input was released" style="width:44.00%"><span class="phmpt-seg phmpt-c-full" style="flex-grow:0.727273" title="Fully reproduced, every input released: 8"></span><span class="phmpt-seg phmpt-c-partial" style="flex-grow:0.272727" title="Fully reproduced where its input was released: 3"></span></span></span><span class="phmpt-row-value"><strong>11</strong> / 11</span></div>
+<div class="phmpt-row"><span class="phmpt-row-label"><a href="findings/c4591001/#s135">EUA resubmission (EUA 27034 S135)</a></span><span class="phmpt-track"><span class="phmpt-bar" role="img" aria-label="C4591001 EUA resubmission (EUA 27034 S135): 8 fully reproduced, every input released, 3 fully reproduced where its input was released" style="width:44.00%"><span class="phmpt-seg phmpt-c-full" style="flex-grow:0.727273" title="Fully reproduced, every input released: 8"></span><span class="phmpt-seg phmpt-c-partial" style="flex-grow:0.272727" title="Fully reproduced where its input was released: 3"></span></span></span><span class="phmpt-row-value"><strong>11</strong> / 11</span></div>
+<div class="phmpt-row"><span class="phmpt-row-label"><a href="findings/c4591001/#s211-6mth">6-month cut, ages 12-15 (BLA 125742 S211)</a></span><span class="phmpt-track"><span class="phmpt-bar" role="img" aria-label="C4591001 6-month cut, ages 12-15 (BLA 125742 S211): 5 fully reproduced, every input released, 4 fully reproduced where its input was released" style="width:36.00%"><span class="phmpt-seg phmpt-c-full" style="flex-grow:0.555556" title="Fully reproduced, every input released: 5"></span><span class="phmpt-seg phmpt-c-partial" style="flex-grow:0.444444" title="Fully reproduced where its input was released: 4"></span></span></span><span class="phmpt-row-value"><strong>9</strong> / 9</span></div>
+<div class="phmpt-row"><span class="phmpt-row-label"><a href="findings/c4591001/#s1-supp">Supplementary datasets (BLA 125742 S1 Supp)</a></span><span class="phmpt-track"><span class="phmpt-bar" role="img" aria-label="C4591001 Supplementary datasets (BLA 125742 S1 Supp): 1 fully reproduced, every input released, 1 fully reproduced where its input was released, 2 still differs, cause to fix" style="width:16.00%"><span class="phmpt-seg phmpt-c-full" style="flex-grow:0.250000" title="Fully reproduced, every input released: 1"></span><span class="phmpt-seg phmpt-c-partial" style="flex-grow:0.250000" title="Fully reproduced where its input was released: 1"></span><span class="phmpt-seg phmpt-c-open" style="flex-grow:0.500000" title="Still differs, cause to fix: 2"></span></span></span><span class="phmpt-row-value"><strong>2</strong> / 4</span></div>
+<div class="phmpt-row"><span class="phmpt-row-label"><a href="findings/c4591001/#s6">XB datasets (BLA 125742 S6)</a></span><span class="phmpt-track"><span class="phmpt-bar" role="img" aria-label="C4591001 XB datasets (BLA 125742 S6): 2 fully reproduced where its input was released" style="width:8.00%"><span class="phmpt-seg phmpt-c-partial" style="flex-grow:1.000000" title="Fully reproduced where its input was released: 2"></span></span></span><span class="phmpt-row-value"><strong>2</strong> / 2</span></div>
+<div class="phmpt-row"><span class="phmpt-row-label"><a href="findings/c4591001/#s1-safety-fa-eff">EUA safety and final efficacy (EUA 27034 S1)</a></span><span class="phmpt-track"><span class="phmpt-bar" role="img" aria-label="C4591001 EUA safety and final efficacy (EUA 27034 S1): 2 fully reproduced, every input released, 6 fully reproduced where its input was released, 1 differs only where the submitted file is defective" style="width:36.00%"><span class="phmpt-seg phmpt-c-full" style="flex-grow:0.222222" title="Fully reproduced, every input released: 2"></span><span class="phmpt-seg phmpt-c-partial" style="flex-grow:0.666667" title="Fully reproduced where its input was released: 6"></span><span class="phmpt-seg phmpt-c-defect" style="flex-grow:0.111111" title="Differs only where the submitted file is defective: 1"></span></span></span><span class="phmpt-row-value"><strong>8</strong> / 9</span></div>
+<div class="phmpt-row"><span class="phmpt-row-label"><a href="findings/c4591001/#s1-ia">EUA interim efficacy analysis (EUA 27034 S1)</a></span><span class="phmpt-track"><span class="phmpt-bar" role="img" aria-label="C4591001 EUA interim efficacy analysis (EUA 27034 S1): 1 fully reproduced, every input released, 1 fully reproduced where its input was released, 1 differs only where the submitted file is defective" style="width:12.00%"><span class="phmpt-seg phmpt-c-full" style="flex-grow:0.333333" title="Fully reproduced, every input released: 1"></span><span class="phmpt-seg phmpt-c-partial" style="flex-grow:0.333333" title="Fully reproduced where its input was released: 1"></span><span class="phmpt-seg phmpt-c-defect" style="flex-grow:0.333333" title="Differs only where the submitted file is defective: 1"></span></span></span><span class="phmpt-row-value"><strong>2</strong> / 3</span></div>
+</div>
+<p class="phmpt-viz-note">Bar length is the number of datasets in the cut. Each cut links to its datasets and the reason recorded for every difference; the numbers are in the <a href="results/#results-by-cut">table by cut</a>.</p>
+</div>
+
+## Define-XML
+
+The defines yamaa composes from the same specs reproduce **all 25,210 received elements** of the 13 defines, 25,185 of them byte for byte. The other 25 differ only by [defects of the submitted define](glossary.md#define-defect), which yamaa does not copy (differences: 152 repeated codelist `OrderNumber`, 14 nonstandard analysis-results metadata, 8 method OID with a non-breaking space). **0 differences are unexplained.** The define text itself was transcribed from the received define, not authored ([what this shows](#what-this-shows-and-what-it-does-not)).
+
+<div class="phmpt-viz" role="figure" aria-label="Received Define-XML elements by class, all reproduced">
+<p class="phmpt-viz-title">Received Define-XML elements by class, all reproduced</p>
+<div class="phmpt-legend" role="list"><span role="listitem"><span class="phmpt-key phmpt-c-full"></span>Reproduced byte for byte</span><span role="listitem"><span class="phmpt-key phmpt-c-defect"></span>Reproduced except a defect of the submitted define</span></div>
+<div class="phmpt-rows">
+<div class="phmpt-row"><span class="phmpt-row-label">Variables (ItemDef)</span><span class="phmpt-track"><span class="phmpt-bar" role="img" aria-label="Variables (ItemDef): 17,241 of 17,241 byte for byte, 0 differ only by a defect of the submitted define" style="width:100.00%"><span class="phmpt-seg phmpt-c-full" style="flex-grow:1.000000" title="Byte for byte: 17,241"></span></span></span><span class="phmpt-row-value"><strong>17,241</strong></span></div>
+<div class="phmpt-row"><span class="phmpt-row-label">Methods (MethodDef)</span><span class="phmpt-track"><span class="phmpt-bar" role="img" aria-label="Methods (MethodDef): 4,538 of 4,542 byte for byte, 4 differ only by a defect of the submitted define" style="width:26.34%"><span class="phmpt-seg phmpt-c-full" style="flex-grow:0.999119" title="Byte for byte: 4,538"></span><span class="phmpt-seg phmpt-c-defect" style="flex-grow:0.000881" title="Differ only by a defect of the submitted define: 4"></span></span></span><span class="phmpt-row-value"><strong>4,542</strong><br><small>4 by a defect</small></span></div>
+<div class="phmpt-row"><span class="phmpt-row-label">Where clauses (WhereClauseDef)</span><span class="phmpt-track"><span class="phmpt-bar" role="img" aria-label="Where clauses (WhereClauseDef): 1,249 of 1,249 byte for byte, 0 differ only by a defect of the submitted define" style="width:7.24%"><span class="phmpt-seg phmpt-c-full" style="flex-grow:1.000000" title="Byte for byte: 1,249"></span></span></span><span class="phmpt-row-value"><strong>1,249</strong></span></div>
+<div class="phmpt-row"><span class="phmpt-row-label">Codelists (CodeList)</span><span class="phmpt-track"><span class="phmpt-bar" role="img" aria-label="Codelists (CodeList): 1,222 of 1,232 byte for byte, 10 differ only by a defect of the submitted define" style="width:7.15%"><span class="phmpt-seg phmpt-c-full" style="flex-grow:0.991883" title="Byte for byte: 1,222"></span><span class="phmpt-seg phmpt-c-defect" style="flex-grow:0.008117" title="Differ only by a defect of the submitted define: 10"></span></span></span><span class="phmpt-row-value"><strong>1,232</strong><br><small>10 by a defect</small></span></div>
+<div class="phmpt-row"><span class="phmpt-row-label">Comments (CommentDef)</span><span class="phmpt-track"><span class="phmpt-bar" role="img" aria-label="Comments (CommentDef): 481 of 481 byte for byte, 0 differ only by a defect of the submitted define" style="width:2.79%"><span class="phmpt-seg phmpt-c-full" style="flex-grow:1.000000" title="Byte for byte: 481"></span></span></span><span class="phmpt-row-value"><strong>481</strong></span></div>
+<div class="phmpt-row"><span class="phmpt-row-label">Value lists (ValueListDef)</span><span class="phmpt-track"><span class="phmpt-bar" role="img" aria-label="Value lists (ValueListDef): 160 of 160 byte for byte, 0 differ only by a defect of the submitted define" style="width:0.93%"><span class="phmpt-seg phmpt-c-full" style="flex-grow:1.000000" title="Byte for byte: 160"></span></span></span><span class="phmpt-row-value"><strong>160</strong></span></div>
+<div class="phmpt-row"><span class="phmpt-row-label">Datasets (ItemGroupDef)</span><span class="phmpt-track"><span class="phmpt-bar" role="img" aria-label="Datasets (ItemGroupDef): 149 of 153 byte for byte, 4 differ only by a defect of the submitted define" style="width:0.89%"><span class="phmpt-seg phmpt-c-full" style="flex-grow:0.973856" title="Byte for byte: 149"></span><span class="phmpt-seg phmpt-c-defect" style="flex-grow:0.026144" title="Differ only by a defect of the submitted define: 4"></span></span></span><span class="phmpt-row-value"><strong>153</strong><br><small>4 by a defect</small></span></div>
+<div class="phmpt-row"><span class="phmpt-row-label">Documents (leaf)</span><span class="phmpt-track"><span class="phmpt-bar" role="img" aria-label="Documents (leaf): 132 of 132 byte for byte, 0 differ only by a defect of the submitted define" style="width:0.77%"><span class="phmpt-seg phmpt-c-full" style="flex-grow:1.000000" title="Byte for byte: 132"></span></span></span><span class="phmpt-row-value"><strong>132</strong></span></div>
+<div class="phmpt-row"><span class="phmpt-row-label">Supplemental documents</span><span class="phmpt-track"><span class="phmpt-bar" role="img" aria-label="Supplemental documents: 13 of 13 byte for byte, 0 differ only by a defect of the submitted define" style="width:0.08%"><span class="phmpt-seg phmpt-c-full" style="flex-grow:1.000000" title="Byte for byte: 13"></span></span></span><span class="phmpt-row-value"><strong>13</strong></span></div>
+<div class="phmpt-row"><span class="phmpt-row-label">Result displays (ARM)</span><span class="phmpt-track"><span class="phmpt-bar" role="img" aria-label="Result displays (ARM): 0 of 7 byte for byte, 7 differ only by a defect of the submitted define" style="width:0.04%"><span class="phmpt-seg phmpt-c-defect" style="flex-grow:1.000000" title="Differ only by a defect of the submitted define: 7"></span></span></span><span class="phmpt-row-value"><strong>7</strong><br><small>7 by a defect</small></span></div>
+</div>
+<p class="phmpt-viz-note">Bar length is the number of received elements of datasets with a spec, over every define.</p>
+</div>
+
+## Where the sponsor's own define and data disagree
+
+Apart from yamaa, each received define was checked against the datasets released with it: **688 findings in 129 of the 159 datasets**. 538 of them are mandatory variables with missing values. 228 more may come from the release itself (FDA redaction, JMP conversion) and are set apart ([define vs data](findings/define-data.md)).
+
+<div class="phmpt-viz" role="figure" aria-label="Where the sponsor&#x27;s define and data disagree: findings by deliverable and check">
+<p class="phmpt-viz-title">Where the sponsor&#x27;s define and data disagree: findings by deliverable and check</p>
+<div class="phmpt-legend" role="list"><span role="listitem"><span class="phmpt-key phmpt-heat-1"></span>1 to 4</span><span role="listitem"><span class="phmpt-key phmpt-heat-2"></span>5 to 19</span><span role="listitem"><span class="phmpt-key phmpt-heat-3"></span>20 to 99</span><span role="listitem"><span class="phmpt-key phmpt-heat-4"></span>100 or more</span></div>
+<div class="phmpt-heatmap">
+<table class="phmpt-heat-table">
+<thead><tr><th scope="col">Deliverable</th><th scope="col">Dataset in one only</th><th scope="col">Variable in one only</th><th scope="col">Length</th><th scope="col">Codelist</th><th scope="col">Mandatory</th><th scope="col">Keys</th><th scope="col">All</th></tr></thead>
+<tbody>
+<tr><th scope="row"><a href="findings/define-data/#mrna-1273-p201-s3-d57">mRNA-1273-P201</a><br><small>Day 57 analysis (BLA 125752 S3)</small></th><td class="phmpt-heat-0">-</td><td class="phmpt-heat-1">1</td><td class="phmpt-heat-2">14</td><td class="phmpt-heat-0">-</td><td class="phmpt-heat-3">30</td><td class="phmpt-heat-2">9</td><td><strong>54</strong></td></tr>
+<tr><th scope="row"><a href="findings/define-data/#mrna-1273-p201-s3-add1">mRNA-1273-P201</a><br><small>Addendum 1 (BLA 125752 S3)</small></th><td class="phmpt-heat-0">-</td><td class="phmpt-heat-0">-</td><td class="phmpt-heat-3">20</td><td class="phmpt-heat-0">-</td><td class="phmpt-heat-3">36</td><td class="phmpt-heat-2">10</td><td><strong>66</strong></td></tr>
+<tr><th scope="row"><a href="findings/define-data/#mrna-1273-p301-s3">mRNA-1273-P301</a><br><small>BLA interim analysis (BLA 125752 S3)</small></th><td class="phmpt-heat-1">2</td><td class="phmpt-heat-1">1</td><td class="phmpt-heat-2">5</td><td class="phmpt-heat-0">-</td><td class="phmpt-heat-4">333</td><td class="phmpt-heat-2">8</td><td><strong>349</strong></td></tr>
+<tr><th scope="row"><a href="findings/define-data/#mrna-1273-p301-s5">mRNA-1273-P301</a><br><small>Interim analysis IA1b (27073 S5)</small></th><td class="phmpt-heat-1">2</td><td class="phmpt-heat-1">4</td><td class="phmpt-heat-0">-</td><td class="phmpt-heat-0">-</td><td class="phmpt-heat-3">69</td><td class="phmpt-heat-2">5</td><td><strong>80</strong></td></tr>
+<tr><th scope="row"><a href="findings/define-data/#mrna-1273-p301-s80">mRNA-1273-P301</a><br><small>Interim analysis IA1a (19745-83 S80)</small></th><td class="phmpt-heat-1">2</td><td class="phmpt-heat-1">1</td><td class="phmpt-heat-0">-</td><td class="phmpt-heat-2">7</td><td class="phmpt-heat-3">58</td><td class="phmpt-heat-2">5</td><td><strong>73</strong></td></tr>
+<tr><th scope="row"><a href="findings/define-data/#bnt162-01-27034">BNT162-01</a><br><small>EUA 27034 S1 (Oct 2020)</small></th><td class="phmpt-heat-0">-</td><td class="phmpt-heat-0">-</td><td class="phmpt-heat-0">-</td><td class="phmpt-heat-0">-</td><td class="phmpt-heat-1">2</td><td class="phmpt-heat-0">-</td><td><strong>2</strong></td></tr>
+<tr><th scope="row"><a href="findings/define-data/#bnt162-01-125742">BNT162-01</a><br><small>BLA 125742 S1 (Mar 2021)</small></th><td class="phmpt-heat-0">-</td><td class="phmpt-heat-0">-</td><td class="phmpt-heat-0">-</td><td class="phmpt-heat-0">-</td><td class="phmpt-heat-0">-</td><td class="phmpt-heat-0">-</td><td><strong>0</strong></td></tr>
+<tr><th scope="row"><a href="findings/define-data/#c4591001-s1">C4591001</a><br><small>Safety and efficacy (BLA 125742 S1)</small></th><td class="phmpt-heat-0">-</td><td class="phmpt-heat-1">4</td><td class="phmpt-heat-0">-</td><td class="phmpt-heat-0">-</td><td class="phmpt-heat-1">2</td><td class="phmpt-heat-2">10</td><td><strong>16</strong></td></tr>
+<tr><th scope="row"><a href="findings/define-data/#c4591001-s211-1mth">C4591001</a><br><small>1-month cut (BLA 125742 S211)</small></th><td class="phmpt-heat-0">-</td><td class="phmpt-heat-0">-</td><td class="phmpt-heat-0">-</td><td class="phmpt-heat-0">-</td><td class="phmpt-heat-1">2</td><td class="phmpt-heat-2">10</td><td><strong>12</strong></td></tr>
+<tr><th scope="row"><a href="findings/define-data/#c4591001-s135">C4591001</a><br><small>EUA resubmission (EUA 27034 S135)</small></th><td class="phmpt-heat-0">-</td><td class="phmpt-heat-1">2</td><td class="phmpt-heat-0">-</td><td class="phmpt-heat-0">-</td><td class="phmpt-heat-1">2</td><td class="phmpt-heat-2">10</td><td><strong>14</strong></td></tr>
+<tr><th scope="row"><a href="findings/define-data/#c4591001-s211-6mth">C4591001</a><br><small>6-month cut, ages 12-15 (BLA 125742 S211)</small></th><td class="phmpt-heat-0">-</td><td class="phmpt-heat-0">-</td><td class="phmpt-heat-1">1</td><td class="phmpt-heat-0">-</td><td class="phmpt-heat-1">1</td><td class="phmpt-heat-2">7</td><td><strong>9</strong></td></tr>
+<tr><th scope="row"><a href="findings/define-data/#c4591001-s6">C4591001</a><br><small>XB datasets (BLA 125742 S6)</small></th><td class="phmpt-heat-0">-</td><td class="phmpt-heat-0">-</td><td class="phmpt-heat-0">-</td><td class="phmpt-heat-0">-</td><td class="phmpt-heat-1">1</td><td class="phmpt-heat-0">-</td><td><strong>1</strong></td></tr>
+<tr><th scope="row"><a href="findings/define-data/#c4591001-s1-safety-fa-eff">C4591001</a><br><small>EUA safety and final efficacy (EUA 27034 S1)</small></th><td class="phmpt-heat-0">-</td><td class="phmpt-heat-1">2</td><td class="phmpt-heat-0">-</td><td class="phmpt-heat-1">1</td><td class="phmpt-heat-1">2</td><td class="phmpt-heat-2">7</td><td><strong>12</strong></td></tr>
+</tbody>
+</table>
+</div>
+<p class="phmpt-viz-note">Each deliverable links to its findings. Checks with no finding are left out; <a href="findings/define-data/">define vs data</a> lists them all.</p>
+</div>
+
+## Still open
+
+- **2 datasets still differ** with a diagnosed cause to fix: [C4591001 `s1-supp` ADCEVD](findings/c4591001.md#s1-supp), [C4591001 `s1-supp` ADFACEVD](findings/c4591001.md#s1-supp).
+- **2 datasets differ only where the submitted file is defective**; the spec follows the program: [C4591001 `s1-safety-fa-eff` ADMH](findings/c4591001.md#s1-safety-fa-eff), [C4591001 `s1-ia` ADC19EF](findings/c4591001.md#s1-ia).
+- **2 released folders have SDTM but no ADaM datasets**, so nothing to reproduce: mRNA-1273-P301 `s27`, C4591001 `s9-safety-fa-eff`.
+- **40 input files are on PHMPT only as JMP tables**, which the kit cannot fetch; [`phmpt/reproduce.sh`](https://github.com/RConsortium/submissions-pilot7-synthetic-data/blob/main/phmpt/reproduce.sh) says how to supply a conversion.
+
+## Confirm a finding
 
 <div class="grid cards" markdown>
 
--   **Results by study**
+-   **Drill down**
 
     ---
 
-    Each cut's datasets and define, and every difference with its recorded reason.
-
-    [mRNA-1273-P201](findings/mrna-1273-p201.md) - [mRNA-1273-P301](findings/mrna-1273-p301.md) - [BNT162-01](findings/bnt162-01.md) - [C4591001](findings/c4591001.md)
-
--   **Reproduce from PHMPT**
-
-    ---
-
-    Rerun a study on your machine from phmpt.org with one script. Its header says what you need and what to run.
-
-    [`phmpt/reproduce.sh`](https://github.com/RConsortium/submissions-pilot7-synthetic-data/blob/main/phmpt/reproduce.sh)
-
--   **Review a finding**
-
-    ---
-
-    Check one finding's evidence and submit your assessment on GitHub.
+    Open one finding: its counts, the reason recorded for every difference, the spec, and the PHMPT file it was compared with. Submit your assessment on GitHub.
 
     [Review a finding](review/index.md)
 
--   **Glossary**
+-   **Rerun in CI**
 
     ---
 
-    Cut, layer, exact, missing input, carried column, submitted-define defect and the other terms these pages use.
+    Each pull request fetches every received define and the mRNA-1273-P201 and BNT162-01 datasets from PHMPT, reruns them, and requires the published result.
 
-    [Glossary](glossary.md)
+    [`phmpt-check.yml`](https://github.com/RConsortium/submissions-pilot7-synthetic-data/blob/main/.github/workflows/phmpt-check.yml)
 
--   **Inputs outside the analysis set**
-
-    ---
-
-    Every absent or problem input: what it is, and the datasets, columns and rows it leaves out.
-
-    [Inputs](findings/inputs.md)
-
--   **Define-XML against the data**
+-   **Rerun on your machine**
 
     ---
 
-    Where each received define and its submitted datasets disagree, by check and by deliverable.
+    Fetch a study from phmpt.org and rerun it with one script. Its header says what you need.
 
-    [Define vs data](findings/define-data.md)
-
--   **Module 5 coverage**
-
-    ---
-
-    All 22 studies: what PHMPT released for each and what is reproduced.
-
-    [Coverage](coverage.md)
+    [`phmpt/reproduce.sh`](https://github.com/RConsortium/submissions-pilot7-synthetic-data/blob/main/phmpt/reproduce.sh)
 
 </div>
 
-## Analysis set
+## Go deeper
 
-Results are counted on an analysis set fixed from the release before any comparison: a value is in it when the release holds every input the value is derived from and a submitted value to compare it with. Whether a value reproduces plays no part. Everything outside the set is listed with its absent input on [Inputs outside the analysis set](findings/inputs.md).
-
-<div class="pilot-metrics" markdown="1" role="region" aria-label="Analysis set" tabindex="0">
-
-| Level | Released | Outside the analysis set | Analysis set | Fully reproduced |
-| --- | --- | --- | --- | --- |
-| Studies | 22 on PHMPT | 18 released documents only, no ADaM datasets ([coverage](coverage.md)) | **4**, 3 of them with the sponsor's ADaM programs | - |
-| ADaM datasets | 166 in 15 deliverables, all with a spec | 8 built from a domain the release lacks (mRNA-1273-P301 S5 and S80: ADAR, ADAR1, ADAR2, ADARP7D) | **158** (95.2%) | **154** (97.5%) |
-| Columns | 17,089 | 970: 720 in those 8 datasets, 219 that read an absent input, 31 carried from the submitted dataset | **16,119** (94.3%) | **15,978** (99.1%) |
-| Cells | 7,350.32M | 1,878.15M: 1,846.69M in those 8 datasets, 31.45M in columns and rows without input, 3,298 submitted cells FDA redacted to `(b)(6)` | **5,472.17M** (74.4%) | **5,472.13M** (99.9%) |
-
-</div>
-
-- **Studies.** Only 4 of the 22 studies released ADaM datasets in Module 5. BNT162-01 released datasets and defines but no programs; its specs follow the define and the data. The others released documents only.
-- **Datasets.** Every released ADaM dataset has a spec. A dataset is outside when the release lacks the domain its rows are built from. For mRNA-1273-P301 S5 and S80 it is this cut's FACE (the release has SUPPFACE but no FACE). The spec reads another release's snapshot instead; the study page reports that result, but it is not counted here.
-- **Columns.** A column is outside when its derivation reads an input the release does not hold: a licensed dictionary or a sponsor file that was not submitted, SDTM values FDA redacted, or records the released SDTM does not carry. Each absent input is recorded, with the owner's decision, in `data/differences.yaml`. The 31 carried columns are copied from the submitted dataset because their input is absent.
-- **Rows and cells.** Where an absent input decides whether a row exists (the WHODRUG ATC expansion of C4591001 ADCM, records the released EUA SDTM lacks), the submitted rows with no derived counterpart are outside: 38,049 rows. The cells are those of the analysis-set columns on the analysis-set rows, less the submitted cells FDA redacted, which have no value to compare with.
-- **Fully reproduced** means equal to the submitted value under the study's comparison rules, as the comparison recorded it. A column counts when all of its analysis-set cells do, so a submitted row yamaa does not write counts against every column. A dataset counts when all of its analysis-set cells do and yamaa writes no row the submitted dataset lacks, apart from rows an absent input explains. Only what the comparison accounted for counts: where the column sets differ, `scripts/verify_compare.py` compares the columns both datasets have, and a comparison on keys records the rows on one side only. 117 of the 154 hold every input. Of the other 4, 2 differ only where the submitted file is defective and 2 still differ ([key findings](#key-findings)).
-
-## Results by study
-
-<div class="pilot-metrics" markdown="1" role="region" aria-label="Results by study" tabindex="0">
-
-| Study | Sponsor | Program files released | Deliverables | Datasets reproduced | Columns reproduced | Cells reproduced | Define-XML elements reproduced | Define vs data findings |
-| --- | --- | ---: | ---: | --- | --- | --- | --- | --- |
-| [mRNA-1273-P201](findings/mrna-1273-p201.md) | Moderna | 61 | 2 | **30 / 30** (100%) | **2,569 / 2,569** (100%)<br>31 without input | **55.98M / 55.98M** (100%) | **4,091 / 4,091** (100%), 0 unexplained<br>submitted-define defects: repeated codelist `OrderNumber` (48), nonstandard analysis-results metadata (6) | [120 in 26 datasets](findings/define-data.md) |
-| [mRNA-1273-P301](findings/mrna-1273-p301.md) | Moderna | 100 | 3 | **54 / 54** (100%)<br>8 outside the analysis set | **5,306 / 5,306** (100%)<br>781 without input | **2,890.04M / 2,890.04M** (100%) | **7,671 / 7,671** (100%), 0 unexplained<br>submitted-define defects: repeated codelist `OrderNumber` (86), nonstandard analysis-results metadata (8) | [502 in 53 datasets](findings/define-data.md) |
-| [BNT162-01](findings/bnt162-01.md) | Pfizer/BioNTech | none | 2 | **14 / 14** (100%) | **1,448 / 1,448** (100%) | **24.87M / 24.87M** (100%) | **2,846 / 2,846** (100%), 0 unexplained<br>submitted-define defects: repeated codelist `OrderNumber` (18) | [2 in 1 dataset](findings/define-data.md) |
-| [C4591001](findings/c4591001.md) | Pfizer/BioNTech | 25 | 8 | **56 / 60** (93.3%)<br>2 match except a submitted-file defect<br>2 still differ | **6,655 / 6,796** (97.9%)<br>158 without input | **2,501.25M / 2,501.28M** (99.9%)<br>36,847 differ | **10,602 / 10,602** (100%), 0 unexplained<br>submitted-define defects: method OID with a non-breaking space (8) | [64 in 49 datasets](findings/define-data.md) |
-| **All** | | 186 | 15 | **154 / 158** (97.5%)<br>2 match except a submitted-file defect<br>2 still differ<br>8 outside the analysis set | **15,978 / 16,119** (99.1%)<br>970 without input | **5,472.13M / 5,472.17M** (99.9%)<br>36,847 differ | **25,210 / 25,210** (100%), 0 unexplained<br>submitted-define defects: repeated codelist `OrderNumber` (152), nonstandard analysis-results metadata (14), method OID with a non-breaking space (8) | [688 in 129 datasets](findings/define-data.md) |
-
-</div>
-
-**Datasets**, **columns** and **cells reproduced** are counted within the [analysis set](#analysis-set): those equal to the submitted values under the comparison rules, of those in the set. A dataset counts when all of its analysis-set cells do. *Without input* counts the columns outside the set. The two define columns cover every dataset of a deliverable with a define. **Define-XML elements reproduced** counts the received elements of datasets with a spec that yamaa's composed define reproduces, exactly or apart from a [defect of the submitted define](glossary.md#define-defect). **Define vs data findings** counts where the sponsor's received define and submitted datasets disagree, release artifacts apart.
-
-## Results by cut
-
-<div class="pilot-metrics" markdown="1" role="region" aria-label="Results by cut" tabindex="0">
-
-| Study and cut | Datasets reproduced | Columns reproduced | Cells reproduced | Define-XML elements reproduced | Define vs data findings |
-| --- | --- | --- | --- | --- | --- |
-| [mRNA-1273-P201 Day 57 analysis (BLA 125752 S3)](findings/mrna-1273-p201.md#s3-d57) | **15 / 15** (100%) | **1,242 / 1,242** (100%) | **26.33M / 26.33M** (100%) | **1,940 / 1,940** (100%), 0 unexplained<br>submitted-define defects: repeated codelist `OrderNumber` (24), nonstandard analysis-results metadata (3) | [54 in 12 datasets](findings/define-data.md#mrna-1273-p201-s3-d57) |
-| [mRNA-1273-P201 Addendum 1 (BLA 125752 S3)](findings/mrna-1273-p201.md#s3-add1) | **15 / 15** (100%) | **1,327 / 1,327** (100%)<br>31 without input | **29.65M / 29.65M** (100%) | **2,151 / 2,151** (100%), 0 unexplained<br>submitted-define defects: repeated codelist `OrderNumber` (24), nonstandard analysis-results metadata (3) | [66 in 14 datasets](findings/define-data.md#mrna-1273-p201-s3-add1) |
-| [mRNA-1273-P301 BLA interim analysis (BLA 125752 S3)](findings/mrna-1273-p301.md#s3) | **25 / 25** (100%) | **2,882 / 2,882** (100%)<br>35 without input | **2,209.75M / 2,209.75M** (100%) | **3,620 / 3,620** (100%), 0 unexplained<br>submitted-define defects: repeated codelist `OrderNumber` (50), nonstandard analysis-results metadata (8) | [349 in 25 datasets](findings/define-data.md#mrna-1273-p301-s3) |
-| [mRNA-1273-P301 Interim analysis IA1b (27073 S5)](findings/mrna-1273-p301.md#s5) | **15 / 15** (100%)<br>4 outside the analysis set | **1,289 / 1,289** (100%)<br>374 without input | **351.38M / 351.38M** (100%) | **2,111 / 2,111** (100%), 0 unexplained<br>submitted-define defects: repeated codelist `OrderNumber` (36) | [80 in 14 datasets](findings/define-data.md#mrna-1273-p301-s5) |
-| [mRNA-1273-P301 Interim analysis IA1a (19745-83 S80)](findings/mrna-1273-p301.md#s80) | **14 / 14** (100%)<br>4 outside the analysis set | **1,135 / 1,135** (100%)<br>372 without input | **328.91M / 328.91M** (100%) | **1,940 / 1,940** (100%), 0 unexplained | [73 in 14 datasets](findings/define-data.md#mrna-1273-p301-s80) |
-| [BNT162-01 EUA 27034 S1 (Oct 2020)](findings/bnt162-01.md#27034) | **7 / 7** (100%) | **708 / 708** (100%) | **9.12M / 9.12M** (100%) | **1,405 / 1,405** (100%), 0 unexplained<br>submitted-define defects: repeated codelist `OrderNumber` (10) | [2 in 1 dataset](findings/define-data.md#bnt162-01-27034) |
-| [BNT162-01 BLA 125742 S1 (Mar 2021)](findings/bnt162-01.md#125742) | **7 / 7** (100%) | **740 / 740** (100%) | **15.75M / 15.75M** (100%) | **1,441 / 1,441** (100%), 0 unexplained<br>submitted-define defects: repeated codelist `OrderNumber` (8) | 0 |
-| [C4591001 Safety and efficacy (BLA 125742 S1)](findings/c4591001.md#s1) | **11 / 11** (100%) | **1,285 / 1,285** (100%)<br>26 without input | **584.29M / 584.29M** (100%) | **2,310 / 2,310** (100%), 0 unexplained<br>submitted-define defects: method OID with a non-breaking space (2) | [16 in 11 datasets](findings/define-data.md#c4591001-s1) |
-| [C4591001 1-month cut (BLA 125742 S211)](findings/c4591001.md#s211-1mth) | **11 / 11** (100%) | **1,285 / 1,285** (100%)<br>26 without input | **584.44M / 584.44M** (100%) | **2,259 / 2,259** (100%), 0 unexplained<br>submitted-define defects: method OID with a non-breaking space (2) | [12 in 11 datasets](findings/define-data.md#c4591001-s211-1mth) |
-| [C4591001 EUA resubmission (EUA 27034 S135)](findings/c4591001.md#s135) | **11 / 11** (100%) | **1,280 / 1,280** (100%)<br>29 without input | **583.75M / 583.75M** (100%) | **2,259 / 2,259** (100%), 0 unexplained<br>submitted-define defects: method OID with a non-breaking space (2) | [14 in 11 datasets](findings/define-data.md#c4591001-s135) |
-| [C4591001 6-month cut, ages 12-15 (BLA 125742 S211)](findings/c4591001.md#s211-6mth) | **9 / 9** (100%) | **949 / 949** (100%)<br>18 without input | **13.07M / 13.07M** (100%) | **1,675 / 1,675** (100%), 0 unexplained<br>submitted-define defects: method OID with a non-breaking space (2) | [9 in 7 datasets](findings/define-data.md#c4591001-s211-6mth) |
-| [C4591001 Supplementary datasets (BLA 125742 S1 Supp)](findings/c4591001.md#s1-supp) | **2 / 4** (50.0%)<br>2 still differ | **505 / 645** (78.3%)<br>14 without input | **357.76M / 357.79M** (99.9%)<br>36,846 differ | No define | No define |
-| [C4591001 XB datasets (BLA 125742 S6)](findings/c4591001.md#s6) | **2 / 2** (100%) | **261 / 261** (100%)<br>13 without input | **10.25M / 10.25M** (100%) | **569 / 569** (100%), 0 unexplained | [1 in 1 dataset](findings/define-data.md#c4591001-s6) |
-| [C4591001 EUA safety and final efficacy (EUA 27034 S1)](findings/c4591001.md#s1-safety-fa-eff) | **8 / 9** (88.9%)<br>1 matches except a submitted-file defect | **834 / 835** (99.9%)<br>26 without input | **321.66M / 321.66M** (99.9%)<br>1 differ | **1,530 / 1,530** (100%), 0 unexplained | [12 in 8 datasets](findings/define-data.md#c4591001-s1-safety-fa-eff) |
-| [C4591001 EUA interim efficacy analysis (EUA 27034 S1)](findings/c4591001.md#s1-ia) | **2 / 3** (66.7%)<br>1 matches except a submitted-file defect | **256 / 256** (100%)<br>6 without input | **46.01M / 46.01M** (100%) | No define | No define |
-
-</div>
-
-The columns mean what they mean in the table by study. A define's elements are its OID-bearing parts: datasets, variables, methods, comments, codelists, value lists, where clauses, documents and result displays.
+- [Results tables](results.md): the analysis set, and results by study and by cut.
+- Results by study, with every dataset and every difference: [mRNA-1273-P201](findings/mrna-1273-p201.md), [mRNA-1273-P301](findings/mrna-1273-p301.md), [BNT162-01](findings/bnt162-01.md), [C4591001](findings/c4591001.md).
+- [Inputs outside the analysis set](findings/inputs.md): every absent or problem input and what it leaves out.
+- [Define-XML against the data](findings/define-data.md): every finding, by check and by deliverable.
+- [Module 5 coverage](coverage.md): all 22 studies and what PHMPT released for each.
+- [Glossary](glossary.md): cut, layer, exact, missing input, carried column, submitted-define defect and the other terms.
 
 ## What this shows and what it does not
 
