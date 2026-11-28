@@ -14,7 +14,7 @@ Forty files exist on PHMPT only as JMP tables (P301 and C4591001); JMP has no
 open reader, so they are listed and skipped: the repository copy is the
 reviewed conversion (data/jmp-sources.md). With jmp=True (`fetch --jmp`) each
 is saved unconverted, as <path>.jmp beside the Parquet path it belongs at, for
-a conversion of your own with scripts/convert_jmp.py.
+a conversion of your own.
 
 Needs pyreadstat and zipfile-deflate64 (several zips use Deflate64).
 """

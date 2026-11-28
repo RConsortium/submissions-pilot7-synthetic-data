@@ -78,7 +78,9 @@ def _key_text(v) -> str:
 
 
 def _keys(table, keys: list[str]) -> pd.Series:
-    parts = [_series(table, k).map(_key_text) for k in keys]
+    # astype(str): on an empty table map() keeps the column's dtype, and pandas 3 cannot join text to an
+    # empty numeric series (the side with no unmatched row in a multiset comparison).
+    parts = [_series(table, k).map(_key_text).astype(str) for k in keys]
     out = parts[0]
     for p in parts[1:]:
         out = out + "\x1f" + p
