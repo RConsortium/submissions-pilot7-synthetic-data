@@ -7,19 +7,21 @@ sorted, text whitespace-normalised, children kept in document order -- and
 compared by (tag, OID). The report counts, per element class, the elements
 that are identical, differ, or appear on one side only.
 
-Every difference is then attributed to a known yamaa engine gap (GAPS
-below) or counted as *unexplained*. Where-clause definitions are matched
-through the ItemRef or AnalysisResult that cites them, so their contents are
-compared even when their OIDs differ. A cut matches its received define
-"except for engine gaps" when the unexplained count is zero.
+Every difference is then attributed to a defect of the submitted define
+(DEFECTS below) or counted as *unexplained*. Where-clause definitions are
+matched through the ItemRef or AnalysisResult that cites them, so their
+contents are compared even when their OIDs differ. A cut matches its received
+define "except for submitted-define defects" when the unexplained count is
+zero.
 
     python scripts/define/compare_define.py <received.xml> <generated.xml> \
         [--detail N] [--json report.json]
 
 Exit code 0 on a full match (no difference at all), 2 when every difference
-is a known engine gap, 1 otherwise.
+is a submitted-define defect, 1 otherwise.
 """
 import argparse
+import ast
 import collections
 import json
 import re
@@ -27,23 +29,29 @@ import sys
 
 from lxml import etree
 
-# Known yamaa engine gaps: id -> (title, the yamaa issue that tracks it).
-# A difference matched by none of these is "unexplained".
-GAPS = {
-    "G1": "received codelist OrderNumbers that repeat, which the ODM schema forbids (xs:unique UC-CL-2/UC-CL-4) and yamaa refuses (DEFINE-20, owner decision on elong0527/yamaa#5022), or that start from 0, admitted from elong0527/yamaa#5062 on",
-    "G2": "a value-level ItemDef Name or OID yamaa could not declare (fixed by elong0527/yamaa#4885)",
-    "G3": "a received WhereClauseDef OID yamaa could not declare or share (fixed by elong0527/yamaa#4885)",
-    "G4": "a received one-value IN/NOTIN yamaa could not declare (fixed by elong0527/yamaa#4885)",
-    "G5": "xml:lang yamaa always wrote (fixed by elong0527/yamaa#4885)",
-    "G6": "a received AnalysisReason/AnalysisPurpose outside the published values, or empty ARM elements (elong0527/yamaa#4824)",
-    "G7": "an empty CheckValue yamaa could not declare (fixed by elong0527/yamaa#4885)",
-    "G8": "a received method OID ending in U+00A0, which method_oid refuses by the owner's decision (elong0527/yamaa#4935, D398); a MetaDataVersion OID with a comma is declared since elong0527/yamaa#5024",
+# Defects of the submitted define: received content that is invalid or
+# nonstandard and that yamaa does not write, by an owner decision. A
+# difference matched by none of these is "unexplained". Before yamaa ac826f0b
+# the list also held engine gaps, things yamaa could not declare yet; all are
+# fixed, so a difference of that kind is now unexplained. The report keeps the
+# key names `gaps` and `gap_only`, which the Pilot 7 bundle schema reads.
+DEFECTS = {
+    "repeated-order": "a received codelist repeats an item OrderNumber, which the ODM 1.3.2 schema forbids "
+                      "(xs:unique UC-CL-2/UC-CL-4); yamaa writes no schema-invalid document, so the codelist is "
+                      "written without OrderNumber (owner decision on elong0527/yamaa#5022)",
+    "arm-terms": "a received AnalysisReason or AnalysisPurpose outside the published ARM 1.0 terms, or an empty "
+                 "arm:Documentation or arm:ProgrammingCode; yamaa writes the published term the value names and "
+                 "no empty element (owner decision on elong0527/yamaa#4824)",
+    "method-oid-nbsp": "a received method OID ending in a non-breaking space (U+00A0), which is not an identifier "
+                       "character; yamaa writes the OID without it (owner decision D398, elong0527/yamaa#4935)",
 }
 
-GAPS["G9"] = "a received CodeList no column binds is never written (CT-10); elong0527/yamaa#4887, fixed by elong0527/yamaa#4937"
+# ARM 1.0 published AnalysisReason and AnalysisPurpose terms (DEFINE-31).
+ARM_TERMS = {"SPECIFIED IN PROTOCOL", "SPECIFIED IN SAP", "DATA DRIVEN", "REQUESTED BY REGULATORY AGENCY",
+             "PRIMARY OUTCOME MEASURE", "SECONDARY OUTCOME MEASURE", "EXPLORATORY OUTCOME MEASURE"}
 
 # Elements that belong only to received datasets this repo has no spec for
-# are neither engine gaps nor unexplained: they are coverage still to build.
+# are neither defects nor unexplained: they are coverage still to build.
 NOSPEC = "no spec yet"
 
 
@@ -170,30 +178,33 @@ def all_diffs(a, b, path=""):
     return out
 
 
-def classify(cls, oid, diff):
-    """Gap id a single difference path belongs to, or None."""
-    if re.search(r"/CodeList/(EnumeratedItem|CodeListItem)@OrderNumber: '\d+' vs None$", diff):
-        return "G1"
-    if cls == "ItemDef" and diff.startswith("/ItemDef@Name:") and oid.count(".") > 2:
-        return "G2"
-    if "WhereClauseRef@WhereClauseOID: " in diff:
-        return "G3"
-    if re.search(r"TranslatedText@lang: None vs 'en'$", diff):
-        return "G5"
-    if re.search(r"arm:AnalysisResult@Analysis(Reason|Purpose): ", diff):
-        return "G6"
+def repeated_orders(path):
+    """OIDs of the received codelists that repeat an item OrderNumber."""
+    out = set()
+    for cl in etree.parse(path).getroot().iter("{*}CodeList"):
+        orders = [it.get("OrderNumber") for it in cl
+                  if local(it.tag) in ("CodeListItem", "EnumeratedItem") and it.get("OrderNumber") is not None]
+        if len(set(orders)) < len(orders):
+            out.add(cl.get("OID"))
+    return out
+
+
+def classify(cls, oid, diff, repeated):
+    """Defect id a single difference path belongs to, or None."""
+    if (cls == "CodeList" and oid in repeated
+            and re.search(r"/CodeList/(EnumeratedItem|CodeListItem)@OrderNumber: '\d+' vs None$", diff)):
+        return "repeated-order"
+    m = re.search(r"arm:AnalysisResult@Analysis(?:Reason|Purpose): ('.*') vs '.*'$", diff)
+    if m and ast.literal_eval(m.group(1)) not in ARM_TERMS:
+        return "arm-terms"
     if cls == "arm:ResultDisplay" and ("(empty)" in diff or re.search(
             r"arm:(Documentation|ProgrammingCode): present on one side only$", diff)):
-        return "G6"
-    m = re.search(r"@(MethodOID|leafID|ItemOID): '([^']*)' vs '([^']*)'$", diff)
+        return "arm-terms"
+    m = re.search(r"@MethodOID: ('.*') vs ('.*')$", diff)
     if m:
-        a, b = m.group(2).replace("\\xa0", "\xa0"), m.group(3)
-        if a.strip("\xa0 ") == b or (a.startswith("LF.") and b == "LF._" + a[3:]):
-            return "G8"
-        if m.group(1) == "ItemOID" and a.count(".") > 3 and a.split(".", 3)[-1] == b.split(".", 3)[-1]:
-            return "G2"
-    if cls == "def:CommentDef" and re.search(r"def:DocumentRef@leafID", diff):
-        return "G8"
+        a, b = ast.literal_eval(m.group(1)), ast.literal_eval(m.group(2))
+        if a != b and a.rstrip("\xa0") == b:
+            return "method-oid-nbsp"
     return None
 
 
@@ -211,9 +222,10 @@ def main():
     hs, s, scites = collect(a.submitted)
     hg, g, gcites = collect(a.generated)
 
-    gaps = collections.Counter()
+    gaps = collections.Counter()  # differences by submitted-define defect
     unexplained = []
     sref = references(a.submitted)
+    repeated = repeated_orders(a.submitted)
     s_igs = {k[1] for k in s if k[0] == "ItemGroupDef"}
     g_igs = {k[1] for k in g if k[0] == "ItemGroupDef"}
     missing_igs = sorted(s_igs - g_igs)
@@ -242,44 +254,34 @@ def main():
         print(f"   {c:24s} {len(ks):5d} {len(kg):5d} {len(match):6d} {len(diff):5d} {len(so):8d} {len(go):8d}")
         total.update(sub=len(ks), gen=len(kg), match=len(match), diff=len(diff), so=len(so), go=len(go))
         diffs_all = []
-        gap_only = 0
+        gap_only = 0  # elements whose every difference is a submitted-define defect
         for k in diff:
             ds = all_diffs(s[k], g[k])
             diffs_all.append([k[1], ds])
             explained = True
             for d in ds:
-                gid = classify(c, k[1], d)
+                gid = classify(c, k[1], d, repeated)
                 if gid:
                     gaps[gid] += 1
                 else:
                     explained = False
                     unexplained.append(f"{c} {k[1]} {d}")
             gap_only += explained
-        total.update(gap_only=gap_only)
         if c != "def:WhereClauseDef":
-            go_suffix = {k[1].split(".", 3)[-1]: k for k in go if c == "ItemDef" and k[1].count(".") > 3}
-            referenced = {o for v in sref.values() for o in v}
+            gen_only = {x[1] for x in go}
             for k in so:
                 if k[1] in nospec:
                     nospec_count[c] += 1
-                elif c == "CodeList" and k[1] not in referenced:
-                    gaps["G9"] += 1
-                    total["gap_only"] += 1  # a received-only element owed to an engine gap
-                elif c == "ItemDef" and k[1].count(".") > 3 and k[1].split(".", 3)[-1] in go_suffix:
-                    gaps["G2"] += 1  # per-value OID spelled after another column (yamaa#4847)
-                    total["gap_only"] += 1  # a received-only element owed to an engine gap
-                    go.remove(go_suffix[k[1].split(".", 3)[-1]])
-                elif k[1].strip("\xa0 ") != k[1] and k[1].strip("\xa0 ") in {x[1] for x in go}:
-                    gaps["G8"] += 1
-                    go = [x for x in go if x[1] != k[1].strip("\xa0 ")]
-                    total["gap_only"] += 1  # a received-only element owed to an engine gap
-                elif c == "def:leaf" and ("_" + k[1][3:]) in {x[1][3:] for x in go}:
-                    gaps["G8"] += 1
-                    go = [x for x in go if x[1][3:] != "_" + k[1][3:]]
-                    total["gap_only"] += 1  # a received-only element owed to an engine gap
+                elif c == "MethodDef" and k[1] != k[1].rstrip("\xa0") and k[1].rstrip("\xa0") in gen_only:
+                    # The same method, written without the received trailing U+00A0.
+                    gaps["method-oid-nbsp"] += 1
+                    gap_only += 1
+                    gen_only.discard(k[1].rstrip("\xa0"))
+                    go = [x for x in go if x[1] != k[1].rstrip("\xa0")]
                 else:
                     unexplained.append(f"{c} {k[1]} submitted only")
             unexplained.extend(f"{c} {k[1]} generated only" for k in go)
+        total.update(gap_only=gap_only)
         report[c] = {
             "submitted": len(ks), "generated": len(kg), "match": len(match), "gap_only": gap_only,
             "diff_all": diffs_all,
@@ -291,15 +293,9 @@ def main():
 
     # Where clauses: pair them through what cites them and compare contents.
     wc_pairs = {}
-    # A per-value OID spelled after another column (yamaa#4847) is paired
-    # within its value list by the OID's suffix.
-    gcites_suffix = {(k[1], k[2].split(".", 3)[-1]): v for k, v in gcites.items()
-                     if k[0] == "VL" and k[2].count(".") > 3}
     nospec_wcs = set()
     for key, soid in scites.items():
         goid = gcites.get(key)
-        if goid is None and key[0] == "VL" and key[2].count(".") > 3:
-            goid = gcites_suffix.get((key[1], key[2].split(".", 3)[-1]))
         if goid is None:
             if soid in nospec:
                 nospec_wcs.add(soid)
@@ -308,31 +304,16 @@ def main():
             continue
         wc_pairs.setdefault(soid, set()).add(goid)
     wc_same = 0
-    wc_gap_only = 0
     for soid, goids in wc_pairs.items():
         sc = s[("def:WhereClauseDef", soid)]
-        ok = True
         for goid in goids:
             gc = g[("def:WhereClauseDef", goid)]
             ds = all_diffs(strip_oid(sc), strip_oid(gc))
             if not ds:
                 wc_same += 1
-            for d in ds:
-                if re.search(r"RangeCheck@Comparator: '(IN|NOTIN)' vs '(EQ|NE)'$", d):
-                    gaps["G4"] += 1
-                elif "(empty)" in d:
-                    gaps["G7"] += 1
-                else:
-                    ok = False
-                    unexplained.append(f"WhereClauseDef {soid} {d}")
+            unexplained.extend(f"WhereClauseDef {soid} {d}" for d in ds)
             if goid != soid:
-                gaps["G3"] += 1
-        # A where clause identical under its own OID is already counted as a
-        # match; count the others whose differences are all engine gaps.
-        wc_gap_only += ok and not (goids == {soid} and s.get(("def:WhereClauseDef", soid)) == g.get(("def:WhereClauseDef", soid)))
-    total.update(gap_only=wc_gap_only)
-    if ("def:WhereClauseDef" in report):
-        report["def:WhereClauseDef"]["gap_only"] = wc_gap_only
+                unexplained.append(f"WhereClauseDef {soid} written as {goid}")
     nospec_count["def:WhereClauseDef"] += len(nospec_wcs - set(wc_pairs))
     used_g = {o for v in wc_pairs.values() for o in v}
     for k in g:
@@ -340,12 +321,12 @@ def main():
             unexplained.append(f"WhereClauseDef {k[1]} generated but cited by nothing received")
 
     print(f"   {'TOTAL':24s} {total['sub']:5d} {total['gen']:5d} {total['match']:6d} {total['diff']:5d} {total['so']:8d} {total['go']:8d}")
-    print(f"== identical or differing only by known engine gaps: {total['match'] + total['gap_only']} of {total['sub']}"
-          f" ({sum(nospec_count.values())} more belong to datasets with no spec)")
+    print(f"== identical or differing only by submitted-define defects: {total['match'] + total['gap_only']} of "
+          f"{total['sub']} ({sum(nospec_count.values())} more belong to datasets with no spec)")
     print(f"== where clauses: {len(wc_pairs)} received, {wc_same} pairs identical in content")
-    print("== differences by known engine gap")
+    print("== differences by submitted-define defect")
     for gid in sorted(gaps):
-        print(f"   {gid} {gaps[gid]:6d}  {GAPS[gid]}")
+        print(f"   {gid:16s} {gaps[gid]:6d}  {DEFECTS[gid]}")
     if missing_igs:
         print(f"== received datasets with no spec yet: {', '.join(i[3:] for i in missing_igs)} "
               f"({sum(nospec_count.values())} elements)")
@@ -356,7 +337,7 @@ def main():
     if full:
         verdict, code = "FULL MATCH", 0
     elif not unexplained:
-        verdict, code = ("MATCH EXCEPT KNOWN ENGINE GAPS" +
+        verdict, code = ("MATCH EXCEPT SUBMITTED-DEFINE DEFECTS" +
                          (" AND DATASETS WITHOUT A SPEC" if missing_igs else "")), 2
     else:
         verdict, code = "NOT A MATCH", 1
@@ -369,7 +350,7 @@ def main():
             "classes": {c: {k: v for k, v in r.items() if k != "diff_all"} | {"diff": len(r["diff_all"])}
                         for c, r in report.items()},
             "where_clauses": {"received": len(wc_pairs), "identical_content": wc_same},
-            "gaps": {gid: {"count": n, "title": GAPS[gid]} for gid, n in sorted(gaps.items())},
+            "gaps": {gid: {"count": n, "title": DEFECTS[gid]} for gid, n in sorted(gaps.items())},
             "unexplained": unexplained,
             "datasets_without_spec": [i[3:] for i in missing_igs],
             "no_spec_elements": dict(nospec_count),

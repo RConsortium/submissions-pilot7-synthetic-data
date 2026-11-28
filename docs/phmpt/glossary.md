@@ -122,9 +122,15 @@ A metadata layer over a cut's specs (`<cut>/spec/define/`): what the received de
 
 An OID-bearing part of a define: a dataset (ItemGroupDef), variable (ItemDef), method, comment, codelist, value list, where clause, document or result display. Defines are compared element by element.
 
-### Engine gap (G1, G2, ...) {#engine-gap}
+### Defect of the submitted define {#define-defect}
 
-A define difference yamaa cannot avoid yet, because the received file declares something yamaa's reproduced mode cannot express (G1: codelist order numbers that ODM forbids). Each gap has a yamaa issue with a synthetic reproduction ([engine gaps](findings/define-gaps.md)). An element that differs only by gaps counts as reproduced apart from engine gaps.
+Received content that is invalid or nonstandard and that yamaa does not copy, by an owner decision recorded on a yamaa issue:
+
+- **Repeated codelist `OrderNumber`.** A received codelist gives two items the same `OrderNumber`, which the ODM 1.3.2 schema forbids (`xs:unique` UC-CL-2 and UC-CL-4). yamaa writes no schema-invalid document, so the codelist is written without `OrderNumber`. ([yamaa#5022](https://github.com/elong0527/yamaa/issues/5022))
+- **Nonstandard analysis-results metadata.** A received `AnalysisReason` or `AnalysisPurpose` that is not a published ARM 1.0 term (such as `SAP`, `Primary Endpoints`, or `PRIMARY OUTCOME MEASURE` broken by a line feed), or an empty `arm:Documentation` or `arm:ProgrammingCode`. yamaa writes the published term the value names and no empty element. ([yamaa#4824](https://github.com/elong0527/yamaa/issues/4824))
+- **Method OID with a non-breaking space.** A received method OID ends in an invisible non-breaking space (U+00A0), which is not an identifier character (owner decision D398). yamaa writes the OID without it. ([yamaa#4935](https://github.com/elong0527/yamaa/issues/4935))
+
+The first breaks the ODM schema; the other two are nonstandard content that yamaa's owner decided not to copy. An element that differs only by these defects counts as reproduced apart from submitted-define defects, and each study page counts them per cut. Earlier results also named *engine gaps*, things yamaa could not declare yet; the last were fixed by yamaa#5055 and yamaa#5062.
 
 ### No spec yet {#no-spec}
 
@@ -132,7 +138,7 @@ A dataset the received define describes but that has no spec here. Its elements 
 
 ### Unexplained difference {#unexplained}
 
-A define difference that is neither an engine gap nor an element of a dataset with no spec.
+A define difference that is neither a defect of the submitted define nor an element of a dataset with no spec.
 
 ## Inputs
 

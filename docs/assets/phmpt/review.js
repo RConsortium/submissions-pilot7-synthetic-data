@@ -10,7 +10,7 @@ export const AGREEMENTS = {
   disagree: "Disagree",
   clarify: "Need clarification",
 };
-export const KINDS = { dataset: "ADaM dataset", define: "Define-XML", "define-gap": "Define engine gap" };
+export const KINDS = { dataset: "ADaM dataset", define: "Define-XML", "define-defect": "Defect of the submitted define" };
 const REPO = "https://github.com/RConsortium/submissions-pilot7-synthetic-data";
 const BLOB = `${REPO}/blob/main/phmpt/`;
 const DRAFTS = "phmpt-review-drafts";
@@ -23,7 +23,7 @@ export function filterFindings(findings, { study = "", kind = "", verdict = "", 
     (!needle || [f.id, f.claim, f.verdict].some((s) => s.toLowerCase().includes(needle))));
 }
 
-/** The record behind a finding: a dataset row, a cut's define, or a define gap. */
+/** The record behind a finding: a dataset row, a cut's define, or a defect of the submitted define. */
 export function findingRecord(evidence, finding) {
   const cut = evidence.studies[finding.study]?.cuts[finding.cut];
   if (!cut) return null;
@@ -102,13 +102,14 @@ export function evidenceRows(evidence, f, rec) {
     const scoped = rec.received - rec.no_spec;
     rows.push(["Received elements of datasets with a spec", n(scoped)]);
     rows.push(["Reproduced byte for byte", n(rec.identical)]);
-    rows.push(["Differ only by named engine gaps", n(rec.gap_only)]);
+    rows.push(["Differ only by defects of the submitted define", n(rec.gap_only)]);
     rows.push(["Differ otherwise", n(rec.unexplained)]);
     if (rec.no_spec) rows.push(["Elements of datasets with no spec yet", `${n(rec.no_spec)} (${rec.no_spec_datasets.map(esc).join(", ")})`]);
-    const gap = f.kind === "define-gap" ? f.id.split("/").pop() : null;
-    if (gap && evidence.gaps[gap]) {
-      const g = evidence.gaps[gap];
-      rows.push(["Engine gap", `${esc(gap)}: ${md(g.title)} (<a href="https://github.com/elong0527/yamaa/issues/${g.yamaa_issue}">yamaa#${g.yamaa_issue}</a>)`]);
+    // Bundle schema 1 keeps the key `gaps`; it holds the defects of the submitted define.
+    const defect = f.kind === "define-defect" ? f.id.split("/").pop() : null;
+    if (defect && evidence.gaps[defect]) {
+      const d = evidence.gaps[defect];
+      rows.push(["Defect of the submitted define", `${md(d.title)} (owner decision: <a href="https://github.com/elong0527/yamaa/issues/${d.yamaa_issue}">yamaa#${d.yamaa_issue}</a>)`]);
     }
     rows.push(["Received define on PHMPT", `${esc(rec.source.member)}<br><small>in ${esc(rec.source.zip)}</small>`]);
   }
@@ -139,7 +140,7 @@ function render(root, evidence, reviewUrl) {
       <label>Study <select id="phmpt-study">${opt("", "All")}${studies.map(([k, s]) => opt(k, s.title)).join("")}</select></label>
       <label>Kind <select id="phmpt-kind">${opt("", "All")}${Object.entries(KINDS).map(([k, v]) => opt(k, v)).join("")}</select></label>
       <label>Verdict <select id="phmpt-verdict">${opt("", "All")}${verdicts.map((v) => opt(v, v)).join("")}</select></label>
-      <label>Search <input id="phmpt-text" type="search" placeholder="ADSL, define, G1..."></label>
+      <label>Search <input id="phmpt-text" type="search" placeholder="ADSL, define, repeated-order..."></label>
     </div>
     <p id="phmpt-count" aria-live="polite"></p>
     <div class="phmpt-layout">
