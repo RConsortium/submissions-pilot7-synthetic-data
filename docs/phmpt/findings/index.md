@@ -1,29 +1,29 @@
 # Reproduction findings
 
-yamaa `4ea397f` - collected 2026-11-27 - terms: [glossary](../glossary.md)
+yamaa `ac826f0` - collected 2026-11-27 - terms: [glossary](../glossary.md)
 
 Two questions, answered separately for every cut that has specs:
 
 - **ADaM datasets.** Does the yamaa spec, run on the submitted SDTM, reproduce the submitted ADaM dataset cell for cell? (`scripts/reproduce.py verify`, with `scripts/verify_compare.py`: rows keyed, numeric tolerance 1e-10, strings compared after removing spaces, and submitted cells FDA redacted to `(b)(6)` under FOIA exemption 6 not compared but counted.)
 - **Define-XML.** Does the define yamaa composes from those same specs, with a reproduced-mode metadata layer, match the received define element by element? (`scripts/define/compare_define.py`)
 
-| Study and cut | ADaM datasets reproduced | Define-XML elements reproduced | Remaining define differences |
-| --- | --- | --- | --- |
-| [mRNA-1273-P201 Day 57 analysis (BLA 125752 S3)](mrna-1273-p201.md#s3-d57) | **15 / 15** (100%)<br>Cells: 26.33M / 26.33M | **1,940 / 1,940** (100%) apart from engine gaps<br>Byte-for-byte identical: 1,936 (99.8%) | **0 unexplained**<br>Engine gaps: G1 (24), G6 (3) |
-| [mRNA-1273-P201 Addendum 1 (BLA 125752 S3)](mrna-1273-p201.md#s3-add1) | **15 / 15** (100%)<br>Cells: 29.83M / 29.83M | **2,151 / 2,151** (100%) apart from engine gaps<br>Byte-for-byte identical: 2,148 (99.9%) | **0 unexplained**<br>Engine gaps: G1 (24), G6 (3) |
-| [mRNA-1273-P301 BLA interim analysis (BLA 125752 S3)](mrna-1273-p301.md#s3) | **21 / 25** (84.0%)<br>4 more match except missing input<br>Cells: 2,010.87M / 2,218.49M | **3,620 / 3,620** (100%) apart from engine gaps<br>Byte-for-byte identical: 3,616 (99.9%) | **0 unexplained**<br>Engine gaps: G1 (50), G6 (8) |
-| [mRNA-1273-P301 Interim analysis IA1b (27073 S5)](mrna-1273-p301.md#s5) | **11 / 19** (57.9%)<br>3 more match except missing input<br>5 reproduced on a substitute input<br>Cells: 215.77M / 1,294.91M | **2,111 / 2,111** (100%) apart from engine gaps<br>Byte-for-byte identical: 2,110 (99.9%) | **0 unexplained**<br>Engine gaps: G1 (36) |
-| [mRNA-1273-P301 Interim analysis IA1a (19745-83 S80)](mrna-1273-p301.md#s80) | **10 / 18** (55.6%)<br>3 more match except missing input<br>5 reproduced on a substitute input<br>Cells: 198.47M / 1,239.25M | **1,940 / 1,940** (100%) apart from engine gaps<br>Byte-for-byte identical: 1,940 (100%) | **0 unexplained**<br>Engine gaps: none |
-| [BNT162-01 EUA 27034 S1 (Oct 2020)](bnt162-01.md#27034) | **7 / 7** (100%)<br>Cells: 9.12M / 9.12M | **1,405 / 1,405** (100%) apart from engine gaps<br>Byte-for-byte identical: 1,402 (99.8%) | **0 unexplained**<br>Engine gaps: G1 (10) |
-| [BNT162-01 BLA 125742 S1 (Mar 2021)](bnt162-01.md#125742) | **7 / 7** (100%)<br>Cells: 15.75M / 15.75M | **1,441 / 1,441** (100%) apart from engine gaps<br>Byte-for-byte identical: 1,437 (99.7%) | **0 unexplained**<br>Engine gaps: G1 (11) |
-| [C4591001 Safety and efficacy (BLA 125742 S1)](c4591001.md#s1) | **8 / 11** (72.7%)<br>3 more match except missing input<br>Cells: 551.34M / 586.83M | **2,310 / 2,310** (100%) apart from engine gaps<br>Byte-for-byte identical: 2,308 (99.9%) | **0 unexplained**<br>Engine gaps: G8 (2) |
-| [C4591001 1-month cut (BLA 125742 S211)](c4591001.md#s211-1mth) | **8 / 11** (72.7%)<br>3 more match except missing input<br>Cells: 551.09M / 586.98M | **2,259 / 2,259** (100%) apart from engine gaps<br>Byte-for-byte identical: 2,257 (99.9%) | **0 unexplained**<br>Engine gaps: G8 (2) |
-| [C4591001 EUA resubmission (EUA 27034 S135)](c4591001.md#s135) | **8 / 11** (72.7%)<br>3 more match except missing input<br>Cells: 551.09M / 586.58M | **2,259 / 2,259** (100%) apart from engine gaps<br>Byte-for-byte identical: 2,257 (99.9%) | **0 unexplained**<br>Engine gaps: G8 (2) |
-| [C4591001 6-month cut, ages 12-15 (BLA 125742 S211)](c4591001.md#s211-6mth) | **5 / 9** (55.6%)<br>4 more match except missing input<br>Cells: 11.88M / 13.12M | **1,675 / 1,675** (100%) apart from engine gaps<br>Byte-for-byte identical: 1,673 (99.9%) | **0 unexplained**<br>Engine gaps: G8 (2) |
-| [C4591001 Supplementary datasets (BLA 125742 S1 Supp)](c4591001.md#s1-supp) | **1 / 4** (25.0%)<br>1 more match except missing input<br>Cells: 6.45M / 360.90M | No define in this deliverable | - |
-| [C4591001 XB datasets (BLA 125742 S6)](c4591001.md#s6) | **0 / 2** (0%)<br>2 more match except missing input<br>Cells: 0 / 10.83M | **569 / 569** (100%) apart from engine gaps<br>Byte-for-byte identical: 569 (100%) | **0 unexplained**<br>Engine gaps: none |
-| [C4591001 EUA safety and final efficacy (EUA 27034 S1)](c4591001.md#s1-safety-fa-eff) | **2 / 9** (22.2%)<br>6 more match except missing input<br>1 more match except a defect of the submitted file<br>Cells: 74.46M / 325.12M | **1,530 / 1,530** (100%) apart from engine gaps<br>Byte-for-byte identical: 1,530 (100%) | **0 unexplained**<br>Engine gaps: G8 (1) |
-| [C4591001 EUA interim efficacy analysis (EUA 27034 S1)](c4591001.md#s1-ia) | **1 / 3** (33.3%)<br>1 more match except missing input<br>1 more match except a defect of the submitted file<br>Cells: 7.42M / 46.27M | No define in this deliverable | - |
+| Study and cut | Datasets reproduced | Columns reproduced | Cells reproduced | Define-XML elements reproduced | Define vs data findings |
+| --- | --- | --- | --- | --- | --- |
+| [mRNA-1273-P201 Day 57 analysis (BLA 125752 S3)](mrna-1273-p201.md#s3-d57) | **15 / 15** (100%) | **1,242 / 1,242** (100%) | **26.33M / 26.33M** (100%) | **1,940 / 1,940** (100%), 0 unexplained<br>engine gaps: G1 (24), G6 (3) | [54 in 12 datasets](define-data.md#mrna-1273-p201-s3-d57) |
+| [mRNA-1273-P201 Addendum 1 (BLA 125752 S3)](mrna-1273-p201.md#s3-add1) | **15 / 15** (100%) | **1,327 / 1,327** (100%)<br>31 without input | **29.65M / 29.65M** (100%) | **2,151 / 2,151** (100%), 0 unexplained<br>engine gaps: G1 (24), G6 (3) | [66 in 14 datasets](define-data.md#mrna-1273-p201-s3-add1) |
+| [mRNA-1273-P301 BLA interim analysis (BLA 125752 S3)](mrna-1273-p301.md#s3) | **24 / 25** (96.0%)<br>1 not compared cell by cell | **2,772 / 2,882** (96.2%)<br>110 not fully compared<br>35 without input | **2,188.29M / 2,209.75M** (99.0%)<br>21.46M not fully compared | **3,620 / 3,620** (100%), 0 unexplained<br>engine gaps: G1 (50), G6 (8) | [349 in 25 datasets](define-data.md#mrna-1273-p301-s3) |
+| [mRNA-1273-P301 Interim analysis IA1b (27073 S5)](mrna-1273-p301.md#s5) | **15 / 15** (100%)<br>4 outside the analysis set | **1,289 / 1,289** (100%)<br>374 without input | **351.38M / 351.38M** (100%) | **2,111 / 2,111** (100%), 0 unexplained<br>engine gaps: G1 (36) | [80 in 14 datasets](define-data.md#mrna-1273-p301-s5) |
+| [mRNA-1273-P301 Interim analysis IA1a (19745-83 S80)](mrna-1273-p301.md#s80) | **14 / 14** (100%)<br>4 outside the analysis set | **1,135 / 1,135** (100%)<br>372 without input | **328.91M / 328.91M** (100%) | **1,940 / 1,940** (100%), 0 unexplained | [73 in 14 datasets](define-data.md#mrna-1273-p301-s80) |
+| [BNT162-01 EUA 27034 S1 (Oct 2020)](bnt162-01.md#27034) | **7 / 7** (100%) | **708 / 708** (100%) | **9.12M / 9.12M** (100%) | **1,405 / 1,405** (100%), 0 unexplained<br>engine gaps: G1 (10) | [2 in 1 dataset](define-data.md#bnt162-01-27034) |
+| [BNT162-01 BLA 125742 S1 (Mar 2021)](bnt162-01.md#125742) | **7 / 7** (100%) | **740 / 740** (100%) | **15.75M / 15.75M** (100%) | **1,441 / 1,441** (100%), 0 unexplained<br>engine gaps: G1 (8) | 0 |
+| [C4591001 Safety and efficacy (BLA 125742 S1)](c4591001.md#s1) | **10 / 11** (90.9%)<br>1 not compared cell by cell | **1,174 / 1,285** (91.4%)<br>111 not fully compared<br>26 without input | **583.41M / 584.29M** (99.8%)<br>0.89M not fully compared | **2,310 / 2,310** (100%), 0 unexplained<br>engine gaps: G8 (2) | [16 in 11 datasets](define-data.md#c4591001-s1) |
+| [C4591001 1-month cut (BLA 125742 S211)](c4591001.md#s211-1mth) | **10 / 11** (90.9%)<br>1 not compared cell by cell | **1,174 / 1,285** (91.4%)<br>111 not fully compared<br>26 without input | **583.55M / 584.44M** (99.8%)<br>0.89M not fully compared | **2,259 / 2,259** (100%), 0 unexplained<br>engine gaps: G8 (2) | [12 in 11 datasets](define-data.md#c4591001-s211-1mth) |
+| [C4591001 EUA resubmission (EUA 27034 S135)](c4591001.md#s135) | **10 / 11** (90.9%)<br>1 not compared cell by cell | **1,169 / 1,280** (91.3%)<br>111 not fully compared<br>29 without input | **582.87M / 583.75M** (99.8%)<br>0.89M not fully compared | **2,259 / 2,259** (100%), 0 unexplained<br>engine gaps: G8 (2) | [14 in 11 datasets](define-data.md#c4591001-s135) |
+| [C4591001 6-month cut, ages 12-15 (BLA 125742 S211)](c4591001.md#s211-6mth) | **8 / 9** (88.9%)<br>1 not compared cell by cell | **846 / 949** (89.1%)<br>103 not fully compared<br>18 without input | **13.05M / 13.07M** (99.9%)<br>18,540 not fully compared | **1,675 / 1,675** (100%), 0 unexplained<br>engine gaps: G8 (2) | [9 in 7 datasets](define-data.md#c4591001-s211-6mth) |
+| [C4591001 Supplementary datasets (BLA 125742 S1 Supp)](c4591001.md#s1-supp) | **2 / 4** (50.0%)<br>2 still differ | **385 / 645** (59.7%)<br>260 not fully compared<br>14 without input | **16.65M / 357.79M** (4.7%)<br>341.14M not fully compared | No define | No define |
+| [C4591001 XB datasets (BLA 125742 S6)](c4591001.md#s6) | **1 / 2** (50.0%)<br>1 not compared cell by cell | **212 / 261** (81.2%)<br>49 not fully compared<br>13 without input | **10.20M / 10.25M** (99.5%)<br>56,154 not fully compared | **569 / 569** (100%), 0 unexplained | [1 in 1 dataset](define-data.md#c4591001-s6) |
+| [C4591001 EUA safety and final efficacy (EUA 27034 S1)](c4591001.md#s1-safety-fa-eff) | **8 / 9** (88.9%)<br>1 matches except a submitted-file defect | **834 / 835** (99.9%)<br>26 without input | **321.66M / 321.66M** (99.9%)<br>1 differ | **1,530 / 1,530** (100%), 0 unexplained | [12 in 8 datasets](define-data.md#c4591001-s1-safety-fa-eff) |
+| [C4591001 EUA interim efficacy analysis (EUA 27034 S1)](c4591001.md#s1-ia) | **2 / 3** (66.7%)<br>1 matches except a submitted-file defect | **256 / 256** (100%)<br>6 without input | **46.01M / 46.01M** (100%) | No define | No define |
 
 ## Where the program and the submitted file disagree
 
@@ -52,7 +52,7 @@ Each cut's spec is the executable reproduction. A later cut of a study is a **la
 | C4591001 s211-6mth | 9 | 8 | 3,303 |
 | C4591001 s1-supp | 4 | 4 | 1,053 |
 | C4591001 s6 | 2 | 1 | 785 |
-| C4591001 s1-safety-fa-eff | 9 | 9 | 4,921 |
+| C4591001 s1-safety-fa-eff | 9 | 9 | 5,042 |
 | C4591001 s1-ia | 3 | 2 | 952 |
 
 Three tiers of inheritance keep each statement in one place:

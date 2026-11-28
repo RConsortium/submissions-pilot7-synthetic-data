@@ -295,9 +295,15 @@ def compare(out_table, exp_table, keys: list[str], tol: float, remove_spaces: bo
         ok = False
     # Rows are still compared when only their count differs: the key sets
     # (or the multiset comparison) report the surplus rows, and the common
-    # rows are compared cell by cell.
-    if set(out_cols) != set(exp_cols):
+    # rows are compared cell by cell. When the column sets differ (a column the
+    # release cannot supply is not derived), the columns both sides have are
+    # compared; without every key column the rows cannot be aligned.
+    cols = [c for c in exp_cols if c in out_cols]
+    if not set(keys) <= set(cols):
         return report, ok, lines
+    if cols != exp_cols:
+        report["compared_cols"] = cols
+    exp_cols = cols
     ko, ke = _keys(out_table, keys), _keys(exp_table, keys)
     if ko.duplicated().any() or ke.duplicated().any():
         # Without a unique key the rows cannot be paired, so the datasets are
@@ -340,6 +346,9 @@ def compare(out_table, exp_table, keys: list[str], tol: float, remove_spaces: bo
     pos_e = pd.Series(np.arange(len(ke)), index=ke)
     missing = ke[~ke.isin(ko)]
     extra = ko[~ko.isin(ke)]
+    # The keys on one side only, recorded as the multiset comparison records its unpaired rows.
+    report.update(rows_only_in_out=len(extra), rows_only_in_expected=len(missing), rows_paired=0,
+                  rows_unpaired_out=len(extra), rows_unpaired_expected=len(missing))
     if len(missing) or len(extra):
         lines.append(f"KEY SET DIFFERS: missing={len(missing)} extra={len(extra)}")
         lines.append(f"  missing sample: {[m.replace(chr(31), ' | ') for m in missing[:5]]}")
@@ -551,7 +560,8 @@ def _merge_reports(a: dict, b: dict) -> dict:
             x["examples"] = (x.get("examples", []) + e["examples"])[:EXAMPLES]
     if b.get("multiset_comparison"):
         a["multiset_comparison"] = True
-        for f in ("rows_only_in_out", "rows_only_in_expected", "rows_paired",
-                  "rows_unpaired_out", "rows_unpaired_expected"):
-            a[f] = a.get(f, 0) + b.get(f, 0)
+    # Keyed and multiset partitions both record their rows on one side only.
+    for f in ("rows_only_in_out", "rows_only_in_expected", "rows_paired",
+              "rows_unpaired_out", "rows_unpaired_expected"):
+        a[f] = a.get(f, 0) + b.get(f, 0)
     return a

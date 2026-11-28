@@ -50,7 +50,7 @@ XLINK_HREF = "{http://www.w3.org/1999/xlink}href"
 # (elong0527/yamaa#5062). Set it to True in the commit that moves yamaa.lock
 # to a yamaa that includes #5062, together with the re-transcribed layers;
 # before that, such a codelist is written without OrderNumber (gap G1).
-ADMITS_ORDER_ZERO = False
+ADMITS_ORDER_ZERO = True
 
 # A where value has at least one character (SUB-12); a received empty
 # CheckValue is written as this visible placeholder and recorded, so the
@@ -738,15 +738,20 @@ def project_doc(rec: Received, wrappers: list[str], has_ard: bool,
     sec["context"] = "Other"
     sec["file_oid"] = rec.root.get("FileOID")
     sec["study_oid"] = rec.study.get("OID")
-    mv_id = strip_prefix(mdv.get("OID"), "MDV.")
-    if not re.fullmatch(r"[A-Za-z_][A-Za-z0-9_.-]*", mv_id):
+    mv_oid = mdv.get("OID")
+    mv_id = strip_prefix(mv_oid, "MDV.")
+    declared_oid = None
+    if not re.fullmatch(r"[A-Za-z_][A-Za-z0-9_.-]*", mv_id) or mv_oid != "MDV." + mv_id:
         # yamaa's metadata-version id is an identifier (SCHEMA-12); a received
-        # OID with other characters (the EUA 27034 S1 define has a comma) is
-        # written with them replaced by '_' and reported as a deviation.
-        fixed = re.sub(r"[^A-Za-z0-9_.-]", "_", mv_id)
-        rec.deviations.append(f"{mv_id!r}: metadata-version OID written as {fixed!r}")
-        mv_id = fixed
-    mv = OrderedDict(id=mv_id, name=mdv.get("Name"))
+        # OID it cannot spell as MDV.<id> (the EUA 27034 S1 define has a
+        # comma) is declared verbatim as metadata_version.oid (DEFINE-9,
+        # elong0527/yamaa#5024), and the id keeps the identifier form.
+        mv_id = re.sub(r"[^A-Za-z0-9_.-]", "_", mv_id)
+        declared_oid = mv_oid
+    mv = OrderedDict(id=mv_id)
+    if declared_oid is not None:
+        mv["oid"] = declared_oid
+    mv["name"] = mdv.get("Name")
     if mdv.get("Description"):
         mv["description"] = mdv.get("Description")
     sec["metadata_version"] = mv
