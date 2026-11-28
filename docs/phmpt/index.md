@@ -2,12 +2,14 @@
 
 FDA released the submitted SDTM, ADaM and Define-XML of 4 COVID-19 vaccine trials on [phmpt.org](https://phmpt.org/). AI agents wrote a [yamaa](https://elong0527.github.io/yamaa/) specification for each submitted ADaM dataset, yamaa ran it on the submitted SDTM, and scripts compared the result with what the sponsor submitted. This page tells what was done and what was found; each chart links to the evidence behind it. Every result is a draft pending human review.
 
+<!-- phmpt-headline:begin -->
 <div class="phmpt-tiles">
 <div class="phmpt-tile"><p class="phmpt-tile-value">154<small> / 158</small></p><p class="phmpt-tile-label">ADaM datasets fully reproduced</p><p class="phmpt-tile-note">99.9% of the 5,472.17M cells in the analysis set</p></div>
 <div class="phmpt-tile"><p class="phmpt-tile-value">25,210<small> / 25,210</small></p><p class="phmpt-tile-label">Define-XML elements reproduced</p><p class="phmpt-tile-note">0 unexplained; 25 differ only by a defect of the submitted define</p></div>
 <div class="phmpt-tile"><p class="phmpt-tile-value">4</p><p class="phmpt-tile-label">datasets not fully reproduced</p><p class="phmpt-tile-note">2 at a defect of the submitted file; 2 with a cause to fix</p></div>
 <div class="phmpt-tile"><p class="phmpt-tile-value">688</p><p class="phmpt-tile-label">places a sponsor&#x27;s define and data disagree</p><p class="phmpt-tile-note">in 129 of the 159 datasets with a define</p></div>
 </div>
+<!-- phmpt-headline:end -->
 
 yamaa `ac826f0`, results collected 2026-11-27. Terms: [glossary](glossary.md).
 

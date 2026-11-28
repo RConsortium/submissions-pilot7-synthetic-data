@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 """Strict PR layout/link check with explicit placeholders for generated results."""
 
+import json
 from pathlib import Path
 import shutil
 import subprocess
@@ -38,12 +39,14 @@ def prepare_preview(root, work):
     (studies / 'index.md').write_text('# Pilot study report\n\n' + note + '\n' + '\n'.join(
         f'- [{entry["title"]}]({name}.md)' for name, entry in entries.items()) + '\n')
     config = work / 'mkdocs.yml'
-    # The layout preview omits the hook that requires fresh validation reports.
+    # The layout preview omits the hooks that require fresh validation reports; the PHMPT
+    # headline reads only the committed PHMPT overview.
     import yaml
     source_config = yaml.safe_load((root / "mkdocs.yml").read_text())
     nav = populate(source_config.get("nav", []), root)
+    hooks = [str(root / ".github/scripts/phmpt_headline.py")]
     config.write_text(f'INHERIT: {root / "mkdocs.yml"}\ndocs_dir: {docs}\n'
-                      f'site_dir: {work / "site"}\nhooks: []\n' +
+                      f'site_dir: {work / "site"}\nhooks: {json.dumps(hooks)}\n' +
                       (yaml.safe_dump({"nav": nav}, sort_keys=False) if nav else ""))
     if synthetic_catalog(root) or any(e.get('category') == 'synthetic' for e in entries.values()):
         revision = subprocess.check_output(['git', 'rev-parse', 'HEAD'], cwd=root, text=True).strip()
