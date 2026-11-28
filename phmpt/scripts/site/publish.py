@@ -136,6 +136,7 @@ def evidence() -> dict:
                 out["findings"].append({
                     "id": f"phmpt/{study}/{cut}/{r['dataset']}", "kind": "dataset", "study": study, "cut": cut,
                     "dataset": r["dataset"], "verdict": r["verdict"], "claim": claim(r), "page": page,
+                    "ci": bool(si.get("ci")),
                     "reproduce": fetch + [f"python scripts/reproduce.py verify --study {study} --cut {cut} "
                                           f"--dataset {Path(r['spec']).stem}"]})
             if d:
@@ -150,14 +151,14 @@ def evidence() -> dict:
                               f"{scoped:,} received elements of datasets with a spec, {rec['identical']:,} of them "
                               f"byte for byte; {rec['unexplained']} differ for a reason other than a named defect "
                               f"of the submitted define."),
-                    "page": page, "reproduce": define_cmds})
+                    "page": page, "ci": True, "reproduce": define_cmds})
                 for g, n in sorted(rec["gaps"].items()):
                     out["findings"].append({
                         "id": f"phmpt/{study}/{cut}/define/{g}", "kind": "define-defect", "study": study,
                         "cut": cut, "dataset": None, "verdict": "submitted-define defect",
                         "claim": (f"{n:,} define differences come from a defect of the submitted define, which "
                                   f"yamaa does not copy: {pages.DEFECTS[g][1]}"),
-                        "page": page, "reproduce": define_cmds})
+                        "page": page, "ci": True, "reproduce": define_cmds})
         out["studies"][study] = {"title": si["title"], "sponsor": si["sponsor"], "product": si["product"],
                                  "cuts": cuts}
     return out

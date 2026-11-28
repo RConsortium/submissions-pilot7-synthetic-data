@@ -2,9 +2,10 @@
 # phmpt.org, with the kit in phmpt/ and nothing else, and require every
 # result to equal the one docs/phmpt/evidence.json publishes:
 #   * every received define is fetched, transcribed, composed and compared;
-#   * the mRNA-1273-P201 and BNT162-01 datasets are fetched and verified.
-# mRNA-1273-P301 and C4591001 take hours and run locally
-# (sh phmpt/reproduce.sh <study>).
+#   * the datasets of every study with `ci: true` in phmpt/studies.yaml
+#     (mRNA-1273-P201 and BNT162-01) are fetched and verified.
+# The other studies' datasets take hours and run locally
+# (sh phmpt/reproduce.sh <study>). evidence.json marks each finding (`ci`).
 #
 # What the job fetches and writes is participant-level data or derived from
 # it, so it stays on the runner: nothing is cached or uploaded. Only the
@@ -61,9 +62,9 @@ jobs:
             python scripts/reproduce.py fetch --study "$s" --dataset define-adam
             python scripts/reproduce.py define --study "$s" --transcribe
           done
-      - name: Fetch and verify mRNA-1273-P201 and BNT162-01
+      - name: Fetch and verify the datasets of the studies marked ci in studies.yaml
         run: |
-          for s in mrna-1273-p201 bnt162-01; do
+          for s in $(python -c 'import yaml; print(*[k for k, v in yaml.safe_load(open("studies.yaml")).items() if v.get("ci")])'); do
             python scripts/reproduce.py fetch --study "$s"
             python scripts/reproduce.py verify --study "$s"
           done
@@ -74,6 +75,8 @@ jobs:
           import json
           import sys
           from pathlib import Path
+          import yaml
+          ci = {k for k, v in yaml.safe_load(open('studies.yaml')).items() if v.get('ci')}
           reports = Path('.local-run/reports')
           studies = json.loads(Path('../docs/phmpt/evidence.json').read_text())['studies']
           missing = []
@@ -81,7 +84,7 @@ jobs:
               for cut, results in entry['cuts'].items():
                   if results['define']:
                       missing += [f'define-{study}-{cut}.json'] * (not (reports / f'define-{study}-{cut}.json').exists())
-                  if study in ('mrna-1273-p201', 'bnt162-01'):
+                  if study in ci:
                       for row in results['datasets']:
                           name = f"{study}-{cut}-{Path(row['spec']).stem}.json"
                           missing += [name] * (row['verdict'] != 'not checkable' and not (reports / name).exists())

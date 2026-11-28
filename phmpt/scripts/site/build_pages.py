@@ -1495,7 +1495,7 @@ def responsibilities_and_tools(meta: dict) -> list[str]:
         "description in a spec, no subject identifier, and, run with the fetched inputs, no 12-word run copied "
         "from them. |",
         "| GitHub Actions | On each pull request: run the gate, check that the pages match `data/reproduction/`, "
-        "and rerun every define and the mRNA-1273-P201 and BNT162-01 datasets from PHMPT. |",
+        f"and rerun every define and the {' and '.join(ci_titles())} datasets from PHMPT (`ci` in `studies.yaml`). |",
         "| GitHub Discussions | Record review assessments. |", ""]
 
 
@@ -1777,8 +1777,18 @@ def open_items(adam: dict, define: dict) -> list[str]:
     return [f"- {x}" for x in out] + [""]
 
 
+def ci_titles() -> list[str]:
+    """The studies whose datasets CI reruns from PHMPT (`ci: true` in studies.yaml)."""
+    return [v["title"] for v in studies_info().values() if v.get("ci")]
+
+
 def index_page(adam: dict, define: dict, module5: dict) -> str:
     meta = adam["meta"]
+    ci = {k for k, v in studies_info().items() if v.get("ci")}
+    ci_all = [(key, r) for key, st, cut, r in all_rows(adam)] + [
+        (key, None) for key in adam["studies"] for rep in define["studies"][key].values()
+        for _ in [None, *rep["gaps"]]]
+    ci_n = sum(1 for key, r in ci_all if r is None or key in ci)
     t = scope_totals(scope_items(adam))
     n_studies = len(module5["studies"])
     with_data = sum(1 for s in module5["studies"].values() if s["files"].get("adam"))
@@ -1846,8 +1856,9 @@ def index_page(adam: dict, define: dict, module5: dict) -> str:
          "derives it, and the PHMPT file it was compared with. Submit your assessment on GitHub.", "",
          "    [Review a finding](review/index.md)", "",
          "-   **Rerun in CI**", "", "    ---", "",
-         "    Each pull request fetches every received define and the mRNA-1273-P201 and BNT162-01 datasets from "
-         "PHMPT, reruns them, and requires the published result.", "",
+         f"    Each pull request that changes the reproduction fetches every received define and the "
+         f"{' and '.join(ci_titles())} datasets from PHMPT, reruns them, and requires the published result: "
+         f"{ci_n} of the {len(ci_all)} findings. The review page marks which.", "",
          f"    [`phmpt-check.yml`]({REPO_ACTIONS})", "",
          "-   **Rerun on your machine**", "", "    ---", "",
          "    Fetch a study from phmpt.org and rerun it with one script. Its header says what you need.", "",

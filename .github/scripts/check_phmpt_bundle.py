@@ -126,7 +126,7 @@ EVIDENCE = {
                        "datasets": [_DATASET], "define": (_DEFINE, None)}},
     }},
     "findings": [{"id": _STR, "kind": _STR, "study": _STR, "cut": _STR, "dataset": (_STR, None),
-                  "verdict": _STR, "claim": _STR, "page": _STR, "reproduce": [_STR]}],
+                  "verdict": _STR, "claim": _STR, "page": _STR, "ci": _BOOL, "reproduce": [_STR]}],
 }
 SCHEMA_VERSION = 1
 
