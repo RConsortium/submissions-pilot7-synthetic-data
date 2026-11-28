@@ -28,6 +28,28 @@ A spec for an intermediate table that a dataset spec reads (`spec/yamaa/helper/`
 
 A large dataset runs in USUBJID partitions streamed through disk, so that every spec runs in 15 GB of memory (`partitions` in `studies.yaml`). The spec is unchanged; each partition is compared with the same subjects of the submitted dataset, and together they count as verifying the whole spec.
 
+## Analysis set
+
+### Analysis set {#analysis-set}
+
+The part of the release the results are counted on, fixed from the release before any comparison: the ADaM datasets, columns, rows and cells whose every input is in the release and whose submitted value can be compared. A dataset is outside when the release lacks the domain its rows are built from; a column when its derivation reads an absent input or it is carried; a row when an absent input decides whether it exists; a cell when FDA redacted the submitted value. Whether a value reproduces plays no part ([inputs outside the analysis set](findings/inputs.md)).
+
+### Absent input {#absent-input}
+
+An input a derivation reads that the release does not hold: a licensed dictionary or sponsor file that was not submitted, SDTM values FDA redacted, or records the released SDTM snapshot does not carry. Each one is recorded with the columns and rows it affects and the owner's decision (`data/differences.yaml`).
+
+### Fully reproduced {#fully-reproduced}
+
+Equal to the submitted value under the study's comparison rules. A dataset is fully reproduced when all of its analysis-set cells are, and yamaa writes no row the submitted dataset lacks apart from rows an absent input explains.
+
+### Define vs data finding {#define-data}
+
+A place where a received define and the submitted datasets it describes disagree: a dataset or variable in only one of them, a data type, a length, a codelist, a mandatory variable with missing values, keys that repeat, or a label. Both files are the sponsor's ([define vs data](findings/define-data.md)).
+
+### Possible release artifact {#release-artifact}
+
+A define-vs-data difference the release may have made: a column type or label, or the dataset label, in a file FDA redacted and rewrote (it holds `(b)(6)` values), a redacted variable FDA renamed, or the type, length or label of a file PHMPT released only as a JMP table. Listed, not counted.
+
 ## Dataset results
 
 ### Comparison rules {#comparison-rules}

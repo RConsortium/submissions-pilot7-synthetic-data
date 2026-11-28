@@ -37,7 +37,7 @@ GAPS = {
     "G5": "xml:lang yamaa always wrote (fixed by elong0527/yamaa#4885)",
     "G6": "a received AnalysisReason/AnalysisPurpose outside the published values, or empty ARM elements (elong0527/yamaa#4824)",
     "G7": "an empty CheckValue yamaa could not declare (fixed by elong0527/yamaa#4885)",
-    "G8": "a received identifier yamaa's patterns refuse: a method OID ending in U+00A0 (refused by owner decision D398, elong0527/yamaa#4935), or a MetaDataVersion OID with a comma (elong0527/yamaa#5024)",
+    "G8": "a received method OID ending in U+00A0, which method_oid refuses by the owner's decision (elong0527/yamaa#4935, D398); a MetaDataVersion OID with a comma is declared since elong0527/yamaa#5024",
 }
 
 GAPS["G9"] = "a received CodeList no column binds is never written (CT-10); elong0527/yamaa#4887, fixed by elong0527/yamaa#4937"
@@ -224,13 +224,6 @@ def main():
     for k in hs:
         ok = hs[k] == hg.get(k)
         print(f"  {k:16s} {'MATCH' if ok else 'DIFF'}")
-        if not ok and k == "MetaDataVersion" and hg.get(k) is not None:
-            # G8: an OID the identifier pattern refuses is written with '_'.
-            h_s, h_g = dict(hs[k]), dict(hg[k])
-            if {x for x in h_s if h_s[x] != h_g.get(x)} | {x for x in h_g if h_g[x] != h_s.get(x)} == {"OID"} and \
-                    re.sub(r"[^A-Za-z0-9_.-]", "_", h_s["OID"]) == h_g["OID"]:
-                gaps["G8"] += 1
-                continue
         if not ok:
             unexplained.append(f"header {k}")
 
