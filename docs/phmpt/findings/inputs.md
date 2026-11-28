@@ -1,6 +1,6 @@
 # Inputs outside the analysis set
 
-The [analysis set](../index.md#analysis-set) holds the part of the release that has every input its values are derived from. This page lists what it leaves out and why: datasets built from a domain the release lacks, columns and rows that read an absent input, columns carried from the submitted dataset, and submitted cells FDA redacted. It then lists the problems of the submitted files themselves, which stay in the analysis set. Each absent input is recorded, with the owner's decision and the reason, in `data/differences.yaml`; terms: [glossary](../glossary.md).
+The [analysis set](../results.md#analysis-set) holds the part of the release that has every input its values are derived from. This page lists what it leaves out and why: datasets built from a domain the release lacks, columns and rows that read an absent input, columns carried from the submitted dataset, and submitted cells FDA redacted. It then lists the problems of the submitted files themselves, which stay in the analysis set. Each absent input is recorded, with the owner's decision and the reason, in `data/differences.yaml`; terms: [glossary](../glossary.md).
 
 ## Summary
 
