@@ -365,7 +365,7 @@ def cmd_fetch(args):
     from fetch_phmpt import fetch  # noqa: PLC0415
 
     return fetch([(s, c) for s, c in scope(args, with_data_cuts=True)], args.dataset, args.out_data, args.dry_run,
-                 args.jmp)
+                 args.jmp, args.refresh)
 
 
 # ---------------------------------------------------------------- site
@@ -399,6 +399,9 @@ def main() -> int:
             p.add_argument("--out-data", default=None,
                            help="write fetched Parquet here instead of the repo's <cut>/data/ (to compare)")
             p.add_argument("--dry-run", action="store_true", help="list what would be fetched")
+            p.add_argument("--refresh", action="store_true",
+                           help="fetch files already present again (by default a Parquet whose row and column "
+                                "counts match data/sources.csv is kept)")
             p.add_argument("--jmp", action="store_true",
                            help="also save each JMP-only file unconverted, as <path>.jmp, for your own conversion "
                                 "(data/sources.csv `format` jmp)")

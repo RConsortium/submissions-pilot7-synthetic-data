@@ -4,7 +4,9 @@
 #
 # Needs Python 3.12, git, a Rust toolchain (https://rustup.rs) to build
 # yamaa, 15 GB of memory, a few GB of free disk and network access to
-# PHMPT's storage. Only the zip members a spec reads are downloaded.
+# PHMPT's storage. Only the zip members a spec reads are downloaded, and
+# files fetched before are kept, so a rerun downloads only what is missing
+# (python scripts/reproduce.py fetch --refresh downloads them again).
 #
 # In a clone of github.com/RConsortium/submissions-pilot7-synthetic-data:
 #
